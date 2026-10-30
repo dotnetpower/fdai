@@ -5,12 +5,16 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Mapping
+from datetime import datetime
 from typing import Protocol, runtime_checkable
 
+from fdai_service_contracts.control_enablement_profile import ControlEnablementProfile
 from fdai_service_contracts.wara_assessment import (
     WARA_ASSESSMENT_CONSUMER_GROUP,
     WARA_ASSESSMENT_TOPIC,
 )
+
+from fdai_operator_service.control_enablement_projection import admitted_control_enablement
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +54,21 @@ def project_wara_assessment(
         raise WaraProjectionError("WARA assessment crosswalk digest mismatch")
     scope_digest = _text(assessment.get("scope_digest"), "scope_digest")
     evaluated_at = _text(assessment.get("evaluated_at"), "evaluated_at")
+    enablement_profile = None
+    if assessment.get("enablement_profile") is not None:
+        try:
+            enablement_profile = ControlEnablementProfile.model_validate(
+                assessment["enablement_profile"]
+            )
+            enablement_profile.validate_binding(
+                framework_id="azure-wara",
+                source_revision=_text(assessment.get("framework_revision"), "framework_revision"),
+                scope_digest=scope_digest,
+                evaluated_at=datetime.fromisoformat(evaluated_at),
+                control_ids=active_ids,
+            )
+        except ValueError:
+            raise WaraProjectionError("WARA enablement profile is invalid") from None
     for recommendation_id, result in results.items():
         applicability = _member(
             result.get("applicability"),
@@ -95,6 +114,20 @@ def project_wara_assessment(
                 "execution_authority": False,
             }
         )
+        try:
+            enablement = admitted_control_enablement(
+                controls[recommendation_id],
+                result,
+                enabled_override=(
+                    enablement_profile.override_for(recommendation_id)
+                    if enablement_profile is not None
+                    else None
+                ),
+            )
+        except ValueError as exc:
+            raise WaraProjectionError(str(exc)) from exc
+        if enablement is not None:
+            controls[recommendation_id]["enablement"] = enablement
     return {
         **dict(catalog_projection),
         "_revision": _text(assessment.get("result_digest"), "result_digest"),

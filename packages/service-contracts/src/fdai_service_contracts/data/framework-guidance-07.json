@@ -1,0 +1,3148 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply IR-7 only to the reviewed workload scope with accountable owner role mcsb-ir-owner; review cadence 180 days.",
+          "ko": "IR-7은 책임 역할 mcsb-ir-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not turn correlation in a retrospective into a proven causal claim.",
+          "ko": "사후 검토의 상관관계를 입증된 인과관계로 바꾸지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Lessons can change future operations instead of remaining narrative summaries.",
+        "ko": "교훈을 서술형 요약에 그치지 않고 이후 운영에 반영할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Retention must balance investigation needs with privacy and deletion obligations.",
+          "ko": "보존은 조사 요구와 개인정보 및 삭제 의무를 함께 고려해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review the timeline, assign improvement actions and apply approved retention rules.",
+            "ko": "시간 기록을 검토하고 개선 작업을 배정하며 승인된 보존 규칙을 적용합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ir-7-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ir-7-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The incident closes without action owners or evidence retention decisions.",
+            "ko": "조치 담당자나 증거 보존 결정 없이 인시던트를 종료합니다."
+          },
+          {
+            "en": "Illustrative gap: IR-7 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: IR-7에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9edeab5de9f9c3e65c614bc73e61e1a8c7f9233853a548675dc577f90a51a4eb",
+      "control_id": "IR-7",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ir-7",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The incident closes without action owners or evidence retention decisions.",
+              "ko": "조치 담당자나 증거 보존 결정 없이 인시던트를 종료합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Post-incident activity - conduct lesson learned and retain evidence",
+              "ko": "사후 학습과 증거 보존"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review the timeline, assign improvement actions and apply approved retention rules.",
+              "ko": "시간 기록을 검토하고 개선 작업을 배정하며 승인된 보존 규칙을 적용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace an improvement to completion and verify protected evidence remains retrievable.",
+              "ko": "개선을 완료까지 추적하고 보호한 증거를 계속 조회할 수 있는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Lessons can change future operations instead of remaining narrative summaries.",
+              "ko": "교훈을 서술형 요약에 그치지 않고 이후 운영에 반영할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Post-incident activity - conduct lesson learned and retain evidence",
+          "ko": "사후 학습과 증거 보존"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm IR-7 scope, owner mcsb-ir-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 IR-7의 범위, 담당 역할 mcsb-ir-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review the timeline, assign improvement actions and apply approved retention rules.",
+          "ko": "시간 기록을 검토하고 개선 작업을 배정하며 승인된 보존 규칙을 적용합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ir-7-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ir-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ir-7-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ir-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Post-incident review connects contributing factors to owned improvements and retained evidence. In FDAI, IR-7 is assessed through artifact:mcsb-ir-7-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "사후 검토는 기여 요인을 담당자가 있는 개선 및 보존 증거와 연결합니다. FDAI는 IR-7을 artifact:mcsb-ir-7-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:6bdd0cf77f6b3bc48be3316bbc12c73fcfdc0b84c23809dad3c42e94d5f54b95",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Post-incident review connects contributing factors to owned improvements and retained evidence.",
+        "ko": "사후 검토는 기여 요인을 담당자가 있는 개선 및 보존 증거와 연결합니다."
+      },
+      "title": {
+        "en": "Post-incident activity - conduct lesson learned and retain evidence",
+        "ko": "사후 학습과 증거 보존"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace an improvement to completion and verify protected evidence remains retrievable.",
+          "ko": "개선을 완료까지 추적하고 보호한 증거를 계속 조회할 수 있는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess IR-7 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 IR-7을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-1 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-1은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Licensed availability is not proof of enabled detection or complete coverage.",
+          "ko": "라이선스상 제공된다는 사실은 감지 활성이나 전체 적용의 증거가 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Relevant threats can produce owned, investigable alerts.",
+        "ko": "해당 위협을 담당자가 조사할 수 있는 경고로 만들 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Detection settings may affect cost, privacy and alert volume.",
+          "ko": "감지 설정은 비용, 개인정보, 경고량에 영향을 줄 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review supported detection coverage and activate approved capabilities with alert owners.",
+            "ko": "지원 감지 범위를 검토하고 경고 담당자가 있는 승인 기능을 활성화합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-1-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-1-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Threat detection is assumed active from a product subscription alone.",
+            "ko": "제품 구독만으로 위협 감지가 활성 상태라고 가정합니다."
+          },
+          {
+            "en": "Illustrative gap: LT-1 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-1에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:c2295137f2a09abaab037fa3464a403a6bc849466172930e3352494a6668bf94",
+      "control_id": "LT-1",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-1",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Threat detection is assumed active from a product subscription alone.",
+              "ko": "제품 구독만으로 위협 감지가 활성 상태라고 가정합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Enable threat detection capabilities",
+              "ko": "위협 감지 기능 활성화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review supported detection coverage and activate approved capabilities with alert owners.",
+              "ko": "지원 감지 범위를 검토하고 경고 담당자가 있는 승인 기능을 활성화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run a supported benign detection test and inspect resulting alert routing.",
+              "ko": "지원하는 안전한 감지 시험을 실행하고 경고 전달을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Relevant threats can produce owned, investigable alerts.",
+              "ko": "해당 위협을 담당자가 조사할 수 있는 경고로 만들 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Enable threat detection capabilities",
+          "ko": "위협 감지 기능 활성화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-1 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-1의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review supported detection coverage and activate approved capabilities with alert owners.",
+          "ko": "지원 감지 범위를 검토하고 경고 담당자가 있는 승인 기능을 활성화합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-1-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-1-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Enabled detection capabilities analyze supported resource signals for suspicious activity. In FDAI, LT-1 is assessed through artifact:mcsb-lt-1-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "활성 감지 기능은 지원 리소스 신호에서 의심스러운 활동을 분석합니다. FDAI는 LT-1을 artifact:mcsb-lt-1-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:68454fe4572e4ddf50e055c65d4ca098a4298622d24241b85874f14235bf7776",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Enabled detection capabilities analyze supported resource signals for suspicious activity.",
+        "ko": "활성 감지 기능은 지원 리소스 신호에서 의심스러운 활동을 분석합니다."
+      },
+      "title": {
+        "en": "Enable threat detection capabilities",
+        "ko": "위협 감지 기능 활성화"
+      },
+      "verification_steps": [
+        {
+          "en": "Run a supported benign detection test and inspect resulting alert routing.",
+          "ko": "지원하는 안전한 감지 시험을 실행하고 경고 전달을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-1 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-1을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-2 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-2은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A risky sign-in is not automatically a confirmed account compromise.",
+          "ko": "위험 로그인만으로 계정 침해가 확인되었다고 볼 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Account attacks can be investigated with identity-specific context.",
+        "ko": "신원별 맥락으로 계정 공격을 조사할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Conditional access and detection have different decisions and failure modes.",
+          "ko": "조건부 접근과 감지는 서로 다른 결정과 실패 유형을 가집니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Enable approved identity detections and route risky-sign-in or privilege alerts.",
+            "ko": "승인된 신원 감지를 활성화하고 위험 로그인 또는 권한 경고를 전달합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-2-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-2-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Sign-in failures and privileged changes are collected but never analyzed.",
+            "ko": "로그인 실패와 권한 변경을 수집하지만 분석하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: LT-2 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-2에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6e8fa2ddc811fdb6ee3668d1f62e6baa85d693c73a9b4aae0392207fb34136f5",
+      "control_id": "LT-2",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-2",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Sign-in failures and privileged changes are collected but never analyzed.",
+              "ko": "로그인 실패와 권한 변경을 수집하지만 분석하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Enable threat detection for  identity and access management",
+              "ko": "신원 및 접근 위협 감지 활성화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Enable approved identity detections and route risky-sign-in or privilege alerts.",
+              "ko": "승인된 신원 감지를 활성화하고 위험 로그인 또는 권한 경고를 전달합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test a supported identity alert and trace identity, context and triage ownership.",
+              "ko": "지원 신원 경고를 시험하고 신원, 맥락, 분류 담당자를 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Account attacks can be investigated with identity-specific context.",
+              "ko": "신원별 맥락으로 계정 공격을 조사할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Enable threat detection for  identity and access management",
+          "ko": "신원 및 접근 위협 감지 활성화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-2 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-2의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Enable approved identity detections and route risky-sign-in or privilege alerts.",
+          "ko": "승인된 신원 감지를 활성화하고 위험 로그인 또는 권한 경고를 전달합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-2-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-2-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Identity detections examine authentication and privilege activity for suspicious patterns. In FDAI, LT-2 is assessed through artifact:mcsb-lt-2-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "신원 감지는 인증 및 권한 활동에서 의심스러운 패턴을 검사합니다. FDAI는 LT-2을 artifact:mcsb-lt-2-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:bc381949136a5c535376f955150943bfcff6c869db4c758da0b379e8c9a09a74",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Identity detections examine authentication and privilege activity for suspicious patterns.",
+        "ko": "신원 감지는 인증 및 권한 활동에서 의심스러운 패턴을 검사합니다."
+      },
+      "title": {
+        "en": "Enable threat detection for  identity and access management",
+        "ko": "신원 및 접근 위협 감지 활성화"
+      },
+      "verification_steps": [
+        {
+          "en": "Test a supported identity alert and trace identity, context and triage ownership.",
+          "ko": "지원 신원 경고를 시험하고 신원, 맥락, 분류 담당자를 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-2 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-2을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-3 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 1 days.",
+          "ko": "LT-3은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Disabled or unsupported categories remain explicit logging gaps.",
+          "ko": "비활성 또는 미지원 범주는 명시적인 로그 공백으로 남깁니다."
+        }
+      ],
+      "benefits": {
+        "en": "Investigators can reconstruct events beyond current resource state.",
+        "ko": "조사자는 현재 리소스 상태를 넘어 과거 이벤트를 재구성할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Audit payloads must avoid credentials and unnecessary sensitive data.",
+          "ko": "감사 내용에 자격 증명과 불필요한 민감 데이터를 넣지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Enable required resource and administrative audit categories with protected collection.",
+            "ko": "필수 리소스 및 관리 감사 범주를 활성화하고 수집을 보호합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-3-control-evidence, rule:secret-store.diagnostic-settings-required, rule:sql-database.audit-enabled for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-3-control-evidence, rule:secret-store.diagnostic-settings-required, rule:sql-database.audit-enabled 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Only application errors are retained; administrative changes are missing.",
+            "ko": "애플리케이션 오류만 보존하고 관리 변경은 빠뜨립니다."
+          },
+          {
+            "en": "Illustrative gap: LT-3 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-3에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9f3d4ab9a3e56734ebfa56a60562e2687f70742463caa52964b022b1faaacd08",
+      "control_id": "LT-3",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-3",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Only application errors are retained; administrative changes are missing.",
+              "ko": "애플리케이션 오류만 보존하고 관리 변경은 빠뜨립니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Enable logging for security investigation",
+              "ko": "보안 조사를 위한 로그 활성화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Enable required resource and administrative audit categories with protected collection.",
+              "ko": "필수 리소스 및 관리 감사 범주를 활성화하고 수집을 보호합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Perform an authorized administrative action and locate its attributed audit event.",
+              "ko": "승인된 관리 작업을 수행하고 행위자가 표시된 감사 이벤트를 찾습니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Investigators can reconstruct events beyond current resource state.",
+              "ko": "조사자는 현재 리소스 상태를 넘어 과거 이벤트를 재구성할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Enable logging for security investigation",
+          "ko": "보안 조사를 위한 로그 활성화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-3 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-3의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Enable required resource and administrative audit categories with protected collection.",
+          "ko": "필수 리소스 및 관리 감사 범주를 활성화하고 수집을 보호합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-3-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-3-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:sql-database.audit-enabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:sql-database.audit-enabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Security audit logging records relevant access and administrative activity. In FDAI, LT-3 is assessed through artifact:mcsb-lt-3-control-evidence, rule:secret-store.diagnostic-settings-required, rule:sql-database.audit-enabled. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "보안 감사 로그는 관련 접근 및 관리 활동을 기록합니다. FDAI는 LT-3을 artifact:mcsb-lt-3-control-evidence, rule:secret-store.diagnostic-settings-required, rule:sql-database.audit-enabled 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:46f664a3ecfbb5ba73dbad2b4ea462f6bbfadf35fc8fececf7ee3dc96ffa066a",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Security audit logging records relevant access and administrative activity.",
+        "ko": "보안 감사 로그는 관련 접근 및 관리 활동을 기록합니다."
+      },
+      "title": {
+        "en": "Enable logging for security investigation",
+        "ko": "보안 조사를 위한 로그 활성화"
+      },
+      "verification_steps": [
+        {
+          "en": "Perform an authorized administrative action and locate its attributed audit event.",
+          "ko": "승인된 관리 작업을 수행하고 행위자가 표시된 감사 이벤트를 찾습니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-3 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-3을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-4 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-4은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A flow log does not necessarily contain payload contents or every packet.",
+          "ko": "흐름 로그가 내용이나 모든 패킷을 담는 것은 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Responders can examine communication paths instead of relying on topology alone.",
+        "ko": "대응자는 토폴로지에만 의존하지 않고 통신 경로를 조사할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Packet-level capture needs separate scope, privacy review and storage planning.",
+          "ko": "패킷 수준 수집에는 별도 범위, 개인정보 검토, 저장 계획이 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Collect supported network security and flow telemetry for the reviewed scope.",
+            "ko": "검토한 범위의 지원 네트워크 보안 및 흐름 원격 분석을 수집합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-4-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-4-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A network diagram exists but no supported flow records are retained.",
+            "ko": "네트워크 그림은 있지만 지원하는 흐름 기록을 보존하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: LT-4 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-4에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:06780e76e2872588240b4f31731c348db7cdabe69088853ee6142304b0adbf61",
+      "control_id": "LT-4",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-4",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A network diagram exists but no supported flow records are retained.",
+              "ko": "네트워크 그림은 있지만 지원하는 흐름 기록을 보존하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Enable network logging for security investigation",
+              "ko": "보안 조사를 위한 네트워크 로그 활성화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Collect supported network security and flow telemetry for the reviewed scope.",
+              "ko": "검토한 범위의 지원 네트워크 보안 및 흐름 원격 분석을 수집합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Generate an authorized connection and trace its path in retained network records.",
+              "ko": "승인된 연결을 만들고 보존 네트워크 기록에서 경로를 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Responders can examine communication paths instead of relying on topology alone.",
+              "ko": "대응자는 토폴로지에만 의존하지 않고 통신 경로를 조사할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Enable network logging for security investigation",
+          "ko": "보안 조사를 위한 네트워크 로그 활성화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-4 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-4의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Collect supported network security and flow telemetry for the reviewed scope.",
+          "ko": "검토한 범위의 지원 네트워크 보안 및 흐름 원격 분석을 수집합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-4-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-4-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Network telemetry records connectivity and flow context for investigations. In FDAI, LT-4 is assessed through artifact:mcsb-lt-4-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "네트워크 원격 분석은 조사에 필요한 연결 및 흐름 맥락을 기록합니다. FDAI는 LT-4을 artifact:mcsb-lt-4-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:82e4d2998158ffbad27c73b8be897f188c74cce134887050d5fdfc9bd44cd9b6",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Network telemetry records connectivity and flow context for investigations.",
+        "ko": "네트워크 원격 분석은 조사에 필요한 연결 및 흐름 맥락을 기록합니다."
+      },
+      "title": {
+        "en": "Enable network logging for security investigation",
+        "ko": "보안 조사를 위한 네트워크 로그 활성화"
+      },
+      "verification_steps": [
+        {
+          "en": "Generate an authorized connection and trace its path in retained network records.",
+          "ko": "승인된 연결을 만들고 보존 네트워크 기록에서 경로를 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-4 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-4을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-5 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-5은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Centralization does not imply every source is present or every reader is authorized.",
+          "ko": "중앙화가 모든 원천의 수집이나 모든 독자의 접근 권한을 뜻하지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Cross-service investigations can use a coherent searchable timeline.",
+        "ko": "서비스 간 조사에서 일관되게 검색 가능한 시간 기록을 사용할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A central store concentrates sensitive information and needs strong isolation.",
+          "ko": "중앙 저장소는 민감한 정보를 집중시키므로 강한 격리가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Route approved security logs to centralized analysis with scoped access and provenance.",
+            "ko": "승인 보안 로그를 제한된 접근과 출처 기록을 갖춘 중앙 분석으로 전달합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-5-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-5-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Each team stores logs in an isolated console with unrelated identifiers.",
+            "ko": "각 팀이 서로 다른 식별자로 별도 화면에 로그를 저장합니다."
+          },
+          {
+            "en": "Illustrative gap: LT-5 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-5에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:892e8383cb5c0d51296aa9f38373543e0b13f7463007d09c3c50e5594b50c746",
+      "control_id": "LT-5",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-5",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Each team stores logs in an isolated console with unrelated identifiers.",
+              "ko": "각 팀이 서로 다른 식별자로 별도 화면에 로그를 저장합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Centralize security log management and analysis",
+              "ko": "보안 로그 관리와 분석 중앙화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Route approved security logs to centralized analysis with scoped access and provenance.",
+              "ko": "승인 보안 로그를 제한된 접근과 출처 기록을 갖춘 중앙 분석으로 전달합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Correlate a test event across sources and verify ingestion completeness and permissions.",
+              "ko": "테스트 이벤트를 여러 원천에서 연결하고 수집 완전성과 권한을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Cross-service investigations can use a coherent searchable timeline.",
+              "ko": "서비스 간 조사에서 일관되게 검색 가능한 시간 기록을 사용할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Centralize security log management and analysis",
+          "ko": "보안 로그 관리와 분석 중앙화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-5 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-5의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Route approved security logs to centralized analysis with scoped access and provenance.",
+          "ko": "승인 보안 로그를 제한된 접근과 출처 기록을 갖춘 중앙 분석으로 전달합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-5-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-5-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Central collection joins security events while retaining source and access boundaries. In FDAI, LT-5 is assessed through artifact:mcsb-lt-5-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "중앙 수집은 출처와 접근 경계를 유지하면서 보안 이벤트를 묶습니다. FDAI는 LT-5을 artifact:mcsb-lt-5-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:776050a54083a871bd8ade8788eee6554c5a90510583912297233dd983eae441",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Central collection joins security events while retaining source and access boundaries.",
+        "ko": "중앙 수집은 출처와 접근 경계를 유지하면서 보안 이벤트를 묶습니다."
+      },
+      "title": {
+        "en": "Centralize security log management and analysis",
+        "ko": "보안 로그 관리와 분석 중앙화"
+      },
+      "verification_steps": [
+        {
+          "en": "Correlate a test event across sources and verify ingestion completeness and permissions.",
+          "ko": "테스트 이벤트를 여러 원천에서 연결하고 수집 완전성과 권한을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-5 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-5을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-6 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-6은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Long retention is not automatically appropriate for all personal or regulated data.",
+          "ko": "장기 보존이 모든 개인정보나 규제 데이터에 적합한 것은 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Historical events remain searchable when delayed incidents are discovered.",
+        "ko": "늦게 인시던트를 발견해도 과거 이벤트를 검색할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Immutability and legal holds can delay deletion and increase cost.",
+          "ko": "불변성과 법적 보존은 삭제를 늦추고 비용을 늘릴 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Set reviewed retention and archival rules for each security-log class.",
+            "ko": "보안 로그 등급별로 검토된 보존 및 보관 규칙을 설정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-6-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-6-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Default retention deletes audit records before the agreed investigation window ends.",
+            "ko": "기본 보존이 합의한 조사 기간 전에 감사 기록을 삭제합니다."
+          },
+          {
+            "en": "Illustrative gap: LT-6 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-6에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:1ca6296f0a80962a25bc47c674dfc320c19cde3c1613283eab8be1e653dbbba6",
+      "control_id": "LT-6",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-6",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Default retention deletes audit records before the agreed investigation window ends.",
+              "ko": "기본 보존이 합의한 조사 기간 전에 감사 기록을 삭제합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Configure log storage retention",
+              "ko": "로그 저장 보존 기간 구성"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Set reviewed retention and archival rules for each security-log class.",
+              "ko": "보안 로그 등급별로 검토된 보존 및 보관 규칙을 설정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Query a record near the retention boundary and inspect expiry and deletion behavior.",
+              "ko": "보존 경계 근처의 기록을 조회하고 만료 및 삭제 동작을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Historical events remain searchable when delayed incidents are discovered.",
+              "ko": "늦게 인시던트를 발견해도 과거 이벤트를 검색할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Configure log storage retention",
+          "ko": "로그 저장 보존 기간 구성"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-6 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-6의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Set reviewed retention and archival rules for each security-log class.",
+          "ko": "보안 로그 등급별로 검토된 보존 및 보관 규칙을 설정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-6-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-6-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Retention policies keep investigation records available for the required window. In FDAI, LT-6 is assessed through artifact:mcsb-lt-6-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "보존 정책은 필요한 조사 구간의 기록을 사용할 수 있게 유지합니다. FDAI는 LT-6을 artifact:mcsb-lt-6-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:48f5a32384b00fd1dc1a59e6d43b40eb08ba8950404881afe731911ac2819251",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Retention policies keep investigation records available for the required window.",
+        "ko": "보존 정책은 필요한 조사 구간의 기록을 사용할 수 있게 유지합니다."
+      },
+      "title": {
+        "en": "Configure log storage retention",
+        "ko": "로그 저장 보존 기간 구성"
+      },
+      "verification_steps": [
+        {
+          "en": "Query a record near the retention boundary and inspect expiry and deletion behavior.",
+          "ko": "보존 경계 근처의 기록을 조회하고 만료 및 삭제 동작을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-6 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-6을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply LT-7 only to the reviewed workload scope with accountable owner role mcsb-lt-owner; review cadence 180 days.",
+          "ko": "LT-7은 책임 역할 mcsb-lt-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Timestamp precision alone does not demonstrate clock accuracy.",
+          "ko": "타임스탬프의 정밀도만으로 시계 정확성을 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Investigation timelines are less likely to confuse clock drift with event order.",
+        "ko": "조사 시간 기록에서 시계 오차와 이벤트 순서를 혼동할 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Record event time and collection time separately where available.",
+          "ko": "가능한 경우 이벤트 시간과 수집 시간을 별도로 기록합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Use approved time sources and monitor synchronization health and drift.",
+            "ko": "승인된 시간 원천을 사용하고 동기화 상태 및 오차를 모니터링합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-lt-7-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-lt-7-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Hosts use unrelated time sources with unmeasured clock offsets.",
+            "ko": "호스트가 서로 다른 시간 원천을 사용하고 시계 오차를 측정하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: LT-7 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: LT-7에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6f3818c2b10d5e63da25dedaeadb76edf115f5b30c3e2d3be51d0f582a89f043",
+      "control_id": "LT-7",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.lt-7",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Hosts use unrelated time sources with unmeasured clock offsets.",
+              "ko": "호스트가 서로 다른 시간 원천을 사용하고 시계 오차를 측정하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Use approved time synchronization sources",
+              "ko": "승인된 시간 동기화 원천 사용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Use approved time sources and monitor synchronization health and drift.",
+              "ko": "승인된 시간 원천을 사용하고 동기화 상태 및 오차를 모니터링합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare representative host offsets and verify loss-of-sync alerting.",
+              "ko": "대표 호스트의 오차를 비교하고 동기화 손실 경고를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Investigation timelines are less likely to confuse clock drift with event order.",
+              "ko": "조사 시간 기록에서 시계 오차와 이벤트 순서를 혼동할 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Use approved time synchronization sources",
+          "ko": "승인된 시간 동기화 원천 사용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm LT-7 scope, owner mcsb-lt-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 LT-7의 범위, 담당 역할 mcsb-lt-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Use approved time sources and monitor synchronization health and drift.",
+          "ko": "승인된 시간 원천을 사용하고 동기화 상태 및 오차를 모니터링합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-lt-7-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-lt-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-lt-7-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-lt-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Consistent trusted time makes security-event ordering comparable across systems. In FDAI, LT-7 is assessed through artifact:mcsb-lt-7-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "일관된 신뢰 시간은 시스템 간 보안 이벤트 순서를 비교할 수 있게 합니다. FDAI는 LT-7을 artifact:mcsb-lt-7-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ca78001fdd2a91763b55183c072be321796d451e512afc526bdf0ff90df7408b",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Consistent trusted time makes security-event ordering comparable across systems.",
+        "ko": "일관된 신뢰 시간은 시스템 간 보안 이벤트 순서를 비교할 수 있게 합니다."
+      },
+      "title": {
+        "en": "Use approved time synchronization sources",
+        "ko": "승인된 시간 동기화 원천 사용"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare representative host offsets and verify loss-of-sync alerting.",
+          "ko": "대표 호스트의 오차를 비교하고 동기화 손실 경고를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess LT-7 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 LT-7을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-1 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-1은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A subnet name alone is not an enforced security boundary.",
+          "ko": "서브넷 이름만으로 보안 경계가 강제되지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Compromise has fewer unrestricted lateral paths.",
+        "ko": "침해 후 제한 없이 내부로 이동할 수 있는 경로를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Shared management and recovery paths need explicit allowance.",
+          "ko": "공용 관리 및 복구 경로는 명시적으로 허용해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define trust segments and explicitly allow only required cross-segment flows.",
+            "ko": "신뢰 구역을 정하고 필요한 구역 간 흐름만 명시적으로 허용합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-1-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-1-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Unrelated workloads share unrestricted network access.",
+            "ko": "관련 없는 워크로드가 제한 없는 네트워크 접근을 공유합니다."
+          },
+          {
+            "en": "Illustrative gap: NS-1 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-1에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:2e60d48f92ed84a2887029bc19e65989f5f9d1f8f65c9520b8a06685231f8dca",
+      "control_id": "NS-1",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-1",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Unrelated workloads share unrestricted network access.",
+              "ko": "관련 없는 워크로드가 제한 없는 네트워크 접근을 공유합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Establish network segmentation boundaries",
+              "ko": "네트워크 분할 경계 수립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define trust segments and explicitly allow only required cross-segment flows.",
+              "ko": "신뢰 구역을 정하고 필요한 구역 간 흐름만 명시적으로 허용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test permitted and prohibited paths from each relevant segment.",
+              "ko": "각 해당 구역에서 허용 및 금지 경로를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Compromise has fewer unrestricted lateral paths.",
+              "ko": "침해 후 제한 없이 내부로 이동할 수 있는 경로를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Establish network segmentation boundaries",
+          "ko": "네트워크 분할 경계 수립"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-1 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-1의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define trust segments and explicitly allow only required cross-segment flows.",
+          "ko": "신뢰 구역을 정하고 필요한 구역 간 흐름만 명시적으로 허용합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-1-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-1-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Segmentation limits reachability between components with different trust requirements. In FDAI, NS-1 is assessed through artifact:mcsb-ns-1-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "네트워크 분할은 신뢰 요구가 다른 구성 요소 사이의 연결을 제한합니다. FDAI는 NS-1을 artifact:mcsb-ns-1-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:87394931b6d6c5ad6bfac14a994e1ae2ba47a8fc51ef434282fc32769b7888f0",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Segmentation limits reachability between components with different trust requirements.",
+        "ko": "네트워크 분할은 신뢰 요구가 다른 구성 요소 사이의 연결을 제한합니다."
+      },
+      "title": {
+        "en": "Establish network segmentation boundaries",
+        "ko": "네트워크 분할 경계 수립"
+      },
+      "verification_steps": [
+        {
+          "en": "Test permitted and prohibited paths from each relevant segment.",
+          "ko": "각 해당 구역에서 허용 및 금지 경로를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-1 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-1을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-10 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-10은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A valid DNS answer is not proof of an authenticated application endpoint.",
+          "ko": "유효한 DNS 응답이 인증된 애플리케이션 엔드포인트의 증거는 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Name resolution is less likely to become an unmonitored redirection path.",
+        "ko": "이름 확인이 모니터링되지 않는 우회 경로가 될 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Resolver changes can break private service resolution and recovery access.",
+          "ko": "확인자 변경은 비공개 서비스 이름 확인과 복구 접근을 중단시킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define approved resolvers and protect zone changes, resolution paths and DNS logging.",
+            "ko": "승인 확인자를 정하고 영역 변경, 이름 확인 경로, DNS 로그를 보호합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-10-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-10-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Workloads use arbitrary resolvers and DNS changes are not audited.",
+            "ko": "워크로드가 임의 확인자를 사용하고 DNS 변경을 감사하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-10 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-10에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:04cadfbe01b0ab9d3c2fe64e430507ab56b0c2b8b5f5766f191dbb1ee1cae2f2",
+      "control_id": "NS-10",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-10",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Workloads use arbitrary resolvers and DNS changes are not audited.",
+              "ko": "워크로드가 임의 확인자를 사용하고 DNS 변경을 감사하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Ensure Domain Name System (DNS) security",
+              "ko": "DNS 보안 보장"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define approved resolvers and protect zone changes, resolution paths and DNS logging.",
+              "ko": "승인 확인자를 정하고 영역 변경, 이름 확인 경로, DNS 로그를 보호합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test intended resolution and inspect an authorized zone change's audit record.",
+              "ko": "의도한 이름 확인을 시험하고 승인된 영역 변경의 감사 기록을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Name resolution is less likely to become an unmonitored redirection path.",
+              "ko": "이름 확인이 모니터링되지 않는 우회 경로가 될 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Ensure Domain Name System (DNS) security",
+          "ko": "DNS 보안 보장"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-10 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-10의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define approved resolvers and protect zone changes, resolution paths and DNS logging.",
+          "ko": "승인 확인자를 정하고 영역 변경, 이름 확인 경로, DNS 로그를 보호합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-10-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-10-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Controlled resolution and protected DNS administration preserve trusted name mapping. In FDAI, NS-10 is assessed through artifact:mcsb-ns-10-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "통제된 이름 확인과 보호된 DNS 관리는 신뢰할 수 있는 이름 매핑을 유지합니다. FDAI는 NS-10을 artifact:mcsb-ns-10-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:f8e76735f636c14e99f5723701d561cb30fe411cf14987bffd04da80eb2a20e7",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Controlled resolution and protected DNS administration preserve trusted name mapping.",
+        "ko": "통제된 이름 확인과 보호된 DNS 관리는 신뢰할 수 있는 이름 매핑을 유지합니다."
+      },
+      "title": {
+        "en": "Ensure Domain Name System (DNS) security",
+        "ko": "DNS 보안 보장"
+      },
+      "verification_steps": [
+        {
+          "en": "Test intended resolution and inspect an authorized zone change's audit record.",
+          "ko": "의도한 이름 확인을 시험하고 승인된 영역 변경의 감사 기록을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-10 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-10을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-2 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 1 days.",
+          "ko": "NS-2은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Private connectivity does not replace service authentication and authorization.",
+          "ko": "비공개 연결은 서비스 인증과 권한 부여를 대신하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Managed-service access can follow workload trust boundaries.",
+        "ko": "관리형 서비스 접근을 워크로드 신뢰 경계에 맞출 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Endpoint changes can break DNS resolution and dependent applications.",
+          "ko": "엔드포인트 변경은 DNS 확인과 의존 애플리케이션을 중단시킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review public access and supported private or restricted service endpoints.",
+            "ko": "공개 접근과 지원하는 비공개 또는 제한된 서비스 엔드포인트를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-2-control-evidence, rule:object-storage.private-endpoint.required, rule:object-storage.public-access.deny, rule:secret-store.public-network-access.disabled for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-2-control-evidence, rule:object-storage.private-endpoint.required, rule:object-storage.public-access.deny, rule:secret-store.public-network-access.disabled 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A managed data service accepts connections from every public network.",
+            "ko": "관리형 데이터 서비스가 모든 공용 네트워크의 연결을 받습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-2 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-2에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:485d0d320287898d7f56106ac2899dbb194b98abe323a15f86c7e00bf1b5dc1a",
+      "control_id": "NS-2",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-2",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A managed data service accepts connections from every public network.",
+              "ko": "관리형 데이터 서비스가 모든 공용 네트워크의 연결을 받습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Secure cloud native services with network controls",
+              "ko": "클라우드 기본 서비스의 네트워크 통제"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review public access and supported private or restricted service endpoints.",
+              "ko": "공개 접근과 지원하는 비공개 또는 제한된 서비스 엔드포인트를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test allowed clients and rejected clients outside the approved network scope.",
+              "ko": "허용 클라이언트와 승인 네트워크 범위 밖의 거부 클라이언트를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Managed-service access can follow workload trust boundaries.",
+              "ko": "관리형 서비스 접근을 워크로드 신뢰 경계에 맞출 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Secure cloud native services with network controls",
+          "ko": "클라우드 기본 서비스의 네트워크 통제"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-2 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-2의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review public access and supported private or restricted service endpoints.",
+          "ko": "공개 접근과 지원하는 비공개 또는 제한된 서비스 엔드포인트를 검토합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-2-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-2-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.private-endpoint.required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.private-endpoint.required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.public-access.deny from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.public-access.deny을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.public-network-access.disabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.public-network-access.disabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Service-level network restrictions reduce unnecessary public reachability. In FDAI, NS-2 is assessed through artifact:mcsb-ns-2-control-evidence, rule:object-storage.private-endpoint.required, rule:object-storage.public-access.deny, rule:secret-store.public-network-access.disabled. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "서비스 수준의 네트워크 제한은 불필요한 공개 연결을 줄입니다. FDAI는 NS-2을 artifact:mcsb-ns-2-control-evidence, rule:object-storage.private-endpoint.required, rule:object-storage.public-access.deny, rule:secret-store.public-network-access.disabled 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ca34d8c2bce9b329aaff6076e6e9a0390942eba1e0aa26b1ec334197583cf527",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Service-level network restrictions reduce unnecessary public reachability.",
+        "ko": "서비스 수준의 네트워크 제한은 불필요한 공개 연결을 줄입니다."
+      },
+      "title": {
+        "en": "Secure cloud native services with network controls",
+        "ko": "클라우드 기본 서비스의 네트워크 통제"
+      },
+      "verification_steps": [
+        {
+          "en": "Test allowed clients and rejected clients outside the approved network scope.",
+          "ko": "허용 클라이언트와 승인 네트워크 범위 밖의 거부 클라이언트를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-2 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-2을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-3 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-3은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A deployed firewall does not prove that all relevant traffic traverses it.",
+          "ko": "방화벽 배포만으로 모든 해당 트래픽의 통과를 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Inbound and outbound exposure can follow explicit reviewed rules.",
+        "ko": "인바운드와 아웃바운드 노출에 명시적으로 검토한 규칙을 적용할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Asymmetric routing and capacity limits can disrupt legitimate traffic.",
+          "ko": "비대칭 라우팅과 용량 제한은 정상 트래픽을 방해할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Design reviewed ingress and egress filtering and ensure routing uses it.",
+            "ko": "검토된 인바운드 및 아웃바운드 필터링을 설계하고 라우팅이 이를 사용하게 합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-3-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-3-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Internet-bound traffic bypasses a defined inspection point.",
+            "ko": "인터넷 트래픽이 정해진 검사 지점을 우회합니다."
+          },
+          {
+            "en": "Illustrative gap: NS-3 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-3에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:ce4108ac3956cd27785f8fac2b19eddc44a10ae8abe318476a8938af6f655349",
+      "control_id": "NS-3",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-3",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Internet-bound traffic bypasses a defined inspection point.",
+              "ko": "인터넷 트래픽이 정해진 검사 지점을 우회합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Deploy firewall at the edge of enterprise network",
+              "ko": "네트워크 경계에 방화벽 배치"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Design reviewed ingress and egress filtering and ensure routing uses it.",
+              "ko": "검토된 인바운드 및 아웃바운드 필터링을 설계하고 라우팅이 이를 사용하게 합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace representative traffic through the edge and test a denied destination.",
+              "ko": "대표 트래픽의 경계 통과를 추적하고 금지 목적지를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Inbound and outbound exposure can follow explicit reviewed rules.",
+              "ko": "인바운드와 아웃바운드 노출에 명시적으로 검토한 규칙을 적용할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Deploy firewall at the edge of enterprise network",
+          "ko": "네트워크 경계에 방화벽 배치"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-3 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-3의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Design reviewed ingress and egress filtering and ensure routing uses it.",
+          "ko": "검토된 인바운드 및 아웃바운드 필터링을 설계하고 라우팅이 이를 사용하게 합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-3-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-3-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Edge filtering inspects traffic crossing the enterprise trust boundary. In FDAI, NS-3 is assessed through artifact:mcsb-ns-3-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "경계 필터링은 조직의 신뢰 경계를 통과하는 트래픽을 검사합니다. FDAI는 NS-3을 artifact:mcsb-ns-3-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:2652b164efd92301363c2945782446c637f4f5f183b3e081cf5378e1c3d4d51d",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Edge filtering inspects traffic crossing the enterprise trust boundary.",
+        "ko": "경계 필터링은 조직의 신뢰 경계를 통과하는 트래픽을 검사합니다."
+      },
+      "title": {
+        "en": "Deploy firewall at the edge of enterprise network",
+        "ko": "네트워크 경계에 방화벽 배치"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace representative traffic through the edge and test a denied destination.",
+          "ko": "대표 트래픽의 경계 통과를 추적하고 금지 목적지를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-3 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-3을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-4 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-4은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Encrypted traffic may be outside payload inspection unless explicitly designed otherwise.",
+          "ko": "별도 설계가 없으면 암호화 트래픽의 내용은 검사 범위 밖일 수 있습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Suspicious network activity can produce investigated or blocked events.",
+        "ko": "의심스러운 네트워크 활동을 조사하거나 차단할 이벤트로 만들 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Prevention rules can create false-positive outages and need tuning.",
+          "ko": "방지 규칙은 오탐으로 중단을 일으킬 수 있으므로 조정이 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Enable approved intrusion detection or prevention at suitable inspection points.",
+            "ko": "적합한 검사 지점에서 승인된 침입 탐지 또는 방지를 활성화합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-4-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-4-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Network security relies only on port rules with no intrusion inspection.",
+            "ko": "침입 검사 없이 포트 규칙에만 네트워크 보안을 의존합니다."
+          },
+          {
+            "en": "Illustrative gap: NS-4 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-4에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f8509efcd6275e065c743d1f996c2f746c88126f8c5dbe9985f5bd1465f7aa0b",
+      "control_id": "NS-4",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-4",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Network security relies only on port rules with no intrusion inspection.",
+              "ko": "침입 검사 없이 포트 규칙에만 네트워크 보안을 의존합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Deploy intrusion detection/intrusion prevention systems (IDS/IPS)",
+              "ko": "침입 탐지 및 방지 배치"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Enable approved intrusion detection or prevention at suitable inspection points.",
+              "ko": "적합한 검사 지점에서 승인된 침입 탐지 또는 방지를 활성화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Use a supported harmless test to verify detection and reviewed blocking behavior.",
+              "ko": "지원하는 무해한 시험으로 감지와 검토된 차단 동작을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Suspicious network activity can produce investigated or blocked events.",
+              "ko": "의심스러운 네트워크 활동을 조사하거나 차단할 이벤트로 만들 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Deploy intrusion detection/intrusion prevention systems (IDS/IPS)",
+          "ko": "침입 탐지 및 방지 배치"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-4 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-4의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Enable approved intrusion detection or prevention at suitable inspection points.",
+          "ko": "적합한 검사 지점에서 승인된 침입 탐지 또는 방지를 활성화합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-4-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-4-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Network intrusion detection analyzes traffic patterns for recognized attack behavior. In FDAI, NS-4 is assessed through artifact:mcsb-ns-4-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "네트워크 침입 감지는 트래픽 패턴에서 알려진 공격 동작을 분석합니다. FDAI는 NS-4을 artifact:mcsb-ns-4-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:5ab142ac1b76def988f05c109342a7757a511ada1f4f4eb2b3895b6f81a9517f",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Network intrusion detection analyzes traffic patterns for recognized attack behavior.",
+        "ko": "네트워크 침입 감지는 트래픽 패턴에서 알려진 공격 동작을 분석합니다."
+      },
+      "title": {
+        "en": "Deploy intrusion detection/intrusion prevention systems (IDS/IPS)",
+        "ko": "침입 탐지 및 방지 배치"
+      },
+      "verification_steps": [
+        {
+          "en": "Use a supported harmless test to verify detection and reviewed blocking behavior.",
+          "ko": "지원하는 무해한 시험으로 감지와 검토된 차단 동작을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-4 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-4을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-5 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 1 days.",
+          "ko": "NS-5은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Do not infer application-layer attack protection from volumetric coverage alone.",
+          "ko": "대량 공격 보호만으로 애플리케이션 계층 공격 보호를 단정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Availability planning can include attack traffic rather than normal load alone.",
+        "ko": "가용성 계획에 정상 부하뿐 아니라 공격 트래픽도 포함할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Never generate an uncontrolled denial-of-service attack as a validation shortcut.",
+          "ko": "검증을 간단히 하려고 통제되지 않은 서비스 거부 공격을 만들지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assess public endpoint exposure and enable suitable supported protection with response ownership.",
+            "ko": "공개 엔드포인트 노출을 평가하고 담당자가 있는 적합한 지원 보호를 활성화합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-5-control-evidence, rule:network.vnet.ddos-plan.required for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-5-control-evidence, rule:network.vnet.ddos-plan.required 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Public endpoints have no reviewed denial-of-service protection or response plan.",
+            "ko": "공개 엔드포인트에 검토된 서비스 거부 보호나 대응 계획이 없습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-5 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-5에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9aff45f30520fc8298954e94e8e6ae0d5b5b5c07c5cf877ce4202d038bd304ed",
+      "control_id": "NS-5",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-5",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Public endpoints have no reviewed denial-of-service protection or response plan.",
+              "ko": "공개 엔드포인트에 검토된 서비스 거부 보호나 대응 계획이 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Deploy DDOS protection",
+              "ko": "DDoS 보호 배치"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assess public endpoint exposure and enable suitable supported protection with response ownership.",
+              "ko": "공개 엔드포인트 노출을 평가하고 담당자가 있는 적합한 지원 보호를 활성화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Verify covered endpoints, alert routes and an authorized provider-supported exercise.",
+              "ko": "보호 엔드포인트, 경고 경로, 승인된 공급자 지원 연습을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Availability planning can include attack traffic rather than normal load alone.",
+              "ko": "가용성 계획에 정상 부하뿐 아니라 공격 트래픽도 포함할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Deploy DDOS protection",
+          "ko": "DDoS 보호 배치"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-5 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-5의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assess public endpoint exposure and enable suitable supported protection with response ownership.",
+          "ko": "공개 엔드포인트 노출을 평가하고 담당자가 있는 적합한 지원 보호를 활성화합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-5-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-5-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:network.vnet.ddos-plan.required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.vnet.ddos-plan.required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Denial-of-service protection addresses volumetric attack exposure at supported endpoints. In FDAI, NS-5 is assessed through artifact:mcsb-ns-5-control-evidence, rule:network.vnet.ddos-plan.required. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "서비스 거부 보호는 지원 엔드포인트의 대량 공격 노출에 대응합니다. FDAI는 NS-5을 artifact:mcsb-ns-5-control-evidence, rule:network.vnet.ddos-plan.required 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:35e7c851481f7041d9fae038de80d1a7540c80abeabe799f905ab0c1b0836371",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Denial-of-service protection addresses volumetric attack exposure at supported endpoints.",
+        "ko": "서비스 거부 보호는 지원 엔드포인트의 대량 공격 노출에 대응합니다."
+      },
+      "title": {
+        "en": "Deploy DDOS protection",
+        "ko": "DDoS 보호 배치"
+      },
+      "verification_steps": [
+        {
+          "en": "Verify covered endpoints, alert routes and an authorized provider-supported exercise.",
+          "ko": "보호 엔드포인트, 경고 경로, 승인된 공급자 지원 연습을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-5 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-5을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-6 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-6은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Non-HTTP services are not automatically protected by a web application firewall.",
+          "ko": "비HTTP 서비스가 웹 애플리케이션 방화벽으로 자동 보호되지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Common web attack patterns can be detected or blocked before application processing.",
+        "ko": "애플리케이션 처리 전에 흔한 웹 공격 패턴을 감지하거나 차단할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Overbroad rules can block users; detection-only mode does not imply blocking.",
+          "ko": "과도한 규칙은 사용자를 차단할 수 있으며 감지 전용 모드는 차단을 뜻하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Place supported WAF protection on intended web paths and restrict origin bypass.",
+            "ko": "의도한 웹 경로에 지원 WAF 보호를 배치하고 원본 우회를 제한합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-6-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-6-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A public web origin is directly reachable without reviewed request filtering.",
+            "ko": "검토된 요청 필터 없이 공개 웹 원본에 직접 접근할 수 있습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-6 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-6에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f06007b8ce87653915aae60c520b3e54f571ef65b05e4a76964407239ac4dc72",
+      "control_id": "NS-6",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-6",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A public web origin is directly reachable without reviewed request filtering.",
+              "ko": "검토된 요청 필터 없이 공개 웹 원본에 직접 접근할 수 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Deploy web application firewall",
+              "ko": "웹 애플리케이션 방화벽 배치"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Place supported WAF protection on intended web paths and restrict origin bypass.",
+              "ko": "의도한 웹 경로에 지원 WAF 보호를 배치하고 원본 우회를 제한합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test a benign detection case, legitimate traffic and direct-origin restrictions.",
+              "ko": "안전한 감지 사례, 정상 트래픽, 원본 직접 접근 제한을 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Common web attack patterns can be detected or blocked before application processing.",
+              "ko": "애플리케이션 처리 전에 흔한 웹 공격 패턴을 감지하거나 차단할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Deploy web application firewall",
+          "ko": "웹 애플리케이션 방화벽 배치"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-6 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-6의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Place supported WAF protection on intended web paths and restrict origin bypass.",
+          "ko": "의도한 웹 경로에 지원 WAF 보호를 배치하고 원본 우회를 제한합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-6-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-6-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Application-layer filtering evaluates HTTP requests against reviewed protection rules. In FDAI, NS-6 is assessed through artifact:mcsb-ns-6-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "애플리케이션 계층 필터링은 검토된 보호 규칙으로 HTTP 요청을 평가합니다. FDAI는 NS-6을 artifact:mcsb-ns-6-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:5038bc977c372c2f275f54e1d7acffdf4774d0dd5bf7042296c4cfa2cc845d09",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Application-layer filtering evaluates HTTP requests against reviewed protection rules.",
+        "ko": "애플리케이션 계층 필터링은 검토된 보호 규칙으로 HTTP 요청을 평가합니다."
+      },
+      "title": {
+        "en": "Deploy web application firewall",
+        "ko": "웹 애플리케이션 방화벽 배치"
+      },
+      "verification_steps": [
+        {
+          "en": "Test a benign detection case, legitimate traffic and direct-origin restrictions.",
+          "ko": "안전한 감지 사례, 정상 트래픽, 원본 직접 접근 제한을 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-6 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-6을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-7 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-7은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Simplification must not broaden source or destination scope for convenience.",
+          "ko": "편의를 위해 단순화하면서 출발지나 목적지 범위를 넓히지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Operators can understand effective connectivity more reliably.",
+        "ko": "운영자가 실제 연결 상태를 더 확실하게 이해할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Rule precedence and inheritance can change apparent equivalence.",
+          "ko": "규칙 우선순위와 상속은 겉보기의 동등성을 바꿀 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Consolidate equivalent rules using supported logical groups and versioned patterns.",
+            "ko": "지원하는 논리 그룹과 버전 관리 패턴으로 동등한 규칙을 정리합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-7-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-7-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Many overlapping rules obscure which path permits access.",
+            "ko": "겹치는 규칙이 많아 어떤 경로로 접근을 허용하는지 알기 어렵습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-7 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-7에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:d67f3281a47ff5afc1223d5c5339cfe76a84fe1f400a87aaf331a98292388568",
+      "control_id": "NS-7",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-7",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Many overlapping rules obscure which path permits access.",
+              "ko": "겹치는 규칙이 많아 어떤 경로로 접근을 허용하는지 알기 어렵습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Simplify network security configuration",
+              "ko": "네트워크 보안 구성 단순화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Consolidate equivalent rules using supported logical groups and versioned patterns.",
+              "ko": "지원하는 논리 그룹과 버전 관리 패턴으로 동등한 규칙을 정리합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare effective permitted flows before and after the simplification.",
+              "ko": "단순화 전후의 실제 허용 흐름을 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Operators can understand effective connectivity more reliably.",
+              "ko": "운영자가 실제 연결 상태를 더 확실하게 이해할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Simplify network security configuration",
+          "ko": "네트워크 보안 구성 단순화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-7 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-7의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Consolidate equivalent rules using supported logical groups and versioned patterns.",
+          "ko": "지원하는 논리 그룹과 버전 관리 패턴으로 동등한 규칙을 정리합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-7-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-7-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Reusable reviewed rule patterns reduce manual inconsistency and rule sprawl. In FDAI, NS-7 is assessed through artifact:mcsb-ns-7-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "재사용하는 검토 규칙은 수동 불일치와 규칙 난립을 줄입니다. FDAI는 NS-7을 artifact:mcsb-ns-7-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:d80faaf699c5ce336ca1d7880396189e0c9d5615f9a9b496f54f0020ff5428bb",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Reusable reviewed rule patterns reduce manual inconsistency and rule sprawl.",
+        "ko": "재사용하는 검토 규칙은 수동 불일치와 규칙 난립을 줄입니다."
+      },
+      "title": {
+        "en": "Simplify network security configuration",
+        "ko": "네트워크 보안 구성 단순화"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare effective permitted flows before and after the simplification.",
+          "ko": "단순화 전후의 실제 허용 흐름을 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-7 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-7을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

@@ -25,6 +25,10 @@ import {
 } from "./caf-controls.model";
 import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
+import { FrameworkGuidanceContent } from "./framework-guidance";
+import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
+import { ControlRemediationSection } from "./control-remediation";
 
 const PAGE_SIZE = 100;
 const EMPTY_FILTERS: CafFilters = {
@@ -122,7 +126,9 @@ export function CafControlsRoute({ client }: { readonly client: OperatorApiClien
       try {
         const value = decodeCafDetail(
           await client.panel<unknown>(`/caf-controls/${encodeURIComponent(selected)}`),
+          selected,
         );
+        await verifyFrameworkGuidanceDigest(value.guidance);
         if (!cancelled) setDetail({ status: "ready", data: value });
       } catch (error) {
         if (!cancelled) {
@@ -210,6 +216,11 @@ function CafControlsBody({
         render: (item) => item.area,
       },
       {
+        key: "enablement",
+        header: t("governance.rules.enablement.column"),
+        render: (control) => <ControlEnablementBadge value={control.enablement} />,
+      },
+      {
         key: "owner",
         header: t("governance.rules.caf.column.owner"),
         render: (item) => <code>{item.owner_slot}</code>,
@@ -281,6 +292,7 @@ function CafDrawer({
   readonly onClose: () => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -311,7 +323,7 @@ function CafDrawer({
 
   return (
     <div class="drawer-overlay" onClick={onClose}>
-      <aside id="caf-control-detail" ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.caf.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
+      <aside id="caf-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.caf.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.caf.detail.title")}</h3>
           <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
@@ -322,7 +334,7 @@ function CafDrawer({
           ) : detail.status === "error" ? (
             <ErrorState message={t("governance.rules.caf.detail.loadFailed", { message: detail.message })} />
           ) : (
-            <CafDetailContent data={detail.data} />
+            <CafDetailContent data={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />
           )}
         </div>
       </aside>
@@ -330,17 +342,17 @@ function CafDrawer({
   );
 }
 
-function CafDetailContent({ data }: { readonly data: CafControlDetail }) {
+function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafControlDetail; readonly expanded: boolean; readonly onExpand: () => void }) {
   return (
     <div class="stack">
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={data.description} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
+      <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
+      <ControlRemediationSection value={data.remediation} />
       <div class="pill-row">
         <StatusPill kind={SATISFACTION_PILL[data.satisfaction]} label={displayValue("controlStatus", data.satisfaction)} />
         <StatusPill kind="info" label={data.area} />
       </div>
-      <section class="rule-overview">
-        <h4 class="rule-overview-title">{data.title}</h4>
-        <p class="rule-overview-desc">{data.description}</p>
-      </section>
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.caf.detail.reference")} value={data.reference_state} />
         <DetailRow label={t("governance.rules.controls.column.mapping")} value={data.mapping_state} />

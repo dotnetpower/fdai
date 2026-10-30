@@ -32,7 +32,7 @@ class BoundedHTTPServer(ThreadingHTTPServer):
     def __init__(
         self, address: tuple[str, int], request_handler: type[BaseHTTPRequestHandler]
     ) -> None:
-        self.slots = threading.BoundedSemaphore(32)
+        self.slots = threading.BoundedSemaphore(128)
         super().__init__(address, request_handler)
         self.daemon_threads = True
 
@@ -55,7 +55,7 @@ class BoundedHTTPServer(ThreadingHTTPServer):
         try:
             if not isinstance(request, socket.socket):
                 raise TypeError("controller HTTP server requires a TCP connection")
-            request.settimeout(10)
+            request.settimeout(30)
             super().process_request_thread(request, client_address)
         finally:
             self.slots.release()
@@ -191,7 +191,6 @@ def handler(
                 self.reply(503, {"error": "controller_provider_or_lease_unavailable"})
             except (BrokenPipeError, ConnectionResetError):
                 # The ticket remains claimed; no credential is minted again for a lost response.
-                stop.set()
                 wake.set()
 
     return Handler
@@ -249,9 +248,10 @@ def main() -> int:
                 github = GitHubAPI(token, settings.repository)
 
                 def ensure_effects() -> None:
-                    if stop.is_set():
+                    if stop.is_set() or not lease_state.alive:
                         raise LeaseLostError("controller is stopping")
-                    lease_state.renew()
+                    if time.monotonic() - getattr(lease_state, "renewed", 0.0) >= 15:
+                        lease_state.renew()
 
                 controller = Controller(
                     settings,
@@ -275,7 +275,7 @@ def main() -> int:
                     print(json.dumps({"event": "capacity_reconciled", **receipt}), flush=True)
                     wake.wait(settings.interval_seconds)
                     wake.clear()
-                    stop.wait(max(0, 5 - (time.monotonic() - started)))
+                    stop.wait(max(0, 2 - (time.monotonic() - started)))
     except (
         ProviderError,
         LeaseLostError,

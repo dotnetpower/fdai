@@ -31,7 +31,7 @@ class Settings:
     storage_blob: str
     cpu_budgets: dict[str, int]
     apply: bool = False
-    interval_seconds: int = 15
+    interval_seconds: int = 5
 
     @classmethod
     def load(cls, raw: str, *, apply: bool, hostname: str = "") -> Settings:

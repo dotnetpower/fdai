@@ -177,6 +177,10 @@ def test_transport_is_bounded_and_accepts_empty_204(monkeypatch: pytest.MonkeyPa
     assert Transport().request("DELETE", "https://example.com").data is None
     wire(monkeypatch, WireResponse(b"", 202))
     assert Transport().request("DELETE", "https://example.com").data is None
+    wire(monkeypatch, WireResponse(b"", 201))
+    assert Transport().request("PUT", "https://example.com", accepted=(201,)).data is None
+    wire(monkeypatch, WireResponse(b"", 200))
+    assert Transport().request("PUT", "https://example.com", accepted=(200,)).data is None
     requests = wire(monkeypatch, WireResponse(b'{"id":1}'))
     assert Transport().request("POST", "https://example.com", body={"value": 2}).data == {"id": 1}
     assert requests[0].data == b'{"value": 2}'
@@ -565,7 +569,7 @@ def test_azure_manual_start_and_resource_operations() -> None:
     api = client(fake)
     template = {"containers": [{"name": "example", "env": [{"name": "JIT", "value": "example"}]}]}
     assert api.start_container("example", template) == "example-execution"
-    assert fake.calls[0].body == {"template": template}
+    assert fake.calls[0].body == template
     assert fake.calls[0].method == "POST"
     assert urlsplit(fake.calls[0].url).path == _JOB + "/start"
     assert api.container_execution("example", "example-execution")["name"] == "example-execution"
@@ -669,6 +673,7 @@ def test_managed_identity_uses_only_platform_endpoint(
 ) -> None:
     monkeypatch.setenv("IDENTITY_ENDPOINT", f"http://{host}:42356/msi/token")
     monkeypatch.setenv("IDENTITY_HEADER", "example-identity-header")
+    monkeypatch.delenv("AZURE_CLIENT_ID", raising=False)
     fake = FakeTransport(reply({"access_token": "example-arm-token"}))
     identity = ManagedIdentityToken(resource, fake)
     assert identity() == "example-arm-token"
@@ -679,6 +684,27 @@ def test_managed_identity_uses_only_platform_endpoint(
     }
     assert not caplog.text
     assert "example-arm-token" not in repr(identity)
+
+
+def test_managed_identity_includes_user_assigned_client_id_and_caches_unexpired_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("IDENTITY_ENDPOINT", "http://127.0.0.1:42356/msi/token")
+    monkeypatch.setenv("IDENTITY_HEADER", "example-identity-header")
+    monkeypatch.setenv("AZURE_CLIENT_ID", _SUBSCRIPTION)
+    fake = FakeTransport(reply({"access_token": "example-arm-token", "expires_on": "4102444800"}))
+    identity = ManagedIdentityToken("https://management.azure.com/", fake)
+    assert identity() == "example-arm-token"
+    assert identity() == "example-arm-token"
+    assert len(fake.calls) == 1
+    assert parse_qs(urlsplit(fake.calls[0].url).query) == {
+        "api-version": ["2019-08-01"],
+        "resource": ["https://management.azure.com/"],
+        "client_id": [_SUBSCRIPTION],
+    }
+    monkeypatch.setenv("AZURE_CLIENT_ID", "not-a-guid")
+    with pytest.raises(ProviderError):
+        identity()
 
 
 def test_managed_identity_rejects_unapproved_audience_and_missing_header(

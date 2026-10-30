@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime
 from typing import Any, cast
 
@@ -267,10 +269,36 @@ async def test_other_assessment_scope_is_labelled_and_malformed_record_fails_clo
     assert error.value.status_code == 503
 
 
-async def test_control_without_rule_requirements_is_unchanged() -> None:
+async def test_control_without_rules_keeps_coverage_and_binds_detail_revision() -> None:
     control = {**_control(), "requirements": [{"kind": "artifact", "ref": "doc"}]}
 
     result = await _detail({}, control)
 
+    assert {key: result.payload[key] for key in control} == control
     assert "rule_coverage" not in result.payload
-    assert result.provenance.revision == "best-practice-revision"
+    assert result.payload["guidance"] is None
+    assert result.payload["remediation"] == {
+        "status": "manual_guidance",
+        "candidates": [],
+        "limitations": ["manual_or_process_evidence_required"],
+        "execution_authority": False,
+    }
+    expected = hashlib.sha256(
+        json.dumps(
+            {
+                "catalog_revision": "best-practice-revision",
+                "guidance_digest": None,
+                "remediation": result.payload["remediation"],
+                "rule_catalog_revision": None,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+    assert result.provenance.revision == expected
+    irrelevant_record = await _detail(
+        {FRAMEWORK_RULE_COVERAGE_LATEST_KEY: {"malformed": True}}, control
+    )
+    assert irrelevant_record.payload == result.payload
+    assert irrelevant_record.provenance.revision == expected

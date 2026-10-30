@@ -243,6 +243,14 @@ def test_docker_smoke_uses_local_scratch_image_and_no_registry(
 @pytest.mark.parametrize("count", [1, 4, 8, 16, 32, 64])
 def test_real_acceptance_counts_have_exact_once_success_and_concurrency(count: int) -> None:
     scope, jobs, observations = evidence(count=count)
+    jobs.append(
+        {
+            "id": 999999,
+            "name": "pool canary / control / ${{ matrix.slot }}",
+            "status": "completed",
+            "conclusion": "skipped",
+        }
+    )
     receipt = {**canary.build_receipt(scope, jobs, observations, SLO), "github_run_verified": True}
     assert receipt["passed"] is True
     assert receipt["peak_concurrency"] == count

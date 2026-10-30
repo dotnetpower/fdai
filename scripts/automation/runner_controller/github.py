@@ -6,6 +6,7 @@ import base64
 import binascii
 import hashlib
 import re
+import threading
 from collections import OrderedDict
 from collections.abc import Mapping
 from copy import deepcopy
@@ -66,6 +67,7 @@ class GitHubAPI:
         self._root = f"/repos/{repository}"
         self._transport = transport if transport is not None else Transport()
         self._get_cache: OrderedDict[str, tuple[str, HttpResponse]] = OrderedDict()
+        self._cache_lock = threading.Lock()
 
     def __repr__(self) -> str:
         return "GitHubAPI()"
@@ -80,7 +82,8 @@ class GitHubAPI:
     ) -> HttpResponse:
         url = _BASE + self._root + path
         cacheable = method == "GET" and body is None and 200 in accepted
-        cached = self._get_cache.get(url) if cacheable else None
+        with self._cache_lock:
+            cached = self._get_cache.get(url) if cacheable else None
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/vnd.github+json",
@@ -120,7 +123,8 @@ class GitHubAPI:
         if response.status not in request_accepted:
             raise ProviderError("http_status", response.status)
         if cacheable:
-            self._get_cache.pop(url, None)
+            with self._cache_lock:
+                self._get_cache.pop(url, None)
             etag = _etag(response.headers)
             if response.status == 200 and isinstance(response.data, (dict, list)) and etag:
                 self._remember(url, etag, response)
@@ -128,13 +132,14 @@ class GitHubAPI:
 
     def _remember(self, url: str, etag: str, response: HttpResponse) -> None:
         """Store isolated snapshots only; reuse always requires an authenticated 304."""
-        self._get_cache.pop(url, None)
-        self._get_cache[url] = (
-            etag,
-            HttpResponse(response.status, deepcopy(response.data), dict(response.headers)),
-        )
-        while len(self._get_cache) > _MAX_CACHED_GETS:
-            self._get_cache.popitem(last=False)
+        with self._cache_lock:
+            self._get_cache.pop(url, None)
+            self._get_cache[url] = (
+                etag,
+                HttpResponse(response.status, deepcopy(response.data), dict(response.headers)),
+            )
+            while len(self._get_cache) > _MAX_CACHED_GETS:
+                self._get_cache.popitem(last=False)
 
     def _pages(self, path: str, key: str) -> list[dict[str, Any]]:
         """Bound enumeration and reject inconsistent pages rather than truncate."""

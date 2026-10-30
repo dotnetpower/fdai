@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: e67806624902c6f86a5c156d14771f61ec6a74dd
-translation_revised: 2026-10-30
+translation_source_sha: d52c0ff903bff9360b238cdca2e296c2c9535f62
+translation_revised: 2026-10-31
 ---
 
 # 콘솔 운영
@@ -24,6 +24,13 @@ translation_revised: 2026-10-30
 Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 수명 주기를 이미 소유한 도메인
 경로로 요청을 제출합니다. 담당 에이전트는 타입이 지정된 이벤트를 통해 요청을 판단하고, 승인하고,
 실행하고, 복구하고, 감사합니다.
+
+프레임워크 컨트롤 상세 화면은 서버가 소유한 활성화 설정을 평가된 충족 상태 및 원래 출처
+정보와 분리합니다. 공통 영어와 한국어 안내 렌더러는 기존 WARA 보기와 함께 WAF, MCSB, CAF를
+제공하며, 안내가 없거나 원본 핀이 일치하지 않으면 그 상태를 명시합니다. 실행되지 않는
+Rule/ActionType 참조는 기존 Rule 상세로 연결할 뿐 실행 컨트롤을 추가하지 않습니다. 검토된
+프로필 재정의, `medium` 이상 기본 활성화, 원본 핀 수락은 브라우저 추론이나 별도 권한 경로가
+아니라 [프레임워크 평가](../rules-and-detection/framework-assessment-ko.md#컨트롤-활성화와-구현-안내)가 소유합니다.
 
 ![설계 요약. 주요 단계는 FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit입니다.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.ko.svg)
 

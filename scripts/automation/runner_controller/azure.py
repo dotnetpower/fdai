@@ -5,6 +5,8 @@ from __future__ import annotations
 import ipaddress
 import os
 import re
+import threading
+import time
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit
@@ -116,9 +118,7 @@ class AzureAPI:
         if not isinstance(template, dict):
             raise ProviderError("invalid_request")
         data = _object(
-            self.request(
-                "POST", self._job_path(job_name) + "/start", body={"template": template}
-            ).data
+            self.request("POST", self._job_path(job_name) + "/start", body=template).data
         )
         name = data.get("name")
         if not isinstance(name, str):
@@ -205,6 +205,8 @@ class ManagedIdentityToken:
             raise ProviderError("identity")
         self._resource = resource
         self._transport = transport if transport is not None else Transport()
+        self._lock = threading.Lock()
+        self._cached: tuple[str, str, str, float, str] | None = None
 
     def __repr__(self) -> str:
         return "ManagedIdentityToken()"
@@ -212,6 +214,7 @@ class ManagedIdentityToken:
     def __call__(self) -> str:
         endpoint = os.environ.get("IDENTITY_ENDPOINT", "")
         header = os.environ.get("IDENTITY_HEADER", "")
+        client_id = os.environ.get("AZURE_CLIENT_ID", "")
         try:
             parsed = urlsplit(endpoint)
             hostname = parsed.hostname
@@ -238,16 +241,33 @@ class ManagedIdentityToken:
                 )
                 or any(ord(char) < 33 or ord(char) == 127 for char in endpoint)
                 or parsed.port == 0
+                or (client_id and not _GUID.fullmatch(client_id))
             ):
                 raise ProviderError("identity")
             header = _token(header)
         except ValueError:
             raise ProviderError("identity") from None
-        query = urlencode({"api-version": "2019-08-01", "resource": self._resource})
-        response = self._transport.request(
-            "GET",
-            endpoint + "?" + query,
-            headers={"X-IDENTITY-HEADER": header},
-            accepted=(200,),
-        )
-        return _token(_object(response.data).get("access_token"))
+        with self._lock:
+            now = time.time()
+            if (
+                self._cached is not None
+                and self._cached[:3] == (endpoint, header, client_id)
+                and self._cached[3] - now > 120
+            ):
+                return self._cached[4]
+            params = {"api-version": "2019-08-01", "resource": self._resource}
+            if client_id:
+                params["client_id"] = client_id
+            query = urlencode(params)
+            response = self._transport.request(
+                "GET",
+                endpoint + "?" + query,
+                headers={"X-IDENTITY-HEADER": header},
+                accepted=(200,),
+            )
+            data = _object(response.data)
+            token = _token(data.get("access_token"))
+            raw_expiry = data.get("expires_on")
+            if isinstance(raw_expiry, (int, str)) and str(raw_expiry).isdigit():
+                self._cached = (endpoint, header, client_id, float(raw_expiry), token)
+            return token

@@ -99,6 +99,11 @@ def test_pr_merge_sha_is_not_run_head_sha(
     context, api, git = evidence
     assert context.sha != api.run["head_sha"]
     verifier.admit(context, replace(api, permission=None), git)
+    queued_run = {**api.run, "status": "queued", "conclusion": None}
+    verifier.admit(context, replace(api, run=queued_run, permission=None), git)
+    completed_run = {**api.run, "status": "in_progress", "conclusion": "cancelled"}
+    with pytest.raises(verifier.AdmissionDeniedError, match="workflow run binding mismatch"):
+        verifier.admit(context, replace(api, run=completed_run, permission=None), git)
 
 
 @pytest.mark.parametrize(

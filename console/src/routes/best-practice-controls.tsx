@@ -15,6 +15,7 @@ import {
   type BestPracticeResponse,
 } from "./best-practice-controls.model";
 import { t } from "./i18n/governance";
+import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 
 const PAGE_SIZE = 100;
 
@@ -96,7 +97,9 @@ export function BestPracticeControlsRoute({ client }: { readonly client: Operato
       try {
         const result = decodeBestPracticeDetail(
           await client.panel<unknown>(`/best-practices/${encodeURIComponent(selected)}`),
+          selected,
         );
+        await verifyFrameworkGuidanceDigest(result.guidance);
         if (!cancelled) setDetail({ status: "ready", data: result });
       } catch (error) {
         if (!cancelled) {

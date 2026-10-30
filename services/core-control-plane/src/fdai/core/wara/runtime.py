@@ -31,6 +31,8 @@ from fdai.shared.providers.wara_assessment import (
     WaraReadPlan,
 )
 
+from .enablement import control_enablement
+from .enablement import validate_enablement_profile as validate_wara_enablement_profile
 from .models import (
     WaraApplicabilityStatus,
     WaraAssessmentRequest,
@@ -96,9 +98,13 @@ class WaraAssessmentRuntime:
         )
         if request.rule_bindings_digest != expected_rule_digest:
             raise ValueError("WARA assessment Rule bindings digest mismatch")
+        self.validate_enablement_profile(request)
         evidence_by_id = _index_evidence(request.evidence)
         controls = tuple(
-            self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ()))
+            replace(
+                self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ())),
+                enablement=control_enablement(record, request),
+            )
             for record in self._catalog.recommendations
         )
         counts: dict[str, int] = {}
@@ -138,12 +144,20 @@ class WaraAssessmentRuntime:
             digest_material["evaluator_bindings_digest"] = request.evaluator_bindings_digest
         if request.rule_bindings_digest is not None:
             digest_material["rule_bindings_digest"] = request.rule_bindings_digest
+        if request.enablement_profile is not None:
+            digest_material["enablement_profile"] = request.enablement_profile.model_dump(
+                mode="json"
+            )
         return WaraAssessmentResult(
             **material,
             evaluator_bindings_digest=request.evaluator_bindings_digest,
             result_digest=canonical_digest(digest_material),
             rule_bindings_digest=request.rule_bindings_digest,
+            enablement_profile=request.enablement_profile,
         )
+
+    def validate_enablement_profile(self, request: WaraAssessmentRequest) -> None:
+        validate_wara_enablement_profile(self._catalog, request)
 
     def _evaluate_control(
         self,
@@ -151,6 +165,19 @@ class WaraAssessmentRuntime:
         request: WaraAssessmentRequest,
         evidence: tuple[WaraEvidenceReceipt, ...],
     ) -> WaraControlResult:
+        if not control_enablement(record, request).enabled:
+            return WaraControlResult(
+                recommendation_id=record.aprl_guid,
+                catalog_state="active",
+                mapping_state=record.mapping_state.value,
+                applicability=WaraApplicabilityStatus.UNKNOWN,
+                evaluation=WaraEvaluationStatus.NOT_EVALUATED,
+                satisfaction=WaraSatisfactionStatus.UNKNOWN,
+                evidence_refs=(),
+                evidence_digests=(),
+                evidence_complete=False,
+                limitations=("control_disabled",),
+            )
         limitations: list[str] = []
         binding = _binding_for(record, self._evaluator_bindings)
         rule_binding = _rule_binding_for(record, self._rule_bindings)
@@ -307,6 +334,7 @@ class WaraAssessmentObservationRunner:
     async def collect(self, request: WaraAssessmentRequest) -> WaraObservationCollection:
         """Return exact evidence while preserving manual and caller-supplied receipts."""
 
+        self._runtime.validate_enablement_profile(request)
         evidence = {
             (item.recommendation_id, item.evidence_ref): _bind_caller_evidence_cutoff(
                 item,
@@ -319,6 +347,8 @@ class WaraAssessmentObservationRunner:
         attempts: list[WaraObservationAttempt] = []
         collected_evidence: list[WaraEvidenceReceipt] = []
         for record in self._runtime.recommendations:
+            if not control_enablement(record, request).enabled:
+                continue
             try:
                 plan = self._runtime.build_read_plan(record, request)
             except ValueError:

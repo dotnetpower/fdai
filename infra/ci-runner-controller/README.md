@@ -98,11 +98,12 @@ refreshes through generic ARM GET, without that action. The
 [2024-03-01 Container App schema](https://learn.microsoft.com/en-us/azure/templates/microsoft.app/2024-03-01/containerapps)
 defines the body; only the nonsecret ingress FQDN is exported.
 
-Terraform seeds `unset` placeholders at creation and ignores only
-`body.properties.configuration.secrets`. The same path is configured in AzAPI's
-`ignore_body_changes` so unrelated updates use current redacted metadata instead of replaying the
-seed values. This provider argument requires Terraform 1.11 or later. No actual PAT/HMAC is a
-Terraform input, output or state value. Generic GET refresh does not recover secret values.
+Terraform seeds `unset` placeholders at creation and ignores
+`body.properties.configuration.secrets` during planning. Because ARM `PUT` rejects `GET`-redacted
+secret stubs that omit `value`, `ignore_body_changes` is not used on `secrets`; re-run the
+credential setter and restart the controller revision after a controller `PUT` update. No actual
+PAT/HMAC is a Terraform input, output or state value. Generic GET refresh does not recover secret
+values.
 This fixes the new root; it does not scrub historical states or backups from an older AzureRM
 deployment. Any such migration and credential rotation needs separate approval.
 

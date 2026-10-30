@@ -18,6 +18,8 @@ import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
 import { SEVERITY_PILL } from "./rule-catalog-types";
 import { WaraGuidanceContent } from "./wara-guidance";
+import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
+import { ControlRemediationSection } from "./control-remediation";
 import { verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import {
   decodeWaraDetail,
@@ -252,6 +254,11 @@ function WaraControlsBody({
         ),
       },
       {
+        key: "enablement",
+        header: t("governance.rules.enablement.column"),
+        render: (control) => <ControlEnablementBadge value={control.enablement} />,
+      },
+      {
         key: "mapping",
         header: t("governance.rules.controls.column.mapping"),
         cellClass: "control-column-secondary",
@@ -388,6 +395,8 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
               <WaraGuidanceContent control={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />
               <section id="wara-runtime" tabIndex={-1} class="wara-runtime">
               <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
+              <ControlEnablementSection value={detail.data.enablement} severitySource={detail.data.severity_source} />
+              <ControlRemediationSection value={detail.data.remediation} />
               <p>{t("governance.rules.wara.detail.boundary")}</p>
               <div class="pill-row">
                 <StatusPill kind={SATISFACTION_PILL[detail.data.satisfaction]} label={displayValue("controlStatus", detail.data.satisfaction)} />

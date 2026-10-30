@@ -1,0 +1,3240 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-7 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-7은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Unexercised techniques and excluded systems remain outside assurance claims.",
+          "ko": "시험하지 않은 기법과 제외 시스템은 보안 확인 주장에 포함하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can find gaps that isolated configuration checks miss.",
+        "ko": "팀은 개별 구성 검사가 놓치는 공백을 찾을 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Never conduct intrusive testing without explicit authorization and stop conditions.",
+          "ko": "명시적 승인과 중지 조건 없이 침투성 테스트를 수행하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define approved rules of engagement, target scope and safety limits for an exercise.",
+            "ko": "훈련의 승인된 수행 규칙, 대상 범위, 안전 한계를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-7-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-7-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Security assurance relies only on scans with no adversarial exercise.",
+            "ko": "공격자 관점 훈련 없이 검사에만 보안 확인을 의존합니다."
+          },
+          {
+            "en": "Illustrative gap: PV-7 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-7에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:b62c58f90d6834dd0f71f9c4faf3ae0b6d6112d09c39ee923e71264ca6e72297",
+      "control_id": "PV-7",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-7",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Security assurance relies only on scans with no adversarial exercise.",
+              "ko": "공격자 관점 훈련 없이 검사에만 보안 확인을 의존합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Conduct regular red team operations",
+              "ko": "정기적인 레드팀 활동 수행"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define approved rules of engagement, target scope and safety limits for an exercise.",
+              "ko": "훈련의 승인된 수행 규칙, 대상 범위, 안전 한계를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare exercised paths with detection, response and remediation outcomes.",
+              "ko": "시험한 경로를 감지, 대응, 수정 결과와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can find gaps that isolated configuration checks miss.",
+              "ko": "팀은 개별 구성 검사가 놓치는 공백을 찾을 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Conduct regular red team operations",
+          "ko": "정기적인 레드팀 활동 수행"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-7 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-7의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define approved rules of engagement, target scope and safety limits for an exercise.",
+          "ko": "훈련의 승인된 수행 규칙, 대상 범위, 안전 한계를 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-7-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-7-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Authorized adversarial exercises examine detection and response against realistic attack paths. In FDAI, PV-7 is assessed through artifact:mcsb-pv-7-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "승인된 공격자 관점 훈련은 현실적인 공격 경로에 대한 감지와 대응을 검사합니다. FDAI는 PV-7을 artifact:mcsb-pv-7-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:8833334038c64c9e9b3cf0a72c5a0b588c008d54da1f00bc03022786b422f901",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Authorized adversarial exercises examine detection and response against realistic attack paths.",
+        "ko": "승인된 공격자 관점 훈련은 현실적인 공격 경로에 대한 감지와 대응을 검사합니다."
+      },
+      "title": {
+        "en": "Conduct regular red team operations",
+        "ko": "정기적인 레드팀 활동 수행"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare exercised paths with detection, response and remediation outcomes.",
+          "ko": "시험한 경로를 감지, 대응, 수정 결과와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-7 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-7을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply adopt only to the reviewed cloud estate scope with accountable owner role adoption-delivery-owner; review cadence 30 days.",
+          "ko": "adopt은 책임 역할 adoption-delivery-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "A WAF deployment-practice mapping supports context but cannot satisfy estate adoption alone.",
+          "ko": "WAF 배포 관행 매핑은 참고 맥락이며 그 자체로 전체 환경의 도입을 충족하지 못합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Adoption progress can be demonstrated through completed delivery rather than plans alone.",
+        "ko": "계획만이 아니라 완료된 전달 결과로 도입 진행을 보여 줄 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Cutover and rollback need separate data-consistency and business-continuity checks.",
+          "ko": "전환과 롤백에는 데이터 일관성과 사업 연속성에 대한 별도 검사가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define adoption delivery, execute an approved wave and retain its release decision.",
+            "ko": "도입 전달 절차를 정하고 승인된 단계를 실행하며 배포 결정을 보존합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:adoption-release-approval, artifact:adoption-delivery-execution, artifact:adoption-delivery-procedure for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:adoption-release-approval, artifact:adoption-delivery-execution, artifact:adoption-delivery-procedure 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A migration plan is marked complete before any workload cutover is verified.",
+            "ko": "워크로드 전환을 검증하기 전에 이전 계획을 완료로 표시합니다."
+          },
+          {
+            "en": "Illustrative gap: adopt has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: adopt에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:80371437854f592c7016646eead22d6d7e4fdd8d287a673d8239f63e992c05d3",
+      "control_id": "adopt",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.adopt",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A migration plan is marked complete before any workload cutover is verified.",
+              "ko": "워크로드 전환을 검증하기 전에 이전 계획을 완료로 표시합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Adopt",
+              "ko": "클라우드 도입 실행"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define adoption delivery, execute an approved wave and retain its release decision.",
+              "ko": "도입 전달 절차를 정하고 승인된 단계를 실행하며 배포 결정을 보존합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare migration execution records with release approval and observed workload acceptance.",
+              "ko": "이전 실행 기록을 배포 승인 및 관측한 워크로드 수용 결과와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Adoption progress can be demonstrated through completed delivery rather than plans alone.",
+              "ko": "계획만이 아니라 완료된 전달 결과로 도입 진행을 보여 줄 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Adopt",
+          "ko": "클라우드 도입 실행"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm adopt scope, owner adoption-delivery-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 adopt의 범위, 담당 역할 adoption-delivery-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define adoption delivery, execute an approved wave and retain its release decision.",
+          "ko": "도입 전달 절차를 정하고 승인된 단계를 실행하며 배포 결정을 보존합니다."
+        },
+        {
+          "en": "Retain approval:adoption-release-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner adoption-delivery-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:adoption-release-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 adoption-delivery-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:adoption-delivery-execution from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner adoption-delivery-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase execution, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:adoption-delivery-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 adoption-delivery-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 execution, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:adoption-delivery-procedure from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner adoption-delivery-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase procedure, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:adoption-delivery-procedure을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 adoption-delivery-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 procedure, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A governed delivery procedure coordinates workload migration or modernization with release approval. In FDAI, adopt is assessed through approval:adoption-release-approval, artifact:adoption-delivery-execution, artifact:adoption-delivery-procedure. Process phases: execution, procedure; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "통제된 전달 절차는 워크로드 이전 또는 현대화를 배포 승인과 조정합니다. FDAI는 adopt을 approval:adoption-release-approval, artifact:adoption-delivery-execution, artifact:adoption-delivery-procedure 항목으로 평가합니다. 절차 단계는 execution, procedure, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:11ea299edc2d8ec3a52239dbb3ae3e53d4c3675c4794ab301b77ab0cf3a22adc",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/migrate/plan-migration"
+        }
+      ],
+      "summary": {
+        "en": "A governed delivery procedure coordinates workload migration or modernization with release approval.",
+        "ko": "통제된 전달 절차는 워크로드 이전 또는 현대화를 배포 승인과 조정합니다."
+      },
+      "title": {
+        "en": "Adopt",
+        "ko": "클라우드 도입 실행"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare migration execution records with release approval and observed workload acceptance.",
+          "ko": "이전 실행 기록을 배포 승인 및 관측한 워크로드 수용 결과와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess adopt against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 adopt을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply govern only to the reviewed cloud estate scope with accountable owner role governance-owner; review cadence 30 days.",
+          "ko": "govern은 책임 역할 governance-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "A workload's local checklist is not proof of estate governance operation.",
+          "ko": "워크로드의 로컬 점검표는 전체 환경의 거버넌스 운영 증거가 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Exceptions and accountability can be tracked across subscriptions and teams.",
+        "ko": "구독과 팀 전반의 예외 및 책임을 추적할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Governance approval does not grant resource-execution authority.",
+          "ko": "거버넌스 승인은 리소스 실행 권한을 부여하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Establish governance ownership, policy review and a time-bounded exception process.",
+            "ko": "거버넌스 책임, 정책 검토, 기한이 있는 예외 절차를 수립합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:governance-review-approval, artifact:governance-raci, artifact:policy-lifecycle-execution, observation:policy-assignment-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:governance-review-approval, artifact:governance-raci, artifact:policy-lifecycle-execution, observation:policy-assignment-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Policies exist without a decision owner or exception lifecycle.",
+            "ko": "정책은 있지만 결정 책임자나 예외 수명 주기가 없습니다."
+          },
+          {
+            "en": "Illustrative gap: govern has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: govern에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:e11a63a8cbc1ddca297c9c96a9eb2a94232cce254bd61049ff03e05cca1269ed",
+      "control_id": "govern",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.govern",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Policies exist without a decision owner or exception lifecycle.",
+              "ko": "정책은 있지만 결정 책임자나 예외 수명 주기가 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Govern",
+              "ko": "클라우드 거버넌스 운영"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Establish governance ownership, policy review and a time-bounded exception process.",
+              "ko": "거버넌스 책임, 정책 검토, 기한이 있는 예외 절차를 수립합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace a policy exception from request through decision, expiry and follow-up.",
+              "ko": "정책 예외를 요청부터 결정, 만료, 후속 조치까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Exceptions and accountability can be tracked across subscriptions and teams.",
+              "ko": "구독과 팀 전반의 예외 및 책임을 추적할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Govern",
+          "ko": "클라우드 거버넌스 운영"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm govern scope, owner governance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 govern의 범위, 담당 역할 governance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Establish governance ownership, policy review and a time-bounded exception process.",
+          "ko": "거버넌스 책임, 정책 검토, 기한이 있는 예외 절차를 수립합니다."
+        },
+        {
+          "en": "Retain approval:governance-review-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:governance-review-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:governance-raci from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:governance-raci을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:policy-lifecycle-execution from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:policy-lifecycle-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:policy-assignment-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:policy-assignment-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Governance assigns decision rights and turns policy intent into reviewable estate controls. In FDAI, govern is assessed through approval:governance-review-approval, artifact:governance-raci, artifact:policy-lifecycle-execution, observation:policy-assignment-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "거버넌스는 결정 권한을 배정하고 정책 의도를 검토 가능한 전체 환경의 통제로 바꿉니다. FDAI는 govern을 approval:governance-review-approval, artifact:governance-raci, artifact:policy-lifecycle-execution, observation:policy-assignment-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:745a07cc3bda774b1458ea129bbc5da6293ed0ae552a04e184733f5c4147bab1",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/govern/build-cloud-governance-team"
+        }
+      ],
+      "summary": {
+        "en": "Governance assigns decision rights and turns policy intent into reviewable estate controls.",
+        "ko": "거버넌스는 결정 권한을 배정하고 정책 의도를 검토 가능한 전체 환경의 통제로 바꿉니다."
+      },
+      "title": {
+        "en": "Govern",
+        "ko": "클라우드 거버넌스 운영"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace a policy exception from request through decision, expiry and follow-up.",
+          "ko": "정책 예외를 요청부터 결정, 만료, 후속 조치까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess govern against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 govern을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.billing-tenant only to the reviewed cloud estate scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "landing-zone.billing-tenant은 책임 역할 cost-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "A resource tag alone does not establish commercial or tenant ownership.",
+          "ko": "리소스 태그만으로 계약상 소유권이나 테넌트 소유권을 확립할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "New subscriptions can follow a consistent ownership and billing route.",
+        "ko": "새 구독이 일관된 소유권 및 청구 경로를 따를 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Tenant changes can affect identity, access and service integrations.",
+          "ko": "테넌트 변경은 신원, 접근, 서비스 연동에 영향을 줄 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Record tenant, billing and subscription provisioning decisions with accountable approval.",
+            "ko": "테넌트, 청구, 구독 생성 결정을 기록하고 책임자의 승인을 받습니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:billing-accountability-approval, observation:billing-scope-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:billing-accountability-approval, observation:billing-scope-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Subscriptions are created without an agreed tenant or billing ownership model.",
+            "ko": "합의한 테넌트나 청구 책임 모델 없이 구독을 만듭니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.billing-tenant has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.billing-tenant에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:b4bc2a84c4b736c3c8bf6cdaf545a470f1f227ac764a1b381ec593a1890a6b51",
+      "control_id": "landing-zone.billing-tenant",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.billing-tenant",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Subscriptions are created without an agreed tenant or billing ownership model.",
+              "ko": "합의한 테넌트나 청구 책임 모델 없이 구독을 만듭니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: billing and tenant",
+              "ko": "랜딩 존 청구 및 테넌트 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Record tenant, billing and subscription provisioning decisions with accountable approval.",
+              "ko": "테넌트, 청구, 구독 생성 결정을 기록하고 책임자의 승인을 받습니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare subscription onboarding records with the approved tenant and billing design.",
+              "ko": "구독 등록 기록을 승인된 테넌트 및 청구 설계와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "New subscriptions can follow a consistent ownership and billing route.",
+              "ko": "새 구독이 일관된 소유권 및 청구 경로를 따를 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: billing and tenant",
+          "ko": "랜딩 존 청구 및 테넌트 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.billing-tenant scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.billing-tenant의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Record tenant, billing and subscription provisioning decisions with accountable approval.",
+          "ko": "테넌트, 청구, 구독 생성 결정을 기록하고 책임자의 승인을 받습니다."
+        },
+        {
+          "en": "Retain approval:billing-accountability-approval from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:billing-accountability-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:billing-scope-observation from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:billing-scope-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Tenant and billing decisions define commercial ownership and identity boundaries for the platform. In FDAI, landing-zone.billing-tenant is assessed through approval:billing-accountability-approval, observation:billing-scope-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "테넌트 및 청구 결정은 플랫폼의 계약상 책임과 신원 경계를 정합니다. FDAI는 landing-zone.billing-tenant을 approval:billing-accountability-approval, observation:billing-scope-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:7b33f7538265b58de36d3d8cadfa37553a6ff93494ef6682d264116478625670",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Tenant and billing decisions define commercial ownership and identity boundaries for the platform.",
+        "ko": "테넌트 및 청구 결정은 플랫폼의 계약상 책임과 신원 경계를 정합니다."
+      },
+      "title": {
+        "en": "Landing zone: billing and tenant",
+        "ko": "랜딩 존 청구 및 테넌트 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare subscription onboarding records with the approved tenant and billing design.",
+          "ko": "구독 등록 기록을 승인된 테넌트 및 청구 설계와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.billing-tenant against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.billing-tenant을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.governance only to the reviewed cloud estate scope with accountable owner role governance-owner; review cadence 30 days.",
+          "ko": "landing-zone.governance은 책임 역할 governance-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Policy deployment alone is not evidence that every resource satisfies it.",
+          "ko": "정책 배포만으로 모든 리소스가 이를 충족한다는 근거가 되지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Governance intent can be checked against effective inherited controls.",
+        "ko": "실제로 상속된 통제와 거버넌스 의도를 비교할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Enforcement changes can block deployment and require staged impact assessment.",
+          "ko": "강제 적용 변경은 배포를 막을 수 있으므로 단계적 영향 평가가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Design policy scope, assignment ownership and expiring exception handling.",
+            "ko": "정책 범위, 배정 책임, 기한이 있는 예외 처리를 설계합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:governance-design-approval, observation:cost-governance-observation, observation:policy-assignment-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:governance-design-approval, observation:cost-governance-observation, observation:policy-assignment-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Policy assignments are copied without understanding scope or exemptions.",
+            "ko": "범위나 제외를 이해하지 않고 정책 배정을 복사합니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.governance has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.governance에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6f79b23ab249bd23b5a12a09f00386f20d79a2180a7696e05a60c36574c00533",
+      "control_id": "landing-zone.governance",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.governance",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Policy assignments are copied without understanding scope or exemptions.",
+              "ko": "범위나 제외를 이해하지 않고 정책 배정을 복사합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: governance",
+              "ko": "랜딩 존 거버넌스 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Design policy scope, assignment ownership and expiring exception handling.",
+              "ko": "정책 범위, 배정 책임, 기한이 있는 예외 처리를 설계합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare effective assignments and exemptions with the approved governance design.",
+              "ko": "실제 배정과 제외를 승인한 거버넌스 설계와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Governance intent can be checked against effective inherited controls.",
+              "ko": "실제로 상속된 통제와 거버넌스 의도를 비교할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: governance",
+          "ko": "랜딩 존 거버넌스 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.governance scope, owner governance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.governance의 범위, 담당 역할 governance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Design policy scope, assignment ownership and expiring exception handling.",
+          "ko": "정책 범위, 배정 책임, 기한이 있는 예외 처리를 설계합니다."
+        },
+        {
+          "en": "Retain approval:governance-design-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:governance-design-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:cost-governance-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:cost-governance-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:policy-assignment-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner governance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:policy-assignment-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 governance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Policy placement and exception design translate estate governance into landing-zone guardrails. In FDAI, landing-zone.governance is assessed through approval:governance-design-approval, observation:cost-governance-observation, observation:policy-assignment-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "정책 배치와 예외 설계는 전체 환경의 거버넌스를 랜딩 존 제한 정책으로 구체화합니다. FDAI는 landing-zone.governance을 approval:governance-design-approval, observation:cost-governance-observation, observation:policy-assignment-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ba701b46cc9e94021a12acf2c9827c5e032b15d70f5eea968161f6e5f416a0a5",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Policy placement and exception design translate estate governance into landing-zone guardrails.",
+        "ko": "정책 배치와 예외 설계는 전체 환경의 거버넌스를 랜딩 존 제한 정책으로 구체화합니다."
+      },
+      "title": {
+        "en": "Landing zone: governance",
+        "ko": "랜딩 존 거버넌스 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare effective assignments and exemptions with the approved governance design.",
+          "ko": "실제 배정과 제외를 승인한 거버넌스 설계와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.governance against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.governance을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.identity-access only to the reviewed cloud estate scope with accountable owner role identity-owner; review cadence 30 days.",
+          "ko": "landing-zone.identity-access은 책임 역할 identity-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Application login configuration does not replace platform access design.",
+          "ko": "애플리케이션 로그인 구성은 플랫폼 접근 설계를 대신하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Access boundaries can be applied consistently as subscriptions grow.",
+        "ko": "구독이 늘어나도 접근 경계를 일관되게 적용할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Inheritance and emergency accounts can create privilege paths absent from diagrams.",
+          "ko": "상속과 비상 계정은 그림에 없는 권한 경로를 만들 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Document identity sources, scoped roles and privileged access paths for the landing zone.",
+            "ko": "랜딩 존의 신원 원천, 제한된 역할, 권한 있는 접근 경로를 문서화합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:identity-governance-approval, observation:privileged-access-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:identity-governance-approval, observation:privileged-access-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The same broad role is inherited by every platform and workload operator.",
+            "ko": "모든 플랫폼 및 워크로드 운영자에게 같은 넓은 역할이 상속됩니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.identity-access has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.identity-access에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:5a06dc8cf4010cbfa273b911a22e23316deafa2152203331fc13f1e5323886b0",
+      "control_id": "landing-zone.identity-access",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.identity-access",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The same broad role is inherited by every platform and workload operator.",
+              "ko": "모든 플랫폼 및 워크로드 운영자에게 같은 넓은 역할이 상속됩니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: identity and access",
+              "ko": "랜딩 존 신원 및 접근 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Document identity sources, scoped roles and privileged access paths for the landing zone.",
+              "ko": "랜딩 존의 신원 원천, 제한된 역할, 권한 있는 접근 경로를 문서화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample inherited assignments and test allowed and denied platform administration paths.",
+              "ko": "상속된 역할 배정을 표본 확인하고 플랫폼 관리의 허용 및 거부 경로를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Access boundaries can be applied consistently as subscriptions grow.",
+              "ko": "구독이 늘어나도 접근 경계를 일관되게 적용할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: identity and access",
+          "ko": "랜딩 존 신원 및 접근 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.identity-access scope, owner identity-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.identity-access의 범위, 담당 역할 identity-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Document identity sources, scoped roles and privileged access paths for the landing zone.",
+          "ko": "랜딩 존의 신원 원천, 제한된 역할, 권한 있는 접근 경로를 문서화합니다."
+        },
+        {
+          "en": "Retain approval:identity-governance-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner identity-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:identity-governance-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 identity-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:privileged-access-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner identity-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:privileged-access-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 identity-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Platform identity design separates administrative roles from workload and user access. In FDAI, landing-zone.identity-access is assessed through approval:identity-governance-approval, observation:privileged-access-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "플랫폼 신원 설계는 관리 역할과 워크로드 및 사용자 접근을 구분합니다. FDAI는 landing-zone.identity-access을 approval:identity-governance-approval, observation:privileged-access-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:f8effc58f9c015fa4b63dec89f132d367e4e7b631550ee65210e994899c00971",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Platform identity design separates administrative roles from workload and user access.",
+        "ko": "플랫폼 신원 설계는 관리 역할과 워크로드 및 사용자 접근을 구분합니다."
+      },
+      "title": {
+        "en": "Landing zone: identity and access",
+        "ko": "랜딩 존 신원 및 접근 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample inherited assignments and test allowed and denied platform administration paths.",
+          "ko": "상속된 역할 배정을 표본 확인하고 플랫폼 관리의 허용 및 거부 경로를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.identity-access against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.identity-access을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.management only to the reviewed cloud estate scope with accountable owner role operations-owner; review cadence 30 days.",
+          "ko": "landing-zone.management은 책임 역할 operations-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Installed agents alone do not prove monitored or recoverable services.",
+          "ko": "에이전트 설치만으로 서비스 모니터링이나 복구 가능성을 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "New workloads can enter an established support and observation model.",
+        "ko": "새 워크로드를 정해진 지원 및 관측 모델에 등록할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Management data can contain sensitive operational information and needs scoped access.",
+          "ko": "관리 데이터에는 민감한 운영 정보가 있을 수 있으므로 접근 범위를 제한해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define platform monitoring, backup and operations integration with workload handoffs.",
+            "ko": "워크로드 인수인계를 포함해 플랫폼 모니터링, 백업, 운영 연동을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:management-design-approval, observation:backup-dr-observation, observation:logging-monitoring-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:management-design-approval, observation:backup-dr-observation, observation:logging-monitoring-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Management tooling is installed without coverage or support-boundary decisions.",
+            "ko": "적용 범위나 지원 경계를 정하지 않고 관리 도구를 설치합니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.management has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.management에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:266f698cf6db5329c1cd6feccafa040f90bb0a8be562278795261946315c0a9c",
+      "control_id": "landing-zone.management",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.management",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Management tooling is installed without coverage or support-boundary decisions.",
+              "ko": "적용 범위나 지원 경계를 정하지 않고 관리 도구를 설치합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: management",
+              "ko": "랜딩 존 관리 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define platform monitoring, backup and operations integration with workload handoffs.",
+              "ko": "워크로드 인수인계를 포함해 플랫폼 모니터링, 백업, 운영 연동을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Check onboarding coverage and exercise an alert and recovery escalation.",
+              "ko": "등록 적용 범위를 확인하고 경고 및 복구 보고 경로를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "New workloads can enter an established support and observation model.",
+              "ko": "새 워크로드를 정해진 지원 및 관측 모델에 등록할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: management",
+          "ko": "랜딩 존 관리 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.management scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.management의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define platform monitoring, backup and operations integration with workload handoffs.",
+          "ko": "워크로드 인수인계를 포함해 플랫폼 모니터링, 백업, 운영 연동을 정합니다."
+        },
+        {
+          "en": "Retain approval:management-design-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:management-design-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:backup-dr-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:backup-dr-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:logging-monitoring-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:logging-monitoring-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Shared monitoring and recovery services make platform operational responsibilities concrete. In FDAI, landing-zone.management is assessed through approval:management-design-approval, observation:backup-dr-observation, observation:logging-monitoring-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "공통 모니터링과 복구 서비스는 플랫폼 운영 책임을 구체화합니다. FDAI는 landing-zone.management을 approval:management-design-approval, observation:backup-dr-observation, observation:logging-monitoring-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:75017043452ddc9f6f57a4d7eb54e7dcc77207a81f229d4bd2e1fd2405e9b8a7",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Shared monitoring and recovery services make platform operational responsibilities concrete.",
+        "ko": "공통 모니터링과 복구 서비스는 플랫폼 운영 책임을 구체화합니다."
+      },
+      "title": {
+        "en": "Landing zone: management",
+        "ko": "랜딩 존 관리 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Check onboarding coverage and exercise an alert and recovery escalation.",
+          "ko": "등록 적용 범위를 확인하고 경고 및 복구 보고 경로를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.management against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.management을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.network-connectivity only to the reviewed cloud estate scope with accountable owner role network-owner; review cadence 30 days.",
+          "ko": "landing-zone.network-connectivity은 책임 역할 network-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "A private circuit alone does not prove complete network segmentation.",
+          "ko": "전용 회선만으로 완전한 네트워크 분할을 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Shared connectivity can serve workloads with explicit trust boundaries.",
+        "ko": "공용 연결이 명시적인 신뢰 경계 안에서 워크로드를 지원할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Shared routing changes can cause broad reachability loss or unintended transit.",
+          "ko": "공용 라우팅 변경은 광범위한 연결 손실이나 의도하지 않은 중계를 일으킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review address planning, connectivity, DNS and permitted transit paths.",
+            "ko": "주소 계획, 연결, DNS, 허용한 중계 경로를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:network-design-approval, observation:network-topology-observation, observation:private-connectivity-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:network-design-approval, observation:network-topology-observation, observation:private-connectivity-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Address ranges overlap and routing ownership is unclear between connected environments.",
+            "ko": "연결 환경 사이의 주소 범위가 겹치고 라우팅 책임이 불분명합니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.network-connectivity has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.network-connectivity에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:da237a2f494fc69bc554eb302b8e31667e17e5648ebf12801d5caa608765b774",
+      "control_id": "landing-zone.network-connectivity",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.network-connectivity",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Address ranges overlap and routing ownership is unclear between connected environments.",
+              "ko": "연결 환경 사이의 주소 범위가 겹치고 라우팅 책임이 불분명합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: network topology and connectivity",
+              "ko": "랜딩 존 네트워크와 연결 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review address planning, connectivity, DNS and permitted transit paths.",
+              "ko": "주소 계획, 연결, DNS, 허용한 중계 경로를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test approved and prohibited routes, including name resolution and failure paths.",
+              "ko": "이름 확인과 장애 경로를 포함해 승인 경로와 금지 경로를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Shared connectivity can serve workloads with explicit trust boundaries.",
+              "ko": "공용 연결이 명시적인 신뢰 경계 안에서 워크로드를 지원할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: network topology and connectivity",
+          "ko": "랜딩 존 네트워크와 연결 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.network-connectivity scope, owner network-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.network-connectivity의 범위, 담당 역할 network-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review address planning, connectivity, DNS and permitted transit paths.",
+          "ko": "주소 계획, 연결, DNS, 허용한 중계 경로를 검토합니다."
+        },
+        {
+          "en": "Retain approval:network-design-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner network-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:network-design-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 network-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:network-topology-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner network-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:network-topology-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 network-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:private-connectivity-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner network-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:private-connectivity-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 network-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Topology and routing decisions determine connectivity and isolation across the estate. In FDAI, landing-zone.network-connectivity is assessed through approval:network-design-approval, observation:network-topology-observation, observation:private-connectivity-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "토폴로지와 라우팅 결정은 전체 환경의 연결 및 격리를 정합니다. FDAI는 landing-zone.network-connectivity을 approval:network-design-approval, observation:network-topology-observation, observation:private-connectivity-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:9de5fd6848eed602d36fa241074c3f527fbe0d4667bb03b1292080b780609463",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Topology and routing decisions determine connectivity and isolation across the estate.",
+        "ko": "토폴로지와 라우팅 결정은 전체 환경의 연결 및 격리를 정합니다."
+      },
+      "title": {
+        "en": "Landing zone: network topology and connectivity",
+        "ko": "랜딩 존 네트워크와 연결 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Test approved and prohibited routes, including name resolution and failure paths.",
+          "ko": "이름 확인과 장애 경로를 포함해 승인 경로와 금지 경로를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.network-connectivity against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.network-connectivity을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.platform-automation-devops only to the reviewed cloud estate scope with accountable owner role platform-owner; review cadence 30 days.",
+          "ko": "landing-zone.platform-automation-devops은 책임 역할 platform-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "A workload CI pipeline does not establish shared platform automation.",
+          "ko": "워크로드 CI 파이프라인으로 공통 플랫폼 자동화가 수립되었다고 볼 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Platform teams can trace shared infrastructure changes to approved inputs.",
+        "ko": "플랫폼 팀은 공통 인프라 변경을 승인한 입력까지 추적할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Pipeline identities must not gain unrestricted estate-wide execution authority.",
+          "ko": "파이프라인 신원에 제한 없는 전체 환경의 실행 권한을 부여하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define platform modules, pipeline permissions, review gates and recovery procedures.",
+            "ko": "플랫폼 모듈, 파이프라인 권한, 검토 단계, 복구 절차를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:platform-automation-approval, observation:platform-pipeline-observation, observation:supply-chain-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:platform-automation-approval, observation:platform-pipeline-observation, observation:supply-chain-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Manual platform updates leave no reproducible source or tested rollback.",
+            "ko": "수동 플랫폼 갱신에 재현 가능한 소스나 시험한 롤백이 없습니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.platform-automation-devops has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.platform-automation-devops에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:56892bd58541790c86bd32c23ed53e3bee7cf53a48b2130d77a907a10a9b5a32",
+      "control_id": "landing-zone.platform-automation-devops",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.platform-automation-devops",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Manual platform updates leave no reproducible source or tested rollback.",
+              "ko": "수동 플랫폼 갱신에 재현 가능한 소스나 시험한 롤백이 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: platform automation and DevOps",
+              "ko": "랜딩 존 플랫폼 자동화와 DevOps 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define platform modules, pipeline permissions, review gates and recovery procedures.",
+              "ko": "플랫폼 모듈, 파이프라인 권한, 검토 단계, 복구 절차를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Replay a platform change in a safe scope and inspect plan, approval and rollback evidence.",
+              "ko": "안전한 범위에서 플랫폼 변경을 재현하고 계획, 승인, 롤백 근거를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Platform teams can trace shared infrastructure changes to approved inputs.",
+              "ko": "플랫폼 팀은 공통 인프라 변경을 승인한 입력까지 추적할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: platform automation and DevOps",
+          "ko": "랜딩 존 플랫폼 자동화와 DevOps 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.platform-automation-devops scope, owner platform-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.platform-automation-devops의 범위, 담당 역할 platform-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define platform modules, pipeline permissions, review gates and recovery procedures.",
+          "ko": "플랫폼 모듈, 파이프라인 권한, 검토 단계, 복구 절차를 정합니다."
+        },
+        {
+          "en": "Retain approval:platform-automation-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:platform-automation-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:platform-pipeline-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:platform-pipeline-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:supply-chain-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:supply-chain-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Versioned platform delivery makes landing-zone changes reviewable and repeatable. In FDAI, landing-zone.platform-automation-devops is assessed through approval:platform-automation-approval, observation:platform-pipeline-observation, observation:supply-chain-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "버전 관리한 플랫폼 전달은 랜딩 존 변경을 검토하고 반복할 수 있게 합니다. FDAI는 landing-zone.platform-automation-devops을 approval:platform-automation-approval, observation:platform-pipeline-observation, observation:supply-chain-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:19fa595a7b142efe3478720a30c46c46461a49b0ae7f039a9bc1b95d2cc0f4de",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Versioned platform delivery makes landing-zone changes reviewable and repeatable.",
+        "ko": "버전 관리한 플랫폼 전달은 랜딩 존 변경을 검토하고 반복할 수 있게 합니다."
+      },
+      "title": {
+        "en": "Landing zone: platform automation and DevOps",
+        "ko": "랜딩 존 플랫폼 자동화와 DevOps 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Replay a platform change in a safe scope and inspect plan, approval and rollback evidence.",
+          "ko": "안전한 범위에서 플랫폼 변경을 재현하고 계획, 승인, 롤백 근거를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.platform-automation-devops against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.platform-automation-devops을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.resource-organization only to the reviewed cloud estate scope with accountable owner role platform-owner; review cadence 30 days.",
+          "ko": "landing-zone.resource-organization은 책임 역할 platform-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not infer resource ownership from a name that violates the approved model.",
+          "ko": "승인한 모델에 맞지 않는 이름으로 리소스 소유권을 추정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can place workloads without inventing a new governance boundary each time.",
+        "ko": "팀은 매번 새 거버넌스 경계를 만들지 않고 워크로드를 배치할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Moving a subscription can alter inherited controls and requires impact review.",
+          "ko": "구독 이동은 상속된 통제를 바꿀 수 있으므로 영향 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define management-group placement, subscription purpose and naming or tagging conventions.",
+            "ko": "관리 그룹 배치, 구독 목적, 명명 또는 태그 규칙을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:resource-organization-approval, observation:estate-hierarchy-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:resource-organization-approval, observation:estate-hierarchy-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Subscriptions are placed ad hoc with unclear inherited policy and ownership.",
+            "ko": "상속 정책과 소유권이 불분명한 상태로 구독을 임의 배치합니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.resource-organization has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.resource-organization에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:03ef10a1113d5a46fc1ac1db180df58a1041f259d75e2f24ffa089a9e720b4f9",
+      "control_id": "landing-zone.resource-organization",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.resource-organization",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Subscriptions are placed ad hoc with unclear inherited policy and ownership.",
+              "ko": "상속 정책과 소유권이 불분명한 상태로 구독을 임의 배치합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: resource organization",
+              "ko": "랜딩 존 리소스 구성"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define management-group placement, subscription purpose and naming or tagging conventions.",
+              "ko": "관리 그룹 배치, 구독 목적, 명명 또는 태그 규칙을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Review sampled hierarchy paths and their effective policy and access inheritance.",
+              "ko": "계층 경로를 표본 검토하고 실제 정책 및 접근 상속을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can place workloads without inventing a new governance boundary each time.",
+              "ko": "팀은 매번 새 거버넌스 경계를 만들지 않고 워크로드를 배치할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: resource organization",
+          "ko": "랜딩 존 리소스 구성"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.resource-organization scope, owner platform-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.resource-organization의 범위, 담당 역할 platform-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define management-group placement, subscription purpose and naming or tagging conventions.",
+          "ko": "관리 그룹 배치, 구독 목적, 명명 또는 태그 규칙을 정합니다."
+        },
+        {
+          "en": "Retain approval:resource-organization-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:resource-organization-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:estate-hierarchy-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:estate-hierarchy-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Management hierarchy and subscription boundaries organize ownership and policy inheritance. In FDAI, landing-zone.resource-organization is assessed through approval:resource-organization-approval, observation:estate-hierarchy-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "관리 계층과 구독 경계는 소유권 및 정책 상속을 정리합니다. FDAI는 landing-zone.resource-organization을 approval:resource-organization-approval, observation:estate-hierarchy-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:46b427533938253790f1736bbe77f70a8439a06c0076777e4f55a2307667cc29",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Management hierarchy and subscription boundaries organize ownership and policy inheritance.",
+        "ko": "관리 계층과 구독 경계는 소유권 및 정책 상속을 정리합니다."
+      },
+      "title": {
+        "en": "Landing zone: resource organization",
+        "ko": "랜딩 존 리소스 구성"
+      },
+      "verification_steps": [
+        {
+          "en": "Review sampled hierarchy paths and their effective policy and access inheritance.",
+          "ko": "계층 경로를 표본 검토하고 실제 정책 및 접근 상속을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.resource-organization against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.resource-organization을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply landing-zone.security only to the reviewed cloud estate scope with accountable owner role security-owner; review cadence 30 days.",
+          "ko": "landing-zone.security은 책임 역할 security-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Shared platform controls do not certify every hosted application's security.",
+          "ko": "공통 플랫폼 통제가 모든 애플리케이션의 보안을 인증하지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Workloads inherit a known baseline while retaining application security duties.",
+        "ko": "워크로드는 알려진 기준선을 상속하면서 애플리케이션 보안 책임을 유지합니다."
+      },
+      "cautions": [
+        {
+          "en": "Inherited controls may conflict with workload requirements and need explicit review.",
+          "ko": "상속 통제는 워크로드 요구와 충돌할 수 있으므로 명시적인 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define shared security controls, workload responsibilities and reviewed exceptions.",
+            "ko": "공통 보안 통제, 워크로드 책임, 검토된 예외를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-baseline-approval, observation:defender-posture-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-baseline-approval, observation:defender-posture-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Security services and platform baselines differ unpredictably across subscriptions.",
+            "ko": "보안 서비스와 플랫폼 기준선이 구독마다 예측할 수 없게 다릅니다."
+          },
+          {
+            "en": "Illustrative gap: landing-zone.security has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: landing-zone.security에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:1395e186eaa141824965e5a396ff21bef27559183589a80ac473c7efd09586dd",
+      "control_id": "landing-zone.security",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.landing-zone.security",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Security services and platform baselines differ unpredictably across subscriptions.",
+              "ko": "보안 서비스와 플랫폼 기준선이 구독마다 예측할 수 없게 다릅니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Landing zone: security",
+              "ko": "랜딩 존 보안 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define shared security controls, workload responsibilities and reviewed exceptions.",
+              "ko": "공통 보안 통제, 워크로드 책임, 검토된 예외를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample effective platform controls and verify that exceptions have owners and expiry.",
+              "ko": "실제 플랫폼 통제를 표본 확인하고 예외의 담당자와 만료일을 검증합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Workloads inherit a known baseline while retaining application security duties.",
+              "ko": "워크로드는 알려진 기준선을 상속하면서 애플리케이션 보안 책임을 유지합니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Landing zone: security",
+          "ko": "랜딩 존 보안 설계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm landing-zone.security scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 landing-zone.security의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define shared security controls, workload responsibilities and reviewed exceptions.",
+          "ko": "공통 보안 통제, 워크로드 책임, 검토된 예외를 정합니다."
+        },
+        {
+          "en": "Retain approval:security-baseline-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:security-baseline-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:defender-posture-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:defender-posture-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Platform security design establishes shared protective and detection controls for hosted workloads. In FDAI, landing-zone.security is assessed through approval:security-baseline-approval, observation:defender-posture-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "플랫폼 보안 설계는 배치된 워크로드를 위한 공통 보호 및 감지 통제를 정합니다. FDAI는 landing-zone.security을 approval:security-baseline-approval, observation:defender-posture-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ae6fcfaf6dd3639b9f6b47575285cdd1722e34424efb5891d2b08012f32e93c1",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+        }
+      ],
+      "summary": {
+        "en": "Platform security design establishes shared protective and detection controls for hosted workloads.",
+        "ko": "플랫폼 보안 설계는 배치된 워크로드를 위한 공통 보호 및 감지 통제를 정합니다."
+      },
+      "title": {
+        "en": "Landing zone: security",
+        "ko": "랜딩 존 보안 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample effective platform controls and verify that exceptions have owners and expiry.",
+          "ko": "실제 플랫폼 통제를 표본 확인하고 예외의 담당자와 만료일을 검증합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess landing-zone.security against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 landing-zone.security을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply manage only to the reviewed cloud estate scope with accountable owner role operations-owner; review cadence 30 days.",
+          "ko": "manage은 책임 역할 operations-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "A monitoring agent installation alone is not an estate operating model.",
+          "ko": "모니터링 에이전트 설치만으로 전체 환경의 운영 모델을 대신할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Estate operations can be sustained beyond the initial migration.",
+        "ko": "초기 이전 이후에도 전체 환경의 운영을 유지할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Platform operations and workload application support retain distinct accountabilities.",
+          "ko": "플랫폼 운영과 워크로드 애플리케이션 지원은 서로 다른 책임을 유지합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define the operations procedure and execute its monitoring, maintenance and recovery activities.",
+            "ko": "운영 절차를 정하고 모니터링, 유지보수, 복구 활동을 수행합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-review-approval, artifact:cloud-operations-model, drill:incident-management-execution, observation:monitoring-coverage-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-review-approval, artifact:cloud-operations-model, drill:incident-management-execution, observation:monitoring-coverage-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Migration closes with no assigned steady-state operations or recovery cadence.",
+            "ko": "상시 운영 담당이나 복구 주기를 정하지 않고 이전을 종료합니다."
+          },
+          {
+            "en": "Illustrative gap: manage has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: manage에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:bfffa30ee7353266a675fda6626699fefabe3e083c3f4682e09184a8a6f75c07",
+      "control_id": "manage",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.manage",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Migration closes with no assigned steady-state operations or recovery cadence.",
+              "ko": "상시 운영 담당이나 복구 주기를 정하지 않고 이전을 종료합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Manage",
+              "ko": "클라우드 운영 관리"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define the operations procedure and execute its monitoring, maintenance and recovery activities.",
+              "ko": "운영 절차를 정하고 모니터링, 유지보수, 복구 활동을 수행합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect recurring execution records and confirm escalation and follow-up ownership.",
+              "ko": "반복 실행 기록을 검토하고 보고 및 후속 조치 담당자를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Estate operations can be sustained beyond the initial migration.",
+              "ko": "초기 이전 이후에도 전체 환경의 운영을 유지할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Manage",
+          "ko": "클라우드 운영 관리"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm manage scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 manage의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define the operations procedure and execute its monitoring, maintenance and recovery activities.",
+          "ko": "운영 절차를 정하고 모니터링, 유지보수, 복구 활동을 수행합니다."
+        },
+        {
+          "en": "Retain approval:operations-review-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:operations-review-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:cloud-operations-model from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:cloud-operations-model을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain drill:incident-management-execution from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 drill:incident-management-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:monitoring-coverage-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:monitoring-coverage-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "An operating model connects platform monitoring, recovery and service ownership to recurring work. In FDAI, manage is assessed through approval:operations-review-approval, artifact:cloud-operations-model, drill:incident-management-execution, observation:monitoring-coverage-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "운영 모델은 플랫폼 모니터링, 복구, 서비스 책임을 반복 작업과 연결합니다. FDAI는 manage을 approval:operations-review-approval, artifact:cloud-operations-model, drill:incident-management-execution, observation:monitoring-coverage-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:385c9557c0c3fc375a5ca6f3111e6140ba2f720824a531fc5784420cf5ad9383",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/manage/ready-cloud-operations"
+        }
+      ],
+      "summary": {
+        "en": "An operating model connects platform monitoring, recovery and service ownership to recurring work.",
+        "ko": "운영 모델은 플랫폼 모니터링, 복구, 서비스 책임을 반복 작업과 연결합니다."
+      },
+      "title": {
+        "en": "Manage",
+        "ko": "클라우드 운영 관리"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect recurring execution records and confirm escalation and follow-up ownership.",
+          "ko": "반복 실행 기록을 검토하고 보고 및 후속 조치 담당자를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess manage against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 manage을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply plan only to the reviewed cloud estate scope with accountable owner role adoption-plan-owner; review cadence 90 days.",
+          "ko": "plan은 책임 역할 adoption-plan-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "A single workload sprint does not establish an estate-wide adoption plan.",
+          "ko": "한 워크로드의 스프린트로 전체 환경의 도입 계획이 수립되었다고 볼 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Dependencies and organizational gaps can be addressed before migration starts.",
+        "ko": "이전을 시작하기 전에 의존성과 조직의 부족한 준비에 대응할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Schedule confidence must reflect unresolved skills, contracts and dependency constraints.",
+          "ko": "일정의 확실성은 미해결 역량, 계약, 의존성 제약을 반영해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign adoption responsibilities and sequence workload waves using dependency and readiness reviews.",
+            "ko": "도입 책임을 배정하고 의존성 및 준비 검토를 바탕으로 워크로드 이전 순서를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:skills-readiness-review, artifact:adoption-backlog-execution, artifact:organization-readiness-procedure for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:skills-readiness-review, artifact:adoption-backlog-execution, artifact:organization-readiness-procedure 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "An estate backlog lists workloads without owners, dependencies or skills planning.",
+            "ko": "전체 환경의 작업 목록에 워크로드만 있고 담당자, 의존성, 역량 계획은 없습니다."
+          },
+          {
+            "en": "Illustrative gap: plan has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: plan에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:06f97d3004649e29c1f218c8e43bc7af6437ae39032ba7bbebd4f7f6296fae62",
+      "control_id": "plan",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.plan",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "An estate backlog lists workloads without owners, dependencies or skills planning.",
+              "ko": "전체 환경의 작업 목록에 워크로드만 있고 담당자, 의존성, 역량 계획은 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Plan",
+              "ko": "클라우드 도입 계획"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign adoption responsibilities and sequence workload waves using dependency and readiness reviews.",
+              "ko": "도입 책임을 배정하고 의존성 및 준비 검토를 바탕으로 워크로드 이전 순서를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect a planned wave's dependencies, responsible owners and completed readiness actions.",
+              "ko": "계획한 이전 단계의 의존성, 담당자, 완료한 준비 작업을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Dependencies and organizational gaps can be addressed before migration starts.",
+              "ko": "이전을 시작하기 전에 의존성과 조직의 부족한 준비에 대응할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Plan",
+          "ko": "클라우드 도입 계획"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm plan scope, owner adoption-plan-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 plan의 범위, 담당 역할 adoption-plan-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign adoption responsibilities and sequence workload waves using dependency and readiness reviews.",
+          "ko": "도입 책임을 배정하고 의존성 및 준비 검토를 바탕으로 워크로드 이전 순서를 정합니다."
+        },
+        {
+          "en": "Retain approval:skills-readiness-review from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner adoption-plan-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:skills-readiness-review을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 adoption-plan-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:adoption-backlog-execution from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner adoption-plan-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase execution, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:adoption-backlog-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 adoption-plan-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 execution, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:organization-readiness-procedure from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner adoption-plan-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase procedure, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:organization-readiness-procedure을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 adoption-plan-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 procedure, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A sequenced adoption plan connects skills, workload discovery and ownership to delivery waves. In FDAI, plan is assessed through approval:skills-readiness-review, artifact:adoption-backlog-execution, artifact:organization-readiness-procedure. Process phases: execution, procedure; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "순서가 있는 도입 계획은 역량, 워크로드 조사, 책임을 실행 단계와 연결합니다. FDAI는 plan을 approval:skills-readiness-review, artifact:adoption-backlog-execution, artifact:organization-readiness-procedure 항목으로 평가합니다. 절차 단계는 execution, procedure, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:52ce5d06d900b0852d6d0ba73cb7c14f9177bdba1216e2a631277b6cb87e61e9",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/plan/prepare-organization-for-cloud"
+        }
+      ],
+      "summary": {
+        "en": "A sequenced adoption plan connects skills, workload discovery and ownership to delivery waves.",
+        "ko": "순서가 있는 도입 계획은 역량, 워크로드 조사, 책임을 실행 단계와 연결합니다."
+      },
+      "title": {
+        "en": "Plan",
+        "ko": "클라우드 도입 계획"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect a planned wave's dependencies, responsible owners and completed readiness actions.",
+          "ko": "계획한 이전 단계의 의존성, 담당자, 완료한 준비 작업을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess plan against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 plan을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply ready only to the reviewed cloud estate scope with accountable owner role platform-owner; review cadence 30 days.",
+          "ko": "ready은 책임 역할 platform-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not infer estate readiness from one successful resource deployment.",
+          "ko": "리소스 하나의 배포 성공으로 전체 환경의 준비 완료를 단정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Workloads can enter an environment with known platform boundaries.",
+        "ko": "워크로드를 플랫폼 경계가 알려진 환경에 배치할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Landing-zone changes can affect every connected workload and need bounded rollout.",
+          "ko": "랜딩 존 변경은 연결된 모든 워크로드에 영향을 줄 수 있으므로 단계적으로 적용해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review landing-zone decisions and implement the approved platform readiness procedure.",
+            "ko": "랜딩 존 결정을 검토하고 승인된 플랫폼 준비 절차를 구현합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:platform-readiness-approval, artifact:landing-zone-architecture, observation:estate-hierarchy-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:platform-readiness-approval, artifact:landing-zone-architecture, observation:estate-hierarchy-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Workloads arrive before shared connectivity, access and operating responsibilities are ready.",
+            "ko": "공통 연결, 접근, 운영 책임을 준비하기 전에 워크로드를 배치합니다."
+          },
+          {
+            "en": "Illustrative gap: ready has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: ready에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:73d6ea6df1dd1dd6228d23998e814cde06121a23b3d8f10935bc80bb0516deae",
+      "control_id": "ready",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.ready",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Workloads arrive before shared connectivity, access and operating responsibilities are ready.",
+              "ko": "공통 연결, 접근, 운영 책임을 준비하기 전에 워크로드를 배치합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Ready",
+              "ko": "클라우드 환경 준비"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review landing-zone decisions and implement the approved platform readiness procedure.",
+              "ko": "랜딩 존 결정을 검토하고 승인된 플랫폼 준비 절차를 구현합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test a representative workload's identity, network and management onboarding in the prepared zone.",
+              "ko": "준비한 영역에서 대표 워크로드의 신원, 네트워크, 관리 등록을 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Workloads can enter an environment with known platform boundaries.",
+              "ko": "워크로드를 플랫폼 경계가 알려진 환경에 배치할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Ready",
+          "ko": "클라우드 환경 준비"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm ready scope, owner platform-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 ready의 범위, 담당 역할 platform-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review landing-zone decisions and implement the approved platform readiness procedure.",
+          "ko": "랜딩 존 결정을 검토하고 승인된 플랫폼 준비 절차를 구현합니다."
+        },
+        {
+          "en": "Retain approval:platform-readiness-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:platform-readiness-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:landing-zone-architecture from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:landing-zone-architecture을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:estate-hierarchy-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner platform-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:estate-hierarchy-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 platform-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A reviewed landing zone supplies the shared identity, network and governance foundations for adoption. In FDAI, ready is assessed through approval:platform-readiness-approval, artifact:landing-zone-architecture, observation:estate-hierarchy-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "검토된 랜딩 존은 도입에 필요한 공통 신원, 네트워크, 거버넌스 기반을 제공합니다. FDAI는 ready을 approval:platform-readiness-approval, artifact:landing-zone-architecture, observation:estate-hierarchy-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:8bfe38adc33a7c1c269466580d42bb46e7574651f60ad701c8cd2010e28629f7",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/"
+        }
+      ],
+      "summary": {
+        "en": "A reviewed landing zone supplies the shared identity, network and governance foundations for adoption.",
+        "ko": "검토된 랜딩 존은 도입에 필요한 공통 신원, 네트워크, 거버넌스 기반을 제공합니다."
+      },
+      "title": {
+        "en": "Ready",
+        "ko": "클라우드 환경 준비"
+      },
+      "verification_steps": [
+        {
+          "en": "Test a representative workload's identity, network and management onboarding in the prepared zone.",
+          "ko": "준비한 영역에서 대표 워크로드의 신원, 네트워크, 관리 등록을 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess ready against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 ready을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply secure only to the reviewed cloud estate scope with accountable owner role security-owner; review cadence 30 days.",
+          "ko": "secure은 책임 역할 security-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "One workload security review cannot establish security operations across the estate.",
+          "ko": "한 워크로드의 보안 검토로 전체 환경의 보안 운영을 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Security handoffs can be reviewed where organizational boundaries meet.",
+        "ko": "조직 경계가 만나는 곳의 보안 인수인계를 검토할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Responsibility matrices need actual execution evidence, not signatures alone.",
+          "ko": "책임표에는 서명뿐 아니라 실제 실행 근거가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign security responsibilities and run the approved estate security operating procedure.",
+            "ko": "보안 책임을 배정하고 승인된 전체 환경의 보안 운영 절차를 수행합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-review-approval, artifact:security-operating-model, drill:incident-readiness-execution, observation:defender-posture-observation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-review-approval, artifact:security-operating-model, drill:incident-readiness-execution, observation:defender-posture-observation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Platform and application teams each assume the other owns incident response.",
+            "ko": "플랫폼 팀과 애플리케이션 팀이 인시던트 대응을 상대의 책임으로 생각합니다."
+          },
+          {
+            "en": "Illustrative gap: secure has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: secure에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:2fc8304b28515785c71e21c4f1c44636a23dbc1d64521f3dbddbe4a523c8bfa7",
+      "control_id": "secure",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.secure",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Platform and application teams each assume the other owns incident response.",
+              "ko": "플랫폼 팀과 애플리케이션 팀이 인시던트 대응을 상대의 책임으로 생각합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Secure",
+              "ko": "클라우드 보안 운영 체계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign security responsibilities and run the approved estate security operating procedure.",
+              "ko": "보안 책임을 배정하고 승인된 전체 환경의 보안 운영 절차를 수행합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Reconcile executed security activities with responsible roles and response escalation.",
+              "ko": "수행한 보안 활동을 책임 역할 및 대응 보고 경로와 대조합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Security handoffs can be reviewed where organizational boundaries meet.",
+              "ko": "조직 경계가 만나는 곳의 보안 인수인계를 검토할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Secure",
+          "ko": "클라우드 보안 운영 체계"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm secure scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 secure의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign security responsibilities and run the approved estate security operating procedure.",
+          "ko": "보안 책임을 배정하고 승인된 전체 환경의 보안 운영 절차를 수행합니다."
+        },
+        {
+          "en": "Retain approval:security-review-approval from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:security-review-approval을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:security-operating-model from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:security-operating-model을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain drill:incident-readiness-execution from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 drill:incident-readiness-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain observation:defender-posture-observation from governed-framework-evidence for exact-estate; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 평가 항목 observation:defender-posture-observation을 governed-framework-evidence에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Estate security responsibilities align protection, detection and response across platform and workloads. In FDAI, secure is assessed through approval:security-review-approval, artifact:security-operating-model, drill:incident-readiness-execution, observation:defender-posture-observation. Process phases: none; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "전체 환경의 보안 책임은 플랫폼과 워크로드의 보호, 감지, 대응을 정렬합니다. FDAI는 secure을 approval:security-review-approval, artifact:security-operating-model, drill:incident-readiness-execution, observation:defender-posture-observation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e2a259a4a3fa5fc9005da359a67fd3f82380cfc349c53c51cd31809e84a3115c",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/secure/overview"
+        }
+      ],
+      "summary": {
+        "en": "Estate security responsibilities align protection, detection and response across platform and workloads.",
+        "ko": "전체 환경의 보안 책임은 플랫폼과 워크로드의 보호, 감지, 대응을 정렬합니다."
+      },
+      "title": {
+        "en": "Secure",
+        "ko": "클라우드 보안 운영 체계"
+      },
+      "verification_steps": [
+        {
+          "en": "Reconcile executed security activities with responsible roles and response escalation.",
+          "ko": "수행한 보안 활동을 책임 역할 및 대응 보고 경로와 대조합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess secure against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 secure을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply strategy only to the reviewed cloud estate scope with accountable owner role strategy-owner; review cadence 90 days.",
+          "ko": "strategy은 책임 역할 strategy-owner이 있는 검토된 전체 클라우드 환경 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "A workload's cost target alone is not an estate adoption strategy.",
+          "ko": "한 워크로드의 비용 목표만으로 전체 환경의 도입 전략을 대신할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Sponsors can compare adoption choices against agreed outcomes.",
+        "ko": "후원자는 합의된 성과에 따라 도입 선택지를 비교할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "An approved strategy is not authorization for every later migration or resource change.",
+          "ko": "승인된 전략은 이후의 모든 이전이나 리소스 변경을 허가하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Agree motivations, measurable outcomes, sponsorship and strategic tradeoffs for the estate.",
+            "ko": "전체 환경의 도입 동기, 측정 가능한 성과, 후원 책임, 전략적 절충안에 합의합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:executive-sponsorship, artifact:cloud-strategy-procedure, artifact:measurable-outcome-execution for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:executive-sponsorship, artifact:cloud-strategy-procedure, artifact:measurable-outcome-execution 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Migration is presented as an objective without business measures or accountable sponsors.",
+            "ko": "사업 측정값이나 책임 있는 후원자 없이 이전 자체를 목표로 제시합니다."
+          },
+          {
+            "en": "Illustrative gap: strategy has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: strategy에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:8c25c77873863864a0ee30f3f06517077eeeb1c630ad71521079ded66fbfb88c",
+      "control_id": "strategy",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-caf.strategy",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Migration is presented as an objective without business measures or accountable sponsors.",
+              "ko": "사업 측정값이나 책임 있는 후원자 없이 이전 자체를 목표로 제시합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Strategy",
+              "ko": "클라우드 도입 전략"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Agree motivations, measurable outcomes, sponsorship and strategic tradeoffs for the estate.",
+              "ko": "전체 환경의 도입 동기, 측정 가능한 성과, 후원 책임, 전략적 절충안에 합의합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace an adoption decision to an approved outcome and its review measure.",
+              "ko": "도입 결정을 승인된 성과 및 검토 측정값까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Sponsors can compare adoption choices against agreed outcomes.",
+              "ko": "후원자는 합의된 성과에 따라 도입 선택지를 비교할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Strategy",
+          "ko": "클라우드 도입 전략"
+        }
+      },
+      "framework_id": "azure-caf",
+      "implementation_steps": [
+        {
+          "en": "Confirm strategy scope, owner strategy-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 strategy의 범위, 담당 역할 strategy-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Agree motivations, measurable outcomes, sponsorship and strategic tradeoffs for the estate.",
+          "ko": "전체 환경의 도입 동기, 측정 가능한 성과, 후원 책임, 전략적 절충안에 합의합니다."
+        },
+        {
+          "en": "Retain approval:executive-sponsorship from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner strategy-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 승인 approval:executive-sponsorship을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 strategy-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:cloud-strategy-procedure from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner strategy-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase procedure, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:cloud-strategy-procedure을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 strategy-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 procedure, 세대 일치 규약은 hierarchy입니다."
+        },
+        {
+          "en": "Retain artifact:measurable-outcome-execution from governed-framework-evidence for exact-estate; freshness limit 7776000 seconds, owner strategy-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase execution, generation hierarchy.",
+          "ko": "정확한 전체 환경 범위의 산출물 artifact:measurable-outcome-execution을 governed-framework-evidence에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 strategy-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 execution, 세대 일치 규약은 hierarchy입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Business outcomes and motivations give cloud adoption a measurable purpose. In FDAI, strategy is assessed through approval:executive-sponsorship, artifact:cloud-strategy-procedure, artifact:measurable-outcome-execution. Process phases: execution, procedure; generation contract: hierarchy. The original example explains the control, not a new official requirement.",
+        "ko": "사업 성과와 도입 동기는 클라우드 도입에 측정 가능한 목적을 제공합니다. FDAI는 strategy을 approval:executive-sponsorship, artifact:cloud-strategy-procedure, artifact:measurable-outcome-execution 항목으로 평가합니다. 절차 단계는 execution, procedure, 세대 일치 규약은 hierarchy입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:7d941d5261b5068c6ec9ea3e973ee36bf834b2a5b7eca1be12645e6574b43512",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/strategy/"
+        }
+      ],
+      "summary": {
+        "en": "Business outcomes and motivations give cloud adoption a measurable purpose.",
+        "ko": "사업 성과와 도입 동기는 클라우드 도입에 측정 가능한 목적을 제공합니다."
+      },
+      "title": {
+        "en": "Strategy",
+        "ko": "클라우드 도입 전략"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace an adoption decision to an approved outcome and its review measure.",
+          "ko": "도입 결정을 승인된 성과 및 검토 측정값까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess strategy against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 strategy을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

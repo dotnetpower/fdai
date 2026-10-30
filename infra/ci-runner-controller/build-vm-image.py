@@ -248,6 +248,21 @@ class Builder:
         ):
             raise BuildError("builder_stage_unconfirmed")
 
+    def await_poweroff(self) -> None:
+        for _ in range(60):
+            view = self.az("check_power", "vm", "get-instance-view", "--ids", self.ids["vm"])
+            statuses = (
+                view.get("instanceView", {}).get("statuses", []) if isinstance(view, dict) else []
+            )
+            if any(
+                isinstance(item, dict)
+                and item.get("code") in {"PowerState/stopped", "PowerState/deallocated"}
+                for item in statuses
+            ):
+                return
+            time.sleep(5)
+        raise BuildError("builder_stage_unconfirmed")
+
     def execute(self, payload: Path, public_key: str) -> str:
         args = self.args
         existing = self.resources()
@@ -321,7 +336,8 @@ class Builder:
         )
         self.run_script(
             "wait_cloud_init",
-            "set -eu; timeout 3600 cloud-init status --wait >/dev/null; "
+            "set -eu; status=0; timeout 3600 cloud-init status --wait >/dev/null || status=$?; "
+            'test "$status" -eq 0 -o "$status" -eq 2; '
             f"grep -q '{args.source_sha}' /var/lib/fdai-ci-image-ready; "
             "test ! -e /opt/actions-runner/.runner; test ! -e /opt/actions-runner/.credentials; "
             "systemctl is-active --quiet docker; echo fdai_image_ready",
@@ -329,10 +345,13 @@ class Builder:
         )
         self.run_script(
             "deprovision",
-            "set -eu; cloud-init clean --logs --machine-id --seed; "
-            "waagent -deprovision+user -force >/dev/null; echo fdai_image_deprovisioned",
+            "set -eu; systemd-run --unit=fdai-ci-deprovision --on-active=5s /bin/bash -c "
+            "'set -euo pipefail; cloud-init clean --logs --machine-id --seed; "
+            "waagent -deprovision+user -force >/dev/null; sync; systemctl poweroff' "
+            ">/dev/null; echo fdai_image_deprovisioned",
             "fdai_image_deprovisioned",
         )
+        self.await_poweroff()
         self.az("deallocate", "vm", "deallocate", "--ids", self.ids["vm"])
         self.az("generalize", "vm", "generalize", "--ids", self.ids["vm"])
         self.az(
@@ -363,7 +382,7 @@ class Builder:
             "--exclude-from-latest",
             "true",
             *self.tag_arguments(),
-            timeout=900,
+            timeout=1800,
         )
         image = self.az(
             "verify_image",

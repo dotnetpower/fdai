@@ -13,6 +13,7 @@ import {
   type McsbSatisfaction,
 } from "./mcsb-controls.model";
 import { FacetChips, FacetSelect } from "./rule-catalog-components";
+import { ControlEnablementBadge } from "./control-enablement";
 
 const EMPTY_FILTERS: McsbFilters = { domain: "", coverage: "", q: "" };
 export const MCSB_COVERAGE_PILL: Readonly<Record<McsbCoverage, PillKind>> = {
@@ -88,6 +89,11 @@ export function McsbControlsBody({
         cellClass: "control-column-secondary",
         headerClass: "control-column-secondary",
         render: (control) => displayValue("mcsbDomain", control.domain),
+      },
+      {
+        key: "enablement",
+        header: t("governance.rules.enablement.column"),
+        render: (control) => <ControlEnablementBadge value={control.enablement} />,
       },
       {
         key: "coverage",
@@ -250,6 +256,8 @@ export function McsbControlsBody({
             empty={t(metadataOnly ? "governance.rules.mcsb.result.metadataOnly" : "governance.rules.mcsb.result.empty")}
             onRowClick={(control) => onSelect(control.control_id)}
             isRowActive={(control) => selected === control.control_id}
+            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: control.title })}
+            rowActionControls="mcsb-control-detail"
           />
         </div>
       </section>

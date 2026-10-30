@@ -8,6 +8,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from fdai_service_contracts.control_enablement import ControlEnablement
+
 from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkEvidenceRole,
     FrameworkProcessPhase,
@@ -64,8 +66,11 @@ class FrameworkApplicabilityDecision:
     approved_by: str | None = None
     approved_at: datetime | None = None
     expires_at: datetime | None = None
+    enabled: bool | None = None
 
     def __post_init__(self) -> None:
+        if self.enabled is not None and type(self.enabled) is not bool:
+            raise ValueError("framework control enabled override MUST be a boolean")
         for label, value in (
             ("framework applicability control_id", self.control_id),
             ("framework applicability requested_by", self.requested_by),
@@ -102,6 +107,8 @@ class FrameworkApplicabilityDecision:
             "owner_slot": self.owner_slot,
             "cadence_days": self.cadence_days,
         }
+        if self.enabled is not None:
+            value["enabled"] = self.enabled
         if self.justification is not None:
             value.update(
                 {
@@ -462,9 +469,10 @@ class FrameworkControlResult:
     evidence_digests: tuple[str, ...]
     limitations: tuple[str, ...]
     requirements: tuple[FrameworkRequirementResult, ...]
+    enablement: ControlEnablement | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "control_id": self.control_id,
             "title": self.title,
             "area": self.area,
@@ -481,6 +489,9 @@ class FrameworkControlResult:
             "limitations": list(self.limitations),
             "requirements": [item.to_dict() for item in self.requirements],
         }
+        if self.enablement is not None:
+            value["enablement"] = self.enablement.to_dict()
+        return value
 
 
 @dataclass(frozen=True, slots=True)

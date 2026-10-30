@@ -22,6 +22,7 @@ from fdai.rule_catalog.schema.wara_assessment import (
 )
 from fdai.rule_catalog.schema.wara_evaluator_binding import load_wara_evaluator_bindings
 from fdai.shared.providers.wara_assessment import WaraObservationError
+from fdai_service_contracts.control_enablement_profile import ControlEnablementProfile
 
 ROOT = Path(__file__).resolve().parents[5]
 ASSESSMENT = ROOT / "rule-catalog/collected/wara-aprl/assessment"
@@ -124,7 +125,33 @@ def test_every_automatically_unresolved_control_has_a_real_manual_fallback(catal
         assert record.manual_evidence is not None
         assert record.manual_evidence.role == "fallback"
         request = _request(catalog, bindings, record)
+        if record.impact == "Low":
+            disabled = _control(runtime, record, request, [_manual(record, request)])
+            assert disabled.evaluation is WaraEvaluationStatus.NOT_EVALUATED
+            assert disabled.satisfaction is WaraSatisfactionStatus.UNKNOWN
+            assert "control_disabled" in disabled.limitations
+            material = {
+                "schema_version": "1.0.0",
+                "framework_id": "azure-wara",
+                "source_revision": request.framework_revision,
+                "scope_digest": request.scope_digest,
+                "reviewed_by": "manual-fallback-reviewer",
+                "reviewed_at": request.evaluated_at.isoformat().replace("+00:00", "Z"),
+                "overrides": [{"control_id": record.aprl_guid, "enabled": True}],
+            }
+            request = replace(
+                request,
+                enablement_profile=ControlEnablementProfile.model_validate(
+                    {
+                        **material,
+                        "profile_digest": ControlEnablementProfile.digest_material(material),
+                    }
+                ),
+            )
         control = _control(runtime, record, request, [_manual(record, request)])
+        if record.impact == "Low":
+            assert control.enablement is not None
+            assert control.enablement.source == "profile_override"
         assert control.evaluation is WaraEvaluationStatus.EVALUATED, record.aprl_guid
         assert control.satisfaction is WaraSatisfactionStatus.SATISFIED, record.aprl_guid
         assert "manual_evidence_fallback" in control.limitations

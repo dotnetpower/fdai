@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: e199d1ab65de07e09a5e6d748c09c05dfbe52707
-translation_revised: 2026-10-30
+translation_source_sha: bd6d413116e4ff2f8e32a2233ef6e34bc8e9bfed
+translation_revised: 2026-10-31
 ---
 # 온톨로지 구조 모델
 
@@ -66,6 +66,11 @@ WARA 리소스 교차표는 검토된 정확한 공급자 ID, 명시적인 정�
 있으며 워크로드 자식으로 전체 구독 범위를 입증하지 않습니다. 도표 설명의 노드와 연결선은
 별도 표시 데이터이며 온톨로지 인스턴스나 관찰된 관계가 아닙니다. 그림은 리소스 존재,
 그래프 전체성, 권한을 제공하지 않습니다.
+[프레임워크 평가 읽기 모델](../rules-and-detection/framework-assessment-ko.md#컨트롤-활성화와-구현-안내)도
+심각도별 활성화, 원본과 결속된 설명, 도표 식별자를 온톨로지 인스턴스 식별자와 관계 의미에서
+분리합니다. 실행되지 않는 조치 참조는 정확한 활성 Rule 변환 결과에서 가져오며, 새로운
+`FrameworkControl -> ActionType` 관계가 아닙니다. 이 참조는 전달, 승인, 승격 또는 실행
+입력이 되지 않습니다.
 추가한 모든 정식 종류에는 명시적인 Console 계층, 역할 유형별 색, 안정적인 약어도 있습니다.
 이 연결은 관계나 공급자 범위를 바꾸지 않고 종류의 의미를 유지합니다.
 
