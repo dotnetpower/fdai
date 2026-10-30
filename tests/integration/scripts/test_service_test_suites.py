@@ -34,6 +34,21 @@ def _runner_namespace() -> dict[str, Any]:
     return runpy.run_path(str(RUNNER_PATH))
 
 
+@pytest.mark.parametrize(
+    "test_path",
+    [
+        "services/operator-service/tests/test_control_enablement_projection.py",
+        "services/operator-service/tests/test_control_remediation_projection.py",
+    ],
+)
+def test_framework_control_projection_tests_are_operator_unit_tests(test_path: str) -> None:
+    suites = _load(SUITE_PATH)
+    operator = next(
+        service for service in suites["services"] if service["id"] == "operator-service"
+    )
+    assert test_path in operator["test_groups"]["unit"]
+
+
 def _write_manifest(tmp_path: Path, services: list[object]) -> Path:
     path = tmp_path / "service-suites.json"
     path.write_text(
