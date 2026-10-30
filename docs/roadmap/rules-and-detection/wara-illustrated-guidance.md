@@ -25,7 +25,7 @@ No runtime model, provider request, external image download or customer file is 
 Reviewed official reference images may be packaged at authoring time; they are never fetched
 from an arbitrary URL during a detail read or export.
 
-## Content and illustration remediation
+## Content and illustration fixes
 
 The full inventory needs complete Korean reader text, not English sentences wrapped in a
 Korean heading. Source citation titles, official product names and stable identifiers may retain

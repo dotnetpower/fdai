@@ -1,7 +1,7 @@
 ---
 title: 도표를 포함한 WARA 설명
 translation_of: wara-illustrated-guidance.md
-translation_source_sha: 7a70f688d611d7d6af9c3dbcaad7cfce7a408638
+translation_source_sha: 854fb38a62d29126e960431d468ff5cef636d7b4
 translation_revised: 2026-10-30
 ---
 # 도표를 포함한 WARA 설명
