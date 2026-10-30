@@ -127,7 +127,7 @@ if [[ -n "$hits" ]]; then
     fi
     path="${hit%%:*}"
     case "$path" in
-      rule-catalog/guidance/azure-wara/authoring-manifest.json|rule-catalog/guidance/azure-wara/coverage.json|rule-catalog/guidance/azure-wara/reader-text-ko.json|rule-catalog/guidance/azure-wara/reference-images.json|scripts/catalog/wara_guidance_pilots.py|scripts/catalog/wara_guidance_image_manifest.py|packages/service-contracts/src/fdai_service_contracts/data/wara-guidance-[0-9][0-9].json|packages/service-contracts/tests/test_wara_guidance_corpus.py|packages/service-contracts/tests/test_wara_guidance_images.py|console/src/routes/wara-guidance.fixture.ts)
+      rule-catalog/guidance/azure-wara/authoring-manifest.json|rule-catalog/guidance/azure-wara/coverage.json|rule-catalog/guidance/azure-wara/reader-text-ko.json|rule-catalog/guidance/azure-wara/reference-images.json|rule-catalog/guidance/azure-wara/reference-image-reviews.json|scripts/catalog/wara_guidance_image_selection.py|scripts/catalog/wara_guidance_pilots.py|scripts/catalog/wara_guidance_image_manifest.py|packages/service-contracts/src/fdai_service_contracts/data/wara-guidance-[0-9][0-9].json|packages/service-contracts/tests/test_wara_guidance_corpus.py|packages/service-contracts/tests/test_wara_guidance_images.py|console/src/routes/wara-guidance.fixture.ts)
         if [[ "$public_wara_loaded" == false ]]; then
           if ! public_wara_text="$(python3 - <<'PY'
 import hashlib

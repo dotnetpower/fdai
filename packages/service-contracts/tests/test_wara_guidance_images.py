@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 from urllib.error import HTTPError
 
 import pytest
 from scripts.catalog import wara_guidance_image_discovery as discovery
+from scripts.catalog import wara_guidance_image_selection as selection
 from scripts.catalog import wara_guidance_images as images
 from scripts.catalog.wara_guidance_image_manifest import (
     compact_manifest,
@@ -32,7 +34,7 @@ def test_image_manifest_covers_all_recommendations_and_exact_learn_groups() -> N
     assert manifest["learn_citation_count"] == 459
     assert sum(manifest["summary"]["recommendation_review_status_counts"].values()) == 456
     assert sum(manifest["summary"]["document_inspection_status_counts"].values()) == 408
-    assert manifest["summary"]["selected_reference_image_count"] == 1
+    assert manifest["summary"]["selected_reference_image_count"] == 16
     assert all(
         group["candidate_suitability"] != "no_embedded_candidate_found_in_cited_document"
         or "does not establish" in group["inspection_reason"]
@@ -70,14 +72,22 @@ def test_image_evidence_inputs_and_summary_are_explicit() -> None:
     root = Path(__file__).resolve().parents[3]
     inputs = image_authoring_inputs(root)
     assert inputs[0] == root / "rule-catalog/guidance/azure-wara/reference-images.json"
-    assert len(inputs) == 3
-    assert inputs[1].read_bytes() == inputs[2].read_bytes()
+    selected = [
+        item
+        for item in load_image_review_manifest()["recommendations"]
+        if item["decision"] == "selected"
+    ]
+    assert len(inputs) == 1 + 2 * len(selected) == 33
+    shipped = inputs[1 : 1 + len(selected)]
+    console = inputs[1 + len(selected) :]
+    assert [path.name for path in shipped] == [path.name for path in console]
+    assert all(left.read_bytes() == right.read_bytes() for left, right in zip(shipped, console))
     summary = image_review_summary()
     assert summary["recommendation_count"] == 456
     assert summary["document_group_count"] == 408
     assert summary["document_inspection_status_counts"] == {"inspected": 407, "fetch_failed": 1}
     assert summary["candidate_image_count"] == 1179
-    assert summary["selected_reference_image_count"] == 1
+    assert summary["selected_reference_image_count"] == 16
     assert summary["rights_blocked_candidate_count"] == 0
 
 
@@ -167,7 +177,7 @@ def test_inventory_refresh_preserves_reviewed_asset_and_license_evidence(
         images.refresh_inventory()
         after = images.load_image_review_manifest()
         assert after["recommendation_records"][selected["recommendation_id"]] == selected
-        assert after["summary"]["selected_reference_image_count"] == 1
+        assert after["summary"]["selected_reference_image_count"] == 16
     finally:
         images.load_image_review_manifest.cache_clear()
 
@@ -232,3 +242,154 @@ def test_split_discovery_stops_without_retry_on_provider_limit(monkeypatch, stat
 def test_split_discovery_rejects_unbounded_batches(maximum_requests) -> None:
     with pytest.raises(ValueError, match="between 1 and 20"):
         discovery.inspect_next_documents(maximum_requests)
+
+
+def test_reviewed_official_images_match_the_recorded_manifest_and_both_shipped_copies() -> None:
+    assert selection.reviews_match_manifest() == []
+    notice, reviews = selection.load_reviews()
+    manifest = load_image_review_manifest()
+    assert len(reviews) == 15
+    assert notice["en"] and notice["ko"]
+    for review in reviews:
+        record = manifest["recommendation_records"][review["recommendation_id"]]
+        image = record["reference_image"]
+        assert record["review_status"] == "asset_reviewed"
+        assert image["license"] == "CC-BY-4.0"
+        assert image["source_document_url"].startswith("https://learn.microsoft.com/en-us/")
+        scope = record["rights_review"]
+        assert scope["license_evidence_url"].endswith("/ThirdPartyNotices.md")
+        assert scope["source_repository_url"].startswith("https://github.com/MicrosoftDocs/")
+        assert image["digest"].removeprefix("sha256:") in scope["reviewed_scope"]
+        assert "does not imply Microsoft endorsement or trademark rights" in scope["reviewed_scope"]
+        for text in (image["alt"], image["caption"]):
+            assert text["en"].strip() and text["ko"].strip()
+        for root in selection._ASSET_DIRECTORIES:
+            path = selection._asset_path(root, image["asset_id"])
+            assert hashlib.sha256(path.read_bytes()).hexdigest() == image["asset_id"][7:]
+
+
+def test_review_for_an_uncited_image_or_unknown_recommendation_is_rejected(
+    tmp_path, monkeypatch
+) -> None:
+    notice, reviews = selection.load_reviews()
+    for change in ({"image_url": reviews[0]["image_url"] + "x"}, {"recommendation_id": "unknown"}):
+        path = tmp_path / "reviews.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": "1.0.0",
+                    "english_in_image_notice": notice,
+                    "reviews": [{**reviews[0], **change}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        monkeypatch.setattr(selection, "_REVIEWS_PATH", path)
+        with pytest.raises(ValueError, match="candidate of its|unknown recommendation"):
+            selection.apply_reviews(fetch=False)
+
+
+def test_duplicate_reviews_are_rejected(tmp_path, monkeypatch) -> None:
+    notice, reviews = selection.load_reviews()
+    path = tmp_path / "reviews.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "english_in_image_notice": notice,
+                "reviews": [reviews[0], reviews[0]],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(selection, "_REVIEWS_PATH", path)
+    with pytest.raises(ValueError, match="duplicate"):
+        selection.load_reviews()
+
+
+def _article(feedback: str, revision: str = "a" * 40) -> bytes:
+    return (
+        "<html><head>"
+        f'<meta name="github_feedback_content_git_url" content="{feedback}" />'
+        f'<meta name="git_commit_id" content="{revision}" /></head>'
+        "<body><h1>Example article</h1></body></html>"
+    ).encode()
+
+
+def _fake_network(monkeypatch, *, article: bytes, learn_image: bytes, repository_image: bytes):
+    def get(url: str, maximum: int) -> tuple[str, bytes]:
+        if url.endswith("/page"):
+            return url, article
+        if url.startswith("https://learn.microsoft.com/") and url.endswith(".png"):
+            return url, learn_image
+        if url.endswith("LICENSE"):
+            return url, b"Attribution 4.0 International"
+        if url.endswith("ThirdPartyNotices.md"):
+            return url, b"under the Creative Commons Attribution 4.0 International Public License"
+        return url, repository_image
+
+    monkeypatch.setattr(selection, "_get", get)
+
+
+_REVIEW = {
+    "source_document_url": "https://learn.microsoft.com/en-us/azure/example/page",
+    "image_url": "https://learn.microsoft.com/en-us/azure/example/media/page/figure.png",
+}
+_FEEDBACK = "https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/example/page.md"
+
+
+def test_evidence_requires_a_byte_identical_public_repository_copy(monkeypatch) -> None:
+    _fake_network(
+        monkeypatch, article=_article(_FEEDBACK), learn_image=b"one", repository_image=b"one"
+    )
+    evidence = selection.collect_evidence(_REVIEW, set())
+    assert (evidence.repository, evidence.raw_path) == (
+        "azure-docs",
+        "articles/example/media/page/figure.png",
+    )
+    _fake_network(
+        monkeypatch, article=_article(_FEEDBACK), learn_image=b"one", repository_image=b"two"
+    )
+    with pytest.raises(ValueError, match="byte-identical"):
+        selection.collect_evidence(_REVIEW, set())
+
+
+@pytest.mark.parametrize(
+    "feedback",
+    [
+        "https://github.com/Example/azure-docs/blob/main/articles/example/page.md",
+        "https://github.com/MicrosoftDocs/azure-docs/blob/live/articles/example/page.md",
+        "https://example.com/MicrosoftDocs/azure-docs/blob/main/articles/example/page.md",
+    ],
+)
+def test_evidence_requires_a_public_microsoft_docs_source(monkeypatch, feedback) -> None:
+    _fake_network(monkeypatch, article=_article(feedback), learn_image=b"x", repository_image=b"x")
+    with pytest.raises(ValueError, match="source and revision"):
+        selection.collect_evidence(_REVIEW, set())
+
+
+def test_evidence_requires_a_published_revision_and_cc_by_license(monkeypatch) -> None:
+    _fake_network(
+        monkeypatch,
+        article=_article(_FEEDBACK, "not-a-revision"),
+        learn_image=b"x",
+        repository_image=b"x",
+    )
+    with pytest.raises(ValueError, match="source and revision"):
+        selection.collect_evidence(_REVIEW, set())
+
+    def unlicensed(url: str, maximum: int) -> tuple[str, bytes]:
+        if url.endswith("/page"):
+            return url, _article(_FEEDBACK)
+        return url, b"All rights reserved"
+
+    monkeypatch.setattr(selection, "_get", unlicensed)
+    with pytest.raises(ValueError, match="not Creative Commons Attribution 4.0"):
+        selection.collect_evidence(_REVIEW, set())
+
+
+def test_evidence_requests_are_limited_to_public_learn_and_repository_hosts() -> None:
+    with pytest.raises(ValueError, match="limited to public"):
+        selection._get("https://example.com/image.png", 10)
+    with pytest.raises(ValueError, match="limited to public"):
+        selection._get("http://learn.microsoft.com/en-us/azure/x", 10)
