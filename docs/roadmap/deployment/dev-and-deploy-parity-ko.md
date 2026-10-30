@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: aa600bb4fe841f65749b0b2a1df522754340303c
+translation_source_sha: f9e8c0ab8ea391768293f5c22da3d9c0f9bc9199
 translation_revised: 2026-10-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -111,6 +111,14 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 문서 인제스트 API | `http://127.0.0.1:8011` | `Console Web: Document Ingestion API` |
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
+
+`design mocks: serve (5373)` 작업은 관리형 로컬 서비스 실행기를 통해
+`start-design-mocks.sh`를 호출합니다. 시작 입력이 같고 같은 체크아웃의 프로세스 소유권을
+확인한 경우 기존 서버를 재사용하며, 최초 시작 출력과 `event=reused`를 모두 준비 완료로
+인식합니다. 관리하지 않는 프로세스가 포트를 사용하거나 시작 입력이 달라지면 기존
+프로세스를 중지하지 않고 종료 코드 `75`를 반환합니다. 관리 프로세스를 중지하면 서버를
+먼저 종료한 뒤 잠금을 해제합니다. 디자인 목은 명시적으로 실행하는 루프백 전용 미리
+보기이며 Console 시작이나 배포 서비스 권한과 분리됩니다.
 
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개, Console
 SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점보다 먼저

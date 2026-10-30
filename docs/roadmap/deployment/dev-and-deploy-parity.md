@@ -105,6 +105,13 @@ command, so the browser, MSAL cache, and CORS contract retain one canonical orig
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
+The `design mocks: serve (5373)` task calls `start-design-mocks.sh` through the managed local-service
+runner. Matching launch inputs and verified same-checkout ownership allow an existing server to
+be reused; first-start output and `event=reused` both complete task readiness. An unmanaged port
+owner or changed launch inputs return exit code `75` without stopping the existing process.
+Stopping the managed owner stops its server before releasing the lock. Design mocks remain an
+explicit loopback-only preview, separate from Console startup and deployed service authority.
+
 The `Console Web: Full Stack` compound starts the five independently packaged backend services, the
 Console SPA, and Manual Studio. The generic Console build loads `/fdai-config.js` before its module
 entry and ships an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
