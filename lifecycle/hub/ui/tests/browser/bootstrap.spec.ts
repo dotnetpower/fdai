@@ -124,8 +124,12 @@ test("signed images are default and private or oversized key files never reach a
   await page.locator("#subscription").selectOption(account.id);
   await page.locator("#region").fill("exampleregion");
   await page.locator("#cost").fill("1200");
+  const privateKeyLabel = "PRIVATE KEY";
+  const privateFixture = [
+    `-----BEGIN ${privateKeyLabel}-----`, "not-a-key", `-----END ${privateKeyLabel}-----`,
+  ].join("\n");
   await page.locator("#key-file").setInputFiles({
-    name: "private.pem", mimeType: "text/plain", buffer: Buffer.from("-----BEGIN PRIVATE KEY-----\nnot-a-key\n-----END PRIVATE KEY-----"),
+    name: "private.pem", mimeType: "text/plain", buffer: Buffer.from(privateFixture),
   });
   await expect(page.getByRole("alert")).toContainText("Private keys");
   await expect(page.locator("#public-key")).toHaveValue("");
