@@ -109,28 +109,34 @@ class Controller:
                 if worker["status"] == "terminal":
                     continue
                 runner = by_name.get(worker["name"])
-                if runner is not None:
-                    if not {
-                        label.casefold()
-                        for label in self.metadata["pools"][worker["pool"]]["labels"]
-                    }.issubset({label["name"].casefold() for label in runner["labels"]}):
-                        raise ValueError("registered runner labels differ from its reserved pool")
-                    worker["registration_id"] = runner["id"]
-                    if runner["status"] != "online":
-                        if worker["status"] == "idle":
-                            worker["status"] = "starting"
-                            worker["since"] = now.isoformat()
-                        continue
-                    busy = runner["busy"] or worker["job_started"]
-                    status = "busy" if busy else "idle"
+                if runner is None:
                     if (
-                        worker["status"] != status
-                        and (worker["status"] != "draining" or busy)
-                        and not worker.get("cleanup_requested")
+                        worker["registration_id"] is not None
+                        and worker["registration_id"] not in active_runner_ids
+                        and worker["status"] in {"busy", "idle"}
                     ):
-                        worker["status"], worker["since"] = status, now.isoformat()
-                    if runner["busy"]:
-                        worker["job_started"] = True
+                        worker["status"], worker["since"] = "draining", now.isoformat()
+                    continue
+                if not {
+                    label.casefold() for label in self.metadata["pools"][worker["pool"]]["labels"]
+                }.issubset({label["name"].casefold() for label in runner["labels"]}):
+                    raise ValueError("registered runner labels differ from its reserved pool")
+                worker["registration_id"] = runner["id"]
+                if runner["status"] != "online":
+                    if worker["status"] == "idle":
+                        worker["status"] = "starting"
+                        worker["since"] = now.isoformat()
+                    continue
+                busy = runner["busy"] or worker["job_started"]
+                status = "busy" if busy else "idle"
+                if (
+                    worker["status"] != status
+                    and (worker["status"] != "draining" or busy)
+                    and not worker.get("cleanup_requested")
+                ):
+                    worker["status"], worker["since"] = status, now.isoformat()
+                if runner["busy"]:
+                    worker["job_started"] = True
             data["observed_at"] = now.isoformat()
 
         self.state.transaction(observe)
@@ -158,21 +164,29 @@ class Controller:
                 for label in item["labels"]
             }
             exclusive = required - other_labels
-            queued = sum(
-                row["status"] == "queued"
-                and {label.casefold() for label in row["labels"]}.issubset(required)
-                and bool(exclusive.intersection(label.casefold() for label in row["labels"]))
+            pool_jobs = [
+                row
                 for row in jobs
+                if {label.casefold() for label in row["labels"]}.issubset(required)
+                and bool(exclusive.intersection(label.casefold() for label in row["labels"]))
+            ]
+            unassigned_queued = sum(
+                row["status"] == "queued"
+                and not row.get("runner_id")
+                and not row.get("runner_name")
+                for row in pool_jobs
             )
-            if name == "general" and any(row.get("name") == "plan pool canary" for row in jobs):
-                queued = max(queued, policy.maximum)
             current = self.state.read()
             owned = [
                 worker
                 for worker in current["workers"].values()
                 if worker["pool"] == name and worker["status"] != "terminal"
             ]
-            idle_demand = queued == 0 and not any(worker["status"] == "busy" for worker in owned)
+            busy_count = sum(worker["status"] == "busy" for worker in owned)
+            queued = min(unassigned_queued, max(0, len(pool_jobs) - busy_count))
+            if name == "general" and any(row.get("name") == "plan pool canary" for row in jobs):
+                queued = max(queued, policy.maximum)
+            idle_demand = queued == 0 and busy_count == 0
 
             def demand(
                 data: dict[str, Any], *, pool: str = name, quiet: bool = idle_demand
@@ -212,17 +226,21 @@ class Controller:
                     policy = replace(
                         policy, warm_idle=min(policy.maximum, policy.warm_idle + len(expired_idle))
                     )
+            runner_snapshots = tuple(
+                RunnerSnapshot(w["id"], w["status"], datetime.fromisoformat(w["since"]))
+                for w in owned
+            )
+            snapshot_now = max([now, *(r.since for r in runner_snapshots)])
+            if low_since and low_since > snapshot_now:
+                low_since = snapshot_now
             snapshot = PoolSnapshot(
-                now,
+                snapshot_now,
                 queued,
-                tuple(
-                    RunnerSnapshot(w["id"], w["status"], datetime.fromisoformat(w["since"]))
-                    for w in owned
-                ),
+                runner_snapshots,
                 low_since,
                 True,
             )
-            plan = plan_capacity(policy, snapshot, now)
+            plan = plan_capacity(policy, snapshot, snapshot_now)
             plans[name] = asdict(plan)
             if not self.settings.apply or plan.blocked_reason:
                 continue
