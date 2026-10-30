@@ -26,7 +26,7 @@ characters. This is not a multi-key transaction or an automatic orphan-record de
 Active references use 64 fixed hash buckets with durable insertion ranks. Oversized leaves use radix-16 subpages (`bucket_node_format=radix16-v1`); leaf, branch and large-value fragment writes stay below 5,000 JSON bytes while unpaged v2 buckets remain readable. Stop older writers before paged-node cutover; code rollback alone is insufficient. Updating or evicting a subject changes its bucket path rather than shifting every subsequent page.
 The root contains a bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,
 bucket and root commitments before restoring the original active order. Flat manifests remain readable.
-Comparing the in-memory active reference set is still O(N); a compact root does not make the complete persistence path constant-cost.
+Acknowledged entries reuse unchanged metadata; mutable changes are isolated until root commit rather than deeply copying the entire cache on every checkpoint. Comparing the in-memory active reference set is still O(N); a compact root does not make the complete persistence path constant-cost.
 
 Saga's PostgreSQL recovery checkpoint uses a compact versioned head rather than rewriting the last 512 audit envelopes on every append.
 The existing atomic checkpoint/audit CAS remains the commit boundary. A bounded optional `StateStoreAuditChainWindowReader` restores the verified

@@ -302,7 +302,7 @@ def _subject_storage_key(family: str, prefix: str, identity: str) -> str:
 
 
 async def persist_bucket_checkpoint(agent: Any) -> None:
-    """Update hash-stable buckets only; insertion ranks never shift on eviction."""
+    """Publish copy-on-write entry snapshots only after the root is acknowledged."""
     if not hasattr(agent, "_persisted_sensing_records"):
         agent._persisted_sensing_records = {}
     previous = getattr(agent, "_sensing_bucket_entries", {})
@@ -327,7 +327,7 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
             episode = tuple(json.loads(identity))
             entry["incident_id"] = agent._incident_episode_ids.get(episode)
             entry["incident_severity"] = agent._incident_episode_severities.get(episode)
-        entries[key] = entry
+        entries[key] = old if old == entry else entry
     metadata = {
         "security_recent": list(agent._security_recent),
         "alert_windows": {key: list(value) for key, value in agent._alert_windows.items()},
@@ -352,12 +352,19 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
             key = "metadata:" + json.dumps(
                 (field, identity), ensure_ascii=True, separators=(",", ":")
             )
-            entries[key] = {
+            metadata_entry = {
                 "family": "metadata",
                 "field": field,
                 "identity": identity,
                 "value": value,
             }
+            old_metadata = previous.get(key)
+            if old_metadata == metadata_entry:
+                entries[key] = old_metadata
+            else:
+                # Freeze owned mutable values before the first persistence await.
+                metadata_entry["value"] = deepcopy(value)
+                entries[key] = metadata_entry
     changed = {
         key for key in previous.keys() | entries.keys() if previous.get(key) != entries.get(key)
     }
@@ -401,7 +408,7 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
         "next_ordinal": next_ordinal,
     }
     await write_changed_state(agent, _STATE_KEY, root)
-    agent._sensing_bucket_entries = deepcopy(entries)
+    agent._sensing_bucket_entries = entries
     agent._sensing_next_ordinal = next_ordinal
     agent._sensing_bucket_layout = True
     agent._sensing_trie_layout = True

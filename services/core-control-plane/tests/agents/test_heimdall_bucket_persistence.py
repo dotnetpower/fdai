@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
 import pytest
 from fdai.agents import Heimdall
+from fdai.agents._framework import heimdall_sensing_persistence as persistence
 from fdai.agents._framework.heimdall_sensing_persistence import (
     BUCKET_COUNT,
     BUCKET_PREFIX,
@@ -215,6 +217,135 @@ class BoundedWriteStore(CountingStore):
     async def read_state(self, key: str) -> Any:
         self.read_keys.append(key)
         return await super().read_state(key)
+
+
+def _copied_containers(value: Any) -> int:
+    pending = [value]
+    visited: set[int] = set()
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, Mapping | list | tuple) or id(item) in visited:
+            continue
+        visited.add(id(item))
+        pending.extend(item.values() if isinstance(item, Mapping) else item)
+    return len(visited)
+
+
+@pytest.mark.parametrize("count", [2_048, 4_096])
+async def test_checkpoint_copy_work_is_path_local_not_active_state_sized(
+    count: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, count)
+    await agent._persist_state()
+    previous = agent._sensing_bucket_entries
+    untouched = _subject("episodes", _encoded(next(iter(agent._recent_events))))
+    target = _subject("episodes", _encoded(list(agent._recent_events)[count // 2]))
+    previous_target = deepcopy(previous[target])
+    real_copy = persistence.deepcopy
+    containers = 0
+    whole_entries = 0
+
+    def measured_copy(value: Any) -> Any:
+        nonlocal containers, whole_entries
+        containers += _copied_containers(value)
+        if isinstance(value, dict) and len(value) == count and target in value:
+            whole_entries += len(value)
+        return real_copy(value)
+
+    monkeypatch.setattr(persistence, "deepcopy", measured_copy)
+    event = _event(count + 10, subject=count // 2, seconds=1)
+    await agent.on_typed_message("object.event", event)
+    changed_containers = containers
+    containers = 0
+    for _ in range(16):
+        await agent.on_typed_message("object.event", event)
+    print(
+        json.dumps(
+            {
+                "subjects": count,
+                "changed_copy_containers": changed_containers,
+                "duplicate_copy_containers": containers,
+                "whole_cache_entries_copied": whole_entries,
+            },
+            sort_keys=True,
+        )
+    )
+    assert whole_entries == 0
+    assert containers == 0
+    assert changed_containers < 100
+    assert agent._sensing_bucket_entries[untouched] is previous[untouched]
+    assert agent._sensing_bucket_entries[target] is not previous[target]
+    assert previous[target] == previous_target
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == count
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+
+
+@pytest.mark.parametrize("restart", [False, True])
+async def test_copy_on_write_metadata_does_not_mutate_acknowledged_entries(
+    restart: bool,
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 8)
+    agent._security_recent.append({"nested": {"items": ["before"]}})
+    await agent._persist_state()
+    if restart:
+        agent = _agent(store)
+        await agent.rehydrate()
+    previous = agent._sensing_bucket_entries
+    before = deepcopy(previous)
+    subject = next(key for key, entry in previous.items() if entry["family"] == "episode")
+    agent._security_recent[0]["nested"]["items"].append("pending")
+    store.fail_key = STATE
+    with pytest.raises(OSError, match="injected"):
+        await agent._persist_state()
+    assert agent._sensing_bucket_entries is previous
+    assert previous == before
+    store.fail_key = None
+    await agent._persist_state()
+    acknowledged = agent._sensing_bucket_entries
+    assert acknowledged is not previous
+    assert acknowledged[subject] is previous[subject]
+    frozen_entries = deepcopy(acknowledged)
+    frozen_nodes = deepcopy(agent._persisted_sensing_records)
+    agent._security_recent[0]["nested"]["items"].append("later")
+    assert acknowledged == frozen_entries
+    assert agent._persisted_sensing_records == frozen_nodes
+    recovered = _agent(store)
+    await recovered.rehydrate()
+    assert recovered._security_recent[0]["nested"]["items"] == ["before", "pending"]
+
+
+async def test_metadata_snapshot_is_frozen_before_persistence_await(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    agent._security_recent.append({"nested": {"items": ["before"]}})
+    write = store.write_state
+    mutated = False
+
+    async def write_and_mutate(key: str, value: Any) -> None:
+        nonlocal mutated
+        await write(key, value)
+        if key == STATE and not mutated:
+            agent._security_recent[0]["nested"]["items"].append("during-await")
+            mutated = True
+
+    monkeypatch.setattr(store, "write_state", write_and_mutate)
+    await agent._persist_state()
+    recovered = _agent(store)
+    await recovered.rehydrate()
+    assert recovered._security_recent[0]["nested"]["items"] == ["before"]
+    await agent._persist_state()
+    latest = _agent(store)
+    await latest.rehydrate()
+    assert _snapshot(latest) == _snapshot(agent)
+    assert latest._security_recent[0]["nested"]["items"] == ["before", "during-await"]
 
 
 async def test_initial_10001_subjects_dirty_one_keeps_every_member_and_bounded_writes() -> None:
