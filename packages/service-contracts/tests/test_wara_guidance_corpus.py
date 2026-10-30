@@ -71,6 +71,38 @@ def _prose(value: object, locale: str = "en") -> str:
     return ""
 
 
+def test_shared_diagram_nodes_describe_authored_connections_instead_of_repeating_scope() -> None:
+    diagram = GENERATOR.build_diagram(
+        "Zone redundancy",
+        "Inspect placement and surviving capacity.",
+        "zone-redundancy",
+        {
+            "en": "Illustrative, not an observed deployment.",
+            "ko": "실제 배포를 관측한 결과가 아닌 구성 예시입니다.",
+        },
+        focus_ko="영역 중복성",
+        observation_ko="배치와 잔여 용량을 확인합니다.",
+    )
+    nodes = {node["id"]: node for node in diagram["nodes"]}
+    assert nodes["setting"]["detail"] == {
+        "en": "Connects to: Failure domain A (supported placement), Failure domain B (supported placement).",
+        "ko": "연결 대상: 장애 범위 A (지원 배치), 장애 범위 B (지원 배치).",
+    }
+    assert nodes["first"]["detail"]["ko"] == "연결 출발점: 영역 중복성 (지원 배치)."
+    assert nodes["evidence"]["detail"]["ko"] == "배치와 잔여 용량을 확인합니다."
+    assert diagram["description"]["ko"] == "실제 배포를 관측한 결과가 아닌 구성 예시입니다."
+
+
+def test_entire_corpus_avoids_repeated_node_scope_boilerplate(corpus: dict[str, Any]) -> None:
+    for entry in corpus["entries"]:
+        for node in entry["diagram"]["nodes"]:
+            assert "not a discovered environment resource" not in node["detail"]["en"]
+            assert (
+                "개념 요소이며 실제 환경에서 발견한 리소스가 아닙니다" not in node["detail"]["ko"]
+            )
+            assert "Source-specific focus:" not in node["detail"]["en"]
+
+
 def test_korean_binding_source_has_exact_coverage(tmp_path: Path) -> None:
     source = tmp_path / "controls-ko.tsv"
     source.write_text(
