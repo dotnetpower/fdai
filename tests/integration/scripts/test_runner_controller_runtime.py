@@ -758,3 +758,36 @@ def test_blob_state_coalesces_concurrent_transactions_and_isolates_failures() ->
     assert results == {"w1": "w1", "w2": "w2", "w3": "w3"}
     assert errors == {"w-bad": "isolated failure"}
     assert set(state.read()["workers"]) == {"w1", "w2", "w3"}
+
+
+def test_assigned_jobs_and_concurrent_callback_timestamps_do_not_overprovision() -> None:
+    engine, state, github, workers = _controller()
+    labels = [{"name": value} for value in engine.metadata["pools"]["general"]["labels"]]
+    for index in range(8):
+        worker = _worker(f"busy-{index}", state="busy")
+        worker.update(
+            registration_id=index + 1,
+            job_started=True,
+            since=(NOW + timedelta(seconds=1)).isoformat(),
+        )
+        state.data["workers"][worker["id"]] = worker
+        github.registrations.append(
+            {
+                "id": index + 1,
+                "name": worker["name"],
+                "labels": labels,
+                "status": "online",
+                "busy": True,
+            }
+        )
+    finished = _worker("finished-unregistered", state="busy")
+    finished.update(registration_id=99, job_started=True)
+    state.data["workers"][finished["id"]] = finished
+    github.jobs = [
+        {"status": "queued", "labels": ["fdai-ci-general"], "runner_id": None} for _ in range(8)
+    ]
+    receipt = engine.reconcile(NOW)
+    assert receipt["plans"]["general"]["blocked_reason"] is None
+    assert receipt["plans"]["general"]["desired_total"] == 16
+    assert receipt["plans"]["general"]["start_count"] == 8
+    assert state.read()["workers"]["finished-unregistered"]["status"] == "draining"
