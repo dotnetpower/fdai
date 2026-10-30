@@ -535,7 +535,12 @@ async def test_inventory_snapshot_stage_chunks_large_batches(
         binary: bool = False,
     ) -> psycopg.AsyncCursor[object]:
         if isinstance(query, str) and query.startswith(
-            ("INSERT INTO inventory_snapshot_resource ", "INSERT INTO inventory_snapshot_link ")
+            (
+                "INSERT INTO inventory_snapshot_resource ",
+                "INSERT INTO inventory_snapshot_link ",
+                "INSERT INTO inventory_snapshot_resource_row ",
+                "INSERT INTO inventory_snapshot_link_row ",
+            )
         ):
             assert isinstance(params, tuple)
             assert isinstance(params[0], Jsonb)

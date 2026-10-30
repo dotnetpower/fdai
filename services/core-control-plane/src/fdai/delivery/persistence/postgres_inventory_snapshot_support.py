@@ -12,6 +12,8 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from fdai.delivery.inventory_json_budget import inventory_json_exceeds_budget
+from fdai.delivery.persistence.postgres_inventory_shared_membership import canonical_json
+from fdai.delivery.persistence.postgres_inventory_shared_properties import share_property_rows
 from fdai.shared.providers.inventory import InventoryBatch, LinkRecord, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import InventoryCoverageManifest
 from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
@@ -95,25 +97,34 @@ async def stage_snapshot_batch(
         (_resource_stage_row(attempt_id, item) for item in batch.resources),
         max_rows=write_batch_size,
     ):
+        shared_rows = await share_property_rows(connection, rows)
         cursor = await connection.execute(
-            "INSERT INTO inventory_snapshot_resource "
-            "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen) "
+            "INSERT INTO inventory_snapshot_resource_row "
+            "(snapshot_id, resource_id, resource_type, props, provider_ref, last_seen, "
+            "props_digest, props_freshness) "
             "SELECT item.snapshot_id, item.resource_id, item.resource_type, "
-            "item.props, item.provider_ref, item.last_seen "
+            "NULL, item.provider_ref, item.last_seen, item.props_digest, item.props_freshness "
             "FROM jsonb_to_recordset(%s::jsonb) AS item("
-            "snapshot_id text, resource_id text, resource_type text, props jsonb, "
+            "snapshot_id text, resource_id text, resource_type text, "
+            "props_digest text, props_freshness jsonb, "
             "provider_ref text, last_seen timestamptz) "
             "ON CONFLICT (snapshot_id, resource_id) DO UPDATE SET "
-            "resource_type = CASE WHEN inventory_snapshot_resource.resource_type = "
+            "resource_type = CASE WHEN inventory_snapshot_resource_row.resource_type = "
             "EXCLUDED.resource_type THEN EXCLUDED.resource_type ELSE NULL END, "
-            "props = EXCLUDED.props, provider_ref = EXCLUDED.provider_ref, "
+            "props = NULL, props_digest = EXCLUDED.props_digest, "
+            "props_freshness = EXCLUDED.props_freshness, provider_ref = EXCLUDED.provider_ref, "
             "last_seen = EXCLUDED.last_seen "
-            "WHERE NOT %s OR (inventory_snapshot_resource.resource_type=EXCLUDED.resource_type "
-            "AND inventory_snapshot_resource.props=EXCLUDED.props "
-            "AND inventory_snapshot_resource.provider_ref "
+            "WHERE NOT %s OR (inventory_snapshot_resource_row.resource_type=EXCLUDED.resource_type "
+            "AND ((inventory_snapshot_resource_row.props_digest=EXCLUDED.props_digest "
+            "AND inventory_snapshot_resource_row.props_freshness=EXCLUDED.props_freshness) "
+            "OR inventory_snapshot_resource_row.props=(SELECT body::jsonb "
+            "FROM inventory_snapshot_properties WHERE digest=EXCLUDED.props_digest) "
+            "|| EXCLUDED.props_freshness) "
+            "AND inventory_snapshot_resource_row.provider_ref "
             "IS NOT DISTINCT FROM EXCLUDED.provider_ref "
-            "AND inventory_snapshot_resource.last_seen IS NOT DISTINCT FROM EXCLUDED.last_seen)",
-            (Jsonb(rows), immutable_resources),
+            "AND inventory_snapshot_resource_row.last_seen "
+            "IS NOT DISTINCT FROM EXCLUDED.last_seen)",
+            (Jsonb(shared_rows, dumps=canonical_json), immutable_resources),
         )
         if immutable_resources and cursor.rowcount != len(rows):
             raise ValueError("inventory resource changed across immutable collection chunks")
@@ -121,18 +132,21 @@ async def stage_snapshot_batch(
         (_link_stage_row(attempt_id, item) for item in batch.links),
         max_rows=write_batch_size,
     ):
+        shared_rows = await share_property_rows(connection, rows)
         await connection.execute(
-            "INSERT INTO inventory_snapshot_link "
-            "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props) "
+            "INSERT INTO inventory_snapshot_link_row "
+            "(snapshot_id, from_id, from_type, link_type, to_id, to_type, props, "
+            "props_digest, props_freshness) "
             "SELECT item.snapshot_id, item.from_id, item.from_type, item.link_type, "
-            "item.to_id, item.to_type, item.props "
+            "item.to_id, item.to_type, NULL, item.props_digest, item.props_freshness "
             "FROM jsonb_to_recordset(%s::jsonb) AS item("
             "snapshot_id text, from_id text, from_type text, link_type text, "
-            "to_id text, to_type text, props jsonb) "
+            "to_id text, to_type text, props_digest text, props_freshness jsonb) "
             "ON CONFLICT (snapshot_id, from_id, link_type, to_id) DO UPDATE SET "
             "from_type = EXCLUDED.from_type, to_type = EXCLUDED.to_type, "
-            "props = EXCLUDED.props",
-            (Jsonb(rows),),
+            "props = NULL, props_digest = EXCLUDED.props_digest, "
+            "props_freshness = EXCLUDED.props_freshness",
+            (Jsonb(shared_rows, dumps=canonical_json),),
         )
 
 
@@ -153,7 +167,7 @@ def _resource_stage_row(attempt_id: str, item: ResourceRecord) -> tuple[dict[str
         + len((item.provider_ref or "").encode("utf-8"))
         + len((item.last_seen or "").encode("utf-8"))
         + len(attempt_id.encode("utf-8"))
-        + 128
+        + 256
     )
     return row, row_bytes
 
@@ -179,7 +193,7 @@ def _link_stage_row(attempt_id: str, item: LinkRecord) -> tuple[dict[str, Any], 
         + len(item.to_id.encode("utf-8"))
         + len(item.to_type.encode("utf-8"))
         + len(attempt_id.encode("utf-8"))
-        + 128
+        + 256
     )
     return row, row_bytes
 

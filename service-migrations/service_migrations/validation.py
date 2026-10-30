@@ -8,8 +8,37 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 
 from service_migrations.adoption import AdoptionManifest, load_adoption_manifest
-from service_migrations.inventory import LegacyInventory, load_revision_metadata
+from service_migrations.inventory import LegacyInventory, RevisionMetadata, load_revision_metadata
 from service_migrations.ownership import SERVICE_IDS, OwnershipManifest
+
+
+def _validate_forward_renames(
+    revisions: list[RevisionMetadata], inventory: LegacyInventory
+) -> set[str]:
+    """Keep table identity distinct from compatibility views in the same SQL namespace."""
+    relations = {table: "table" for table in inventory.table_sources}
+    introduced: set[str] = set()
+    for metadata in revisions:
+        for operation, source, target in metadata.relation_operations:
+            if operation in ("create_table", "create_view"):
+                kind = "table" if operation == "create_table" else "view"
+                if source in relations and relations[source] != kind:
+                    raise ValueError(
+                        f"{metadata.revision}: relation kind collision before rename: {source}"
+                    )
+                relations[source] = kind
+            elif operation in ("drop_table", "drop_relation"):
+                relations.pop(source, None)
+            elif operation == "rename_table":
+                if relations.get(source) != "table":
+                    raise ValueError(
+                        f"{metadata.revision}: rename source is not an available table: {source}"
+                    )
+                if target is None or target in relations:
+                    raise ValueError(f"{metadata.revision}: rename target already exists: {target}")
+                relations[target] = relations.pop(source)
+                introduced.add(target)
+    return introduced
 
 
 def validate_service_branches(
@@ -45,6 +74,7 @@ def validate_service_branches(
             raise ValueError(f"{service_id}: baseline revision is absent")
 
         version_location = root / "branches" / service_id / "versions"
+        metadata_by_revision: dict[str, RevisionMetadata] = {}
         for path in sorted(version_location.glob("*.py")):
             metadata = load_revision_metadata(path)
             if metadata.owner != service_id:
@@ -52,6 +82,7 @@ def validate_service_branches(
             if metadata.revision in seen_revisions:
                 raise ValueError(f"duplicate revision across service branches: {metadata.revision}")
             seen_revisions.add(metadata.revision)
+            metadata_by_revision[metadata.revision] = metadata
             for table in metadata.owned_tables:
                 expected_owner = ownership.table_migrators.get(table)
                 if expected_owner is None:
@@ -71,6 +102,16 @@ def validate_service_branches(
                         f"forward table creation overlaps for {table}: "
                         f"{prior_creator} and {service_id}"
                     )
+        ordered_metadata = [
+            metadata_by_revision[revision.revision]
+            for revision in reversed(tuple(script.walk_revisions()))
+        ]
+        for target in _validate_forward_renames(ordered_metadata, inventory):
+            prior_creator = created_table_owners.setdefault(target, service_id)
+            if prior_creator != service_id:
+                raise ValueError(
+                    f"forward table rename overlaps for {target}: {prior_creator} and {service_id}"
+                )
         adoptions[service_id] = adoption
     for dependency in ownership.migration_dependencies:
         if dependency.consumer_revision not in branch_revisions[dependency.consumer_service]:

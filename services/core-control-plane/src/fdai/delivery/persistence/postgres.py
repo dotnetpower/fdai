@@ -417,6 +417,11 @@ class PostgresStateStore(
         field: str | None = None,
         value: str | None = None,
     ) -> int:
+        """Prune in bounded transactions under one deadline.
+
+        Completed batches remain committed if a later batch fails. Retrying is safe:
+        each batch re-evaluates the retained window and rejects concurrently changed rows.
+        """
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
         if retain_newest < 1:
@@ -425,25 +430,54 @@ class PostgresStateStore(
         filter_sql = "AND value #>> %s::text[] = %s" if path is not None else ""
         filter_params: tuple[object, ...] = (list(path), value) if path is not None else ()
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        async with self._connection() as conn:
-            async with conn.transaction():
-                await self._set_statement_timeout(conn)
-                cursor = await conn.execute(
-                    f"""
-                    DELETE FROM state_kv
-                     WHERE key IN (
-                           SELECT key
-                             FROM state_kv
-                            WHERE key LIKE %s ESCAPE '\\'
-                            {filter_sql}
-                            ORDER BY updated_at DESC, key DESC
-                           OFFSET %s
-                     )
-                       {filter_sql}
-                      """,  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params, retain_newest, *filter_params),
-                )
-        return cursor.rowcount if cursor.rowcount > 0 else 0
+        removed = 0
+        batch_size = 1000
+        async with asyncio.timeout(self._config.statement_timeout_ms / 1000):
+            async with self._connection() as conn:
+                while True:
+                    async with conn.transaction():
+                        await self._set_statement_timeout(conn)
+                        await conn.execute("SET LOCAL lock_timeout = '1s'")
+                        cursor = await conn.execute(
+                            f"""
+                            WITH doomed AS MATERIALIZED (
+                                SELECT key, updated_at, xmin AS version
+                                  FROM state_kv
+                                 WHERE key LIKE %s ESCAPE '\\'
+                                 {filter_sql}
+                                 ORDER BY updated_at DESC, key DESC
+                                 LIMIT %s OFFSET %s
+                            ), deleted AS (
+                                DELETE FROM state_kv
+                                 USING doomed
+                                 WHERE state_kv.key = doomed.key
+                                   AND state_kv.updated_at = doomed.updated_at
+                                   AND state_kv.xmin = doomed.version
+                                   {filter_sql}
+                                 RETURNING state_kv.key
+                            )
+                            SELECT (SELECT count(*) FROM doomed) AS selected,
+                                   count(*) AS deleted FROM deleted
+                            """,  # noqa: S608
+                            (
+                                f"{escaped_prefix}%",
+                                *filter_params,
+                                batch_size,
+                                retain_newest,
+                                *filter_params,
+                            ),
+                        )
+                        row = await cursor.fetchone()
+                        if row is None:
+                            raise RuntimeError("state retention returned no deletion accounting")
+                        selected, deleted = int(row["selected"]), int(row["deleted"])
+                    removed += deleted
+                    if selected < batch_size:
+                        return removed
+                    if deleted == 0:
+                        raise RuntimeError(
+                            "state retention made no progress; retry after concurrent writes settle"
+                        )
 
     async def delete_state(self, key: str) -> bool:
         if not key:
@@ -482,22 +516,37 @@ class PostgresStateStore(
         async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
-                count_cursor = await conn.execute(
-                    f"""SELECT COUNT(*) AS total FROM state_kv
-                         WHERE key LIKE %s ESCAPE '\\' {filter_sql}""",  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params),
-                )
-                count_row = await count_cursor.fetchone()
                 page_cursor = await conn.execute(
-                    f"""SELECT value FROM state_kv
+                    f"""
+                    WITH page AS MATERIALIZED (
+                        SELECT key, updated_at FROM state_kv
                          WHERE key LIKE %s ESCAPE '\\' {filter_sql}
-                         ORDER BY updated_at DESC, key DESC
-                         LIMIT %s OFFSET %s""",  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params, limit, offset),
+                         ORDER BY updated_at DESC, key DESC LIMIT %s OFFSET %s
+                    ), total AS (
+                        SELECT count(*) AS total FROM state_kv
+                         WHERE key LIKE %s ESCAPE '\\' {filter_sql}
+                    )
+                    SELECT total.total, body.value
+                      FROM total LEFT JOIN page ON TRUE
+                      LEFT JOIN state_kv AS body ON body.key = page.key
+                     ORDER BY page.updated_at DESC, page.key DESC
+                    """,  # noqa: S608
+                    (
+                        f"{escaped_prefix}%",
+                        *filter_params,
+                        limit,
+                        offset,
+                        f"{escaped_prefix}%",
+                        *filter_params,
+                    ),
                 )
                 rows = await page_cursor.fetchall()
-        total = int(count_row["total"]) if count_row is not None else 0
-        return tuple(_json_object(row["value"]) for row in rows), total
+        if not rows:
+            raise RuntimeError("state page returned no total accounting")
+        return (
+            tuple(_json_object(row["value"]) for row in rows if row["value"] is not None),
+            int(rows[0]["total"]),
+        )
 
     async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Route incident transitions into the same audit chain.

@@ -13,6 +13,7 @@ rule-to-decision lookup ontology. The layered lookup pipeline remains in
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Exact-key T2 cache storage and bounded expiry maintenance | implemented | `20261030_core_cache_storage_efficiency.py`; `postgres_t2_cache.py`; `test_postgres_t2_cache.py`: 23 passed on a freshly adopted isolated validation database; focused unit/CLI checks | Preserves expiry/creation winner ordering, supports the first catalog without inventing a rollback binding, bounds expired rows and old partitions, and preserves immutable receipts and detached legacy data. Production rollout and legacy retirement are not claimed. |
 | Versioned ontology and Rule catalog artifacts | implemented | `rule-catalog/vocabulary/`; `rule-catalog/catalog/`; `test_ontology_catalog.py`; `test_rule_catalog.py` | Catalog loaders validate ObjectType, LinkType, ActionType, Rule references, and dispatch semantics before startup. |
 | Relational ontology instances and exact release pinning | implemented | `alembic/versions/20260713_0011_ontology_instances.py`; `20260801_0067_ontology_release_pinning.py`; `20260813_0081_ontology_release_registry.py`; `test_postgres_ontology_instance.py` | PostgreSQL stores typed instances and exact release metadata with direction and compatibility guards. |
 | Single-store L2-L4 persistence surfaces | in-progress | `service-migrations/branches/core-control-plane/versions/20260809_core_runtime_role.py`; current `learned_action`, `ontology_embedding`, and `t2_cache` tables | The tables and service ownership exist, but this document does not yet cite one focused lifecycle check proving promotion invalidation, expiry, and rollback together. |
@@ -22,10 +23,12 @@ rule-to-decision lookup ontology. The layered lookup pipeline remains in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-30 | implemented | Added exact-key uniqueness and atomic winner-preserving writes, bounded cleanup of expired rows in protected catalogs, optional authoritative rollback for first-catalog maintenance, and replay-stable cleanup accounting. The migration fails atomically on an oversized duplicate backlog and preserves legacy rollback material. | `current change`; focused TCTX unit/CLI checks: 28 passed, 0 skipped; `test_postgres_t2_cache.py`: 23 passed on a fresh isolated database after all five service branches were adopted and upgraded through the coordinator. | Deployment-specific legacy retirement needs a measured backlog, approved rollback horizon, and recovery evidence. No runtime database cleanup or deployed capacity claim is made. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the storage description with the current migration-owned schema. | `current change`; catalog, migration, and focused persistence evidence listed in the scope table. | Close the L2-L4 lifecycle and atomic reload evidence gaps below. |
 
 ### Remaining work
 
+- [x] Exact-key cache writes and expiry maintenance, including the first catalog with no rollback binding, are covered by the focused unit/CLI and isolated PostgreSQL evidence above.
 - [ ] Add one focused PostgreSQL lifecycle check that proves catalog-version invalidation, T2 cache expiry, learned-action retention, and rollback on the current service migration head.
 - [ ] Retain an atomic catalog reload receipt showing that failed compilation preserves the prior dispatch indexes and that an accepted N/N-1 transition remains replayable.
 - [ ] Replace or annotate any schema-sketch field that diverges from the authoritative Alembic head before treating the sketch as an exact operator reference.
@@ -161,13 +164,37 @@ CREATE TABLE t2_cache (                   -- L4
   output            jsonb NOT NULL,
   model             text NOT NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
-  expires_at        timestamptz NOT NULL DEFAULT (now() + interval '1 hour'),
-  PRIMARY KEY (catalog_version, id)
+  expires_at        timestamptz NOT NULL,
+  PRIMARY KEY (catalog_version, id),
+  UNIQUE (catalog_version, input_hash)
 ) PARTITION BY LIST (catalog_version);
-CREATE TABLE t2_cache_default PARTITION OF t2_cache DEFAULT;
-CREATE INDEX idx_t2_cache_input_hash ON t2_cache(catalog_version, input_hash);
-CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
+CREATE INDEX idx_t2_cache_lookup
+  ON t2_cache(catalog_version, input_hash, expires_at DESC, created_at DESC);
+CREATE INDEX idx_t2_cache_expiry_cleanup
+  ON t2_cache(expires_at, catalog_version, id);
 ```
+
+### Cache capacity and maintenance
+
+The lifecycle owns exact catalog partitions; the detached `t2_cache_legacy_default` remains
+rollback material rather than a writable default partition. Each `(catalog_version, input_hash)`
+has at most one result. Concurrent writes preserve the existing reader's winner ordering by expiry
+and creation time instead of accumulating duplicate results.
+
+Rotation physically removes at most 1,000 expired rows, including rows in active and registered rollback
+catalogs, without deleting their bindings or immutable transition receipts. It considers at most
+32 old partitions under one 15-second deadline. Row cleanup caps its cutoff at database time,
+skips locked rows, and uses a narrow Core-only maintenance function rather than general DELETE
+authority. Cleanup counts and the cutoff are bound to the rotation receipt; replaying the receipt
+does not repeat maintenance.
+
+For the first catalog, omit CLI `--rollback` only when the authoritative binding is `None`.
+Once a rollback catalog exists, omission is rejected rather than inventing or ignoring that binding.
+
+The migration deduplicates at most 10,000 rows atomically and fails with a maintenance requirement
+if the backlog is larger. It does not discard detached legacy data or invent a rollback horizon.
+See [database storage diagnostics](../../runbooks/database-storage-efficiency.md) before choosing
+deployment-specific retention or legacy retirement.
 
 Notes on the schema:
 

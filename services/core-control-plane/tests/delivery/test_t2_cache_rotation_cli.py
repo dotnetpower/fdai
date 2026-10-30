@@ -11,8 +11,10 @@ import pytest
 from fdai.delivery import t2_cache_rotation_cli
 
 
+@pytest.mark.parametrize("rollback", [f"sha256:{'b' * 64}", None])
 async def test_run_executes_exact_rotation_and_emits_bounded_receipt(
     monkeypatch: pytest.MonkeyPatch,
+    rollback: str | None,
 ) -> None:
     captured: dict[str, object] = {}
 
@@ -29,15 +31,13 @@ async def test_run_executes_exact_rotation_and_emits_bounded_receipt(
 
     monkeypatch.setattr(t2_cache_rotation_cli, "PostgresT2Cache", _Store)
     active = f"sha256:{'a' * 64}"
-    rollback = f"sha256:{'b' * 64}"
     output = io.StringIO()
 
     result = await t2_cache_rotation_cli.run(
         (
             "--active",
             active,
-            "--rollback",
-            rollback,
+            *(() if rollback is None else ("--rollback", rollback)),
             "--idempotency-key",
             "rotation-1",
             "--cutoff",

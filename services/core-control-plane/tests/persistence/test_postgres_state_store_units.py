@@ -10,6 +10,9 @@ coverage even without a live DB.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fdai.delivery.persistence.postgres import (
@@ -93,3 +96,65 @@ async def test_pool_opens_once_for_concurrent_access_and_closes_once(
 
     assert pool.open_calls == 1
     assert pool.close_calls == 1
+
+
+async def test_retention_uses_bounded_transactions_and_rechecks_selected_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://unit-test"))
+    connection = MagicMock()
+    cursor = MagicMock()
+    cursor.fetchone = AsyncMock(
+        side_effect=[{"selected": 1000, "deleted": 1000}, {"selected": 5, "deleted": 5}]
+    )
+    connection.execute = AsyncMock(return_value=cursor)
+
+    @asynccontextmanager
+    async def connected() -> AsyncIterator[MagicMock]:
+        yield connection
+
+    monkeypatch.setattr(store, "_connection", connected)
+    monkeypatch.setattr(store, "_set_statement_timeout", AsyncMock())
+    assert (
+        await store.delete_states_beyond(
+            "example_%:", retain_newest=2, field="delivery.status", value="published"
+        )
+        == 1005
+    )
+    assert connection.transaction.call_count == 2
+    statements = [
+        call for call in connection.execute.call_args_list if "WITH doomed" in call.args[0]
+    ]
+    assert len(statements) == 2
+    query, parameters = statements[0].args
+    assert "state_kv.xmin = doomed.version" in query
+    assert "state_kv.updated_at = doomed.updated_at" in query
+    assert query.count("value #>> %s::text[] = %s") == 2
+    assert parameters == (
+        "example\\_\\%:%",
+        ["delivery", "status"],
+        "published",
+        1000,
+        2,
+        ["delivery", "status"],
+        "published",
+    )
+
+
+async def test_retention_no_progress_is_an_explicit_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn="postgresql://unit-test"))
+    connection = MagicMock()
+    cursor = MagicMock()
+    cursor.fetchone = AsyncMock(return_value={"selected": 1000, "deleted": 0})
+    connection.execute = AsyncMock(return_value=cursor)
+
+    @asynccontextmanager
+    async def connected() -> AsyncIterator[MagicMock]:
+        yield connection
+
+    monkeypatch.setattr(store, "_connection", connected)
+    monkeypatch.setattr(store, "_set_statement_timeout", AsyncMock())
+    with pytest.raises(RuntimeError, match="no progress"):
+        await store.delete_states_beyond("example:", retain_newest=2)

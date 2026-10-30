@@ -17,6 +17,10 @@ from fdai.delivery.persistence.postgres_inventory_observation_records import (
 from fdai.delivery.persistence.postgres_inventory_observation_records import (
     mapping as _mapping,
 )
+from fdai.delivery.persistence.postgres_inventory_shared_membership import (
+    require_membership_namespace,
+    store_shared_membership,
+)
 from fdai.shared.providers.inventory_observation import (
     InventoryMutationKind,
     InventoryObservationKind,
@@ -29,7 +33,6 @@ from fdai.shared.providers.state_evidence import (
 )
 
 MAX_SNAPSHOT_MEMBERS = 250_000
-_BATCH_SIZE = 1_000
 _SELECT_JOURNAL_RECORD = (
     "SELECT to_jsonb(journal) - 'watermark' AS record "
     "FROM inventory_observation_journal AS journal "
@@ -59,6 +62,7 @@ async def store_snapshot_membership(
     links_complete: bool,
     records: Sequence[NormalizedInventoryObservation],
 ) -> int:
+    await require_membership_namespace(connection)
     if len(records) > MAX_SNAPSHOT_MEMBERS:
         raise ValueError("inventory snapshot membership exceeds its bound")
     if any(
@@ -127,7 +131,8 @@ async def store_snapshot_membership(
         "INSERT INTO inventory_observation_snapshot_generation "
         "(generation_id, source, observation_kind, scopes, resource_types, coverage_scope, "
         "semantic_content_digest, journal_high_watermark, recorded_at, history_visible, "
-        "links_complete) VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, %s)",
+        "links_complete, storage_schema_version) "
+        "VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s, %s, %s, %s, 2)",
         (
             generation_id,
             source,
@@ -142,17 +147,9 @@ async def store_snapshot_membership(
             links_complete,
         ),
     )
-    for offset in range(0, len(members), _BATCH_SIZE):
-        chunk = members[offset : offset + _BATCH_SIZE]
-        cursor = connection.cursor()
-        await cursor.executemany(
-            "INSERT INTO inventory_observation_snapshot_member "
-            "(generation_id, subject_kind, subject_ref, subject_type, semantic_digest, "
-            "provider_ref, scope_ref, observed_at, freshness_properties, from_id, from_type, "
-            "link_type, to_id, to_type) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s, %s, %s)",
-            chunk,
-        )
+    await store_shared_membership(
+        connection, generation_id=generation_id, members=members, recorded_at=recorded_at
+    )
     return journal_high_watermark
 
 
@@ -164,6 +161,7 @@ async def load_snapshot_generation_records(
 ) -> tuple[NormalizedInventoryObservation, ...] | None:
     """Load bounded full observations for one generation, or None for a legacy generation."""
 
+    await require_membership_namespace(connection)
     generation_cursor = await connection.execute(
         "SELECT generation_id FROM inventory_observation_snapshot_generation "
         "WHERE generation_id=%s",
@@ -186,21 +184,35 @@ async def load_snapshot_history_records(
     after: datetime,
     limit: int,
 ) -> tuple[NormalizedInventoryObservation, ...]:
+    await require_membership_namespace(connection)
     cursor = await connection.execute(
-        "SELECT generation.generation_id, generation.recorded_at, generation.links_complete, "
-        "member.subject_kind, member.subject_ref, member.subject_type, member.semantic_digest, "
-        "member.provider_ref, member.scope_ref, member.observed_at, "
-        "member.freshness_properties, member.from_id, member.from_type, member.link_type, "
-        "member.to_id, member.to_type, latest.record AS journal_record "
-        "FROM inventory_observation_snapshot_member AS member "
-        "JOIN inventory_observation_snapshot_generation AS generation "
-        "ON generation.generation_id=member.generation_id "
-        "LEFT JOIN LATERAL (" + _SELECT_JOURNAL_RECORD + ") AS latest ON TRUE "
-        "WHERE member.subject_kind='object' AND member.subject_ref=%s "
-        "AND member.observed_at>%s AND generation.history_visible=TRUE "
-        "ORDER BY member.observed_at, generation.recorded_at, generation.generation_id "
-        "LIMIT %s",
-        (resource_id, after, limit + 1),
+        psycopg.sql.SQL(
+            "WITH history_members AS ("
+            "SELECT * FROM inventory_observation_snapshot_member_legacy "
+            "WHERE subject_kind='object' AND subject_ref=%s AND observed_at>%s "
+            "UNION ALL SELECT member.* "
+            "FROM inventory_observation_snapshot_generation generation "
+            "CROSS JOIN LATERAL fdai_inventory_shared_snapshot_members("
+            "generation.generation_id, 'object', %s) AS item "
+            "CROSS JOIN LATERAL jsonb_populate_record("
+            "NULL::inventory_observation_snapshot_member_legacy, "
+            "item || jsonb_build_object('generation_id', generation.generation_id)) AS member "
+            "WHERE generation.storage_schema_version=2 AND generation.history_visible=TRUE) "
+            "SELECT generation.generation_id, generation.recorded_at, generation.links_complete, "
+            "member.subject_kind, member.subject_ref, member.subject_type, member.semantic_digest, "
+            "member.provider_ref, member.scope_ref, member.observed_at, "
+            "member.freshness_properties, member.from_id, member.from_type, member.link_type, "
+            "member.to_id, member.to_type, latest.record AS journal_record "
+            "FROM history_members AS member "
+            "JOIN inventory_observation_snapshot_generation AS generation "
+            "ON generation.generation_id=member.generation_id "
+            "LEFT JOIN LATERAL ({journal}) AS latest ON TRUE "
+            "WHERE member.subject_kind='object' AND member.subject_ref=%s "
+            "AND member.observed_at>%s AND generation.history_visible=TRUE "
+            "ORDER BY member.observed_at, generation.recorded_at, generation.generation_id "
+            "LIMIT %s"
+        ).format(journal=psycopg.sql.SQL(_SELECT_JOURNAL_RECORD)),
+        (resource_id, after, resource_id, resource_id, after, limit + 1),
     )
     rows = await cursor.fetchall()
     if len(rows) > limit:
@@ -217,6 +229,7 @@ async def load_previous_snapshot_members(
     resource_types: Sequence[str],
     coverage_scope: str | None,
 ) -> tuple[dict[tuple[str, str], dict[str, Any]], bool] | None:
+    await require_membership_namespace(connection)
     cursor = await connection.execute(
         "SELECT id, metadata FROM inventory_snapshot WHERE status='superseded' "
         "AND source=%s AND observation_kind=%s AND scopes=%s::jsonb "

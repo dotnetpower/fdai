@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: f9e8c0ab8ea391768293f5c22da3d9c0f9bc9199
+translation_source_sha: de4acde8b5ee075ff1c0622a7527bb599a08f5ac
 translation_revised: 2026-10-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -136,7 +136,20 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 이벤트 전송은 `127.0.0.1:19092`의 Redpanda를 사용합니다. Console 준비 과정은 기본적으로
 개발 데이터베이스의 2 GiB 상한을 검사합니다. `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를
 초과하면 조치 방법을 안내하며 준비를 차단하고, 기존 데이터베이스와 브로커는 보존합니다.
-일반적인 시작이나 재시작은 삭제 권한을 부여하지 않습니다. `dev-status.sh`는 크기, 가장 큰 테이블, 직전 보고 이후의 증가량을 보여 주고 상한의 75%에서 경고합니다. `compact-local-database.py`는 서비스가 쓰는 최근 N건 보존 한도를 기존 행에 적용하며(기본은 보고만 하고 `--vacuum`은 테이블 소유자 역할로 `state_kv`를 다시 씁니다), 증거 테이블, 감사 로그, 인벤토리 journal은 건드리지 않습니다.
+일반적인 시작이나 재시작은 삭제 권한을 부여하지 않습니다.
+`dev-status.sh`는 크기, 가장 큰 테이블, 직전 보고 이후의 증가량을 보여 주고 상한의 75%에서
+경고합니다. 저장 공간 보고서는 힙, 인덱스, TOAST, 삭제된 행의 추정 수, 인덱스 사용량도
+구분합니다. `--details`는 저장된 본문을 반환하지 않고 바이너리 본문, 만료된 캐시 행,
+기록된 보존 정책을 집계합니다.
+
+`compact-local-database.py`는 서비스의 최근 N건 보존 한도를 기존 행에 적용하며
+기본적으로 실행 계획만 보고합니다. 선택적인 바이트 예산에 필수 보존 구간을 담을 수 없으면
+삭제를 차단합니다. 정리는 전체 제한 시간 안에서 범위가 제한된 배치별로 커밋하며 실패를
+명시적으로 보고합니다. `--vacuum`은 테이블 소유자 역할로 일반 vacuum을 실행합니다.
+별도 `--vacuum-full` 옵션으로 재작성을 명시적으로 요청할 수 있습니다.
+증거 테이블, 감사 로그, 인벤토리 journal은 건드리지 않습니다.
+측정 의미, 승인 범위, 마이그레이션 전제 조건은
+[데이터베이스 저장 공간 진단](../../runbooks/database-storage-efficiency-ko.md)을 확인하세요.
 
 정리 도구는 접속에 5초, SQL 실행에 30초, 잠금 대기에 1초 제한을 적용합니다. `--vacuum`은
 로컬 `state_kv`와 TOAST의 자동 VACUUM 비율을 0.01, 기준 행 수를 1,000으로 설정해 더 이상
