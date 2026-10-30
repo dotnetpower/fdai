@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ff9e35cd082521bb7f59489d8f9fb533628baba5
-translation_revised: 2026-10-29
+translation_source_sha: ebe9e5e0774b456259f390b705c3afef3194a698
+translation_revised: 2026-10-31
 ---
 # 런타임 배포 프로파일
 
@@ -546,7 +546,9 @@ DB 및 애플리케이션 준비는 모두 소유자 전용 kubeconfig를 [`kube
 ## 런타임 렌더링
 
 선택적인 [역방향 스냅샷 커넥터](../architecture/aks-outbound-connector-ko.md)는 기존 Core
-배포 패키지에서 실행하며 런타임 선택이나 배포 권한을 바꾸지 않습니다. 인벤토리 조립은 직접
+배포 패키지에서 실행하며 런타임 선택이나 배포 권한을 바꾸지 않습니다.
+shadow 전용 `remediate.kubernetes-network-policy` ActionType은 런타임 프로필 기본값이나 실행기
+신원을 바꾸지 않고 릴리스 파생 카탈로그 고정값만 갱신합니다. 인벤토리 조립은 직접
 Kubernetes 연결 또는 구독 자동 발견 대신 인증서로 인증된 저장 소스를 명시적으로 선택할 수
 있지만 두 경로를 함께 사용할 수는 없습니다. 관측 워커에는 중앙 DB 신원을 부여하지 않고
 전용 게이트웨이가 Core 소유 저장소를 사용합니다. 기본 렌더러는 아직 이 워크로드를 설치하거나

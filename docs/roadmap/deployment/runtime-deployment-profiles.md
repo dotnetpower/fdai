@@ -550,6 +550,8 @@ Rollout order: the Operator emits the optional content-free `authentication_rece
 
 The optional [outbound snapshot connector](../architecture/aks-outbound-connector.md) runs from
 the existing Core distribution and does not change runtime selection or deployment authority.
+Its shadow-only `remediate.kubernetes-network-policy` ActionType refreshes the release-derived
+catalog pins without changing runtime-profile defaults or executor identities.
 Inventory composition can explicitly select its certificate-authenticated stored source instead
 of direct Kubernetes bindings or subscription discovery, never both. The observer receives no
 central database identity; the dedicated gateway uses the Core-owned store. Default renderers do

@@ -1,0 +1,112 @@
+schema_version: 1.0.0
+name: remediate.kubernetes-network-policy
+version: 1.0.0
+operation: quarantine
+interfaces:
+- ControlPlane
+- IdempotentByKey
+- RequiresInventoryFresh
+rollback_contract: snapshot_restore
+irreversible: false
+default_mode: shadow
+promotion_gate:
+  min_shadow_days: 14
+  min_samples: 30
+  min_accuracy: 0.98
+  max_policy_escapes: 0
+preconditions:
+- kind: graph_fresh_within_seconds
+  value: 300
+- kind: no_conflicting_open_action_on_resource
+stop_conditions:
+- kind: dependent_resource_degraded
+- kind: provider_api_error_streak
+  count: 3
+- kind: time_box_exceeded_seconds
+  seconds: 300
+blast_radius:
+  computation: static_enum
+  static_bucket: resource
+description: Apply or update one namespace-scoped Kubernetes NetworkPolicy with preserved
+  observer management dependencies (DNS, Kubernetes API, and connector gateway), verified
+  policy-engine capability, and snapshot rollback.
+category: remediation
+trigger_kind:
+  kind: operator_request
+execution_path: direct_api
+ceiling_by_tier:
+  t0:
+    max_autonomy: enforce_hil
+    min_role: approver
+  t1:
+    max_autonomy: shadow_only
+    min_role: approver
+  t2:
+    max_autonomy: shadow_only
+    min_role: owner
+argument_schema:
+  type: object
+  additionalProperties: false
+  required:
+  - target_resource_ref
+  - reason
+  - target_platform
+  - cluster_ref
+  - namespace
+  - policy_name
+  - policy_digest
+  - rollback_digest
+  - policy_engine
+  properties:
+    target_resource_ref:
+      type: string
+      minLength: 1
+      x-fdai-audit-safe: true
+    reason:
+      type: string
+      minLength: 10
+      maxLength: 200
+      x-fdai-audit-safe: true
+    target_platform:
+      type: string
+      const: kubernetes
+      x-fdai-audit-safe: true
+    cluster_ref:
+      type: string
+      minLength: 1
+      maxLength: 512
+      x-fdai-audit-safe: true
+    namespace:
+      type: string
+      minLength: 1
+      maxLength: 63
+      x-fdai-audit-safe: true
+    policy_name:
+      type: string
+      minLength: 1
+      maxLength: 63
+      x-fdai-audit-safe: true
+    policy_digest:
+      type: string
+      pattern: ^sha256:[a-f0-9]{64}$
+      x-fdai-audit-safe: true
+    rollback_digest:
+      type: string
+      pattern: ^sha256:[a-f0-9]{64}$
+      x-fdai-audit-safe: true
+    policy_engine:
+      type: string
+      enum:
+      - cilium
+      - calico
+      - azure
+      x-fdai-audit-safe: true
+prod_downgrade:
+  mode: enforce_hil
+  detection_ref: risk-classification/env-detector
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: action-type:remediate.kubernetes-network-policy@1.0.0
+  content_hash: sha256:fda05556974821770eec32b022948ad47427fd9b9696ca066ebb8d84a660ca8c
+  license: MIT
+  retrieved_at: "2026-10-30T00:00:00Z"
