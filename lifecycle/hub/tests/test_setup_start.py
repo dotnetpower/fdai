@@ -141,7 +141,12 @@ def test_sigterm_reaps_the_actual_executor_before_launcher_exits(tmp_path):
         assert process.stdout is not None
         readable, _, _ = select.select([process.stdout], [], [], 20)
         assert readable, "Bootstrap startup exceeded its deadline."
-        assert process.stdout.readline().startswith(b"Lifecycle Hub Bootstrap: http://127.0.0.1:")
+        startup = process.stdout.readline()
+        if not startup.startswith(b"Lifecycle Hub Bootstrap: http://127.0.0.1:"):
+            _, diagnostic = process.communicate(timeout=5)
+            pytest.fail(
+                "Bootstrap exited before readiness: " + diagnostic.decode(errors="replace")[-2000:]
+            )
         worker_pid = json.loads((state / "heartbeat.json").read_bytes())["pid"]
         process.send_signal(signal.SIGTERM)
         assert process.wait(timeout=15) == 0
