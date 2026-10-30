@@ -8,7 +8,10 @@ import { guidanceMissingKoreanFields, guidanceText, type GuidanceText } from "./
 import "./wara-guidance.css";
 
 function Section({ name, children }: { readonly name: string; readonly children: ComponentChildren }) {
-  return <section class={`wara-guidance-section wara-guidance-${name}`}><h3>{t(`governance.rules.wara.guidance.${name}`)}</h3>{children}</section>;
+  const label = t(`governance.rules.wara.guidance.${name}`);
+  return <section class={`wara-guidance-section wara-guidance-${name}`} aria-label={name === "explanation" ? label : undefined}>
+    {name !== "explanation" ? <h3>{label}</h3> : null}{children}
+  </section>;
 }
 
 function TextList({ items, ordered = false }: { readonly items: readonly GuidanceText[]; readonly ordered?: boolean }) {

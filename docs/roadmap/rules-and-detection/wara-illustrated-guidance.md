@@ -115,6 +115,15 @@ discussed, distinguishes illustrative configuration from current evaluation, and
 verification and correct public sources. Small text, overlapping connectors or a diagram made of
 generic "rule -> check -> pass" boxes do not meet that standard.
 
+The reading flow places the title, summary and benefit before the illustration without a
+duplicate summary heading. Prose uses a 76-character reading measure while illustrations keep
+the wider canvas. Implementation and verification stack vertically on constrained screens.
+Official images have a short description, a separately labeled scope and limitations, and
+visible document/license links. Full attribution remains available in a disclosure and in print.
+A native modal offers the unchanged image at original size, keyboard-scrollable on narrow screens;
+Escape closes only that modal and returns focus to its opener. The containing recommendation
+stays open, and illustrative guidance remains separate from the actual environment assessment.
+
 ## Customer and asset boundaries
 
 The public corpus contains no presentation file, customer screenshot, customer resource identity,

@@ -34,7 +34,7 @@ describe("WARA illustrated reading view", () => {
     const control = fixtureControl();
     const guidance = fixtureGuidance(control);
     const view = inspect(WaraGuidanceContent({ control: { ...control, guidance }, expanded: false, onExpand: () => undefined }));
-    expect(view.content).toContain(locale === "ko" ? "핵심 설명" : "Key explanation");
+    expect(view.content).toContain(guidanceText(guidance.summary, locale));
     expect(view.content).toContain(locale === "ko" ? "실제 환경을 관측한 결과가 아닌 구성 예시" : "not an observation of your environment");
     expect(view.content).toContain(locale === "ko" ? "검증 방법" : "Verification");
     expect(view.elements.filter((element) => element.type === "table")).toHaveLength(1);

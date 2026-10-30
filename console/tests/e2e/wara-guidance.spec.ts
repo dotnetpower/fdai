@@ -120,7 +120,7 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         await page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}&recommendation=${control.id}&impact=Medium`);
         const drawer = page.getByRole("dialog");
         await expect(drawer.getByRole("heading", { name: guidanceText(guidance.title, locale), exact: true })).toBeVisible();
-        await expect(drawer.getByText(locale === "ko" ? "핵심 설명" : "Key explanation", { exact: true })).toBeVisible();
+        await expect(drawer.locator(".wara-guidance-lead")).toHaveText(guidanceText(guidance.summary, locale));
         await expect(drawer.locator(".wara-guidance-unavailable")).toHaveCount(0);
         const figure = drawer.locator(".wara-guidance-figure");
         await expect(figure.locator("[data-guidance-edge]")).toHaveCount(guidance.diagram.edges.length);
@@ -386,6 +386,34 @@ test("serves the packaged official VM backup image without a remote image reques
       await expect(figure.locator("header a")).toHaveAttribute("href", image.source_document_url);
       await expect(figure).toContainText(guidanceText(image.caption, locale));
       expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      const rights = figure.locator(".wara-guidance-image-rights");
+      await expect(rights).not.toHaveAttribute("open");
+      await rights.locator("summary").click();
+      await expect(rights).toContainText(image.attribution);
+      await rights.locator("summary").click();
+      const enlarge = figure.getByRole("button", { name: locale === "ko" ? "이미지 확대" : "Enlarge image", exact: true });
+      await enlarge.focus();
+      await page.keyboard.press("Enter");
+      const preview = page.locator("dialog.wara-guidance-image-preview");
+      await expect(preview).toBeVisible();
+      await expect(preview.getByRole("img")).toBeVisible();
+      expect(await preview.locator("img").evaluate((element) => element.getBoundingClientRect().width)).toBe(898);
+      const pan = preview.locator(".wara-guidance-image-viewport");
+      if (viewport.width === 390) {
+        expect(await pan.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(true);
+        await pan.focus();
+        await page.keyboard.press("ArrowRight");
+        await expect.poll(() => pan.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+      }
+      await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`official-backup-expanded-${locale}-${viewport.width}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(preview).not.toBeVisible();
+      await expect(enlarge).toBeFocused();
+      await expect(page.locator("#wara-control-detail")).toBeVisible();
+      const procedureBounds = await page.locator(".wara-guidance-procedures > section").evaluateAll((sections) => sections.map((section) => ({ top: section.getBoundingClientRect().top, bottom: section.getBoundingClientRect().bottom })));
+      const [implementation, verification] = procedureBounds;
+      if (!implementation || !verification) throw new Error("Missing implementation or verification section");
+      if (viewport.width <= 993) expect(verification.top).toBeGreaterThanOrEqual(implementation.bottom);
       await figure.scrollIntoViewIfNeeded();
       await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`official-backup-${locale}-${viewport.width}.png`) });
       const supplement = page.locator(".wara-guidance-supplement");
@@ -396,6 +424,12 @@ test("serves the packaged official VM backup image without a remote image reques
     }
   }
   expect(externalImages).toEqual([]);
+  await expect(page.locator(".wara-guidance-image-print-attribution")).not.toBeVisible();
+  await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".wara-guidance-image-print-attribution")).toBeVisible();
+  await expect(page.locator(".wara-guidance-image-print-attribution")).toHaveText(image.attribution);
+  await expect(page.locator(".wara-guidance-image-actions button")).not.toBeVisible();
+  await page.emulateMedia({ media: "screen" });
 });
 
 test("renders attributed images and explicit asset failures (synthetic transport fixture, not approved Microsoft artwork)", async ({ page }, testInfo) => {
@@ -452,7 +486,7 @@ test("renders attributed images and explicit asset failures (synthetic transport
       await expect(originalDocument).toHaveAttribute("href", image.source_document_url);
       await expect(originalDocument).toHaveText(locale === "ko" ? "원본 문서 열기" : "Open original document");
       await expect(figure.locator(`a[href="${path}"], a[href="${image.image_url}"]`)).toHaveCount(0);
-      await expect(figure.locator(`a[href="${image!.license_url}"]`)).toHaveText("CC-BY-4.0");
+      await expect(figure.locator(`figcaption a[href="${image!.license_url}"]`)).toHaveText("CC-BY-4.0");
       await expect(page.locator(".wara-guidance-supplement")).not.toHaveAttribute("open");
       expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
       await figure.scrollIntoViewIfNeeded();
