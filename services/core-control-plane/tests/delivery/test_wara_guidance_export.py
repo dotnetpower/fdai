@@ -2,22 +2,124 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import struct
+import zlib
 from dataclasses import replace
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
+from uuid import uuid4
+from zipfile import ZipFile
 
 import pytest
 from fdai.core.wara.guidance_report import build_wara_guidance_report
 from fdai.delivery.wara_guidance_presentation import (
     guidance_diagram_geometry,
+    guidance_reference_image_slides,
     guidance_text_pages,
 )
 from fdai.delivery.wara_office_formats import PptxFormatEncoder
-from fdai_service_contracts.wara_guidance import packaged_wara_guidance
+from fdai_service_contracts.catalog_canonical import canonical_digest
+from fdai_service_contracts.reference_image_assets import (
+    load_packaged_reference_image,
+    verify_reference_image_bytes,
+)
+from fdai_service_contracts.reference_image_assets import resources as image_resources
+from fdai_service_contracts.wara_guidance import (
+    ReferenceImage,
+    WaraGuidance,
+    packaged_wara_guidance,
+)
 from pptx import Presentation
 from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+
+def _png_chunk(kind: bytes, data: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )
+
+
+def _test_png() -> bytes:
+    header = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
+    pixels = zlib.compress(b"\x00\x00\x00\x00")
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", pixels)
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _reference_image(content: bytes) -> ReferenceImage:
+    digest = hashlib.sha256(content).hexdigest()
+    return ReferenceImage.model_validate(
+        {
+            "asset_id": f"sha256-{digest}",
+            "digest": f"sha256:{digest}",
+            "source_document_url": (
+                "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction"
+            ),
+            "image_url": (
+                "https://learn.microsoft.com/en-us/azure/backup/media/"
+                "backup-azure-vms-introduction/vmbackup-architecture.png"
+            ),
+            "source_revision": "a" * 40,
+            "attribution": "Microsoft, About Azure VM backup - Azure Backup",
+            "license": "CC-BY-4.0",
+            "license_url": "https://creativecommons.org/licenses/by/4.0/",
+            "alt": {"en": "A reference image.", "ko": "참고 이미지."},
+            "caption": {"en": "Backup flow.", "ko": "백업 흐름."},
+            "english_in_image_notice": {
+                "en": "Text in the image is in English.",
+                "ko": "이미지 내 텍스트는 영어입니다.",
+            },
+        }
+    )
+
+
+@pytest.fixture
+def synthetic_packaged_image(monkeypatch):
+    root = Path(f".fdai-reference-image-test-{uuid4().hex}")
+    directory = root / "data/wara-guidance-assets"
+    directory.mkdir(parents=True)
+    content = _test_png()
+    image = _reference_image(content)
+    asset = directory / f"{image.asset_id}.png"
+    asset.write_bytes(content)
+    original_files = image_resources.files
+
+    class RedirectedResources:
+        def joinpath(self, *parts: str):
+            if parts == ("data", "wara-guidance-assets"):
+                return directory
+            return original_files("fdai_service_contracts").joinpath(*parts)
+
+    monkeypatch.setattr(image_resources, "files", lambda _: RedirectedResources())
+    try:
+        yield content, image, asset
+    finally:
+        asset.unlink(missing_ok=True)
+        directory.rmdir()
+        directory.parent.rmdir()
+        root.rmdir()
+
+
+def _guide_with_reference_image(image: ReferenceImage) -> WaraGuidance:
+    raw = (
+        packaged_wara_guidance()
+        .entries[0]
+        .model_dump(mode="json", by_alias=True, exclude_none=True)
+    )
+    raw["reference_image"] = image.model_dump(mode="json", by_alias=True, exclude_none=True)
+    material = {key: value for key, value in raw.items() if key != "content_digest"}
+    raw["content_digest"] = "sha256:" + canonical_digest(material)
+    return WaraGuidance.model_validate(raw)
 
 
 @pytest.mark.parametrize(
@@ -47,7 +149,14 @@ def test_benchmark_export_draws_real_vector_diagrams_with_complete_text(needle, 
     report = build_wara_guidance_report(
         guide, locale=locale, generated_at=datetime(2026, 10, 30, tzinfo=UTC)
     )
+    assert guide.reference_image is None
+    assert not any(widget.type == "wara_guidance_reference_image" for widget in report.widgets)
     deck = Presentation(BytesIO(PptxFormatEncoder().encode(report)))
+    assert not any(
+        shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+        for slide in deck.slides
+        for shape in slide.shapes
+    )
     assert (
         deck.slide_width * 9 == deck.slide_height * 16
         or abs(deck.slide_width / deck.slide_height - 16 / 9) < 0.001
@@ -111,6 +220,180 @@ def test_public_export_does_not_hide_unavailable_widgets() -> None:
     failed = replace(report.widgets[0], error="source_unavailable")
     with pytest.raises(ValueError, match="widget error"):
         PptxFormatEncoder().encode(replace(report, widgets=(failed,)))
+
+
+def test_reference_image_provenance_is_structured_in_json_and_paginated_in_pptx(
+    synthetic_packaged_image,
+) -> None:
+    _, image, _ = synthetic_packaged_image
+    guide_with_image = _guide_with_reference_image(image)
+    report = build_wara_guidance_report(
+        guide_with_image, locale="ko", generated_at=datetime(2026, 10, 30, tzinfo=UTC)
+    )
+    sources = next(widget for widget in report.widgets if widget.id == "sources")
+    expected_image = image.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert sources.data["reference_image"] == expected_image
+    assert report.to_dict()["widgets"][-1]["data"]["reference_image"] == expected_image
+    text = sources.data["body"]
+    for expected in (
+        "참고 이미지.",
+        "백업 흐름.",
+        "이미지 내 텍스트는 영어입니다.",
+        image.attribution,
+        image.source_document_url,
+        image.image_url,
+        image.license_url,
+        image.digest,
+    ):
+        assert expected in text
+    deck = Presentation(BytesIO(PptxFormatEncoder().encode(report)))
+    exported_text = "\n".join(
+        shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame
+    )
+    assert image.attribution in exported_text
+    assert image.image_url in exported_text
+    assert "참고 이미지." in exported_text
+
+
+@pytest.mark.parametrize("locale", ["en", "ko"])
+def test_actual_guidance_pptx_embeds_packaged_image_and_complete_provenance(
+    synthetic_packaged_image,
+    locale,
+) -> None:
+    content, image, _ = synthetic_packaged_image
+    report = build_wara_guidance_report(
+        _guide_with_reference_image(image),
+        locale=locale,
+        generated_at=datetime(2026, 10, 30, tzinfo=UTC),
+    )
+    output = PptxFormatEncoder().encode(report)
+    deck = Presentation(BytesIO(output))
+    pictures = [
+        shape
+        for slide in deck.slides
+        for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert len(pictures) == 1
+    assert pictures[0].image.blob == content
+    localized_alt = image.alt.ko if locale == "ko" else image.alt.en
+    assert pictures[0]._element.nvPicPr.cNvPr.get("descr") == localized_alt
+    text = "\n".join(
+        shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame
+    )
+    for expected in (
+        image.caption.ko if locale == "ko" else image.caption.en,
+        localized_alt,
+        image.english_in_image_notice.ko if locale == "ko" else image.english_in_image_notice.en,
+        image.source_document_url,
+        image.image_url,
+        image.source_revision,
+        image.attribution,
+        image.license,
+        image.license_url,
+        image.digest,
+    ):
+        assert expected in text
+    with ZipFile(BytesIO(output)) as package:
+        media = [name for name in package.namelist() if name.startswith("ppt/media/")]
+        assert len(media) == 1
+        assert package.read(media[0]) == content
+        relationships = [
+            package.read(name).decode()
+            for name in package.namelist()
+            if name.startswith("ppt/slides/_rels/") and name.endswith(".rels")
+        ]
+        assert any(
+            '/image"' in relationship and "../media/" in relationship
+            for relationship in relationships
+        )
+
+
+@pytest.mark.parametrize("locale", ["en", "ko"])
+def test_official_packaged_backup_png_is_embedded_unchanged_in_pptx(locale) -> None:
+    guide = next(
+        guide
+        for guide in packaged_wara_guidance().entries
+        if guide.title.en == "Backup VMs with Azure Backup service"
+    )
+    image = guide.reference_image
+    assert image is not None
+    asset = load_packaged_reference_image(image)
+    assert (asset.width, asset.height) == (898, 400)
+    content = asset.content
+    report = build_wara_guidance_report(
+        guide, locale=locale, generated_at=datetime(2026, 10, 30, tzinfo=UTC)
+    )
+    output = PptxFormatEncoder().encode(report)
+    deck = Presentation(BytesIO(output))
+    pictures = [
+        shape
+        for slide in deck.slides
+        for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert len(pictures) == 1
+    assert pictures[0].image.blob == content
+    text = "\n".join(
+        shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame
+    )
+    assert image.source_document_url in text
+    assert image.attribution in text
+    assert image.license_url in text
+    caption = image.caption.ko if locale == "ko" else image.caption.en
+    assert " ".join(caption.split()) in " ".join(text.split())
+    with ZipFile(BytesIO(output)) as package:
+        media = [name for name in package.namelist() if name.startswith("ppt/media/")]
+        assert len(media) == 1
+        assert package.read(media[0]) == content
+
+
+@pytest.mark.parametrize("failure", ["missing", "tampered"])
+def test_actual_guidance_pptx_rejects_unavailable_or_invalid_reference_image(
+    synthetic_packaged_image,
+    failure,
+) -> None:
+    _, image, asset = synthetic_packaged_image
+    report = build_wara_guidance_report(
+        _guide_with_reference_image(image),
+        locale="en",
+        generated_at=datetime(2026, 10, 30, tzinfo=UTC),
+    )
+    if failure == "missing":
+        asset.unlink()
+    else:
+        asset.write_bytes(b"not the approved PNG")
+    with pytest.raises(ValueError, match="WARA reference image export failed"):
+        PptxFormatEncoder().encode(report)
+
+
+def test_reference_image_presentation_helper_embeds_verified_local_bytes(monkeypatch) -> None:
+    content = _test_png()
+    image = _reference_image(content)
+    monkeypatch.setattr(
+        "fdai.delivery.wara_guidance_presentation.load_packaged_reference_image",
+        lambda value: verify_reference_image_bytes(value, content),
+    )
+    deck = Presentation()
+    guidance_reference_image_slides(deck, image, "ko")
+    pictures = [
+        shape
+        for slide in deck.slides
+        for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert len(pictures) == 1
+    assert len(deck.slides) >= 2
+    text = "\n".join(
+        shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame
+    )
+    assert image.attribution in text
+    assert image.source_document_url in text
+    assert image.image_url in text
+    assert image.license_url in text
+    assert image.source_revision in text
+    assert "참고 이미지." in text
+    assert "이미지 내 텍스트는 영어입니다." in text
 
 
 def test_all_456_presentation_diagrams_keep_connectors_out_of_other_nodes() -> None:

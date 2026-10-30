@@ -8,7 +8,7 @@ import json
 import textwrap
 from typing import Literal
 
-from fdai_service_contracts.wara_guidance import GuidanceDiagram
+from fdai_service_contracts.wara_guidance import GuidanceDiagram, ReferenceImage
 from openpyxl import Workbook
 from pptx import Presentation
 from pptx.presentation import Presentation as PresentationDocument
@@ -19,6 +19,7 @@ from fdai.core.reporting.formats.json_format import JsonFormatEncoder
 from fdai.core.reporting.models import RenderedReport
 from fdai.delivery.wara_guidance_presentation import (
     guidance_diagram_slides,
+    guidance_reference_image_slides,
     guidance_text_slides,
 )
 
@@ -131,7 +132,13 @@ class PptxFormatEncoder:
         for widget in report.widgets:
             if widget.error is not None:
                 raise ValueError("WARA guidance presentation cannot hide a widget error")
-            if widget.type == "wara_guidance_diagram":
+            if widget.type == "wara_guidance_reference_image":
+                image = ReferenceImage.model_validate(widget.data.get("reference_image"))
+                try:
+                    guidance_reference_image_slides(presentation, image, locale)
+                except (OSError, ValueError) as exc:
+                    raise ValueError(f"WARA reference image export failed: {exc}") from exc
+            elif widget.type == "wara_guidance_diagram":
                 diagram = GuidanceDiagram.model_validate(widget.data.get("diagram"))
                 guidance_diagram_slides(presentation, diagram, locale)
             elif widget.type == "wara_guidance_text":

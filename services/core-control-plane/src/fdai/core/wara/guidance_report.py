@@ -95,6 +95,20 @@ def build_wara_guidance_report(
             },
         ),
     ]
+    if guidance.reference_image is not None:
+        widgets.insert(
+            2,
+            RenderedWidget(
+                id="reference-image",
+                type="wara_guidance_reference_image",
+                title=guidance_text(guidance.reference_image.caption, locale),
+                data={
+                    "reference_image": guidance.reference_image.model_dump(
+                        mode="json", by_alias=True, exclude_none=True
+                    ),
+                },
+            ),
+        )
     for identifier, heading, values in (
         ("implementation", headings[3], guidance.implementation_steps),
         ("verification", headings[4], guidance.verification_steps),
@@ -118,12 +132,7 @@ def build_wara_guidance_report(
             id="sources",
             type="wara_guidance_text",
             title=headings[6],
-            data={
-                "body": "\n\n".join(
-                    f"{guidance_text(source.label, locale)}\n{source.url}"
-                    for source in guidance.sources
-                )
-            },
+            data=_source_widget_data(guidance, locale),
         )
     )
     return RenderedReport(
@@ -161,6 +170,38 @@ def build_wara_guidance_report(
         tags=("wara", "public-guidance", guidance.lifecycle),
         widgets=tuple(widgets),
     )
+
+
+def _source_widget_data(guidance: WaraGuidance, locale: Literal["en", "ko"]) -> dict[str, object]:
+    sources = [
+        f"{guidance_text(source.label, locale)}\n{source.url}" for source in guidance.sources
+    ]
+    image = guidance.reference_image
+    reference_image: dict[str, object] | None = None
+    if image is not None:
+        reference_image = image.model_dump(mode="json", by_alias=True, exclude_none=True)
+        sources.extend(
+            (
+                f"{'Image caption' if locale == 'en' else '이미지 설명'}: "
+                f"{guidance_text(image.caption, locale)}",
+                f"{'Image alternative text' if locale == 'en' else '이미지 대체 텍스트'}: "
+                f"{guidance_text(image.alt, locale)}",
+                f"{'Text-in-image notice' if locale == 'en' else '이미지 내 텍스트 안내'}: "
+                f"{guidance_text(image.english_in_image_notice, locale)}",
+                f"{'Attribution' if locale == 'en' else '저작자 표시'}: {image.attribution}",
+                f"{'License' if locale == 'en' else '라이선스'}: "
+                f"{image.license} ({image.license_url})",
+                f"{'Source document' if locale == 'en' else '문서 출처'}: "
+                f"{image.source_document_url}",
+                f"{'Image source' if locale == 'en' else '이미지 출처'}: {image.image_url}",
+                f"{'Source revision' if locale == 'en' else '원본 개정'}: {image.source_revision}",
+                f"{'Asset digest' if locale == 'en' else '자산 다이제스트'}: {image.digest}",
+            )
+        )
+    result: dict[str, object] = {"body": "\n\n".join(sources)}
+    if reference_image is not None:
+        result["reference_image"] = reference_image
+    return result
 
 
 __all__ = ["build_wara_guidance_report", "guidance_text"]

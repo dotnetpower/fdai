@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 import pytest
 
-from fdai_service_contracts.wara_guidance import load_wara_guidance
+from fdai_service_contracts.wara_guidance import WaraGuidance, load_wara_guidance
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPTS = ROOT / "scripts/catalog"
@@ -69,6 +69,124 @@ def _prose(value: object, locale: str = "en") -> str:
     if isinstance(value, list):
         return " ".join(_prose(item, locale) for item in value)
     return ""
+
+
+def test_korean_binding_source_has_exact_coverage(tmp_path: Path) -> None:
+    source = tmp_path / "controls-ko.tsv"
+    source.write_text(
+        "# Reviewed counterparts\nbbbbbbbb|복원 점검|복원 후 파일을 확인합니다\n"
+        "aaaaaaaa|백업 정책|정책과 복구 지점을 확인합니다\n",
+        encoding="utf-8",
+    )
+    bindings = {"aaaaaaaa": {"focus": "Backup policy"}, "bbbbbbbb": {"focus": "Restore check"}}
+    GENERATOR.load_korean_bindings(source, bindings)
+    assert bindings["aaaaaaaa"]["focus_ko"] == "백업 정책"
+    assert bindings["bbbbbbbb"]["observation_ko"] == "복원 후 파일을 확인합니다"
+    assert bindings["aaaaaaaa"]["focus"] == "Backup policy"
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        "aaaaaaaa|백업 정책|정책 확인\n",
+        "aaaaaaaa|백업 정책|정책 확인\naaaaaaaa|백업 정책|정책 확인\n",
+        "aaaaaaaa|백업 정책|정책 확인\ncccccccc|복원 정책|복원 확인\n",
+        "aaaaaaaa||정책 확인\nbbbbbbbb|복원 정책|복원 확인\n",
+        "aaaaaaaa|백업 정책|정책 확인|추가 필드\nbbbbbbbb|복원 정책|복원 확인\n",
+    ],
+)
+def test_korean_binding_source_rejects_incomplete_or_invalid_rows(
+    tmp_path: Path, rows: str
+) -> None:
+    source = tmp_path / "controls-ko.tsv"
+    source.write_text(rows, encoding="utf-8")
+    bindings = {"aaaaaaaa": {"focus": "Backup policy"}, "bbbbbbbb": {"focus": "Restore check"}}
+    with pytest.raises(ValueError):
+        GENERATOR.load_korean_bindings(source, bindings)
+    assert all("focus_ko" not in binding for binding in bindings.values())
+
+
+def test_every_shared_mechanism_diagram_has_actual_korean_text() -> None:
+    for profile in GENERATOR.PROFILES.values():
+        diagram = GENERATOR.build_diagram(
+            "Source-specific configuration",
+            "Inspect configured state and recovery behavior",
+            profile["shape"],
+            {"en": "Conceptual diagram", "ko": "개념도"},
+            focus_ko="원본별 구성",
+            observation_ko="구성 상태와 복구 동작을 점검합니다",
+        )
+        GENERATOR.assert_korean_reader_text(
+            [{"recommendation_id": profile["shape"], "diagram": diagram}], {profile["shape"]}
+        )
+
+
+def test_korean_reader_text_gate_rejects_english_and_wrapped_english() -> None:
+    entry = {
+        "recommendation_id": "example-guid",
+        "title": {"en": "Configure backup", "ko": "한국어 설명: Configure backup"},
+        "sources": [{"label": {"en": "Microsoft Learn source"}}],
+    }
+
+    with pytest.raises(ValueError, match="1 fields across 1 recommendations"):
+        GENERATOR.assert_korean_reader_text([entry], {"example-guid"})
+
+    entry["title"] = {"en": "Configure backup", "ko": "백업 구성"}
+    entry["diagram"] = {
+        "reference_image": {
+            "alt": {"en": "Architecture diagram", "ko": "구성도"},
+            "caption": {"en": "Architecture diagram"},
+        }
+    }
+    with pytest.raises(ValueError, match="1 fields across 1 recommendations"):
+        GENERATOR.assert_korean_reader_text([entry], {"example-guid"})
+
+    entry["title"] = {"en": "Configure backup", "ko": "백업 구성"}
+    entry["diagram"]["reference_image"]["caption"]["ko"] = "아키텍처 개요"
+    GENERATOR.assert_korean_reader_text([entry], {"example-guid"})
+
+    entry["title"] = {
+        "en": "Configure backup for virtual machines",
+        "ko": "Configure 백업 for virtual machines",
+    }
+    with pytest.raises(ValueError, match="1 fields across 1 recommendations"):
+        GENERATOR.assert_korean_reader_text([entry], {"example-guid"})
+
+
+def test_vm_backup_reader_text_covers_vault_flow_and_consistency_modes(
+    corpus: dict[str, Any],
+) -> None:
+    entry = json.loads(json.dumps(_entry(corpus, "1981f704")))
+    source = GENERATOR.load_reader_text(
+        ROOT / "rule-catalog/guidance/azure-wara/reader-text-ko.json",
+        framework_revision=corpus["framework_revision"],
+        framework_digest=corpus["framework_digest"],
+    )
+    GENERATOR.apply_reader_text(entry, source)
+    GENERATOR.assert_korean_reader_text([entry], {"1981f704-97b9-b645-9c57-33f8ded9261a"})
+
+    korean = _prose(entry, "ko")
+    assert "Recovery Services vault" in korean
+    assert "스냅샷" in korean and "vault로 전송" in korean
+    assert "임시 디스크" in korean
+    assert "Windows VSS" in korean
+    assert "Linux" in korean and "사전 및 사후 스크립트" in korean
+    assert "agentless" in korean and "crash consistency" in korean
+    assert any(
+        edge["from"] == "snapshot"
+        and edge["to"] == "copy"
+        and "vault로 전송" in edge["label"]["ko"]
+        for edge in entry["diagram"]["edges"]
+    )
+    entry["content_digest"] = GENERATOR.canonical_digest(
+        {key: value for key, value in entry.items() if key != "content_digest"}
+    )
+    WaraGuidance.model_validate(entry)
+
+
+def test_generated_json_is_compact_utf8_with_readable_korean() -> None:
+    encoded = GENERATOR.encoded({"label": {"en": "Guide", "ko": "권고 안내"}})
+    assert encoded == '{"label":{"en":"Guide","ko":"권고 안내"}}\n'.encode()
 
 
 def test_packaged_corpus_passes_shared_contract(corpus: dict[str, Any]) -> None:
@@ -211,9 +329,12 @@ def test_each_guid_has_explicit_focus_and_evidence_binding(corpus: dict[str, Any
     bindings = GENERATOR.load_bindings(ROOT / "rule-catalog/guidance/azure-wara/controls.tsv")
     assert len(bindings) == 456
     for entry in corpus["entries"]:
-        if entry["recommendation_id"] in {DNS, MAINTENANCE, AI} or (
-            entry["recommendation_id"][:8] in GENERATOR.RESOLUTIONS
-        ):
+        if entry["recommendation_id"] in {
+            DNS,
+            MAINTENANCE,
+            AI,
+            "1981f704-97b9-b645-9c57-33f8ded9261a",
+        } or (entry["recommendation_id"][:8] in GENERATOR.RESOLUTIONS):
             continue
         binding = bindings[entry["recommendation_id"][:8]]
         assert binding["focus"] in _prose(entry["diagram"]["nodes"])
@@ -222,7 +343,7 @@ def test_each_guid_has_explicit_focus_and_evidence_binding(corpus: dict[str, Any
         assert entry["diagram"]["kind"] == GENERATOR.PROFILES[binding["family"]]["shape"]
 
 
-def test_source_description_and_benefits_are_preserved_with_honest_english_fallback(
+def test_source_description_and_benefits_are_preserved_with_korean_reader_text(
     corpus: dict[str, Any], source_controls: dict[str, dict[str, Any]]
 ) -> None:
     for entry in corpus["entries"]:
@@ -231,12 +352,14 @@ def test_source_description_and_benefits_are_preserved_with_honest_english_fallb
         ):
             continue
         source = source_controls[entry["recommendation_id"]]
-        assert entry["summary"] == {"en": GENERATOR._normalize(source["description"])}
+        assert entry["summary"]["en"] == GENERATOR._normalize(source["description"])
+        assert entry["summary"]["ko"]
         if source["wara"]["potential_benefits"]:
-            assert entry["benefits"] == {
-                "en": GENERATOR._normalize(source["wara"]["potential_benefits"])
-            }
-        assert "ko" not in entry["title"]
+            assert entry["benefits"]["en"] == GENERATOR._normalize(
+                source["wara"]["potential_benefits"]
+            )
+        assert entry["benefits"]["ko"]
+        assert entry["title"]["ko"]
         assert "ko" in entry["rationale"]
 
 
@@ -322,7 +445,7 @@ def test_ai_has_real_gateway_routes_and_eligibility_observations(corpus: dict[st
 @pytest.mark.parametrize(
     ("prefix", "kind", "semantic"),
     [
-        ("1981f704", "backup-restore", "restoration"),
+        ("1981f704", "backup-restore", "isolated restore target"),
         ("a08a06a0", "connection-drain", "voluntary"),
         ("e544520b", "backup-restore", "Continuous backup"),
         ("fa0cf4f5", "zone-redundancy", "cross-region disaster recovery"),
@@ -366,6 +489,13 @@ def test_structural_report_does_not_claim_456_current_document_reviews() -> None
     assert report["review_accounting"]["live_azure_or_model_validations"] == 0
     assert report["review_accounting"]["shared_context_source_grounded_entries"] == 437
     assert report["review_accounting"]["expanded_conditional_document_reviewed_entries"] == 16
+    assert report["localization"]["complete_korean_recommendations"] == 456
+    assert report["localization"]["missing_korean_reader_fields"] == 0
+    assert report["localization"]["per_guid_observation_bindings"] == "English and Korean"
+    assert report["image_review"]["recommendation_count"] == 456
+    assert report["image_review"]["document_group_count"] == 408
+    assert "rule-catalog/guidance/azure-wara/controls-ko.tsv" in report["authoring_inputs"]
+    assert "rule-catalog/guidance/azure-wara/reference-images.json" in report["authoring_inputs"]
     assert len(report["quality_limits"]) == 4
     critique = report["content_critique"]
     assert len(critique["source_ambiguities_and_historical_limits"]) == 16
@@ -632,13 +762,15 @@ def test_citrix_vendor_reference_is_explicit_not_silently_removed(corpus: dict[s
 
 
 def test_content_is_nfc_and_has_no_mislabeled_english_korean(corpus: dict[str, Any]) -> None:
+    source = json.loads(SOURCE.read_text(encoding="utf-8"))
+    expected_ids = {control["id"] for area in source["areas"] for control in area["controls"]}
+    GENERATOR.assert_korean_reader_text(corpus["entries"], expected_ids)
+
     def visit(value: object) -> None:
         if isinstance(value, str):
             assert unicodedata.is_normalized("NFC", value)
             assert not set(value) & set("\u2013\u2014\u2018\u2019\u201c\u201d\u00a0")
         elif isinstance(value, dict):
-            if "ko" in value:
-                assert value["ko"] != value["en"]
             for item in value.values():
                 visit(item)
         elif isinstance(value, list):

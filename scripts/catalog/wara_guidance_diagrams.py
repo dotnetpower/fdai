@@ -5,7 +5,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from wara_guidance_edges_ko import EDGES_KO
 from wara_guidance_graphs import GRAPHS
+from wara_guidance_labels_ko import LABELS_KO
 from wara_guidance_reliability import localized
 
 # Node tuples: id, English label, Korean label, role. Edges describe architecture,
@@ -486,7 +488,13 @@ EDGE_LABELS = {
 
 
 def build_diagram(
-    focus: str, observation: str, shape: str, description: dict[str, str]
+    focus: str,
+    observation: str,
+    shape: str,
+    description: dict[str, str],
+    *,
+    focus_ko: str | None = None,
+    observation_ko: str | None = None,
 ) -> dict[str, Any]:
     nodes, edges = (BLUEPRINTS | GRAPHS)[shape]
     label_translations = {
@@ -495,20 +503,28 @@ def build_diagram(
     return {
         "id": shape,
         "kind": shape,
-        "title": localized(f"{focus}: configuration concept", f"{focus}: 구성 개념"),
+        "title": localized(
+            f"{focus}: configuration concept",
+            f"{focus_ko}: 구성 개념" if focus_ko else None,
+        ),
         "description": description,
         "nodes": [
             {
                 "id": node_id,
-                "label": localized(focus)
+                "label": localized(focus, focus_ko)
                 if node_id == "setting"
-                else localized(en, ko or label_translations.get(en)),
-                "detail": localized(observation)
+                else localized(en, ko or label_translations.get(en) or LABELS_KO.get(en)),
+                "detail": localized(observation, observation_ko)
                 if node_id == "evidence"
                 else (
                     localized(
                         f"Source-specific focus: {focus}. {en}. "
-                        "Conceptual component; not a discovered environment resource."
+                        "Conceptual component; not a discovered environment resource.",
+                        f"이 권고의 초점은 {focus_ko}입니다. "
+                        f"{ko or label_translations.get(en) or LABELS_KO.get(en)}을 나타내는 "
+                        "개념 요소이며 실제 환경에서 발견한 리소스가 아닙니다."
+                        if focus_ko and (ko or label_translations.get(en) or LABELS_KO.get(en))
+                        else None,
                     )
                 ),
                 "role": role,
@@ -516,7 +532,12 @@ def build_diagram(
             for node_id, en, ko, role in nodes
         ],
         "edges": [
-            {"from": a, "to": b, "label": localized(label, EDGE_LABELS.get(label)), "style": style}
+            {
+                "from": a,
+                "to": b,
+                "label": localized(label, EDGE_LABELS.get(label) or EDGES_KO.get(label)),
+                "style": style,
+            }
             for a, b, label, style in edges
         ],
     }

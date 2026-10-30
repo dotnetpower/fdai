@@ -7,6 +7,7 @@ from typing import Any
 
 from wara_guidance_reliability import localized as text
 from wara_guidance_resolutions import RESOLUTIONS, resolution_report
+from wara_guidance_specifics_ko import SPECIFICS_KO
 
 # Source concerns that triggered deeper authoring; resolutions are recorded below.
 UNCERTAIN = {
@@ -169,16 +170,19 @@ def apply_specifics(entry: dict[str, Any]) -> None:
     specific = SPECIFICS.get(prefix)
     if specific:
         mechanism, action, check = specific
-        entry["applicability"].append(text(mechanism))
-        entry["implementation_steps"].insert(2, text(action))
-        entry["verification_steps"].insert(1, text(check))
-        entry["cautions"].append(text(mechanism))
+        mechanism_ko, action_ko, check_ko = SPECIFICS_KO[prefix]
+        entry["applicability"].append(text(mechanism, mechanism_ko))
+        entry["implementation_steps"].insert(2, text(action, action_ko))
+        entry["verification_steps"].insert(1, text(check, check_ko))
+        entry["cautions"].append(text(mechanism, mechanism_ko))
     if prefix in UNCERTAIN:
         entry["cautions"].append(text("Content review limit: " + UNCERTAIN[prefix]))
     if prefix == "bcfe71f1":
         entry["configuration"]["after"][1] = text(
             "Multiple ready replicas have reviewed placement and dependency behavior. "
-            "Their count is not a guarantee of application availability."
+            "Their count is not a guarantee of application availability.",
+            "여러 준비된 복제본의 배치와 의존 동작을 검토했습니다. "
+            "그 개수가 애플리케이션 가용성을 보장하지는 않습니다.",
         )
 
 

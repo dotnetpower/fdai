@@ -18,6 +18,17 @@ function leafPaths(value: unknown, prefix = ""): string[] {
 }
 
 describe("governance route localization", () => {
+  it("explains WARA evidence codes without suppressing unrecognized values", () => {
+    setLocale("ko");
+    expect(displayValue("controlStatus", "unknown")).toBe("알 수 없음");
+    expect(displayValue("waraLimitation", "missing_exact_evaluator")).toBe("이 권고에 정확히 연결된 평가기가 없습니다.");
+    expect(displayValue("waraEvidence", "recovery_drill")).toBe("복구 훈련 기록");
+    expect(displayValue("waraLimitation", "future_reason")).toBe("future_reason");
+    expect(t("governance.rules.wara.detail.days", { count: 90 })).toBe("90일");
+    expect(t("governance.rules.wara.detail.seconds", { count: 61 })).toBe("61초");
+    setLocale("en");
+    expect(t("governance.rules.wara.detail.days", { count: 90 })).toBe("90 days");
+  });
   it("renders the English source and interpolates values", () => {
     expect(capabilityText("governance.capabilities.unregistered", { id: "cap.read" }))
       .toBe("Capability cap.read is not registered.");
