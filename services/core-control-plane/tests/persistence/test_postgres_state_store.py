@@ -1,8 +1,8 @@
 """Integration test - PostgresStateStore round-trip against a live DB.
 
-Skipped unless ``FDAI_DATABASE_URL`` is set (same guard as the
-migrations test). The docker-compose dev stack (`make dev-up`) exposes
-the URL as ``postgresql+psycopg://fdai:devonly@localhost:5432/fdai``.
+Skipped unless ``FDAI_DATABASE_URL`` is set. Run through
+``scripts/automation/with-local-test-database.py`` to select the isolated
+loopback validation database on port 5433 rather than the runtime database.
 
 The tests here:
 
@@ -56,7 +56,11 @@ AUDIT_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
 @pytest.fixture
 async def saga_database() -> AsyncIterator[str]:
     dsn = _plain_dsn(_requires_live_db())
-    if conninfo_to_dict(dsn).get("host") not in {"127.0.0.1", "localhost", "::1"}:
+    connection_info = conninfo_to_dict(dsn)
+    if (
+        connection_info.get("host") not in {"127.0.0.1", "localhost", "::1"}
+        or str(connection_info.get("port", "5432")) != "5433"
+    ):
         pytest.fail("Saga integration requires the isolated loopback validation database")
     _upgrade_head()
     schema = f"saga_audit_test_{uuid.uuid4().hex}"
@@ -77,6 +81,53 @@ async def saga_database() -> AsyncIterator[str]:
             await connection.execute(
                 sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
             )
+
+
+async def test_identical_state_write_reuses_large_value_and_refreshes_timestamp(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    value = {"payload": "unchanged-state-" * 8192}
+    try:
+        async with await psycopg.AsyncConnection.connect(
+            saga_database, autocommit=True, connect_timeout=5
+        ) as connection:
+            await connection.execute("SET statement_timeout = '15s'")
+            await connection.execute("ALTER TABLE state_kv ALTER COLUMN value SET STORAGE EXTERNAL")
+            await store.write_state("test:unchanged-large-state", value)
+            await connection.execute(
+                "UPDATE state_kv SET updated_at='2000-01-01T00:00:00Z' "
+                "WHERE key='test:unchanged-large-state'"
+            )
+            size_query = (
+                "SELECT pg_relation_size(reltoastrelid) FROM pg_class "
+                "WHERE oid='state_kv'::regclass"
+            )
+            before = await (await connection.execute(size_query)).fetchone()
+            assert before is not None
+            for _iteration in range(5):
+                await store.write_state("test:unchanged-large-state", dict(value))
+            after = await (await connection.execute(size_query)).fetchone()
+            assert after is not None
+            assert after[0] <= before[0] + 8192
+            timestamp_row = await (
+                await connection.execute(
+                    "SELECT updated_at > '2000-01-01T00:00:00Z'::timestamptz "
+                    "FROM state_kv WHERE key='test:unchanged-large-state'"
+                )
+            ).fetchone()
+            assert timestamp_row == (True,)
+            assert await store.read_state("test:unchanged-large-state") == value
+            changed = {"payload": "changed"}
+            await store.write_state("test:unchanged-large-state", changed)
+            assert await store.read_state("test:unchanged-large-state") == changed
+            await store.write_state("test:unchanged-large-state", {"number": 1})
+            await store.write_state("test:unchanged-large-state", {"number": 1.0})
+            numeric = await store.read_state("test:unchanged-large-state")
+            assert numeric is not None
+            assert isinstance(numeric["number"], float)
+    finally:
+        await store.aclose()
 
 
 async def test_saga_shared_chain_and_bounded_reader_on_postgres(saga_database: str) -> None:
@@ -452,10 +503,10 @@ async def test_keyset_state_keys_stay_stable_after_audited_cas() -> None:
 
 
 @pytest.mark.asyncio
-async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit() -> None:
-    url = _requires_live_db()
-    _upgrade_head()
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
     deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
     peer = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
     assert deleted is not None and peer is not None
@@ -492,6 +543,7 @@ async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit()
     assert [row["case"]["case_id"] for row in observed["cases"]] == [peer.case_id]
     assert await store.write_state_if_absent(snapshot_key, cohort) is False
     assert await store.verify_chain() is True
+    await store.aclose()
 
 
 @pytest.mark.parametrize("field", ["status", "delivery.status"])

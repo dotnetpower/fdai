@@ -184,7 +184,11 @@ class PostgresStateStore(
                     INSERT INTO state_kv (key, value)
                     VALUES (%s, %s::jsonb)
                     ON CONFLICT (key)
-                    DO UPDATE SET value = EXCLUDED.value,
+                    DO UPDATE SET value = CASE
+                                      WHEN state_kv.value::text = EXCLUDED.value::text
+                                      THEN state_kv.value
+                                      ELSE EXCLUDED.value
+                                  END,
                                   updated_at = NOW()
                     """,
                     (key, json.dumps(dict(value), default=str)),
