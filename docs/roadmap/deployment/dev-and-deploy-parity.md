@@ -128,6 +128,13 @@ scale factors to 0.01 with a 1,000-row threshold, so obsolete row versions becom
 These table-local settings do not change retention or authorize evidence deletion. A rewrite can
 recover unused space, but subsequent writes can grow the database again.
 
+The PostgreSQL state adapter reuses a stored JSONB body only when its PostgreSQL text
+representation is identical to the incoming body. Every write still refreshes `updated_at`,
+and numeric representations such as `1` and `1.0` remain distinct. This avoids repeated TOAST
+copies without suppressing a write, changing retention, or discarding an observation. A bounded
+PostgreSQL 16.14 sample comparison of `pglz`/`lz4` and three TOAST targets kept the current
+compression defaults: none of the alternatives reduced total space across the three large tables.
+
 Only an explicit `prepare-console-state.sh --allow-recreate` request permits discarding that
 disposable local generation after services stop and backup/history requirements are reviewed.
 The entire database and dedicated broker generation are then recreated before the canonical

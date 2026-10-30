@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 342538d9640c7c93d7a03e4589460b58f1c1d810
+translation_source_sha: aa600bb4fe841f65749b0b2a1df522754340303c
 translation_revised: 2026-10-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -135,6 +135,13 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 보이지 않는 이전 행 버전의 공간을 더 일찍 재사용하게 합니다. 이 테이블별 설정은 보존 기간을
 바꾸거나 증거 삭제를 허용하지 않습니다. 테이블 재작성으로 빈 공간을 회수할 수 있지만,
 후속 쓰기로 데이터베이스가 다시 커질 수 있습니다.
+
+PostgreSQL 상태 어댑터는 저장된 JSONB와 새 값의 PostgreSQL 텍스트 표현이 완전히 같을 때만
+기존 본문을 재사용합니다. 쓰기마다 `updated_at`은 계속 갱신하며, `1`과 `1.0` 같은 숫자
+표현도 구분합니다. 쓰기를 생략하거나 보존 기간을 바꾸거나 관측을 버리지 않고 반복되는
+TOAST 복사를 줄이는 방식입니다. PostgreSQL 16.14에서 `pglz`와 `lz4`, 세 가지 TOAST 기준을
+제한된 표본으로 비교한 결과, 세 대형 테이블의 전체 공간을 줄이는 대안이 없어 현재 압축
+기본값을 유지했습니다.
 
 서비스를 중지하고 백업 및 이력 보존 요구 사항을 검토한 뒤 명시적으로
 `prepare-console-state.sh --allow-recreate`를 요청한 경우에만 폐기 가능한 로컬 세대를
