@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { getLocale } from "../i18n";
 import {
   DataTable,
   ErrorState,
@@ -21,6 +22,7 @@ import { verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import {
   decodeWaraDetail,
   decodeWaraResponse,
+  waraDisplayTitle,
   waraHref,
   waraStateFromSearch,
   type WaraControl,
@@ -225,7 +227,11 @@ function WaraControlsBody({
         header: t("governance.rules.wara.column.recommendation"),
         render: (item) => (
           <span class="wara-recommendation-identity" data-recommendation-id={item.id}>
-            <span class="wara-recommendation-title">{item.title}</span>
+            <span class="wara-recommendation-title">{
+              waraDisplayTitle(item, getLocale()) === item.title
+                ? item.title
+                : <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: item.title })} placement="top"><span>{waraDisplayTitle(item, getLocale())}</span></Tooltip>
+            }</span>
             <small class="muted">
               <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}</code></Tooltip>
               <span>{item.resource_type}</span>
@@ -322,7 +328,7 @@ function WaraControlsBody({
             empty={t("governance.rules.wara.result.empty")}
             onRowClick={(item) => onSelect(item.id)}
             isRowActive={(item) => item.id === selected}
-            rowActionLabel={(item) => t("governance.rules.wara.openRow", { title: item.title })}
+            rowActionLabel={(item) => t("governance.rules.wara.openRow", { title: waraDisplayTitle(item, getLocale()) })}
             rowActionControls="wara-control-detail"
           />
         </div>

@@ -50,6 +50,7 @@ export interface WaraManualEvidence {
 export interface WaraControl {
   readonly id: string;
   readonly title: string;
+  readonly title_ko?: string | null;
   readonly description?: string | null;
   readonly potential_benefits?: string | null;
   readonly guidance?: WaraGuidance | null;
@@ -200,6 +201,7 @@ function decodeControl(value: unknown, index: number): WaraControl {
   return {
     id: panelNonEmptyString(raw, "id", label),
     title: panelNonEmptyString(raw, "title", label),
+    title_ko: raw["title_ko"] === undefined ? null : panelNullableString(raw, "title_ko", label),
     description: raw["description"] === undefined ? null : panelNullableString(raw, "description", label),
     potential_benefits: raw["potential_benefits"] === undefined ? null : panelNullableString(raw, "potential_benefits", label),
     recommendation_control: panelNonEmptyString(raw, "recommendation_control", label),
@@ -386,4 +388,9 @@ export function waraHref(
       offset: offset > 0 ? offset : null,
     },
   });
+}
+
+/** Korean display title when the operator language is Korean and the server attached one. */
+export function waraDisplayTitle(control: Pick<WaraControl, "title" | "title_ko">, locale: string): string {
+  return locale === "ko" && control.title_ko ? control.title_ko : control.title;
 }
