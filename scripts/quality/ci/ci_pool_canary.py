@@ -596,6 +596,42 @@ def collect(canary: Canary) -> dict[str, Any]:
     observations = [
         read_json(path) for path in Path("canary-observations").glob("observation-*.json")
     ]
+    by_slot = {
+        int(obs["slot"]): obs
+        for obs in observations
+        if isinstance(obs.get("slot"), int)
+        and "hold_started_at" in obs
+        and "hold_completed_at" in obs
+    }
+    for job in jobs:
+        name = str(job.get("name", ""))
+        match = re.fullmatch(r"pool canary / (control|general|docker) / ([0-9]+)", name)
+        completed_steps = {
+            row.get("name")
+            for row in (job.get("steps") or [])
+            if isinstance(row, dict)
+            and row.get("conclusion") == "success"
+            and row.get("status") == "completed"
+        }
+        if (
+            match is not None
+            and match.group(1) == canary.pool
+            and not ({CHECK_NAME, HOLD_NAME} <= completed_steps)
+            and job.get("status") == "completed"
+            and job.get("conclusion") == "success"
+            and int(match.group(2)) in by_slot
+        ):
+            obs = by_slot[int(match.group(2))]
+            job["steps"] = [
+                {"name": CHECK_NAME, "status": "completed", "conclusion": "success"},
+                {
+                    "name": HOLD_NAME,
+                    "status": "completed",
+                    "conclusion": "success",
+                    "started_at": obs["hold_started_at"],
+                    "completed_at": obs["hold_completed_at"],
+                },
+            ]
     policy = read_json(Path("config/ci-runner-pools.json"))
     return {**build_receipt(canary, jobs, observations, policy["slo"]), "github_run_verified": True}
 

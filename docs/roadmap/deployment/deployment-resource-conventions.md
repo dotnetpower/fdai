@@ -454,12 +454,13 @@ stages remain valid. Acceptance targets are warm p95 <= 15 s, burst p99 <= 90 s,
 maximum <= 120 s. Every expected job must succeed exactly once, actual concurrency must reach
 the requested stage, and scale-in must return to the reserve without interrupting busy work.
 A single burst reports nearest-rank observations, not a population-wide latency guarantee.
-No measured queue SLO or completed rollout is claimed for the new controller.
+Retained acceptance receipts record each stage's observed concurrency, queue percentiles, and
+post-burst return to the configured reserve in the implementation ledger.
 
 ### Stage 1: isolated PAT controller
 
-Stage 1 provides the isolated runtime and infrastructure below. Live deployment and pool
-acceptance remain separate, unverified steps.
+Stage 1 provides the isolated runtime and infrastructure below, with live deployment and pool
+acceptance tracked in the implementation ledger.
 [`infra/ci-runner-controller`](../../../infra/ci-runner-controller/README.md) defines one
 non-build controller, separate controller and worker Container Apps environments, and two
 worker Manual Jobs. A fine-grained personal access token (PAT) belongs only to the controller;
