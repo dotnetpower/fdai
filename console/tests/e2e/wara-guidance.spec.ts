@@ -227,6 +227,29 @@ test("illustrates three public pilots in English and Korean, desktop before resp
   await testInfo.attach("synthetic-guidance-geometry", { path: measurementPath, contentType: "application/json" });
 });
 
+test("lists recommendations with their Korean title in Korean and the source title in English (isolated fixtures)", async ({ page }) => {
+  const controls = waraPilotControls();
+  await installFixture(page, controls);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  for (const locale of ["ko", "en"] as const) {
+    await page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}`);
+    await expect(page.locator(".wara-controls-view .data-table")).toBeVisible();
+    await expect(page.locator(".wara-controls-view .data-table thead")).toContainText(locale === "ko" ? "권고" : "Recommendation");
+    await expect(page.locator(".wara-controls-view .data-table thead")).not.toContainText(/원문 제목|source title/i);
+    for (const control of controls) {
+      const row = page.locator(`[data-recommendation-id="${control.id}"]`);
+      const expected = locale === "ko" ? control.title_ko! : control.title;
+      expect(control.title_ko).toBeTruthy();
+      await expect(row.locator(".wara-recommendation-title")).toHaveText(expected);
+      if (locale === "ko") {
+        await expect(row.locator(".wara-recommendation-title")).not.toHaveText(control.title);
+        await expect(page.getByRole("button", { name: new RegExp(control.title_ko!.slice(0, 6)) }).first()).toBeVisible();
+      }
+    }
+    await page.screenshot({ animations: "disabled", path: test.info().outputPath(`list-${locale}.png`) });
+  }
+});
+
 test("missing guidance preserves base explanation; malformed or mismatched assets visibly fail", async ({ page }) => {
   const controls = waraPilotControls();
   const control = controls[0]!;

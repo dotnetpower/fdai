@@ -583,7 +583,7 @@
         "unknown": "충족 여부 알 수 없음"
       },
       "column": {
-        "recommendation": "권고 (원문 제목)",
+        "recommendation": "권고",
         "resourceType": "리소스 종류",
         "control": "권고 컨트롤",
         "impact": "자문 영향도"
@@ -611,6 +611,7 @@
         "title": "WARA 권고 세부 정보",
         "loading": "WARA 권고 로드 중...",
         "loadFailed": "WARA 권고를 로드하지 못했습니다: {message}",
+        "sourceTitle": "원문 제목: {title}",
         "boundary": "변경을 적용하지 않는 관찰 모드의 자문 정보입니다. 카탈로그 등록과 제품 검증만으로 이 권고를 충족했다고 판단하지 않습니다.",
         "sourceRevision": "원본 리비전",
         "evaluationScope": "평가 범위",

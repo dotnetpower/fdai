@@ -132,6 +132,8 @@ A native modal offers the unchanged image at original size, keyboard-scrollable 
 Escape closes only that modal and returns focus to its opener. The containing recommendation
 stays open, and illustrative guidance remains separate from the actual environment assessment.
 
+In Korean, the recommendation list and the row action label show the guide's Korean title, with the source title in a tooltip and kept searchable. The Operator attaches it only when the control's revision, digest and lifecycle match the packaged guide, and omits it when the guide is unavailable.
+
 The document reading surface follows the Console type scale: 24px title, 16px summary and section
 headings, 14px body text, and no text below 12px. The diagram legend names the relationship styles
 that are drawn, shows the conditional style only when a conditional relationship exists, and

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { decodeWaraResponse, waraHref, waraStateFromSearch } from "./wara-controls.model";
+import { decodeWaraResponse, waraDisplayTitle, waraHref, waraStateFromSearch } from "./wara-controls.model";
 
 const CONTROL = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -71,6 +71,17 @@ function response(controls: readonly unknown[] = [CONTROL]): unknown {
 }
 
 describe("WARA control contract", () => {
+  test("shows the server-attached Korean title only in Korean and falls back to the source title", () => {
+    const withTitle = decodeWaraResponse(response([{ ...CONTROL, title_ko: "가용성 영역 사용" }])).controls[0]!;
+    expect(withTitle.title_ko).toBe("가용성 영역 사용");
+    expect(waraDisplayTitle(withTitle, "ko")).toBe("가용성 영역 사용");
+    expect(waraDisplayTitle(withTitle, "en")).toBe("Use availability zones");
+    const without = decodeWaraResponse(response()).controls[0]!;
+    expect(without.title_ko).toBeNull();
+    expect(waraDisplayTitle(without, "ko")).toBe("Use availability zones");
+    expect(() => decodeWaraResponse(response([{ ...CONTROL, title_ko: 7 }]))).toThrow();
+  });
+
   test("keeps catalog, mapping, evaluation, and satisfaction independent", () => {
     const decoded = decodeWaraResponse(response());
     expect(decoded.controls[0]?.lifecycle).toBe("active");

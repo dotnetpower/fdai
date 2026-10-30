@@ -29,7 +29,7 @@ export function waraCorpusControls(): WaraControl[] {
     const lifecycle = control.wara.state.toLowerCase();
     if (lifecycle !== "active" && lifecycle !== "disabled") throw new Error("Unsupported public WARA lifecycle");
     return {
-      ...fixtureControl(), id: control.id, title: control.title, description: control.description,
+      ...fixtureControl(), id: control.id, title: control.title, title_ko: guidance.title.ko ?? null, description: control.description,
       potential_benefits: control.wara.potential_benefits, recommendation_control: control.wara.control,
       impact: control.wara.impact, resource_type: control.wara.resource_type,
       product_group_verified: control.wara.product_group_verified, automation_available: control.wara.automation_available,
