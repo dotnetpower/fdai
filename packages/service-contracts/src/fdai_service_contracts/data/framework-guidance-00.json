@@ -1,0 +1,3204 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:01 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 180 days.",
+          "ko": "CO:01은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not treat a finance-only training record as workload engineering participation.",
+          "ko": "재무 부서만 참여한 교육 기록을 워크로드 개발팀의 참여로 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can discuss cost tradeoffs before spending becomes difficult to reverse.",
+        "ko": "팀은 비용이 되돌리기 어려운 수준에 이르기 전에 절충안을 논의할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Cost accountability must not reward savings obtained by breaking reliability commitments.",
+          "ko": "안정성 약속을 어겨 얻은 절감액을 비용 책임의 성과로 인정하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign cost decision rights and train engineers using a workload cost review.",
+            "ko": "비용 결정 권한을 정하고 워크로드 비용 검토 사례로 개발자를 교육합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:cost-training-evidence, artifact:financial-accountability-model for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:cost-training-evidence, artifact:financial-accountability-model 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Only finance sees bills; engineers do not know who owns cost decisions.",
+            "ko": "재무 부서만 청구서를 보고 개발자는 비용 결정의 책임자를 모릅니다."
+          },
+          {
+            "en": "Illustrative gap: CO:01 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:01에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:eb53eb40ae651581a553fbe63f96e1ad527ee577242d0666a3483da9a61e220c",
+      "control_id": "CO:01",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-01",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Only finance sees bills; engineers do not know who owns cost decisions.",
+              "ko": "재무 부서만 청구서를 보고 개발자는 비용 결정의 책임자를 모릅니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Create a culture of financial responsibility",
+              "ko": "재무 책임을 공유하는 문화 조성"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign cost decision rights and train engineers using a workload cost review.",
+              "ko": "비용 결정 권한을 정하고 워크로드 비용 검토 사례로 개발자를 교육합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Ask an engineer to identify the cost owner and explain a recent cost decision.",
+              "ko": "개발자가 비용 담당자를 찾고 최근 비용 결정의 이유를 설명할 수 있는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can discuss cost tradeoffs before spending becomes difficult to reverse.",
+              "ko": "팀은 비용이 되돌리기 어려운 수준에 이르기 전에 절충안을 논의할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Create a culture of financial responsibility",
+          "ko": "재무 책임을 공유하는 문화 조성"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:01 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:01의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign cost decision rights and train engineers using a workload cost review.",
+          "ko": "비용 결정 권한을 정하고 워크로드 비용 검토 사례로 개발자를 교육합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:cost-training-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:cost-training-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:financial-accountability-model from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:financial-accountability-model을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Named cost owners connect engineering choices to financial accountability. In FDAI, CO:01 is assessed through approval:cost-owner, artifact:cost-training-evidence, artifact:financial-accountability-model. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "비용 담당자가 기술 선택과 재무 책임을 연결합니다. FDAI는 CO:01을 approval:cost-owner, artifact:cost-training-evidence, artifact:financial-accountability-model 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:06b115e76219f5643d2a6a2d0642739e45807683800a4f2e7d666555e5b122cd",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Named cost owners connect engineering choices to financial accountability.",
+        "ko": "비용 담당자가 기술 선택과 재무 책임을 연결합니다."
+      },
+      "title": {
+        "en": "Create a culture of financial responsibility",
+        "ko": "재무 책임을 공유하는 문화 조성"
+      },
+      "verification_steps": [
+        {
+          "en": "Ask an engineer to identify the cost owner and explain a recent cost decision.",
+          "ko": "개발자가 비용 담당자를 찾고 최근 비용 결정의 이유를 설명할 수 있는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:01 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:01을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:02 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:02은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude unrelated workloads and document shared-charge allocation separately.",
+          "ko": "다른 워크로드를 제외하고 공용 비용의 배분은 별도로 기록합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Explicit assumptions make forecast changes explainable.",
+        "ko": "가정을 명시하면 예상 비용이 달라진 이유를 설명할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A forecast is conditional, not a provider price guarantee.",
+          "ko": "예측은 가정에 따른 값이며 공급자의 가격 보장이 아닙니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Model compute, storage and transfer charges under baseline and peak demand.",
+            "ko": "평상시와 최대 수요에 따라 컴퓨팅, 저장소, 전송 요금을 모델링합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:workload-cost-model, metric:cost-estimate-confirmation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:workload-cost-model, metric:cost-estimate-confirmation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The estimate is a single total with no traffic or storage assumptions.",
+            "ko": "예상 비용에는 총액만 있고 트래픽이나 저장량 가정이 없습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:02 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:02에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:89c8480d05b04e44f8d3e4943c30435811e85576c95f145d79e9e5c82b81f564",
+      "control_id": "CO:02",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-02",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The estimate is a single total with no traffic or storage assumptions.",
+              "ko": "예상 비용에는 총액만 있고 트래픽이나 저장량 가정이 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Create and maintain a cost model",
+              "ko": "비용 모델 작성과 유지"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Model compute, storage and transfer charges under baseline and peak demand.",
+              "ko": "평상시와 최대 수요에 따라 컴퓨팅, 저장소, 전송 요금을 모델링합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Recalculate a demand scenario and compare its component estimates with actual billing.",
+              "ko": "수요 시나리오를 다시 계산하고 구성 요소별 예상액을 실제 청구액과 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Explicit assumptions make forecast changes explainable.",
+              "ko": "가정을 명시하면 예상 비용이 달라진 이유를 설명할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Create and maintain a cost model",
+          "ko": "비용 모델 작성과 유지"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:02 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:02의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Model compute, storage and transfer charges under baseline and peak demand.",
+          "ko": "평상시와 최대 수요에 따라 컴퓨팅, 저장소, 전송 요금을 모델링합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:workload-cost-model from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:workload-cost-model을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:cost-estimate-confirmation from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:cost-estimate-confirmation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A cost model relates demand assumptions to the components that incur charges. In FDAI, CO:02 is assessed through approval:cost-owner, artifact:workload-cost-model, metric:cost-estimate-confirmation. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "비용 모델은 수요 가정과 요금이 발생하는 구성 요소를 연결합니다. FDAI는 CO:02을 approval:cost-owner, artifact:workload-cost-model, metric:cost-estimate-confirmation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:de3a4742ada6112139be21b4f291d95a1868e495a56010adc9b508aacd2c0976",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "A cost model relates demand assumptions to the components that incur charges.",
+        "ko": "비용 모델은 수요 가정과 요금이 발생하는 구성 요소를 연결합니다."
+      },
+      "title": {
+        "en": "Create and maintain a cost model",
+        "ko": "비용 모델 작성과 유지"
+      },
+      "verification_steps": [
+        {
+          "en": "Recalculate a demand scenario and compare its component estimates with actual billing.",
+          "ko": "수요 시나리오를 다시 계산하고 구성 요소별 예상액을 실제 청구액과 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:02 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:02을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:03 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 30 days.",
+          "ko": "CO:03은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not compare partial-day usage with an unadjusted full-day forecast.",
+          "ko": "일부 시간의 사용량을 하루 전체의 예측과 그대로 비교하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Owners can investigate cost changes while corrective options remain available.",
+        "ko": "담당자는 대응 방안이 남아 있을 때 비용 변화를 조사할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Billing latency and shared charges can distort apparent anomalies.",
+          "ko": "청구 지연과 공용 비용은 비용 이상처럼 보이는 차이를 만들 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review attributed daily costs against budget and forecast with the cost owner.",
+            "ko": "비용 담당자와 함께 워크로드별 일일 비용을 예산 및 예측과 비교합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:budget-forecast-evidence, metric:daily-cost-report for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:budget-forecast-evidence, metric:daily-cost-report 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A monthly invoice arrives without workload ownership or trend context.",
+            "ko": "월별 청구서에는 워크로드 담당자나 추세 정보가 없습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:03 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:03에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:c61f299b89a8c406147a2497cf47458a8caa74cd96ef8f2fedb21f6da2624aee",
+      "control_id": "CO:03",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-03",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A monthly invoice arrives without workload ownership or trend context.",
+              "ko": "월별 청구서에는 워크로드 담당자나 추세 정보가 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Collect and review cost data",
+              "ko": "비용 데이터 수집과 검토"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review attributed daily costs against budget and forecast with the cost owner.",
+              "ko": "비용 담당자와 함께 워크로드별 일일 비용을 예산 및 예측과 비교합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace a reported variance back to billing records and its allocation rule.",
+              "ko": "보고된 차이를 청구 기록과 비용 배분 규칙까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Owners can investigate cost changes while corrective options remain available.",
+              "ko": "담당자는 대응 방안이 남아 있을 때 비용 변화를 조사할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Collect and review cost data",
+          "ko": "비용 데이터 수집과 검토"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:03 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:03의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review attributed daily costs against budget and forecast with the cost owner.",
+          "ko": "비용 담당자와 함께 워크로드별 일일 비용을 예산 및 예측과 비교합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:budget-forecast-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:budget-forecast-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:daily-cost-report from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:daily-cost-report을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Allocated usage and billing data reveal departures from the cost model. In FDAI, CO:03 is assessed through approval:cost-owner, metric:budget-forecast-evidence, metric:daily-cost-report. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "배분된 사용량과 청구 데이터는 비용 모델에서 벗어난 부분을 보여 줍니다. FDAI는 CO:03을 approval:cost-owner, metric:budget-forecast-evidence, metric:daily-cost-report 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:69e8fe0b346e2a0a7091114ad40393a2987857ffd34ab6a31a047f16b5baf3d1",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Allocated usage and billing data reveal departures from the cost model.",
+        "ko": "배분된 사용량과 청구 데이터는 비용 모델에서 벗어난 부분을 보여 줍니다."
+      },
+      "title": {
+        "en": "Collect and review cost data",
+        "ko": "비용 데이터 수집과 검토"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace a reported variance back to billing records and its allocation rule.",
+          "ko": "보고된 차이를 청구 기록과 비용 배분 규칙까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:03 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:03을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:04 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:04은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Do not describe a budget alert as a hard resource-spending cap.",
+          "ko": "예산 경고를 리소스 비용의 강제 상한으로 설명하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unexpected growth is visible before it exhausts the financial envelope.",
+        "ko": "예상치 못한 증가가 예산을 소진하기 전에 드러납니다."
+      },
+      "cautions": [
+        {
+          "en": "Automatic shutdown can violate availability or data-processing obligations.",
+          "ko": "자동 종료는 가용성이나 데이터 처리 의무를 위반할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define workload spending thresholds, recipients and a tested escalation path.",
+            "ko": "워크로드 비용 임계값, 수신자, 시험한 보고 경로를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:spending-guardrails, metric:budget-alert-validation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:spending-guardrails, metric:budget-alert-validation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A budget exists but alerts have no recipient or tested escalation.",
+            "ko": "예산은 있지만 경고 수신자나 검증된 보고 절차가 없습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:04 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:04에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:a4413b85fb32ac575bce2e5cdf2ce33d6b0e27d2c423acc2967871531a9d82cd",
+      "control_id": "CO:04",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-04",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A budget exists but alerts have no recipient or tested escalation.",
+              "ko": "예산은 있지만 경고 수신자나 검증된 보고 절차가 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Set spending guardrails",
+              "ko": "비용 한도와 경고 설정"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define workload spending thresholds, recipients and a tested escalation path.",
+              "ko": "워크로드 비용 임계값, 수신자, 시험한 보고 경로를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Exercise a budget alert and confirm owner receipt and response instructions.",
+              "ko": "예산 경고를 시험하고 담당자의 수신 여부와 대응 지침을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unexpected growth is visible before it exhausts the financial envelope.",
+              "ko": "예상치 못한 증가가 예산을 소진하기 전에 드러납니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Set spending guardrails",
+          "ko": "비용 한도와 경고 설정"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:04 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:04의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define workload spending thresholds, recipients and a tested escalation path.",
+          "ko": "워크로드 비용 임계값, 수신자, 시험한 보고 경로를 정합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:spending-guardrails from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:spending-guardrails을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:budget-alert-validation from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:budget-alert-validation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Budgets and reviewed guardrails constrain exposure and route overruns to owners. In FDAI, CO:04 is assessed through approval:cost-owner, artifact:spending-guardrails, metric:budget-alert-validation. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "예산과 검토된 제한 정책은 비용 노출을 줄이고 초과 상황을 담당자에게 전달합니다. FDAI는 CO:04을 approval:cost-owner, artifact:spending-guardrails, metric:budget-alert-validation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:1def23de89355bd5644380ebb1ee010380fd9f9263fd51c06eca6c13864b282f",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Budgets and reviewed guardrails constrain exposure and route overruns to owners.",
+        "ko": "예산과 검토된 제한 정책은 비용 노출을 줄이고 초과 상황을 담당자에게 전달합니다."
+      },
+      "title": {
+        "en": "Set spending guardrails",
+        "ko": "비용 한도와 경고 설정"
+      },
+      "verification_steps": [
+        {
+          "en": "Exercise a budget alert and confirm owner receipt and response instructions.",
+          "ko": "예산 경고를 시험하고 담당자의 수신 여부와 대응 지침을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:04 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:04을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:05 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 180 days.",
+          "ko": "CO:05은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude transient demand from a commitment justified only by steady usage.",
+          "ko": "안정적인 사용량으로 정당화한 약정에서 일시적인 수요를 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "A suitable pricing arrangement can reduce the unit cost of stable usage.",
+        "ko": "적합한 요금 조건은 안정적인 사용량의 단위 비용을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A discount can still increase total cost when the commitment is underused.",
+          "ko": "할인을 받아도 약정을 충분히 사용하지 않으면 총비용이 늘 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Compare eligible rate options against measured steady demand and contract terms.",
+            "ko": "측정한 기본 수요 및 계약 조건과 적용 가능한 요금 선택지를 비교합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:rate-optimization-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:rate-optimization-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The workload pays on-demand rates without checking commitment utilization.",
+            "ko": "워크로드가 약정 활용도를 검토하지 않고 종량제 요금을 지불합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:05 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:05에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:edf735beab52c70042b07d62d6934d1f2bb974b3c471712782998316fccee33b",
+      "control_id": "CO:05",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-05",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The workload pays on-demand rates without checking commitment utilization.",
+              "ko": "워크로드가 약정 활용도를 검토하지 않고 종량제 요금을 지불합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Obtain the best available provider rates",
+              "ko": "적합한 공급자 요금 선택"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Compare eligible rate options against measured steady demand and contract terms.",
+              "ko": "측정한 기본 수요 및 계약 조건과 적용 가능한 요금 선택지를 비교합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Reconcile effective rates, commitment coverage and unused commitments in billing.",
+              "ko": "청구 내역에서 실효 요금, 약정 적용 범위, 미사용 약정을 대조합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A suitable pricing arrangement can reduce the unit cost of stable usage.",
+              "ko": "적합한 요금 조건은 안정적인 사용량의 단위 비용을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Obtain the best available provider rates",
+          "ko": "적합한 공급자 요금 선택"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:05 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:05의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Compare eligible rate options against measured steady demand and contract terms.",
+          "ko": "측정한 기본 수요 및 계약 조건과 적용 가능한 요금 선택지를 비교합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:rate-optimization-review from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:rate-optimization-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Rate reviews compare commitments and discounts with predictable workload demand. In FDAI, CO:05 is assessed through approval:cost-owner, artifact:rate-optimization-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "요금 검토는 약정과 할인 조건을 예측 가능한 워크로드 수요와 비교합니다. FDAI는 CO:05을 approval:cost-owner, artifact:rate-optimization-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:32c0660186b7992fcfdbe2af4074e1e1e2a10e4ec885e7309b1020d9dfba3938",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Rate reviews compare commitments and discounts with predictable workload demand.",
+        "ko": "요금 검토는 약정과 할인 조건을 예측 가능한 워크로드 수요와 비교합니다."
+      },
+      "title": {
+        "en": "Obtain the best available provider rates",
+        "ko": "적합한 공급자 요금 선택"
+      },
+      "verification_steps": [
+        {
+          "en": "Reconcile effective rates, commitment coverage and unused commitments in billing.",
+          "ko": "청구 내역에서 실효 요금, 약정 적용 범위, 미사용 약정을 대조합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:05 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:05을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:06 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:06은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Do not batch latency-sensitive flows beyond their agreed response time.",
+          "ko": "응답 시간 약속을 넘기면서 지연에 민감한 흐름을 묶지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "More purchased capacity serves useful work rather than gaps between jobs.",
+        "ko": "구매한 용량을 작업 사이의 공백보다 실제 처리에 더 많이 사용할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Billing behavior is service-specific; deallocation does not remove every charge.",
+          "ko": "청구 방식은 서비스마다 다르며 할당을 해제해도 모든 요금이 사라지지는 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review metering granularity and batch compatible jobs within their deadlines.",
+            "ko": "과금 단위를 검토하고 기한을 지키는 범위에서 함께 처리할 작업을 묶습니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:billing-increment-analysis for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:billing-increment-analysis 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Short jobs leave a charged allocation idle between executions.",
+            "ko": "짧은 작업 사이에 비용이 청구되는 할당 용량이 놀고 있습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:06 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:06에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:3f1a8a0db0c54cc9009dad13689153f5208a5acd2bfce96448be0ce08dc17590",
+      "control_id": "CO:06",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-06",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Short jobs leave a charged allocation idle between executions.",
+              "ko": "짧은 작업 사이에 비용이 청구되는 할당 용량이 놀고 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Align usage to billing increments",
+              "ko": "사용 패턴과 청구 단위 정렬"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review metering granularity and batch compatible jobs within their deadlines.",
+              "ko": "과금 단위를 검토하고 기한을 지키는 범위에서 함께 처리할 작업을 묶습니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare billed units and completed work before and after the schedule change.",
+              "ko": "일정을 바꾸기 전후의 청구 단위와 완료 작업량을 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "More purchased capacity serves useful work rather than gaps between jobs.",
+              "ko": "구매한 용량을 작업 사이의 공백보다 실제 처리에 더 많이 사용할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Align usage to billing increments",
+          "ko": "사용 패턴과 청구 단위 정렬"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:06 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:06의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review metering granularity and batch compatible jobs within their deadlines.",
+          "ko": "과금 단위를 검토하고 기한을 지키는 범위에서 함께 처리할 작업을 묶습니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:billing-increment-analysis from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:billing-increment-analysis을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Scheduling work around the actual billing unit reduces paid idle capacity. In FDAI, CO:06 is assessed through approval:cost-owner, metric:billing-increment-analysis. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "실제 청구 단위에 맞춘 작업 일정은 비용을 내는 유휴 용량을 줄입니다. FDAI는 CO:06을 approval:cost-owner, metric:billing-increment-analysis 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:93284d4790bed6d08f3855f0fd712c2ae0ace01621f2fa85514ea6ee67c61a04",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Scheduling work around the actual billing unit reduces paid idle capacity.",
+        "ko": "실제 청구 단위에 맞춘 작업 일정은 비용을 내는 유휴 용량을 줄입니다."
+      },
+      "title": {
+        "en": "Align usage to billing increments",
+        "ko": "사용 패턴과 청구 단위 정렬"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare billed units and completed work before and after the schedule change.",
+          "ko": "일정을 바꾸기 전후의 청구 단위와 완료 작업량을 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:06 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:06을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:07 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 30 days.",
+          "ko": "CO:07은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Exclude resources whose compliance or feature requirements require the existing tier.",
+          "ko": "규정 준수나 기능 때문에 현재 계층이 필요한 리소스는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Right-sizing can remove waste without redesigning the whole workload.",
+        "ko": "적정 크기 조정은 워크로드 전체를 재설계하지 않고 낭비를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A cheaper tier may reduce redundancy, throughput or available features.",
+          "ko": "저렴한 계층은 중복성, 처리량, 사용 가능한 기능을 줄일 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Compare tier capabilities with peak utilization, limits and recovery requirements.",
+            "ko": "계층의 기능을 최대 사용률, 제한, 복구 요구사항과 비교합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:component-cost-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:component-cost-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "An oversized tier is retained because only average CPU is reviewed.",
+            "ko": "평균 CPU만 검토하여 과도하게 큰 계층을 유지합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:07 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:07에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:a50db3ccc2f2e8cfca17aca63e36cf131496d28d36e8965f6024bf61cffccba1",
+      "control_id": "CO:07",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-07",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "An oversized tier is retained because only average CPU is reviewed.",
+              "ko": "평균 CPU만 검토하여 과도하게 큰 계층을 유지합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize component costs",
+              "ko": "구성 요소별 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Compare tier capabilities with peak utilization, limits and recovery requirements.",
+              "ko": "계층의 기능을 최대 사용률, 제한, 복구 요구사항과 비교합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Replay representative peak load on the proposed tier and inspect saturation.",
+              "ko": "제안한 계층에서 대표 최대 부하를 재현하고 포화 여부를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Right-sizing can remove waste without redesigning the whole workload.",
+              "ko": "적정 크기 조정은 워크로드 전체를 재설계하지 않고 낭비를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize component costs",
+          "ko": "구성 요소별 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:07 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:07의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Compare tier capabilities with peak utilization, limits and recovery requirements.",
+          "ko": "계층의 기능을 최대 사용률, 제한, 복구 요구사항과 비교합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:component-cost-review from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:component-cost-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Component-level utilization distinguishes oversized resources from genuine capacity needs. In FDAI, CO:07 is assessed through approval:cost-owner, metric:component-cost-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "구성 요소별 사용률은 과도한 크기와 실제 용량 수요를 구분합니다. FDAI는 CO:07을 approval:cost-owner, metric:component-cost-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:a950cbac78cb1c6c4a3df54ba9399d793c29234323e16bbf843fe659d9496ac3",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Component-level utilization distinguishes oversized resources from genuine capacity needs.",
+        "ko": "구성 요소별 사용률은 과도한 크기와 실제 용량 수요를 구분합니다."
+      },
+      "title": {
+        "en": "Optimize component costs",
+        "ko": "구성 요소별 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Replay representative peak load on the proposed tier and inspect saturation.",
+          "ko": "제안한 계층에서 대표 최대 부하를 재현하고 포화 여부를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:07 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:07을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:08 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:08은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude continuous integration windows and externally committed test availability.",
+          "ko": "지속적 통합 실행 구간과 외부에 약속한 테스트 가용 시간은 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Idle nonproduction capacity can be reduced without changing production demand.",
+        "ko": "운영 수요를 바꾸지 않고 비운영 환경의 유휴 용량을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Stopping compute does not necessarily stop storage or licensing charges.",
+          "ko": "컴퓨팅을 중지해도 저장소나 라이선스 비용은 계속 발생할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign environment owners and schedule safe suspension with preserved test data.",
+            "ko": "환경 담당자를 정하고 테스트 데이터를 보존하면서 안전하게 중단할 일정을 만듭니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:environment-cost-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:environment-cost-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Test environments run continuously after their users finish work.",
+            "ko": "테스트 사용자가 작업을 마친 뒤에도 환경이 계속 실행됩니다."
+          },
+          {
+            "en": "Illustrative gap: CO:08 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:08에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:c805d159d9acd2ecfd75539e7795554d85b38151b2556d713b170246b843f37a",
+      "control_id": "CO:08",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-08",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Test environments run continuously after their users finish work.",
+              "ko": "테스트 사용자가 작업을 마친 뒤에도 환경이 계속 실행됩니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize environment costs",
+              "ko": "환경별 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign environment owners and schedule safe suspension with preserved test data.",
+              "ko": "환경 담당자를 정하고 테스트 데이터를 보존하면서 안전하게 중단할 일정을 만듭니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Verify scheduled stop and restart, retained state and tester access.",
+              "ko": "예정된 중지와 재시작, 상태 보존, 테스트 사용자의 접근을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Idle nonproduction capacity can be reduced without changing production demand.",
+              "ko": "운영 수요를 바꾸지 않고 비운영 환경의 유휴 용량을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize environment costs",
+          "ko": "환경별 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:08 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:08의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign environment owners and schedule safe suspension with preserved test data.",
+          "ko": "환경 담당자를 정하고 테스트 데이터를 보존하면서 안전하게 중단할 일정을 만듭니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:environment-cost-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:environment-cost-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Environment schedules align paid capacity with development and test activity. In FDAI, CO:08 is assessed through approval:cost-owner, metric:environment-cost-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "환경별 일정은 비용이 드는 용량을 개발 및 테스트 활동과 맞춥니다. FDAI는 CO:08을 approval:cost-owner, metric:environment-cost-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:0126a0ff9db4931d2455bb66e89a9b9f49598b30c0e62c51c3542ff0dbfd5450",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Environment schedules align paid capacity with development and test activity.",
+        "ko": "환경별 일정은 비용이 드는 용량을 개발 및 테스트 활동과 맞춥니다."
+      },
+      "title": {
+        "en": "Optimize environment costs",
+        "ko": "환경별 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Verify scheduled stop and restart, retained state and tester access.",
+          "ko": "예정된 중지와 재시작, 상태 보존, 테스트 사용자의 접근을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:08 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:08을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:09 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:09은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Do not infer exact transaction charges where metering only supports estimates.",
+          "ko": "과금 정보가 추정만 지원하는 경우 정확한 트랜잭션 요금을 단정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Optimization effort can focus on the transactions that drive material cost.",
+        "ko": "최적화 작업을 비용에 큰 영향을 주는 트랜잭션에 집중할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Reducing one path can shift cost to shared dependencies or retries.",
+          "ko": "한 경로의 비용을 줄이면 공용 의존성이나 재시도로 비용이 옮겨 갈 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Map critical flows to dependency usage and estimate cost per completed transaction.",
+            "ko": "핵심 흐름과 의존성 사용량을 연결하고 완료 트랜잭션당 비용을 추정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:critical-flow-cost-analysis for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:critical-flow-cost-analysis 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Every transaction is assigned the same cost despite different dependencies.",
+            "ko": "의존성이 달라도 모든 트랜잭션에 같은 비용을 배분합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:09 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:09에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:8755a05de361051c145a6da1b8c4460dc17e8bf878b6af64c46c07abee6f04ec",
+      "control_id": "CO:09",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-09",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Every transaction is assigned the same cost despite different dependencies.",
+              "ko": "의존성이 달라도 모든 트랜잭션에 같은 비용을 배분합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize flow costs",
+              "ko": "사용자 흐름별 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Map critical flows to dependency usage and estimate cost per completed transaction.",
+              "ko": "핵심 흐름과 의존성 사용량을 연결하고 완료 트랜잭션당 비용을 추정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Check flow traces and attributed charges for a representative transaction sample.",
+              "ko": "대표 트랜잭션 표본의 추적 정보와 배분 비용을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Optimization effort can focus on the transactions that drive material cost.",
+              "ko": "최적화 작업을 비용에 큰 영향을 주는 트랜잭션에 집중할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize flow costs",
+          "ko": "사용자 흐름별 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:09 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:09의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Map critical flows to dependency usage and estimate cost per completed transaction.",
+          "ko": "핵심 흐름과 의존성 사용량을 연결하고 완료 트랜잭션당 비용을 추정합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:critical-flow-cost-analysis from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:critical-flow-cost-analysis을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Per-flow cost attribution exposes expensive paths hidden by workload totals. In FDAI, CO:09 is assessed through approval:cost-owner, metric:critical-flow-cost-analysis. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "흐름별 비용 배분은 워크로드 총액에 가려진 고비용 경로를 드러냅니다. FDAI는 CO:09을 approval:cost-owner, metric:critical-flow-cost-analysis 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e8e7688a7ac61613a22b249c3262cf548d1ac2c487e2d4c6078ebb6f4c81a423",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Per-flow cost attribution exposes expensive paths hidden by workload totals.",
+        "ko": "흐름별 비용 배분은 워크로드 총액에 가려진 고비용 경로를 드러냅니다."
+      },
+      "title": {
+        "en": "Optimize flow costs",
+        "ko": "사용자 흐름별 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Check flow traces and attributed charges for a representative transaction sample.",
+          "ko": "대표 트랜잭션 표본의 추적 정보와 배분 비용을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:09 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:09을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:10 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:10은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude legal holds and data whose retrieval deadline rules out archive access.",
+          "ko": "법적 보존 대상과 조회 기한상 보관 계층을 쓸 수 없는 데이터는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Cold or obsolete data consumes less expensive capacity when obligations permit.",
+        "ko": "의무 사항이 허용하면 드물게 쓰거나 오래된 데이터의 저장 비용을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Deletion and archive retrieval penalties can outweigh storage savings.",
+          "ko": "삭제나 보관 계층 조회에 따른 비용이 저장 비용 절감액보다 클 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Classify data by access frequency, retention obligation and recovery needs before tiering.",
+            "ko": "접근 빈도, 보존 의무, 복구 요구로 데이터를 분류한 뒤 계층을 조정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:data-cost-optimization-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:data-cost-optimization-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "All data stays in the hottest tier indefinitely without access review.",
+            "ko": "접근 검토 없이 모든 데이터를 가장 빠른 계층에 무기한 보관합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:10 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:10에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:74f1146f89af2b1c5464a52fea5de74468185d5c72e82a1baf97d83c76b3bd6d",
+      "control_id": "CO:10",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-10",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "All data stays in the hottest tier indefinitely without access review.",
+              "ko": "접근 검토 없이 모든 데이터를 가장 빠른 계층에 무기한 보관합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize data costs",
+              "ko": "데이터 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Classify data by access frequency, retention obligation and recovery needs before tiering.",
+              "ko": "접근 빈도, 보존 의무, 복구 요구로 데이터를 분류한 뒤 계층을 조정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample retrieval latency, transaction fees and retained records after tier changes.",
+              "ko": "계층을 바꾼 뒤 조회 지연, 트랜잭션 요금, 보존된 기록을 표본 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Cold or obsolete data consumes less expensive capacity when obligations permit.",
+              "ko": "의무 사항이 허용하면 드물게 쓰거나 오래된 데이터의 저장 비용을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize data costs",
+          "ko": "데이터 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:10 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:10의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Classify data by access frequency, retention obligation and recovery needs before tiering.",
+          "ko": "접근 빈도, 보존 의무, 복구 요구로 데이터를 분류한 뒤 계층을 조정합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:data-cost-optimization-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:data-cost-optimization-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Retention and access-tier choices align storage expense with data value and retrieval needs. In FDAI, CO:10 is assessed through approval:cost-owner, artifact:data-cost-optimization-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "보존 기간과 접근 계층 선택은 저장 비용을 데이터 가치 및 조회 요구와 맞춥니다. FDAI는 CO:10을 approval:cost-owner, artifact:data-cost-optimization-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:588b11d72b1370465e8850e1a70e15f6ee83b0184459b17c5a8ead43e8e5f505",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Retention and access-tier choices align storage expense with data value and retrieval needs.",
+        "ko": "보존 기간과 접근 계층 선택은 저장 비용을 데이터 가치 및 조회 요구와 맞춥니다."
+      },
+      "title": {
+        "en": "Optimize data costs",
+        "ko": "데이터 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample retrieval latency, transaction fees and retained records after tier changes.",
+          "ko": "계층을 바꾼 뒤 조회 지연, 트랜잭션 요금, 보존된 기록을 표본 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:10 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:10을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:11 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:11은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude synthetic microbenchmarks that omit real data shape or dependency cost.",
+          "ko": "실제 데이터 형태나 의존성 비용을 빠뜨린 단순 벤치마크는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Less work per request can lower consumption at unchanged demand.",
+        "ko": "요청당 처리량을 줄이면 같은 수요에서 자원 소비를 낮출 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Caching can add storage cost, stale results and invalidation complexity.",
+          "ko": "캐시는 저장 비용, 오래된 결과, 무효화 복잡성을 늘릴 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Profile a representative flow and remove redundant computation or repeated calls.",
+            "ko": "대표 흐름을 프로파일링하고 중복 계산이나 반복 호출을 제거합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:code-cost-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:code-cost-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A repeated database query dominates each request but is not profiled.",
+            "ko": "요청마다 반복되는 데이터베이스 질의가 비용을 지배하지만 측정하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:11 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:11에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:96d69c91190ee2a66aeb53797c0d86727e26b3bc673726e0c84e43b99d7789b7",
+      "control_id": "CO:11",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-11",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A repeated database query dominates each request but is not profiled.",
+              "ko": "요청마다 반복되는 데이터베이스 질의가 비용을 지배하지만 측정하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize code costs",
+              "ko": "코드 실행 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Profile a representative flow and remove redundant computation or repeated calls.",
+              "ko": "대표 흐름을 프로파일링하고 중복 계산이나 반복 호출을 제거합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare resource consumption per successful request with identical test inputs.",
+              "ko": "같은 테스트 입력으로 성공한 요청당 자원 소비를 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Less work per request can lower consumption at unchanged demand.",
+              "ko": "요청당 처리량을 줄이면 같은 수요에서 자원 소비를 낮출 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize code costs",
+          "ko": "코드 실행 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:11 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:11의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Profile a representative flow and remove redundant computation or repeated calls.",
+          "ko": "대표 흐름을 프로파일링하고 중복 계산이나 반복 호출을 제거합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:code-cost-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:code-cost-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Profiling links excessive computation and repeated I/O to code paths. In FDAI, CO:11 is assessed through approval:cost-owner, artifact:code-cost-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "프로파일링은 과도한 계산과 반복 입출력을 코드 경로와 연결합니다. FDAI는 CO:11을 approval:cost-owner, artifact:code-cost-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:91af6c761876d9416d4efe98981e17dcb161ac6a4002d2ef2120abe8c6c2f9ef",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Profiling links excessive computation and repeated I/O to code paths.",
+        "ko": "프로파일링은 과도한 계산과 반복 입출력을 코드 경로와 연결합니다."
+      },
+      "title": {
+        "en": "Optimize code costs",
+        "ko": "코드 실행 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare resource consumption per successful request with identical test inputs.",
+          "ko": "같은 테스트 입력으로 성공한 요청당 자원 소비를 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:11 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:11을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:12 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:12은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude stateful units that cannot safely drain or move during scale-in.",
+          "ko": "축소 중 안전하게 작업을 마치거나 이동할 수 없는 상태 저장 단위는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Capacity follows useful load instead of a permanently provisioned peak.",
+        "ko": "항상 최대 용량을 확보하는 대신 실제 부하에 용량을 맞출 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Aggressive scale-in can cause oscillation and slower recovery from bursts.",
+          "ko": "급격한 축소는 반복적인 증감과 순간 부하 복구 지연을 일으킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Tune minimums, cooldowns and demand signals using a workload load profile.",
+            "ko": "워크로드 부하 특성에 따라 최소 용량, 대기 시간, 수요 신호를 조정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:scaling-cost-analysis for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:scaling-cost-analysis 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Replicas stay at peak size during low traffic without a scale-in policy.",
+            "ko": "축소 정책이 없어 트래픽이 적어도 복제본을 최대 규모로 유지합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:12 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:12에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:5aad0633fc3e4d19ca0e6438a04331ecd3c729b5d3c52c4ef5597e79304ab925",
+      "control_id": "CO:12",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-12",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Replicas stay at peak size during low traffic without a scale-in policy.",
+              "ko": "축소 정책이 없어 트래픽이 적어도 복제본을 최대 규모로 유지합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize scaling costs",
+              "ko": "확장 비용 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Tune minimums, cooldowns and demand signals using a workload load profile.",
+              "ko": "워크로드 부하 특성에 따라 최소 용량, 대기 시간, 수요 신호를 조정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run demand ramps and inspect replica count, billed usage and response latency.",
+              "ko": "수요를 단계적으로 늘리고 복제본 수, 청구 사용량, 응답 지연을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Capacity follows useful load instead of a permanently provisioned peak.",
+              "ko": "항상 최대 용량을 확보하는 대신 실제 부하에 용량을 맞출 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize scaling costs",
+          "ko": "확장 비용 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:12 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:12의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Tune minimums, cooldowns and demand signals using a workload load profile.",
+          "ko": "워크로드 부하 특성에 따라 최소 용량, 대기 시간, 수요 신호를 조정합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:scaling-cost-analysis from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:scaling-cost-analysis을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Demand-aware scaling limits excess replicas while preserving a measured service objective. In FDAI, CO:12 is assessed through approval:cost-owner, metric:scaling-cost-analysis. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "수요 기반 확장은 측정한 서비스 목표를 유지하면서 불필요한 복제본을 줄입니다. FDAI는 CO:12을 approval:cost-owner, metric:scaling-cost-analysis 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:00387f53b5b0429c16468651f6cc6535023193fd698404e26581d7cfe6ecd345",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Demand-aware scaling limits excess replicas while preserving a measured service objective.",
+        "ko": "수요 기반 확장은 측정한 서비스 목표를 유지하면서 불필요한 복제본을 줄입니다."
+      },
+      "title": {
+        "en": "Optimize scaling costs",
+        "ko": "확장 비용 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Run demand ramps and inspect replica count, billed usage and response latency.",
+          "ko": "수요를 단계적으로 늘리고 복제본 수, 청구 사용량, 응답 지연을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:12 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:12을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:13 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 90 days.",
+          "ko": "CO:13은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Do not count unmeasured future time savings as realized financial savings.",
+          "ko": "측정하지 않은 미래의 시간 절감을 실제 비용 절감으로 계산하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Engineers can spend less time on low-value repetition.",
+        "ko": "개발자가 가치가 낮은 반복 작업에 쓰는 시간을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Automation still needs ownership, review and recovery when it fails.",
+          "ko": "자동화에도 담당자, 검토, 실패 시 복구 절차가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Record task frequency and effort, then compare automation and support costs.",
+            "ko": "작업 빈도와 시간을 기록하고 자동화 및 지원 비용과 비교합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, metric:personnel-time-optimization for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, metric:personnel-time-optimization 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A recurring manual task consumes hours without an effort record.",
+            "ko": "반복 수작업에 수 시간이 들지만 투입 시간을 기록하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: CO:13 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:13에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:5e75a7cffee7abd3b21bcee6daec16e6af9e62b1d08145d14660323731bbdb55",
+      "control_id": "CO:13",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-13",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A recurring manual task consumes hours without an effort record.",
+              "ko": "반복 수작업에 수 시간이 들지만 투입 시간을 기록하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize personnel time",
+              "ko": "운영 인력의 시간 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Record task frequency and effort, then compare automation and support costs.",
+              "ko": "작업 빈도와 시간을 기록하고 자동화 및 지원 비용과 비교합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Measure operator time and exception handling across repeated task executions.",
+              "ko": "반복 실행에서 운영자 투입 시간과 예외 처리량을 측정합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Engineers can spend less time on low-value repetition.",
+              "ko": "개발자가 가치가 낮은 반복 작업에 쓰는 시간을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize personnel time",
+          "ko": "운영 인력의 시간 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:13 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:13의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Record task frequency and effort, then compare automation and support costs.",
+          "ko": "작업 빈도와 시간을 기록하고 자동화 및 지원 비용과 비교합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:personnel-time-optimization from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:personnel-time-optimization을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Measuring repetitive work identifies where automation can repay its maintenance cost. In FDAI, CO:13 is assessed through approval:cost-owner, metric:personnel-time-optimization. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "반복 작업 시간을 측정하면 유지 비용을 감수할 가치가 있는 자동화를 찾을 수 있습니다. FDAI는 CO:13을 approval:cost-owner, metric:personnel-time-optimization 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:1e56af05d08e4366ec7ad635d91036b740773b7e61504f7b7ea4f96d6d7800aa",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Measuring repetitive work identifies where automation can repay its maintenance cost.",
+        "ko": "반복 작업 시간을 측정하면 유지 비용을 감수할 가치가 있는 자동화를 찾을 수 있습니다."
+      },
+      "title": {
+        "en": "Optimize personnel time",
+        "ko": "운영 인력의 시간 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Measure operator time and exception handling across repeated task executions.",
+          "ko": "반복 실행에서 운영자 투입 시간과 예외 처리량을 측정합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:13 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:13을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply CO:14 only to the reviewed workload scope with accountable owner role cost-owner; review cadence 180 days.",
+          "ko": "CO:14은 책임 역할 cost-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude incompatible trust boundaries or conflicting service-level commitments.",
+          "ko": "호환되지 않는 신뢰 경계나 서비스 수준 약속이 있는 대상은 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Shared services can reduce duplicated infrastructure and support effort.",
+        "ko": "공용 서비스는 중복 인프라와 지원 작업을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Consolidation expands the failure domain and can create noisy neighbors.",
+          "ko": "통합은 장애 범위를 넓히고 다른 사용자의 부하 영향을 키울 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Evaluate a shared service with explicit quotas, ownership and charge allocation.",
+            "ko": "할당량, 담당자, 비용 배분을 명시하고 공용 서비스를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:cost-owner, artifact:consolidation-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:cost-owner, artifact:consolidation-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Several teams operate nearly identical underused services independently.",
+            "ko": "여러 팀이 거의 같은 서비스를 낮은 사용률로 따로 운영합니다."
+          },
+          {
+            "en": "Illustrative gap: CO:14 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: CO:14에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6f7a15f58f9b0e94c3747ecce262cb5f7828c298dea1e5e18ee55a28f23db8a3",
+      "control_id": "CO:14",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.co-14",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Several teams operate nearly identical underused services independently.",
+              "ko": "여러 팀이 거의 같은 서비스를 낮은 사용률로 따로 운영합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Consolidate resources and responsibility",
+              "ko": "리소스와 책임의 적절한 통합"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Evaluate a shared service with explicit quotas, ownership and charge allocation.",
+              "ko": "할당량, 담당자, 비용 배분을 명시하고 공용 서비스를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test tenant isolation and compare combined usage and support burden.",
+              "ko": "사용자 간 격리를 시험하고 통합 사용량 및 지원 부담을 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Shared services can reduce duplicated infrastructure and support effort.",
+              "ko": "공용 서비스는 중복 인프라와 지원 작업을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Consolidate resources and responsibility",
+          "ko": "리소스와 책임의 적절한 통합"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm CO:14 scope, owner cost-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 CO:14의 범위, 담당 역할 cost-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Evaluate a shared service with explicit quotas, ownership and charge allocation.",
+          "ko": "할당량, 담당자, 비용 배분을 명시하고 공용 서비스를 검토합니다."
+        },
+        {
+          "en": "Retain approval:cost-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:cost-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:consolidation-review from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner cost-owner, role decisive. Verify complete coverage and approval roles cost-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:consolidation-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 cost-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 cost-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Consolidation shares compatible capacity and ownership without hiding isolation needs. In FDAI, CO:14 is assessed through approval:cost-owner, artifact:consolidation-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "통합은 격리 요구를 드러낸 상태에서 호환되는 용량과 책임을 공유합니다. FDAI는 CO:14을 approval:cost-owner, artifact:consolidation-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:b40a2a6286781e8a772a9eedc290375134505d28698465e5f0c09e1ec4bc32dd",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Consolidation shares compatible capacity and ownership without hiding isolation needs.",
+        "ko": "통합은 격리 요구를 드러낸 상태에서 호환되는 용량과 책임을 공유합니다."
+      },
+      "title": {
+        "en": "Consolidate resources and responsibility",
+        "ko": "리소스와 책임의 적절한 통합"
+      },
+      "verification_steps": [
+        {
+          "en": "Test tenant isolation and compare combined usage and support burden.",
+          "ko": "사용자 간 격리를 시험하고 통합 사용량 및 지원 부담을 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess CO:14 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 CO:14을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:01 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 180 days.",
+          "ko": "OE:01은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude organization-wide policy claims not adopted by this workload team.",
+          "ko": "워크로드 팀이 채택하지 않은 전사 정책을 적용 사실로 제시하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can repeat routine delivery with fewer ambiguous handoffs.",
+        "ko": "팀은 모호한 인수인계를 줄이고 일상적인 전달 작업을 반복할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A written standard without team adoption is not evidence of consistent practice.",
+          "ko": "팀이 따르지 않는 문서만으로 일관된 관행을 입증할 수 없습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Publish workload working agreements covering development, review and operational ownership.",
+            "ko": "개발, 검토, 운영 담당을 포함하는 워크로드 작업 규약을 게시합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, artifact:operational-practices for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, artifact:operational-practices 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Each engineer follows a private release and support checklist.",
+            "ko": "개발자마다 별도의 배포 및 지원 점검표를 사용합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:01 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:01에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f5a8ce09a720b7dbe02a6fe374808f2424a9103c128c71090ac197061b4ca9f3",
+      "control_id": "OE:01",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-01",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Each engineer follows a private release and support checklist.",
+              "ko": "개발자마다 별도의 배포 및 지원 점검표를 사용합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define standard workload development and operating practices",
+              "ko": "표준 개발 및 운영 관행 정의"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Publish workload working agreements covering development, review and operational ownership.",
+              "ko": "개발, 검토, 운영 담당을 포함하는 워크로드 작업 규약을 게시합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Walk a recent change through the agreements and identify accountable reviewers.",
+              "ko": "최근 변경을 규약에 따라 검토하고 책임 있는 검토자를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can repeat routine delivery with fewer ambiguous handoffs.",
+              "ko": "팀은 모호한 인수인계를 줄이고 일상적인 전달 작업을 반복할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define standard workload development and operating practices",
+          "ko": "표준 개발 및 운영 관행 정의"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:01 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:01의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Publish workload working agreements covering development, review and operational ownership.",
+          "ko": "개발, 검토, 운영 담당을 포함하는 워크로드 작업 규약을 게시합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:operational-practices from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:operational-practices을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Shared working agreements make workload ownership and operational expectations explicit. In FDAI, OE:01 is assessed through approval:operations-owner, artifact:operational-practices. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "공통 작업 규약은 워크로드 책임과 운영 기대사항을 명확히 합니다. FDAI는 OE:01을 approval:operations-owner, artifact:operational-practices 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:6370f5537d1d3af3a3d73b56ed506120f975f75e0a075fd3db6953ae68ea5b55",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Shared working agreements make workload ownership and operational expectations explicit.",
+        "ko": "공통 작업 규약은 워크로드 책임과 운영 기대사항을 명확히 합니다."
+      },
+      "title": {
+        "en": "Define standard workload development and operating practices",
+        "ko": "표준 개발 및 운영 관행 정의"
+      },
+      "verification_steps": [
+        {
+          "en": "Walk a recent change through the agreements and identify accountable reviewers.",
+          "ko": "최근 변경을 규약에 따라 검토하고 책임 있는 검토자를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:01 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:01을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:02 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 180 days.",
+          "ko": "OE:02은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude unreviewed ad-hoc commands from approved operating procedures.",
+          "ko": "검토하지 않은 임시 명령을 승인된 운영 절차에 포함하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Operators can respond consistently without inventing steps under pressure.",
+        "ko": "운영자는 긴급 상황에서 절차를 새로 만들지 않고 일관되게 대응할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Emergency procedures do not bypass current authorization or audit obligations.",
+          "ko": "비상 절차도 현재 권한과 감사 의무를 우회하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Document routine and emergency paths with prerequisites, stop conditions and escalation.",
+            "ko": "사전 조건, 중지 조건, 보고 경로를 포함해 일상 및 비상 절차를 작성합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, artifact:operations-task-standards for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, artifact:operations-task-standards 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "An emergency task relies on a single person's memory.",
+            "ko": "비상 작업이 한 사람의 기억에 의존합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:02 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:02에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:3dfa34db0de4742770d981a8791c36bc7d2b9ddbe2fa81c021141d78def8521b",
+      "control_id": "OE:02",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-02",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "An emergency task relies on a single person's memory.",
+              "ko": "비상 작업이 한 사람의 기억에 의존합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Standardize routine ad-hoc and emergency operations",
+              "ko": "일상 및 비상 운영의 표준화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Document routine and emergency paths with prerequisites, stop conditions and escalation.",
+              "ko": "사전 조건, 중지 조건, 보고 경로를 포함해 일상 및 비상 절차를 작성합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Have a second operator rehearse the runbook in a safe test scope.",
+              "ko": "다른 운영자가 안전한 테스트 범위에서 절차를 연습하도록 합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Operators can respond consistently without inventing steps under pressure.",
+              "ko": "운영자는 긴급 상황에서 절차를 새로 만들지 않고 일관되게 대응할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Standardize routine ad-hoc and emergency operations",
+          "ko": "일상 및 비상 운영의 표준화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:02 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:02의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Document routine and emergency paths with prerequisites, stop conditions and escalation.",
+          "ko": "사전 조건, 중지 조건, 보고 경로를 포함해 일상 및 비상 절차를 작성합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:operations-task-standards from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:operations-task-standards을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Runbooks distinguish predictable procedures from emergency decisions and escalation. In FDAI, OE:02 is assessed through approval:operations-owner, artifact:operations-task-standards. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "운영 절차서는 반복 가능한 절차와 비상 결정 및 보고를 구분합니다. FDAI는 OE:02을 approval:operations-owner, artifact:operations-task-standards 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:7e632e87e51b8271e72710b5a1906af2658689823433cbd46e674574ff55a16d",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Runbooks distinguish predictable procedures from emergency decisions and escalation.",
+        "ko": "운영 절차서는 반복 가능한 절차와 비상 결정 및 보고를 구분합니다."
+      },
+      "title": {
+        "en": "Standardize routine ad-hoc and emergency operations",
+        "ko": "일상 및 비상 운영의 표준화"
+      },
+      "verification_steps": [
+        {
+          "en": "Have a second operator rehearse the runbook in a safe test scope.",
+          "ko": "다른 운영자가 안전한 테스트 범위에서 절차를 연습하도록 합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:02 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:02을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

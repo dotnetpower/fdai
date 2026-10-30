@@ -150,6 +150,7 @@ def build_waf_catalog(
         specification = {
             "control_id": source.id,
             "title": source.title,
+            "severity": practice.severity.value,
             "area": resolved.area or practice.category.value,
             "requirement_mode": practice.requirement_mode.value,
             "cadence_days": min(item["freshness_ceiling_seconds"] // 86_400 for item in evidence),
@@ -249,6 +250,7 @@ def build_caf_catalog(
         specification = {
             "control_id": control_id,
             "title": resolved.control.title,
+            "severity": authored.get("severity", defaults.get("severity", "medium")),
             "area": resolved.area or "methodology",
             "requirement_mode": "all",
             "cadence_days": authored["cadence_days"],
@@ -358,6 +360,7 @@ def build_mcsb_catalog(
         specification = {
             "control_id": control_id,
             "title": str(raw["title"]),
+            "severity": raw.get("severity", defaults.get("severity", "medium")),
             "area": domain,
             "requirement_mode": "all",
             "cadence_days": min(item["freshness_ceiling_seconds"] // 86_400 for item in evidence),

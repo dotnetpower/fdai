@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any
 
+from fdai_service_contracts.control_enablement import ControlEnablement, resolve_control_enablement
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
 from fdai.rule_catalog.schema.wara_assessment import (
@@ -96,9 +97,13 @@ class WaraAssessmentRuntime:
         )
         if request.rule_bindings_digest != expected_rule_digest:
             raise ValueError("WARA assessment Rule bindings digest mismatch")
+        self.validate_enablement_profile(request)
         evidence_by_id = _index_evidence(request.evidence)
         controls = tuple(
-            self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ()))
+            replace(
+                self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ())),
+                enablement=self.control_enablement(record, request),
+            )
             for record in self._catalog.recommendations
         )
         counts: dict[str, int] = {}
@@ -138,11 +143,39 @@ class WaraAssessmentRuntime:
             digest_material["evaluator_bindings_digest"] = request.evaluator_bindings_digest
         if request.rule_bindings_digest is not None:
             digest_material["rule_bindings_digest"] = request.rule_bindings_digest
+        if request.enablement_profile is not None:
+            digest_material["enablement_profile"] = request.enablement_profile.model_dump(
+                mode="json"
+            )
         return WaraAssessmentResult(
             **material,
             evaluator_bindings_digest=request.evaluator_bindings_digest,
             result_digest=canonical_digest(digest_material),
             rule_bindings_digest=request.rule_bindings_digest,
+            enablement_profile=request.enablement_profile,
+        )
+
+    def validate_enablement_profile(self, request: WaraAssessmentRequest) -> None:
+        if request.enablement_profile is not None:
+            request.enablement_profile.validate_binding(
+                framework_id="azure-wara",
+                source_revision=self._catalog.source_revision,
+                scope_digest=request.scope_digest,
+                evaluated_at=request.evaluated_at,
+                control_ids={record.aprl_guid for record in self._catalog.recommendations},
+            )
+
+    @staticmethod
+    def control_enablement(
+        record: WaraRecommendationCrosswalk, request: WaraAssessmentRequest
+    ) -> ControlEnablement:
+        return resolve_control_enablement(
+            record.impact,
+            enabled=(
+                request.enablement_profile.override_for(record.aprl_guid)
+                if request.enablement_profile is not None
+                else None
+            ),
         )
 
     def _evaluate_control(
@@ -151,6 +184,19 @@ class WaraAssessmentRuntime:
         request: WaraAssessmentRequest,
         evidence: tuple[WaraEvidenceReceipt, ...],
     ) -> WaraControlResult:
+        if not self.control_enablement(record, request).enabled:
+            return WaraControlResult(
+                recommendation_id=record.aprl_guid,
+                catalog_state="active",
+                mapping_state=record.mapping_state.value,
+                applicability=WaraApplicabilityStatus.UNKNOWN,
+                evaluation=WaraEvaluationStatus.NOT_EVALUATED,
+                satisfaction=WaraSatisfactionStatus.UNKNOWN,
+                evidence_refs=(),
+                evidence_digests=(),
+                evidence_complete=False,
+                limitations=("control_disabled",),
+            )
         limitations: list[str] = []
         binding = _binding_for(record, self._evaluator_bindings)
         rule_binding = _rule_binding_for(record, self._rule_bindings)
@@ -307,6 +353,7 @@ class WaraAssessmentObservationRunner:
     async def collect(self, request: WaraAssessmentRequest) -> WaraObservationCollection:
         """Return exact evidence while preserving manual and caller-supplied receipts."""
 
+        self._runtime.validate_enablement_profile(request)
         evidence = {
             (item.recommendation_id, item.evidence_ref): _bind_caller_evidence_cutoff(
                 item,
@@ -319,6 +366,8 @@ class WaraAssessmentObservationRunner:
         attempts: list[WaraObservationAttempt] = []
         collected_evidence: list[WaraEvidenceReceipt] = []
         for record in self._runtime.recommendations:
+            if not self._runtime.control_enablement(record, request).enabled:
+                continue
             try:
                 plan = self._runtime.build_read_plan(record, request)
             except ValueError:

@@ -1,0 +1,3280 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:02 only to the reviewed workload scope with accountable owner role security-owner; review cadence 30 days.",
+          "ko": "SE:02은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Exclude a single scanner result from claims of complete secure development.",
+          "ko": "스캐너 하나의 결과로 전체 보안 개발 절차가 갖춰졌다고 주장하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Defects can be addressed while changes are still easier to revise.",
+        "ko": "변경을 고치기 쉬울 때 결함에 대응할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Automated scanning does not replace design review of trust boundaries.",
+          "ko": "자동 스캔은 신뢰 경계 설계 검토를 대신하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Add threat review, secure coding checks and security acceptance to lifecycle gates.",
+            "ko": "수명 주기 검토 단계에 위협 검토, 보안 코딩 검사, 보안 수용 기준을 추가합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:secure-development-lifecycle, metric:security-scan-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:secure-development-lifecycle, metric:security-scan-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Security review starts only after the release artifact is approved.",
+            "ko": "배포 산출물을 승인한 뒤에야 보안 검토를 시작합니다."
+          },
+          {
+            "en": "Illustrative gap: SE:02 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:02에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:53e03c213f666f2da362027bd85d242feb5fe8825711476ed12cbcc845738a55",
+      "control_id": "SE:02",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-02",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Security review starts only after the release artifact is approved.",
+              "ko": "배포 산출물을 승인한 뒤에야 보안 검토를 시작합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Apply a secure development lifecycle",
+              "ko": "보안 개발 수명 주기 적용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Add threat review, secure coding checks and security acceptance to lifecycle gates.",
+              "ko": "수명 주기 검토 단계에 위협 검토, 보안 코딩 검사, 보안 수용 기준을 추가합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace a security requirement through code review, tests and release disposition.",
+              "ko": "보안 요구사항을 코드 검토, 테스트, 배포 처리 결과까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Defects can be addressed while changes are still easier to revise.",
+              "ko": "변경을 고치기 쉬울 때 결함에 대응할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Apply a secure development lifecycle",
+          "ko": "보안 개발 수명 주기 적용"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:02 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:02의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Add threat review, secure coding checks and security acceptance to lifecycle gates.",
+          "ko": "수명 주기 검토 단계에 위협 검토, 보안 코딩 검사, 보안 수용 기준을 추가합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:secure-development-lifecycle from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:secure-development-lifecycle을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:security-scan-results from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:security-scan-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Threat review and security tests place security decisions before release. In FDAI, SE:02 is assessed through approval:security-owner, artifact:secure-development-lifecycle, metric:security-scan-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "위협 검토와 보안 테스트는 배포 전에 보안 결정을 수행하게 합니다. FDAI는 SE:02을 approval:security-owner, artifact:secure-development-lifecycle, metric:security-scan-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:0549796691d62d110869b46a7d0d6315faccd70b12a74e83895f6147d92abc16",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Threat review and security tests place security decisions before release.",
+        "ko": "위협 검토와 보안 테스트는 배포 전에 보안 결정을 수행하게 합니다."
+      },
+      "title": {
+        "en": "Apply a secure development lifecycle",
+        "ko": "보안 개발 수명 주기 적용"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace a security requirement through code review, tests and release disposition.",
+          "ko": "보안 요구사항을 코드 검토, 테스트, 배포 처리 결과까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:02 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:02을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:03 only to the reviewed workload scope with accountable owner role data-owner; review cadence 180 days.",
+          "ko": "SE:03은 책임 역할 data-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude unclassified datasets from claims of completed classification coverage.",
+          "ko": "분류하지 않은 데이터는 분류 완료 범위에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Protection can reflect the consequences of disclosure or loss.",
+        "ko": "유출이나 손실의 영향에 맞게 보호할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Labels alone do not enforce access, encryption or retention.",
+          "ko": "등급만으로 접근, 암호화, 보존이 강제되지는 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Inventory data flows and classify data and systems with accountable owners.",
+            "ko": "데이터 흐름을 목록화하고 담당자와 데이터 및 시스템을 분류합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:data-owner, approval:privacy-owner, artifact:data-classification-inventory for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:data-owner, approval:privacy-owner, artifact:data-classification-inventory 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "All datasets use the same label despite different sensitivity and retention needs.",
+            "ko": "민감도와 보존 요구가 달라도 모든 데이터에 같은 등급을 붙입니다."
+          },
+          {
+            "en": "Illustrative gap: SE:03 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:03에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6fe309df7bd8dbdfb78eaabc26f9594675d305e585e55fed838194b40dc609f5",
+      "control_id": "SE:03",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-03",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "All datasets use the same label despite different sensitivity and retention needs.",
+              "ko": "민감도와 보존 요구가 달라도 모든 데이터에 같은 등급을 붙입니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Classify workload data and systems",
+              "ko": "데이터와 시스템 분류"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Inventory data flows and classify data and systems with accountable owners.",
+              "ko": "데이터 흐름을 목록화하고 담당자와 데이터 및 시스템을 분류합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample sensitive data paths and confirm labels and handling rules agree.",
+              "ko": "민감한 데이터 경로를 표본 확인하고 등급과 처리 규칙이 맞는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Protection can reflect the consequences of disclosure or loss.",
+              "ko": "유출이나 손실의 영향에 맞게 보호할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Classify workload data and systems",
+          "ko": "데이터와 시스템 분류"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:03 scope, owner data-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:03의 범위, 담당 역할 data-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Inventory data flows and classify data and systems with accountable owners.",
+          "ko": "데이터 흐름을 목록화하고 담당자와 데이터 및 시스템을 분류합니다."
+        },
+        {
+          "en": "Retain approval:data-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner data-owner, role decisive. Verify complete coverage and approval roles data-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:data-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 data-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 data-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain approval:privacy-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner privacy-owner, role decisive. Verify complete coverage and approval roles data-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:privacy-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 privacy-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 data-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:data-classification-inventory from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner data-owner, role decisive. Verify complete coverage and approval roles data-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:data-classification-inventory을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 data-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 data-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Classification connects information sensitivity and business importance to protection needs. In FDAI, SE:03 is assessed through approval:data-owner, approval:privacy-owner, artifact:data-classification-inventory. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "분류는 정보의 민감도와 사업상 중요도를 보호 요구와 연결합니다. FDAI는 SE:03을 approval:data-owner, approval:privacy-owner, artifact:data-classification-inventory 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:16d9383032c4958671c9796294c39eed84a61ff2b9f11aa2d640b2fdb398abfc",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Classification connects information sensitivity and business importance to protection needs.",
+        "ko": "분류는 정보의 민감도와 사업상 중요도를 보호 요구와 연결합니다."
+      },
+      "title": {
+        "en": "Classify workload data and systems",
+        "ko": "데이터와 시스템 분류"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample sensitive data paths and confirm labels and handling rules agree.",
+          "ko": "민감한 데이터 경로를 표본 확인하고 등급과 처리 규칙이 맞는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:03 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:03을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:04 only to the reviewed workload scope with accountable owner role security-owner; review cadence 90 days.",
+          "ko": "SE:04은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Do not treat a subnet boundary alone as complete application authorization.",
+          "ko": "서브넷 경계만으로 애플리케이션 권한 부여가 완성되었다고 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Compromise in one segment need not imply access to every workload component.",
+        "ko": "한 구역이 침해되어도 모든 워크로드 구성 요소에 접근할 수 없게 할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Extra segments can disrupt essential management and recovery paths.",
+          "ko": "추가 분할은 필수 관리 및 복구 경로를 방해할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Map trust boundaries and define permitted identities and flows across each boundary.",
+            "ko": "신뢰 경계를 그리고 각 경계를 통과할 수 있는 신원과 흐름을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:network-data-flow-validation, artifact:segmentation-design for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:network-data-flow-validation, artifact:segmentation-design 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Public endpoints and sensitive backends share one unrestricted trust zone.",
+            "ko": "공개 엔드포인트와 민감한 백엔드가 제한 없는 한 신뢰 구역을 공유합니다."
+          },
+          {
+            "en": "Illustrative gap: SE:04 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:04에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:b1f8b8865634de6eb5bd0a556d11f583c3d290c0d40e1f8bead9be698d148a63",
+      "control_id": "SE:04",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-04",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Public endpoints and sensitive backends share one unrestricted trust zone.",
+              "ko": "공개 엔드포인트와 민감한 백엔드가 제한 없는 한 신뢰 구역을 공유합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Design intentional segmentation and perimeters",
+              "ko": "의도적인 분할과 경계 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Map trust boundaries and define permitted identities and flows across each boundary.",
+              "ko": "신뢰 경계를 그리고 각 경계를 통과할 수 있는 신원과 흐름을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test an allowed path and a prohibited cross-boundary path independently.",
+              "ko": "허용 경로와 금지한 경계 간 경로를 각각 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Compromise in one segment need not imply access to every workload component.",
+              "ko": "한 구역이 침해되어도 모든 워크로드 구성 요소에 접근할 수 없게 할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Design intentional segmentation and perimeters",
+          "ko": "의도적인 분할과 경계 설계"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:04 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:04의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Map trust boundaries and define permitted identities and flows across each boundary.",
+          "ko": "신뢰 경계를 그리고 각 경계를 통과할 수 있는 신원과 흐름을 정합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:network-data-flow-validation from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:network-data-flow-validation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:segmentation-design from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:segmentation-design을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Trust boundaries isolate components with different exposure and privilege needs. In FDAI, SE:04 is assessed through approval:security-owner, artifact:network-data-flow-validation, artifact:segmentation-design. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "신뢰 경계는 노출 및 권한 요구가 다른 구성 요소를 격리합니다. FDAI는 SE:04을 approval:security-owner, artifact:network-data-flow-validation, artifact:segmentation-design 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:c3cdda2b281bb9d994571ec8d35c2e7fc15b487c8b805106233ebfcd9505c31f",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Trust boundaries isolate components with different exposure and privilege needs.",
+        "ko": "신뢰 경계는 노출 및 권한 요구가 다른 구성 요소를 격리합니다."
+      },
+      "title": {
+        "en": "Design intentional segmentation and perimeters",
+        "ko": "의도적인 분할과 경계 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Test an allowed path and a prohibited cross-boundary path independently.",
+          "ko": "허용 경로와 금지한 경계 간 경로를 각각 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:04 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:04을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:05 only to the reviewed workload scope with accountable owner role security-owner; review cadence 1 days.",
+          "ko": "SE:05은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Exclude unmanaged shared identities from claims of individual accountability.",
+          "ko": "관리하지 않는 공유 신원을 개인별 책임 추적 범위에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Access can be reviewed and attributed rather than relying on shared credentials.",
+        "ko": "공유 자격 증명에 의존하지 않고 접근을 검토하며 행위자를 식별할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Overly broad emergency exceptions can bypass the intended access boundary.",
+          "ko": "너무 넓은 비상 예외는 의도한 접근 경계를 우회할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Use individual identities, scoped roles and reviewed conditions with access logging.",
+            "ko": "개별 신원, 제한된 역할, 검토된 조건과 접근 기록을 사용합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:identity-access-review, rule:compute.vm.managed-identity.assigned, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:subscription.role-assignment.no-guest-privileged, rule:subscription.role-assignment.no-standing-privileged-access for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:identity-access-review, rule:compute.vm.managed-identity.assigned, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:subscription.role-assignment.no-guest-privileged, rule:subscription.role-assignment.no-standing-privileged-access 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Shared administrator credentials obscure who accessed a sensitive resource.",
+            "ko": "공유 관리자 자격 증명 때문에 민감한 리소스에 접근한 사람을 알 수 없습니다."
+          },
+          {
+            "en": "Illustrative gap: SE:05 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:05에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:906ff0da0342aef5665286763b34556f2c46283823899bf72a470cb08e2bc446",
+      "control_id": "SE:05",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-05",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Shared administrator credentials obscure who accessed a sensitive resource.",
+              "ko": "공유 관리자 자격 증명 때문에 민감한 리소스에 접근한 사람을 알 수 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Implement strict conditional and auditable identity and access management",
+              "ko": "엄격하고 조건부이며 감사 가능한 접근 관리"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Use individual identities, scoped roles and reviewed conditions with access logging.",
+              "ko": "개별 신원, 제한된 역할, 검토된 조건과 접근 기록을 사용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test allowed and denied access and trace both outcomes to the acting identity.",
+              "ko": "허용 및 거부 접근을 시험하고 두 결과를 행위자의 신원까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Access can be reviewed and attributed rather than relying on shared credentials.",
+              "ko": "공유 자격 증명에 의존하지 않고 접근을 검토하며 행위자를 식별할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Implement strict conditional and auditable identity and access management",
+          "ko": "엄격하고 조건부이며 감사 가능한 접근 관리"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:05 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:05의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Use individual identities, scoped roles and reviewed conditions with access logging.",
+          "ko": "개별 신원, 제한된 역할, 검토된 조건과 접근 기록을 사용합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:identity-access-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:identity-access-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:compute.vm.managed-identity.assigned from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:compute.vm.managed-identity.assigned을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:managed-identity.role-assignment.no-privileged-subscription-scope from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:managed-identity.role-assignment.no-privileged-subscription-scope을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:managed-identity.role-assignment.no-wildcard-action from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:managed-identity.role-assignment.no-wildcard-action을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:subscription.role-assignment.no-guest-privileged from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:subscription.role-assignment.no-guest-privileged을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:subscription.role-assignment.no-standing-privileged-access from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:subscription.role-assignment.no-standing-privileged-access을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Least privilege and conditional checks bind access to verified identity and context. In FDAI, SE:05 is assessed through approval:security-owner, artifact:identity-access-review, rule:compute.vm.managed-identity.assigned, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:subscription.role-assignment.no-guest-privileged, rule:subscription.role-assignment.no-standing-privileged-access. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "최소 권한과 조건 검사는 접근을 검증된 신원 및 상황에 연결합니다. FDAI는 SE:05을 approval:security-owner, artifact:identity-access-review, rule:compute.vm.managed-identity.assigned, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:subscription.role-assignment.no-guest-privileged, rule:subscription.role-assignment.no-standing-privileged-access 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:808224277fb5be71581d1938eedba87d8bb2a3856e3abf1a95f277c3398cd2d5",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Least privilege and conditional checks bind access to verified identity and context.",
+        "ko": "최소 권한과 조건 검사는 접근을 검증된 신원 및 상황에 연결합니다."
+      },
+      "title": {
+        "en": "Implement strict conditional and auditable identity and access management",
+        "ko": "엄격하고 조건부이며 감사 가능한 접근 관리"
+      },
+      "verification_steps": [
+        {
+          "en": "Test allowed and denied access and trace both outcomes to the acting identity.",
+          "ko": "허용 및 거부 접근을 시험하고 두 결과를 행위자의 신원까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:05 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:05을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:06 only to the reviewed workload scope with accountable owner role security-owner; review cadence 1 days.",
+          "ko": "SE:06은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Do not infer network denial solely from a policy object's existence.",
+          "ko": "정책 개체가 있다는 이유만으로 네트워크 차단을 단정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unnecessary reachability and lateral movement opportunities can be reduced.",
+        "ko": "불필요한 연결 가능성과 내부 이동 기회를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Rule changes can block identity, monitoring and service dependencies.",
+          "ko": "규칙 변경은 신원, 모니터링, 서비스 의존성 연결을 차단할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define required ingress and egress and apply reviewed filtering at relevant boundaries.",
+            "ko": "필요한 인바운드와 아웃바운드를 정하고 해당 경계에 검토된 필터를 적용합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:network-data-flow-validation, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh, rule:object-storage.private-endpoint.required, rule:secret-store.public-network-access.disabled for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:network-data-flow-validation, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh, rule:object-storage.private-endpoint.required, rule:secret-store.public-network-access.disabled 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Backend ports accept traffic from any reachable source.",
+            "ko": "백엔드 포트가 연결 가능한 모든 출발지의 트래픽을 받습니다."
+          },
+          {
+            "en": "Illustrative gap: SE:06 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:06에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:2a6f7912288a415bfaa46cb67774307eba448accb55641b77a33b692c92628b6",
+      "control_id": "SE:06",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-06",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Backend ports accept traffic from any reachable source.",
+              "ko": "백엔드 포트가 연결 가능한 모든 출발지의 트래픽을 받습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Isolate filter and control network traffic",
+              "ko": "네트워크 트래픽 격리와 필터링"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define required ingress and egress and apply reviewed filtering at relevant boundaries.",
+              "ko": "필요한 인바운드와 아웃바운드를 정하고 해당 경계에 검토된 필터를 적용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Probe required and prohibited routes from representative network locations.",
+              "ko": "대표 네트워크 위치에서 필수 경로와 금지 경로를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unnecessary reachability and lateral movement opportunities can be reduced.",
+              "ko": "불필요한 연결 가능성과 내부 이동 기회를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Isolate filter and control network traffic",
+          "ko": "네트워크 트래픽 격리와 필터링"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:06 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:06의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define required ingress and egress and apply reviewed filtering at relevant boundaries.",
+          "ko": "필요한 인바운드와 아웃바운드를 정하고 해당 경계에 검토된 필터를 적용합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:network-data-flow-validation from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:network-data-flow-validation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-inbound-any-rdp from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-inbound-any-rdp을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-inbound-any-ssh from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-inbound-any-ssh을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-internet-inbound-rdp from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-internet-inbound-rdp을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-internet-inbound-ssh from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-internet-inbound-ssh을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.private-endpoint.required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.private-endpoint.required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.public-network-access.disabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.public-network-access.disabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Explicit network rules restrict paths to required sources, destinations and protocols. In FDAI, SE:06 is assessed through approval:security-owner, artifact:network-data-flow-validation, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh, rule:object-storage.private-endpoint.required, rule:secret-store.public-network-access.disabled. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "명시적인 네트워크 규칙은 경로를 필요한 출발지, 목적지, 프로토콜로 제한합니다. FDAI는 SE:06을 approval:security-owner, artifact:network-data-flow-validation, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh, rule:object-storage.private-endpoint.required, rule:secret-store.public-network-access.disabled 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:a9f259146602e778be3a4bba57f99d1a354c2998663f96dcd435961586b2aca6",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Explicit network rules restrict paths to required sources, destinations and protocols.",
+        "ko": "명시적인 네트워크 규칙은 경로를 필요한 출발지, 목적지, 프로토콜로 제한합니다."
+      },
+      "title": {
+        "en": "Isolate filter and control network traffic",
+        "ko": "네트워크 트래픽 격리와 필터링"
+      },
+      "verification_steps": [
+        {
+          "en": "Probe required and prohibited routes from representative network locations.",
+          "ko": "대표 네트워크 위치에서 필수 경로와 금지 경로를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:06 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:06을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:07 only to the reviewed workload scope with accountable owner role security-owner; review cadence 1 days.",
+          "ko": "SE:07은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Do not treat encryption at rest as protection for unencrypted network traffic.",
+          "ko": "저장 암호화를 암호화되지 않은 네트워크 트래픽의 보호로 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Exposure from intercepted traffic or storage access can be reduced.",
+        "ko": "트래픽 도청이나 저장소 접근으로 인한 노출을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Encryption depends on key availability and does not replace authorization.",
+          "ko": "암호화는 키 가용성에 의존하며 권한 부여를 대신하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Map encryption requirements across transport, storage and key access paths.",
+            "ko": "전송, 저장, 키 접근 경로의 암호화 요구사항을 정리합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, rule:object-storage.encryption-at-rest.required, rule:object-storage.https-only.required, rule:object-storage.min-tls-version, rule:postgresql-server.encryption-at-rest, rule:postgresql-server.ssl-enforcement, rule:sql-database.tde-required for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, rule:object-storage.encryption-at-rest.required, rule:object-storage.https-only.required, rule:object-storage.min-tls-version, rule:postgresql-server.encryption-at-rest, rule:postgresql-server.ssl-enforcement, rule:sql-database.tde-required 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Storage is encrypted but a service hop still accepts plaintext.",
+            "ko": "저장소는 암호화했지만 서비스 간 한 구간이 평문을 허용합니다."
+          },
+          {
+            "en": "Illustrative gap: SE:07 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:07에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f4ccdd052e254b413fcc205853aec25d73a7cd56667e1f0fb10944790405653c",
+      "control_id": "SE:07",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-07",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Storage is encrypted but a service hop still accepts plaintext.",
+              "ko": "저장소는 암호화했지만 서비스 간 한 구간이 평문을 허용합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Encrypt data with modern methods",
+              "ko": "현대적인 방식으로 데이터 암호화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Map encryption requirements across transport, storage and key access paths.",
+              "ko": "전송, 저장, 키 접근 경로의 암호화 요구사항을 정리합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect negotiated transport security and independently read storage encryption settings.",
+              "ko": "협상된 전송 보안을 확인하고 저장 암호화 설정을 별도로 조회합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Exposure from intercepted traffic or storage access can be reduced.",
+              "ko": "트래픽 도청이나 저장소 접근으로 인한 노출을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Encrypt data with modern methods",
+          "ko": "현대적인 방식으로 데이터 암호화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:07 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:07의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Map encryption requirements across transport, storage and key access paths.",
+          "ko": "전송, 저장, 키 접근 경로의 암호화 요구사항을 정리합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.encryption-at-rest.required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.encryption-at-rest.required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.https-only.required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.https-only.required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.min-tls-version from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.min-tls-version을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:postgresql-server.encryption-at-rest from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:postgresql-server.encryption-at-rest을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:postgresql-server.ssl-enforcement from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:postgresql-server.ssl-enforcement을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:sql-database.tde-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:sql-database.tde-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Transport and storage encryption protect different stages of the data lifecycle. In FDAI, SE:07 is assessed through approval:security-owner, rule:object-storage.encryption-at-rest.required, rule:object-storage.https-only.required, rule:object-storage.min-tls-version, rule:postgresql-server.encryption-at-rest, rule:postgresql-server.ssl-enforcement, rule:sql-database.tde-required. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "전송 암호화와 저장 암호화는 데이터 수명 주기의 서로 다른 단계를 보호합니다. FDAI는 SE:07을 approval:security-owner, rule:object-storage.encryption-at-rest.required, rule:object-storage.https-only.required, rule:object-storage.min-tls-version, rule:postgresql-server.encryption-at-rest, rule:postgresql-server.ssl-enforcement, rule:sql-database.tde-required 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:f5d0357dfc556202ed30f49a0690451fa18ef77467465b52633c6a15a9fbce91",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Transport and storage encryption protect different stages of the data lifecycle.",
+        "ko": "전송 암호화와 저장 암호화는 데이터 수명 주기의 서로 다른 단계를 보호합니다."
+      },
+      "title": {
+        "en": "Encrypt data with modern methods",
+        "ko": "현대적인 방식으로 데이터 암호화"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect negotiated transport security and independently read storage encryption settings.",
+          "ko": "협상된 전송 보안을 확인하고 저장 암호화 설정을 별도로 조회합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:07 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:07을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:08 only to the reviewed workload scope with accountable owner role security-owner; review cadence 90 days.",
+          "ko": "SE:08은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude unsupported settings from claims of an enforced baseline.",
+          "ko": "지원하지 않는 설정을 기준선 강제 적용 범위에 포함하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Resources present fewer unnecessary entry points and insecure defaults.",
+        "ko": "리소스의 불필요한 진입점과 안전하지 않은 기본값을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Hardening can disable diagnostics or dependencies unless tested first.",
+          "ko": "먼저 시험하지 않으면 강화가 진단이나 의존성 기능을 꺼 버릴 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Apply a reviewed hardening baseline and remove unnecessary services and privileges.",
+            "ko": "검토된 강화 기준선을 적용하고 불필요한 서비스와 권한을 제거합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:resource-hardening-baseline, metric:configuration-compliance-report for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:resource-hardening-baseline, metric:configuration-compliance-report 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A deployed image retains unused services and default administrative settings.",
+            "ko": "배포 이미지에 불필요한 서비스와 기본 관리 설정이 남아 있습니다."
+          },
+          {
+            "en": "Illustrative gap: SE:08 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:08에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:68da4029d0d8971d6fa5e33420eca35f9f7e27f3ae9ddc0c4f82ecb3cf2228cd",
+      "control_id": "SE:08",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-08",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A deployed image retains unused services and default administrative settings.",
+              "ko": "배포 이미지에 불필요한 서비스와 기본 관리 설정이 남아 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Harden workload resources",
+              "ko": "워크로드 리소스 강화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Apply a reviewed hardening baseline and remove unnecessary services and privileges.",
+              "ko": "검토된 강화 기준선을 적용하고 불필요한 서비스와 권한을 제거합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Scan deployed configuration and test that required functionality still works.",
+              "ko": "배포 구성을 검사하고 필수 기능이 계속 동작하는지 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Resources present fewer unnecessary entry points and insecure defaults.",
+              "ko": "리소스의 불필요한 진입점과 안전하지 않은 기본값을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Harden workload resources",
+          "ko": "워크로드 리소스 강화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:08 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:08의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Apply a reviewed hardening baseline and remove unnecessary services and privileges.",
+          "ko": "검토된 강화 기준선을 적용하고 불필요한 서비스와 권한을 제거합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:resource-hardening-baseline from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:resource-hardening-baseline을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:configuration-compliance-report from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:configuration-compliance-report을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Reduced functionality and patched configurations shrink the exposed attack surface. In FDAI, SE:08 is assessed through approval:security-owner, artifact:resource-hardening-baseline, metric:configuration-compliance-report. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "기능 축소와 패치된 구성은 노출된 공격 표면을 줄입니다. FDAI는 SE:08을 approval:security-owner, artifact:resource-hardening-baseline, metric:configuration-compliance-report 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:bbea976f570a9bc2e550885f5631ad03924c9618043bd4b645c269112e5d8214",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Reduced functionality and patched configurations shrink the exposed attack surface.",
+        "ko": "기능 축소와 패치된 구성은 노출된 공격 표면을 줄입니다."
+      },
+      "title": {
+        "en": "Harden workload resources",
+        "ko": "워크로드 리소스 강화"
+      },
+      "verification_steps": [
+        {
+          "en": "Scan deployed configuration and test that required functionality still works.",
+          "ko": "배포 구성을 검사하고 필수 기능이 계속 동작하는지 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:08 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:08을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:09 only to the reviewed workload scope with accountable owner role security-owner; review cadence 1 days.",
+          "ko": "SE:09은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Exclude secret values from logs, screenshots and review artifacts.",
+          "ko": "로그, 화면 캡처, 검토 산출물에 비밀 값을 포함하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "A compromised secret has less opportunity to remain useful indefinitely.",
+        "ko": "침해된 비밀이 무기한 악용될 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Uncoordinated rotation can cause outages in clients caching old credentials.",
+          "ko": "조정 없는 교체는 이전 자격 증명을 캐시한 클라이언트에서 중단을 일으킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Move secrets to an approved store and rehearse rotation with dependent applications.",
+            "ko": "승인된 저장소로 비밀을 옮기고 의존 애플리케이션과 교체를 연습합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:secrets-management-plan, drill:emergency-secret-rotation, rule:secret-store.purge-protection.enabled, rule:secret-store.rbac-authorization.enabled, rule:secret-store.rotation-overdue for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:secrets-management-plan, drill:emergency-secret-rotation, rule:secret-store.purge-protection.enabled, rule:secret-store.rbac-authorization.enabled, rule:secret-store.rotation-overdue 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A long-lived secret is embedded in configuration and copied between deployments.",
+            "ko": "장기 비밀을 구성에 넣고 배포 사이에 복사합니다."
+          },
+          {
+            "en": "Illustrative gap: SE:09 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:09에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:4eb1089ceabd1f209cc42e16ed29d09eb01eeabc1d3edcdbf8f7db5700c6bf61",
+      "control_id": "SE:09",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-09",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A long-lived secret is embedded in configuration and copied between deployments.",
+              "ko": "장기 비밀을 구성에 넣고 배포 사이에 복사합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Protect and rotate application secrets",
+              "ko": "애플리케이션 비밀 보호와 교체"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Move secrets to an approved store and rehearse rotation with dependent applications.",
+              "ko": "승인된 저장소로 비밀을 옮기고 의존 애플리케이션과 교체를 연습합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Verify a new secret works and the retired version can no longer authenticate.",
+              "ko": "새 비밀이 동작하고 폐기한 버전으로는 인증할 수 없는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A compromised secret has less opportunity to remain useful indefinitely.",
+              "ko": "침해된 비밀이 무기한 악용될 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Protect and rotate application secrets",
+          "ko": "애플리케이션 비밀 보호와 교체"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:09 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:09의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Move secrets to an approved store and rehearse rotation with dependent applications.",
+          "ko": "승인된 저장소로 비밀을 옮기고 의존 애플리케이션과 교체를 연습합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:secrets-management-plan from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:secrets-management-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain drill:emergency-secret-rotation from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 drill:emergency-secret-rotation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.purge-protection.enabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.purge-protection.enabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.rbac-authorization.enabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.rbac-authorization.enabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.rotation-overdue from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.rotation-overdue을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Central secret storage and rotation limit credential exposure and lifetime. In FDAI, SE:09 is assessed through approval:security-owner, artifact:secrets-management-plan, drill:emergency-secret-rotation, rule:secret-store.purge-protection.enabled, rule:secret-store.rbac-authorization.enabled, rule:secret-store.rotation-overdue. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "중앙 비밀 저장과 교체는 자격 증명의 노출 및 유효 기간을 줄입니다. FDAI는 SE:09을 approval:security-owner, artifact:secrets-management-plan, drill:emergency-secret-rotation, rule:secret-store.purge-protection.enabled, rule:secret-store.rbac-authorization.enabled, rule:secret-store.rotation-overdue 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:fc0f179aacb30da5e4206462ee68afe05a30b0205488dcaae32c943a9fa99c38",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Central secret storage and rotation limit credential exposure and lifetime.",
+        "ko": "중앙 비밀 저장과 교체는 자격 증명의 노출 및 유효 기간을 줄입니다."
+      },
+      "title": {
+        "en": "Protect and rotate application secrets",
+        "ko": "애플리케이션 비밀 보호와 교체"
+      },
+      "verification_steps": [
+        {
+          "en": "Verify a new secret works and the retired version can no longer authenticate.",
+          "ko": "새 비밀이 동작하고 폐기한 버전으로는 인증할 수 없는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:09 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:09을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:10 only to the reviewed workload scope with accountable owner role security-owner; review cadence 30 days.",
+          "ko": "SE:10은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not describe every anomaly as a confirmed compromise.",
+          "ko": "모든 이상 징후를 확인된 침해로 설명하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Responders gain context for deciding which signals require investigation.",
+        "ko": "대응자는 어떤 신호를 조사할지 판단하는 데 필요한 맥락을 얻습니다."
+      },
+      "cautions": [
+        {
+          "en": "Detection coverage depends on enabled telemetry, retention and current rules.",
+          "ko": "감지 범위는 활성 원격 분석, 보존, 최신 규칙에 달려 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Route security telemetry to owned detection and triage workflows.",
+            "ko": "보안 원격 분석을 담당자가 있는 감지 및 분류 절차로 전달합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:security-monitoring-plan, metric:threat-detection-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:security-monitoring-plan, metric:threat-detection-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Identity and application alerts remain in separate unowned consoles.",
+            "ko": "신원 경고와 애플리케이션 경고가 담당자 없이 별도 화면에 남아 있습니다."
+          },
+          {
+            "en": "Illustrative gap: SE:10 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:10에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:4c1f08cbb1c649e3f8c7674d32124a369eed7e5c1a748d19e6e314044035d69c",
+      "control_id": "SE:10",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-10",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Identity and application alerts remain in separate unowned consoles.",
+              "ko": "신원 경고와 애플리케이션 경고가 담당자 없이 별도 화면에 남아 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Implement holistic threat monitoring",
+              "ko": "종합적인 위협 모니터링"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Route security telemetry to owned detection and triage workflows.",
+              "ko": "보안 원격 분석을 담당자가 있는 감지 및 분류 절차로 전달합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Exercise a safe detection scenario and inspect correlation, routing and triage records.",
+              "ko": "안전한 감지 시나리오를 시험하고 상관 분석, 전달, 분류 기록을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Responders gain context for deciding which signals require investigation.",
+              "ko": "대응자는 어떤 신호를 조사할지 판단하는 데 필요한 맥락을 얻습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Implement holistic threat monitoring",
+          "ko": "종합적인 위협 모니터링"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:10 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:10의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Route security telemetry to owned detection and triage workflows.",
+          "ko": "보안 원격 분석을 담당자가 있는 감지 및 분류 절차로 전달합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:security-monitoring-plan from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:security-monitoring-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:threat-detection-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:threat-detection-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Joined security signals connect suspicious activity across identity and workload boundaries. In FDAI, SE:10 is assessed through approval:security-owner, artifact:security-monitoring-plan, metric:threat-detection-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "연결된 보안 신호는 신원 및 워크로드 경계를 넘는 의심스러운 활동을 묶습니다. FDAI는 SE:10을 approval:security-owner, artifact:security-monitoring-plan, metric:threat-detection-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e964d001894f15211990019bb6ff6fe5858ded8c4acff19b39cace3c01a57b3c",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Joined security signals connect suspicious activity across identity and workload boundaries.",
+        "ko": "연결된 보안 신호는 신원 및 워크로드 경계를 넘는 의심스러운 활동을 묶습니다."
+      },
+      "title": {
+        "en": "Implement holistic threat monitoring",
+        "ko": "종합적인 위협 모니터링"
+      },
+      "verification_steps": [
+        {
+          "en": "Exercise a safe detection scenario and inspect correlation, routing and triage records.",
+          "ko": "안전한 감지 시나리오를 시험하고 상관 분석, 전달, 분류 기록을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:10 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:10을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:11 only to the reviewed workload scope with accountable owner role security-owner; review cadence 90 days.",
+          "ko": "SE:11은 책임 역할 security-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude untested endpoints and unauthorized targets from coverage claims.",
+          "ko": "시험하지 않은 엔드포인트와 승인하지 않은 대상을 적용 범위에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Different failure classes can be found before they are exploited.",
+        "ko": "악용되기 전에 서로 다른 유형의 결함을 찾을 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Security tests can disrupt services and need bounded scope and handling rules.",
+          "ko": "보안 테스트는 서비스를 방해할 수 있으므로 제한된 범위와 처리 규칙이 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Plan authorized code, dependency and application security tests for the threat model.",
+            "ko": "위협 모델에 맞춰 승인된 코드, 의존성, 애플리케이션 보안 테스트를 계획합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:security-owner, artifact:security-test-results, drill:threat-detection-validation for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:security-owner, artifact:security-test-results, drill:threat-detection-validation 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A dependency scan is the only security test for an exposed application.",
+            "ko": "외부 노출 애플리케이션에 의존성 검사만 수행합니다."
+          },
+          {
+            "en": "Illustrative gap: SE:11 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:11에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:a756bfa07dd50db820c7a7bc0a178c93af9086673105c3d629bf96bf8902c322",
+      "control_id": "SE:11",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-11",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A dependency scan is the only security test for an exposed application.",
+              "ko": "외부 노출 애플리케이션에 의존성 검사만 수행합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Establish comprehensive security testing",
+              "ko": "포괄적인 보안 테스트"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Plan authorized code, dependency and application security tests for the threat model.",
+              "ko": "위협 모델에 맞춰 승인된 코드, 의존성, 애플리케이션 보안 테스트를 계획합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Track representative findings through triage, correction and retesting.",
+              "ko": "대표 발견 사항을 분류, 수정, 재시험까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Different failure classes can be found before they are exploited.",
+              "ko": "악용되기 전에 서로 다른 유형의 결함을 찾을 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Establish comprehensive security testing",
+          "ko": "포괄적인 보안 테스트"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:11 scope, owner security-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:11의 범위, 담당 역할 security-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Plan authorized code, dependency and application security tests for the threat model.",
+          "ko": "위협 모델에 맞춰 승인된 코드, 의존성, 애플리케이션 보안 테스트를 계획합니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:security-test-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:security-test-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain drill:threat-detection-validation from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, security-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 drill:threat-detection-validation을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, security-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Complementary security tests examine implementation flaws and exploitable system behavior. In FDAI, SE:11 is assessed through approval:security-owner, artifact:security-test-results, drill:threat-detection-validation. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "서로 보완하는 보안 테스트는 구현 결함과 악용 가능한 시스템 동작을 검사합니다. FDAI는 SE:11을 approval:security-owner, artifact:security-test-results, drill:threat-detection-validation 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:060d78eb0a136edd1dbc624ac75ceb54797284db21b2717d23140421fac832b2",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Complementary security tests examine implementation flaws and exploitable system behavior.",
+        "ko": "서로 보완하는 보안 테스트는 구현 결함과 악용 가능한 시스템 동작을 검사합니다."
+      },
+      "title": {
+        "en": "Establish comprehensive security testing",
+        "ko": "포괄적인 보안 테스트"
+      },
+      "verification_steps": [
+        {
+          "en": "Track representative findings through triage, correction and retesting.",
+          "ko": "대표 발견 사항을 분류, 수정, 재시험까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:11 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:11을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply SE:12 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 180 days.",
+          "ko": "SE:12은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not treat a generic incident contact list as a tested security response plan.",
+          "ko": "일반 인시던트 연락처 목록을 시험한 보안 대응 계획으로 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Responders can act without inventing authority and communication during a breach.",
+        "ko": "대응자는 침해 중에 권한과 의사소통 방식을 새로 정하지 않고 대응할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Containment can interrupt legitimate operations and requires explicit authority.",
+          "ko": "격리는 정상 운영을 중단시킬 수 있으며 명시적인 권한이 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define response roles, containment choices, evidence protection and recovery validation.",
+            "ko": "대응 역할, 격리 방안, 증거 보호, 복구 검증을 정의합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, approval:security-owner, artifact:incident-response-plan, drill:incident-response-drill for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, approval:security-owner, artifact:incident-response-plan, drill:incident-response-drill 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The team has alert rules but no tested compromise response procedure.",
+            "ko": "팀에 경고 규칙은 있지만 시험한 침해 대응 절차가 없습니다."
+          },
+          {
+            "en": "Illustrative gap: SE:12 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: SE:12에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:7a0a69a5486b4a57950a6b81d479f89db20fc3b16bfbe4379d2061c61019648c",
+      "control_id": "SE:12",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.se-12",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The team has alert rules but no tested compromise response procedure.",
+              "ko": "팀에 경고 규칙은 있지만 시험한 침해 대응 절차가 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define and test security incident response",
+              "ko": "보안 인시던트 대응 정의와 테스트"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define response roles, containment choices, evidence protection and recovery validation.",
+              "ko": "대응 역할, 격리 방안, 증거 보호, 복구 검증을 정의합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run an authorized tabletop and verify escalation and evidence-preserving recovery.",
+              "ko": "승인된 모의 훈련을 진행하고 보고 및 증거를 보존하는 복구를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Responders can act without inventing authority and communication during a breach.",
+              "ko": "대응자는 침해 중에 권한과 의사소통 방식을 새로 정하지 않고 대응할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define and test security incident response",
+          "ko": "보안 인시던트 대응 정의와 테스트"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm SE:12 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 SE:12의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define response roles, containment choices, evidence protection and recovery validation.",
+          "ko": "대응 역할, 격리 방안, 증거 보호, 복구 검증을 정의합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain approval:security-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner security-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:security-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 security-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:incident-response-plan from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:incident-response-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain drill:incident-response-drill from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 drill:incident-response-drill을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A rehearsed response plan coordinates containment, evidence handling and recovery. In FDAI, SE:12 is assessed through approval:operations-owner, approval:security-owner, artifact:incident-response-plan, drill:incident-response-drill. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "연습한 대응 계획은 격리, 증거 처리, 복구를 조정합니다. FDAI는 SE:12을 approval:operations-owner, approval:security-owner, artifact:incident-response-plan, drill:incident-response-drill 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:64af29911e1979c0f30c08360d0a505e28710eacbbda9902f8fb9a8ae4454f24",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+        }
+      ],
+      "summary": {
+        "en": "A rehearsed response plan coordinates containment, evidence handling and recovery.",
+        "ko": "연습한 대응 계획은 격리, 증거 처리, 복구를 조정합니다."
+      },
+      "title": {
+        "en": "Define and test security incident response",
+        "ko": "보안 인시던트 대응 정의와 테스트"
+      },
+      "verification_steps": [
+        {
+          "en": "Run an authorized tabletop and verify escalation and evidence-preserving recovery.",
+          "ko": "승인된 모의 훈련을 진행하고 보고 및 증거를 보존하는 복구를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess SE:12 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 SE:12을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply AM-1 only to the reviewed workload scope with accountable owner role mcsb-am-owner; review cadence 180 days.",
+          "ko": "AM-1은 책임 역할 mcsb-am-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "An incomplete discovery scope cannot establish a complete asset inventory.",
+          "ko": "불완전한 탐색 범위로 전체 자산 목록을 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unknown or abandoned assets become visible for review.",
+        "ko": "알려지지 않았거나 방치된 자산을 검토할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Inventory metadata may reveal sensitive topology and needs scoped access.",
+          "ko": "자산 목록 정보는 민감한 토폴로지를 드러낼 수 있으므로 접근을 제한해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Reconcile discovered assets with owners, purpose and risk classification.",
+            "ko": "발견한 자산을 담당자, 목적, 위험 분류와 대조합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-am-1-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-am-1-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A resource export lacks ownership and exposure classification.",
+            "ko": "리소스 내보내기 목록에 담당자와 노출 분류가 없습니다."
+          },
+          {
+            "en": "Illustrative gap: AM-1 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: AM-1에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:7b08129eaafcb447c4d9c78e9c3289eb32ab1c8b6b3927f9d6b804a69af3a5c0",
+      "control_id": "AM-1",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.am-1",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A resource export lacks ownership and exposure classification.",
+              "ko": "리소스 내보내기 목록에 담당자와 노출 분류가 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Track asset inventory and their risks",
+              "ko": "자산 목록과 위험 추적"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Reconcile discovered assets with owners, purpose and risk classification.",
+              "ko": "발견한 자산을 담당자, 목적, 위험 분류와 대조합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample assets from discovery and verify their inventory record and risk owner.",
+              "ko": "발견 자산을 표본 추출하고 목록 기록과 위험 담당자를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unknown or abandoned assets become visible for review.",
+              "ko": "알려지지 않았거나 방치된 자산을 검토할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Track asset inventory and their risks",
+          "ko": "자산 목록과 위험 추적"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm AM-1 scope, owner mcsb-am-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 AM-1의 범위, 담당 역할 mcsb-am-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Reconcile discovered assets with owners, purpose and risk classification.",
+          "ko": "발견한 자산을 담당자, 목적, 위험 분류와 대조합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-am-1-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-am-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-am-1-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-am-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "An owned inventory connects discovered assets with exposure and risk context. In FDAI, AM-1 is assessed through artifact:mcsb-am-1-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "담당자가 있는 목록은 발견한 자산과 노출 및 위험 정보를 연결합니다. FDAI는 AM-1을 artifact:mcsb-am-1-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:6bb38826d5d77f87e4c00c26e23429ba3db639c3713219295465516536332f9e",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "An owned inventory connects discovered assets with exposure and risk context.",
+        "ko": "담당자가 있는 목록은 발견한 자산과 노출 및 위험 정보를 연결합니다."
+      },
+      "title": {
+        "en": "Track asset inventory and their risks",
+        "ko": "자산 목록과 위험 추적"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample assets from discovery and verify their inventory record and risk owner.",
+          "ko": "발견 자산을 표본 추출하고 목록 기록과 위험 담당자를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess AM-1 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 AM-1을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply AM-2 only to the reviewed workload scope with accountable owner role mcsb-am-owner; review cadence 180 days.",
+          "ko": "AM-2은 책임 역할 mcsb-am-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A resource provider's registration is not itself organizational service approval.",
+          "ko": "리소스 공급자 등록 자체는 조직의 서비스 사용 승인이 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "New services receive security review before becoming dependencies.",
+        "ko": "새 서비스가 의존성이 되기 전에 보안 검토를 받을 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Blanket blocking can interrupt existing dependencies and needs staged review.",
+          "ko": "일괄 차단은 기존 의존성을 중단시킬 수 있으므로 단계적 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Maintain approved services and review actual deployments against that list.",
+            "ko": "승인 서비스를 관리하고 실제 배포를 목록과 비교합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-am-2-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-am-2-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Teams introduce services without checking an approved list.",
+            "ko": "팀이 승인 목록을 확인하지 않고 서비스를 도입합니다."
+          },
+          {
+            "en": "Illustrative gap: AM-2 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: AM-2에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:e968b1b5c7b3f6e0115f73425a0ec84a3325b35be3bc2191baf47025a2018576",
+      "control_id": "AM-2",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.am-2",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Teams introduce services without checking an approved list.",
+              "ko": "팀이 승인 목록을 확인하지 않고 서비스를 도입합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Use only approved services",
+              "ko": "승인된 서비스만 사용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Maintain approved services and review actual deployments against that list.",
+              "ko": "승인 서비스를 관리하고 실제 배포를 목록과 비교합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Identify a deployed service outside the list and trace its exception or remediation.",
+              "ko": "목록 밖의 배포 서비스를 찾아 예외나 수정 조치를 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "New services receive security review before becoming dependencies.",
+              "ko": "새 서비스가 의존성이 되기 전에 보안 검토를 받을 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Use only approved services",
+          "ko": "승인된 서비스만 사용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm AM-2 scope, owner mcsb-am-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 AM-2의 범위, 담당 역할 mcsb-am-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Maintain approved services and review actual deployments against that list.",
+          "ko": "승인 서비스를 관리하고 실제 배포를 목록과 비교합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-am-2-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-am-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-am-2-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-am-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "An approved-service catalog constrains which cloud capabilities enter the workload. In FDAI, AM-2 is assessed through artifact:mcsb-am-2-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "승인 서비스 목록은 워크로드가 도입할 수 있는 클라우드 기능을 제한합니다. FDAI는 AM-2을 artifact:mcsb-am-2-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ddd71a0d3f3307e33727325f78728f802298e4ce09ff37f926612e4194107e8d",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "An approved-service catalog constrains which cloud capabilities enter the workload.",
+        "ko": "승인 서비스 목록은 워크로드가 도입할 수 있는 클라우드 기능을 제한합니다."
+      },
+      "title": {
+        "en": "Use only approved services",
+        "ko": "승인된 서비스만 사용"
+      },
+      "verification_steps": [
+        {
+          "en": "Identify a deployed service outside the list and trace its exception or remediation.",
+          "ko": "목록 밖의 배포 서비스를 찾아 예외나 수정 조치를 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess AM-2 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 AM-2을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply AM-3 only to the reviewed workload scope with accountable owner role mcsb-am-owner; review cadence 180 days.",
+          "ko": "AM-3은 책임 역할 mcsb-am-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not delete records subject to retention or legal-hold obligations.",
+          "ko": "보존 의무나 법적 보존 대상인 기록을 삭제하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Retired assets are less likely to retain data or usable access.",
+        "ko": "폐기한 자산에 데이터나 사용 가능한 접근 권한이 남을 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Deleting compute does not necessarily remove disks, snapshots or identities.",
+          "ko": "컴퓨팅을 삭제해도 디스크, 스냅샷, 신원이 남을 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define secure provisioning and decommissioning with data and access disposition.",
+            "ko": "데이터 및 접근 처리 결과를 포함해 안전한 생성 및 폐기 절차를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-am-3-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-am-3-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Retired resources retain credentials and unmanaged data copies.",
+            "ko": "폐기 리소스에 자격 증명과 관리하지 않는 데이터 사본이 남아 있습니다."
+          },
+          {
+            "en": "Illustrative gap: AM-3 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: AM-3에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:2520fb83e89e0ab14f1e81784fa8b49b8039a51c10533e3bb621776c81c25468",
+      "control_id": "AM-3",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.am-3",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Retired resources retain credentials and unmanaged data copies.",
+              "ko": "폐기 리소스에 자격 증명과 관리하지 않는 데이터 사본이 남아 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Ensure security of asset lifecycle management",
+              "ko": "자산 수명 주기 보안"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define secure provisioning and decommissioning with data and access disposition.",
+              "ko": "데이터 및 접근 처리 결과를 포함해 안전한 생성 및 폐기 절차를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect a retired asset's deletion, retained-data decision and access revocation.",
+              "ko": "폐기 자산의 삭제, 데이터 보존 결정, 접근 철회를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Retired assets are less likely to retain data or usable access.",
+              "ko": "폐기한 자산에 데이터나 사용 가능한 접근 권한이 남을 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Ensure security of asset lifecycle management",
+          "ko": "자산 수명 주기 보안"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm AM-3 scope, owner mcsb-am-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 AM-3의 범위, 담당 역할 mcsb-am-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define secure provisioning and decommissioning with data and access disposition.",
+          "ko": "데이터 및 접근 처리 결과를 포함해 안전한 생성 및 폐기 절차를 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-am-3-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-am-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-am-3-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-am-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Lifecycle records preserve ownership through provisioning, transfer and retirement. In FDAI, AM-3 is assessed through artifact:mcsb-am-3-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "수명 주기 기록은 생성, 이전, 폐기 과정의 책임을 유지합니다. FDAI는 AM-3을 artifact:mcsb-am-3-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:3f660e3029fc4e3b3d7f434f405f1e2ae4851409941a0ddd7e6de13b2da36a85",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Lifecycle records preserve ownership through provisioning, transfer and retirement.",
+        "ko": "수명 주기 기록은 생성, 이전, 폐기 과정의 책임을 유지합니다."
+      },
+      "title": {
+        "en": "Ensure security of asset lifecycle management",
+        "ko": "자산 수명 주기 보안"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect a retired asset's deletion, retained-data decision and access revocation.",
+          "ko": "폐기 자산의 삭제, 데이터 보존 결정, 접근 철회를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess AM-3 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 AM-3을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply AM-4 only to the reviewed workload scope with accountable owner role mcsb-am-owner; review cadence 180 days.",
+          "ko": "AM-4은 책임 역할 mcsb-am-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Inventory visibility does not imply permission to mutate the assets listed.",
+          "ko": "자산 목록을 볼 수 있다고 나열된 자산을 변경할 권한이 생기지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unauthorized inventory changes and resource administration can be reduced.",
+        "ko": "승인하지 않은 자산 목록 변경과 리소스 관리를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Inherited roles can silently widen management permissions.",
+          "ko": "상속 역할은 관리 권한을 눈에 띄지 않게 넓힐 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign asset-management roles according to administrative duties.",
+            "ko": "관리 업무에 따라 자산 관리 역할을 배정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-am-4-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-am-4-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "All contributors can change asset records and management settings.",
+            "ko": "모든 기여자가 자산 기록과 관리 설정을 바꿀 수 있습니다."
+          },
+          {
+            "en": "Illustrative gap: AM-4 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: AM-4에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f0a39ddba17cd6a89fdf5ded8137901ac8108f52a008b902846228160d7bfe1b",
+      "control_id": "AM-4",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.am-4",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "All contributors can change asset records and management settings.",
+              "ko": "모든 기여자가 자산 기록과 관리 설정을 바꿀 수 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Limit access to asset management",
+              "ko": "자산 관리 접근 제한"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign asset-management roles according to administrative duties.",
+              "ko": "관리 업무에 따라 자산 관리 역할을 배정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test read-only inventory access and denied administrative changes separately.",
+              "ko": "자산 목록 읽기 접근과 관리 변경 거부를 각각 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unauthorized inventory changes and resource administration can be reduced.",
+              "ko": "승인하지 않은 자산 목록 변경과 리소스 관리를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Limit access to asset management",
+          "ko": "자산 관리 접근 제한"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm AM-4 scope, owner mcsb-am-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 AM-4의 범위, 담당 역할 mcsb-am-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign asset-management roles according to administrative duties.",
+          "ko": "관리 업무에 따라 자산 관리 역할을 배정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-am-4-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-am-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-am-4-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-am-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Scoped management permissions separate asset administration from ordinary use. In FDAI, AM-4 is assessed through artifact:mcsb-am-4-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "제한된 관리 권한은 자산 관리와 일반 사용을 구분합니다. FDAI는 AM-4을 artifact:mcsb-am-4-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:bd8f09a07fc7a0e03b8cb18f70daee71c3d8756fa17b4b24d36b9e60c003cecb",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Scoped management permissions separate asset administration from ordinary use.",
+        "ko": "제한된 관리 권한은 자산 관리와 일반 사용을 구분합니다."
+      },
+      "title": {
+        "en": "Limit access to asset management",
+        "ko": "자산 관리 접근 제한"
+      },
+      "verification_steps": [
+        {
+          "en": "Test read-only inventory access and denied administrative changes separately.",
+          "ko": "자산 목록 읽기 접근과 관리 변경 거부를 각각 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess AM-4 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 AM-4을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply AM-5 only to the reviewed workload scope with accountable owner role mcsb-am-owner; review cadence 180 days.",
+          "ko": "AM-5은 책임 역할 mcsb-am-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Containers or managed services need their own software-control interpretation.",
+          "ko": "컨테이너나 관리형 서비스에는 별도의 소프트웨어 통제 해석이 필요합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unexpected software has fewer opportunities to become an unmanaged entry point.",
+        "ko": "예상 밖의 소프트웨어가 관리되지 않는 진입점이 될 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Enforcement without testing can block recovery tools or workload startup.",
+          "ko": "시험 없는 강제 적용은 복구 도구나 워크로드 시작을 차단할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define approved applications and review executable inventory or application controls.",
+            "ko": "승인 애플리케이션을 정하고 실행 파일 목록이나 애플리케이션 통제를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-am-5-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-am-5-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A VM runs unreviewed utilities installed outside the image process.",
+            "ko": "VM이 이미지 관리 절차 밖에서 설치한 미검토 도구를 실행합니다."
+          },
+          {
+            "en": "Illustrative gap: AM-5 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: AM-5에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:2c043f4956b0937b5fb6f0fe03d4c6215164e567704a6914390fa5cd4b76fff5",
+      "control_id": "AM-5",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.am-5",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A VM runs unreviewed utilities installed outside the image process.",
+              "ko": "VM이 이미지 관리 절차 밖에서 설치한 미검토 도구를 실행합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Use only approved applications in virtual machine",
+              "ko": "가상 머신에서 승인된 애플리케이션만 사용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define approved applications and review executable inventory or application controls.",
+              "ko": "승인 애플리케이션을 정하고 실행 파일 목록이나 애플리케이션 통제를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare a VM's installed and running software with approved applications.",
+              "ko": "VM의 설치 및 실행 소프트웨어를 승인 애플리케이션과 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unexpected software has fewer opportunities to become an unmanaged entry point.",
+              "ko": "예상 밖의 소프트웨어가 관리되지 않는 진입점이 될 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Use only approved applications in virtual machine",
+          "ko": "가상 머신에서 승인된 애플리케이션만 사용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm AM-5 scope, owner mcsb-am-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 AM-5의 범위, 담당 역할 mcsb-am-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define approved applications and review executable inventory or application controls.",
+          "ko": "승인 애플리케이션을 정하고 실행 파일 목록이나 애플리케이션 통제를 검토합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-am-5-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-am-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-am-5-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-am-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Application approval limits executable software on virtual machines. In FDAI, AM-5 is assessed through artifact:mcsb-am-5-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "애플리케이션 승인은 가상 머신에서 실행할 소프트웨어를 제한합니다. FDAI는 AM-5을 artifact:mcsb-am-5-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:20e1d7faebb8c68930513146a61629177c1dc46a0a442a3177578af78ed990cf",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Application approval limits executable software on virtual machines.",
+        "ko": "애플리케이션 승인은 가상 머신에서 실행할 소프트웨어를 제한합니다."
+      },
+      "title": {
+        "en": "Use only approved applications in virtual machine",
+        "ko": "가상 머신에서 승인된 애플리케이션만 사용"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare a VM's installed and running software with approved applications.",
+          "ko": "VM의 설치 및 실행 소프트웨어를 승인 애플리케이션과 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess AM-5 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 AM-5을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

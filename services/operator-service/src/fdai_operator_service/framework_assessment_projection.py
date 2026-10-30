@@ -13,6 +13,8 @@ from fdai_service_contracts.framework_assessment import (
     FRAMEWORK_ASSESSMENT_TOPIC,
 )
 
+from fdai_operator_service.control_enablement_projection import admitted_control_enablement
+
 _LOGGER = logging.getLogger(__name__)
 _FRAMEWORKS = frozenset({"azure-waf", "azure-caf", "azure-mcsb"})
 _MAPPING = frozenset({"full", "partial", "unmapped"})
@@ -165,6 +167,17 @@ def project_framework_assessment(
             "limitations": _strings(result.get("limitations"), "limitations"),
             "execution_authority": False,
         }
+        enabled_override = decision.get("enabled")
+        if enabled_override is not None and type(enabled_override) is not bool:
+            raise FrameworkAssessmentProjectionError("framework enabled override MUST be boolean")
+        try:
+            enablement = admitted_control_enablement(
+                controls[control_id], result, enabled_override=enabled_override
+            )
+        except ValueError as exc:
+            raise FrameworkAssessmentProjectionError(str(exc)) from exc
+        if enablement is not None:
+            common["enablement"] = enablement
         if framework_id == "azure-waf":
             common.update(
                 {

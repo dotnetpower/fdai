@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +29,7 @@ from fdai.rule_catalog.schema.framework_assessment import (
     canonical_digest,
     load_framework_assessment_catalog,
 )
+from fdai_service_contracts.control_enablement_profile import ControlEnablementProfile
 
 ROOT = Path(__file__).resolve().parents[4]
 GENERATED = ROOT / "rule-catalog/framework-assessments/generated"
@@ -94,6 +96,55 @@ class _Bus:
         del topic, key
         self.events.append(dict(payload))
         return object()
+
+
+async def test_tick_reads_reviewed_control_preferences_before_assessment(tmp_path: Path) -> None:
+    waf = _catalog("azure-waf")
+    caf = _catalog("azure-caf")
+    scope = _scope()
+    control_id = waf.controls[0].control_id
+    material = {
+        "schema_version": "1.0.0",
+        "framework_id": "azure-waf",
+        "source_revision": waf.source_revision_digest,
+        "scope_digest": _waf_scope_digest(scope),
+        "reviewed_by": "reviewer@example.com",
+        "reviewed_at": NOW.isoformat().replace("+00:00", "Z"),
+        "overrides": [{"control_id": control_id, "enabled": False}],
+    }
+    path = tmp_path / "control-preferences.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "profiles": [
+                    {
+                        **material,
+                        "profile_digest": ControlEnablementProfile.digest_material(material),
+                    }
+                ],
+            }
+        )
+    )
+    store = _Store()
+    bus = _Bus()
+    await execute_framework_assessment_tick(
+        settings=replace(_settings(tmp_path), control_profiles_path=path),
+        scope=scope,
+        waf_service=FrameworkAssessmentService(FrameworkAssessmentRuntime(waf), store, bus),
+        caf_service=FrameworkAssessmentService(FrameworkAssessmentRuntime(caf), store, bus),
+        waf_catalog=waf,
+        caf_catalog=caf,
+        now=NOW,
+        source_revision="source:example",
+    )
+    result = next(event for event in bus.events if event["framework_id"] == "azure-waf")
+    control = next(item for item in result["controls"] if item["control_id"] == control_id)
+    assert control["enablement"]["enabled"] is False
+    assert control["enablement"]["source"] == "profile_override"
+    assert control["limitations"] == ["control_disabled"]
+    assert result["execution_authority"] is False
+    assert len(store.entries) == 2
 
 
 def test_live_profiles_cover_complete_catalogs_with_exact_generations() -> None:

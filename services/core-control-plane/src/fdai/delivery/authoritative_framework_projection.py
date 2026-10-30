@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Any
 
+from fdai_service_contracts.control_enablement import resolve_control_enablement
+
+from fdai.delivery.framework_guidance_presentation import framework_guidance_pins
 from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkAssessmentCatalog,
     FrameworkControlSpecification,
@@ -24,7 +27,10 @@ def _best_practice_snapshot(
 ) -> dict[str, object]:
     specifications = {item.control_id: item for item in assessment.controls}
     entries = [
-        _best_practice_entry(control, specifications[control.control_id])
+        {
+            **_best_practice_entry(control, specifications[control.control_id]),
+            **framework_guidance_pins(assessment, control.control_id),
+        }
         for control in sorted(controls, key=lambda item: item.id)
     ]
     return {
@@ -65,6 +71,8 @@ def _best_practice_entry(
         "title": control.title,
         "rationale": control.rationale,
         "severity": control.severity.value,
+        "severity_source": "source",
+        "enablement": resolve_control_enablement(control.severity.value).to_dict(),
         "category": control.category.value,
         "pillar": pillar,
         "requirement_mode": control.requirement_mode.value,
@@ -120,6 +128,11 @@ def _caf_snapshot(
                 "title": control.title,
                 "description": control.description,
                 "area": specification.area,
+                "severity": (specification.severity or "medium"),
+                "severity_source": "fdai_default",
+                "enablement": resolve_control_enablement(
+                    specification.severity or "medium"
+                ).to_dict(),
                 "reference_state": "present",
                 "mapping_state": mapping_state,
                 "applicability": "unknown",
@@ -143,6 +156,7 @@ def _caf_snapshot(
                 "source_url": resolved.source_url,
                 "source_version": resolved.source_version,
                 "source_revision": resolved.resolved_ref,
+                **framework_guidance_pins(assessment, control.id),
                 "execution_authority": False,
             }
         )
@@ -177,6 +191,11 @@ def _mcsb_assessment_snapshot(assessment: FrameworkAssessmentCatalog) -> dict[st
                 "control_id": specification.control_id,
                 "title": specification.title,
                 "area": specification.area,
+                "severity": (specification.severity or "medium"),
+                "severity_source": "fdai_default",
+                "enablement": resolve_control_enablement(
+                    specification.severity or "medium"
+                ).to_dict(),
                 "reference_state": "present",
                 "mapping_state": mapping_state,
                 "applicability": "unknown",
@@ -197,6 +216,7 @@ def _mcsb_assessment_snapshot(assessment: FrameworkAssessmentCatalog) -> dict[st
                     item.model_dump(mode="json") for item in specification.evidence
                 ],
                 "crosswalk": [item.model_dump(mode="json") for item in specification.crosswalk],
+                **framework_guidance_pins(assessment, specification.control_id),
                 "execution_authority": False,
             }
         )
@@ -276,6 +296,11 @@ def _wara_snapshot(
                 "description": control.description,
                 "potential_benefits": metadata.potential_benefits,
                 "impact": metadata.impact,
+                "severity": metadata.impact.casefold(),
+                "severity_source": "source",
+                "enablement": resolve_control_enablement(
+                    metadata.impact, active=metadata.state.casefold() == "active"
+                ).to_dict(),
                 "resource_type": metadata.resource_type,
                 "lifecycle": metadata.state.casefold(),
                 "product_group_verified": metadata.product_group_verified,
@@ -306,6 +331,12 @@ def _wara_snapshot(
                     str(metadata.learn_more_url) if metadata.learn_more_url is not None else None
                 ),
                 "query_digest": metadata.query_digest,
+                "rule_ids": [rule_binding.rule_id] if rule_binding is not None else [],
+                "rule_versions": (
+                    {rule_binding.rule_id: str(rule_binding.rule_version)}
+                    if rule_binding is not None
+                    else {}
+                ),
                 "evaluator_ref": (
                     evaluator_binding.evaluator_ref
                     if evaluator_binding is not None
@@ -354,6 +385,9 @@ def _mcsb_catalog_entry(catalog: McsbCatalog) -> dict[str, object]:
                 "control_id": control.id,
                 "title": control.title,
                 "domain": control.domain,
+                "severity": "medium",
+                "severity_source": "fdai_default",
+                "enablement": resolve_control_enablement("medium").to_dict(),
                 "coverage": mapping.coverage.value,
                 "rule_count": len(mapping.rule_ids),
                 "runtime_observation_count": len(mapping.runtime_observation_ids),

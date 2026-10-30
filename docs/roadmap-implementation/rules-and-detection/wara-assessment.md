@@ -9,6 +9,8 @@ assessment without duplicating the normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Severity-based assessment selection | implemented | `current change`; shared control preference contracts; `core/wara/{models,runtime}.py`, `delivery/wara_assessment_cli.py`, source-bound Operator preference admission; focused backend batch: 308 passed | High and Medium recommendations default enabled; Low stays visible and unknown without query dispatch. Reviewed exact-source/scope overrides and their digest are retained in replay and assessment identity; historical lifecycle-disabled records cannot be enabled. |
+| Shared presentation compatibility and inert action candidates | implemented | `current change`; reused WARA presentation primitives, Console regression checks, explicit Rule revision metadata and read-only action candidates | The WARA public corpus remains unchanged. Candidates don't approve, activate, promote, or execute anything; existing conditional runtime support still needs independent verification. |
 | Unrelated GitHub data-source registration boundary | implemented | `425fda52ead9`; `composition_data_sources.py`; `b92824a9c150`; `test_operator_service_full_composition.py` (29 passed) | The added Knowledge GitHub read route changes no WARA catalog, Azure observation source, workload scope, projection key, evidence admission, or evaluator binding. Repository access never implies a WARA verdict or authority. |
 | Active recommendation crosswalk and applicability map | implemented | `rule-catalog/collected/wara-aprl/assessment/crosswalk.json`; `test_wara_assessment_catalog.py` | The derived catalog accounts for 393 active GUIDs and 80 normalized resource types without changing the source catalog; all 63 disabled records stay outside active evaluation. |
 | Query preservation, exact review and manual contracts | implemented | `assessment/{queries,evaluator-bindings,evaluation-semantics}.json`; query-admission, semantics and catalog tests | All 143 automated bodies, 229 inert reference strings and 21 null references are accounted for. Every automated GUID has a digest-bound semantic review: 57 ARG bindings plus one separate Rule binding; 85 retain exact automatic blockers. All 393 active controls have typed manual contracts, distinguished as 250 required and 143 optional fallbacks. |
@@ -96,8 +98,12 @@ assessment without duplicating the normative design.
 | 2026-10-07 | implemented | The shared Operator composition, route tests, and Console panel registry gained the read-only code-security review and pack routes from #1966. WARA assessment scope, evidence, projections, topics, and authority are unchanged. | `current change`; focused Operator projection, operations-family, and composition tests and Console panel tests passed. | No WARA assessment behavior changed. |
 
 | 2026-09-16 | implemented | Kept the new Incident creation logical topic and principal-scoped draft lookup outside WARA assessment admission while reusing the shared Operator Kafka adapter and PostgreSQL proposal store. | `current change`; focused semantic Kafka and Operator persistence tests, strict mypy, Ruff, and independent-service checks. | No WARA scope, evidence, evaluation, satisfaction, publication, replay, or authority behavior changed. |
+| 2026-10-31 | implemented | Added severity-based assessment selection and reviewed installation overrides while preserving the complete active denominator, source identity, replay and authority boundaries. Reused the WARA presentation without changing its corpus and exposed inert exact-Rule action references. | `current change`; issue [#2710](https://github.com/dotnetpower/fdai/issues/2710); focused backend batch: 308 passed; Console unit/browser regression evidence and production build passed. | A new governed live receipt is needed for the changed selection policy. Prior live receipts continue to describe only their recorded revision and scope. |
 
 ### Remaining work
+
+- [ ] Retain a governed live receipt for the current High/Medium default selection, Low query
+  suppression, and reviewed override policy on an explicitly authorized workload scope.
 
 - [ ] Add further exact automatic bindings only after each held GUID's query, eligibility and
   completeness contract is implemented and its adversarial regression passes; retain manual

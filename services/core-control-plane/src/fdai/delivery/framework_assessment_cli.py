@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Protocol
 
 import httpx
+from fdai_service_contracts.control_enablement_profile import ControlEnablementProfile
 
 from fdai.core.framework_assessment import (
     FrameworkApplicabilityDecision,
@@ -32,6 +33,7 @@ from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.control_enablement_profile import load_control_enablement_profiles
 from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidence,
     WorkloadRuleEvidenceStatus,
@@ -87,6 +89,7 @@ class FrameworkAssessmentJobSettings:
     subscription_id: str
     hierarchy_path: Path
     reviewer_identity: str
+    control_profiles_path: Path | None = None
 
     def __post_init__(self) -> None:
         if any(
@@ -151,6 +154,11 @@ class FrameworkAssessmentJobSettings:
             reviewer_identity=_required(
                 environ,
                 "FDAI_FRAMEWORK_ASSESSMENT_REVIEWER",
+            ),
+            control_profiles_path=(
+                Path(environ["FDAI_CONTROL_ENABLEMENT_PROFILES_PATH"])
+                if environ.get("FDAI_CONTROL_ENABLEMENT_PROFILES_PATH")
+                else None
             ),
         )
 
@@ -247,7 +255,20 @@ def _profile(
     inventory_generation: str | None = None,
     hierarchy_generation: str | None = None,
     rule_activation: FrameworkRuleActivationPin | None = None,
+    enablement_profile: ControlEnablementProfile | None = None,
 ) -> FrameworkAssessmentProfile:
+    if enablement_profile is not None:
+        enablement_profile.validate_binding(
+            framework_id=catalog.framework_id,
+            source_revision=catalog.source_revision_digest,
+            scope_digest=scope_digest,
+            evaluated_at=reviewed_at,
+            control_ids={control.control_id for control in catalog.controls},
+        )
+        if enablement_profile.reviewed_by != reviewer_identity:
+            raise FrameworkAssessmentJobConfigurationError(
+                "control enablement profile reviewer does not match the deployment reviewer"
+            )
     decisions = tuple(
         FrameworkApplicabilityDecision(
             control_id=control.control_id,
@@ -255,6 +276,11 @@ def _profile(
             requested_by=reviewer_identity,
             owner_slot=control.owner_slot,
             cadence_days=control.cadence_days,
+            enabled=(
+                enablement_profile.override_for(control.control_id)
+                if enablement_profile is not None
+                else None
+            ),
         )
         for control in catalog.controls
     )
@@ -277,7 +303,9 @@ def _profile(
         applicability=decisions,
         owners=owners,
         reviewed_by=reviewer_identity,
-        reviewed_at=reviewed_at,
+        reviewed_at=(
+            enablement_profile.reviewed_at if enablement_profile is not None else reviewed_at
+        ),
         inventory_generation=inventory_generation,
         hierarchy_generation=hierarchy_generation,
         operating_model=(
@@ -418,6 +446,7 @@ async def execute_framework_assessment_tick(
     if now.tzinfo is None:
         raise ValueError("framework assessment tick time MUST be timezone-aware")
     hierarchy_generation, hierarchy_complete = _load_hierarchy_generation(settings.hierarchy_path)
+    control_profiles = load_control_enablement_profiles(settings.control_profiles_path)
     waf_scope_digest = _waf_scope_digest(scope)
     caf_scope_digest = canonical_digest(
         {
@@ -433,6 +462,9 @@ async def execute_framework_assessment_tick(
         reviewed_at=now,
         inventory_generation=scope.inventory_generation,
         rule_activation=rule_evidence.pin if rule_evidence is not None else None,
+        enablement_profile=(
+            control_profiles.for_framework("azure-waf") if control_profiles is not None else None
+        ),
     )
     caf_profile = _profile(
         caf_catalog,
@@ -441,6 +473,9 @@ async def execute_framework_assessment_tick(
         reviewer_identity=settings.reviewer_identity,
         reviewed_at=now,
         hierarchy_generation=hierarchy_generation,
+        enablement_profile=(
+            control_profiles.for_framework("azure-caf") if control_profiles is not None else None
+        ),
     )
     waf_result = await waf_service.assess(
         FrameworkAssessmentRequest(
@@ -486,6 +521,11 @@ async def execute_framework_assessment_tick(
             reviewed_at=now,
             inventory_generation=scope.inventory_generation,
             rule_activation=mcsb_evidence.pin,
+            enablement_profile=(
+                control_profiles.for_framework("azure-mcsb")
+                if control_profiles is not None
+                else None
+            ),
         )
         mcsb_result = await mcsb_service.assess(
             FrameworkAssessmentRequest(

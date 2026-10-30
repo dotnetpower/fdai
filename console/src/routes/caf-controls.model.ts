@@ -1,5 +1,8 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import { decodeControlEnablement, decodeSeveritySource, type ControlEnablement, type SeveritySource } from "./control-enablement.model";
+import { decodeFrameworkGuidance, type FrameworkGuidance } from "./framework-guidance.model";
+import { decodeControlRemediation, type ControlRemediation } from "./control-remediation.model";
 import {
   panelArray,
   panelBoolean,
@@ -53,6 +56,8 @@ export interface CafCrosswalkReference {
 }
 
 export interface CafControl {
+  readonly enablement?: ControlEnablement | null;
+  readonly severity_source?: SeveritySource | null;
   readonly control_id: string;
   readonly title: string;
   readonly description: string;
@@ -80,6 +85,9 @@ export interface CafControl {
 }
 
 export interface CafControlDetail extends CafControl {
+  readonly guidance?: FrameworkGuidance | null;
+  readonly guidance_unavailable_reason?: string | null;
+  readonly remediation?: ControlRemediation | null;
   readonly evidence_specifications: readonly CafEvidenceSpecification[];
   readonly crosswalk: readonly CafCrosswalkReference[];
 }
@@ -144,6 +152,8 @@ function decodeControl(value: unknown, index: number): CafControl {
   }
   return {
     control_id: panelNonEmptyString(raw, "control_id", label),
+    enablement: decodeControlEnablement(raw["enablement"]),
+    severity_source: decodeSeveritySource(raw["severity_source"]),
     title: panelNonEmptyString(raw, "title", label),
     description: panelNonEmptyString(raw, "description", label),
     area: panelNonEmptyString(raw, "area", label),
@@ -222,9 +232,12 @@ export function decodeCafResponse(value: unknown): CafResponse {
   };
 }
 
-export function decodeCafDetail(value: unknown): CafControlDetail {
+export function decodeCafDetail(value: unknown, selectedId?: string): CafControlDetail {
   const root = panelRecord(value, "CAF control detail");
   const base = decodeControl(root, 0);
+  if (selectedId !== undefined && base.control_id !== selectedId) {
+    throw new OperatorApiError(502, "invalid Operator API response: CAF detail does not match the selected control");
+  }
   const evidenceSpecifications = panelArray(
     root["evidence_specifications"],
     "CAF evidence specifications",
@@ -257,7 +270,16 @@ export function decodeCafDetail(value: unknown): CafControlDetail {
       relationship: panelNonEmptyString(raw, "relationship", label),
     };
   });
-  return { ...base, evidence_specifications: evidenceSpecifications, crosswalk };
+  return {
+    ...base, evidence_specifications: evidenceSpecifications, crosswalk,
+    remediation: decodeControlRemediation(root["remediation"]),
+    guidance: decodeFrameworkGuidance(root["guidance"], {
+      framework_id: "azure-caf", control_id: base.control_id,
+      source_revision: root["guidance_source_revision"], source_digest: root["guidance_source_digest"],
+    }),
+    guidance_unavailable_reason: root["guidance_unavailable_reason"] === undefined ? null
+      : panelNullableString(root, "guidance_unavailable_reason", "CAF control detail"),
+  };
 }
 
 export function cafStateFromSearch(search: URLSearchParams): {

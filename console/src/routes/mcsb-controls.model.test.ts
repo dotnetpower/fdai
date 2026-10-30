@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { fixtureFrameworkGuidance } from "./framework-guidance.fixture";
 import {
   decodeMcsbControlDetail,
   decodeMcsbControlResponse,
@@ -41,6 +42,22 @@ function response(controls: readonly unknown[] = [CONTROL]): unknown {
 }
 
 describe("MCSB controls contract", () => {
+  test("binds the selected version and guide without deriving assessment from enablement", () => {
+    const guidance = fixtureFrameworkGuidance("azure-mcsb", CONTROL.control_id);
+    const raw = {
+      ...CONTROL, benchmark_version: "v1", rule_ids: [], runtime_observation_ids: [], manual_evidence_refs: [],
+      source: {}, evaluation_source: "catalog_crosswalk", guidance,
+      guidance_source_revision: guidance.source_revision, guidance_source_digest: guidance.source_digest,
+      enablement: { severity: "medium", default_enabled: true, enabled: false, source: "profile_override", mode: "shadow", execution_authority: false },
+      severity_source: "fdai_default",
+    };
+    const detail = decodeMcsbControlDetail(raw, CONTROL.control_id, "v1");
+    expect(detail.guidance).toEqual(guidance);
+    expect(detail.severity_source).toBe("fdai_default");
+    expect(detail.enablement?.enabled).toBe(false);
+    expect(detail.assessment).toBeNull();
+    expect(() => decodeMcsbControlDetail(raw, CONTROL.control_id, "v2-preview")).toThrow(/selected control or version/);
+  });
   test("decodes coverage without inventing compliance status", () => {
     const decoded = decodeMcsbControlResponse(response());
     expect(decoded.controls[0]?.control_id).toBe("DP-3");

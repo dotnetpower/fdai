@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { ErrorState, LoadingState, type PillKind, StatusPill, UnavailableState } from "../components/ui";
 import { CONTROL_STATUS_PILL } from "./best-practice-controls-body";
 import type { BestPracticeDetailState } from "./best-practice-controls";
@@ -11,6 +11,9 @@ import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+import { FrameworkGuidanceContent } from "./framework-guidance";
+import { ControlEnablementSection } from "./control-enablement";
+import { ControlRemediationSection } from "./control-remediation";
 
 const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
@@ -22,6 +25,7 @@ export function BestPracticeDrawer({
   readonly onClose: () => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -52,25 +56,29 @@ export function BestPracticeDrawer({
 
   return (
     <div class="drawer-overlay" onClick={onClose}>
-      <aside ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.controls.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
+      <aside id="best-practice-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.controls.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.controls.detail.title")}</h3>
           <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
         </header>
         <div class="rule-drawer-body">
-          {detail.status === "loading" ? <LoadingState label={t("governance.rules.controls.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.controls.detail.loadFailed", { message: detail.message })} /> : <BestPracticeDetailContent data={detail.data} />}
+          {detail.status === "loading" ? <LoadingState label={t("governance.rules.controls.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.controls.detail.loadFailed", { message: detail.message })} /> : <BestPracticeDetailContent data={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />}
         </div>
       </aside>
     </div>
   );
 }
 
-function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail }) {
+function BestPracticeDetailContent({ data, expanded, onExpand }: { readonly data: BestPracticeDetail; readonly expanded: boolean; readonly onExpand: () => void }) {
   const provenance = Object.fromEntries(
     Object.entries(data.provenance).filter(([, value]) => typeof value === "string" && value.length > 0),
   ) as Readonly<Record<string, string>>;
   return (
     <div class="stack">
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={data.rationale} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
+      <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
+      <ControlRemediationSection value={data.remediation} />
       <div class="pill-row">
         <StatusPill kind={CONTROL_STATUS_PILL[data.status]} label={displayValue("controlStatus", data.status)} />
         <StatusPill kind="info" label={displayValue("controlMapping", data.mapping_status)} />
@@ -78,10 +86,6 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         <StatusPill kind={SEVERITY_PILL[data.severity] ?? "neutral"} label={displayValue("severity", data.severity)} />
         <StatusPill kind="info" label={displayValue("controlPillar", data.pillar)} />
       </div>
-      <section class="rule-overview">
-        <h4 class="rule-overview-title">{data.title}</h4>
-        <p class="rule-overview-desc">{data.rationale}</p>
-      </section>
       {data.evaluation_status === "not_evaluated" ? (
         <UnavailableState evidenceState="not-connected" message={t("governance.rules.controls.detail.notConnected")} />
       ) : null}

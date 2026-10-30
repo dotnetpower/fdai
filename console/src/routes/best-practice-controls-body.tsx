@@ -19,6 +19,7 @@ import {
 import { displayValue, t } from "./i18n/governance";
 import { FacetChips } from "./rule-catalog-components";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+import { ControlEnablementBadge } from "./control-enablement";
 
 const EMPTY_FILTERS: BestPracticeFilters = { pillar: "", status: "", q: "" };
 export const CONTROL_STATUS_PILL: Readonly<Record<ControlStatus, PillKind>> = {
@@ -109,6 +110,11 @@ export function BestPracticeControlsBody({
             label={displayValue("controlStatus", control.status)}
           />
         ),
+      },
+      {
+        key: "enablement",
+        header: t("governance.rules.enablement.column"),
+        render: (control) => <ControlEnablementBadge value={control.enablement} />,
       },
       {
         key: "chevron",
@@ -202,6 +208,8 @@ export function BestPracticeControlsBody({
             empty={t("governance.rules.controls.result.empty")}
             onRowClick={(control) => onSelect(control.id)}
             isRowActive={(control) => selected === control.id}
+            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: control.title })}
+            rowActionControls="best-practice-control-detail"
           />
         </div>
       </section>
