@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 79ade28588ac258bf7ea16822d2bcc96fe085476
-translation_revised: 2026-10-29
+translation_source_sha: f9e8c0ab8ea391768293f5c22da3d9c0f9bc9199
+translation_revised: 2026-10-30
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -112,6 +112,14 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 | 문서 처리 워커 상태 | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | 격리 실행기 상태 | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
+`design mocks: serve (5373)` 작업은 관리형 로컬 서비스 실행기를 통해
+`start-design-mocks.sh`를 호출합니다. 시작 입력이 같고 같은 체크아웃의 프로세스 소유권을
+확인한 경우 기존 서버를 재사용하며, 최초 시작 출력과 `event=reused`를 모두 준비 완료로
+인식합니다. 관리하지 않는 프로세스가 포트를 사용하거나 시작 입력이 달라지면 기존
+프로세스를 중지하지 않고 종료 코드 `75`를 반환합니다. 관리 프로세스를 중지하면 서버를
+먼저 종료한 뒤 잠금을 해제합니다. 디자인 목은 명시적으로 실행하는 루프백 전용 미리
+보기이며 Console 시작이나 배포 서비스 권한과 분리됩니다.
+
 `Console Web: Full Stack` compound는 독립 패키지로 구성된 백엔드 서비스 5개, Console
 SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점보다 먼저
 `/fdai-config.js`를 불러오며
@@ -129,6 +137,19 @@ SPA, Manual Studio를 시작합니다. 일반 Console 빌드는 모듈 진입점
 개발 데이터베이스의 2 GiB 상한을 검사합니다. `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES`를
 초과하면 조치 방법을 안내하며 준비를 차단하고, 기존 데이터베이스와 브로커는 보존합니다.
 일반적인 시작이나 재시작은 삭제 권한을 부여하지 않습니다. `dev-status.sh`는 크기, 가장 큰 테이블, 직전 보고 이후의 증가량을 보여 주고 상한의 75%에서 경고합니다. `compact-local-database.py`는 서비스가 쓰는 최근 N건 보존 한도를 기존 행에 적용하며(기본은 보고만 하고 `--vacuum`은 테이블 소유자 역할로 `state_kv`를 다시 씁니다), 증거 테이블, 감사 로그, 인벤토리 journal은 건드리지 않습니다.
+
+정리 도구는 접속에 5초, SQL 실행에 30초, 잠금 대기에 1초 제한을 적용합니다. `--vacuum`은
+로컬 `state_kv`와 TOAST의 자동 VACUUM 비율을 0.01, 기준 행 수를 1,000으로 설정해 더 이상
+보이지 않는 이전 행 버전의 공간을 더 일찍 재사용하게 합니다. 이 테이블별 설정은 보존 기간을
+바꾸거나 증거 삭제를 허용하지 않습니다. 테이블 재작성으로 빈 공간을 회수할 수 있지만,
+후속 쓰기로 데이터베이스가 다시 커질 수 있습니다.
+
+PostgreSQL 상태 어댑터는 저장된 JSONB와 새 값의 PostgreSQL 텍스트 표현이 완전히 같을 때만
+기존 본문을 재사용합니다. 쓰기마다 `updated_at`은 계속 갱신하며, `1`과 `1.0` 같은 숫자
+표현도 구분합니다. 쓰기를 생략하거나 보존 기간을 바꾸거나 관측을 버리지 않고 반복되는
+TOAST 복사를 줄이는 방식입니다. PostgreSQL 16.14에서 `pglz`와 `lz4`, 세 가지 TOAST 기준을
+제한된 표본으로 비교한 결과, 세 대형 테이블의 전체 공간을 줄이는 대안이 없어 현재 압축
+기본값을 유지했습니다.
 
 서비스를 중지하고 백업 및 이력 보존 요구 사항을 검토한 뒤 명시적으로
 `prepare-console-state.sh --allow-recreate`를 요청한 경우에만 폐기 가능한 로컬 세대를

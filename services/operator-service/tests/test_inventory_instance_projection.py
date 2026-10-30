@@ -873,6 +873,9 @@ async def test_instance_projection_preserves_scoped_fleet_source_states() -> Non
             context = await super().read_inventory_impact_context()
             return replace(
                 context,
+                relationship_drop_reasons=(),
+                relationship_drop_classifications=(),
+                relationship_coverage=None,
                 projection_source_states=(
                     InventoryProjectionSourceState(
                         source="kubernetes_runtime_inventory",
@@ -921,6 +924,8 @@ async def test_instance_projection_preserves_scoped_fleet_source_states() -> Non
         "sha256:" + "b" * 64,
     ]
     assert [source["status"] for source in sources] == ["available", "unavailable"]
+    assert [source["reason"] for source in sources] == [None, "kubernetes_source_unavailable"]
+    assert result["complete"] is True
 
 
 def test_projection_source_states_accepts_a_bounded_aks_fleet() -> None:
@@ -952,6 +957,20 @@ def test_projection_source_states_rejects_an_exact_duplicate_scope() -> None:
 
     with pytest.raises(PostgresFamilyStoreUnavailable, match="duplicated"):
         _projection_source_states([state, state])
+
+
+def test_projection_source_states_rejects_a_free_form_unavailable_reason() -> None:
+    with pytest.raises(PostgresFamilyStoreUnavailable, match="malformed"):
+        _projection_source_states(
+            [
+                {
+                    "source": "kubernetes_runtime_inventory",
+                    "status": "unavailable",
+                    "observed_at": None,
+                    "reason": "provider returned credentials for the request",
+                }
+            ]
+        )
 
 
 class _FullCoverageReader(_Reader):

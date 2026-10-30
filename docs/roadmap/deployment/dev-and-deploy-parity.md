@@ -105,6 +105,13 @@ command, so the browser, MSAL cache, and CORS contract retain one canonical orig
 | Document Processing Worker health | `http://127.0.0.1:8012` | `Console Web: Document Processing Worker` |
 | Isolated Executor health | `http://127.0.0.1:8013` | `Console Web: Isolated Executor` |
 
+The `design mocks: serve (5373)` task calls `start-design-mocks.sh` through the managed local-service
+runner. Matching launch inputs and verified same-checkout ownership allow an existing server to
+be reused; first-start output and `event=reused` both complete task readiness. An unmanaged port
+owner or changed launch inputs return exit code `75` without stopping the existing process.
+Stopping the managed owner stops its server before releasing the lock. Design mocks remain an
+explicit loopback-only preview, separate from Console startup and deployed service authority.
+
 The `Console Web: Full Stack` compound starts the five independently packaged backend services, the
 Console SPA, and Manual Studio. The generic Console build loads `/fdai-config.js` before its module
 entry and ships an exact null placeholder. Deployment tooling may replace that file only in a private prebuilt copy
@@ -121,6 +128,19 @@ transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 2 GiB
 database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` blocks preparation
 with an actionable message and preserves the existing database and broker. An ordinary start
 or restart never authorizes deletion. `dev-status.sh` reports the size, the largest tables, and growth since the last report, warning at 75% of the bound, and `compact-local-database.py` applies the services' newest-N state retention to existing rows (dry run by default; `--vacuum` rewrites `state_kv` through the table-owner role). It never touches evidence tables, the audit log, or the inventory journal.
+
+Compaction connections have a five-second connection deadline, a 30-second statement deadline,
+and a one-second lock deadline. `--vacuum` also sets the local `state_kv` and TOAST autovacuum
+scale factors to 0.01 with a 1,000-row threshold, so obsolete row versions become reusable sooner.
+These table-local settings do not change retention or authorize evidence deletion. A rewrite can
+recover unused space, but subsequent writes can grow the database again.
+
+The PostgreSQL state adapter reuses a stored JSONB body only when its PostgreSQL text
+representation is identical to the incoming body. Every write still refreshes `updated_at`,
+and numeric representations such as `1` and `1.0` remain distinct. This avoids repeated TOAST
+copies without suppressing a write, changing retention, or discarding an observation. A bounded
+PostgreSQL 16.14 sample comparison of `pglz`/`lz4` and three TOAST targets kept the current
+compression defaults: none of the alternatives reduced total space across the three large tables.
 
 Only an explicit `prepare-console-state.sh --allow-recreate` request permits discarding that
 disposable local generation after services stop and backup/history requirements are reviewed.

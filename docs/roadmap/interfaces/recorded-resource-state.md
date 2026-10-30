@@ -27,6 +27,12 @@ become an operational, availability, or provisioning state axis, and missing dia
 not become a state value.
 Fleet source availability is also separate from Resource state. The instance detail retains
 several same-name sources only when distinct opaque `scope_digest` values qualify them.
+The instance explorer's `complete` flag describes the result's inventory and relationship coverage
+within its bounds; it does not assert that every optional projection source is available. The
+`sources` response carries each source's status and source-specific observation time. An unavailable
+source is not evidence that it contains zero resources or that none exist. Each `observed_at` is
+specific to its source and does not guarantee freshness across sources. The Operator reader accepts
+only reviewed source identifiers and bounded machine-token reasons.
 Provider-native type coverage is another separate active-generation evidence object. It reports
 reconciled mapped and unmapped counts, bounded unknown type names, capture method, and provider
 identity completeness without becoming an operational, provisioning, or availability value.

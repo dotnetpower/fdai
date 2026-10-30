@@ -111,6 +111,31 @@ The cutover checker reads no credential values and makes no routing, scaling, or
 Its report is a prerequisite inventory, not installation authority or proof of the complete
 operational lifecycle.
 
+## Plan performance-first capacity
+
+The shared [pool policy](../../config/ci-runner-pools.json) targets control idle 2/max 4,
+general idle 8/max 64, and Docker VM idle 2/max 16. These are plan-mode targets, not a running
+warm-pool controller. Existing KEDA ownership and the current main-only routing are unchanged.
+
+```bash
+python3 scripts/quality/ci/runner-pool-readiness.py --check-policy
+python3 scripts/automation/plan_runner_pools.py --snapshot "$POOL_SNAPSHOT"
+python3 scripts/quality/ci/runner-pool-readiness.py --evidence "$POOL_READINESS"
+python3 scripts/quality/ci/runner-pool-readiness.py --burst-receipt "$BURST_RECEIPT"
+```
+
+Run these commands from the repository root. A snapshot has schema version 1, shared `quotas`
+(`container_cpu` and `vm_cpu` available cores), and one `pools` entry per configured pool.
+Each pool supplies timezone-aware `observed_at`, `queued_runnable`, `complete`, optional
+`low_demand_since`, and `runners` (`id`, `state`, `since`). States are `idle`, `busy`, `starting`,
+and `draining`; one identity belongs to exactly one pool.
+
+The capacity planner emits start counts and idle drain candidates, never Azure or GitHub effects.
+Readiness requires a separately scoped registration broker, controller identity isolation,
+exclusive scaler ownership, a provider trigger migrated away from KEDA, and an atomic idle drain
+protocol. Reading `busy=false` and then deleting a runner is insufficient because assignment can
+race. Incomplete prerequisites keep the rollout blocked rather than disabling existing checks.
+
 ## Related docs
 
 | To learn about | Read |

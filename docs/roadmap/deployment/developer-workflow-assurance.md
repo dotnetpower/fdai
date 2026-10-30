@@ -30,6 +30,13 @@ You can explicitly run the Lifecycle Hub and Release Hub example-server tasks on
 reports readiness from its own Uvicorn loopback URL. Neither task runs on folder open, starts
 the Console stack, initializes signing keys, or changes diagnostic or execution authority.
 
+Workspace-open hook installation uses a process task with explicit Git arguments and the workspace
+working directory. It preserves Git's success or failure exit status without changing executable
+permissions or printing a success message over a failed command. Only hook installation and
+clean-tree Git auto-pull run on folder open; VPN setup and server starts remain explicit.
+The design-mock task accepts both first-start and verified-reuse readiness markers from its managed
+launcher, without starting the Console stack or changing developer diagnostic authority.
+
 [GitHub connector validation](../../runbooks/knowledge-github-sources.md) separates test-only
 API/identity fixtures from a separately authorized live public-repository probe. Tests prove
 connection, rejection, and UI mechanics; the public probe checks the exact changed reader and

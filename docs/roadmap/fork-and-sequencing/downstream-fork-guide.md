@@ -289,7 +289,8 @@ upstream delivery controls. A fork can supply supported package, provider, polic
 deployment inputs, but it does not rename those workflows, relabel local evidence as live, replace
 the review receipt definition, alter original-receipt replay semantics, or bypass independent
 review. It also does not replace the observation workflow's root lockfile-frozen qualification
-toolchain.
+toolchain. Before platform authentication and observation, the workflow waits up to 20 minutes for
+the `required` CI check on the exact target revision to succeed; a timeout blocks the run.
 
 **Building a new business-object vertical**: a fork that adds a
 non-Resource ObjectType lifecycle (architecture-review proposal,

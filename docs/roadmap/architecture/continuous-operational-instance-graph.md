@@ -440,8 +440,14 @@ verified links. The ontology projection advances the same generation with
 relationship claims: it prevents a query from using the graph as complete relationship evidence,
 while a snapshot whose object set admits no intra-set edge states nothing about relationships and
 therefore keeps its own object coverage. Unclassified or invalid relationship candidates are excluded and keep relationship completeness false, without freezing independently verified objects. A closure receipt counts the complete classified candidate population, not only the distinct reason labels, and refuses missing or inconsistent classification accounting. A virtual machine whose provider record declares `diffDiskSettings.option=Local` has ephemeral local storage, so its `managedDisk.id` does not create a managed-disk relationship candidate. A
-partial source generation, object conflict, or persisted cardinality violation remains blocking and preserves the
-previous graph. Kubernetes EndpointSlice and Ingress array mappings materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection retains the complete observed destination set because selecting one backend would discard provider truth rather than recover a cardinality mismatch.
+partial primary inventory generation, object conflict, or persisted cardinality violation remains blocking and preserves the
+previous graph. A complete primary generation may still record unavailable optional projection sources. Those source
+records are stored with the active generation and retain a source `scope_digest` when supplied; they do not upgrade a
+partial primary generation or make missing source values evidence of absence. Each source's `observed_at` is
+source-specific and does not establish freshness across sources. Kubernetes EndpointSlice and Ingress array mappings
+materialize every exactly resolved backend as a separate `routes_to` edge under the many-to-many LinkType; projection
+retains the complete observed destination set because selecting one backend would discard provider truth rather than
+recover a cardinality mismatch.
 
 Open container environment values that resolve to the owning Resource are identity references,
 not dependency candidates. This applies to exact ARM IDs and uniquely resolved endpoint aliases;

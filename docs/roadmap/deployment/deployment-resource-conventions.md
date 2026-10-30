@@ -415,6 +415,47 @@ Keep existing capacity until real GitHub work proves registration, successful ex
 bounded queue-driven scale-out, deregistration, and scale-in. An unavailable credential or
 incomplete admission design keeps this operational transition blocked, not completed.
 
+### Performance-first warm capacity
+
+The target policy in [`ci-runner-pools.json`](../../../config/ci-runner-pools.json) separates
+control, general container, and Docker-capable VM pools. Its mode is `plan`: it neither changes
+workflow routing nor grants the planner cloud or GitHub mutation authority.
+
+| Pool | Ready idle target | Ceiling | Initial CPU per runner |
+|---|---:|---:|---:|
+| Control | 2 | 4 | 1 |
+| General container | 8 | 64 | 4 |
+| Docker-capable VM | 2 | 16 | 4 |
+
+`scripts/automation/plan_runner_pools.py` plans immediately from complete fresh snapshots.
+Target capacity is busy work plus runnable queued work plus warm reserve. Idle, starting, busy,
+and draining runners each consume a slot once; unavailable startup evidence blocks replacement
+rather than allowing duplicate capacity. Scale-in selects only idle runners after sustained
+low demand and the idle cooldown. Busy and starting runners are never drain candidates.
+
+These are decisions, not side effects. One independently authorized reconciler must own execution,
+use stable idempotency identities, and exclude other scalers from the same pool. The existing
+KEDA event trigger remains authoritative until an explicit ownership migration; another daemon
+must not also start jobs against its desired capacity. Idle observation followed by deletion is
+not an atomic drain protocol: a runner can accept work between the two operations.
+
+`scripts/quality/ci/runner-pool-readiness.py` checks the complete CI job map, pool capabilities,
+shared quota budgets, ready reserve, management-identity isolation, PR admission, and live
+execution/drain evidence. Control and general runners share the container CPU budget; VM
+workers consume a separate regional Compute budget. Do not count one available quota twice.
+The targets require 260 container CPU cores and 64 free VM CPU cores, before any unrelated load.
+
+Acceptance runs progress through 8, 16, 32, and 64 concurrent jobs only while quota and preceding
+stages remain valid. Initial observed queue targets are warm p95 <= 15 s, burst p99 <= 90 s, and
+maximum <= 120 s. Every expected job must succeed exactly once, actual concurrency must reach
+the requested stage, and scale-in must return to the reserve without interrupting busy work.
+A single burst reports nearest-rank observations, not a population-wide latency guarantee.
+
+Full activation still requires a separate scoped registration broker and controller identity,
+an atomic idle-drain interlock, and a PR-safe source admission path. The current main-only
+verifier cannot be relaxed into accepting arbitrary PR controls. Do not treat the policy,
+unit-test simulations, quota inventory, or the absence of an exception as completed automation.
+
 Optional acceleration moves all four regression shards to a pool of up to five listeners
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,
 workspace, and cache paths and a systemd limit of 3 CPUs and 12 GiB RAM.

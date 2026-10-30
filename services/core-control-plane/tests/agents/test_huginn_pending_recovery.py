@@ -8,6 +8,7 @@ import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents.huginn import Huginn
+from fdai.core.ontology_platform.operational_history_lifecycle import NoCurrentIncarnationError
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.agents.test_huginn_discovery import _canonical_event
@@ -139,7 +140,9 @@ async def test_one_failing_claim_does_not_block_the_other_pending_claims():
 
     async def project_except_first(payload):
         if payload.get("event_id") == "pending-0":
-            raise ValueError("sparse or tombstone observation has no current incarnation")
+            raise NoCurrentIncarnationError(
+                "sparse or tombstone observation has no current incarnation"
+            )
 
     reader = Huginn(
         state_store=store,
@@ -148,7 +151,7 @@ async def test_one_failing_claim_does_not_block_the_other_pending_claims():
         dedup_clock=lambda: now[0],
         discovery_projector=project_except_first,
     )
-    with pytest.raises(ValueError, match="no current incarnation"):
+    with pytest.raises(NoCurrentIncarnationError, match="no current incarnation"):
         await reader.recover_pending_inventory()
     assert len(bus.messages_on("object.event")) == 2
     assert reader.behavior_snapshot()["ingress_recovery:claim_failed"] == 1

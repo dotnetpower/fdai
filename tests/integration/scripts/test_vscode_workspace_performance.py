@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -71,11 +74,81 @@ def test_workspace_suppresses_non_actionable_terminal_alerts() -> None:
     assert settings["terminal.integrated.showExitAlert"] is False
 
 
+def test_hook_install_task_does_not_depend_on_the_terminal_shell() -> None:
+    tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
+    assert isinstance(tasks, dict)
+    task = next(
+        task for task in tasks["tasks"] if task["label"] == "hooks: install (core.hooksPath)"
+    )
+
+    assert task["type"] == "process"
+    assert task["command"] == "git"
+    assert task["args"] == ["config", "--local", "core.hooksPath", ".githooks"]
+    assert task["options"] == {"cwd": "${workspaceFolder}"}
+    assert task["runOptions"] == {"runOn": "folderOpen"}
+
+
+@pytest.mark.parametrize("initialized", [True, False])
+def test_hook_install_task_preserves_git_success_and_failure(
+    tmp_path: Path, initialized: bool
+) -> None:
+    tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
+    assert isinstance(tasks, dict)
+    task = next(
+        task for task in tasks["tasks"] if task["label"] == "hooks: install (core.hooksPath)"
+    )
+    checkout = tmp_path / "checkout with spaces"
+    checkout.mkdir()
+    if initialized:
+        subprocess.run(
+            ["git", "init", "--quiet"],  # noqa: S607 - Git is the fixed test executable.
+            cwd=checkout,
+            check=True,
+        )
+
+    for _ in range(2):
+        result = subprocess.run(  # noqa: S603 - tracked task against a temporary repository.
+            [task["command"], *task["args"]],
+            cwd=checkout,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if initialized:
+            assert result.returncode == 0, result.stderr
+            config = subprocess.run(
+                ["git", "config", "--local", "--get", "core.hooksPath"],  # noqa: S607
+                cwd=checkout,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            assert config.stdout.strip() == ".githooks"
+        else:
+            assert result.returncode != 0
+            assert result.stderr
+            assert not result.stdout
+
+
+def test_design_mocks_task_reports_started_and_reused_servers_as_ready() -> None:
+    tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
+    assert isinstance(tasks, dict)
+    task = next(task for task in tasks["tasks"] if task["label"] == "design mocks: serve (5373)")
+
+    assert task["command"] == "bash scripts/deployment/local/start-design-mocks.sh"
+    assert task["options"]["cwd"] == "${workspaceFolder}"
+    assert task["isBackground"] is True
+    ready = re.compile(task["problemMatcher"]["background"]["endsPattern"])
+    assert ready.search("Serving HTTP on 127.0.0.1 port 5373")
+    assert ready.search("2026-01-01T00:00:00+00:00 service=design-mocks event=reused")
+    assert not ready.search("service=other-server event=reused")
+
+
 def test_workspace_exposes_explicit_complete_console_topology() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)
     tasks_by_label = {task["label"]: task for task in tasks["tasks"]}
-    assert len(tasks_by_label) == len(tasks["tasks"]) == 34
+    assert len(tasks_by_label) == len(tasks["tasks"]) == 33
     allowed_instance_policies = {
         "terminateNewest",
         "terminateOldest",
@@ -162,12 +235,9 @@ def test_workspace_exposes_explicit_complete_console_topology() -> None:
     assert folder_open_tasks == {
         "hooks: install (core.hooksPath)",
         "git: auto-pull (background)",
-        "dev-access: configure VPN on folder open",
     }
 
-    dev_access = tasks_by_label["dev-access: configure VPN on folder open"]
-    assert dev_access["presentation"]["close"] is True
-    assert dev_access["presentation"]["revealProblems"] == "onProblem"
+    assert "dev-access: configure VPN on folder open" not in tasks_by_label
 
     visible_tasks = {task["label"] for task in tasks["tasks"] if not task.get("hide", False)}
     assert visible_tasks == {

@@ -190,13 +190,8 @@ def test_dev_access_ships_repeatable_client_checks() -> None:
     assert "resolvectl dnsovertls" in wsl_dns
     assert 'resolvectl default-route "${vpn_interface}" no' in wsl_dns
     assert "wsl.exe" in wsl_dns
-    assert '"label": "dev-access: configure VPN on folder open"' in tasks
-    assert '"command": "bash tools/dev-access/scripts/vscode-startup.sh"' in tasks
-    assert '"problemMatcher": "$gcc"' in tasks
-    assert '"revealProblems": "onProblem"' in tasks
-    assert '"close": true' in tasks
-    assert '"runOn": "folderOpen"' in tasks
-    assert '"instanceLimit": 1' in tasks
+    assert '"label": "dev-access: configure VPN on folder open"' not in tasks
+    assert "tools/dev-access/scripts/vscode-startup.sh" not in tasks
     assert "terraform.tfstate" in startup
     assert "FDAI_DEV_ACCESS_DIRECT_VNET_MARKER" in startup
     assert ".profiles/direct-vnet" in startup
