@@ -93,11 +93,9 @@ def _canonical_digest(value: object) -> str:
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _imports_any_prefix(path: Path, prefixes: tuple[str, ...]) -> bool:
-    normalized = tuple((prefix.removesuffix("."), prefix) for prefix in prefixes)
-
+def _imports_prefix(path: Path, prefix: str) -> bool:
     def matches(module: str) -> bool:
-        return any(module == exact or module.startswith(pref) for exact, pref in normalized)
+        return module == prefix.removesuffix(".") or module.startswith(prefix)
 
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in ast.walk(tree):
@@ -106,10 +104,6 @@ def _imports_any_prefix(path: Path, prefixes: tuple[str, ...]) -> bool:
         if isinstance(node, ast.Import) and any(matches(alias.name) for alias in node.names):
             return True
     return False
-
-
-def _imports_prefix(path: Path, prefix: str) -> bool:
-    return _imports_any_prefix(path, (prefix,))
 
 
 def _count_files_importing(root: Path, prefix: str, pattern: str = "*.py") -> int:
@@ -134,7 +128,11 @@ def _count_service_forbidden_imports() -> int:
     count = 0
     for service_id, prefixes in forbidden_by_service.items():
         source = REPO_ROOT / "services" / service_id / "src"
-        count += sum(1 for path in set(source.rglob("*.py")) if _imports_any_prefix(path, prefixes))
+        count += sum(
+            1
+            for path in set(source.rglob("*.py"))
+            if any(_imports_prefix(path, prefix) for prefix in prefixes)
+        )
     return count
 
 
