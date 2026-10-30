@@ -74,7 +74,11 @@ async def prune_shared_properties(
     limit: int = 1000,
     max_bytes: int = 16 * 1024 * 1024,
 ) -> int:
-    """Reclaim only unreferenced staging bodies, never membership pages or journal evidence."""
+    """Reclaim only unreferenced staging bodies under the exclusive writer fence.
+
+    SELECT row locks would require UPDATE privilege on immutable bodies. The advisory
+    fence and foreign keys already protect references; DELETE takes its own row locks.
+    """
     if not 1 <= limit <= 1000 or not 1 <= max_bytes <= 16 * 1024 * 1024:
         raise ValueError("inventory property cleanup exceeds its bound")
     if not await inventory_storage_available(connection, _RELATED):
@@ -93,7 +97,7 @@ async def prune_shared_properties(
         "WHERE resource.props_digest=body.digest) "
         "AND NOT EXISTS (SELECT 1 FROM inventory_snapshot_link_row link "
         "WHERE link.props_digest=body.digest) "
-        "ORDER BY body.digest LIMIT %s FOR UPDATE OF body SKIP LOCKED), "
+        "ORDER BY body.digest LIMIT %s), "
         "budget AS (SELECT digest, SUM(bytes) OVER (ORDER BY digest) AS total FROM candidates) "
         "DELETE FROM inventory_snapshot_properties body USING budget "
         "WHERE body.digest=budget.digest AND budget.total<=%s",
