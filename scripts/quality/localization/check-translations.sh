@@ -94,6 +94,23 @@ else
   mapfile -t korean_docs < <(printf '%s\n' "${korean_docs[@]}" | sed '/^$/d' | sort -u)
 fi
 
+if (( ${#english_docs[@]} > 0 || ${#korean_docs[@]} > 0 )) && \
+   [[ -f "$repo_root/scripts/automation/sdlc_rust_accelerator.py" ]] && \
+   command -v python3 >/dev/null 2>&1; then
+  accel_rc=0
+  {
+    for src in "${english_docs[@]}"; do
+      printf 'EN\t%s\n' "$src"
+    done
+    for ko in "${korean_docs[@]}"; do
+      printf 'KO\t%s\n' "$ko"
+    done
+  } | python3 "$repo_root/scripts/automation/sdlc_rust_accelerator.py" check-translations --root "$repo_root" || accel_rc=$?
+  if (( accel_rc != 125 )); then
+    exit "$accel_rc"
+  fi
+fi
+
 # Rule 1 + 2 + 3: every English doc has a valid, up-to-date -ko.md.
 for src in "${english_docs[@]}"; do
   ko="${src%.md}-ko.md"

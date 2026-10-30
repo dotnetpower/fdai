@@ -1,0 +1,8 @@
+[package]
+name = "fdai-sdlc-rs"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Zero-dependency Rust accelerator for FDAI local SDLC snapshot, digest, and translation gates."
+
+[dependencies]

@@ -409,7 +409,12 @@ directory before an all-slots-busy push falls back to an uncached private checko
 commands share one environment preparation per group. When a roadmap owner delegates its status
 section to `docs/roadmap-implementation/<area>/<name>.md`, updating that ledger satisfies the
 route's design-impact check without requiring an artificial edit to the paired normative design
-document. Read-only `developer-workflow.py worktrees` probes use `--no-optional-locks`, expand
+document. When `rustc` is available, `scripts/automation/sdlc_rust_accelerator.py` compiles the
+zero-dependency `tools/fdai-sdlc-rs` crate once into a digest-pinned owner-only binary under
+`fdai-local-validation/bin` to parallelize `tracked_snapshot`, `installed_digest`, and
+`check-translations.sh`, falling back transparently to the Python and shell implementations when
+`rustc` is absent or `FDAI_DISABLE_RUST_ACCELERATOR=1` is set. Read-only
+`developer-workflow.py worktrees` probes use `--no-optional-locks`, expand
 graduated service route aliases, and split rename/copy porcelain paths so diagnostics never contend
 on worktree `index.lock` files. Explicit `developer_workflow_worktrees.py sync` validates ref
 syntax before Git calls, synchronizes a clean topic worktree with its base, and reconciles only

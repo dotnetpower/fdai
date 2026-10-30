@@ -11,6 +11,11 @@ import stat
 import subprocess
 from pathlib import Path
 
+from scripts.automation.sdlc_rust_accelerator import (
+    rust_installed_files,
+    rust_verify_snapshot,
+)
+
 TOOLS = (
     "uv",
     "python3",
@@ -78,8 +83,12 @@ def tracked_snapshot(root: Path) -> tuple[str, dict[str, str]]:
     """
     tree = git(root, "rev-parse", "HEAD^{tree}").decode().strip()
     algorithm = git(root, "rev-parse", "--show-object-format").decode().strip()
+    ls_tree_bytes = git(root, "ls-tree", "-rz", "--full-tree", tree)
+    accelerated = rust_verify_snapshot(root, algorithm, ls_tree_bytes)
+    if accelerated is not None:
+        return tree, accelerated
     files: dict[str, str] = {}
-    for entry in git(root, "ls-tree", "-rz", "--full-tree", tree).split(b"\0"):
+    for entry in ls_tree_bytes.split(b"\0"):
         if not entry:
             continue
         metadata, raw_path = entry.split(b"\t", 1)
@@ -136,6 +145,9 @@ def installed_digest(root: Path, *, skip_bytecode: bool = False) -> str:
     """
     if not (root / "bin/python").is_file():
         raise ValueError("validation Python environment is missing")
+    accelerated = rust_installed_files(root, skip_bytecode=skip_bytecode)
+    if accelerated is not None:
+        return digest(accelerated)
     files = {}
     for path in sorted(root.rglob("*")):
         if path.is_dir():
