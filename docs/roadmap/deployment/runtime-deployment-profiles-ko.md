@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ff9e35cd082521bb7f59489d8f9fb533628baba5
-translation_revised: 2026-10-29
+translation_source_sha: 7470d1e69fbd64068d9c600c1fb07503143403c2
+translation_revised: 2026-10-31
 ---
 # 런타임 배포 프로파일
 
@@ -35,6 +35,11 @@ translation_revised: 2026-10-29
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
 ## 설계 개요
+
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md)은 현재 `read-only-console`을 포함한
+기존 AKS 구성을 선택하며 새로운 Lite 또는 Container Apps 최초 설치 프로필을 만들지 않습니다.
+고객 측 애플리케이션 계획 결정 어댑터를 명시적으로 사용해도 런타임 선택, 실행기 ID,
+승인 사용자, 다이제스트, 만료 검사, 파괴적 변경 확인, 관리형 수명 주기 권한은 바뀌지 않습니다.
 
 일반적인 복제 후 배포는 `https://hub.msfdai.com`을 통한
 [Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 사용합니다.

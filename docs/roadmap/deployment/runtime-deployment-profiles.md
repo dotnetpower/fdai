@@ -36,6 +36,11 @@ The Core and Cost Governance images build OPA with the same pinned Go toolchain 
 
 ## Design at a glance
 
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md) currently selects the existing AKS baseline
+with `read-only-console`, not a new Lite or Container Apps first-install profile. Its explicit
+customer-side application-plan decision adapter does not change runtime selection, executor
+identity, actor/digest/expiry checks, destructive confirmation or managed lifecycle authority.
+
 Ordinary clone deployment uses [Hub-image bootstrap](hub-image-deployment.md) through
 `https://hub.msfdai.com`. This AKS bootstrap reuses the existing Foundation and application
 coordinator, carries the exact verified catalog selection to the managed host, imports all seven

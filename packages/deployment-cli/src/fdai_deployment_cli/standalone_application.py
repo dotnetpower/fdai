@@ -861,10 +861,45 @@ def _approve_plan(
         else stage
     )
     expected = f"{operation}-apply"
+    from fdai_deployment_cli.bootstrap_approval import require_decision, selected_source
+
+    injected = selected_source() is not None
+    if injected:
+        actor_before = _azure_actor_digest(
+            str(review["target_binding"]), timeout_seconds=approval_seconds(60)
+        )
+        require_decision(
+            {
+                "digest": str(review["review_digest"]),
+                "title": f"Approve exact {operation} plan",
+                "details": [
+                    f"Plan digest: {review['plan_digest']}",
+                    f"Source commit: {review['source_commit']}",
+                    f"Delete or replacement actions: {destructive}",
+                    "Action counts: "
+                    + ", ".join(
+                        f"{action}={count}"
+                        for action, count in sorted(review["summary"]["action_counts"].items())
+                    ),
+                    *(
+                        f"Resource type {name}: {count}"
+                        for name, count in sorted(
+                            review["summary"].get("resource_type_counts", {}).items()
+                        )
+                    ),
+                    *(
+                        f"{','.join(change['actions'])}: {change['address']}"
+                        for change in review["summary"].get("resource_changes", [])
+                    ),
+                ],
+                "confirmation_required": f"{expected}-destructive" if destructive else expected,
+                "expires_at": str(review["expires_at"]),
+            }
+        )
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
     # Constitution Article 1: the invocation approves a plan; only destruction needs confirmation.
     print(f"Approved by this invocation: {expected}", file=sys.stderr, flush=True)
-    if destructive:
+    if destructive and not injected:
         print(
             f"Plan contains {destructive} delete or replacement action(s); type "
             f"{expected}-destructive to approve: ",
@@ -876,6 +911,8 @@ def _approve_plan(
         if confirmation != f"{expected}-destructive":
             raise ValueError("standalone destructive application plan approval was denied")
     actor = _azure_actor_digest(str(review["target_binding"]), timeout_seconds=approval_seconds(60))
+    if injected and actor != actor_before:
+        raise ValueError("Azure operator changed during exact application plan review")
     approval_deadline.remaining()
     validate_plan_review(review)
     now = datetime.now(UTC).replace(microsecond=0)

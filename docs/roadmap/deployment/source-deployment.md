@@ -26,6 +26,11 @@ owns the first installation path in
 
 ## Design at a glance
 
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md) can present this same coordinator's exact
+checkpoints through an explicit customer-side approval adapter when source mode is selected.
+The adapter preserves actor, target, digest, expiry and destructive-change checks; terminal
+invocation behavior, source independence, Trial anchoring and verification remain unchanged.
+
 | Concern | Decision |
 |---------|----------|
 | Who can deploy | Anyone with a clone, an interactive `az login`, and rights to create resources and role assignments in the target subscription |

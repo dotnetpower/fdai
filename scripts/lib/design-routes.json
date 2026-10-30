@@ -3307,6 +3307,32 @@
       ]
     },
     {
+      "id": "lifecycle-hub-bootstrap",
+      "paths": [
+        "lifecycle/hub/src/fdai_lifecycle_hub/setup*.py",
+        "lifecycle/hub/src/fdai_lifecycle_hub/setup_ui/**",
+        "lifecycle/hub/tests/test_setup*.py",
+        "packages/deployment-cli/src/fdai_deployment_cli/bootstrap_*.py",
+        "packages/deployment-cli/tests/test_bootstrap_*.py",
+        "docs/roadmap/deployment/lifecycle-hub-bootstrap*.md",
+        "docs/roadmap-implementation/deployment/lifecycle-hub-bootstrap.md"
+      ],
+      "must_read": [
+        ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/deployment/lifecycle-hub-bootstrap.md",
+        "docs/roadmap/deployment/hub-managed-lifecycle.md",
+        "docs/roadmap/deployment/hub-image-deployment.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/deployment/lifecycle-hub-bootstrap.md",
+        "docs/roadmap-implementation/deployment/lifecycle-hub-bootstrap.md"
+      ],
+      "validate": [
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "hub-managed-lifecycle",
       "paths": [
         "packages/deployment-cli/src/fdai_deployment_cli/lifecycle_native.py",

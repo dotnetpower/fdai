@@ -1495,6 +1495,6 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 | Configuration layers, packages, and secrets | [Lifecycle Configuration](lifecycle-configuration.md) |
 | Releases, channels, bundles, and recall | [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md) |
 | Approval profiles and policy administration | [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |
-| Existing installation paths | [One-Command Source Deployment](source-deployment.md), [Disconnected Deployment](disconnected-deployment.md) |
+| First-install entry and existing paths | [Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md), [Source](source-deployment.md), [Offline](disconnected-deployment.md) |
 | Exact-plan apply and recovery | [Installable Deployment CLI](installable-deployment-cli.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md) |

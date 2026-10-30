@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from fdai_service_contracts.product_profile import ProductAddOn
 
 from fdai_deployment_cli.aks_preflight import current_target_binding, inspect_aks_target
+from fdai_deployment_cli.bootstrap_approval import selected_source
 from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentProfile
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
@@ -351,7 +352,8 @@ def plan_source_installation(
                     str(deadline.remaining(14400)),
                     *(
                         ("--approval-file", str(approval))
-                        if approval_file is not None or (interactive and approval.exists())
+                        if approval_file is not None
+                        or ((interactive or selected_source() is not None) and approval.exists())
                         else ()
                     ),
                 ),
@@ -471,7 +473,7 @@ def plan_source_installation(
                 hub_selection=hub_selection,
             )
             return {**application, "cost_review": cost_review}
-        if not interactive or result["stage"] not in {
+        if (not interactive and selected_source() is None) or result["stage"] not in {
             "runner-image-apply",
             "foundation-apply",
             "runner-enrollment",
@@ -479,6 +481,14 @@ def plan_source_installation(
         }:
             return {**result, "cost_review": cost_review}
         approval.unlink(missing_ok=True)
+        if selected_source() is not None:
+            sys.path.insert(0, str(scripts))
+            try:
+                approval_prompt = importlib.import_module("genesis_approval_prompt")
+                approval_prompt.approve_status(status_path, approval)
+            finally:
+                sys.path.remove(str(scripts))
+            continue
         prompt = subprocess.run(
             (
                 sys.executable,

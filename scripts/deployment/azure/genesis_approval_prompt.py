@@ -15,12 +15,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TextIO
 
+from fdai_deployment_cli.bootstrap_approval import require_decision, selected_source
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from genesis_checks import trusted_tool
 from genesis_runner_image_review import show_image_vm_selection
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
+BOOTSTRAP_APPROVAL_PROTOCOL = 1
 _SOURCE = re.compile(r"[0-9a-f]{40}")
 _UUID = r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
 _EVIDENCE_FIELDS = {
@@ -66,6 +68,33 @@ def create_approval(
     ):
         raise ValueError("Genesis prompt context is invalid")
     del input_stream
+    if selected_source() is not None:
+        review_expires = (now or datetime.now(UTC)) + timedelta(minutes=10)
+        require_decision(
+            {
+                "digest": canonical_digest(
+                    {
+                        "stage": stage,
+                        "evidence": evidence,
+                        "run_binding": run_binding,
+                        "source_commit": source_commit,
+                        "actor_digest": actor_digest,
+                    }
+                ),
+                "title": f"Approve exact {stage} checkpoint",
+                "details": [
+                    f"Checkpoint: {stage}",
+                    f"Source commit: {source_commit}",
+                    *(f"{name}: {value}" for name, value in sorted(evidence.items())),
+                ],
+                "confirmation_required": f"{stage}-approve",
+                "expires_at": review_expires.isoformat(),
+            }
+        )
+        if current_actor_digest(run_binding) != actor_digest:
+            raise ValueError("Azure operator changed during exact checkpoint review")
+        if datetime.now(UTC) >= review_expires:
+            raise ValueError("Exact checkpoint expired during Azure operator verification")
     digest_text = " ".join(f"{name}={value}" for name, value in sorted(evidence.items()))
     # Constitution Article 1: the operator's invocation approves the exact checkpoint it shows.
     output_stream.write(f"Approved by this invocation: {stage} checkpoint {digest_text}\n")
@@ -84,6 +113,23 @@ def create_approval(
     }
     write_private_output(output, json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
     return value
+
+
+def approve_status(status_path: Path, output: Path) -> dict[str, object]:
+    """Run the same checkpoint evidence extraction with a selected approval adapter."""
+    status = _load_status(status_path)
+    run_binding, source_commit = status.get("target_binding"), status.get("source_commit")
+    if not isinstance(run_binding, str) or not isinstance(source_commit, str):
+        raise ValueError("Genesis status context is invalid")
+    stage, evidence = _approval_from_status(status)
+    return create_approval(
+        stage=stage,
+        evidence=evidence,
+        run_binding=run_binding,
+        source_commit=source_commit,
+        actor_digest=current_actor_digest(run_binding),
+        output=output,
+    )
 
 
 def current_actor_digest(run_binding: str) -> str:
