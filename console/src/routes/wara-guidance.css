@@ -98,7 +98,12 @@
 .wara-guidance-image-preview .wara-guidance-image-viewport img { max-width: none; width: auto; height: auto; }
 .wara-guidance-supplement { margin: 0 0 32px; }
 .wara-guidance-supplement > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+@container wara-doc (min-width: 640px) {
+  .wara-guidance-source-figure > figcaption { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 32px; align-items: start; max-width: none; }
+  .wara-guidance-source-figure > figcaption > .wara-guidance-image-scope { grid-row: 1 / span 4; }
+}
 @container wara-doc (min-width: 1040px) {
+  .wara-guidance-source-figure > figcaption { display: block; max-width: 76ch; }
   .wara-guidance-intro { grid-template-columns: minmax(0, 76ch) 280px; justify-content: space-between; gap: 48px; align-items: start; }
   .wara-guidance-nav { flex-direction: column; align-items: flex-start; gap: 0; padding: 0 0 0 20px; border-block: 0; border-left: 1px solid var(--border); }
   .wara-guidance-nav strong { margin-bottom: 2px; }
