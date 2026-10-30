@@ -1645,6 +1645,7 @@ def test_gitleaks_artifact_root_contains_report_for_each_runner_layout(
     upload_root = workspace if home_binding == "${{ github.workspace }}" else runner_home
 
     assert (workspace / "results.sarif").is_relative_to(upload_root)
+    assert action["env"]["GIT_CONFIG_GLOBAL"] == "/dev/null"
     assert action.get("env", {}).get("GITLEAKS_ENABLE_UPLOAD_ARTIFACT", "true") not in {
         False,
         "false",

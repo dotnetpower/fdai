@@ -822,6 +822,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # The pinned action uses HOME as its SARIF upload root, including on pool runners.
           HOME: ${{ github.workspace }}
+          # A checkout must not become Git's global configuration source.
+          GIT_CONFIG_GLOBAL: /dev/null
 
       - name: Run gitleaks on exact snapshot
         if: github.event_name == 'workflow_dispatch'
