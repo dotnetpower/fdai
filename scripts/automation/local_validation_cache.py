@@ -36,7 +36,37 @@ SCHEMA = 1
 MAX_AGE_SECONDS = 86_400
 MAX_RECEIPTS = 128
 STAGE_SECONDS = 1_800
+DEFAULT_SLOTS = 4
+MAX_SLOTS = 16
 RUNNER = "scripts/automation/run-pre-push-structural-gates.sh"
+
+
+def slot_count() -> int:
+    """Validate the bounded parallel validation slot count."""
+    value = os.environ.get("FDAI_LOCAL_VALIDATION_SLOTS")
+    if value is None:
+        return DEFAULT_SLOTS
+    if (
+        not value.isascii()
+        or not value.isdecimal()
+        or len(value) > 2
+        or value.startswith("0")
+        or not 1 <= int(value) <= MAX_SLOTS
+    ):
+        raise ValueError(f"FDAI_LOCAL_VALIDATION_SLOTS must be an integer from 1 to {MAX_SLOTS}")
+    return int(value)
+
+
+def _slot_paths(base_state: Path, slots: int) -> tuple[Path, ...]:
+    """Return slot 0 at the primary state root followed by numbered overflow slots."""
+    return (base_state, *(base_state / f"slot-{index}" for index in range(1, slots)))
+
+
+def receipt_directory(state: Path) -> Path:
+    """Share content-addressed receipts across pooled slots under the same state root."""
+    if state.name.startswith("slot-") and state.parent.name == "fdai-local-validation":
+        return state.parent / "receipts"
+    return state / "receipts"
 
 
 def read_record(path: Path) -> dict[str, object] | None:
@@ -103,29 +133,41 @@ def prune_receipts(root: Path) -> None:
 
 @contextmanager
 def locked_state(root: Path) -> Iterator[Path]:
-    """Serialize shared scratch/environment mutations; contention uses private state."""
+    """Acquire one pooled scratch slot; fall back to private state only when all slots are busy."""
+    slots = slot_count()
     common = Path(git(root, "rev-parse", "--git-common-dir").decode().strip())
     if not common.is_absolute():
         common = root / common
-    state = common.resolve() / "fdai-local-validation"
+    base_state = common.resolve() / "fdai-local-validation"
+    state = base_state
     lock = None
     private = False
     try:
-        if state.is_symlink():
+        if base_state.is_symlink():
             raise OSError("local validation state cannot be a symlink")
-        state.mkdir(mode=0o700, parents=True, exist_ok=True)
-        if (state / "run.lock").is_symlink():
-            raise OSError("local validation lock cannot be a symlink")
-        lock = (state / "run.lock").open("a+")
+        base_state.mkdir(mode=0o700, parents=True, exist_ok=True)
         deadline = time.monotonic() + 10
         while True:
-            try:
-                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            for candidate in _slot_paths(base_state, slots):
+                if candidate.is_symlink():
+                    raise OSError("local validation state cannot be a symlink")
+                candidate.mkdir(mode=0o700, parents=True, exist_ok=True)
+                lock_path = candidate / "run.lock"
+                if lock_path.is_symlink():
+                    raise OSError("local validation lock cannot be a symlink")
+                candidate_lock = lock_path.open("a+")
+                try:
+                    fcntl.flock(candidate_lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    state = candidate
+                    lock = candidate_lock
+                    break
+                except BlockingIOError:
+                    candidate_lock.close()
+            if lock is not None:
                 break
-            except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    raise OSError("local validation state is busy") from None
-                time.sleep(0.1)
+            if time.monotonic() >= deadline:
+                raise OSError("local validation state is busy") from None
+            time.sleep(0.1)
     except OSError:
         if lock is not None:
             lock.close()
@@ -262,7 +304,7 @@ def run(root: Path, arguments: list[str], *, structural: bool) -> int:
         environment["UV_NO_SYNC"] = "1"
         environment["FDAI_STRUCTURAL_CACHE_ACTIVE"] = "1"
         context = cache_context(worktree, tree, tools, installed, arguments)
-        receipt = state / "receipts" / f"{context}.json"
+        receipt = receipt_directory(state) / f"{context}.json"
         if reusable and cache_hit(receipt, context, now=time.time()):
             print(
                 "structural-gates: OK cached=true reason=matching-local-inputs "

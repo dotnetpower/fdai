@@ -117,25 +117,8 @@ def is_test_support_only(path: str) -> bool:
     return Path(path).name == "conftest.py"
 
 
-def is_test_registration_only(
-    path: str, *, diff_range: str | None = None, cached: bool = False
-) -> bool:
-    """Exclude only additive service-local test selections from design impact."""
-    if path != SERVICE_SUITES_PATH:
-        return False
-    before_ref = diff_range.split("..", 1)[0] if diff_range else "HEAD"
-    after_ref = diff_range.rsplit("..", 1)[-1] if diff_range else ""
-    before = _git_json(before_ref, path)
-    if cached or diff_range:
-        after = _git_json(after_ref, path)
-    else:
-        try:
-            value = json.loads((REPO_ROOT / path).read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return False
-        after = value if isinstance(value, dict) else None
-    if before is None or after is None:
-        return False
+def is_additive_service_suites(before: dict[str, Any], after: dict[str, Any]) -> bool:
+    """Return whether ``after`` only appends valid service-local pytest paths to ``before``."""
     before_services = before.get("services")
     after_services = after.get("services")
     if not isinstance(before_services, list) or not isinstance(after_services, list):
@@ -182,6 +165,28 @@ def is_test_registration_only(
     return added
 
 
+def is_test_registration_only(
+    path: str, *, diff_range: str | None = None, cached: bool = False
+) -> bool:
+    """Exclude only additive service-local test selections from design impact."""
+    if path != SERVICE_SUITES_PATH:
+        return False
+    before_ref = diff_range.split("..", 1)[0] if diff_range else "HEAD"
+    after_ref = diff_range.rsplit("..", 1)[-1] if diff_range else ""
+    before = _git_json(before_ref, path)
+    if cached or diff_range:
+        after = _git_json(after_ref, path)
+    else:
+        try:
+            value = json.loads((REPO_ROOT / path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        after = value if isinstance(value, dict) else None
+    if before is None or after is None:
+        return False
+    return is_additive_service_suites(before, after)
+
+
 def _matches(path: str, pattern: str) -> bool:
     return pattern == "**" or fnmatch.fnmatchcase(path, pattern)
 
@@ -225,17 +230,50 @@ def _route_paths(path: str) -> tuple[str, ...]:
     return (path,)
 
 
+ROADMAP_PREFIX = "docs/roadmap/"
+LEDGER_PREFIX = "docs/roadmap-implementation/"
+INLINE_STATUS_HEADING = "## Implementation status"
+
+
 def _canonical_doc_path(path: str) -> str:
     if path.endswith("-ko.md"):
         return f"{path.removesuffix('-ko.md')}.md"
     return path
 
 
+def _has_inline_implementation_status(owner_path: str) -> bool:
+    """Return whether a roadmap owner still keeps an authoritative inline status section."""
+    file_path = REPO_ROOT / owner_path
+    if not file_path.is_file():
+        return False
+    in_fence = False
+    try:
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return True
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and line.strip() == INLINE_STATUS_HEADING:
+            return True
+    return False
+
+
+def _satisfied_doc_paths(path: str) -> tuple[str, ...]:
+    """Map a changed doc or delegated implementation ledger to the owner docs it satisfies."""
+    canonical = _canonical_doc_path(path)
+    if canonical.startswith(LEDGER_PREFIX) and canonical.endswith(".md"):
+        owner = f"{ROADMAP_PREFIX}{canonical.removeprefix(LEDGER_PREFIX)}"
+        if not _has_inline_implementation_status(owner):
+            return (canonical, owner)
+    return (canonical,)
+
+
 def missing_doc_updates(
     paths: set[str], manifest: dict[str, Any]
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     failures: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
-    canonical_paths = {_canonical_doc_path(path) for path in paths}
+    canonical_paths = {satisfied for path in paths for satisfied in _satisfied_doc_paths(path)}
     behavior_paths = paths - DERIVED_OUTPUT_PATHS
     routes = manifest["routes"]
     routes_by_id = {str(route["id"]): route for route in routes}

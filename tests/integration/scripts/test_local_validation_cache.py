@@ -433,3 +433,26 @@ def test_main_reports_validation_failure_detail(
         "local-validation: BLOCKED - ValueError: "
         "validation inputs changed during execution; no success recorded\n"
     )
+
+
+@pytest.mark.parametrize("value", ["", "0", "-1", "01", "17", "abc"])
+def test_invalid_slot_count_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("FDAI_LOCAL_VALIDATION_SLOTS", value)
+    with pytest.raises(ValueError, match="FDAI_LOCAL_VALIDATION_SLOTS"):
+        cache.slot_count()
+
+
+def test_locked_state_uses_overflow_slot_and_shares_receipts_under_contention(
+    repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_LOCAL_VALIDATION_SLOTS", "2")
+    with cache.locked_state(repository) as first_state:
+        assert first_state.name == "fdai-local-validation"
+        with cache.locked_state(repository) as second_state:
+            assert second_state == first_state / "slot-1"
+            assert cache.receipt_directory(second_state) == cache.receipt_directory(first_state)
+            assert not second_state.is_relative_to(repository / ".fdai")
