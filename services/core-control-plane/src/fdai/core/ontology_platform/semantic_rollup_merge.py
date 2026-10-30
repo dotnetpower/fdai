@@ -40,6 +40,27 @@ def merge_semantic_rollups(
         if current.window_start > prior.window_end:
             missing.append((prior.window_end, current.window_start))
     statistics = _merge_statistics(policy, ordered)
+    from fdai.core.ontology_platform.semantic_rollup_temporal import enabled, merge_temporal
+
+    temporal_enabled = enabled(policy)
+    if not temporal_enabled and any(
+        "temporal" in json.loads(item.statistics_json) for item in ordered
+    ):
+        raise ValueError("temporal rollup merge requires the exact statistics policy")
+    if temporal_enabled:
+        temporal = merge_temporal(
+            policy, ordered, tuple(json.loads(item.statistics_json) for item in ordered)
+        )
+        statistics["temporal"] = temporal
+        missing = [
+            (datetime.fromisoformat(start), datetime.fromisoformat(end))
+            for start, end in temporal["gaps"]
+        ]
+    event_time_missing = any(
+        item.event_time_missing
+        for item in ordered
+        if not temporal_enabled or item.observation_count
+    ) or not any(item.observation_count for item in ordered)
     source_ids = _strings(ordered, "source_ids")
     source_revisions = _strings(ordered, "source_revisions")
     source_partition_digests = _strings(ordered, "source_partition_digests")
@@ -66,7 +87,7 @@ def merge_semantic_rollups(
         "generation_refs": generation_refs,
         "effective_time_range": _serialized_range(effective_time_range),
         "event_time_range": _serialized_range(event_time_range),
-        "event_time_missing": any(item.event_time_missing for item in ordered),
+        "event_time_missing": event_time_missing,
         "recorded_time_range": _serialized_range(recorded_time_range),
         "missing_intervals": [
             [start.astimezone(UTC).isoformat(), end.astimezone(UTC).isoformat()]
@@ -92,7 +113,7 @@ def merge_semantic_rollups(
         generation_refs=generation_refs,
         effective_time_range=effective_time_range,
         event_time_range=event_time_range,
-        event_time_missing=any(item.event_time_missing for item in ordered),
+        event_time_missing=event_time_missing,
         recorded_time_range=recorded_time_range,
         missing_intervals=missing_intervals,
         observed_zero=any(item.observed_zero for item in ordered),

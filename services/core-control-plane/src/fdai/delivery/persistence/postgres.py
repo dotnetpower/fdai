@@ -53,6 +53,9 @@ from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
+    PostgresAuditChainWindowMixin,
+)
+from fdai.delivery.persistence.postgres_audit_history import (
     list_incident_evidence as _list_incident_evidence,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
@@ -120,7 +123,10 @@ class PostgresStateStoreConfig:
 
 
 class PostgresStateStore(
-    PostgresStatePairMixin, PostgresAssuranceTwinConfirmationMixin, StateStore
+    PostgresStatePairMixin,
+    PostgresAssuranceTwinConfirmationMixin,
+    PostgresAuditChainWindowMixin,
+    StateStore,
 ):
     """Async :class:`StateStore` implementation for PostgreSQL."""
 

@@ -9,6 +9,7 @@ import json
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
@@ -63,6 +64,12 @@ from fdai.agents._framework.heimdall_constants import (
 )
 from fdai.agents._framework.heimdall_constants import (
     _STATE_KEY as _STATE_KEY,
+)
+from fdai.agents._framework.heimdall_sensing_persistence import (
+    BUCKET_LAYOUT,
+    SUBJECT_LAYOUT,
+    read_bucket_records,
+    read_subject_records,
 )
 from fdai.core.readiness import (
     DetectionReadinessObservation,
@@ -192,6 +199,7 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
         _security_recent: Any
         _stale_inventory_delays_seconds: Any
         _state_store: Any
+        _persisted_sensing_records: Any
 
     async def rehydrate(self) -> int:
         """Restore restart-sensitive sensing windows and duplicate fences."""
@@ -200,13 +208,39 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
         record = await self._state_store.read_state(_STATE_KEY)
         if record is None:
             return 0
+        if record.get("storage_layout") not in (None, SUBJECT_LAYOUT, BUCKET_LAYOUT):
+            raise ValueError("Heimdall sensing state has unsupported storage layout")
+        self._persisted_sensing_records = {}
+        self._sensing_bucket_layout = record.get("storage_layout") == BUCKET_LAYOUT
+        self._sensing_subject_layout = record.get("storage_layout") in (
+            SUBJECT_LAYOUT,
+            BUCKET_LAYOUT,
+        )
+        if self._sensing_bucket_layout:
+            episode_rows, readiness_rows, pending_rows, metadata = await read_bucket_records(
+                self, record
+            )
+            self._persisted_sensing_records[_STATE_KEY] = deepcopy(dict(record))
+            record = {**record, **metadata}
+        elif self._sensing_subject_layout:
+            episode_rows, readiness_rows, pending_rows = await read_subject_records(self, record)
+            self._persisted_sensing_records[_STATE_KEY] = deepcopy(dict(record))
+        else:
+            episode_rows, _episode_total = await self._state_store.read_state_page(
+                _EPISODE_PREFIX,
+                limit=_MAX_TRACKED_KEYS,
+            )
+            readiness_rows, _readiness_total = await self._state_store.read_state_page(
+                _READINESS_PREFIX,
+                limit=_MAX_TRACKED_KEYS,
+            )
+            pending_rows, _pending_total = await self._state_store.read_state_page(
+                _PENDING_READINESS_PREFIX,
+                limit=_MAX_TRACKED_KEYS,
+            )
         restored = 0
         self._recent_events.clear()
         self._recent_episode_keys.clear()
-        episode_rows, _episode_total = await self._state_store.read_state_page(
-            _EPISODE_PREFIX,
-            limit=_MAX_TRACKED_KEYS,
-        )
         for episode_record in reversed(episode_rows):
             episode_key = _decode_episode_key(str(episode_record.get("episode_key") or ""))
             raw_history = episode_record.get("history")
@@ -226,10 +260,12 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
             self._recent_episode_keys.setdefault(episode_key[0], {})[episode_key] = None
             restored += 1
         for raw_key, raw_history in dict(record.get("recent_events") or {}).items():
-            if self._recent_events:
-                break
             episode_key = _decode_episode_key(raw_key)
-            if episode_key is None or not isinstance(raw_history, list):
+            if (
+                episode_key is None
+                or episode_key in self._recent_events
+                or not isinstance(raw_history, list)
+            ):
                 continue
             history: deque[tuple[float, str, str]] = deque(maxlen=self._rate_threshold * 2)
             for item in raw_history:
@@ -264,10 +300,11 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
             if isinstance(value, list) and len(value) == 2
         }
         self._detection_readiness = _decode_readiness_map(record.get("detection_readiness"))
-        readiness_rows, _readiness_total = await self._state_store.read_state_page(
-            _READINESS_PREFIX,
-            limit=_MAX_TRACKED_KEYS,
-        )
+        self._detection_readiness_pass_order = {
+            str(resource): (str(value[0]), datetime.fromisoformat(str(value[1])))
+            for resource, value in dict(record.get("detection_readiness_pass_order") or {}).items()
+            if isinstance(value, list) and len(value) == 2
+        }
         for readiness_record in reversed(readiness_rows):
             resource = str(readiness_record.get("resource_id") or "")
             observations = _decode_readiness_map(
@@ -284,10 +321,6 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
         self._detection_readiness_pending = _decode_pending_readiness(
             record.get("detection_readiness_pending")
         )
-        pending_rows, _pending_total = await self._state_store.read_state_page(
-            _PENDING_READINESS_PREFIX,
-            limit=_MAX_TRACKED_KEYS,
-        )
         for pending_record in reversed(pending_rows):
             resource = str(pending_record.get("resource_id") or "")
             pass_id = str(pending_record.get("pass_id") or "")
@@ -296,11 +329,6 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
             ).get((resource, pass_id))
             if resource and pass_id and observations is not None:
                 self._detection_readiness_pending[(resource, pass_id)] = observations
-        self._detection_readiness_pass_order = {
-            str(resource): (str(value[0]), datetime.fromisoformat(str(value[1])))
-            for resource, value in dict(record.get("detection_readiness_pass_order") or {}).items()
-            if isinstance(value, list) and len(value) == 2
-        }
         return restored
 
 

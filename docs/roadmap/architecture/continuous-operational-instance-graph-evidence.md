@@ -98,6 +98,51 @@ Provisioning remains current-state only until it carries equivalent provenance. 
 `initial_state_only` or `snapshot_interval_only`; complete snapshots cannot prove that no intermediate
 transition occurred, and only exact retained watermarks can raise that coverage.
 
+## Runtime-role storage verification
+
+Shared staging bodies remain immutable. Core has `SELECT`, `INSERT`, and `DELETE`, but no
+`UPDATE` privilege on the body table. Writers hold the shared advisory reference fence;
+bounded orphan collection holds its exclusive counterpart and retains foreign-key checks.
+The cleanup candidate query does not request `SELECT FOR UPDATE`, which would incorrectly
+require `UPDATE` privilege even on an empty body table. The eventual `DELETE` takes its own
+row locks without expanding the runtime grant.
+
+The PostgreSQL regression uses `SET LOCAL ROLE fdai_core`, verifies the missing `UPDATE`
+grant, and exercises empty-store cleanup, row and byte bounds, and preservation of referenced
+bodies. Administrator-only tests are not sufficient evidence for this runtime path.
+
+After a local database reconstruction, complete the initial authoritative inventory preparation
+before relying on the ordinary reconciliation schedule and all-service readiness. An interrupted
+collection or an earlier due marker is not a complete graph. This initial read uses the existing
+selected scope and identity; it grants no managed-resource mutation.
+
+## Semantic persistence efficiency
+
+Repeated observations, internal recovery state, metrics, and authority-bearing audit have separate
+storage contracts. A repeated observation must not create a semantic state transition. State
+changes, conflicting sources, observation gaps, counter resets, and the complete request,
+approval, execution, verification, and rollback chain remain distinguishable.
+
+Large recovery snapshots should reuse their already durable subject records instead of serializing
+all unchanged subjects after every event. Exact recovery ordering, event identity, source scope,
+recorded/effective time, and current freshness remain authoritative. Do not globally disable
+tracked-state timestamp refresh or replace durable idempotency with an in-memory cache.
+
+The existing typed rollup is the aggregation boundary. New statistics are selected by a reviewed,
+versioned policy; legacy policy outputs stay compatible. A summary cannot establish unseen
+continuity or reconstruct event order from category counts alone. Counter resets and missing
+intervals remain explicit, and unresolved precision remains unavailable.
+
+Storage diagnostics classify only repository-owned state families and report bounded aggregate
+rows, bytes, write/scan counters, and cleanup pressure. They do not expose stored payloads or
+customer identifiers and do not write an audit entry for every diagnostic sample.
+
+Implementation critique: administrator-only tests missed runtime privilege failures; all new
+cleanup and recovery SQL needs actual service-role coverage. Moving payloads to another store,
+discarding safety evidence, changing existing recency semantics, or measuring a stopped runtime
+does not qualify as storage improvement. Cold rebuild and equal-workload replay are separate
+measurements, and a short local observation is not long-term qualification.
+
 ## Conversation consumers
 
 Conversation turns read this graph only through typed projections and never write to it. The Operator

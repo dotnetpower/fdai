@@ -31,10 +31,20 @@ def inventory_revision_to_rollup_observation(
     interval_end: datetime,
     complete: bool,
     conflict_count: int,
+    source_partition_digest: str | None = None,
 ) -> RollupObservation:
-    """Bind collection provenance explicitly without changing cursor or promotion behavior."""
+    """Bind provenance; observation time is not a provider transition timestamp.
+
+    Temporal policies may supply the authenticated stable source partition digest.
+    Without it, payload partitions remain separate rather than guessed compatible.
+    Legacy policy identities and timestamps are unchanged.
+    """
 
     _canonical_digest(revision.payload_digest, "inventory payload_digest")
+    if source_partition_digest is not None:
+        _canonical_digest(source_partition_digest, "inventory source_partition_digest")
+    from fdai.core.ontology_platform.semantic_rollup_temporal import enabled
+
     value: Decimal | str | RelationshipChange | EvidenceHealth
     if policy.fact_kind is RollupFactKind.RELATIONSHIP_CHANGE:
         value = (
@@ -69,13 +79,13 @@ def inventory_revision_to_rollup_observation(
         fact_kind=policy.fact_kind,
         source_id=revision.source_id,
         source_revision=revision.source_revision,
-        source_partition_digest=revision.payload_digest,
+        source_partition_digest=source_partition_digest or revision.payload_digest,
         generation_ref=generation_ref,
         ontology_release_digest=policy.ontology_release_digest,
         interval_start=interval_start,
         interval_end=interval_end,
         effective_at=revision.observed_at,
-        event_at=revision.observed_at,
+        event_at=None if enabled(policy) else revision.observed_at,
         recorded_at=revision.recorded_at,
         value=value,
         complete=complete,

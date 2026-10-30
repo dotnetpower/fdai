@@ -12,6 +12,7 @@ from fdai.agents._framework.adapters import AuditChainError, AuditEntry, _digest
 from fdai.shared.providers.state_store import (
     StateStore,
     StateStoreAuditChainReader,
+    StateStoreAuditChainWindowReader,
     StateStoreAuditReader,
 )
 
@@ -85,13 +86,19 @@ class AuditJournal:
     def head_hash(self) -> str:
         return self.entries[-1].entry_hash if self.entries else self.base_hash
 
-    def encode(self) -> dict[str, Any]:
+    def encode(self, *, compact: bool = False) -> dict[str, Any]:
+        if compact:
+            # A small head must not bypass the complete recent-window admission budget.
+            self.encode()
+        entries = self.entries[-1:] if compact else self.entries
+        base_length = self.length - len(entries)
+        base_hash = entries[0].prev_hash if entries else self.base_hash
         body = {
-            "schema_version": "2.0.0",
+            "schema_version": "3.0.0" if compact else "2.0.0",
             "revision": self.revision,
-            "base_length": self.base_length,
-            "base_hash": self.base_hash,
-            "entries": [asdict(entry) for entry in self.entries],
+            "base_length": base_length,
+            "base_hash": base_hash,
+            "entries": [asdict(entry) for entry in entries],
         }
         stored = {**body, "content_digest": _digest(body)}
         if len(json.dumps(stored, ensure_ascii=True).encode("utf-8")) > _JOURNAL_BYTE_LIMIT:
@@ -116,7 +123,7 @@ def _decode_journal(stored: Mapping[str, Any]) -> AuditJournal:
     raw_entries = stored.get("entries")
     if (
         set(stored) != _JOURNAL_FIELDS
-        or stored.get("schema_version") != "2.0.0"
+        or stored.get("schema_version") not in ("2.0.0", "3.0.0")
         or type(revision) is not int
         or revision < 1
         or type(base_length) is not int
@@ -125,6 +132,7 @@ def _decode_journal(stored: Mapping[str, Any]) -> AuditJournal:
         or (base_length == 0 and base_hash != _GENESIS_HASH)
         or not isinstance(raw_entries, list)
         or len(raw_entries) > AUDIT_JOURNAL_LIMIT
+        or (stored.get("schema_version") == "3.0.0" and len(raw_entries) > 1)
         or (base_length > 0 and not raw_entries)
         or any(not isinstance(raw, Mapping) for raw in raw_entries)
     ):
@@ -132,21 +140,65 @@ def _decode_journal(stored: Mapping[str, Any]) -> AuditJournal:
     journal = AuditJournal(
         revision, base_length, base_hash, tuple(_decode_entry(raw) for raw in raw_entries)
     )
-    if journal.encode()["content_digest"] != stored.get("content_digest"):
+    body = {key: value for key, value in stored.items() if key != "content_digest"}
+    if _digest(body) != stored.get("content_digest"):
         raise AuditChainError("durable audit journal content digest mismatch")
     verify_entries(journal.entries, base_length=journal.base_length, base_hash=journal.base_hash)
     return journal
 
 
-async def load_journal(store: StateStore) -> AuditJournal | None:
+async def _load_window(store: StateStore, journal: AuditJournal) -> AuditJournal:
+    if not isinstance(store, StateStoreAuditChainWindowReader):
+        raise AuditChainError("compact audit checkpoint requires the bounded window reader")
+    if not journal.length:
+        return journal
+    start = max(0, journal.length - AUDIT_JOURNAL_LIMIT)
+    records = await store.read_audit_chain_window(
+        start_seq=start, end_seq=journal.length, head_hash=journal.head_hash
+    )
+    if len(records) != journal.length - start:
+        raise AuditChainError("compact audit recovery window is incomplete or duplicated")
+    entries = []
+    for record in records:
+        entry = _decode_entry({key: record[key] for key in _ENTRY_FIELDS if key in record})
+        if "payload" in record and _digest(record["payload"]) != entry.payload_digest:
+            raise AuditChainError("compact audit recovery payload digest mismatch")
+        entries.append(entry)
+    base_hash = entries[0].prev_hash
+    if start == 0 and base_hash != _GENESIS_HASH:
+        raise AuditChainError("compact audit recovery genesis hash mismatch")
+    verify_entries(entries, base_length=start, base_hash=base_hash)
+    if entries[-1].entry_hash != journal.head_hash:
+        raise AuditChainError("compact audit recovery head mismatch")
+    restored = AuditJournal(journal.revision, start, base_hash, tuple(entries))
+    restored.encode()
+    return restored
+
+
+async def supports_compact_checkpoint(store: StateStore) -> bool:
+    return (
+        isinstance(store, StateStoreAuditChainWindowReader)
+        and await store.supports_compact_audit_checkpoint()
+    )
+
+
+async def load_journal(store: StateStore, *, with_window: bool = False) -> AuditJournal | None:
     """Load a verified window; migration requires quiesced old writers.
 
     None means another replica won initialization; the caller must reload.
     Missing readers, incomplete history and inconsistent checkpoints hold writes.
     """
     stored = await store.read_state(AUDIT_CHECKPOINT_KEY)
-    if stored is not None and stored.get("schema_version") == "2.0.0":
-        return _decode_journal(stored)
+    if stored is not None and stored.get("schema_version") in ("2.0.0", "3.0.0"):
+        journal = _decode_journal(stored)
+        if stored["schema_version"] == "3.0.0":
+            if not isinstance(store, StateStoreAuditChainWindowReader):
+                raise AuditChainError("compact audit checkpoint requires the bounded window reader")
+            if not await store.supports_compact_audit_checkpoint():
+                raise AuditChainError("compact audit checkpoint requires canonical header storage")
+            if with_window:
+                return await _load_window(store, journal)
+        return journal
     # The audit table is shared by every writer. Reading it unfiltered makes a fresh runtime
     # unable to start the chain once unrelated rows exceed the bound, so ask for chain rows only.
     if callable(getattr(store, "read_audit_chain_entries", None)) and isinstance(

@@ -432,6 +432,16 @@ navigation while physical subsystems and direct imports remain stable. The 98 fo
 pin domain membership, single ownership, dual-role packages, direct-import compatibility, and peer
 isolation. `verticals` remains its own top-level group. A future physical move is not required and
 would need a separate, domain-bounded design that explicitly preserves coverage and fan-out meaning.
+### Semantic persistence helpers
+
+Typed temporal sufficient statistics live in `core/ontology_platform/semantic_rollup_temporal.py`,
+with merge rules in `semantic_rollup_merge.py`. The existing
+`delivery/inventory_rollup.py` adapter maps policy-selected statistics to archive metadata;
+it does not select runtime retention or authorize purge. See
+[rollup rules](continuous-operational-instance-graph.md#rollup-rules) for source-partition,
+coverage and historical-knowledge limits. Heimdall's changed-subject recovery encoding remains
+inside `agents/_framework/`, without adding a provider seam or changing agent authority.
+
 ## Module Boundaries
 The shared executor-target contract keeps resource tag and subscription tag actions on distinct logical target shapes and operation ids; the isolated Executor applies the subscription action with the change identity, while Core reads the result with a distinct identity, so adding the subscription pilot does not widen the existing resource tag action. [Alert noise governance](../operations/alert-noise-governance.md) owns typed evidence, registered provider-neutral plan/result `1.1.0` schemas with regenerated Python and TypeScript contract views, and Process. Core registers an alert-specific unavailable direct-API route before generic fallbacks, and a read-only archived decoder retires unreleased `1.0.0` records; Terraform remains an operator-local deployment tool and supplies no runtime authority. Dedicated Operator composition binds request dependencies and one supervised bridge; the shared root owns lifecycle only. Role-local framework mixins preserve agent APIs and instance isolation. Shared admission inventory pins decision guards. The existing guarded generator re-evaluates release-derived source pins without rewriting operational receipts; source tests and generated knowledge grant no authority. The shared SDK publishes `test-context-draft`, `test-context-command`, and `test-context-application` version `1.0.0` schemas generated from the existing typed models. Its validator also applies those models' cross-field rules; a schema-valid record is not authenticated evidence or current authority. These standalone registrations do not establish a broker N/N-1 deployment transition. Post-integration System Knowledge regeneration records this boundary as release metadata only; it does not promote transport compatibility or operational qualification. Forecast scoring exclusions are public string enums exported by the model facade; their JSON values and legacy outcome wire shape remain unchanged. Context projection modules belong to the Core wheel, Operator context-command tests have an explicit service-suite owner, and database-only tests run in the integration selection. Evidence admission is evaluated after type validation, with exact non-mutating replay distinguished from a newly admitted write. Catalog source commitments are refreshed after owner-document reflow even when record payloads are unchanged.
 Alert-noise authority and writer seams stay explicit composition inputs: production and shared alert changes keep two distinct authorized humans, the single-Owner quorum is accepted only for a configured full-authority development-profile scope, and provider writers without enforced conditional updates hold unless a governed exclusive-writer proof is bound.
@@ -901,6 +911,16 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
    unblock a red pipeline is a governance regression.
 
 ## Customization via Dependency Injection
+
+`StateStoreAuditChainWindowReader` is an optional StateStore capability for compact Saga
+checkpoints. PostgreSQL follows the committed head hash through at most 512 canonical ancestors
+using an indexed, bounded query, rather than selecting unrelated chains with equal sequence
+numbers. Backends without this capability keep the existing version-2 journal writer; they cannot
+read a version-3 compact head. No audit record, permission, or append/CAS boundary is removed.
+PostgreSQL reports readiness only when its generated canonical-header column and valid index
+exist. An older schema keeps the v2 writer even when the SDK exposes the optional methods.
+Recovery projects only these headers, preserving the 512 KiB recent-metadata budget without
+materializing arbitrary raw payloads. Full physical payload-chain verification remains separate.
 
 The WARA job accepts `WaraManualEvidenceSource` and `WaraReportSink` in
 `delivery/wara_assessment_cli.py`. Deployment adapters supply signed exact-scope manual receipts

@@ -465,6 +465,70 @@ async def test_clean_migration_round_trip_preserves_rows_and_guards(
                     )
 
 
+async def test_core_role_can_prune_orphans_without_update_privilege(storage_database) -> None:
+    async with await psycopg.AsyncConnection.connect(
+        storage_database.dsn, row_factory=dict_row
+    ) as connection:
+        await connection.execute(
+            sql.SQL("GRANT USAGE ON SCHEMA {} TO fdai_core").format(
+                sql.Identifier(storage_database.schema)
+            )
+        )
+        await connection.commit()
+        async with connection.transaction():
+            await connection.execute("SET LOCAL ROLE fdai_core")
+            await connection.execute("SET LOCAL statement_timeout = '5s'")
+            access = await (
+                await connection.execute(
+                    "SELECT has_table_privilege(current_user, "
+                    "'inventory_snapshot_properties','UPDATE') AS can_update"
+                )
+            ).fetchone()
+            assert access == {"can_update": False}
+            assert await prune_shared_properties(connection) == 0
+        await connection.execute(
+            "INSERT INTO inventory_snapshot(id,status,source,observation_kind,scopes,"
+            "resource_types,started_at) VALUES "
+            "('role-retention','collecting','provider','observed','[]','[]',%s)",
+            (NOW,),
+        )
+        await stage_snapshot_batch(
+            connection,
+            attempt_id="role-retention",
+            batch=InventoryBatch(
+                resources=(
+                    ResourceRecord(
+                        resource_id="protected-resource",
+                        type="compute.vm",
+                        props={"payload": "retained"},
+                    ),
+                ),
+            ),
+            write_batch_size=10,
+        )
+        for value in ("orphan-a", "orphan-b"):
+            body = canonical_json({"payload": value})
+            await connection.execute(
+                "INSERT INTO inventory_snapshot_properties(digest,body) VALUES (%s,%s)",
+                (content_digest(body), body),
+            )
+        await connection.commit()
+        async with connection.transaction():
+            await connection.execute("SET LOCAL ROLE fdai_core")
+            await connection.execute("SET LOCAL statement_timeout = '5s'")
+            assert await prune_shared_properties(connection, max_bytes=1) == 0
+            assert await prune_shared_properties(connection, limit=1) == 1
+            assert await prune_shared_properties(connection, limit=1) == 1
+            assert await prune_shared_properties(connection, limit=1) == 0
+            remaining = await (
+                await connection.execute(
+                    "SELECT props FROM inventory_snapshot_resource "
+                    "WHERE resource_id='protected-resource'"
+                )
+            ).fetchone()
+            assert remaining == {"props": {"payload": "retained"}}
+
+
 async def test_staging_body_sharing_and_bounded_orphan_lifecycle(storage_database) -> None:
     async with await psycopg.AsyncConnection.connect(
         storage_database.dsn, row_factory=dict_row

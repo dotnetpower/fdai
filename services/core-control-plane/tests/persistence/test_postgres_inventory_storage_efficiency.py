@@ -468,7 +468,9 @@ async def test_shared_body_write_and_orphan_cleanup_are_bounded_and_locked() -> 
     assert await prune_shared_properties(connection, limit=7, max_bytes=1024) == 7
     query, parameters = connection.execute.await_args.args
     assert parameters == (7, 1024)
-    assert "NOT EXISTS" in query and "SKIP LOCKED" in query and "SUM(bytes)" in query
+    assert "NOT EXISTS" in query and "SUM(bytes)" in query
+    assert "FOR UPDATE" not in query
+    assert "pg_try_advisory_xact_lock" in connection.execute.await_args_list[-2].args[0]
     with pytest.raises(ValueError, match="exceeds"):
         await prune_shared_properties(connection, limit=1001)
 

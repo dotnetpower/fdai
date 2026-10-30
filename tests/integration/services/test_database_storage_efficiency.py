@@ -308,3 +308,43 @@ async def test_physical_report_sql_accounts_for_an_entire_nonpublic_schema(
             table[field] for field in ("heap_bytes", "index_bytes", "toast_bytes")
         )
         assert table["heap_bytes"] >= 0
+
+
+async def test_state_family_diagnostics_are_exact_and_do_not_disclose_identifiers(
+    storage_database: str,
+) -> None:
+    path = (
+        Path(__file__).resolve().parents[3] / "scripts/deployment/local/report-database-growth.py"
+    )
+    spec = importlib.util.spec_from_file_location("storage_family_sql", path)
+    assert spec is not None and spec.loader is not None
+    report = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(report)
+    async with await psycopg.AsyncConnection.connect(storage_database) as connection:
+        rows = [
+            ("pantheon/heimdall/sensing-state/buckets/00", '{"records":[]}'),
+            ("pantheon/heimdall/sensing-state/episodes/private-reference", '{"history":[1]}'),
+            ("pantheon/heimdall/sensing-state/readiness/private-reference", '{"ready":true}'),
+            ("pantheon/saga/audit-chain/verified-head", '{"entries":[]}'),
+            ("pantheon/saga/verdict-aggregate-pending", '{"groups":{}}'),
+            ("measurement:control-loop:v1:private-event", '{"result":"held"}'),
+            ("unreviewed-private-namespace", '{"text":"private body"}'),
+        ]
+        async with connection.cursor() as cursor:
+            await cursor.executemany("INSERT INTO state_kv(key,value) VALUES (%s,%s::jsonb)", rows)
+        observed = await (await connection.execute(report._STATE_FAMILY_SQL)).fetchall()
+        assert {row[0] for row in observed} == {
+            "heimdall_buckets",
+            "heimdall_episodes",
+            "heimdall_readiness",
+            "saga_audit_checkpoint",
+            "saga_verdict_aggregate",
+            "control_loop_measurements",
+            "other",
+        }
+        assert sum(row[1] for row in observed) == 7
+        expected = await (
+            await connection.execute("SELECT sum(pg_column_size(value)) FROM state_kv")
+        ).fetchone()
+        assert expected is not None and sum(row[2] for row in observed) == expected[0]
+        assert "private" not in repr(observed)

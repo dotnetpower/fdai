@@ -1,0 +1,494 @@
+"""Fixed-bucket checkpoint bounds compared with the former flat manifest."""
+
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping
+from copy import deepcopy
+from typing import Any
+
+import pytest
+from fdai.agents import Heimdall
+from fdai.agents._framework import heimdall_sensing_persistence as persistence
+from fdai.agents._framework.heimdall_sensing_persistence import (
+    BUCKET_COUNT,
+    BUCKET_PREFIX,
+    MAX_NODE_BYTES,
+    SUBJECT_LAYOUT,
+    _bucket_commitment,
+    _bucket_slot,
+    _subject_digest,
+    checkpoint_digest,
+    write_changed_state,
+)
+
+from tests.agents.test_heimdall_sensing_persistence import (
+    NOW,
+    STATE,
+    CountingStore,
+    _agent,
+    _encoded,
+    _event,
+    _snapshot,
+    _subject,
+)
+
+
+def flat_manifest(agent: Heimdall) -> dict[str, Any]:
+    snapshot = _snapshot(agent)
+    identities = list(snapshot["recent_events"])
+    ready = list(snapshot["detection_readiness"])
+    pending = list(snapshot["detection_readiness_pending"])
+    keys = [
+        *(_subject("episodes", identity) for identity in identities),
+        *(_subject("readiness", resource) for resource in ready),
+        *(_subject("readiness-pending", identity) for identity in pending),
+    ]
+    return {
+        "schema_version": "1.0.0",
+        "revision": 1,
+        "storage_layout": SUBJECT_LAYOUT,
+        "subject_digest": checkpoint_digest(agent, keys),
+        "episode_order": identities,
+        "readiness_order": ready,
+        "pending_readiness_order": [
+            json.dumps(identity.split("\0", 1), ensure_ascii=True, separators=(",", ":"))
+            for identity in pending
+        ],
+        **{
+            field: snapshot[field]
+            for field in (
+                "incident_episode_ids",
+                "incident_episode_severities",
+                "security_recent",
+                "alert_windows",
+                "detection_readiness_pass_order",
+            )
+        },
+    }
+
+
+class FlatManifestHeimdall(Heimdall):
+    async def _persist_state(self) -> None:
+        """Frozen episode-only flat checkpoint workload, before bucket sharding."""
+        assert not self._detection_readiness and not self._detection_readiness_pending
+        if not getattr(self, "_sensing_subject_layout", False):
+            self._dirty_episode_keys.update(self._recent_events)
+        for key in tuple(self._dirty_episode_keys):
+            history = self._recent_events.get(key)
+            if history is not None:
+                await write_changed_state(
+                    self,
+                    _subject("episodes", _encoded(key)),
+                    {
+                        "schema_version": "1.0.0",
+                        "revision": len(history),
+                        "episode_key": _encoded(key),
+                        "history": [list(item) for item in history],
+                    },
+                )
+        await write_changed_state(self, STATE, flat_manifest(self))
+        self._sensing_subject_layout = True
+        self._dirty_episode_keys.clear()
+
+
+def seed_subjects(agent: Heimdall, count: int) -> None:
+    agent._max_tracked_keys = count
+    for index in range(count):
+        key = (
+            f"service:{index}",
+            "availability.probe_failed",
+            f"incident:{index}",
+            "correlate",
+            "event",
+        )
+        agent._episode_history(key).append((NOW.timestamp(), "low", f"event:{index}"))
+        agent._dirty_episode_keys.add(key)
+
+
+def buckets(store: CountingStore) -> dict[str, Any]:
+    return {
+        key: deepcopy(value) for key, value in store._state.items() if key.startswith(BUCKET_PREFIX)
+    }
+
+
+@pytest.mark.parametrize("count", [2_048, 4_096, 10_000, 20_000])
+async def test_fixed_root_and_only_touched_hash_buckets(count: int) -> None:
+    store = CountingStore()
+    agent = _agent(store)
+    seed_subjects(agent, count)
+    await agent._persist_state()
+    root = await store.read_state(STATE)
+    assert root is not None
+    assert len(json.dumps(root, separators=(",", ":")).encode()) < 512
+    previous = buckets(store)
+    first_order = list(agent._recent_events)
+    writes = store.writes
+    await agent.on_typed_message("object.event", _event(count + 1, subject=count // 2))
+    changed = {key for key, value in buckets(store).items() if previous[key] != value}
+    paths = {
+        key.removeprefix(BUCKET_PREFIX).split("/", 1)[-1]
+        if "/" in key.removeprefix(BUCKET_PREFIX)
+        else ""
+        for key in changed
+    }
+    longest = max(paths, key=len)
+    assert paths == {longest[:index] for index in range(len(longest) + 1)}
+    assert len({key.removeprefix(BUCKET_PREFIX).split("/")[0] for key in changed}) == 1
+    assert store.writes == writes + len(changed) + 2
+    assert list(agent._recent_events) == first_order
+    previous = buckets(store)
+    writes = store.writes
+    await agent.on_typed_message("object.event", _event(count + 1, subject=count // 2))
+    assert store.writes == writes
+    assert buckets(store) == previous
+    await agent.on_typed_message("object.event", _event(count + 2, subject=count + 2))
+    changed = {key for key, value in buckets(store).items() if previous.get(key) != value}
+    assert 1 <= len({key.removeprefix(BUCKET_PREFIX).split("/")[0] for key in changed}) <= 2
+    assert max(len(json.dumps(body).encode()) for body in buckets(store).values()) < MAX_NODE_BYTES
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == count
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+    assert first_order[0] not in restarted._recent_events
+    print(
+        json.dumps(
+            {
+                "subjects": count,
+                "root_bytes": len(json.dumps(root).encode()),
+                "largest_bucket_bytes": max(len(json.dumps(v).encode()) for v in previous.values()),
+                "eviction_changed_buckets": len(changed),
+            },
+            sort_keys=True,
+        )
+    )
+
+
+async def test_existing_flat_checkpoint_migrates_without_losing_state_or_order() -> None:
+    store = CountingStore()
+    old = _agent(store, agent_type=FlatManifestHeimdall)
+    seed_subjects(old, 2_048)
+    await old._persist_state()
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 2_048
+    assert _snapshot(restarted) == _snapshot(old)
+    assert list(restarted._recent_events) == list(old._recent_events)
+    await restarted._persist_state()
+    migrated = _agent(store)
+    assert await migrated.rehydrate() == 2_048
+    assert _snapshot(migrated) == _snapshot(old)
+    assert list(migrated._recent_events) == list(old._recent_events)
+    assert sum("/" not in key.removeprefix(BUCKET_PREFIX) for key in buckets(store)) == BUCKET_COUNT
+
+
+@pytest.mark.parametrize("stage", ["bucket", "root"])
+async def test_partial_bucket_checkpoint_fails_closed_then_retries(stage: str) -> None:
+    store = CountingStore()
+    agent = _agent(store)
+    seed_subjects(agent, 8)
+    await agent._persist_state()
+    key = _subject("episodes", _encoded(next(iter(agent._recent_events))))
+    slot_key = next(name for name, body in buckets(store).items() if key in body["entries"])
+    store.fail_key = STATE if stage == "root" else slot_key
+    with pytest.raises(OSError, match="injected"):
+        await agent.on_typed_message("object.event", _event(100, seconds=1))
+    with pytest.raises(ValueError, match="digest mismatch; repair required"):
+        await _agent(store).rehydrate()
+    store.fail_key = None
+    await agent._persist_state()
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 8
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+
+
+class BoundedWriteStore(CountingStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.write_sizes: list[int] = []
+        self.written_keys: list[str] = []
+        self.read_keys: list[str] = []
+
+    async def write_state(self, key: str, value: Any) -> None:
+        await super().write_state(key, value)
+        self.write_sizes.append(len(json.dumps(value).encode()))
+        self.written_keys.append(key)
+
+    async def read_state(self, key: str) -> Any:
+        self.read_keys.append(key)
+        return await super().read_state(key)
+
+
+def _copied_containers(value: Any) -> int:
+    pending = [value]
+    visited: set[int] = set()
+    while pending:
+        item = pending.pop()
+        if not isinstance(item, Mapping | list | tuple) or id(item) in visited:
+            continue
+        visited.add(id(item))
+        pending.extend(item.values() if isinstance(item, Mapping) else item)
+    return len(visited)
+
+
+@pytest.mark.parametrize("count", [2_048, 4_096])
+async def test_checkpoint_copy_work_is_path_local_not_active_state_sized(
+    count: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, count)
+    await agent._persist_state()
+    previous = agent._sensing_bucket_entries
+    untouched = _subject("episodes", _encoded(next(iter(agent._recent_events))))
+    target = _subject("episodes", _encoded(list(agent._recent_events)[count // 2]))
+    previous_target = deepcopy(previous[target])
+    real_copy = persistence.deepcopy
+    containers = 0
+    whole_entries = 0
+
+    def measured_copy(value: Any) -> Any:
+        nonlocal containers, whole_entries
+        containers += _copied_containers(value)
+        if isinstance(value, dict) and len(value) == count and target in value:
+            whole_entries += len(value)
+        return real_copy(value)
+
+    monkeypatch.setattr(persistence, "deepcopy", measured_copy)
+    event = _event(count + 10, subject=count // 2, seconds=1)
+    await agent.on_typed_message("object.event", event)
+    changed_containers = containers
+    containers = 0
+    for _ in range(16):
+        await agent.on_typed_message("object.event", event)
+    print(
+        json.dumps(
+            {
+                "subjects": count,
+                "changed_copy_containers": changed_containers,
+                "duplicate_copy_containers": containers,
+                "whole_cache_entries_copied": whole_entries,
+            },
+            sort_keys=True,
+        )
+    )
+    assert whole_entries == 0
+    assert containers == 0
+    assert changed_containers < 100
+    assert agent._sensing_bucket_entries[untouched] is previous[untouched]
+    assert agent._sensing_bucket_entries[target] is not previous[target]
+    assert previous[target] == previous_target
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == count
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+
+
+@pytest.mark.parametrize("restart", [False, True])
+async def test_copy_on_write_metadata_does_not_mutate_acknowledged_entries(
+    restart: bool,
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 8)
+    agent._security_recent.append({"nested": {"items": ["before"]}})
+    await agent._persist_state()
+    if restart:
+        agent = _agent(store)
+        await agent.rehydrate()
+    previous = agent._sensing_bucket_entries
+    before = deepcopy(previous)
+    subject = next(key for key, entry in previous.items() if entry["family"] == "episode")
+    agent._security_recent[0]["nested"]["items"].append("pending")
+    store.fail_key = STATE
+    with pytest.raises(OSError, match="injected"):
+        await agent._persist_state()
+    assert agent._sensing_bucket_entries is previous
+    assert previous == before
+    store.fail_key = None
+    await agent._persist_state()
+    acknowledged = agent._sensing_bucket_entries
+    assert acknowledged is not previous
+    assert acknowledged[subject] is previous[subject]
+    frozen_entries = deepcopy(acknowledged)
+    frozen_nodes = deepcopy(agent._persisted_sensing_records)
+    agent._security_recent[0]["nested"]["items"].append("later")
+    assert acknowledged == frozen_entries
+    assert agent._persisted_sensing_records == frozen_nodes
+    recovered = _agent(store)
+    await recovered.rehydrate()
+    assert recovered._security_recent[0]["nested"]["items"] == ["before", "pending"]
+
+
+async def test_metadata_snapshot_is_frozen_before_persistence_await(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    agent._security_recent.append({"nested": {"items": ["before"]}})
+    write = store.write_state
+    mutated = False
+
+    async def write_and_mutate(key: str, value: Any) -> None:
+        nonlocal mutated
+        await write(key, value)
+        if key == STATE and not mutated:
+            agent._security_recent[0]["nested"]["items"].append("during-await")
+            mutated = True
+
+    monkeypatch.setattr(store, "write_state", write_and_mutate)
+    await agent._persist_state()
+    recovered = _agent(store)
+    await recovered.rehydrate()
+    assert recovered._security_recent[0]["nested"]["items"] == ["before"]
+    await agent._persist_state()
+    latest = _agent(store)
+    await latest.rehydrate()
+    assert _snapshot(latest) == _snapshot(agent)
+    assert latest._security_recent[0]["nested"]["items"] == ["before", "during-await"]
+
+
+async def test_initial_10001_subjects_dirty_one_keeps_every_member_and_bounded_writes() -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 10_001)
+    agent._recent_episode_keys.clear()
+    agent._dirty_episode_keys = {next(reversed(agent._recent_events))}
+    await agent._persist_state()
+    assert max(store.write_sizes) < 5_000
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 10_001
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+    assert list(restarted._recent_episode_keys) == [key[0] for key in agent._recent_events]
+    print(
+        json.dumps(
+            {
+                "subjects": 10_001,
+                "max_write_bytes": max(store.write_sizes),
+                "node_rows": len(buckets(store)),
+                "top_buckets": BUCKET_COUNT,
+            }
+        )
+    )
+
+
+async def test_existing_v2_flat_buckets_remain_readable_and_migrate_to_bounded_nodes() -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 2_048)
+    await agent._persist_state()
+    digests = []
+    for slot in range(BUCKET_COUNT):
+        body = {
+            "schema_version": "1.0.0",
+            "slot": slot,
+            "entries": {
+                key: value
+                for key, value in agent._sensing_bucket_entries.items()
+                if _bucket_slot(key) == slot
+            },
+        }
+        await store.write_state(f"{BUCKET_PREFIX}{slot:02d}", body)
+        digests.append(_subject_digest(body))
+    root = dict(await store.read_state(STATE))
+    root.pop("bucket_node_format")
+    root["bucket_digest"] = _bucket_commitment(digests)
+    await store.write_state(STATE, root)
+    migrated = _agent(store)
+    assert await migrated.rehydrate() == 2_048
+    assert _snapshot(migrated) == _snapshot(agent)
+    store.write_sizes.clear()
+    await migrated._persist_state()
+    assert max(store.write_sizes) < 5_000
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 2_048
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+
+
+@pytest.mark.parametrize("stage", ["leaf", "branch", "root"])
+async def test_partial_trie_checkpoint_refuses_mixed_state(stage: str) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 2_048)
+    await agent._persist_state()
+    target = _subject("episodes", _encoded(list(agent._recent_events)[1_024]))
+    leaf = next(name for name, body in buckets(store).items() if target in body.get("entries", {}))
+    top = BUCKET_PREFIX + leaf.removeprefix(BUCKET_PREFIX).split("/")[0]
+    store.fail_key = {"leaf": leaf, "branch": top, "root": STATE}[stage]
+    with pytest.raises(OSError, match="injected"):
+        await agent.on_typed_message("object.event", _event(9_000, subject=1_024, seconds=1))
+    with pytest.raises(ValueError, match="digest mismatch; repair required"):
+        await _agent(store).rehydrate()
+    store.fail_key = None
+    await agent._persist_state()
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 2_048
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert list(restarted._recent_events) == list(agent._recent_events)
+    assert max(store.write_sizes) < 5_000
+
+
+async def test_large_metadata_value_is_lossless_and_each_fragment_is_bounded() -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    agent._security_recent.append({"event": "synthetic", "body": '"\\example' * 8_000})
+    await agent._persist_state()
+    assert max(store.write_sizes) < 5_000
+    restarted = _agent(store)
+    assert await restarted.rehydrate() == 0
+    assert _snapshot(restarted) == _snapshot(agent)
+
+
+async def test_invalid_root_checks_only_64_top_nodes_before_following_children() -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    seed_subjects(agent, 2_048)
+    await agent._persist_state()
+    root_key = f"{BUCKET_PREFIX}00"
+    body = dict(await store.read_state(root_key))
+    body["path"] = "tampered"
+    await store.write_state(root_key, body)
+    store.read_keys.clear()
+    with pytest.raises(ValueError, match="bucket digest mismatch; repair required"):
+        await _agent(store).rehydrate()
+    assert store.read_keys == [
+        STATE,
+        *(f"{BUCKET_PREFIX}{slot:02d}" for slot in range(BUCKET_COUNT)),
+    ]
+
+
+async def test_large_jsonb_numeric_expansion_uses_bounded_data_nodes() -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    agent._security_recent.append({"values": [1e308] * 100})
+    await agent._persist_state()
+    assert max(store.write_sizes) < 5_000
+    assert any(body.get("node_type") == "fragment" for body in buckets(store).values())
+    restarted = _agent(store)
+    await restarted.rehydrate()
+    assert _snapshot(restarted) == _snapshot(agent)
+
+
+@pytest.mark.parametrize("stage", ["data", "fragment", "root"])
+async def test_partial_large_value_checkpoint_fails_closed_and_retries(stage: str) -> None:
+    store = BoundedWriteStore()
+    agent = _agent(store)
+    agent._security_recent.append({"body": "before-" * 8_000})
+    await agent._persist_state()
+    fragment = next(
+        key for key, body in buckets(store).items() if body.get("node_type") == "fragment"
+    )
+    agent._security_recent[0]["body"] = "after-" * 8_000
+    store.fail_key = {"data": fragment + "/value/0", "fragment": fragment, "root": STATE}[stage]
+    with pytest.raises(OSError, match="injected"):
+        await agent._persist_state()
+    with pytest.raises(ValueError, match="digest mismatch; repair required"):
+        await _agent(store).rehydrate()
+    store.fail_key = None
+    await agent._persist_state()
+    restarted = _agent(store)
+    await restarted.rehydrate()
+    assert _snapshot(restarted) == _snapshot(agent)
+    assert max(store.write_sizes) < 5_000

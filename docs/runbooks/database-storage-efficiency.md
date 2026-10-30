@@ -36,6 +36,17 @@ Missing tables are reported as `not_installed`. Insufficient read permission is 
 `details_complete` to false, and returns exit code 2 rather than presenting a missing measurement
 as zero. The report never grants itself additional database privileges.
 
+The detailed report also groups tracked state by fixed repository-owned families: Heimdall
+episodes/readiness/publications, Saga recovery, baseline results/completions, control-loop
+measurements, inventory, ontology, and Operator projections. Unknown keys appear only as `other`.
+It reports stored-value bytes and the largest value without exposing keys, identifiers, or payloads.
+These value sizes exclude heap/index/TOAST overhead and are not estimates of reclaimable disk.
+
+Database insert/update/delete counters are cumulative since their statistics reset, not per-family
+WAL attribution. I/O timing can be zero when `track_io_timing` is disabled; the report marks that
+prerequisite rather than interpreting zero as free I/O. Capture runtime readiness and DB identity
+with every comparison: a stopped process or a recreated database invalidates a normal-load trend.
+
 ## Bound disposable state by rows and bytes
 
 The existing prefix-specific newest-N windows remain the minimum retained generations. Preview
@@ -65,6 +76,52 @@ autovacuum and TOAST thresholds, so tuning does not depend on running a manual r
 `--apply --vacuum-full` explicitly requests a table rewrite. It needs a maintenance window,
 additional temporary disk space, and an exclusive table lock. Both paths retain connection,
 statement, and lock deadlines.
+
+## Diagnose checkpoint amplification
+
+The fixed families `heimdall_buckets`, `saga_audit_checkpoint`, and
+`saga_verdict_aggregate` separate recovery overhead from canonical history. A small latest
+value does not rule out repeated large checkpoint rewrites or accumulated dead tuples.
+Heimdall uses 64 fixed reference buckets with radix-16 subpages for oversized leaves
+(`bucket_node_format=radix16-v1`). Leaf, branch and large-value fragment writes stay below
+5,000 JSON bytes; smaller writes can increase row and write counts. Stop older writers before
+paged-node cutover. The new reader accepts unpaged v2 buckets, but old readers do not support
+paged nodes. Use a reviewed compatible checkpoint restore, not code rollback alone.
+PostgreSQL Saga uses a compact v3 head with indexed
+canonical-ancestor recovery. Canonical audit rows remain intact, and restart restores the
+same bounded 512-entry view rather than only the last entry.
+The generated audit-header column adds per-record metadata storage. Include that column and its
+index when comparing total audit size; a smaller checkpoint alone does not measure total cost.
+Schemas without the ready header/index keep v2 writes. The header projection avoids loading raw
+historical payloads during recovery and keeps the existing 512 KiB metadata-window admission.
+
+Stop all old writers before compact-head cutover. Older readers cannot use v3 checkpoints.
+Code rollback alone is insufficient: use a separately reviewed compatible checkpoint restore
+while writers are stopped. Never remove canonical audit rows to make recovery or capacity pass.
+
+Core-role checkpoint PostgreSQL suites require an isolated port-5433 validation database with all
+five service migration branches prepared. Set `FDAI_SERVICE_MIGRATIONS_READY=1` only after that
+preparation; the flag does not apply migrations. CI runs both suites explicitly in its service-owned
+database step, not against the legacy-only schema.
+
+## Explicitly recreate a disposable development database
+
+Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup
+and history requirements, stopping all local writers, and explicitly accepting data loss, use:
+
+```bash
+bash scripts/deployment/local/prepare-console-state.sh --recreate
+```
+
+This mode recreates the selected loopback `fdai` runtime database even below the normal size bound.
+It preserves the active-connection guard, paired broker-reset marker, bounded private registration
+preservation, and all five service migration branches. Missing size/connection accounting refuses
+recreation. It does not terminate connections, select another database, change identity, or delete
+unrelated Docker data. Tests still use the isolated port-5433 cluster, never this runtime database.
+
+Rebuild size is not a storage-efficiency benchmark. Record initial schema, first complete inventory,
+and matched steady workload separately. Complete authoritative initial inventory preparation before
+starting the ordinary managed stack on an empty generation.
 
 ## Preserve contracts while optimizing queries
 

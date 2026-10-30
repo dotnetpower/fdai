@@ -11,5 +11,7 @@ c393cbbd4ee6c0bc86d9332ec169076e16ec70d6:rule-catalog/code-security/evaluation/m
 a61f9e6d059a92e96e4aaa2ada1a1ea63726fefc:docs/roadmap/deployment/hub-managed-lifecycle-self-upgrade.md:generic-api-key:83
 # Variable name workload_auth followed by fencing_generation expression; renamed variable and ignore only this historical PR fingerprint.
 8e0532c53092bc8b5d9b90f4bebee6320754174e:packages/deployment-cli/tests/test_lifecycle_plan.py:generic-api-key:727
+# Repository-owned Heimdall KV namespace in a diagnostic CASE expression, not a credential; exact historical finding only.
+7e89f3228cd1b88f119f2ee4de9ad1a319b0453c:scripts/deployment/local/report-database-growth.py:generic-api-key:45
 # Inert not-a-key upload fixture, now assembled at runtime; exact historical fingerprint only.
 277d5d2bd5a86431e975b9736682bbe1a497ee6f:lifecycle/hub/ui/tests/browser/bootstrap.spec.ts:private-key:128

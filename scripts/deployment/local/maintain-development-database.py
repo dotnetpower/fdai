@@ -83,6 +83,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="explicitly discard the disposable local database generation when over its bound",
     )
+    mode.add_argument(
+        "--recreate",
+        action="store_true",
+        help="explicitly discard the stopped local database generation regardless of its size",
+    )
     parser.add_argument(
         "--recreated-marker",
         type=Path,
@@ -250,16 +255,23 @@ def main() -> int:
         raise ValueError("--recreated-marker and --preserved-state MUST be supplied together")
     maximum = _max_bytes(os.environ.get("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES"))
     maintenance_info = {**target.connection_info, "dbname": "postgres"}
-    with psycopg.connect(make_conninfo(**maintenance_info), autocommit=True) as connection:
+    with psycopg.connect(
+        make_conninfo(**maintenance_info),
+        autocommit=True,
+        connect_timeout=5,
+        options="-c statement_timeout=30000 -c lock_timeout=1000",
+    ) as connection:
         size = connection.execute("SELECT pg_database_size(%s)", (target.database,)).fetchone()
-        current = int(size[0]) if size is not None and size[0] is not None else 0
-        if current <= maximum:
+        if size is None or size[0] is None:
+            raise RuntimeError("local database size is unavailable; recreation refused")
+        current = int(size[0])
+        if current <= maximum and not args.recreate:
             print(f"local database size is within bound: {current} <= {maximum}")
             return 0
         if args.check:
             print(f"local database recreation required: {current} > {maximum}")
             return 3
-        if not args.allow_recreate:
+        if not (args.allow_recreate or args.recreate):
             print(
                 f"local database exceeds its size bound: {current} > {maximum}; "
                 "automatic recreation refused and existing data preserved. "
@@ -272,10 +284,12 @@ def main() -> int:
             "SELECT COUNT(*) FROM pg_stat_activity WHERE datname=%s",
             (target.database,),
         ).fetchone()
-        active_count = int(active[0]) if active is not None else 0
+        if active is None:
+            raise RuntimeError("local database connection count is unavailable; recreation refused")
+        active_count = int(active[0])
         if active_count:
             raise RuntimeError(
-                "local database exceeds its size bound; stop local services before preparation"
+                "local database recreation requires stopped services; stop local services"
             )
         if args.preserved_state is not None:
             _write_preserved_state(
@@ -291,7 +305,10 @@ def main() -> int:
                 sql.Identifier(target.owner),
             )
         )
-    print(f"recreated local development database after size exceeded {maximum} bytes")
+    if args.recreate:
+        print("recreated local development database after explicit --recreate request")
+    else:
+        print(f"recreated local development database after size exceeded {maximum} bytes")
     return 0
 
 
