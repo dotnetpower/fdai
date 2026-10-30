@@ -119,37 +119,45 @@ def ensure_binary(_root: Path | None = None) -> Path | None:
         return binary_path
     rustc = shutil.which("rustc")
     lock_path = bin_dir / "compile.lock"
-    if rustc is None or lock_path.is_symlink():
+    if (
+        rustc is None
+        or Path(rustc).name != "rustc"
+        or not os.access(rustc, os.X_OK)
+        or lock_path.is_symlink()
+    ):
         return None
-    with lock_path.open("a+", encoding="utf-8") as lock_file:
-        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        if _ready_binary(binary_path):
-            return binary_path
-        tmp_bin = bin_dir / f".fdai-sdlc-rs-{digest[:16]}.{os.getpid()}.tmp"
-        try:
-            rc, _out, _err = _run_subprocess(
-                [
-                    rustc,
-                    "--edition",
-                    "2021",
-                    "-O",
-                    str(MAIN_RS),
-                    "-o",
-                    str(tmp_bin),
-                ],
-                cwd=CRATE_DIR,
-                timeout=60,
-            )
-            if rc != 0 or not tmp_bin.is_file():
-                return None
-            os.chmod(tmp_bin, 0o700)
-            tmp_bin.replace(binary_path)
-            for stale in bin_dir.glob("fdai-sdlc-rs-*"):
-                if stale != binary_path:
-                    stale.unlink(missing_ok=True)
-            return binary_path if _ready_binary(binary_path) else None
-        finally:
-            tmp_bin.unlink(missing_ok=True)
+    try:
+        with lock_path.open("a+", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            if _ready_binary(binary_path):
+                return binary_path
+            tmp_bin = bin_dir / f".fdai-sdlc-rs-{digest[:16]}.{os.getpid()}.tmp"
+            try:
+                rc, _out, _err = _run_subprocess(
+                    [
+                        rustc,
+                        "--edition",
+                        "2021",
+                        "-O",
+                        str(MAIN_RS),
+                        "-o",
+                        str(tmp_bin),
+                    ],
+                    cwd=CRATE_DIR,
+                    timeout=60,
+                )
+                if rc != 0 or not tmp_bin.is_file():
+                    return None
+                os.chmod(tmp_bin, 0o700)
+                tmp_bin.replace(binary_path)
+                for stale in bin_dir.glob("fdai-sdlc-rs-*"):
+                    if stale != binary_path:
+                        stale.unlink(missing_ok=True)
+                return binary_path if _ready_binary(binary_path) else None
+            finally:
+                tmp_bin.unlink(missing_ok=True)
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def _raise_mapped_error(stderr: str) -> None:
