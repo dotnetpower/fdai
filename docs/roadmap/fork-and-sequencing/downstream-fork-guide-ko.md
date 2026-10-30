@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 755306302fc1db223e040fd693f76ef41c3705d1
-translation_revised: 2026-10-21
+translation_source_sha: 917ea35e0f1d086917fed0076ddc03db6905041f
+translation_revised: 2026-10-30
 ---
 
 # 다운스트림 포크 가이드
@@ -284,7 +284,9 @@ focused owner 문서를 사용하세요.
 포크는 지원되는 패키지, 프로바이더, 정책 데이터 및 배포 입력을 제공할 수 있지만 해당 workflow의
 이름을 바꾸거나 로컬 근거를 실제 근거로 다시 표시하거나 검토 증적 정의를 교체하거나 원본 증적
 재생 의미를 바꾸거나 독립 검토를 우회할 수 없습니다. 또한 관찰 workflow의 root
-lockfile-frozen 검증 toolchain을 교체할 수 없습니다.
+lockfile-frozen 검증 toolchain을 교체할 수 없습니다. 플랫폼 인증과 관측을 시작하기 전에 관측
+workflow는 지정된 대상 커밋의 `required` CI 검사가 성공할 때까지 최대 20분 기다립니다. 제한
+시간 안에 성공하지 않으면 실행을 차단합니다.
 
 **새 비즈니스-오브젝트 버티컬 구축**: non-Resource ObjectType
 수명 주기 (아키텍처-리뷰 제안, compliance-attestation 레코드,
