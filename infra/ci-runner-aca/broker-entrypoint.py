@@ -84,6 +84,8 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("broker returned no short-lived registration")
     request(origin, "/registered", auth)
     runner = Path("/opt/actions-runner")
+    if runner.is_symlink():
+        runner = runner.resolve()
     hook, started = runner / ".fdai-job-started.sh", runner / ".fdai-job-started"
     hook.write_text(f"#!/bin/sh\n: > '{started}'\n", encoding="utf-8")
     hook.chmod(0o555)
