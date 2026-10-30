@@ -409,8 +409,29 @@ test("serves the packaged official VM backup image without a remote image reques
       const buttonBounds = await enlarge.boundingBox();
       expect(buttonBounds?.height).toBe(viewport.width === 390 ? 44 : 32);
       expect(buttonBounds!.width).toBeLessThan(160);
-      const rationale = page.locator(".wara-guidance-rationale");
-      await expect(rationale).not.toHaveAttribute("open");
+      const rationale = page.locator(".wara-guidance-pair").first();
+      const wide = viewport.width === 1440;
+      const [imageBox, captionBox, summaryBox, navBox] = await Promise.all([
+        picture.boundingBox(),
+        figure.locator("figcaption").boundingBox(),
+        page.locator(".wara-guidance-intro-columns").boundingBox(),
+        page.locator(".wara-guidance-nav").boundingBox(),
+      ]);
+      if (!imageBox || !captionBox || !summaryBox || !navBox) throw new Error("Missing reading layout boxes");
+      const pairBoxes = await Promise.all((await rationale.locator(":scope > section").all()).map((section) => section.boundingBox()));
+      const [pairStart, pairEnd] = pairBoxes;
+      if (!pairStart || !pairEnd) throw new Error("Missing paired reading sections");
+      if (wide) {
+        expect(captionBox.x).toBeGreaterThanOrEqual(imageBox.x + imageBox.width);
+        expect(imageBox.width).toBeGreaterThan(800);
+        expect(navBox.x).toBeGreaterThanOrEqual(summaryBox.x + summaryBox.width);
+        expect(Math.abs(pairStart.y - pairEnd.y)).toBeLessThan(2);
+        expect(pairEnd.x).toBeGreaterThan(pairStart.x + pairStart.width);
+      } else {
+        expect(captionBox.y).toBeGreaterThanOrEqual(imageBox.y + imageBox.height);
+        expect(navBox.y).toBeGreaterThanOrEqual(summaryBox.y + summaryBox.height);
+        expect(pairEnd.y).toBeGreaterThanOrEqual(pairStart.y + pairStart.height);
+      }
       const nav = page.locator(".wara-guidance-nav");
       await nav.locator('a[href="#wara-verification"]').click();
       await expect(page.locator("#wara-verification")).toBeFocused();
@@ -463,7 +484,7 @@ test("serves the packaged official VM backup image without a remote image reques
   await expect(page.locator(".wara-guidance-image-print-attribution")).toBeVisible();
   await expect(page.locator(".wara-guidance-image-print-attribution")).toHaveText(image.attribution);
   await expect(page.locator(".wara-guidance-image-actions button")).not.toBeVisible();
-  await expect(page.locator(".wara-guidance-rationale > p")).toBeVisible();
+  await expect(page.locator(".wara-guidance-rationale")).toBeVisible();
   await page.emulateMedia({ media: "screen" });
 });
 

@@ -44,7 +44,7 @@ describe("WARA illustrated reading view", () => {
     expect(view.elements.filter((element) => element.type === "ol")).toHaveLength(2);
     expect(view.elements.some((element) => element.type === WaraGuidanceDiagram)).toBe(true);
     expect(view.content).toContain(guidanceText(guidance.rationale, locale));
-    expect(view.elements.findIndex((element) => element.props["class"] === "wara-guidance-rationale"))
+    expect(view.elements.findIndex((element) => element.props["name"] === "rationale"))
       .toBeGreaterThan(view.elements.findIndex((element) => element.type === WaraGuidanceDiagram));
     expect(view.elements.some((element) => "dangerouslySetInnerHTML" in element.props)).toBe(false);
     expect(view.elements.filter((element) => element.type === "a").map((element) => element.props["href"])).toContain(control.source_url);

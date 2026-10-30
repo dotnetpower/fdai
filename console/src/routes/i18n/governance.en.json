@@ -640,7 +640,6 @@
       },
       "guidance": {
         "onThisPage": "On this page",
-        "comparisonBoundary": "These are independent before and after lists, not paired rows or observed changes.",
         "explanation": "Key explanation",
         "rationale": "Why this design",
         "fullExplanation": "Read full explanation",

@@ -17,12 +17,14 @@ export function WaraGuidanceReferenceImage({ image }: { readonly image: Guidance
         <a href={image.source_document_url} target="_blank" rel="noreferrer">{t("governance.rules.wara.guidance.originalDocument")}</a>
       </div>
     </header>
-    {failed
-      ? <>
-        <p class="wara-guidance-unavailable" role="alert">{t("governance.rules.wara.guidance.imageUnavailable")}</p>
-        <p>{guidanceText(image.alt, locale)}</p>
-      </>
-      : <img src={assetUrl} alt={guidanceText(image.alt, locale)} decoding="async" onError={() => setFailed(true)} />}
+    <div class="wara-guidance-image-frame">
+      {failed
+        ? <>
+          <p class="wara-guidance-unavailable" role="alert">{t("governance.rules.wara.guidance.imageUnavailable")}</p>
+          <p>{guidanceText(image.alt, locale)}</p>
+        </>
+        : <img src={assetUrl} alt={guidanceText(image.alt, locale)} decoding="async" onError={() => setFailed(true)} />}
+    </div>
     <figcaption>
       <div class="wara-guidance-image-scope" role="note">
         <strong>{t("governance.rules.wara.guidance.imageScope")}</strong>

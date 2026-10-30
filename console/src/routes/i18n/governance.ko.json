@@ -640,7 +640,6 @@
       },
       "guidance": {
         "onThisPage": "이 페이지의 내용",
-        "comparisonBoundary": "변경 전과 후를 각각 설명한 목록입니다. 항목끼리 일대일로 대응하거나 실제 변경을 나타내지는 않습니다.",
         "explanation": "핵심 설명",
         "rationale": "설계 근거",
         "fullExplanation": "전체 설명 읽기",

@@ -116,24 +116,24 @@ verification and correct public sources. Small text, overlapping connectors or a
 generic "rule -> check -> pass" boxes do not meet that standard.
 
 The reading flow places the title, summary and benefit before the illustration without a
-duplicate summary heading. Prose uses a 76-character reading measure while illustrations keep
-the wider canvas. Implementation and verification stack vertically on constrained screens.
-Official images have a text alternative, a separately labeled scope and limitations, and
-visible document/license links. Full attribution remains available in a disclosure and in print.
+duplicate summary heading. Prose uses a bounded reading measure while illustrations keep the wider
+canvas. When the recommendation pane is wide, an on-page section list sits beside the summary, the
+official image sits beside its notes, and related sections are paired; a narrow pane stacks them in
+reading order. Official images have a text alternative, a separately labeled scope and limitations,
+and visible document/license links. Full attribution remains available in a disclosure and in print.
 A native modal offers the unchanged image at original size, keyboard-scrollable on narrow screens;
 Escape closes only that modal and returns focus to its opener. The containing recommendation
 stays open, and illustrative guidance remains separate from the actual environment assessment.
 
-The document reading surface uses the shared 16px lead scale for prose, with a consistent measure
-for configuration, procedures, cautions and assessment. Before and after content are independent
-lists: their array positions do not establish paired comparison rows. Repeated design rationale
-is available in a disclosure and remains printable; the image text alternative is not repeated as
-a second visible caption. Longer diagram descriptions move to complete linked explanations,
-without shortening their source text. Local section links move keyboard focus without changing
-the selected recommendation URL. Image commands use a compact 32px desktop height and a 44px
-narrow-screen touch target. Known assessment reasons and evidence roles use localized display
-labels and whole-day freshness limits use days; raw evidence contracts remain in technical
-details. Unknown codes stay visible rather than being interpreted or dropped.
+The document reading surface uses the shared 16px lead scale for prose. Before and after content
+are independent lists: their array positions do not establish paired comparison rows. Design
+rationale remains visible beside applicability and is printed with the document. The image text
+alternative is not repeated as a second visible caption. Longer diagram descriptions move to
+complete linked explanations, without shortening their source text. Local section links move
+keyboard focus without changing the selected recommendation URL. Image commands use a compact 32px
+desktop height and a 44px narrow-screen touch target. Known assessment reasons and evidence roles
+use localized display labels and whole-day freshness limits use days; raw evidence contracts remain
+in technical details. Unknown codes stay visible rather than being interpreted or dropped.
 
 ## Customer and asset boundaries
 
