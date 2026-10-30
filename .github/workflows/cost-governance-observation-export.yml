@@ -110,11 +110,31 @@ jobs:
           git merge-base --is-ancestor "$TARGET_COMMIT_SHA" origin/main
           git rev-list --first-parent origin/main | grep -Fx "$TARGET_COMMIT_SHA" >/dev/null
           checks="$RUNNER_TEMP/required-ci.json"
-          gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
-            > "$checks"
-          jq -e \
-            '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
-             length >= 1' "$checks" >/dev/null
+          required_ci_deadline=$((SECONDS + 1200))
+          while :; do
+            gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_COMMIT_SHA/check-runs?per_page=100" \
+              > "$checks"
+            jq -e '.check_runs | type == "array"' "$checks" >/dev/null
+            if jq -e \
+              '[.check_runs[] | select(.name == "required" and .conclusion == "success")] |
+               length >= 1' "$checks" >/dev/null; then
+              break
+            fi
+            if (( SECONDS >= required_ci_deadline )); then
+              echo "::error::Required CI did not succeed for $TARGET_COMMIT_SHA within 20 minutes."
+              jq -r '
+                [.check_runs[] | select(.name == "required") |
+                 "status=\(.status) conclusion=\(.conclusion // "pending") url=\(.html_url // "unavailable")"] |
+                if length == 0 then
+                  "No required check run was visible for the exact revision."
+                else
+                  .[]
+                end
+              ' "$checks" >&2
+              exit 1
+            fi
+            sleep 30
+          done
 
       - name: Authenticate and bind private platform state
         env:

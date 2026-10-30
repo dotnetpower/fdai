@@ -1,8 +1,8 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: f8bab6bca50c69fb34bea61e887fc94f4b6e4f71
-translation_revised: 2026-09-26
+translation_source_sha: a24f46aaf580678e097eebb3f23dd92c1704bf65
+translation_revised: 2026-10-30
 ---
 
 # FinOps 패키지 전달 계획
@@ -216,6 +216,8 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 
 - Package Install, Enable, Disable, Upgrade 및 Rollback 증적이 exact wheel, manifest,
   ontology release, runtime config 및 source revision을 연결합니다.
+- 관측 워크플로는 지정된 대상 커밋의 `required` 검사가 성공할 때까지 최대 20분 기다립니다.
+  검사에 성공한 뒤에만 플랫폼 인증과 관측을 시작합니다.
 - 실제 관찰 모드 cohort가 sample count, autonomy outcome, recovery attempt, approval reason,
   effect settlement, rollback, policy escape 및 objective regression을 보고합니다.
 - 독립 검토자가 package activation을 승인하고 각 ActionType promotion을 별도로 검토합니다.
