@@ -3,7 +3,8 @@ import { getLocale } from "../i18n";
 import { t } from "./i18n/governance";
 import type { WaraControl } from "./wara-controls.model";
 import { WaraGuidanceDiagram } from "./wara-guidance-diagram";
-import { guidanceText, type GuidanceText } from "./wara-guidance.model";
+import { WaraGuidanceReferenceImage } from "./wara-guidance-image";
+import { guidanceMissingKoreanFields, guidanceText, type GuidanceText } from "./wara-guidance.model";
 import "./wara-guidance.css";
 
 function Section({ name, children }: { readonly name: string; readonly children: ComponentChildren }) {
@@ -37,7 +38,18 @@ export function WaraGuidanceContent({ control, expanded, onExpand }: {
       </>}
     </Section>
     {guidance ? <>
-      <WaraGuidanceDiagram diagram={guidance.diagram} expanded={expanded} onExpand={onExpand} />
+      {getLocale() === "ko" && guidanceMissingKoreanFields(guidance) > 0
+        ? <p class="wara-guidance-translation-note" role="note">{t("governance.rules.wara.guidance.partialTranslation")}</p>
+        : null}
+      {guidance.reference_image
+        ? <>
+          <WaraGuidanceReferenceImage key={guidance.reference_image.asset_id} image={guidance.reference_image} />
+          <details class="wara-guidance-supplement">
+            <summary>{t("governance.rules.wara.guidance.supplementaryDiagram")}</summary>
+            <WaraGuidanceDiagram diagram={guidance.diagram} expanded={expanded} onExpand={onExpand} />
+          </details>
+        </>
+        : <WaraGuidanceDiagram diagram={guidance.diagram} expanded={expanded} onExpand={onExpand} />}
       <div class="wara-guidance-configuration-context">
       <Section name="applicability"><TextList items={guidance.applicability} /></Section>
       <Section name="configuration">

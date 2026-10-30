@@ -32,6 +32,48 @@ class GuidanceText(BaseModel):
     ko: str | None = Field(default=None, min_length=1, max_length=4_000)
 
 
+class ReferenceImage(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+    asset_id: Annotated[str, Field(pattern=r"^sha256-[a-f0-9]{64}$")]
+    digest: Digest
+    source_document_url: str = Field(min_length=1, max_length=2_048)
+    image_url: str = Field(min_length=1, max_length=2_048)
+    source_revision: Annotated[str, Field(pattern=_REVISION)]
+    attribution: str = Field(min_length=1, max_length=512)
+    license: Literal["CC-BY-4.0"]
+    license_url: Literal["https://creativecommons.org/licenses/by/4.0/"]
+    alt: GuidanceText
+    caption: GuidanceText
+    english_in_image_notice: GuidanceText
+
+    @model_validator(mode="after")
+    def validate_provenance(self) -> ReferenceImage:
+        if self.asset_id != "sha256-" + self.digest.removeprefix("sha256:"):
+            raise ValueError("WARA reference image identifier does not match its digest")
+        for value in (self.source_document_url, self.image_url):
+            parsed = urlsplit(value)
+            decoded_path = unquote(parsed.path)
+            if (
+                parsed.scheme != "https"
+                or parsed.hostname != "learn.microsoft.com"
+                or parsed.username
+                or parsed.password
+                or parsed.port is not None
+                or parsed.query
+                or parsed.fragment
+                or not decoded_path.startswith("/en-us/")
+                or "\\" in decoded_path
+                or any(part in {".", ".."} for part in decoded_path.split("/"))
+                or any(ord(char) < 32 or ord(char) > 126 for char in value)
+            ):
+                raise ValueError("WARA reference image source must be a public Learn URL")
+        for text in (self.alt, self.caption, self.english_in_image_notice):
+            if any("<" in value or ">" in value for value in (text.en, text.ko or "")):
+                raise ValueError("WARA reference image text must not contain markup")
+        return self
+
+
 class GuidanceConfiguration(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -152,6 +194,7 @@ class WaraGuidance(BaseModel):
     verification_steps: tuple[GuidanceText, ...] = Field(min_length=3, max_length=12)
     cautions: tuple[GuidanceText, ...] = Field(min_length=2, max_length=12)
     diagram: GuidanceDiagram
+    reference_image: ReferenceImage | None = None
     sources: tuple[GuidanceSource, ...] = Field(min_length=1, max_length=8)
     content_digest: Digest
 
@@ -202,7 +245,13 @@ class WaraGuidanceCatalog(BaseModel):
 def load_wara_guidance(body: bytes) -> WaraGuidanceCatalog:
     if len(body) > _MAXIMUM_BYTES:
         raise ValueError("WARA guidance catalog exceeds its byte limit")
-    return WaraGuidanceCatalog.model_validate_json(body)
+    catalog = WaraGuidanceCatalog.model_validate_json(body)
+    from .reference_image_assets import load_packaged_reference_image
+
+    for entry in catalog.entries:
+        if entry.reference_image is not None:
+            load_packaged_reference_image(entry.reference_image)
+    return catalog
 
 
 class _GuidanceShardReference(BaseModel):
@@ -314,6 +363,7 @@ def wara_guidance_detail(control: dict[str, object]) -> dict[str, object]:
 __all__ = [
     "GuidanceDiagram",
     "GuidanceText",
+    "ReferenceImage",
     "WaraGuidance",
     "WaraGuidanceCatalog",
     "assert_wara_guidance_framework",

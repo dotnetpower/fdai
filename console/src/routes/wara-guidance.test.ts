@@ -57,6 +57,14 @@ describe("WARA illustrated reading view", () => {
     expect(view.elements.some((element) => element.type === "table")).toBe(false);
   });
 
+  test.each(["en", "ko"] as const)("makes retained translation gaps explicit only in the affected locale %s", (locale) => {
+    setLocale(locale);
+    const control = fixtureControl();
+    const view = inspect(WaraGuidanceContent({ control: { ...control, guidance: fixtureGuidance(control) }, expanded: false, onExpand: () => undefined }));
+    expect(view.elements.some((element) => element.props["class"] === "wara-guidance-translation-note")).toBe(locale === "ko");
+    if (locale === "ko") expect(view.content).toContain("한국어 번역이 누락");
+  });
+
   test.each(["en", "ko"] as const)("labels disabled catalog history without reactivating assessment in %s", (locale) => {
     setLocale(locale);
     const control = { ...fixtureControl(), lifecycle: "disabled" as const };
@@ -86,5 +94,38 @@ describe("WARA illustrated reading view", () => {
     expect(presented.primaryDetail).toBe(guidance.diagram.edges[0]!.label.en);
     expect(presented.detail).toBe(detail);
     expect(guidanceNodePresentation(guidance.diagram, original, "en").primaryDetail).toBe(original.detail.en);
+  });
+
+  test("gives wide Korean text the same compact-diagram budget without truncating its explanation", () => {
+    const diagram = fixtureGuidance().diagram;
+    const original = diagram.nodes[1]!;
+    const ko = "복구 조건을 독립적으로 검증합니다. ".repeat(9);
+    const presentation = guidanceNodePresentation(diagram, { ...original, detail: { en: "Short explanation", ko } }, "ko");
+    expect(ko.length).toBeLessThan(220);
+    expect(presentation.fullExplanation).toBe(true);
+    expect(presentation.detail).toBe(ko);
+  });
+
+  test("keeps a conditional feedback link out of the primary reading order", () => {
+    const diagram = fixtureGuidance().diagram;
+    const nodes = diagram.nodes.slice(0, 3);
+    const [first, second, third] = nodes;
+    const columns = guidanceColumns({
+      ...diagram, nodes,
+      edges: [
+        { from: first!.id, to: second!.id, label: { en: "Creates" }, style: "solid" },
+        { from: second!.id, to: third!.id, label: { en: "Transfers" }, style: "solid" },
+        { from: third!.id, to: first!.id, label: { en: "Verifies" }, style: "dashed" },
+      ],
+    });
+    expect(columns.map((column) => column.map((node) => node.id))).toEqual(nodes.map((node) => [node.id]));
+  });
+
+  test("separates return routes by eight pixels and reserves top channels for skipped columns", () => {
+    const from = { x: 120, y: 80, width: 200, height: 100 };
+    const to = { x: 120, y: 240, width: 200, height: 100 };
+    expect(guidanceEdgePath(from, to, 0, true)).toContain("H 12");
+    expect(guidanceEdgePath(from, to, 1, true)).toContain("H 20");
+    expect(guidanceEdgePath(from, { ...to, x: 700 }, 1, false)).toContain("V 20");
   });
 });

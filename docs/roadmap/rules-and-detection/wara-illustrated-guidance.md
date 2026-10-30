@@ -4,7 +4,7 @@ title: Illustrated WARA guidance
 # Illustrated WARA guidance
 
 WARA guidance explains the purpose, applicability, configuration and verification of a recommendation
-through source-bound prose and an original relationship diagram. It supplements the assessment
+through source-bound prose and a reviewed illustration or original relationship diagram. It supplements the assessment
 catalog without changing any finding, approval, promotion or execution decision.
 
 > **Scope:** All 456 lifecycle recommendations are accounted for. The 393 active entries are
@@ -22,6 +22,44 @@ catalog without changing any finding, approval, promotion or execution decision.
    source metadata remain separate, with explicit missing, blocked and unavailable states.
 
 No runtime model, provider request, external image download or customer file is involved.
+Reviewed official reference images may be packaged at authoring time; they are never fetched
+from an arbitrary URL during a detail read or export.
+
+## Content and illustration remediation
+
+The full inventory needs complete Korean reader text, not English sentences wrapped in a
+Korean heading. Source citation titles, official product names and stable identifiers may retain
+their original spelling. Build-time coverage checks are separate from technical and prose review.
+
+Authoring uses `controls-ko.tsv` for each GUID's focus and observation and
+`reader-text-ko.json` for source-pinned reader overrides. Shared mechanism and qualified-diagram
+translations remain beside their generators. The offline build rejects missing translations and
+English prose disguised by Korean wrappers before writing shards. Coverage receipts include both
+translation inputs and illustration decisions; list titles remain explicitly labeled source titles.
+
+Prefer a relevant official illustration when its exact bytes, provenance and reuse conditions
+are reviewed. Retain its aspect ratio, original-language notice, localized caption and text
+alternative. A packaged image binds its digest, source document and image URL, attribution and
+license. Arbitrary image URLs, active SVG, runtime downloads and requester-selected file paths
+remain unsupported. JSON, Console, print and presentation exports preserve the same attribution.
+
+Every recommendation records its illustration decision. A custom diagram needs a specific reason,
+such as no reviewed suitable asset, a mismatch with the recommendation's scope, or inadequate
+readability. An unreviewed document is not evidence that no official image exists. Official
+illustrations can be supplemented with focused prose rather than edited to imply unsupported
+behavior. For VM backup, extension-based and agentless consistency modes, temporary-disk exclusion,
+snapshot transfer, Recovery Services vault retention and restore verification stay distinct.
+
+`reference-images.json` separates document inspection, candidate discovery, visual suitability and
+asset-specific redistribution review. A discovered image isn't an approved asset. Unresolved rights
+leave the custom diagram active without attaching a broken or unapproved image. The asset pipeline
+accepts reviewed, content-addressed PNGs of at most 2 MiB and verifies both package and Console copies.
+Synthetic image tests demonstrate transport and export behavior only, not Microsoft image approval.
+
+Custom diagrams use meaningful reading order, separated orthogonal routes and explicit relationship
+descriptions. Node intrusion alone is not a sufficient acceptance test: routing, crossings, shared
+segments, label association and bilingual readability need focused checks. Desktop acceptance
+precedes constrained and mobile layouts. Missing authenticated-browser evidence remains explicit.
 
 ## Content contract
 
@@ -35,7 +73,8 @@ Every guide includes:
 - public APRL and Microsoft Learn citations;
 - a content digest that covers all these fields.
 
-Text uses an English source and optional Korean localization with explicit English fallback.
+Text uses an English source and complete Korean reader localization in the authored corpus.
+The transport keeps English fallback for legacy records, not as evidence of translation completion.
 Machine identities, digests and serialized tokens stay unchanged across languages.
 Per-recommendation source meaning takes precedence over a reusable family illustration.
 Titles or shared diagrams alone are not substantive guidance.
@@ -73,9 +112,9 @@ The public corpus contains no presentation file, customer screenshot, customer r
 private endpoint, account, environment count or customer-derived result. Examples use neutral role
 labels and are explicitly marked illustrative.
 
-Diagrams are repository-authored node/edge data. The renderer never accepts arbitrary SVG, HTML,
-JavaScript, a document-provided image URL or a remote endpoint. A later external asset addition
-requires individually verified usage rights, attribution, a content digest and privacy review;
+Custom diagrams are repository-authored node/edge data. The renderer never accepts arbitrary SVG,
+HTML, JavaScript, a document-provided image URL or a remote endpoint. Packaged reference assets
+require individually verified usage rights, attribution, a content digest and privacy review;
 public accessibility on Microsoft Learn alone is not redistribution permission.
 
 Links are bounded HTTPS references to the original APRL source, Microsoft Learn, or the exact

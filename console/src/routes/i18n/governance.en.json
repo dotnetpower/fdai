@@ -583,7 +583,7 @@
         "unknown": "Unknown satisfaction"
       },
       "column": {
-        "recommendation": "Recommendation",
+        "recommendation": "Recommendation (source title)",
         "resourceType": "Resource type",
         "control": "Recommendation control",
         "impact": "Advisory impact"
@@ -657,9 +657,15 @@
         "after": "After - recommended example",
         "exampleBoundary": "Illustrative configuration, not an observation of your environment. These examples do not change the assessment or prove satisfaction.",
         "referenceFigure": "Original explanatory diagram - not runtime topology",
+        "partialTranslation": "This retained guide has incomplete Korean text. Missing translations use the original English; translation completion is not claimed.",
+        "officialImage": "Microsoft Learn reference image - not an observed deployment",
+        "originalImage": "Open image at original size",
+        "sourceDocument": "Source document",
+        "supplementaryDiagram": "Supplementary configuration diagram and relationships",
+        "imageUnavailable": "The packaged reference image could not be loaded. Read the text alternative and source document; no image availability or assessment result is inferred.",
         "solid": "Solid arrows",
         "dashed": "Dashed arrows",
-        "relationships": "Read all directed relationships",
+        "relationships": "Numbered connections and their meaning",
         "conditional": "conditional",
         "connection": "relationship",
         "expand": "Expand reading view",

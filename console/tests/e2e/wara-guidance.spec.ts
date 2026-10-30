@@ -1,7 +1,8 @@
 import { writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import type { WaraControl } from "../../src/routes/wara-controls.model";
-import { guidanceText } from "../../src/routes/wara-guidance.model";
+import { guidanceText, type GuidanceReferenceImage } from "../../src/routes/wara-guidance.model";
 import { signFixtureGuidance } from "../../src/routes/wara-guidance.fixture";
 import { waraCorpusControls, waraPilotControls } from "./wara-guidance-fixtures";
 
@@ -67,6 +68,18 @@ async function measure(page: Page) {
       }
     }
     const clipped = [...figure.querySelectorAll<HTMLElement>("p, strong")].filter((element) => element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1).map((element) => element.tagName);
+    const edgeNumbers = [...graph.querySelectorAll<SVGTextElement>(".wara-guidance-edge-number")].map((label) => {
+      const box = label.getBBox();
+      return { text: label.textContent, x: box.x, y: box.y, width: box.width, height: box.height };
+    });
+    const obscuredEdgeNumbers = edgeNumbers.filter((label) => nodes.some((node) =>
+      label.x < node.x + node.width && label.x + label.width > node.x
+      && label.y < node.y + node.height && label.y + label.height > node.y,
+    )).map((label) => label.text);
+    const overlappingEdgeNumbers = edgeNumbers.flatMap((label, index) => edgeNumbers.slice(index + 1).filter((other) =>
+      label.x < other.x + other.width && label.x + label.width > other.x
+      && label.y < other.y + other.height && label.y + label.height > other.y,
+    ).map((other) => `${label.text}/${other.text}`));
     const surfaces = [document.documentElement, drawer, drawer.querySelector<HTMLElement>(".rule-drawer-body")!, figure, graph].map((element) => ({ className: element.className, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }));
     const luminance = (color: string) => {
       const channels = color.match(/[\d.]+/g)!.slice(0, 3).map((part) => {
@@ -80,15 +93,17 @@ async function measure(page: Page) {
       return (Math.max(a, b) + .05) / (Math.min(a, b) + .05);
     };
     const nodeStyle = getComputedStyle(graph.querySelector(".wara-guidance-node")!);
+    const edgeNumberStyle = getComputedStyle(graph.querySelector(".wara-guidance-edge-number")!);
     const figureStyle = getComputedStyle(figure);
     const contrastRatios = {
       body: contrast(figureStyle.color, figureStyle.backgroundColor),
       nodeLabel: contrast(nodeStyle.color, nodeStyle.backgroundColor),
       nodeRole: contrast(getComputedStyle(graph.querySelector(".wara-guidance-node-role")!).color, nodeStyle.backgroundColor),
+      edgeNumber: contrast(edgeNumberStyle.fill, edgeNumberStyle.stroke),
       nodeBoundary: contrast(nodeStyle.borderColor, nodeStyle.backgroundColor),
       arrows: contrast(getComputedStyle(graph.querySelector("svg")!).color, figureStyle.backgroundColor),
     };
-    return { nodes, crossings: [...new Set(crossings)], clipped, surfaces, contrastRatios, hero, width: graph.clientWidth, height: graph.clientHeight };
+    return { nodes, crossings: [...new Set(crossings)], clipped, edgeNumbers, obscuredEdgeNumbers, overlappingEdgeNumbers, surfaces, contrastRatios, hero, width: graph.clientWidth, height: graph.clientHeight };
   });
 }
 
@@ -107,7 +122,7 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         await expect(drawer.getByRole("heading", { name: guidanceText(guidance.title, locale), exact: true })).toBeVisible();
         await expect(drawer.getByText(locale === "ko" ? "핵심 설명" : "Key explanation", { exact: true })).toBeVisible();
         await expect(drawer.locator(".wara-guidance-unavailable")).toHaveCount(0);
-        const figure = drawer.locator("figure");
+        const figure = drawer.locator(".wara-guidance-figure");
         await expect(figure.locator("[data-guidance-edge]")).toHaveCount(guidance.diagram.edges.length);
         const hero = (await measure(page)).hero;
         if (viewport.width === 1440) {
@@ -130,7 +145,10 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         const measured = await measure(page);
         expect(measured.clipped).toEqual([]);
         expect(measured.crossings).toEqual([]);
-        for (const key of ["body", "nodeLabel", "nodeRole"] as const) expect(measured.contrastRatios[key]).toBeGreaterThanOrEqual(4.5);
+        expect(measured.edgeNumbers).toHaveLength(guidance.diagram.edges.length);
+        expect(measured.obscuredEdgeNumbers).toEqual([]);
+        expect(measured.overlappingEdgeNumbers).toEqual([]);
+        for (const key of ["body", "nodeLabel", "nodeRole", "edgeNumber"] as const) expect(measured.contrastRatios[key]).toBeGreaterThanOrEqual(4.5);
         for (const key of ["nodeBoundary", "arrows"] as const) expect(measured.contrastRatios[key]).toBeGreaterThanOrEqual(3);
         expect(measured.height).toBeGreaterThan(100);
         if (viewport.width === 1440) {
@@ -144,9 +162,12 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         expect(links.some((url) => url.includes(control.source_revision))).toBe(true);
         await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`synthetic-pilot-${index}-${locale}-${viewport.width}.png`) });
         const relationships = drawer.locator(".wara-guidance-relationships");
-        await expect(relationships).not.toHaveAttribute("open");
+        await expect(relationships).toHaveAttribute("open");
         await relationships.locator("summary").focus();
         await page.keyboard.press("Enter");
+        await expect(relationships).not.toHaveAttribute("open");
+        await page.keyboard.press("Enter");
+        await expect(relationships).toHaveAttribute("open");
         await expect(relationships.locator("li")).toHaveCount(guidance.diagram.edges.length);
         for (const edge of guidance.diagram.edges) await expect(relationships).toContainText(guidanceText(edge.label, locale));
         await page.keyboard.press("Enter");
@@ -265,14 +286,14 @@ test("supports keyboard return, readable print, enlarged text, and narrow reflow
   }
 });
 
-test("smokes all 456 installed guides across all 45 diagram families on desktop (English isolated fixtures)", async ({ page }, testInfo) => {
+for (const locale of ["en", "ko"] as const) test(`smokes all 456 installed guides across all 45 diagram families on desktop (${locale} isolated fixtures)`, async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const controls = waraCorpusControls();
   expect(controls).toHaveLength(456);
   expect(new Set(controls.map((control) => control.guidance!.diagram.kind)).size).toBe(45);
   await installFixture(page, controls);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/rules?view=controls&framework=azure-wara&locale=en");
+  await page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}`);
   await expect(page.locator(".wara-controls-view .data-table")).toBeVisible();
   const rows: unknown[] = [];
   const families = new Set<string>();
@@ -287,21 +308,29 @@ test("smokes all 456 installed guides across all 45 diagram families on desktop 
       }, control.id);
       const drawer = page.getByRole("dialog");
       await expect(drawer.locator(".wara-guidance-content")).toHaveAttribute("data-recommendation-id", control.id);
-      await expect(drawer.locator("h2")).toHaveText(control.guidance!.title.en);
+      await expect(drawer.locator("h2")).toHaveText(guidanceText(control.guidance!.title, locale));
       await expect(drawer.getByRole("alert")).toHaveCount(0);
       await expect(drawer.locator(".wara-guidance-unavailable")).toHaveCount(0);
       await expect(drawer.locator(".wara-guidance-history")).toHaveCount(control.lifecycle === "disabled" ? 1 : 0);
       if (control.lifecycle === "disabled") {
         disabled += 1;
-        await expect(drawer.locator(".wara-guidance-history")).toContainText("catalog history only");
+        await expect(drawer.locator(".wara-guidance-history")).toContainText(locale === "ko" ? "카탈로그 이력" : "catalog history only");
       }
-      const figure = drawer.locator("figure");
+      if (control.guidance!.reference_image) {
+        const supplement = drawer.locator(".wara-guidance-supplement");
+        await supplement.locator(":scope > summary").click();
+        await expect(supplement).toHaveAttribute("open");
+      }
+      const figure = drawer.locator(".wara-guidance-figure");
       await expect(figure.locator("[data-guidance-edge]")).toHaveCount(control.guidance!.diagram.edges.length);
       await figure.evaluate((element) => element.scrollIntoView({ block: "start", behavior: "instant" }));
       const geometry = await measure(page);
       expect(geometry.surfaces.every((surface) => surface.scrollWidth <= surface.clientWidth), control.id).toBe(true);
       expect(geometry.clipped, control.id).toEqual([]);
       expect(geometry.crossings, control.id).toEqual([]);
+      expect(geometry.edgeNumbers).toHaveLength(control.guidance!.diagram.edges.length);
+      expect(geometry.obscuredEdgeNumbers, control.id).toEqual([]);
+      expect(geometry.overlappingEdgeNumbers, control.id).toEqual([]);
       expect(geometry.hero.figureHeight, control.id).toBeLessThanOrEqual(geometry.hero.availableHeight);
       const clippedText = await drawer.locator(".wara-guidance-content").evaluate((root) =>
         [...root.querySelectorAll<HTMLElement>("p, li, th, td, h2, strong")]
@@ -314,7 +343,7 @@ test("smokes all 456 installed guides across all 45 diagram families on desktop 
         await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`synthetic-family-${kind}.png`) });
         families.add(kind);
       }
-      rows.push({ id: control.id, kind, lifecycle: control.lifecycle, contentDigest: control.guidance!.content_digest, ...geometry });
+      rows.push({ id: control.id, locale, kind, lifecycle: control.lifecycle, contentDigest: control.guidance!.content_digest, ...geometry });
       if ((index + 1) % 32 === 0) console.info(`WARA desktop smoke: ${index + 1}/456; ${families.size}/45 families`);
     }
     expect(rows).toHaveLength(456);
@@ -323,12 +352,84 @@ test("smokes all 456 installed guides across all 45 diagram families on desktop 
   } finally {
     const path = testInfo.outputPath("full-corpus-desktop-smoke.json");
     writeFileSync(path, JSON.stringify({
-      scope: "English desktop automated geometry/contract smoke; not a human visual review of all items",
+      scope: `${locale} desktop automated geometry/contract smoke; not a human visual review of all items`,
       viewport: { width: 1440, height: 900 }, completed: rows.length, requested: 456,
       families: [...families], disabledHistoryChecked: disabled, rows,
     }, null, 2));
     await testInfo.attach("full-corpus-desktop-smoke", { path, contentType: "application/json" });
   }
+});
+
+test("renders attributed images and explicit asset failures (synthetic transport fixture, not approved Microsoft artwork)", async ({ page }, testInfo) => {
+  const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service");
+  expect(control).toBeDefined();
+  const png = Buffer.from(await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 720;
+    canvas.height = 240;
+    const context = canvas.getContext("2d")!;
+    context.fillStyle = "#eef2f6";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#25364a";
+    context.font = "24px sans-serif";
+    context.fillText("Synthetic image transport fixture", 32, 96);
+    context.fillText("No Microsoft artwork is bundled.", 32, 144);
+    return canvas.toDataURL("image/png").split(",")[1]!;
+  }), "base64");
+  const digest = createHash("sha256").update(png).digest("hex");
+  const image: GuidanceReferenceImage = {
+    asset_id: `sha256-${digest}`,
+    digest: `sha256:${digest}`,
+    source_document_url: "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction",
+    image_url: "https://learn.microsoft.com/en-us/azure/backup/media/synthetic-reference-image.png",
+    source_revision: "a".repeat(40),
+    attribution: "Synthetic fixture only; no Microsoft image is bundled.",
+    license: "CC-BY-4.0",
+    license_url: "https://creativecommons.org/licenses/by/4.0/",
+    alt: { en: "Synthetic image transport fixture", ko: "이미지 전송 검증용 합성 자료" },
+    caption: { en: "Synthetic fixture, not Microsoft artwork.", ko: "Microsoft 그림이 아닌 합성 검증 자료입니다." },
+    english_in_image_notice: { en: "Fixture labels are English.", ko: "검증용 그림의 표시는 영어입니다." },
+  };
+  await installFixture(page, [{ ...control!, guidance: signFixtureGuidance({ ...control!.guidance!, reference_image: image }) }]);
+  const path = `/wara-guidance-assets/${image.asset_id}.png`;
+  await page.route(`**${path}`, (route) => route.fulfill({ contentType: "image/png", body: png }));
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const locale of ["en", "ko"] as const) {
+      const [response] = await Promise.all([
+        page.waitForResponse((response) => response.url().endsWith(path)),
+        page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}&recommendation=${control!.id}`),
+      ]);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()["content-type"]).toContain("image/png");
+      expect(`sha256:${createHash("sha256").update(await response.body()).digest("hex")}`).toBe(image.digest);
+      const figure = page.locator(".wara-guidance-source-figure");
+      const picture = figure.getByRole("img", { name: guidanceText(image!.alt, locale), exact: true });
+      await expect(picture).toBeVisible();
+      await expect.poll(() => picture.evaluate((element) => (element as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+      await expect(figure).toContainText(guidanceText(image!.caption, locale));
+      await expect(figure).toContainText(guidanceText(image!.english_in_image_notice, locale));
+      await expect(figure).toContainText(image!.attribution);
+      await expect(figure.locator(`a[href="${image!.license_url}"]`)).toHaveText("CC-BY-4.0");
+      await expect(page.locator(".wara-guidance-supplement")).not.toHaveAttribute("open");
+      expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await figure.scrollIntoViewIfNeeded();
+      await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`synthetic-image-${locale}-${viewport.width}.png`) });
+      const supplement = page.locator(".wara-guidance-supplement");
+      await supplement.locator(":scope > summary").focus();
+      await page.keyboard.press("Enter");
+      await expect(supplement).toHaveAttribute("open");
+      await expect(page.locator("[data-guidance-edge]")).toHaveCount(control!.guidance!.diagram.edges.length);
+      const geometry = await measure(page);
+      expect(geometry.crossings).toEqual([]);
+      expect(geometry.obscuredEdgeNumbers).toEqual([]);
+      expect(geometry.surfaces.every((surface) => surface.scrollWidth <= surface.clientWidth)).toBe(true);
+    }
+  }
+  await page.route(`**${path}`, (route) => route.fulfill({ status: 404 }));
+  await page.reload();
+  await expect(page.locator(".wara-guidance-source-figure").getByRole("alert")).toBeVisible();
+  await expect(page.locator(".wara-guidance-source-figure")).toContainText(guidanceText(image!.alt, "ko"));
 });
 
 test("keeps complete long node explanations visible outside a steady primary figure (synthetic fixture)", async ({ page }, testInfo) => {
@@ -352,7 +453,7 @@ test("keeps complete long node explanations visible outside a steady primary fig
   const explanation = drawer.locator(`[data-guidance-explanation="${original.id}"]`);
   await expect(explanation).toHaveText(detail);
   await expect(explanation).toBeVisible();
-  const figure = drawer.locator("figure");
+  const figure = drawer.locator(".wara-guidance-figure");
   await figure.evaluate((element) => element.scrollIntoView({ block: "start", behavior: "instant" }));
   const before = await measure(page);
   expect(before.hero.figureHeight).toBeLessThanOrEqual(before.hero.availableHeight);

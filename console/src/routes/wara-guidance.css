@@ -24,7 +24,7 @@
 .wara-guidance-content li + li { margin-top: 10px; }
 .wara-guidance-content li { overflow-wrap: anywhere; }
 .wara-guidance-context, .wara-guidance-unavailable { color: var(--fg-muted); }
-.wara-guidance-history { margin: 0 0 16px; padding: 16px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; }
+.wara-guidance-history, .wara-guidance-translation-note { margin: 0 0 16px; padding: 16px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; }
 .wara-guidance-unavailable { padding: 16px; background: var(--bg-soft, var(--cs-shade)); border: 1px solid var(--border); border-radius: 6px; }
 .wara-guidance-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; }
 .wara-guidance-comparison th, .wara-guidance-comparison td { width: 50%; text-align: left; vertical-align: top; padding: 16px; overflow-wrap: anywhere; border: 1px solid var(--border); line-height: var(--cs-type-body-line-height); }
@@ -38,9 +38,10 @@
 .wara-guidance-figure-head h4 { margin: 4px 0 0; font-size: var(--cs-type-section-title-size); line-height: var(--cs-type-section-title-line-height); }
 .wara-guidance-eyebrow { margin: 0; color: var(--fg-muted); font-size: var(--cs-type-label-size); }
 .wara-guidance-figure button { flex-shrink: 0; }
-.wara-guidance-graph { position: relative; display: grid; grid-template-columns: repeat(var(--guidance-columns), minmax(0, 1fr)); gap: 48px; padding: 32px 0 8px 40px; }
+.wara-guidance-graph { position: relative; display: grid; grid-template-columns: repeat(var(--guidance-columns), minmax(0, 1fr)); gap: 72px; padding: var(--guidance-top, 32px) 0 8px var(--guidance-gutter, 40px); }
 .wara-guidance-graph-column { display: flex; flex-direction: column; justify-content: center; gap: 24px; min-width: 0; }
 .wara-guidance-connectors { position: absolute; inset: 0; color: var(--cs-steel); pointer-events: none; overflow: visible; }
+.wara-guidance-edge-number { fill: var(--fg); stroke: var(--bg-soft, var(--cs-shade)); stroke-width: 4px; paint-order: stroke; font-size: var(--cs-type-compact-size); font-weight: 600; }
 .wara-guidance-node { position: relative; z-index: 1; background: var(--bg-card, var(--cs-card)); border: 1px solid var(--cs-text-soft); border-radius: 6px; padding: 12px; min-width: 0; overflow-wrap: anywhere; }
 .wara-guidance-node strong { display: block; font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
 .wara-guidance-node p { margin: 8px 0 0; font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
@@ -59,6 +60,15 @@
 .wara-guidance-relationships { margin: 8px 0 24px; }
 .wara-guidance-relationships summary { cursor: pointer; padding: 8px 0; }
 .wara-guidance-relationships ol { margin-top: 12px; }
+.wara-guidance-relationships li { display: list-item; margin-top: 8px; }
+.wara-guidance-source-figure { margin: 24px 0; padding: 16px 0; }
+.wara-guidance-source-figure .wara-guidance-figure-head { flex-wrap: wrap; }
+.wara-guidance-source-figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; background: white; }
+.wara-guidance-source-figure figcaption { margin-top: 16px; }
+.wara-guidance-source-figure figcaption p { margin: 8px 0; }
+.wara-guidance-image-attribution { font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+.wara-guidance-supplement { margin: 24px 0; }
+.wara-guidance-supplement > summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
 @media (max-width: 1312px) {
   .wara-guidance-figure-head button { display: none; }
   .wara-guidance-configuration-context { grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -89,6 +99,7 @@
   .wara-drawer { animation: none; }
 }
 @media print {
+  .wara-guidance-source-figure { break-inside: avoid; }
   body:has(.wara-drawer) :not(:has(.wara-drawer)):not(.wara-drawer):not(.wara-drawer *) { display: none !important; }
   body:has(.wara-drawer) :has(.wara-drawer) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
   .wara-drawer.rule-drawer, .wara-drawer.is-expanded { display: block; position: static; width: 100%; height: auto; overflow: visible; border: 0; box-shadow: none; animation: none; }

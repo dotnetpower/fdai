@@ -13,6 +13,19 @@ export interface GuidanceEdge {
   readonly label: GuidanceText;
   readonly style: "solid" | "dashed";
 }
+export interface GuidanceReferenceImage {
+  readonly asset_id: string;
+  readonly digest: string;
+  readonly source_document_url: string;
+  readonly image_url: string;
+  readonly source_revision: string;
+  readonly attribution: string;
+  readonly license: "CC-BY-4.0";
+  readonly license_url: "https://creativecommons.org/licenses/by/4.0/";
+  readonly alt: GuidanceText;
+  readonly caption: GuidanceText;
+  readonly english_in_image_notice: GuidanceText;
+}
 export interface WaraGuidance {
   readonly schema_version: "1.0.0";
   readonly recommendation_id: string;
@@ -28,6 +41,7 @@ export interface WaraGuidance {
   readonly implementation_steps: readonly GuidanceText[];
   readonly verification_steps: readonly GuidanceText[];
   readonly cautions: readonly GuidanceText[];
+  readonly reference_image?: GuidanceReferenceImage;
   readonly diagram: {
     readonly id: string;
     readonly kind: string;
@@ -91,12 +105,67 @@ export function guidanceText(value: GuidanceText, locale: string): string {
   return locale === "ko" && value.ko ? value.ko : value.en;
 }
 
+export function guidanceMissingKoreanFields(guidance: WaraGuidance): number {
+  const image = guidance.reference_image;
+  const fields = [
+    guidance.title, guidance.summary, guidance.benefits, guidance.rationale,
+    ...guidance.applicability, ...guidance.configuration.before, ...guidance.configuration.after,
+    ...guidance.implementation_steps, ...guidance.verification_steps, ...guidance.cautions,
+    guidance.diagram.title, guidance.diagram.description,
+    ...guidance.diagram.nodes.flatMap((node) => [node.label, node.detail]),
+    ...guidance.diagram.edges.map((edge) => edge.label),
+    ...(image ? [image.alt, image.caption, image.english_in_image_notice] : []),
+  ];
+  return fields.filter((field) => !field.ko?.trim()).length;
+}
+
+function referenceImage(value: unknown): GuidanceReferenceImage {
+  const raw = object(value, [
+    "asset_id", "digest", "source_document_url", "image_url", "source_revision",
+    "attribution", "license", "license_url", "alt", "caption", "english_in_image_notice",
+  ], "reference_image");
+  const hash = digest(raw["digest"], "reference_image.digest");
+  const asset = text(raw["asset_id"], "reference_image.asset_id");
+  if (asset !== hash.replace("sha256:", "sha256-")) invalid("reference_image asset identifier does not match its digest");
+  const revision = text(raw["source_revision"], "reference_image.source_revision");
+  if (!/^[a-f0-9]{40}$/.test(revision)) invalid("reference_image.source_revision MUST be a pinned commit");
+  const sourceUrl = (key: string): string => {
+    const url = text(raw[key], `reference_image.${key}`);
+    let parsed: URL;
+    let decoded: string;
+    try { parsed = new URL(url); decoded = decodeURIComponent(url); }
+    catch { invalid(`reference_image.${key} MUST be a public Learn URL`); }
+    if (parsed.protocol !== "https:" || parsed.hostname !== "learn.microsoft.com"
+      || parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash
+      || !url.startsWith("https://learn.microsoft.com/en-us/") || url.length > 2_048 || /[^\x21-\x7e]/.test(url)
+      || decoded.includes("\\") || decoded.split("/").some((part) => part === "." || part === "..")
+      || /[\x00-\x20]/.test(decoded)) invalid(`reference_image.${key} MUST be a public Learn URL`);
+    return url;
+  };
+  if (raw["license"] !== "CC-BY-4.0" || raw["license_url"] !== "https://creativecommons.org/licenses/by/4.0/") {
+    invalid("reference_image license is not reviewed");
+  }
+  const imageText = (key: string): GuidanceText => {
+    const result = localized(raw[key], `reference_image.${key}`);
+    if (/[<>]/.test(result.en) || /[<>]/.test(result.ko ?? "") || result.en.length > 4_000 || (result.ko?.length ?? 0) > 4_000) invalid("reference_image text MUST be bounded and MUST NOT contain markup");
+    return result;
+  };
+  const attribution = text(raw["attribution"], "reference_image.attribution");
+  if (attribution.length > 512) invalid("reference_image.attribution is too long");
+  return {
+    asset_id: asset, digest: hash, source_document_url: sourceUrl("source_document_url"), image_url: sourceUrl("image_url"),
+    source_revision: revision, attribution,
+    license: "CC-BY-4.0", license_url: "https://creativecommons.org/licenses/by/4.0/",
+    alt: imageText("alt"), caption: imageText("caption"), english_in_image_notice: imageText("english_in_image_notice"),
+  };
+}
+
 export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): WaraGuidance | null {
   if (value === undefined || value === null) return null;
   const raw = object(value, [
     "schema_version", "recommendation_id", "source_revision", "source_digest", "lifecycle",
     "title", "summary", "benefits", "rationale", "applicability", "configuration",
-    "implementation_steps", "verification_steps", "cautions", "diagram", "sources", "content_digest",
+    "implementation_steps", "verification_steps", "cautions", "diagram", "sources", "content_digest", "reference_image",
   ], "entry");
   if (raw["schema_version"] !== "1.0.0") invalid("schema_version MUST be 1.0.0");
   for (const [field, expected] of [
@@ -154,6 +223,7 @@ export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): W
     implementation_steps: list(raw["implementation_steps"], 3, 12, localized, "implementation_steps"),
     verification_steps: list(raw["verification_steps"], 3, 12, localized, "verification_steps"),
     cautions: list(raw["cautions"], 2, 12, localized, "cautions"),
+    ...(raw["reference_image"] === undefined || raw["reference_image"] === null ? {} : { reference_image: referenceImage(raw["reference_image"]) }),
     diagram: { id: token(diagram["id"], "diagram.id"), kind: token(diagram["kind"], "diagram.kind"), title: localized(diagram["title"], "diagram.title"), description: localized(diagram["description"], "diagram.description"), nodes, edges },
     sources, content_digest: digest(raw["content_digest"], "content_digest"),
   };
