@@ -15,32 +15,25 @@ Consumers of this document:
 - The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md), [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
-Heimdall sensing recovery persists subject records and an ordered active-membership manifest instead
-of copying every unchanged subject into each global snapshot. Repeated exactly equal records reuse
-acknowledged durable state after checking for another writer; legacy snapshot recovery remains
-available. This storage optimization changes no AgentSpec, topic ownership, authority, approval,
-event identity, detection threshold, or required audit behavior.
+Heimdall sensing recovery persists subject records and an ordered active-membership manifest instead of copying every unchanged subject into each global snapshot.
+Repeated exactly equal records reuse acknowledged durable state after checking for another writer; legacy snapshot recovery remains available.
+This storage optimization changes no AgentSpec, topic ownership, authority, approval, event identity, detection threshold, or required audit behavior.
 
-The manifest binds each active subject's canonical digest. A subject update followed by a failed
-manifest write cannot silently restore a mixed checkpoint: recovery reports repair required.
+The manifest binds each active subject's canonical digest. A subject update followed by a failed manifest write cannot silently restore a mixed checkpoint: recovery reports repair required.
 Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
 characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
 
-Active references use 64 fixed hash buckets with durable insertion ranks. Updating or evicting a
-subject changes its bucket rather than shifting every subsequent page. The root contains a
-bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,
-bucket and root commitments before restoring the original active order. Flat manifests remain
-readable. Comparing the in-memory active reference set is still O(N); a compact root does not
-make the complete persistence path constant-cost.
+Active references use 64 fixed hash buckets with durable insertion ranks. Updating or evicting a subject changes its bucket rather than shifting every subsequent page.
+The root contains a bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,
+bucket and root commitments before restoring the original active order. Flat manifests remain readable.
+Comparing the in-memory active reference set is still O(N); a compact root does not make the complete persistence path constant-cost.
 
-Saga's PostgreSQL recovery checkpoint uses a compact versioned head rather than rewriting the
-last 512 audit envelopes on every append. The existing atomic checkpoint/audit CAS remains the
-commit boundary. A bounded optional `StateStoreAuditChainWindowReader` restores the verified
+Saga's PostgreSQL recovery checkpoint uses a compact versioned head rather than rewriting the last 512 audit envelopes on every append.
+The existing atomic checkpoint/audit CAS remains the commit boundary. A bounded optional `StateStoreAuditChainWindowReader` restores the verified
 recent window from the immutable canonical audit rows; an up-to-date in-memory mirror avoids
 reading that window on every append. Older stores retain the existing journal format.
 
-The compact head is not sufficient historical evidence by itself. Missing, truncated, divergent
-or corrupted canonical rows hold recovery; no cached-head fallback or audit sampling is added.
+The compact head is not sufficient historical evidence by itself. Missing, truncated, divergent or corrupted canonical rows hold recovery; no cached-head fallback or audit sampling is added.
 All writers need the compact-head reader before cutover. The critique boundary is write
 amplification, not relaxed chain verification: restart, independent replicas, paired CAS and
 payload/hash integrity retain their existing observable behavior.
@@ -51,8 +44,7 @@ headers rather than arbitrary historical payloads. Storage readiness is negotiat
 without that header projection retain the v2 writer, and a v3 head requires the projection.
 Header/hash recovery is distinct from the existing full physical audit-chain verification.
 The critique includes large payloads and oversized metadata, not only small-event throughput.
-The additive projection migration has explicit lock/statement deadlines; a large installation
-that cannot fit those deadlines needs a reviewed migration window rather than relaxed controls.
+The additive projection migration has explicit lock/statement deadlines; a large installation that cannot fit those deadlines needs a reviewed migration window rather than relaxed controls.
 
 ## 1. Design principles
 

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 9410d6263a10e8ea70ca8e207e51e3c4b4e5e79a
+translation_source_sha: 9ffaab080d1448675db419806ea010706d5362a3
 translation_revised: 2026-10-31
 ---
 # 에이전트 판테온
