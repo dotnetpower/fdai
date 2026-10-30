@@ -141,6 +141,9 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         await expect(legend).toContainText(locale === "ko" ? "연결 관계" : "Relationship");
         await expect(legend.locator(".wara-guidance-legend-dashed")).toHaveCount(guidance.diagram.edges.some((edge) => edge.style === "dashed") ? 1 : 0);
         await expect(legend).not.toContainText(/실선 화살표|점선 화살표|Solid arrows|Dashed arrows/);
+        expect(await figure.locator("path[data-guidance-edge]").evaluateAll((paths) => paths.map((path) => path.getAttribute("d") ?? "").every((d) => d.includes(" C ") && !/ V /.test(d)))).toBe(true);
+        await expect(drawer.locator(".wara-guidance-lead")).toHaveCSS("word-break", "keep-all");
+        if (viewport.width === 1440 && locale === "ko") expect((await drawer.locator(".wara-guidance-lead").boundingBox())!.width).toBeGreaterThan(780);
         expect(await page.evaluate(() => {
           const size = (selector: string) => parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize);
           const small = Array.from(document.querySelectorAll<HTMLElement>(".wara-guidance-content *"))

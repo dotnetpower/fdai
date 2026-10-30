@@ -2,7 +2,7 @@ import { isValidElement, toChildArray, type ComponentChildren, type VNode } from
 import { afterEach, describe, expect, test } from "vitest";
 import { setLocale } from "../i18n";
 import { WaraGuidanceContent } from "./wara-guidance";
-import { guidanceColumns, guidanceEdgePath, guidanceNodePresentation, WaraGuidanceDiagram } from "./wara-guidance-diagram";
+import { guidanceColumns, guidanceNodePresentation, WaraGuidanceDiagram } from "./wara-guidance-diagram";
 import { fixtureControl, fixtureGuidance } from "./wara-guidance.fixture";
 import { guidanceText } from "./wara-guidance.model";
 
@@ -83,8 +83,6 @@ describe("WARA illustrated reading view", () => {
     const view = inspect(WaraGuidanceContent({ control: { ...control, guidance: { ...guidance, title: { en: "<script>not executable</script>" } } }, expanded: false, onExpand: () => undefined }));
     expect(view.content).toContain("<script>not executable</script>");
     expect(guidanceColumns(guidance.diagram).flat()).toHaveLength(guidance.diagram.nodes.length);
-    expect(guidanceEdgePath({ x: 40, y: 0, width: 200, height: 100 }, { x: 288, y: 100, width: 200, height: 100 }, 0, false)).toMatch(/^M 240 50 H /);
-    expect(guidanceEdgePath({ x: 40, y: 0, width: 200, height: 100 }, { x: 40, y: 150, width: 200, height: 100 }, 0, true)).toContain("V 200");
   });
 
   test("uses a typed relationship label for long node copy while retaining the complete explanation", () => {
@@ -122,13 +120,5 @@ describe("WARA illustrated reading view", () => {
       ],
     });
     expect(columns.map((column) => column.map((node) => node.id))).toEqual(nodes.map((node) => [node.id]));
-  });
-
-  test("separates return routes by eight pixels and reserves top channels for skipped columns", () => {
-    const from = { x: 120, y: 80, width: 200, height: 100 };
-    const to = { x: 120, y: 240, width: 200, height: 100 };
-    expect(guidanceEdgePath(from, to, 0, true)).toContain("H 12");
-    expect(guidanceEdgePath(from, to, 1, true)).toContain("H 20");
-    expect(guidanceEdgePath(from, { ...to, x: 700 }, 1, false)).toContain("V 20");
   });
 });

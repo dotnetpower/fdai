@@ -10,7 +10,8 @@
 .wara-runtime { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
 .wara-runtime > h3 { font-size: var(--cs-type-lead-size); margin: 0 0 16px; }
 .wara-runtime .pill-row { margin: 16px 0; }
-.wara-guidance-content { min-width: 0; font-size: var(--cs-type-body-size); }
+.wara-guidance-content { --wara-measure: 76ch; min-width: 0; font-size: var(--cs-type-body-size); word-break: keep-all; overflow-wrap: anywhere; }
+.wara-guidance-content[data-locale="ko"] { --wara-measure: 58em; }
 .wara-guidance-content p, .wara-guidance-content li { line-height: var(--cs-type-body-line-height); }
 .wara-guidance-section { margin: 0 0 32px; min-width: 0; }
 .wara-guidance-section > h3, .wara-guidance-sources h3 { font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); margin: 0 0 12px; }
@@ -19,8 +20,8 @@
 .wara-guidance-explanation + .wara-guidance-figure { margin-top: 16px; }
 .wara-guidance-title { font-size: var(--cs-type-page-title-size); line-height: var(--cs-type-page-title-line-height); margin: 0 0 8px; overflow-wrap: anywhere; }
 .wara-guidance-intro { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
-.wara-guidance-intro-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; max-width: 76ch; }
-.wara-guidance-lead { font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); max-width: 76ch; }
+.wara-guidance-intro-columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; max-width: var(--wara-measure); }
+.wara-guidance-lead { font-size: var(--cs-type-lead-size); line-height: var(--cs-type-lead-line-height); max-width: var(--wara-measure); }
 .wara-guidance-section p { max-width: 90ch; margin: 12px 0; }
 .wara-guidance-section > ul, .wara-guidance-section > ol { max-width: 90ch; }
 .wara-guidance-intro-columns > p { margin: 0; }
@@ -105,7 +106,7 @@
 }
 @container wara-doc (min-width: 1040px) {
   .wara-guidance-source-figure > figcaption { display: block; max-width: 76ch; }
-  .wara-guidance-intro { grid-template-columns: minmax(0, 76ch) 280px; justify-content: space-between; gap: 48px; align-items: start; }
+  .wara-guidance-intro { grid-template-columns: minmax(0, var(--wara-measure)) 280px; justify-content: space-between; gap: 48px; align-items: start; }
   .wara-guidance-nav { flex-direction: column; align-items: flex-start; gap: 0; padding: 0 0 0 20px; border-block: 0; border-left: 1px solid var(--border); }
   .wara-guidance-nav strong { margin-bottom: 2px; }
   .wara-guidance-nav a { min-height: 28px; }

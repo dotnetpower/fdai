@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { getLocale } from "../i18n";
 import { t } from "./i18n/governance";
 import { guidanceText, type WaraGuidance } from "./wara-guidance.model";
+import { guidanceEdgeRoute, type EdgeRoute } from "./wara-guidance-routing";
 
 type Diagram = WaraGuidance["diagram"];
 interface Box { readonly x: number; readonly y: number; readonly width: number; readonly height: number }
@@ -48,24 +49,31 @@ export function guidanceColumns(diagram: Diagram): readonly (readonly Diagram["n
   return [0, 1, 2].map((rank) => diagram.nodes.filter((node) => ranks.get(node.id) === rank)).filter((column) => column.length > 0);
 }
 
-export function guidanceEdgePath(from: Box, to: Box, index: number, narrow: boolean, ports?: { readonly startY: number; readonly endY: number }): string {
-  const startY = ports?.startY ?? from.y + from.height / 2;
-  const endY = ports?.endY ?? to.y + to.height / 2;
-  if (!narrow && from.x > to.x) {
-    const offset = Math.min(48, 12 + index * 8);
-    return `M ${from.x} ${startY} H ${from.x - offset} V ${12 + index * 8} H ${to.x - offset} V ${endY} H ${to.x - 3}`;
-  }
-  if (!narrow && from.x + from.width < to.x) {
-    const startX = from.x + from.width;
-    if (to.x - startX > from.width) {
-      const offset = Math.min(48, 12 + index * 8);
-      return `M ${startX} ${startY} H ${startX + offset} V ${12 + index * 8} H ${to.x - offset} V ${endY} H ${to.x - 3}`;
-    }
-    const lane = Math.min(to.x - 12, startX + 16 + index * 8);
-    return `M ${startX} ${startY} H ${lane} V ${endY} H ${to.x - 3}`;
-  }
-  const lane = narrow ? 12 + index * 8 : Math.min(from.x, to.x) - 16 - index * 8;
-  return `M ${from.x} ${startY} H ${lane} V ${endY} H ${to.x - 3}`;
+function routeEdges(diagram: Diagram, boxes: Readonly<Record<string, Box>>, canvasBottom: number): readonly (EdgeRoute | null)[] {
+  const centerY = (id: string) => {
+    const box = boxes[id];
+    return box ? box.y + box.height / 2 : 0;
+  };
+  let topRank = 0;
+  let bottomRank = 0;
+  let leftRank = 0;
+  return diagram.edges.map((edge) => {
+    const from = boxes[edge.from];
+    const to = boxes[edge.to];
+    if (!from || !to) return null;
+    const outgoing = diagram.edges.filter((item) => item.from === edge.from).sort((a, b) => centerY(a.to) - centerY(b.to));
+    const incoming = diagram.edges.filter((item) => item.to === edge.to).sort((a, b) => centerY(a.from) - centerY(b.from));
+    const route = guidanceEdgeRoute(from, to, {
+      startPort: (outgoing.indexOf(edge) + 1) / (outgoing.length + 1),
+      endPort: (incoming.indexOf(edge) + 1) / (incoming.length + 1),
+      topRank, bottomRank, leftRank, canvasBottom,
+      obstacles: Object.entries(boxes).filter(([id]) => id !== edge.from && id !== edge.to).map(([, box]) => box),
+    });
+    if (route.detour === "top") topRank += 1;
+    if (route.detour === "bottom") bottomRank += 1;
+    if (route.detour === "left") leftRank += 1;
+    return route;
+  });
 }
 
 export function WaraGuidanceDiagram({ diagram, expanded, onExpand }: {
@@ -87,6 +95,7 @@ export function WaraGuidanceDiagram({ diagram, expanded, onExpand }: {
     return distance > 1 || distance < 0;
   });
   const gutter = 24 + diagram.edges.length * 8;
+  const routes = geometry ? routeEdges(diagram, geometry.boxes, geometry.height) : [];
 
   function openExplanation(nodeId: string): void {
     const explanations = explanationsRef.current;
@@ -124,24 +133,10 @@ export function WaraGuidanceDiagram({ diagram, expanded, onExpand }: {
         {geometry ? <svg class="wara-guidance-connectors" viewBox={`0 0 ${geometry.width} ${geometry.height}`} width={geometry.width} height={geometry.height} aria-hidden="true" role="presentation" focusable="false">
           <defs><marker id={marker} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" /></marker></defs>
           {diagram.edges.map((edge, index) => {
-            const from = geometry.boxes[edge.from];
-            const to = geometry.boxes[edge.to];
-            const centerY = (id: string) => {
-              const box = geometry.boxes[id];
-              return box ? box.y + box.height / 2 : 0;
-            };
-            const outgoing = diagram.edges.filter((item) => item.from === edge.from).sort((a, b) => centerY(a.to) - centerY(b.to));
-            const incoming = diagram.edges.filter((item) => item.to === edge.to).sort((a, b) => centerY(a.from) - centerY(b.from));
-            const narrow = geometry.width < 620;
-            const startY = from ? from.y + from.height * (outgoing.indexOf(edge) + 1) / (outgoing.length + 1) : 0;
-            const endY = to ? to.y + to.height * (incoming.indexOf(edge) + 1) / (incoming.length + 1) : 0;
-            const channel = diagram.edges.filter((item) => columnById.get(item.from) === columnById.get(edge.from) && columnById.get(item.to) === columnById.get(edge.to));
-            const routeIndex = narrow ? index : longEdges.includes(edge) ? longEdges.indexOf(edge) : channel.indexOf(edge);
-            return from && to ? <g key={`${edge.from}-${edge.to}-${index}`}>
-            <path data-guidance-edge={edge.style} data-edge-from={edge.from} data-edge-to={edge.to} d={guidanceEdgePath(from, to, Math.max(0, routeIndex), narrow, {
-              startY, endY,
-            })} fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray={edge.style === "dashed" ? "5 5" : undefined} marker-end={`url(#${marker})`} />
-            <text class="wara-guidance-edge-number" x={!narrow && from.x + from.width < to.x ? from.x + from.width + 8 : from.x - 8} y={startY - 5} text-anchor="middle">{index + 1}</text>
+            const route = routes[index];
+            return route ? <g key={`${edge.from}-${edge.to}-${index}`}>
+            <path data-guidance-edge={edge.style} data-edge-from={edge.from} data-edge-to={edge.to} d={route.path} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray={edge.style === "dashed" ? "5 5" : undefined} marker-end={`url(#${marker})`} />
+            <text class="wara-guidance-edge-number" x={route.labelX} y={route.labelY} text-anchor="middle">{index + 1}</text>
             </g> : null;
           })}
         </svg> : null}

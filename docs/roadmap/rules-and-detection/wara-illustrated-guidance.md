@@ -128,7 +128,10 @@ stays open, and illustrative guidance remains separate from the actual environme
 The document reading surface follows the Console type scale: 24px title, 16px summary and section
 headings, 14px body text, and no text below 12px. The diagram legend names the relationship styles
 that are drawn, shows the conditional style only when a conditional relationship exists, and
-explains that arrow numbers match the numbered connection list. Before and after content
+explains that arrow numbers match the numbered connection list. Connectors are smooth curves that
+take the shortest route that stays clear of every other node: direct between neighbors, and just
+over or under the blocking nodes otherwise. Korean text wraps at word boundaries and its summary
+uses a wider measure than English. Before and after content
 are independent lists: their array positions do not establish paired comparison rows. Design
 rationale remains visible beside applicability and is printed with the document. The image text
 alternative is not repeated as a second visible caption. Longer diagram descriptions move to

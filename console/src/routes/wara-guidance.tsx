@@ -26,7 +26,7 @@ export function WaraGuidanceContent({ control, expanded, onExpand }: {
 }) {
   const guidance = control.guidance;
   const locale = getLocale();
-  return <div class="wara-guidance-content" data-recommendation-id={control.id}>
+  return <div class="wara-guidance-content" data-recommendation-id={control.id} data-locale={locale}>
     {control.lifecycle === "disabled" ? <p class="wara-guidance-history" role="note">{t("governance.rules.wara.guidance.disabledHistory")}</p> : null}
     <h2 class="wara-guidance-title">{guidance ? guidanceText(guidance.title, locale) : control.title}</h2>
     <Section name="explanation">
