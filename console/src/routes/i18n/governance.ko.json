@@ -659,7 +659,7 @@
         "referenceFigure": "직접 작성한 설명 도식 - 실제 환경 토폴로지 아님",
         "partialTranslation": "이전에 저장한 설명에는 아직 한국어 번역이 누락된 부분이 있습니다. 해당 부분은 영어 원문으로 표시하며 번역이 완료된 것으로 보지 않습니다.",
         "officialImage": "Microsoft Learn 참고 이미지 - 실제 배포를 관측한 결과 아님",
-        "originalImage": "원본 크기로 이미지 열기",
+        "originalDocument": "원본 문서 열기",
         "sourceDocument": "출처 문서",
         "supplementaryDiagram": "보충 구성 도식과 연결 관계",
         "imageUnavailable": "패키지의 참고 이미지를 불러오지 못했습니다. 텍스트 대안과 출처 문서를 확인하세요. 이미지의 가용성이나 평가 결과를 추정하지 않습니다.",

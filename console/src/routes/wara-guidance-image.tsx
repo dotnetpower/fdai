@@ -10,7 +10,7 @@ export function WaraGuidanceReferenceImage({ image }: { readonly image: Guidance
   return <figure class="wara-guidance-source-figure" data-reference-image={image.asset_id}>
     <header class="wara-guidance-figure-head">
       <p class="wara-guidance-eyebrow">{t("governance.rules.wara.guidance.officialImage")}</p>
-      <a href={assetUrl} target="_blank" rel="noreferrer">{t("governance.rules.wara.guidance.originalImage")}</a>
+      <a href={image.source_document_url} target="_blank" rel="noreferrer">{t("governance.rules.wara.guidance.originalDocument")}</a>
     </header>
     {failed
       ? <>

@@ -659,7 +659,7 @@
         "referenceFigure": "Original explanatory diagram - not runtime topology",
         "partialTranslation": "This retained guide has incomplete Korean text. Missing translations use the original English; translation completion is not claimed.",
         "officialImage": "Microsoft Learn reference image - not an observed deployment",
-        "originalImage": "Open image at original size",
+        "originalDocument": "Open original document",
         "sourceDocument": "Source document",
         "supplementaryDiagram": "Supplementary configuration diagram and relationships",
         "imageUnavailable": "The packaged reference image could not be loaded. Read the text alternative and source document; no image availability or assessment result is inferred.",

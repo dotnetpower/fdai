@@ -410,6 +410,10 @@ test("renders attributed images and explicit asset failures (synthetic transport
       await expect(figure).toContainText(guidanceText(image!.caption, locale));
       await expect(figure).toContainText(guidanceText(image!.english_in_image_notice, locale));
       await expect(figure).toContainText(image!.attribution);
+      const originalDocument = figure.locator("header a");
+      await expect(originalDocument).toHaveAttribute("href", image.source_document_url);
+      await expect(originalDocument).toHaveText(locale === "ko" ? "원본 문서 열기" : "Open original document");
+      await expect(figure.locator(`a[href="${path}"], a[href="${image.image_url}"]`)).toHaveCount(0);
       await expect(figure.locator(`a[href="${image!.license_url}"]`)).toHaveText("CC-BY-4.0");
       await expect(page.locator(".wara-guidance-supplement")).not.toHaveAttribute("open");
       expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
