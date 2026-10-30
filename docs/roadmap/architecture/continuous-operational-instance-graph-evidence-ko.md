@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-operational-instance-graph-evidence.md
-translation_source_sha: 6c4ac6d8e80ec6822d731f768c1a4df22c9f3396
-translation_revised: 2026-10-28
+translation_source_sha: ee66aa46e03223b5a81578ddbebbb4eabe66f4cb
+translation_revised: 2026-10-30
 ---
 
 # 지속형 운영 인스턴스 그래프 근거
@@ -101,6 +101,24 @@ Event Hubs는 관측을 전달하고 OpenTelemetry는 진단을 보고하며, �
 출처 정보가 생길 때까지 현재 상태로만 유지합니다. 모든 구간은 `initial_state_only` 또는
 `snapshot_interval_only`이며, 완전한 스냅샷도 중간 전이 부재를 증명하지 못합니다. 정확히
 보존된 워터마크만 해당 커버리지를 높일 수 있습니다.
+
+## 런타임 역할의 저장 경로 검증
+
+공유 준비 단계 본문은 불변성을 유지합니다. Core는 본문 테이블에 `SELECT`, `INSERT`,
+`DELETE` 권한을 가지며 `UPDATE` 권한은 갖지 않습니다. 쓰기 경로는 참조 조정용 공유
+advisory 잠금을 유지합니다. 범위가 제한된 미참조 본문 정리는 대응하는 배타적 잠금을
+획득하고 외래 키 검사를 유지합니다. 정리 후보 조회는 빈 테이블에서도 `UPDATE` 권한을
+요구하는 `SELECT FOR UPDATE`를 사용하지 않습니다. 실제 `DELETE`가 필요한 행 잠금을
+획득하므로 런타임 권한을 확대하지 않습니다.
+
+PostgreSQL 회귀 테스트는 `SET LOCAL ROLE fdai_core`를 사용하고 `UPDATE` 권한이 없는지
+확인합니다. 빈 저장소 정리, 행·바이트 한도, 참조 중인 본문의 보존도 검증합니다.
+관리자 권한으로만 실행한 테스트로는 이 런타임 경로를 충분히 검증할 수 없습니다.
+
+로컬 데이터베이스를 재구성한 뒤에는 일반적인 수집 주기와 전체 서비스 준비성을
+확인하기 전에 최초의 권위 있는 인벤토리 준비를 완료합니다. 중단된 수집이나 이전 실행
+시점 표시는 완전한 그래프가 아닙니다. 최초 읽기도 기존에 선택한 범위와 ID를 사용하며
+관리 대상 리소스를 변경할 권한을 부여하지 않습니다.
 
 ## 대화 소비자
 
