@@ -634,9 +634,13 @@
         "evidenceScope": "Scope contract",
         "evidenceFreshness": "Freshness ceiling",
         "evidenceOwner": "Accountable owner",
-        "blockedReason": "Blocked reason"
+        "blockedReason": "Blocked reason",
+        "days": "{count} days",
+        "seconds": "{count} seconds"
       },
       "guidance": {
+        "onThisPage": "On this page",
+        "comparisonBoundary": "These are independent before and after lists, not paired rows or observed changes.",
         "explanation": "Key explanation",
         "rationale": "Why this design",
         "fullExplanation": "Read full explanation",
@@ -701,6 +705,18 @@
     }
   },
   "display": {
+    "waraLimitation": {
+      "missing_exact_evaluator": "No evaluator is bound to this exact recommendation.",
+      "undeclared_resource_type": "The resource type has no declared evaluation binding.",
+      "unsupported_join": "The required evidence relationship is not supported.",
+      "manual_evidence_fallback_available": "Optional manual evidence review is available."
+    },
+    "waraEvidence": {
+      "recovery_drill": "Recovery drill record",
+      "workload-evidence-owner": "Authoritative workload evidence owner",
+      "exact-workload-and-resource-scope": "Exact workload and resource scope",
+      "workload-reliability-owner": "Workload reliability owner"
+    },
     "status": {
       "selected": "Selected",
       "ready": "Ready",

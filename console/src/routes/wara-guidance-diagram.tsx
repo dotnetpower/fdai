@@ -10,7 +10,7 @@ interface Geometry { readonly width: number; readonly height: number; readonly b
 export function guidanceNodePresentation(diagram: Diagram, node: Diagram["nodes"][number], locale: string) {
   const detail = guidanceText(node.detail, locale);
   const readingWidth = Array.from(detail).reduce((width, character) => width + (/[\p{Script=Hangul}\p{Script=Han}\u3040-\u30ff]/u.test(character) ? 2 : 1), 0);
-  const fullExplanation = readingWidth > 220;
+  const fullExplanation = readingWidth > 140;
   const relationship = diagram.edges.find((edge) => edge.to === node.id) ?? diagram.edges.find((edge) => edge.from === node.id);
   return {
     fullExplanation,

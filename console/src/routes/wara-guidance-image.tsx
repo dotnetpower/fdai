@@ -24,7 +24,6 @@ export function WaraGuidanceReferenceImage({ image }: { readonly image: Guidance
       </>
       : <img src={assetUrl} alt={guidanceText(image.alt, locale)} decoding="async" onError={() => setFailed(true)} />}
     <figcaption>
-      <p class="wara-guidance-image-description">{guidanceText(image.alt, locale)}</p>
       <div class="wara-guidance-image-scope" role="note">
         <strong>{t("governance.rules.wara.guidance.imageScope")}</strong>
         <p>{guidanceText(image.caption, locale)}</p>

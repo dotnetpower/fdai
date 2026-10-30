@@ -9,7 +9,7 @@ import "./wara-guidance.css";
 
 function Section({ name, children }: { readonly name: string; readonly children: ComponentChildren }) {
   const label = t(`governance.rules.wara.guidance.${name}`);
-  return <section class={`wara-guidance-section wara-guidance-${name}`} aria-label={name === "explanation" ? label : undefined}>
+  return <section id={`wara-${name}`} tabIndex={-1} class={`wara-guidance-section wara-guidance-${name}`} aria-label={name === "explanation" ? label : undefined}>
     {name !== "explanation" ? <h3>{label}</h3> : null}{children}
   </section>;
 }
@@ -53,20 +53,31 @@ export function WaraGuidanceContent({ control, expanded, onExpand }: {
           </details>
         </>
         : <WaraGuidanceDiagram diagram={guidance.diagram} expanded={expanded} onExpand={onExpand} />}
+      <nav class="wara-guidance-nav" aria-label={t("governance.rules.wara.guidance.onThisPage")}>
+        {["configuration", "implementation", "verification", "runtime"].map((name) => <a key={name} href={`#wara-${name}`} onClick={(event) => {
+          event.preventDefault();
+          const target = document.getElementById(`wara-${name}`);
+          target?.focus({ preventScroll: true });
+          target?.scrollIntoView({ block: "start" });
+        }}>{t(`governance.rules.wara.guidance.${name}`)}</a>)}
+      </nav>
       <div class="wara-guidance-configuration-context">
       <Section name="applicability"><TextList items={guidance.applicability} /></Section>
       <Section name="configuration">
         <p class="wara-guidance-context">{t("governance.rules.wara.guidance.exampleBoundary")}</p>
-        <table class="wara-guidance-comparison">
-          <thead><tr><th scope="col">{t("governance.rules.wara.guidance.before")}</th><th scope="col">{t("governance.rules.wara.guidance.after")}</th></tr></thead>
-          <tbody>{Array.from({ length: Math.max(guidance.configuration.before.length, guidance.configuration.after.length) }, (_, index) => <tr key={index}>
-            <td>{guidance.configuration.before[index] ? guidanceText(guidance.configuration.before[index]!, locale) : "-"}</td>
-            <td>{guidance.configuration.after[index] ? guidanceText(guidance.configuration.after[index]!, locale) : "-"}</td>
-          </tr>)}</tbody>
-        </table>
+        <p class="wara-guidance-context">{t("governance.rules.wara.guidance.comparisonBoundary")}</p>
+        <div class="wara-guidance-comparison">
+          {(["before", "after"] as const).map((side) => <section key={side} aria-label={t(`governance.rules.wara.guidance.${side}`)}>
+            <h4>{t(`governance.rules.wara.guidance.${side}`)}</h4>
+            <TextList items={guidance.configuration[side]} />
+          </section>)}
+        </div>
       </Section>
       </div>
-      <Section name="rationale"><p>{guidanceText(guidance.rationale, locale)}</p></Section>
+      <details class="wara-guidance-rationale">
+        <summary>{t("governance.rules.wara.guidance.rationale")}</summary>
+        <p>{guidanceText(guidance.rationale, locale)}</p>
+      </details>
       <div class="wara-guidance-procedures">
         <Section name="implementation"><TextList items={guidance.implementation_steps} ordered /></Section>
         <Section name="verification"><TextList items={guidance.verification_steps} ordered /></Section>

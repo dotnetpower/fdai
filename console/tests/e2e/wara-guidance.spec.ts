@@ -195,7 +195,9 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         await expect(drawer.locator(".wara-technical")).toContainText(control.source_version);
         if (index === 1) {
           await expect(drawer.locator(".wara-technical")).toContainText("Medium");
-          await expect(drawer.locator(".wara-guidance-comparison tbody tr")).toHaveCount(3);
+          await expect(drawer.locator(".wara-guidance-comparison > section")).toHaveCount(2);
+          await expect(drawer.locator(".wara-guidance-comparison > section").first().locator("li")).toHaveCount(guidance.configuration.before.length);
+          await expect(drawer.locator(".wara-guidance-comparison > section").last().locator("li")).toHaveCount(guidance.configuration.after.length);
           await expect(drawer.locator(".wara-guidance-comparison")).toContainText(/Host|호스트/);
           await expect(drawer.locator(".wara-guidance-comparison")).toContainText(/OS\s?(?:image|이미지)|OSImage/);
           await expect(drawer.locator(".wara-guidance-comparison")).toContainText(/Guest|게스트/);
@@ -364,7 +366,19 @@ test("serves the packaged official VM backup image without a remote image reques
   const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service")!;
   const image = control.guidance!.reference_image!;
   expect(image).toBeDefined();
-  await installFixture(page, [control]);
+  await installFixture(page, [{
+    ...control,
+    limitations: ["missing_exact_evaluator", "undeclared_resource_type", "unsupported_join", "manual_evidence_fallback_available"],
+    manual_evidence: {
+      role: "fallback",
+      kind: "recovery_drill",
+      authoritative_producer: "workload-evidence-owner",
+      scope_contract: "exact-workload-and-resource-scope",
+      freshness_ceiling_seconds: 7776000,
+      accountable_owner_slot: "workload-reliability-owner",
+      blocked_reason: null,
+    },
+  }]);
   const externalImages: string[] = [];
   page.on("request", (request) => {
     if (request.resourceType() === "image" && !["localhost", "127.0.0.1"].includes(new URL(request.url()).hostname)) externalImages.push(request.url());
@@ -392,6 +406,26 @@ test("serves the packaged official VM backup image without a remote image reques
       await expect(rights).toContainText(image.attribution);
       await rights.locator("summary").click();
       const enlarge = figure.getByRole("button", { name: locale === "ko" ? "이미지 확대" : "Enlarge image", exact: true });
+      const buttonBounds = await enlarge.boundingBox();
+      expect(buttonBounds?.height).toBe(viewport.width === 390 ? 44 : 32);
+      expect(buttonBounds!.width).toBeLessThan(160);
+      const rationale = page.locator(".wara-guidance-rationale");
+      await expect(rationale).not.toHaveAttribute("open");
+      const nav = page.locator(".wara-guidance-nav");
+      await nav.locator('a[href="#wara-verification"]').click();
+      await expect(page.locator("#wara-verification")).toBeFocused();
+      expect(new URL(page.url()).searchParams.get("recommendation")).toBe(control.id);
+      await nav.locator('a[href="#wara-runtime"]').click();
+      await expect(page.locator("#wara-runtime")).toBeFocused();
+      await expect(page.locator(".wara-runtime")).not.toContainText("unknown");
+      await expect(page.locator(".wara-runtime")).toContainText(locale === "ko" ? "90일" : "90 days");
+      await expect(page.locator(".wara-runtime")).not.toContainText("missing_exact_evaluator");
+      await page.locator(".wara-technical > summary").click();
+      await expect(page.locator(".wara-technical")).toContainText("missing_exact_evaluator");
+      await expect(page.locator(".wara-technical")).toContainText("7776000");
+      await page.locator(".wara-technical > summary").click();
+      await expect(page.locator(".wara-guidance-comparison")).toContainText(guidanceText(control.guidance!.configuration.before[1]!, locale));
+      await expect(page.locator(".wara-guidance-comparison")).toContainText(guidanceText(control.guidance!.configuration.after[1]!, locale));
       await enlarge.focus();
       await page.keyboard.press("Enter");
       const preview = page.locator("dialog.wara-guidance-image-preview");
@@ -429,6 +463,7 @@ test("serves the packaged official VM backup image without a remote image reques
   await expect(page.locator(".wara-guidance-image-print-attribution")).toBeVisible();
   await expect(page.locator(".wara-guidance-image-print-attribution")).toHaveText(image.attribution);
   await expect(page.locator(".wara-guidance-image-actions button")).not.toBeVisible();
+  await expect(page.locator(".wara-guidance-rationale > p")).toBeVisible();
   await page.emulateMedia({ media: "screen" });
 });
 

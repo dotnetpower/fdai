@@ -37,11 +37,14 @@ describe("WARA illustrated reading view", () => {
     expect(view.content).toContain(guidanceText(guidance.summary, locale));
     expect(view.content).toContain(locale === "ko" ? "실제 환경을 관측한 결과가 아닌 구성 예시" : "not an observation of your environment");
     expect(view.content).toContain(locale === "ko" ? "검증 방법" : "Verification");
-    expect(view.elements.filter((element) => element.type === "table")).toHaveLength(1);
+    expect(view.elements.filter((element) => element.type === "table")).toHaveLength(0);
+    expect(view.elements.filter((element) => element.type === "nav")).toHaveLength(1);
+    expect(view.content).toContain(guidanceText(guidance.configuration.before[0]!, locale));
+    expect(view.content).toContain(guidanceText(guidance.configuration.after[0]!, locale));
     expect(view.elements.filter((element) => element.type === "ol")).toHaveLength(2);
     expect(view.elements.some((element) => element.type === WaraGuidanceDiagram)).toBe(true);
     expect(view.content).toContain(guidanceText(guidance.rationale, locale));
-    expect(view.elements.findIndex((element) => element.props["name"] === "rationale"))
+    expect(view.elements.findIndex((element) => element.props["class"] === "wara-guidance-rationale"))
       .toBeGreaterThan(view.elements.findIndex((element) => element.type === WaraGuidanceDiagram));
     expect(view.elements.some((element) => "dangerouslySetInnerHTML" in element.props)).toBe(false);
     expect(view.elements.filter((element) => element.type === "a").map((element) => element.props["href"])).toContain(control.source_url);

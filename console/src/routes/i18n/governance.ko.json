@@ -611,7 +611,7 @@
         "title": "WARA 권고 세부 정보",
         "loading": "WARA 권고 로드 중...",
         "loadFailed": "WARA 권고를 로드하지 못했습니다: {message}",
-        "boundary": "Shadow 자문 근거입니다. 카탈로그 존재와 제품 검증은 충족을 증명하지 않습니다.",
+        "boundary": "변경을 적용하지 않는 관찰 모드의 자문 정보입니다. 카탈로그 등록과 제품 검증만으로 이 권고를 충족했다고 판단하지 않습니다.",
         "sourceRevision": "원본 리비전",
         "evaluationScope": "평가 범위",
         "evaluatedAt": "평가 시각",
@@ -630,13 +630,17 @@
         "manualEvidence": "필수 수동 근거",
         "manualFallback": "선택적 수동 검토",
         "evidenceKind": "근거 종류",
-        "evidenceProducer": "권위 있는 생성자",
+        "evidenceProducer": "공식 근거 제공자",
         "evidenceScope": "범위 계약",
         "evidenceFreshness": "최신성 상한",
         "evidenceOwner": "책임 담당자",
-        "blockedReason": "차단 사유"
+        "blockedReason": "차단 사유",
+        "days": "{count}일",
+        "seconds": "{count}초"
       },
       "guidance": {
+        "onThisPage": "이 페이지의 내용",
+        "comparisonBoundary": "변경 전과 후를 각각 설명한 목록입니다. 항목끼리 일대일로 대응하거나 실제 변경을 나타내지는 않습니다.",
         "explanation": "핵심 설명",
         "rationale": "설계 근거",
         "fullExplanation": "전체 설명 읽기",
@@ -701,6 +705,18 @@
     }
   },
   "display": {
+    "waraLimitation": {
+      "missing_exact_evaluator": "이 권고에 정확히 연결된 평가기가 없습니다.",
+      "undeclared_resource_type": "리소스 유형에 대한 평가 연결이 선언되지 않았습니다.",
+      "unsupported_join": "평가에 필요한 근거 간 연결을 지원하지 않습니다.",
+      "manual_evidence_fallback_available": "필요하면 수동으로 근거를 검토할 수 있습니다."
+    },
+    "waraEvidence": {
+      "recovery_drill": "복구 훈련 기록",
+      "workload-evidence-owner": "워크로드 공식 근거 담당자",
+      "exact-workload-and-resource-scope": "정확히 지정한 워크로드 및 리소스 범위",
+      "workload-reliability-owner": "워크로드 안정성 책임자"
+    },
     "status": {
       "selected": "선택됨",
       "ready": "준비됨",

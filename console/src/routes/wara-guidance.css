@@ -10,7 +10,7 @@
 .wara-runtime { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); }
 .wara-runtime > h3 { font-size: var(--cs-type-section-title-size); margin: 0 0 16px; }
 .wara-runtime .pill-row { margin: 16px 0; }
-.wara-guidance-content { min-width: 0; }
+.wara-guidance-content { --cs-type-body-size: var(--cs-type-lead-size); min-width: 0; font-size: var(--cs-type-body-size); }
 .wara-guidance-content p, .wara-guidance-content li { line-height: var(--cs-type-body-line-height); }
 .wara-guidance-section { margin: 0 0 40px; min-width: 0; }
 .wara-guidance-section > h3, .wara-guidance-sources h3 { font-size: var(--cs-type-section-title-size); margin: 0 0 16px; }
@@ -30,11 +30,21 @@
 .wara-guidance-context, .wara-guidance-unavailable { color: var(--fg-muted); }
 .wara-guidance-history, .wara-guidance-translation-note { margin: 0 0 16px; padding: 16px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; }
 .wara-guidance-unavailable { padding: 16px; background: var(--bg-soft, var(--cs-shade)); border: 1px solid var(--border); border-radius: 6px; }
-.wara-guidance-comparison { width: 100%; table-layout: fixed; border-collapse: collapse; }
-.wara-guidance-comparison th, .wara-guidance-comparison td { width: 50%; text-align: left; vertical-align: top; padding: 16px; overflow-wrap: anywhere; border: 1px solid var(--border); line-height: var(--cs-type-body-line-height); }
-.wara-guidance-comparison th { background: var(--bg-soft, var(--cs-shade)); font-size: var(--cs-type-body-size); }
-.wara-guidance-procedures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; }
-.wara-guidance-configuration-context { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.8fr); gap: 32px; }
+.wara-guidance-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.wara-guidance-comparison > section { min-width: 0; border-top: 1px solid var(--border); padding-top: 16px; }
+.wara-guidance-comparison h4 { margin: 0 0 16px; font-size: var(--cs-type-panel-title-size); }
+.wara-guidance-procedures { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.wara-guidance-configuration-context { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.wara-guidance-configuration-context, .wara-guidance-procedures, .wara-guidance-cautions, .wara-guidance-rationale, .wara-guidance-sources, .wara-runtime { max-width: 76ch; }
+.wara-guidance-nav { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 24px 0 32px; padding: 8px 0; border-block: 1px solid var(--border); }
+.wara-guidance-nav a { display: inline-flex; align-items: center; min-height: 32px; }
+.wara-guidance-section, .wara-runtime { scroll-margin-top: 16px; }
+.wara-guidance-rationale { margin: 0 0 40px; }
+.wara-guidance-rationale summary { cursor: pointer; padding: 8px 0; font-weight: 600; }
+.wara-guidance-rationale p { line-height: var(--cs-type-body-line-height); }
+.wara-runtime { font-size: var(--cs-type-lead-size); }
+.wara-runtime ul { padding-left: 20px; margin: 0; }
+.wara-runtime li + li { margin-top: 8px; }
 .wara-guidance-sources { padding-top: 24px; border-top: 1px solid var(--border); }
 .wara-guidance-sources p { color: var(--fg-muted); font-size: var(--cs-type-compact-size); }
 .wara-guidance-figure { margin: 24px 0 0; padding: 16px; background: var(--bg-soft, var(--cs-shade)); border: 1px solid var(--border); border-radius: 8px; container-type: inline-size; }
@@ -72,9 +82,9 @@
 .wara-guidance-source-figure figcaption p { margin: 8px 0; }
 .wara-guidance-image-attribution { font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
 .wara-guidance-image-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
-.wara-guidance-source-figure .wara-guidance-image-actions button { display: inline-flex; min-height: 44px; }
+.wara-guidance-source-figure .wara-guidance-image-actions button,
+.wara-guidance-image-preview header button { display: inline-flex; align-items: center; justify-content: center; width: auto; height: 32px; min-height: 32px; padding: 0 12px; font-size: var(--cs-type-compact-size); line-height: 1.25; white-space: nowrap; }
 .wara-guidance-source-figure figcaption { max-width: 76ch; }
-.wara-guidance-image-description { font-size: var(--cs-type-body-size); }
 .wara-guidance-image-scope { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .wara-guidance-image-rights { color: var(--fg-muted); font-size: var(--cs-type-compact-size); }
 .wara-guidance-image-rights summary { cursor: pointer; padding: 8px 0; }
@@ -83,7 +93,7 @@
 .wara-guidance-image-preview::backdrop { background: rgb(0 0 0 / 55%); }
 .wara-guidance-image-preview header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .wara-guidance-image-preview h3 { margin: 0; font-size: var(--cs-type-section-title-size); }
-.wara-guidance-image-preview button { min-height: 44px; flex-shrink: 0; }
+.wara-guidance-image-preview button { min-height: 32px; flex-shrink: 0; }
 .wara-guidance-image-preview p { max-width: 76ch; }
 .wara-guidance-image-viewport { overflow: auto; max-height: 65dvh; background: white; }
 .wara-guidance-image-preview .wara-guidance-image-viewport img { max-width: none; width: auto; height: auto; }
@@ -101,6 +111,9 @@
   .wara-guidance-figure-head { flex-direction: column; gap: 16px; }
 }
 @media (max-width: 720px) {
+  .wara-guidance-comparison { grid-template-columns: minmax(0, 1fr); }
+  .wara-guidance-source-figure .wara-guidance-image-actions button,
+  .wara-guidance-image-preview header button, .wara-guidance-nav a { height: auto; min-height: 44px; }
   .wara-drawer.rule-drawer, .wara-drawer.is-expanded { width: 100vw; }
   .wara-drawer .rule-drawer-body { padding: 24px 16px; }
   .wara-drawer .rule-drawer-head { padding: 16px; }
@@ -120,6 +133,8 @@
   .wara-drawer { animation: none; }
 }
 @media print {
+  .wara-guidance-nav { display: none; }
+  .wara-guidance-rationale::details-content { content-visibility: visible; }
   .wara-guidance-image-preview, .wara-guidance-image-actions button { display: none !important; }
   .wara-guidance-image-rights { display: none; }
   .wara-guidance-image-print-attribution { display: block; }
