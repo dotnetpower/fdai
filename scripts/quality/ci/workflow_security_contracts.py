@@ -569,7 +569,7 @@ def protected_guard_prefix_errors(
         publisher = (
             candidate_guard
             and relative == ci_pool_routes.CONTAINER
-            and job_name == "build-scan-attest"
+            and (job_name == "build-scan-attest" or job_name in ci_pool_routes.CANARY_ROLES)
         )
         job_candidate_guard = candidate_guard and not publisher
         job_action_ref = production_action_ref if publisher else protected_action_ref
@@ -684,10 +684,15 @@ def protected_guard_prefix_errors(
     jobs = document["jobs"]
     if candidate_guard:
         required = jobs.get("required")
+        required_condition = (
+            ci_pool_routes.NORMAL_REQUIRED_IF
+            if relative == ci_pool_routes.CONTAINER and "canary-plan" in jobs
+            else "always()"
+        )
         if (
             "required" not in guarded_jobs
             or not isinstance(required, dict)
-            or required.get("if") not in {"always()", "${{ always() }}"}
+            or required.get("if") not in {required_condition, "${{ " + required_condition + " }}"}
         ):
             errors.append(
                 f"{relative} required job must own the CI verifier prefix and use always()"

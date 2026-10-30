@@ -493,12 +493,42 @@ owns only initial `unset` placeholders and excludes later secret changes; the in
 owns actual credentials. CI pins Terraform to the shared runner manifest and validates/tests this
 root with mocked providers. Neither a plan nor Terraform state needs the PAT or webhook key.
 
+Use an operator-approved encrypted state venue, separate from application and legacy-runner state.
+If a private backend rejects access, retain its network controls and stop provisioning until an
+approved access path or encrypted local venue is available. Successful image publication is not
+proof that the controller or pools have been provisioned.
+
 The new CI-only source guard, `.github/actions/verify-ci-runner-source`, is additive. Publish its
 trusted source first, then use that published guard for the separately reviewed stage-2 PR routing
-change. Stage 2 remains pending. The production/main-only source verifier and its authority are
+change. Routing is opt-in; operational activation remains separate. The production/main-only source verifier and its authority are
 unchanged; never substitute candidate-controlled verification code. Credential entry, image build,
 exact-target apply, quota checks, identity isolation and real execution/drain receipts remain
 operational exit criteria.
+
+### Opt-in CI routing and independent canaries
+
+`FDAI_CI_POOLS_ENABLED=true` routes eligible validation, PR image builds and main image publication
+in `ci.yml` and `container-supply-chain.yml` to the declared control/general/Docker pools. An unset
+or false flag preserves the legacy routes. The eight-shard path replaces, rather than duplicates,
+the ordinary regression suite. Service-container jobs use Docker VMs; source admission finishes
+before dependent privileged jobs start. The final required job verifies its own source even when
+an upstream check fails.
+
+The image publisher keeps its own production source prefix, existing permissions/environment and
+main-only condition. Release, deployment, Pages and governance workflows remain separate authority
+paths; this switch is not a repository-wide authority migration.
+
+Before global activation, dispatch the protected-main container workflow with `canary=true`,
+`images=canary`, the exact current `commit_sha`, and explicit `canary_pool`, `canary_count`,
+`canary_hold_seconds` and `canary_kind`. This path does not publish images or cancel other runs.
+Counts are bounded to 4/64/16 for control/general/Docker; holds are 120-180 seconds. Independent
+GitHub observations must prove exact successful job accounting, actual requested concurrency and
+the selected warm/burst queue thresholds. Simulated receipts and a successful dispatch are not
+acceptance evidence.
+
+The focused pre-push workflow gate includes legacy SSD/elastic and image-publication contract
+consumers alongside the new pool/canary tests. Static workflow checks alone do not verify that
+every existing selector and source-revision assertion still matches the enabled and rollback paths.
 
 ### Design critique and revision
 

@@ -16,6 +16,11 @@ cannot remain generic. Deployment values, tenant identity, secrets, environment,
 state remain in deployment configuration or a secret store. The rules below let a fork sync with
 upstream without conflict and keep customer values out of upstream history.
 
+CI runner selection is a separate operator choice. A fork marker does not enable elastic pools,
+grant publication authority or select a deployment target. Configure the pool flag and isolated
+controller credentials outside source, retain native PR approval and production source verification,
+and verify capacity before activation. See the [CI pool design](../deployment/deployment-resource-conventions.md#opt-in-ci-routing-and-independent-canaries).
+
 Prerequisites: read
 [project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)
 first for the DI seam catalog, plus

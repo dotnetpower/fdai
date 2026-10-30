@@ -33,6 +33,7 @@
     }
   },
   "jobs": {
+    "ci-admission": "control",
     "changes": "control",
     "protected-ci-source": "control",
     "required": "control",
@@ -51,10 +52,24 @@
     "db-integration": "docker",
     "terraform-validate": "general"
   },
+  "workflow_jobs": {
+    ".github/workflows/container-supply-chain.yml": {
+      "ci-admission": "control",
+      "select-images": "control",
+      "pr-build-scan": "docker",
+      "required": "control",
+      "build-scan-attest": "docker",
+      "canary-plan": "control",
+      "canary-control": "control",
+      "canary-general": "general",
+      "canary-docker": "docker",
+      "canary-results": "control"
+    }
+  },
   "slo": {
     "warm_queue_p95_seconds": 15,
     "burst_queue_p99_seconds": 90,
     "maximum_queue_seconds": 120,
-    "burst_stages": [8, 16, 32, 64]
+    "burst_stages": [1, 4, 8, 16, 32, 64]
   }
 }

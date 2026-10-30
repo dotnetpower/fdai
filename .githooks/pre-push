@@ -294,6 +294,11 @@ for f in "${changed_paths[@]}"; do
     .githooks/pre-push | \
     scripts/quality/ci/* | \
     tests/integration/scripts/test_check_ci_contracts.py | \
+    tests/integration/scripts/test_ci_pool_routing.py | \
+    tests/integration/scripts/test_ci_pool_canary.py | \
+    tests/integration/infra/test_ci_runner_elastic.py | \
+    tests/integration/infra/test_ci_ssd_runner.py | \
+    tests/integration/services/test_service_images.py | \
     tests/integration/test_structural_gates_drift.py)
       workflow_contract_changed=1
       break
@@ -312,6 +317,11 @@ if [ "$workflow_contract_changed" -eq 1 ]; then
     env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
     uv run --extra dev pytest -q --no-cov \
     tests/integration/scripts/test_check_ci_contracts.py \
+    tests/integration/scripts/test_ci_pool_routing.py \
+    tests/integration/scripts/test_ci_pool_canary.py \
+    tests/integration/infra/test_ci_runner_elastic.py \
+    tests/integration/infra/test_ci_ssd_runner.py \
+    tests/integration/services/test_service_images.py \
     tests/integration/test_structural_gates_drift.py
   '; then
     echo "pre-push: BLOCKED - workflow contract regression tests failed."

@@ -512,9 +512,10 @@ def _validate_action_runtime_versions() -> list[str]:
         }
         for reference in uses_values:
             if reference.startswith("./"):
-                if reference != PROTECTED_WORKFLOW_ACTION_REF and not _local_action_is_audited(
-                    reference, action_definitions
-                ):
+                if reference not in {
+                    PROTECTED_WORKFLOW_ACTION_REF,
+                    workflow_security.CI_CANDIDATE_ACTION_REF,
+                } and not _local_action_is_audited(reference, action_definitions):
                     errors.append(
                         f"{relative} uses local action without an audited regular manifest: "
                         f"{reference}"

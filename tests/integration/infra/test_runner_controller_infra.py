@@ -641,6 +641,21 @@ def test_image_capture_verifies_source_before_exact_builder_cleanup(
         == builder.ids["image"]
     )
     calls = builder.az.call_args_list
+    expected_tags = {"fdai:image-builder": "true", "fdai:source-sha": image_args.source_sha}
+    for call in calls:
+        args = list(call.args)
+        if "--tags" not in args:
+            continue
+        start = args.index("--tags") + 1
+        end = next(
+            (index for index in range(start, len(args)) if args[index].startswith("--")), len(args)
+        )
+        values = args[start:end]
+        aaz = args[1:3] == ["sig", "create"] or args[1:4] == ["network", "nic", "create"]
+        parsed_tags = (
+            json.loads(values[0]) if aaz else dict(value.split("=", 1) for value in values)
+        )
+        assert parsed_tags == expected_tags and (not aaz or len(values) == 1)
     stages = [call.args[0] for call in calls]
     assert stages.index("verify_image") < stages.index("delete_builder")
     vm_args = next(call.args for call in calls if call.args[0] == "create_vm")
@@ -788,3 +803,117 @@ def test_gallery_definition_requires_generalized_trusted_launch_source(
     builder.az = Mock(return_value=definition)
     with pytest.raises(image_builder.BuildError, match="trusted_launch_definition_required"):
         builder.verify_definition()
+
+
+@pytest.mark.skipif(
+    not Path("/opt/az/bin/python3").is_file(), reason="Azure CLI Python is unavailable"
+)
+def test_image_tags_match_installed_cli_parsers_offline(
+    image_builder: ModuleType,
+    image_args: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(image_builder.shutil, "which", lambda executable: "/usr/bin/az")
+    builder = image_builder.Builder(image_args)
+    cases = {
+        "sig create": builder.tag_arguments(aaz=True)[1:],
+        "network nic create": builder.tag_arguments(aaz=True)[1:],
+        **{
+            name: builder.tag_arguments()[1:]
+            for name in (
+                "sig image-definition create",
+                "sig image-version create",
+                "vm create",
+                "tag update",
+            )
+        },
+    }
+    script = r"""
+import argparse, contextlib, io, json, socket, sys
+from unittest.mock import patch
+import requests.sessions
+from azure.cli.core import get_default_cli
+from azure.cli.core._profile import Profile
+from azure.cli.core.aaz import AAZCommand
+from azure.cli.core.azclierror import InvalidArgumentValueError
+from azure.core.credentials import AccessToken
+
+class OfflineNetworkBlocked(RuntimeError):
+    pass
+
+def deny(*args, **kwargs):
+    raise OfflineNetworkBlocked("offline_network_blocked")
+
+def deny_credentials(*args, **kwargs):
+    raise AssertionError("credential_read_blocked")
+
+class Credential:
+    def get_token(self, *args, **kwargs):
+        return AccessToken("synthetic-offline-token", 4102444800)
+
+subscription = "00000000-0000-0000-0000-000000000000"
+profile = {"id": subscription, "tenantId": subscription, "name": "offline-example",
+           "environmentName": "AzureCloud", "user": {"name": "offline", "type": "servicePrincipal"}}
+credentials = (Credential(), subscription, subscription)
+cases, expected = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+with patch.object(requests.sessions.Session, "send", deny), \
+     patch.object(socket.socket, "connect", deny), \
+     patch.object(socket.socket, "connect_ex", deny), \
+     patch.object(socket.socket, "sendto", deny), \
+     patch.object(socket, "getaddrinfo", deny), \
+     patch.object(Profile, "get_subscription", return_value=profile), \
+     patch.object(Profile, "get_login_credentials", return_value=credentials), \
+     patch.object(Profile, "get_raw_token", deny_credentials):
+    for name, values in cases.items():
+        cli = get_default_cli()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            try:
+                cli.invoke([*name.split(), "--help"])
+            except (SystemExit, OfflineNetworkBlocked):
+                assert name in cli.invocation.commands_loader.command_table
+        command = cli.invocation.commands_loader.command_table[name]
+        settings = command.arguments["tags"].type.settings
+        if isinstance(command, AAZCommand):
+            def parse(values):
+                parser = argparse.ArgumentParser(add_help=False)
+                parser.add_argument("--tags", **{
+                    key: value for key, value in settings.items()
+                    if key in ("action", "nargs", "dest")
+                })
+                namespace = parser.parse_args(["--tags", *values])
+                return namespace.tags
+            assert len(values) == 1 and json.loads(values[0]) == expected
+            assert type(parse(values)).__name__ == "AAZArgActionOperations"
+            rejected = False
+            try:
+                parse([f"{key}={value}" for key, value in expected.items()])
+            except InvalidArgumentValueError:
+                rejected = True
+            assert rejected
+        else:
+            namespace = argparse.Namespace(tags=values)
+            settings["validator"](namespace)
+            assert namespace.tags == expected
+            wrong = argparse.Namespace(tags=[json.dumps(expected)])
+            settings["validator"](wrong)
+            assert wrong.tags != expected
+print("offline_tag_parser_contracts_passed")
+"""
+    result = subprocess.run(  # noqa: S603 - Fixed interpreter and synthetic parser-only arguments.
+        ["/opt/az/bin/python3", "-c", script, json.dumps(cases), json.dumps(builder.tags)],
+        capture_output=True,
+        timeout=90,
+        check=False,
+        env={
+            "HOME": str(tmp_path),
+            "AZURE_CONFIG_DIR": str(tmp_path),
+            "TMPDIR": str(tmp_path),
+            "PATH": "/opt/az/bin:/usr/bin:/bin",
+            "PYTHONDONTWRITEBYTECODE": "1",
+            "AZURE_CORE_COLLECT_TELEMETRY": "no",
+            "AZURE_EXTENSION_USE_DYNAMIC_INSTALL": "no",
+        },
+    )
+    assert result.returncode == 0, "Offline Azure CLI tag parser contract failed"
+    assert b"offline_tag_parser_contracts_passed" in result.stdout

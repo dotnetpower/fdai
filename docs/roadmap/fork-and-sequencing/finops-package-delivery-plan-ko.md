@@ -1,7 +1,7 @@
 ---
 title: FinOps 패키지 전달 계획
 translation_of: finops-package-delivery-plan.md
-translation_source_sha: a24f46aaf580678e097eebb3f23dd92c1704bf65
+translation_source_sha: 0a8cb010bd27bcdf0ea21841e53cb1d16832e50f
 translation_revised: 2026-10-30
 ---
 
@@ -122,6 +122,12 @@ release, 자산 inventory 및 안정적인 식별자 집합으로 수렴한 뒤�
 - 활성화 실패가 현재의 변경할 수 없는 런타임을 바꾸지 않습니다.
 - Core가 `fdai_cost_governance` 모듈을 가져오지 않습니다.
 - 패키지가 없어도 기본 컨트롤 플레인이 정상이며 비용 거버넌스 unavailable을 보고합니다.
+
+패키지 검증과 이미지 빌드는 명시적으로 활성화한 탄력적 CI 풀을 사용할 수 있습니다.
+이 러너 프로필을 선택하더라도 비용 거버넌스 패키지를 선택하거나 활성화하거나 승격하지 않습니다.
+이미지 게시 작업은 자체 보호된 main 소스 검증, 권한, 환경, 명시적 이미지 선택을 유지합니다.
+별도의 main 전용 풀 canary는 패키지 이미지를 게시하지 않습니다. 러너 준비 상태와 실제 용량
+수용 검증은 [CI 풀 설계](../deployment/deployment-resource-conventions-ko.md#명시적-ci-경로-전환과-독립-canary-검증)를 따릅니다.
 
 ## W3 - 타입이 지정된 15개 에이전트 choreography
 

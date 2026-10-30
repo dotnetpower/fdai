@@ -81,9 +81,35 @@ on:
         type: string
         required: true
       images:
-        description: "Comma-separated runtime targets/image names (cost-governance separately), or all."
+        description: "Publication targets or all; ignored when canary=true (use canary)."
         type: string
         required: true
+      canary:
+        description: "Run isolated pool acceptance only; never publish images."
+        type: boolean
+        default: false
+      canary_pool:
+        description: "Fixed runner pool for this canary."
+        type: choice
+        options: [control, general, docker]
+        default: general
+      canary_count:
+        description: "Concurrent jobs; control <=4, general <=64, docker <=16."
+        type: number
+        default: 1
+      canary_hold_seconds:
+        description: "Hold 120-180 seconds; use 180 for cold bursts."
+        type: number
+        default: 120
+      canary_kind:
+        description: "Queue SLO to verify."
+        type: choice
+        options: [warm, burst]
+        default: warm
+
+concurrency:
+  group: ci-container-candidates-${{ github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -95,19 +121,56 @@ env:
   IMAGE_TAG: sha-${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}
 
 jobs:
+  ci-admission:
+    name: Verify CI source admission
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && !inputs.canary)
+    runs-on: >-
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - &ci-source-checkout
+        name: Checkout CI source verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-ci-runner-source
+          path: .fdai-ci-source-verifier
+          persist-credentials: false
+      - &ci-source-verify
+        name: Verify CI candidate source
+        id: ci-source
+        uses: ./.fdai-ci-source-verifier/.github/actions/verify-ci-runner-source
+        with:
+          target-commit-sha: ${{ github.sha }}
+          workflow-path: .github/workflows/container-supply-chain.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
   select-images:
+    needs: ci-admission
     if: >-
       github.event_name == 'pull_request' ||
       (github.event_name == 'workflow_dispatch' &&
-        github.ref == 'refs/heads/main')
-    runs-on: ubuntu-24.04
+        github.ref == 'refs/heads/main' && !inputs.canary)
+    runs-on: >-
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
     timeout-minutes: 10
     permissions:
       contents: read
+      actions: read
+      pull-requests: read
     outputs:
       matrix: ${{ steps.select.outputs.matrix }}
       has_images: ${{ steps.select.outputs.has_images }}
     steps:
+      - *ci-source-checkout
+      - *ci-source-verify
+
       - name: Checkout protected workflow verifier
         if: github.event_name != 'pull_request'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -165,11 +228,12 @@ jobs:
           fi
 
   pr-build-scan:
-    needs: select-images
+    needs: [ci-admission, select-images]
     if: >-
       github.event_name == 'pull_request' &&
       needs.select-images.outputs.has_images == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: >-
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-docker"]') || fromJSON('["ubuntu-24.04"]') }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -254,8 +318,10 @@ jobs:
     if: >-
       needs.select-images.outputs.has_images == 'true' &&
       github.event_name == 'workflow_dispatch' &&
-      github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+      github.ref == 'refs/heads/main' &&
+      !inputs.canary
+    runs-on: >-
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-docker"]') || fromJSON('["ubuntu-24.04"]') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -266,6 +332,22 @@ jobs:
       attestations: write
       id-token: write
     steps:
+      - name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+      - name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ env.TARGET_COMMIT_SHA }}
+          workflow-path: .github/workflows/container-supply-chain.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -453,3 +535,180 @@ jobs:
           subject-digest: ${{ steps.push.outputs.digest }}
           sbom-path: sbom-${{ matrix.target }}-${{ env.TARGET_COMMIT_SHA }}.spdx.json
           push-to-registry: true
+
+  required:
+    name: container PR validation
+    if: always() && !(github.event_name == 'workflow_dispatch' && inputs.canary)
+    needs: [ci-admission, select-images, pr-build-scan, build-scan-attest]
+    runs-on: >-
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - *ci-source-checkout
+      - *ci-source-verify
+      - name: Require CI packaging admission and checks
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          results = json.loads(os.environ["NEEDS_JSON"])
+          failures = {name: job["result"] for name, job in results.items()
+                      if job["result"] not in {"success", "skipped"}}
+          if results.get("ci-admission", {}).get("result") != "success":
+              failures["ci-admission"] = "admission did not succeed"
+          if failures:
+              raise SystemExit("CI packaging dependencies failed")
+          PY
+
+  canary-plan:
+    name: plan pool canary
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.canary == true
+    runs-on: [self-hosted, Linux, X64, fdai-ci-control]
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env: &canary-input-env
+      CANARY_ENABLED: ${{ inputs.canary }}
+      CANARY_POOL: ${{ inputs.canary_pool }}
+      CANARY_COUNT: ${{ inputs.canary_count }}
+      CANARY_HOLD_SECONDS: ${{ inputs.canary_hold_seconds }}
+      CANARY_KIND: ${{ inputs.canary_kind }}
+      CANARY_TARGET_SHA: ${{ inputs.commit_sha }}
+    outputs:
+      pool: ${{ steps.plan.outputs.pool }}
+      count: ${{ steps.plan.outputs.count }}
+      hold_seconds: ${{ steps.plan.outputs.hold_seconds }}
+      matrix_control: ${{ steps.plan.outputs.matrix_control }}
+      matrix_general: ${{ steps.plan.outputs.matrix_general }}
+      matrix_docker: ${{ steps.plan.outputs.matrix_docker }}
+    steps:
+      - &canary-production-checkout
+        name: Checkout protected workflow verifier
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 1
+          sparse-checkout: .github/actions/verify-protected-workflow-source
+          path: .fdai-protected-workflow-verifier
+      - &canary-production-verify
+        name: Verify protected workflow source
+        id: protected-source
+        uses: ./.fdai-protected-workflow-verifier/.github/actions/verify-protected-workflow-source
+        with:
+          target-commit-sha: ${{ github.sha }}
+          workflow-path: .github/workflows/container-supply-chain.yml
+          origin-url: ${{ github.server_url }}/${{ github.repository }}.git
+          github-token: ${{ github.token }}
+      - &canary-tools-checkout
+        name: Checkout protected canary tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate explicit canary inputs
+        id: plan
+        run: python3 scripts/quality/ci/ci_pool_canary.py plan
+
+  canary-control:
+    name: pool canary / control / ${{ matrix.slot }}
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.canary == true && needs.canary-plan.outputs.pool == 'control'
+    needs: canary-plan
+    runs-on: [self-hosted, Linux, X64, fdai-ci-control]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.canary-plan.outputs.matrix_control) }}
+    permissions:
+      contents: read
+    env: *canary-input-env
+    steps: &canary-worker-steps
+      - *canary-production-checkout
+      - *canary-production-verify
+      - *canary-tools-checkout
+      - name: Verify canary isolation and Docker runtime
+        env:
+          CANARY_SLOT: ${{ matrix.slot }}
+        run: python3 scripts/quality/ci/ci_pool_canary.py check
+      - name: Hold pool canary capacity
+        env:
+          CANARY_SLOT: ${{ matrix.slot }}
+        run: python3 scripts/quality/ci/ci_pool_canary.py hold
+      - name: Upload canary observation
+        if: always() && steps.protected-source.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-pool-canary-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.canary_pool }}-${{ matrix.slot }}
+          path: artifacts/ci-canary/observation-*.json
+          if-no-files-found: error
+          retention-days: 7
+
+  canary-general:
+    name: pool canary / general / ${{ matrix.slot }}
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.canary == true && needs.canary-plan.outputs.pool == 'general'
+    needs: canary-plan
+    runs-on: [self-hosted, Linux, X64, fdai-ci-general]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 64
+      matrix: ${{ fromJSON(needs.canary-plan.outputs.matrix_general) }}
+    permissions:
+      contents: read
+    env: *canary-input-env
+    steps: *canary-worker-steps
+
+  canary-docker:
+    name: pool canary / docker / ${{ matrix.slot }}
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.canary == true && needs.canary-plan.outputs.pool == 'docker'
+    needs: canary-plan
+    runs-on: [self-hosted, Linux, X64, fdai-ci-docker]
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 16
+      matrix: ${{ fromJSON(needs.canary-plan.outputs.matrix_docker) }}
+    permissions:
+      contents: read
+    env: *canary-input-env
+    steps: *canary-worker-steps
+
+  canary-results:
+    name: collect pool canary
+    if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.canary == true
+    needs: [canary-plan, canary-control, canary-general, canary-docker]
+    runs-on: [self-hosted, Linux, X64, fdai-ci-control]
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env: *canary-input-env
+    steps:
+      - *canary-production-checkout
+      - *canary-production-verify
+      - *canary-tools-checkout
+      - name: Download this attempt's observations
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ci-pool-canary-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: canary-observations
+          merge-multiple: true
+      - name: Collect independently verified canary receipt
+        if: always() && steps.protected-source.outcome == 'success'
+        env:
+          CANARY_GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/quality/ci/ci_pool_canary.py collect
+      - name: Upload redacted canary receipt
+        if: always() && steps.protected-source.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ci-pool-canary-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/ci-canary/receipt.json
+          if-no-files-found: error
+          retention-days: 7

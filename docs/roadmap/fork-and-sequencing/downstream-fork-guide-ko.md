@@ -1,7 +1,7 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 917ea35e0f1d086917fed0076ddc03db6905041f
+translation_source_sha: 508024a7c6304687401b38a149ba84cac01a4057
 translation_revised: 2026-10-30
 ---
 
@@ -17,6 +17,11 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 오버레이가 들어갑니다. 배포 값, 테넌트 신원, 시크릿, 환경, 승격 상태는
 배포 구성 또는 시크릿 저장소에 남습니다. 아래 규칙은 포크가 충돌 없이
 업스트림과 sync하고 업스트림 이력에 customer 값이 들어가지 않게 합니다.
+
+CI 러너 선택은 운영자가 별도로 결정합니다. 포크 표시만으로 탄력적 풀을 활성화하거나 게시
+권한을 부여하거나 배포 대상을 선택하지 않습니다. 풀 플래그와 격리된 컨트롤러 자격증명은
+소스 밖에서 구성하고, 기존 PR 승인과 프로덕션 소스 검증을 유지하며 활성화 전에 용량을
+검증합니다. [CI 풀 설계](../deployment/deployment-resource-conventions-ko.md#명시적-ci-경로-전환과-독립-canary-검증)를 참조하세요.
 
 전제 조건: DI 경계 카탈로그를 먼저
 [project-structure.md § Customization via 의존성 주입](../architecture/project-structure-ko.md#customization-via-dependency-injection)에서

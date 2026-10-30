@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from scripts.quality.ci.ci_pool_routes import runner_expression
 
 ROOT = Path(__file__).resolve().parents[3]
 INFRA = ROOT / "infra" / "ci-runner"
@@ -24,29 +25,38 @@ _ELIGIBLE = (
 )
 
 
-def test_workflow_routes_all_main_regression_shards_without_moving_prs() -> None:
+def test_workflow_preserves_legacy_pr_and_ssd_routes_when_pools_are_disabled() -> None:
     workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
     job = workflow["jobs"]["python-tests"]
-    assert job["runs-on"] == "ubuntu-24.04"
+    general = ["self-hosted", "Linux", "X64", "fdai-ci-general"]
+    assert job["runs-on"] == runner_expression(general)
     assert job["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
     assert " ".join(job["if"].split()) == (
-        "needs.changes.outputs.python == 'true' && "
+        "vars.FDAI_CI_POOLS_ENABLED != 'true' && needs.changes.outputs.python == 'true' && "
         "((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
         "vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') || "
         "github.ref != 'refs/heads/main' || github.event_name == 'pull_request')"
     )
     ssd = workflow["jobs"]["python-tests-ssd"]
-    assert ssd["runs-on"] == ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-ssd"]
+    assert ssd["runs-on"] == runner_expression(
+        general, ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-ssd"]
+    )
     assert ssd["env"]["FDAI_PYTEST_MAX_WORKERS"] == "3"
     assert ssd["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
     assert ssd["strategy"]["matrix"]["shard"] == [1, 2, 3, 4]
     assert ssd["strategy"]["max-parallel"] == 4
     assert ssd["steps"] == job["steps"]
-    assert " ".join(ssd["if"].split()) == ("needs.changes.outputs.python == 'true' && " + _ELIGIBLE)
+    assert " ".join(ssd["if"].split()) == (
+        "vars.FDAI_CI_POOLS_ENABLED != 'true' && needs.changes.outputs.python == 'true' && "
+        + _ELIGIBLE
+    )
     assert "protected-ci-source" in ssd["needs"]
     assert "python-tests-ssd" in workflow["jobs"]["required"]["needs"]
-    assert workflow["jobs"]["python-coverage-shards"]["runs-on"] == "ubuntu-24.04"
-    assert workflow["jobs"]["db-integration"]["runs-on"] == "ubuntu-24.04"
+    assert "ci-admission" in ssd["needs"]
+    assert workflow["jobs"]["python-coverage-shards"]["runs-on"] == runner_expression(general)
+    assert workflow["jobs"]["db-integration"]["runs-on"] == runner_expression(
+        ["self-hosted", "Linux", "X64", "fdai-ci-docker"]
+    )
 
 
 def test_vm_has_no_deployment_identity_or_network_access() -> None:
