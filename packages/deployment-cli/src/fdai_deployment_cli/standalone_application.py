@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from fdai_deployment_cli import azure_actor, standalone_catalog_checkpoint
+from fdai_deployment_cli import azure_actor, bootstrap_approval, standalone_catalog_checkpoint
 from fdai_deployment_cli.application_state_adoption import ApplicationStateAdoption
 from fdai_deployment_cli.catalog_review_profile import (
     CatalogReviewDeploymentProfile,
@@ -848,54 +848,16 @@ def _approve_plan(
             raise TimeoutError("standalone approval deadline expired; no approval was granted")
         return remaining
 
-    historical_reconciliation = review.get("historical_reconciliation")
-    residual_recovery = review.get("residual_recovery")
-    residual_successor = review.get("residual_successor")
-    operation = (
-        str(residual_successor["operation"])
-        if isinstance(residual_successor, dict)
-        else str(residual_recovery["operation"])
-        if isinstance(residual_recovery, dict)
-        else str(historical_reconciliation["operation"])
-        if isinstance(historical_reconciliation, dict)
-        else stage
+    operation, actor_before = bootstrap_approval.approve_application_checkpoint(
+        review,
+        stage,
+        destructive,
+        actor_digest=lambda: _azure_actor_digest(
+            str(review["target_binding"]), timeout_seconds=approval_seconds(60)
+        ),
     )
     expected = f"{operation}-apply"
-    from fdai_deployment_cli.bootstrap_approval import require_decision, selected_source
-
-    injected = selected_source() is not None
-    if injected:
-        actor_before = _azure_actor_digest(
-            str(review["target_binding"]), timeout_seconds=approval_seconds(60)
-        )
-        require_decision(
-            {
-                "digest": str(review["review_digest"]),
-                "title": f"Approve exact {operation} plan",
-                "details": [
-                    f"Plan digest: {review['plan_digest']}",
-                    f"Source commit: {review['source_commit']}",
-                    f"Delete or replacement actions: {destructive}",
-                    "Action counts: "
-                    + ", ".join(
-                        f"{action}={count}"
-                        for action, count in sorted(review["summary"]["action_counts"].items())
-                    ),
-                    *(
-                        f"Resource type {name}: {count}"
-                        for name, count in sorted(
-                            review["summary"].get("resource_type_counts", {}).items()
-                        )
-                    ),
-                    *(
-                        f"{','.join(change['actions'])}: {change['address']}"
-                        for change in review["summary"].get("resource_changes", [])
-                    ),
-                ],
-                "confirmation_required": f"{expected}-destructive" if destructive else expected,
-                "expires_at": str(review["expires_at"]),
-            }
-        )
+    injected = actor_before is not None
     print(json.dumps(review, indent=2, sort_keys=True), file=sys.stderr)
     # Constitution Article 1: the invocation approves a plan; only destruction needs confirmation.
     print(f"Approved by this invocation: {expected}", file=sys.stderr, flush=True)

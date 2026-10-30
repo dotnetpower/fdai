@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7470d1e69fbd64068d9c600c1fb07503143403c2
+translation_source_sha: 0ebec608386604d606f6978f13794adab1a03217
 translation_revised: 2026-10-31
 ---
 # 런타임 배포 프로파일
@@ -35,11 +35,6 @@ translation_revised: 2026-10-31
 Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정 Go 툴체인과 `github.com/klauspost/compress@v1.18.7` 모듈 재정의로 OPA를 빌드합니다. AKS나 Container Apps를 선택해도 이 툴체인, 빌더 digest, 풀 리퀘스트를 막는 이미지 스캔은 바뀌지 않습니다.
 
 ## 설계 개요
-
-[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md)은 현재 `read-only-console`을 포함한
-기존 AKS 구성을 선택하며 새로운 Lite 또는 Container Apps 최초 설치 프로필을 만들지 않습니다.
-고객 측 애플리케이션 계획 결정 어댑터를 명시적으로 사용해도 런타임 선택, 실행기 ID,
-승인 사용자, 다이제스트, 만료 검사, 파괴적 변경 확인, 관리형 수명 주기 권한은 바뀌지 않습니다.
 
 일반적인 복제 후 배포는 `https://hub.msfdai.com`을 통한
 [Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 사용합니다.
@@ -1081,7 +1076,7 @@ source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 구현 진행 상태 | [런타임 배포 프로파일 구현](../../roadmap-implementation/deployment/runtime-deployment-profiles.md) |
-| Standalone 명령 동작 | [설치 가능한 배포 CLI](installable-deployment-cli-ko.md) |
+| 독립 실행 명령과 웹 설치 안내 | [설치 가능한 배포 CLI](installable-deployment-cli-ko.md), [Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md) |
 | 구체적인 Azure 인벤토리 | [배포 및 온보딩](deploy-and-onboard-ko.md) |
 | 프로덕션 게이트 | [프로덕션 배포 강화](production-deployment-hardening-ko.md) |
 | 런타임 이식성 | [CSP 중립 계약](../architecture/csp-neutrality-ko.md) |
