@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 60727a68753dbe2915e9666ececb691508200951
+translation_source_sha: 2bc1b9f374b0034b24921de155db7b8b9647537d
 translation_revised: 2026-10-31
 ---
 # 프로젝트 구조
@@ -911,6 +911,12 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+`StateStoreAuditChainWindowReader`는 Saga의 작은 체크포인트를 위한 선택적 StateStore
+기능입니다. PostgreSQL은 인덱스를 사용하는 제한된 조회로 확정된 헤드 해시에서
+원장 항목을 최대 512개까지 거슬러 읽습니다. 순번이 같은 별도 체인을 선택하지 않습니다.
+이 기능이 없는 백엔드는 기존 버전 2 저널을 쓰며 버전 3의 작은 헤드는 읽을 수 없습니다.
+감사 기록, 권한, 추가/CAS 확정 경계는 제거하지 않습니다.
 
 WARA 작업은 `delivery/wara_assessment_cli.py`에서 `WaraManualEvidenceSource`와
 `WaraReportSink`를 받습니다. 배포 어댑터는 서명된 정확한 범위의 수동 증적이나 비공개 읽기 전용

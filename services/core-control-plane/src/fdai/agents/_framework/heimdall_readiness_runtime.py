@@ -66,8 +66,7 @@ from fdai.agents._framework.heimdall_constants import (
 )
 from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldest
 from fdai.agents._framework.heimdall_sensing_persistence import (
-    SUBJECT_LAYOUT,
-    checkpoint_digest,
+    persist_bucket_checkpoint,
     write_changed_state,
 )
 from fdai.agents._framework.topics import stable_idempotency_key
@@ -206,7 +205,7 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
         if self._state_store is None:
             return
         # Legacy full snapshots can contain subjects with no individual row yet.
-        if not getattr(self, "_sensing_subject_layout", False):
+        if not getattr(self, "_sensing_bucket_layout", False):
             self._dirty_episode_keys.update(self._recent_events)
             self._dirty_readiness_resources.update(self._detection_readiness)
             self._dirty_pending_readiness.update(self._detection_readiness_pending)
@@ -269,68 +268,7 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
                     },
                 },
             )
-        ordered_subject_keys = [
-            *(
-                f"{_EPISODE_PREFIX}{_digest(_encode_episode_key(key))}"
-                for key in self._recent_events
-            ),
-            *(f"{_READINESS_PREFIX}{_digest(resource)}" for resource in self._detection_readiness),
-            *(
-                f"{_PENDING_READINESS_PREFIX}{_digest(identity)}"
-                for identity in (
-                    resource + "\0" + pass_id
-                    for resource, pass_id in self._detection_readiness_pending
-                )
-            ),
-        ]
-        manifest_written = await write_changed_state(
-            self,
-            _STATE_KEY,
-            {
-                "schema_version": "1.0.0",
-                "revision": 1,
-                "storage_layout": SUBJECT_LAYOUT,
-                "subject_digest": checkpoint_digest(self, ordered_subject_keys),
-                "episode_order": [_encode_episode_key(key) for key in self._recent_events],
-                "readiness_order": list(self._detection_readiness),
-                "pending_readiness_order": [
-                    json.dumps((resource, pass_id), ensure_ascii=True, separators=(",", ":"))
-                    for resource, pass_id in self._detection_readiness_pending
-                ],
-                "incident_episode_ids": {
-                    _encode_episode_key(key): value
-                    for key, value in self._incident_episode_ids.items()
-                },
-                "incident_episode_severities": {
-                    _encode_episode_key(key): value
-                    for key, value in self._incident_episode_severities.items()
-                },
-                "security_recent": list(self._security_recent),
-                "alert_windows": {
-                    key: [start, count] for key, (start, count) in self._alert_windows.items()
-                },
-                "detection_readiness_pass_order": {
-                    resource: [pass_id, observed_at.isoformat()]
-                    for resource, (
-                        pass_id,
-                        observed_at,
-                    ) in self._detection_readiness_pass_order.items()
-                },
-            },
-        )
-        self._sensing_subject_layout = True
-        if manifest_written:
-            active_keys = {_STATE_KEY, *ordered_subject_keys}
-            self._persisted_sensing_records = {
-                key: value
-                for key, value in self._persisted_sensing_records.items()
-                if key in active_keys
-            }
-            self._persisted_sensing_digests = {
-                key: value
-                for key, value in self._persisted_sensing_digests.items()
-                if key in active_keys
-            }
+        await persist_bucket_checkpoint(self)
         self._dirty_episode_keys.clear()
         self._dirty_readiness_resources.clear()
         self._dirty_pending_readiness.clear()

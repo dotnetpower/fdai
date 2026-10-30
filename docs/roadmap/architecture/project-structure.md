@@ -912,6 +912,12 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
+`StateStoreAuditChainWindowReader` is an optional StateStore capability for compact Saga
+checkpoints. PostgreSQL follows the committed head hash through at most 512 canonical ancestors
+using an indexed, bounded query, rather than selecting unrelated chains with equal sequence
+numbers. Backends without this capability keep the existing version-2 journal writer; they cannot
+read a version-3 compact head. No audit record, permission, or append/CAS boundary is removed.
+
 The WARA job accepts `WaraManualEvidenceSource` and `WaraReportSink` in
 `delivery/wara_assessment_cli.py`. Deployment adapters supply signed exact-scope manual receipts
 or private read-only report outputs; neither seam grants approval or execution authority.

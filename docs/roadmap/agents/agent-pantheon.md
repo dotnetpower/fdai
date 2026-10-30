@@ -26,6 +26,25 @@ manifest write cannot silently restore a mixed checkpoint: recovery reports repa
 Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
 characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
 
+Active references use 64 fixed hash buckets with durable insertion ranks. Updating or evicting a
+subject changes its bucket rather than shifting every subsequent page. The root contains a
+bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,
+bucket and root commitments before restoring the original active order. Flat manifests remain
+readable. Comparing the in-memory active reference set is still O(N); a compact root does not
+make the complete persistence path constant-cost.
+
+Saga's PostgreSQL recovery checkpoint uses a compact versioned head rather than rewriting the
+last 512 audit envelopes on every append. The existing atomic checkpoint/audit CAS remains the
+commit boundary. A bounded optional `StateStoreAuditChainWindowReader` restores the verified
+recent window from the immutable canonical audit rows; an up-to-date in-memory mirror avoids
+reading that window on every append. Older stores retain the existing journal format.
+
+The compact head is not sufficient historical evidence by itself. Missing, truncated, divergent
+or corrupted canonical rows hold recovery; no cached-head fallback or audit sampling is added.
+All writers need the compact-head reader before cutover. The critique boundary is write
+amplification, not relaxed chain verification: restart, independent replicas, paired CAS and
+payload/hash integrity retain their existing observable behavior.
+
 ## 1. Design principles
 
 The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.

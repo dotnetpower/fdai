@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: d982037f19a13fc6a5c743443930f440eb4a1995
+translation_source_sha: 333f13935f5cbfe0433b09067ed5ce0dd8ac2f6a
 translation_revised: 2026-10-31
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -85,6 +85,20 @@ uv run python scripts/deployment/local/compact-local-database.py --max-prefix-by
 `--apply --vacuum-full`은 테이블 재작성을 명시적으로 요청합니다.
 유지관리 시간, 추가 임시 디스크 공간, 배타적 테이블 잠금이 필요합니다.
 두 방식 모두 연결, 문장 실행, 잠금 대기 제한 시간을 유지합니다.
+
+## 체크포인트 쓰기 증폭 진단
+
+고정 상태 계열 `heimdall_buckets`, `saga_audit_checkpoint`,
+`saga_verdict_aggregate`는 복구 비용을 원장 이력과 구분합니다. 최신 값이 작아도
+큰 체크포인트의 반복 재쓰기나 누적된 미회수 행이 없다고 단정하지 않습니다.
+Heimdall은 고정 참조 버킷을 사용합니다. PostgreSQL의 Saga는 작은 버전 3 헤드와
+인덱스를 사용하는 원장 조상 복구를 사용합니다. 원장 기록은 그대로 유지하며
+재시작은 마지막 항목 하나가 아닌 기존과 같은 최대 512개 항목의 조회 범위를 복원합니다.
+
+작은 헤드로 전환하기 전에 이전 쓰기 프로세스를 모두 중지하세요. 이전 판독기는
+버전 3 체크포인트를 읽을 수 없습니다. 코드만 되돌려서는 충분하지 않습니다.
+쓰기 프로세스를 중지한 상태에서 별도로 검토된 호환 체크포인트 복원을 사용하세요.
+복구나 용량 검사를 통과하려고 원장 기록을 삭제하지 않습니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 

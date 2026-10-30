@@ -66,7 +66,9 @@ from fdai.agents._framework.heimdall_constants import (
     _STATE_KEY as _STATE_KEY,
 )
 from fdai.agents._framework.heimdall_sensing_persistence import (
+    BUCKET_LAYOUT,
     SUBJECT_LAYOUT,
+    read_bucket_records,
     read_subject_records,
 )
 from fdai.core.readiness import (
@@ -206,11 +208,21 @@ class HeimdallStateRecoveryMixin(_AgentMixinBase):
         record = await self._state_store.read_state(_STATE_KEY)
         if record is None:
             return 0
-        if record.get("storage_layout") not in (None, SUBJECT_LAYOUT):
+        if record.get("storage_layout") not in (None, SUBJECT_LAYOUT, BUCKET_LAYOUT):
             raise ValueError("Heimdall sensing state has unsupported storage layout")
         self._persisted_sensing_records = {}
-        self._sensing_subject_layout = record.get("storage_layout") == SUBJECT_LAYOUT
-        if self._sensing_subject_layout:
+        self._sensing_bucket_layout = record.get("storage_layout") == BUCKET_LAYOUT
+        self._sensing_subject_layout = record.get("storage_layout") in (
+            SUBJECT_LAYOUT,
+            BUCKET_LAYOUT,
+        )
+        if self._sensing_bucket_layout:
+            episode_rows, readiness_rows, pending_rows, metadata = await read_bucket_records(
+                self, record
+            )
+            self._persisted_sensing_records[_STATE_KEY] = deepcopy(dict(record))
+            record = {**record, **metadata}
+        elif self._sensing_subject_layout:
             episode_rows, readiness_rows, pending_rows = await read_subject_records(self, record)
             self._persisted_sensing_records[_STATE_KEY] = deepcopy(dict(record))
         else:

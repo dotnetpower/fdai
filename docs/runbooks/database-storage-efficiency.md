@@ -77,6 +77,19 @@ autovacuum and TOAST thresholds, so tuning does not depend on running a manual r
 additional temporary disk space, and an exclusive table lock. Both paths retain connection,
 statement, and lock deadlines.
 
+## Diagnose checkpoint amplification
+
+The fixed families `heimdall_buckets`, `saga_audit_checkpoint`, and
+`saga_verdict_aggregate` separate recovery overhead from canonical history. A small latest
+value does not rule out repeated large checkpoint rewrites or accumulated dead tuples.
+Heimdall uses fixed reference buckets; PostgreSQL Saga uses a compact v3 head with indexed
+canonical-ancestor recovery. Canonical audit rows remain intact, and restart restores the
+same bounded 512-entry view rather than only the last entry.
+
+Stop all old writers before compact-head cutover. Older readers cannot use v3 checkpoints.
+Code rollback alone is insufficient: use a separately reviewed compatible checkpoint restore
+while writers are stopped. Never remove canonical audit rows to make recovery or capacity pass.
+
 ## Explicitly recreate a disposable development database
 
 Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup

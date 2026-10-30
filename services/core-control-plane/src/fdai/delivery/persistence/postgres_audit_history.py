@@ -4,11 +4,52 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from psycopg import sql
+
 from fdai.delivery.persistence.postgres_audit_fields import json_object
 from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS
 
 if TYPE_CHECKING:
     from fdai.delivery.persistence.postgres import PostgresStateStore
+
+# An unsorted outer LIMIT also bounds duplicate-hash branching in corrupted history.
+_CHAIN_WINDOW_SQL = sql.SQL(
+    "WITH RECURSIVE recent(entry,depth) AS ("
+    "(SELECT entry,1 FROM audit_log WHERE "
+    "(jsonb_exists_all(entry::jsonb,{fields}) OR "
+    "(entry->>'actor'='Saga' AND entry->>'action_kind'='audit.record')) "
+    "AND entry->>'entry_hash'=%s LIMIT 2) "
+    "UNION ALL SELECT parent.entry,recent.depth+1 FROM recent "
+    "CROSS JOIN LATERAL (SELECT entry FROM audit_log WHERE "
+    "(jsonb_exists_all(entry::jsonb,{fields}) OR "
+    "(entry->>'actor'='Saga' AND entry->>'action_kind'='audit.record')) "
+    "AND entry->>'entry_hash'=recent.entry->>'prev_hash' LIMIT 2) parent "
+    "WHERE recent.depth<%s) SELECT entry FROM recent LIMIT %s"
+).format(fields=sql.Literal(sorted(AUDIT_CHAIN_ENTRY_FIELDS)))
+
+
+async def read_audit_chain_window(
+    store: PostgresStateStore, *, start_seq: int, end_seq: int, head_hash: str
+) -> tuple[dict[str, Any], ...]:
+    if (
+        type(start_seq) is not int
+        or type(end_seq) is not int
+        or start_seq < 0
+        or not 1 <= end_seq - start_seq <= 512
+        or not isinstance(head_hash, str)
+        or len(head_hash) != 64
+        or any(character not in "0123456789abcdef" for character in head_hash)
+    ):
+        raise ValueError("audit chain window must contain between 1 and 512 sequences")
+    async with store._connection() as conn:
+        async with conn.transaction():
+            await store._set_statement_timeout(conn)
+            cursor = await conn.execute(
+                _CHAIN_WINDOW_SQL,
+                (head_hash, end_seq - start_seq, end_seq - start_seq + 1),
+            )
+            rows = await cursor.fetchall()
+    return tuple(dict(json_object(row["entry"])) for row in reversed(rows))
 
 
 async def read_audit_entries(

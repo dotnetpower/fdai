@@ -322,8 +322,11 @@ async def test_state_family_diagnostics_are_exact_and_do_not_disclose_identifier
     spec.loader.exec_module(report)
     async with await psycopg.AsyncConnection.connect(storage_database) as connection:
         rows = [
+            ("pantheon/heimdall/sensing-state/buckets/00", '{"records":[]}'),
             ("pantheon/heimdall/sensing-state/episodes/private-reference", '{"history":[1]}'),
             ("pantheon/heimdall/sensing-state/readiness/private-reference", '{"ready":true}'),
+            ("pantheon/saga/audit-chain/verified-head", '{"entries":[]}'),
+            ("pantheon/saga/verdict-aggregate-pending", '{"groups":{}}'),
             ("measurement:control-loop:v1:private-event", '{"result":"held"}'),
             ("unreviewed-private-namespace", '{"text":"private body"}'),
         ]
@@ -331,12 +334,15 @@ async def test_state_family_diagnostics_are_exact_and_do_not_disclose_identifier
             await cursor.executemany("INSERT INTO state_kv(key,value) VALUES (%s,%s::jsonb)", rows)
         observed = await (await connection.execute(report._STATE_FAMILY_SQL)).fetchall()
         assert {row[0] for row in observed} == {
+            "heimdall_buckets",
             "heimdall_episodes",
             "heimdall_readiness",
+            "saga_audit_checkpoint",
+            "saga_verdict_aggregate",
             "control_loop_measurements",
             "other",
         }
-        assert sum(row[1] for row in observed) == 4
+        assert sum(row[1] for row in observed) == 7
         expected = await (
             await connection.execute("SELECT sum(pg_column_size(value)) FROM state_kv")
         ).fetchone()

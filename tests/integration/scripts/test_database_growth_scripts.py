@@ -300,8 +300,11 @@ def test_state_family_diagnostics_use_fixed_names_and_never_return_keys_or_value
     assert "SELECT value," not in query
     for family in (
         "baseline_outcomes",
+        "heimdall_buckets",
         "heimdall_episodes",
         "heimdall_readiness",
+        "saga_audit_checkpoint",
+        "saga_verdict_aggregate",
         "control_loop_measurements",
         "inventory_state",
         "operator_projections",

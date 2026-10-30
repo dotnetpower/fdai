@@ -15,6 +15,11 @@ from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConf
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict
 
+from tests.agents.test_heimdall_bucket_persistence import (
+    BUCKET_PREFIX,
+    FlatManifestHeimdall,
+    seed_subjects,
+)
 from tests.agents.test_heimdall_sensing_persistence import (
     STATE,
     LegacySnapshotHeimdall,
@@ -209,7 +214,7 @@ async def test_service_role_equal_episode_workload_physical_bytes_and_restart() 
             finally:
                 await restarted_store.aclose()
     assert expected_snapshots["before"] == expected_snapshots["after"]
-    assert results["before"]["allocated"]["rows"] == results["after"]["allocated"]["rows"]
+    assert results["after"]["allocated"]["rows"] == results["before"]["allocated"]["rows"] + 64
     assert results["after"]["writes"] < results["before"]["writes"]
     results["scope"] = "isolated state_kv allocation, autovacuum disabled, no WAL attribution"
     print(json.dumps(results, sort_keys=True))
@@ -229,7 +234,9 @@ async def test_service_role_failed_manifest_restart_rejects_mixed_checkpoint() -
             assert await store.read_state(STATE) == committed
             restarted_store = ServiceRoleStore(config=PostgresStateStoreConfig(dsn=database))
             try:
-                with pytest.raises(ValueError, match="subject digest mismatch; repair required"):
+                with pytest.raises(
+                    ValueError, match="checkpoint .* digest mismatch; repair required"
+                ):
                     await _agent(restarted_store).rehydrate()
                 store.fail_manifest = False
                 await agent._persist_state()
@@ -240,3 +247,85 @@ async def test_service_role_failed_manifest_restart_rejects_mixed_checkpoint() -
                 await restarted_store.aclose()
         finally:
             await store.aclose()
+
+
+class ManifestCountingStore(ServiceRoleStore):
+    root_writes = 0
+    root_bytes = 0
+    max_root_bytes = 0
+    bucket_writes = 0
+    bucket_bytes = 0
+
+    async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
+        await super().write_state(key, value)
+        size = len(json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode())
+        if key == STATE:
+            self.root_writes += 1
+            self.root_bytes += size
+            self.max_root_bytes = max(self.max_root_bytes, size)
+        elif key.startswith(BUCKET_PREFIX):
+            self.bucket_writes += 1
+            self.bucket_bytes += size
+
+
+async def test_service_role_2048_flat_vs_hash_bucket_checkpoint_physical_bytes() -> None:
+    results: dict[str, Any] = {}
+    snapshots: dict[str, Any] = {}
+    for name, agent_type in (("flat", FlatManifestHeimdall), ("buckets", Heimdall)):
+        async with _measurement_database() as database:
+            store = ManifestCountingStore(config=PostgresStateStoreConfig(dsn=database))
+            try:
+                agent = _agent(store, agent_type=agent_type)
+                seed_subjects(agent, 2_048)
+                await agent._persist_state()
+                initial = await _allocated_bytes(store)
+                store.writes = store.root_writes = store.root_bytes = 0
+                store.bucket_writes = store.bucket_bytes = store.max_root_bytes = 0
+                for index in range(128):
+                    await agent.on_typed_message(
+                        "object.event", _event(3_000 + index, subject=1_024, seconds=index % 20 + 1)
+                    )
+                duplicate = _event(3_127, subject=1_024, seconds=127 % 20 + 1)
+                writes = store.writes
+                for _ in range(1_000):
+                    await agent.on_typed_message("object.event", duplicate)
+                assert store.writes == writes
+                await agent.on_typed_message("object.event", _event(9_000, subject=9_000))
+                snapshots[name] = _snapshot(agent)
+                final = await _allocated_bytes(store)
+                results[name] = {
+                    "writes": store.writes,
+                    "root_writes": store.root_writes,
+                    "root_bytes": store.root_bytes,
+                    "max_root_bytes": store.max_root_bytes,
+                    "bucket_writes": store.bucket_writes,
+                    "bucket_bytes": store.bucket_bytes,
+                    "allocated": final,
+                    "steady_growth": {
+                        key: final[key] - initial[key]
+                        for key in ("heap_bytes", "index_bytes", "toast_bytes", "total_bytes")
+                    },
+                }
+                restarted = _agent(store)
+                assert await restarted.rehydrate() == 2_048
+                assert _snapshot(restarted) == snapshots[name]
+                assert list(restarted._recent_events) == list(agent._recent_events)
+                if name == "flat":
+                    # Measure before migration, then verify the retained live-format upgrade.
+                    await restarted._persist_state()
+                    migrated = _agent(store)
+                    assert await migrated.rehydrate() == 2_048
+                    assert _snapshot(migrated) == snapshots[name]
+                    assert list(migrated._recent_events) == list(agent._recent_events)
+            finally:
+                await store.aclose()
+    assert snapshots["flat"] == snapshots["buckets"]
+    assert results["buckets"]["max_root_bytes"] < 4_500
+    assert (
+        results["buckets"]["root_bytes"] + results["buckets"]["bucket_bytes"]
+        < results["flat"]["root_bytes"]
+    )
+    results["scope"] = (
+        "2048 active, 128 middle updates, 1000 duplicates, eviction; no WAL attribution"
+    )
+    print(json.dumps(results, sort_keys=True))

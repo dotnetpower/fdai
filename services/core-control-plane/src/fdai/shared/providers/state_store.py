@@ -423,6 +423,22 @@ class StateStoreAuditChainReader(Protocol):
 
 
 @runtime_checkable
+class StateStoreAuditChainWindowReader(Protocol):
+    """Optional exact, bounded Saga sequence window for compact-head recovery."""
+
+    async def read_audit_chain_window(
+        self, *, start_seq: int, end_seq: int, head_hash: str
+    ) -> tuple[Mapping[str, Any], ...]:
+        """Read chain records in [start_seq, end_seq), oldest-first, at most 512.
+
+        Follow head_hash's ancestry, not detached chains with equal sequence numbers.
+        Return detached canonical bodies. Missing or duplicate sequences are not hidden;
+        the caller verifies completeness and payload/hash lineage.
+        """
+        ...
+
+
+@runtime_checkable
 class AssuranceTwinConfirmationStore(Protocol):
     """Atomically confirm one retained source and its provisional writer row."""
 

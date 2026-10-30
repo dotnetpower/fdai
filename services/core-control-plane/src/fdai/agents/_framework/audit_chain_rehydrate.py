@@ -10,12 +10,17 @@ from typing import Any
 from fdai.agents._framework.adapters import AuditChainError, AuditEntry, _digest
 from fdai.agents._framework.audit_chain_journal import (
     AUDIT_CHECKPOINT_KEY,
+    AUDIT_JOURNAL_LIMIT,
     AuditJournal,
     entry_hash,
     load_journal,
     verify_entries,
 )
-from fdai.shared.providers.state_store import StateStore, StateStorePairAuditWriter
+from fdai.shared.providers.state_store import (
+    StateStore,
+    StateStoreAuditChainWindowReader,
+    StateStorePairAuditWriter,
+)
 
 _APPEND_DEADLINE_SECONDS = 2.0
 _APPEND_QUEUE_WAIT_SECONDS = 30.0
@@ -30,7 +35,7 @@ async def rehydrate_audit_entries(store: StateStore) -> list[AuditEntry]:
     """Restore the retained verified window, not complete historical replay."""
     async with asyncio.timeout(2):
         for _ in range(8):
-            journal = await load_journal(store)
+            journal = await load_journal(store, with_window=True)
             if journal is not None:
                 return list(journal.entries)
     raise AuditChainError("durable audit initialization contention budget exhausted")
@@ -85,7 +90,7 @@ class StateStoreAuditChainAdapter:
             for attempt in range(8):
                 if loop.time() >= deadline:
                     raise AuditAppendDeferredError("durable audit append deadline exceeded")
-                journal = await load_journal(self.store)
+                journal = await self._load_append_journal()
                 if journal is None:
                     await asyncio.sleep(0.005 * (attempt + 1))
                     continue
@@ -104,7 +109,9 @@ class StateStoreAuditChainAdapter:
                     raise AuditAppendDeferredError("durable audit append deadline exceeded")
                 committed = await self.store.compare_and_set_state_with_audit(
                     AUDIT_CHECKPOINT_KEY,
-                    advanced.encode(),
+                    advanced.encode(
+                        compact=isinstance(self.store, StateStoreAuditChainWindowReader)
+                    ),
                     expected_revision=journal.revision,
                     audit_entry={
                         "actor": "Saga",
@@ -164,7 +171,7 @@ class StateStoreAuditChainAdapter:
             for attempt in range(8):
                 if loop.time() >= deadline:
                     raise AuditAppendDeferredError("durable audit append deadline exceeded")
-                journal = await load_journal(self.store)
+                journal = await self._load_append_journal()
                 if journal is None:
                     await asyncio.sleep(0.005 * (attempt + 1))
                     continue
@@ -188,7 +195,9 @@ class StateStoreAuditChainAdapter:
                 advanced = journal.advanced(entry)
                 committed = await self.store.compare_and_set_state_pair_with_audit(
                     AUDIT_CHECKPOINT_KEY,
-                    advanced.encode(),
+                    advanced.encode(
+                        compact=isinstance(self.store, StateStoreAuditChainWindowReader)
+                    ),
                     expected_revision=journal.revision,
                     second_key=state_key,
                     second_value=state_value,
@@ -213,6 +222,17 @@ class StateStoreAuditChainAdapter:
         finally:
             self._append_lock.release()
         raise AuditAppendDeferredError("durable audit initialization contention budget exhausted")
+
+    async def _load_append_journal(self) -> AuditJournal | None:
+        journal = await load_journal(self.store)
+        if journal is None or len(journal.entries) == min(journal.length, AUDIT_JOURNAL_LIMIT):
+            return journal
+        if self._sealed_length == journal.length and self._sealed_head_hash == journal.head_hash:
+            self.verify()
+            return AuditJournal(
+                journal.revision, self._base_length, self._base_hash, tuple(self.entries)
+            )
+        return await load_journal(self.store, with_window=True)
 
     def _install(self, journal: AuditJournal) -> None:
         self.entries = list(journal.entries)

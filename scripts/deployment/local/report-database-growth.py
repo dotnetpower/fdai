@@ -36,6 +36,7 @@ FROM (
         WHEN starts_with(key, 'baseline-evaluation:outcomes:') THEN 'baseline_outcomes'
         WHEN starts_with(key, 'baseline-evaluation:completions:') THEN 'baseline_completions'
         WHEN starts_with(key, 'pantheon/forseti/no-rule-fold|') THEN 'forseti_no_rule'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/buckets/') THEN 'heimdall_buckets'
         WHEN starts_with(key, 'pantheon/heimdall/sensing-state/episodes/') THEN 'heimdall_episodes'
         WHEN starts_with(key, 'pantheon/heimdall/sensing-state/readiness-pending/')
             THEN 'heimdall_pending_readiness'
@@ -43,6 +44,8 @@ FROM (
             THEN 'heimdall_readiness'
         WHEN starts_with(key, 'pantheon/heimdall/publications/') THEN 'heimdall_publications'
         WHEN starts_with(key, 'pantheon/heimdall/') THEN 'heimdall_recovery'
+        WHEN key = 'pantheon/saga/audit-chain/verified-head' THEN 'saga_audit_checkpoint'
+        WHEN key = 'pantheon/saga/verdict-aggregate-pending' THEN 'saga_verdict_aggregate'
         WHEN starts_with(key, 'pantheon/saga') THEN 'saga_recovery'
         WHEN starts_with(key, 'measurement:control-loop:') THEN 'control_loop_measurements'
         WHEN starts_with(key, 'aks-diagnostic-receipt:v1:') THEN 'aks_diagnostics'
