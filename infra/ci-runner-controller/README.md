@@ -188,6 +188,16 @@ Failures and ambiguous timeouts stop without retry or speculative deletion. Keep
 attempt directory and diagnose any remaining named builder resources before a new attempt.
 Commands have stage deadlines and a two-hour total deadline.
 
+Tag arguments follow each command's parser, not one universal encoding. `az sig create` and
+`az network nic create` receive one JSON object argument so colon-bearing keys such as
+`fdai:source-sha` stay quoted. `az sig image-definition create`, `az sig image-version create`,
+`az vm create`, and `az tag update` receive separate `key=value` arguments through their legacy
+tag validator. Passing the JSON form to those legacy validators creates the wrong tag key.
+The focused infrastructure tests check all six operations semantically and exercise the installed
+Azure CLI tag actions/validators with HTTP and socket transports blocked, synthetic identity
+metadata, and isolated local CLI configuration. They do not execute an Azure operation or read an
+operator token. A parser pass is not evidence that a Gallery, image or VM was created.
+
 Set Terraform `vm_image_id` to the returned `image_id`, and supply the approved CI subnet and
 public SSH key in a new plan. Image capture and builder cleanup don't prove that a Docker worker
 successfully bootstrapped or completed a GitHub job; verify that separately before activation.

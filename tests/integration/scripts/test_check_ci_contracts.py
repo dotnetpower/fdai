@@ -458,9 +458,10 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
     }
     for job_name, scope in scoped_jobs.items():
         job = jobs[job_name]
-        assert job["needs"] == "changes"
+        assert job["needs"] == ["ci-admission", "changes"]
         if job_name == "python-tests":
             assert " ".join(job["if"].split()) == (
+                "vars.FDAI_CI_POOLS_ENABLED != 'true' && "
                 "needs.changes.outputs.python == 'true' && "
                 "((vars.FDAI_CI_ELASTIC_RUNNER_ENABLED != 'true' && "
                 "vars.FDAI_CI_SSD_RUNNER_ENABLED != 'true') || "
@@ -470,7 +471,7 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
             assert job["if"] == f"needs.changes.outputs.{scope} == 'true'"
 
     freeze = jobs["freeze-scenarios"]
-    assert freeze["needs"] == "changes"
+    assert freeze["needs"] == ["ci-admission", "changes"]
     assert "needs.changes.outputs.scenarios == 'true'" in freeze["if"]
 
     python_tests = jobs["python-tests"]
@@ -494,7 +495,7 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
     assert install_dependencies["run"] == "uv sync --extra dev --extra pdf-report --frozen"
 
     contracts = jobs["contracts"]
-    assert contracts["needs"] == "changes"
+    assert contracts["needs"] == ["ci-admission", "changes"]
     assert contracts["name"] == "repository, design, and static contracts"
     static_steps = {
         step["name"]: step
@@ -2109,7 +2110,7 @@ def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> No
     assert shard_job["env"]["FDAI_PYTEST_MODE"] == "coverage"
     assert shard_job["env"]["FDAI_PYTEST_SHARD_COUNT"] == "3"
     assert shard_job["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
-    assert merge_job["needs"] == ["changes", "python-coverage-shards"]
+    assert merge_job["needs"] == ["ci-admission", "changes", "python-coverage-shards"]
     merge_step = next(
         step
         for step in merge_job["steps"]
@@ -2216,8 +2217,10 @@ def test_container_publication_requires_explicit_protected_main_candidate() -> N
         "workflow_dispatch",
     }
     selection_steps = workflow["jobs"]["select-images"]["steps"]
-    assert selection_steps[1]["name"] == "Verify protected workflow source"
-    source = selection_steps[2]
+    assert selection_steps[1]["name"] == "Verify CI candidate source"
+    assert selection_steps[3]["name"] == "Verify protected workflow source"
+    assert selection_steps[3]["if"] == "github.event_name != 'pull_request'"
+    source = selection_steps[4]
     assert source["name"] == "Validate manual publication source"
     assert source["if"] == "github.event_name == 'workflow_dispatch'"
     assert source["env"]["INPUT_COMMIT_SHA"] == "${{ inputs.commit_sha }}"

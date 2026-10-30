@@ -679,7 +679,18 @@ def mixed_container_workflow() -> dict[str, Any]:
         )
         job["steps"][1]["with"]["workflow-path"] = path
         document["jobs"][name] = job
-    document["jobs"]["required"].update({"if": "always()", "needs": ["ci-admission"]})
+    document["jobs"]["ci-admission"]["if"] = ci_pool_routes.NORMAL_ENTRY_IF
+    document["jobs"]["required"].update(
+        {
+            "if": ci_pool_routes.NORMAL_REQUIRED_IF
+            if "canary-plan" in document["jobs"]
+            else "always()",
+            "needs": ["ci-admission"],
+        }
+    )
+    for name in ci_pool_routes.CANARY_ROLES:
+        if name in document["jobs"]:
+            document["jobs"][name]["steps"][0]["uses"] = CHECKOUT
     candidate_prefix = deepcopy(document["jobs"]["ci-admission"]["steps"][:2])
     selection["steps"] = candidate_prefix + (
         steps[2:] if steps[1].get("uses") == security.CI_CANDIDATE_ACTION_REF else steps

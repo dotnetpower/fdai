@@ -98,7 +98,7 @@ def validate(args: argparse.Namespace) -> str:
     if not re.fullmatch(r"Standard_[A-Za-z0-9_]+", args.vm_size):
         raise BuildError("invalid_vm_size")
     try:
-        public_key = args.ssh_public_key_file.read_text(encoding="utf-8").strip()
+        public_key = Path(args.ssh_public_key_file).read_text(encoding="utf-8").strip()
     except (OSError, UnicodeError):
         raise BuildError("ssh_public_key_unavailable") from None
     if not re.fullmatch(r"(ssh-ed25519|ssh-rsa) [A-Za-z0-9+/]+={0,3}( [^\r\n]+)?", public_key):
@@ -139,11 +139,12 @@ def prepare(args: argparse.Namespace, public_key: str) -> Path:
         ],
     }
     try:
-        args.state_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
-        path = args.state_dir / "builder-cloud-init.json"
+        state_dir = Path(args.state_dir)
+        state_dir.mkdir(mode=0o700, parents=True, exist_ok=False)
+        path = state_dir / "builder-cloud-init.json"
         path.write_text("#cloud-config\n" + json.dumps(payload), encoding="utf-8")
         path.chmod(0o600)
-        (args.state_dir / "source.json").write_text(
+        (state_dir / "source.json").write_text(
             json.dumps(
                 {
                     "source_sha": args.source_sha,
@@ -164,9 +165,10 @@ def prepare(args: argparse.Namespace, public_key: str) -> Path:
 class Builder:
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
-        self.cli = shutil.which("az")
-        if self.cli is None:
+        cli = shutil.which("az")
+        if cli is None:
             raise BuildError("azure_cli_unavailable")
+        self.cli = cli
         self.deadline = time.monotonic() + 7200
         self.root = f"/subscriptions/{args.subscription_id}/resourceGroups/{args.resource_group}"
         self.ids = {
@@ -177,7 +179,16 @@ class Builder:
         }
         self.ids["definition"] = f"{self.ids['gallery']}/images/{args.image_definition}"
         self.ids["image"] = f"{self.ids['definition']}/versions/{args.image_version}"
-        self.tags = ["fdai:image-builder=true", f"fdai:source-sha={args.source_sha}"]
+        self.tags = {"fdai:image-builder": "true", "fdai:source-sha": args.source_sha}
+
+    def tag_arguments(self, *, aaz: bool = False) -> list[str]:
+        """AAZ shorthand needs quoted colon keys; legacy validators need key=value items."""
+        values = (
+            [json.dumps(self.tags, sort_keys=True)]
+            if aaz
+            else [f"{key}={value}" for key, value in self.tags.items()]
+        )
+        return ["--tags", *values]
 
     def az(self, stage: str, *argv: str, timeout: int = 600) -> Any:
         remaining = self.deadline - time.monotonic()
@@ -256,8 +267,7 @@ class Builder:
             args.location,
             "--subnet",
             args.subnet_id,
-            "--tags",
-            *self.tags,
+            *self.tag_arguments(aaz=True),
         )
         self.az(
             "create_vm",
@@ -295,8 +305,7 @@ class Builder:
             "Delete",
             "--nic-delete-option",
             "Delete",
-            "--tags",
-            *self.tags,
+            *self.tag_arguments(),
             timeout=900,
         )
         self.verify_builder()
@@ -308,8 +317,7 @@ class Builder:
             self.ids["disk"],
             "--operation",
             "Merge",
-            "--tags",
-            *self.tags,
+            *self.tag_arguments(),
         )
         self.run_script(
             "wait_cloud_init",
@@ -354,8 +362,7 @@ class Builder:
             "Full",
             "--exclude-from-latest",
             "true",
-            "--tags",
-            *self.tags,
+            *self.tag_arguments(),
             timeout=900,
         )
         image = self.az(
@@ -414,8 +421,7 @@ class Builder:
                 args.gallery_name,
                 "--location",
                 args.location,
-                "--tags",
-                *self.tags,
+                *self.tag_arguments(aaz=True),
             )
         gallery = self.az(
             "verify_gallery",
@@ -478,8 +484,7 @@ class Builder:
                 "V2",
                 "--features",
                 "SecurityType=TrustedLaunch",
-                "--tags",
-                *self.tags,
+                *self.tag_arguments(),
             )
         self.verify_definition()
         versions = self.az(
