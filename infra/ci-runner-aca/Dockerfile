@@ -31,6 +31,7 @@ RUN useradd --create-home --shell /bin/bash runner \
  && chown -R runner:runner /opt/actions-runner
 
 COPY entrypoint.sh /opt/fdai-ci/entrypoint.sh
+COPY broker-entrypoint.py /opt/fdai-ci/broker-entrypoint.py
 RUN chmod 0755 /opt/fdai-ci/entrypoint.sh
 
 # Starts as root only to read the registration credential; the job runs as `runner`.

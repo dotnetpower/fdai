@@ -418,14 +418,15 @@ incomplete admission design keeps this operational transition blocked, not compl
 ### Performance-first warm capacity
 
 The target policy in [`ci-runner-pools.json`](../../../config/ci-runner-pools.json) separates
-control, general container, and Docker-capable VM pools. Its mode is `plan`: it neither changes
-workflow routing nor grants the planner cloud or GitHub mutation authority.
+control, general container, and Docker-capable VM pools. The planning CLI remains advisory in
+`plan` mode. The separately gated controller defaults to `FDAI_RUNNER_CONTROLLER_APPLY=0`;
+neither the policy nor local implementation evidence activates workflow routing.
 
-| Pool | Ready idle target | Ceiling | Initial CPU per runner |
-|---|---:|---:|---:|
-| Control | 2 | 4 | 1 |
-| General container | 8 | 64 | 4 |
-| Docker-capable VM | 2 | 16 | 4 |
+| Pool | Ready idle target | Sustained low-demand reserve | Ceiling | Initial CPU per runner |
+|---|---:|---:|---:|---:|
+| Control | 2 | 2 | 4 | 1 |
+| General container | 8 | 2 | 64 | 4 |
+| Docker-capable VM | 2 | 1 | 16 | 4 |
 
 `scripts/automation/plan_runner_pools.py` plans immediately from complete fresh snapshots.
 Target capacity is busy work plus runnable queued work plus warm reserve. Idle, starting, busy,
@@ -433,28 +434,81 @@ and draining runners each consume a slot once; unavailable startup evidence bloc
 rather than allowing duplicate capacity. Scale-in selects only idle runners after sustained
 low demand and the idle cooldown. Busy and starting runners are never drain candidates.
 
-These are decisions, not side effects. One independently authorized reconciler must own execution,
-use stable idempotency identities, and exclude other scalers from the same pool. The existing
-KEDA event trigger remains authoritative until an explicit ownership migration; another daemon
-must not also start jobs against its desired capacity. Idle observation followed by deletion is
-not an atomic drain protocol: a runner can accept work between the two operations.
+The ready reserve adapts from `2/8/2` to `2/2/1` after sustained low demand and cooldown; renewed
+demand restores the higher reserve within the same ceilings. One authorized reconciler owns each
+pool. The new general pool uses `fdai-ci-general`, not the legacy KEDA demand labels. The existing
+KEDA event trigger keeps its old pool until an explicit migration; the controller owns only its
+new Manual Jobs. Running both scalers against the same demand is not supported.
 
 `scripts/quality/ci/runner-pool-readiness.py` checks the complete CI job map, pool capabilities,
 shared quota budgets, ready reserve, management-identity isolation, PR admission, and live
 execution/drain evidence. Control and general runners share the container CPU budget; VM
 workers consume a separate regional Compute budget. Do not count one available quota twice.
-The targets require 260 container CPU cores and 64 free VM CPU cores, before any unrelated load.
+The configured budgets are 260 container CPU cores and 64 VM CPU cores. These ceilings are not
+quota reservations or provider capacity guarantees. Before activation, verify actual regional,
+container-environment and VM-family quota headroom, existing consumption, and the selected VM
+SKU's capacity. Docker stays explicitly unavailable while the baked VM image is unset.
 
 Acceptance runs progress through 8, 16, 32, and 64 concurrent jobs only while quota and preceding
-stages remain valid. Initial observed queue targets are warm p95 <= 15 s, burst p99 <= 90 s, and
+stages remain valid. Acceptance targets are warm p95 <= 15 s, burst p99 <= 90 s, and
 maximum <= 120 s. Every expected job must succeed exactly once, actual concurrency must reach
 the requested stage, and scale-in must return to the reserve without interrupting busy work.
 A single burst reports nearest-rank observations, not a population-wide latency guarantee.
+No measured queue SLO or completed rollout is claimed for the new controller.
 
-Full activation still requires a separate scoped registration broker and controller identity,
-an atomic idle-drain interlock, and a PR-safe source admission path. The current main-only
-verifier cannot be relaxed into accepting arbitrary PR controls. Do not treat the policy,
-unit-test simulations, quota inventory, or the absence of an exception as completed automation.
+### Stage 1: isolated PAT controller
+
+Stage 1 provides the isolated runtime and infrastructure below. Live deployment and pool
+acceptance remain separate, unverified steps.
+[`infra/ci-runner-controller`](../../../infra/ci-runner-controller/README.md) defines one
+non-build controller, separate controller and worker Container Apps environments, and two
+worker Manual Jobs. A fine-grained personal access token (PAT) belongs only to the controller;
+no GitHub App is created or required. The controller's Managed Identity has scoped dispatch/state rights,
+while the worker identity has registry-scoped `AcrPull` only. VM workers have no Managed Identity
+or public IP. Registry-only identity endpoint restrictions still need platform verification.
+
+The runtime in `scripts/automation/runner_controller/` uses a Blob lease and conditional state
+updates to persist a start intent before dispatch. A one-use broker ticket supplies short-lived
+JIT registration; worker code never receives the PAT. Ownership records bind resources to the
+controller's name prefix. Provider readback can recover an ambiguous start's resource reference.
+If a start or JIT exchange remains uncertain, retain its capacity slot and report
+`starting_timeout` rather than blindly retrying registration, duplicating capacity, or force-killing
+the worker. Conditional GitHub GET caching reuses a snapshot only after an authenticated `304`;
+an ETag alone never makes stale data authoritative.
+
+Drain serializes idle retirement with worker callbacks and respects a busy rejection. Removing
+a GitHub registration is not proof that its process or job has finished. Wait for natural
+termination and authoritative provider/GitHub terminal observations before deleting owned VM/NIC
+resources; uncertain or still-running work keeps its slot. A deregistration response does not
+authorize a forced stop.
+
+Idle workers older than one hour receive ready replacements before retirement. The 24-hour
+container execution ceiling is separate from this idle rotation; supported CI jobs finish within
+six hours. VM guests power off only after the launcher exits. An authoritative stopped/deallocated
+power observation can recover a lost listener callback, but deletion still requires GitHub
+no-active-job evidence and owned-resource readback. A missing startup observation is not termination.
+
+The controller app uses AzAPI generic ARM GET, not AzureRM's secret-listing refresh. Terraform
+owns only initial `unset` placeholders and excludes later secret changes; the interactive setter
+owns actual credentials. CI pins Terraform to the shared runner manifest and validates/tests this
+root with mocked providers. Neither a plan nor Terraform state needs the PAT or webhook key.
+
+The new CI-only source guard, `.github/actions/verify-ci-runner-source`, is additive. Publish its
+trusted source first, then use that published guard for the separately reviewed stage-2 PR routing
+change. Stage 2 remains pending. The production/main-only source verifier and its authority are
+unchanged; never substitute candidate-controlled verification code. Credential entry, image build,
+exact-target apply, quota checks, identity isolation and real execution/drain receipts remain
+operational exit criteria.
+
+### Design critique and revision
+
+- **Double scaling**: separate Manual Job ownership and `fdai-ci-general` demand from legacy KEDA.
+- **Drain race**: reserve retirement under the state lock, but require natural terminal evidence
+  rather than equating registration removal with completion.
+- **Stale cache and ambiguous effects**: require authenticated `304` cache revalidation and
+  provider readback; retain unknown starts instead of issuing a replacement.
+- **Secret boundary**: keep the PAT and management identity in the non-build controller's separate
+  environment; workers receive only one-use bootstrap material and registry pull rights.
 
 Optional acceleration moves all four regression shards to a pool of up to five listeners
 on the same VM. Each shard uses three pytest workers; each listener has separate distribution,

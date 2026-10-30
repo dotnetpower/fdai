@@ -42,6 +42,7 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
     seen: set[tuple[str, ...]] = set()
     for name, pool in policy["pools"].items():
         warm = integer(pool["warm_idle"], f"{name}.warm_idle")
+        low = integer(pool.get("warm_idle_low", warm), f"{name}.warm_idle_low")
         ceiling = integer(pool["maximum"], f"{name}.maximum", minimum=1)
         integer(pool["cpu_per_runner"], f"{name}.cpu_per_runner", minimum=1)
         if pool["quota_group"] not in {"container_cpu", "vm_cpu"}:
@@ -51,6 +52,7 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
         if (
             ceiling > 128
             or warm > ceiling
+            or low > warm
             or not isinstance(labels, list)
             or not labels
             or not all(isinstance(item, str) and item for item in labels)
@@ -68,6 +70,8 @@ def validate_policy(policy: dict[str, Any], workflow: dict[str, Any]) -> None:
     if set(workflow["jobs"]) != set(policy["jobs"]):
         raise ValueError("job routing inventory differs from the complete CI workflow")
     for name, job in workflow["jobs"].items():
+        if integer(job.get("timeout-minutes", 360), f"{name}.timeout-minutes", minimum=1) > 360:
+            raise ValueError("runner pool CI jobs must finish within six hours")
         pool = policy["jobs"][name]
         if pool not in expected:
             raise ValueError(f"unknown pool for job: {name}")

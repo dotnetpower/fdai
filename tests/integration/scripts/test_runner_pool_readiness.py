@@ -53,6 +53,22 @@ def _evidence() -> dict:
     }
 
 
+@pytest.mark.parametrize("minutes", [0, 361, True, 360.5])
+def test_job_execution_budget_must_fit_the_worker_lifetime(minutes) -> None:
+    workflow = copy.deepcopy(WORKFLOW)
+    workflow["jobs"]["changes"]["timeout-minutes"] = minutes
+    with pytest.raises(ValueError):
+        CHECK.validate_policy(POLICY, workflow)
+
+
+@pytest.mark.parametrize("low", [-1, 9, True])
+def test_low_demand_reserve_cannot_exceed_warm_capacity(low) -> None:
+    policy = copy.deepcopy(POLICY)
+    policy["pools"]["general"]["warm_idle_low"] = low
+    with pytest.raises(ValueError):
+        CHECK.validate_policy(policy, WORKFLOW)
+
+
 def test_policy_accounts_for_every_ci_job_and_docker_capability() -> None:
     CHECK.validate_policy(POLICY, WORKFLOW)
     assert POLICY["mode"] == "plan"

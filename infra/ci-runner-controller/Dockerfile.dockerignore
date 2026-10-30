@@ -1,0 +1,10 @@
+**
+!scripts/
+!scripts/automation/
+!scripts/automation/runner_controller/
+!scripts/automation/runner_controller/**
+!scripts/automation/runner_pool_policy.py
+!config/
+!config/ci-runner-pools.json
+**/__pycache__/
+**/*.pyc
