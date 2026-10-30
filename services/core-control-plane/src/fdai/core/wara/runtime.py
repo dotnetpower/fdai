@@ -7,7 +7,6 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any
 
-from fdai_service_contracts.control_enablement import ControlEnablement, resolve_control_enablement
 from fdai_service_contracts.wara_assessment import WARA_ASSESSMENT_TOPIC
 
 from fdai.rule_catalog.schema.wara_assessment import (
@@ -32,6 +31,8 @@ from fdai.shared.providers.wara_assessment import (
     WaraReadPlan,
 )
 
+from .enablement import control_enablement
+from .enablement import validate_enablement_profile as validate_wara_enablement_profile
 from .models import (
     WaraApplicabilityStatus,
     WaraAssessmentRequest,
@@ -102,7 +103,7 @@ class WaraAssessmentRuntime:
         controls = tuple(
             replace(
                 self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ())),
-                enablement=self.control_enablement(record, request),
+                enablement=control_enablement(record, request),
             )
             for record in self._catalog.recommendations
         )
@@ -156,27 +157,7 @@ class WaraAssessmentRuntime:
         )
 
     def validate_enablement_profile(self, request: WaraAssessmentRequest) -> None:
-        if request.enablement_profile is not None:
-            request.enablement_profile.validate_binding(
-                framework_id="azure-wara",
-                source_revision=self._catalog.source_revision,
-                scope_digest=request.scope_digest,
-                evaluated_at=request.evaluated_at,
-                control_ids={record.aprl_guid for record in self._catalog.recommendations},
-            )
-
-    @staticmethod
-    def control_enablement(
-        record: WaraRecommendationCrosswalk, request: WaraAssessmentRequest
-    ) -> ControlEnablement:
-        return resolve_control_enablement(
-            record.impact,
-            enabled=(
-                request.enablement_profile.override_for(record.aprl_guid)
-                if request.enablement_profile is not None
-                else None
-            ),
-        )
+        validate_wara_enablement_profile(self._catalog, request)
 
     def _evaluate_control(
         self,
@@ -184,7 +165,7 @@ class WaraAssessmentRuntime:
         request: WaraAssessmentRequest,
         evidence: tuple[WaraEvidenceReceipt, ...],
     ) -> WaraControlResult:
-        if not self.control_enablement(record, request).enabled:
+        if not control_enablement(record, request).enabled:
             return WaraControlResult(
                 recommendation_id=record.aprl_guid,
                 catalog_state="active",
@@ -366,7 +347,7 @@ class WaraAssessmentObservationRunner:
         attempts: list[WaraObservationAttempt] = []
         collected_evidence: list[WaraEvidenceReceipt] = []
         for record in self._runtime.recommendations:
-            if not self._runtime.control_enablement(record, request).enabled:
+            if not control_enablement(record, request).enabled:
                 continue
             try:
                 plan = self._runtime.build_read_plan(record, request)
