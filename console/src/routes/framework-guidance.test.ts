@@ -56,6 +56,8 @@ describe("shared framework reading view", () => {
       guidance: null, controlId: "strategy", title: "Strategy", description: "Source explanation",
       expanded: false, onExpand: () => undefined, unavailableReason: "source_pin_unavailable",
     }));
+    expect(view.elements.some((element) => element.type === "h2" && element.props.children === "Strategy")).toBe(true);
+    expect(view.elements.some((element) => typeof element.type === "string" && "title" in element.props)).toBe(false);
     expect(view.text).toContain("Source explanation");
     expect(view.text).toContain(locale === "ko" ? "그림 안내가 없습니다" : "guidance is not available");
     expect(view.text).toContain("source_pin_unavailable");
