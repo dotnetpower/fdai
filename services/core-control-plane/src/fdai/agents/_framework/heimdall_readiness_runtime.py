@@ -65,6 +65,11 @@ from fdai.agents._framework.heimdall_constants import (
     _STATE_KEY as _STATE_KEY,
 )
 from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldest
+from fdai.agents._framework.heimdall_sensing_persistence import (
+    SUBJECT_LAYOUT,
+    checkpoint_digest,
+    write_changed_state,
+)
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.readiness import (
     AuthorityCeiling,
@@ -153,6 +158,8 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
     """Behavior-preserving extracted runtime methods."""
 
     if TYPE_CHECKING:
+        _persisted_sensing_records: Any
+        _persisted_sensing_digests: Any
         _action_semantics: Any
         _alert_counters: Any
         _alert_noise_message: Any
@@ -198,16 +205,17 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
     async def _persist_state(self) -> None:
         if self._state_store is None:
             return
-        compact_episode_mode = len(self._recent_events) > _FULL_SNAPSHOT_LIMIT
-        compact_readiness_mode = (
-            len(self._detection_readiness) + len(self._detection_readiness_pending)
-            > _FULL_SNAPSHOT_LIMIT
-        )
+        # Legacy full snapshots can contain subjects with no individual row yet.
+        if not getattr(self, "_sensing_subject_layout", False):
+            self._dirty_episode_keys.update(self._recent_events)
+            self._dirty_readiness_resources.update(self._detection_readiness)
+            self._dirty_pending_readiness.update(self._detection_readiness_pending)
         for episode_key in tuple(self._dirty_episode_keys):
             history = self._recent_events.get(episode_key)
             if history is None:
                 continue
-            await self._state_store.write_state(
+            await write_changed_state(
+                self,
                 f"{_EPISODE_PREFIX}{_digest(_encode_episode_key(episode_key))}",
                 {
                     "schema_version": "1.0.0",
@@ -224,7 +232,8 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
             if observations is None:
                 continue
             pass_order = self._detection_readiness_pass_order.get(resource)
-            await self._state_store.write_state(
+            await write_changed_state(
+                self,
                 f"{_READINESS_PREFIX}{_digest(resource)}",
                 {
                     "schema_version": "1.0.0",
@@ -246,7 +255,8 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
             if observations is None:
                 continue
             pending_identity = resource + "\0" + pass_id
-            await self._state_store.write_state(
+            await write_changed_state(
+                self,
                 f"{_PENDING_READINESS_PREFIX}{_digest(pending_identity)}",
                 {
                     "schema_version": "1.0.0",
@@ -259,20 +269,34 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
                     },
                 },
             )
-        await self._state_store.write_state(
+        ordered_subject_keys = [
+            *(
+                f"{_EPISODE_PREFIX}{_digest(_encode_episode_key(key))}"
+                for key in self._recent_events
+            ),
+            *(f"{_READINESS_PREFIX}{_digest(resource)}" for resource in self._detection_readiness),
+            *(
+                f"{_PENDING_READINESS_PREFIX}{_digest(identity)}"
+                for identity in (
+                    resource + "\0" + pass_id
+                    for resource, pass_id in self._detection_readiness_pending
+                )
+            ),
+        ]
+        manifest_written = await write_changed_state(
+            self,
             _STATE_KEY,
             {
                 "schema_version": "1.0.0",
                 "revision": 1,
-                "recent_events": {}
-                if compact_episode_mode
-                else {
-                    _encode_episode_key(key): [
-                        [timestamp, severity, evidence_key]
-                        for timestamp, severity, evidence_key in history
-                    ]
-                    for key, history in self._recent_events.items()
-                },
+                "storage_layout": SUBJECT_LAYOUT,
+                "subject_digest": checkpoint_digest(self, ordered_subject_keys),
+                "episode_order": [_encode_episode_key(key) for key in self._recent_events],
+                "readiness_order": list(self._detection_readiness),
+                "pending_readiness_order": [
+                    json.dumps((resource, pass_id), ensure_ascii=True, separators=(",", ":"))
+                    for resource, pass_id in self._detection_readiness_pending
+                ],
                 "incident_episode_ids": {
                     _encode_episode_key(key): value
                     for key, value in self._incident_episode_ids.items()
@@ -285,30 +309,7 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
                 "alert_windows": {
                     key: [start, count] for key, (start, count) in self._alert_windows.items()
                 },
-                "detection_readiness": {}
-                if compact_readiness_mode
-                else {
-                    resource: {
-                        dimension: observation.model_dump(mode="json")
-                        for dimension, observation in observations.items()
-                    }
-                    for resource, observations in self._detection_readiness.items()
-                },
-                "detection_readiness_pending": {}
-                if compact_readiness_mode
-                else {
-                    f"{resource}\0{pass_id}": {
-                        dimension: observation.model_dump(mode="json")
-                        for dimension, observation in observations.items()
-                    }
-                    for (
-                        resource,
-                        pass_id,
-                    ), observations in self._detection_readiness_pending.items()
-                },
-                "detection_readiness_pass_order": {}
-                if compact_readiness_mode
-                else {
+                "detection_readiness_pass_order": {
                     resource: [pass_id, observed_at.isoformat()]
                     for resource, (
                         pass_id,
@@ -317,6 +318,19 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
                 },
             },
         )
+        self._sensing_subject_layout = True
+        if manifest_written:
+            active_keys = {_STATE_KEY, *ordered_subject_keys}
+            self._persisted_sensing_records = {
+                key: value
+                for key, value in self._persisted_sensing_records.items()
+                if key in active_keys
+            }
+            self._persisted_sensing_digests = {
+                key: value
+                for key, value in self._persisted_sensing_digests.items()
+                if key in active_keys
+            }
         self._dirty_episode_keys.clear()
         self._dirty_readiness_resources.clear()
         self._dirty_pending_readiness.clear()

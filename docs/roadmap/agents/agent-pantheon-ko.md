@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 264edc0b8ed228acc84c9d880630c8b8c3146642
-translation_revised: 2026-10-30
+translation_source_sha: 2ea5a85707df5482f35bd6e52825a5bd82d826e1
+translation_revised: 2026-10-31
 ---
 # 에이전트 판테온
 
@@ -18,6 +18,18 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 - 오퍼레이터 콘솔 ([operator-console.md](../interfaces/operator-console-ko.md)) 은 §6.3 과 §6.5 를 읽고 자연어 질문을 per-user 맥락 로 기본 에이전트 에 라우팅한다.
 - 룰-카탈로그와 실행기 ([action-ontology.md](../decisioning/action-ontology-ko.md), [execution-model.md](../decisioning/execution-model-ko.md)) 는 §7 을 읽고 각 ActionType 을 initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성 재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
+Heimdall의 관측 복구는 변경되지 않은 모든 대상을 전역 스냅샷에 반복 복사하지 않고
+대상별 기록과 순서가 있는 활성 멤버 매니페스트를 저장합니다. 정확히 같은 반복 기록은
+다른 작성자가 변경했는지 확인한 뒤 이미 확인된 영속 상태를 재사용합니다. 기존 스냅샷
+복구도 지원합니다. 이 저장 최적화는 AgentSpec, 토픽 소유권, 권한, 승인, 이벤트 식별자,
+탐지 임계값이나 필수 감사 동작을 바꾸지 않습니다.
+
+매니페스트는 활성 주체별 정규 다이제스트를 연결합니다. 주체를 갱신한 뒤 매니페스트
+쓰기에 실패하면 서로 다른 체크포인트를 조용히 섞어 복구하지 않고 복구 조치가
+필요하다고 알립니다. 대기 중인 리소스/수집 회차 식별자는 PostgreSQL이 허용하지 않는
+NUL 문자 대신 JSON으로 안전하게 표현한 쌍을 사용합니다. 이 방식은 여러 키를
+하나의 트랜잭션으로 쓰거나 미참조 주체 기록을 자동 삭제하는 정책은 아닙니다.
+
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 이름이 있는 조직 역할로 구성합니다. [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의 안전 경계는 바꾸지 않고 역할을 이해하고 감사하기 쉽게 만듭니다.

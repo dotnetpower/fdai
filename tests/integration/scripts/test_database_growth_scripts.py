@@ -269,15 +269,18 @@ def test_json_report_contains_storage_breakdown_and_index_usage_without_sampling
 def test_detailed_report_distinguishes_unavailable_permissions_from_missing_tables() -> None:
     connection = MagicMock()
 
-    def execute(query: str, parameters: tuple[object, ...]) -> MagicMock:
+    def execute(query: str, parameters: tuple[object, ...] = ()) -> MagicMock:
         cursor = MagicMock()
         if query == "SELECT to_regclass(%s)":
             cursor.fetchone.return_value = (
                 "trusted_artifact" if parameters == ("trusted_artifact",) else None,
             )
         else:
-            assert "has_table_privilege" in query
-            cursor.fetchone.return_value = (False,)
+            if "FROM pg_stat_database" in query:
+                cursor.fetchone.return_value = (None, 5, 6, 7, 0.0, 0.0)
+            else:
+                assert "has_table_privilege" in query
+                cursor.fetchone.return_value = (False,)
         return cursor
 
     connection.execute.side_effect = execute
@@ -285,6 +288,58 @@ def test_detailed_report_distinguishes_unavailable_permissions_from_missing_tabl
     assert details["trusted_artifact"] == {"status": "select_permission_required"}
     assert details["conversation_image"] == {"status": "not_installed"}
     assert details["retention_policies"] == {"status": "not_installed"}
+    assert details["state_families"] == {"status": "not_installed"}
+    assert details["database_activity"]["updated_rows"] == 6
+
+
+def test_state_family_diagnostics_use_fixed_names_and_never_return_keys_or_values() -> None:
+    query = _REPORT._STATE_FAMILY_SQL
+    assert "pg_column_size(value)" in query
+    assert "GROUP BY family" in query
+    assert "SELECT key," not in query
+    assert "SELECT value," not in query
+    for family in (
+        "baseline_outcomes",
+        "heimdall_episodes",
+        "heimdall_readiness",
+        "control_loop_measurements",
+        "inventory_state",
+        "operator_projections",
+        "other",
+    ):
+        assert "'" + family + "'" in query
+
+
+def test_detailed_report_exposes_state_storage_and_write_totals_without_payloads() -> None:
+    connection = MagicMock()
+
+    def execute(query: str, parameters: tuple[object, ...] = ()) -> MagicMock:
+        cursor = MagicMock()
+        if query == "SELECT to_regclass(%s)":
+            cursor.fetchone.return_value = ("state_kv" if parameters == ("state_kv",) else None,)
+        elif "has_table_privilege" in query:
+            cursor.fetchone.return_value = (True,)
+        elif query == _REPORT._STATE_FAMILY_SQL:
+            cursor.fetchall.return_value = [
+                ("heimdall_episodes", 4, 1024, 512),
+                ("other", 2, 128, 64),
+            ]
+        else:
+            assert "FROM pg_stat_database" in query
+            cursor.fetchone.return_value = (None, 9, 12, 3, 0.0, 0.0)
+        return cursor
+
+    connection.execute.side_effect = execute
+    details = _REPORT.storage_details(connection)
+    assert details["state_families"][0] == {
+        "family": "heimdall_episodes",
+        "rows": 4,
+        "value_storage_bytes": 1024,
+        "largest_value_bytes": 512,
+    }
+    assert details["database_activity"]["updated_rows"] == 12
+    assert details["database_activity"]["timing_requires_track_io_timing"] is True
+    assert "payload" not in json.dumps(details)
 
 
 async def test_compaction_rechecks_concurrent_growth_against_the_byte_budget(

@@ -80,12 +80,82 @@ def test_over_limit_never_recreates_without_explicit_permission(monkeypatch, cap
 def test_recreation_requires_an_explicit_cli_mode():
     assert _MODULE._parser().parse_args([]).allow_recreate is False
     assert _MODULE._parser().parse_args(["--allow-recreate"]).allow_recreate is True
+    assert _MODULE._parser().parse_args([]).recreate is False
+    assert _MODULE._parser().parse_args(["--recreate"]).recreate is True
     with pytest.raises(SystemExit):
         _MODULE._parser().parse_args(["--check", "--allow-recreate"])
+    with pytest.raises(SystemExit):
+        _MODULE._parser().parse_args(["--check", "--recreate"])
+    with pytest.raises(SystemExit):
+        _MODULE._parser().parse_args(["--allow-recreate", "--recreate"])
+
+
+@pytest.mark.parametrize("arguments", [[], ["--allow-recreate"], ["--check"]])
+def test_below_limit_preserves_data_without_explicit_recreate(monkeypatch, arguments):
+    statements = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_arguments):
+            return False
+
+        def execute(self, query, parameters=()):
+            statements.append(str(query))
+            return SimpleNamespace(fetchone=lambda: (32 * 1024**2,))
+
+    def connect(*_args, **kwargs):
+        assert kwargs["connect_timeout"] == 5
+        assert "statement_timeout=30000" in kwargs["options"]
+        assert "lock_timeout=1000" in kwargs["options"]
+        return Connection()
+
+    monkeypatch.setattr(_MODULE.psycopg, "connect", connect)
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
+    monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
+    monkeypatch.setattr(sys, "argv", [str(_PATH), *arguments])
+    assert _MODULE.main() == 0
+    assert statements == ["SELECT pg_database_size(%s)"]
+
+
+@pytest.mark.parametrize("missing", ["size", "connections"])
+def test_explicit_recreation_refuses_missing_accounting(monkeypatch, missing):
+    statements = []
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_arguments):
+            return False
+
+        def execute(self, query, parameters=()):
+            statements.append(str(query))
+            row = (32 * 1024**2,) if "pg_database_size" in str(query) else None
+            if missing == "size":
+                row = None
+            return SimpleNamespace(fetchone=lambda: row)
+
+    monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
+    monkeypatch.setattr(sys, "argv", [str(_PATH), "--recreate"])
+    with pytest.raises(RuntimeError, match="unavailable; recreation refused"):
+        _MODULE.main()
+    assert not any(statement.startswith("DROP") for statement in statements)
 
 
 @pytest.mark.parametrize("active_connections", [0, 1])
-def test_explicit_recreation_keeps_active_connection_guard(monkeypatch, active_connections):
+@pytest.mark.parametrize(
+    ("mode", "size"),
+    [
+        ("--allow-recreate", 3 * 1024**3),
+        ("--recreate", 32 * 1024**2),
+    ],
+)
+def test_explicit_recreation_keeps_active_connection_guard(
+    monkeypatch, active_connections, mode, size
+):
     statements = []
 
     class Connection:
@@ -98,15 +168,13 @@ def test_explicit_recreation_keeps_active_connection_guard(monkeypatch, active_c
         def execute(self, query, parameters=()):
             rendered = query if isinstance(query, str) else query.as_string()
             statements.append(rendered)
-            result = (
-                3 * 1024 * 1024 * 1024 if "pg_database_size" in rendered else active_connections
-            )
+            result = size if "pg_database_size" in rendered else active_connections
             return SimpleNamespace(fetchone=lambda: (result,))
 
     monkeypatch.setattr(_MODULE.psycopg, "connect", lambda *_args, **_kwargs: Connection())
     monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://fdai@127.0.0.1:5432/fdai")
     monkeypatch.delenv("FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES", raising=False)
-    monkeypatch.setattr(sys, "argv", [str(_PATH), "--allow-recreate"])
+    monkeypatch.setattr(sys, "argv", [str(_PATH), mode])
     if active_connections:
         with pytest.raises(RuntimeError, match="stop local services"):
             _MODULE.main()
@@ -122,6 +190,7 @@ def test_console_state_preparation_checks_and_applies_database_maintenance() -> 
     assert source.count("maintain-development-database.py") == 3
     assert "maintenance_args=()" in source
     assert "maintenance_args+=(--allow-recreate)" in source
+    assert "maintenance_args+=(--recreate)" in source
     assert '"${maintenance_args[@]}"' in source
     assert 'maintain-development-database.py" --check' in source
     assert '--recreated-marker "$database_recreated_marker"' in source

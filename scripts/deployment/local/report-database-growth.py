@@ -28,6 +28,34 @@ WARN_FRACTION = 0.75
 _SAMPLE_PATH = Path(".fdai/local-db-growth.json")
 _MIB = 1024 * 1024
 _CONNECTION_OPTIONS = "-c statement_timeout=10000 -c lock_timeout=1000"
+_STATE_FAMILY_SQL = """
+SELECT family, count(*) AS rows, sum(value_bytes) AS value_bytes,
+       max(value_bytes) AS largest_value_bytes
+FROM (
+    SELECT CASE
+        WHEN starts_with(key, 'baseline-evaluation:outcomes:') THEN 'baseline_outcomes'
+        WHEN starts_with(key, 'baseline-evaluation:completions:') THEN 'baseline_completions'
+        WHEN starts_with(key, 'pantheon/forseti/no-rule-fold|') THEN 'forseti_no_rule'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/episodes/') THEN 'heimdall_episodes'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/readiness-pending/')
+            THEN 'heimdall_pending_readiness'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/readiness/')
+            THEN 'heimdall_readiness'
+        WHEN starts_with(key, 'pantheon/heimdall/publications/') THEN 'heimdall_publications'
+        WHEN starts_with(key, 'pantheon/heimdall/') THEN 'heimdall_recovery'
+        WHEN starts_with(key, 'pantheon/saga') THEN 'saga_recovery'
+        WHEN starts_with(key, 'measurement:control-loop:') THEN 'control_loop_measurements'
+        WHEN starts_with(key, 'aks-diagnostic-receipt:v1:') THEN 'aks_diagnostics'
+        WHEN starts_with(key, 'inventory') THEN 'inventory_state'
+        WHEN starts_with(key, 'ontology') THEN 'ontology_state'
+        WHEN starts_with(key, 'operator-projection:') THEN 'operator_projections'
+        WHEN starts_with(key, 'operator-semantic') THEN 'operator_semantic'
+        WHEN starts_with(key, 'semantic-turn:') THEN 'semantic_turn'
+        ELSE 'other'
+    END AS family, pg_column_size(value) AS value_bytes FROM state_kv
+) classified
+GROUP BY family ORDER BY value_bytes DESC, family
+"""
 _TABLE_STORAGE_SQL = """
 SELECT n.nspname, c.relname, c.oid,
        pg_total_relation_size(c.oid) AS total_bytes,
@@ -169,6 +197,36 @@ def storage_details(connection: Any) -> dict[str, Any]:
         ]
     else:
         details["retention_policies"] = {"status": policy_status}
+    state_status = _relation_read_status(connection, "state_kv")
+    if state_status == "available":
+        rows = connection.execute(_STATE_FAMILY_SQL).fetchall()
+        details["state_families"] = [
+            {
+                "family": row[0],
+                "rows": int(row[1]),
+                "value_storage_bytes": int(row[2]),
+                "largest_value_bytes": int(row[3]),
+            }
+            for row in rows
+        ]
+    else:
+        details["state_families"] = {"status": state_status}
+    statistics = connection.execute(
+        "SELECT stats_reset, tup_inserted, tup_updated, tup_deleted, "
+        "blk_read_time, blk_write_time FROM pg_stat_database "
+        "WHERE datname=current_database()"
+    ).fetchone()
+    if statistics is None:
+        raise RuntimeError("database growth report returned no write statistics")
+    details["database_activity"] = {
+        "stats_reset": statistics[0].isoformat() if statistics[0] is not None else None,
+        "inserted_rows": int(statistics[1]),
+        "updated_rows": int(statistics[2]),
+        "deleted_rows": int(statistics[3]),
+        "block_read_time_ms": float(statistics[4]),
+        "block_write_time_ms": float(statistics[5]),
+        "timing_requires_track_io_timing": True,
+    }
     return details
 
 

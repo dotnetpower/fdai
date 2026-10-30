@@ -36,17 +36,30 @@ class EvidenceHealth(StrEnum):
 
 
 _ALLOWED_STATISTICS = {
-    RollupFactKind.GAUGE: frozenset({"count", "sum", "minimum", "maximum", "average"}),
-    RollupFactKind.COUNTER: frozenset({"count", "sum", "average"}),
-    RollupFactKind.CATEGORICAL_STATE: frozenset({"state_counts", "latest"}),
-    RollupFactKind.RELATIONSHIP_CHANGE: frozenset({"change_counts"}),
+    RollupFactKind.GAUGE: frozenset(
+        {"count", "sum", "minimum", "maximum", "average", "extrema_timestamps", "time_coverage"}
+    ),
+    RollupFactKind.COUNTER: frozenset(
+        {"count", "sum", "average", "counter_delta", "time_coverage"}
+    ),
+    RollupFactKind.CATEGORICAL_STATE: frozenset(
+        {"state_counts", "latest", "state_timeline", "time_coverage"}
+    ),
+    RollupFactKind.RELATIONSHIP_CHANGE: frozenset(
+        {"change_counts", "change_timeline", "time_coverage"}
+    ),
     RollupFactKind.EVIDENCE_HEALTH: frozenset({"health_counts"}),
 }
 
 
 @dataclass(frozen=True, slots=True)
 class SemanticRollupPolicy:
-    """Declare one semantic fact's window and mergeable statistics."""
+    """Declare one semantic fact's window and mergeable statistics.
+
+    Reviewed opt-ins are counter_delta, state_timeline, change_timeline,
+    extrema_timestamps and time_coverage. These reject mixed source partitions
+    and ambiguous temporal order; legacy selections retain their exact output.
+    """
 
     semantic_id: str
     revision: str
@@ -202,13 +215,25 @@ def build_semantic_rollup(
     )
     if any(item.ontology_release_digest != policy.ontology_release_digest for item in ordered):
         raise ValueError("rollup observation ontology release does not match its policy")
-    statistics = _statistics(policy, ordered)
-    missing = _missing_intervals(
-        ordered,
-        window_start=window_start,
-        window_end=window_end,
-        interval_seconds=policy.expected_interval_seconds,
+    from fdai.core.ontology_platform.semantic_rollup_temporal import build_temporal, enabled
+
+    temporal = (
+        build_temporal(policy, ordered, window_start, window_end) if enabled(policy) else None
     )
+    statistics = _statistics(policy, ordered)
+    if temporal is not None:
+        statistics["temporal"] = temporal
+        missing = tuple(
+            (datetime.fromisoformat(start), datetime.fromisoformat(end))
+            for start, end in temporal["gaps"]
+        )
+    else:
+        missing = _missing_intervals(
+            ordered,
+            window_start=window_start,
+            window_end=window_end,
+            interval_seconds=policy.expected_interval_seconds,
+        )
     conflicts = sum(item.conflict_count for item in ordered)
     complete = (
         bool(ordered) and not missing and conflicts == 0 and all(item.complete for item in ordered)

@@ -36,6 +36,17 @@ Missing tables are reported as `not_installed`. Insufficient read permission is 
 `details_complete` to false, and returns exit code 2 rather than presenting a missing measurement
 as zero. The report never grants itself additional database privileges.
 
+The detailed report also groups tracked state by fixed repository-owned families: Heimdall
+episodes/readiness/publications, Saga recovery, baseline results/completions, control-loop
+measurements, inventory, ontology, and Operator projections. Unknown keys appear only as `other`.
+It reports stored-value bytes and the largest value without exposing keys, identifiers, or payloads.
+These value sizes exclude heap/index/TOAST overhead and are not estimates of reclaimable disk.
+
+Database insert/update/delete counters are cumulative since their statistics reset, not per-family
+WAL attribution. I/O timing can be zero when `track_io_timing` is disabled; the report marks that
+prerequisite rather than interpreting zero as free I/O. Capture runtime readiness and DB identity
+with every comparison: a stopped process or a recreated database invalidates a normal-load trend.
+
 ## Bound disposable state by rows and bytes
 
 The existing prefix-specific newest-N windows remain the minimum retained generations. Preview
@@ -65,6 +76,25 @@ autovacuum and TOAST thresholds, so tuning does not depend on running a manual r
 `--apply --vacuum-full` explicitly requests a table rewrite. It needs a maintenance window,
 additional temporary disk space, and an exclusive table lock. Both paths retain connection,
 statement, and lock deadlines.
+
+## Explicitly recreate a disposable development database
+
+Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup
+and history requirements, stopping all local writers, and explicitly accepting data loss, use:
+
+```bash
+bash scripts/deployment/local/prepare-console-state.sh --recreate
+```
+
+This mode recreates the selected loopback `fdai` runtime database even below the normal size bound.
+It preserves the active-connection guard, paired broker-reset marker, bounded private registration
+preservation, and all five service migration branches. Missing size/connection accounting refuses
+recreation. It does not terminate connections, select another database, change identity, or delete
+unrelated Docker data. Tests still use the isolated port-5433 cluster, never this runtime database.
+
+Rebuild size is not a storage-efficiency benchmark. Record initial schema, first complete inventory,
+and matched steady workload separately. Complete authoritative initial inventory preparation before
+starting the ordinary managed stack on an empty generation.
 
 ## Preserve contracts while optimizing queries
 

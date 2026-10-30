@@ -662,6 +662,23 @@ count, completeness, source partition digests, and the aggregation policy revisi
 a mergeable reviewed sketch or remain unavailable. Averages without count and sum are not accepted,
 and an incomplete source interval never becomes a complete aggregate.
 
+Reviewed policies may opt into `counter_delta`, `state_timeline`, `change_timeline`,
+`extrema_timestamps`, and `time_coverage` through the same rollup builder and archive adapter.
+Existing policies keep their output and digest contract. Temporal summaries retain exact boundary
+samples, reset and unresolved counter edges, ordered observed transitions, coverage gaps, extrema
+times, and recorded-time lineage; they never infer continuous health from two separated samples.
+Different source partitions, incompatible policies, conflicting overlaps, or ambiguous ordering
+cannot be merged into a precise temporal history.
+
+Repeated equal state samples can share a run, but a short normal-to-failed-to-normal sequence is
+preserved. Full provenance lists can still grow with distinct source revisions; compact statistics
+alone do not prove bounded total archive size. Runtime selection requires the reviewed policy and
+matching source-partition binding. Adding statistics does not enable journal purge, choose an
+installation retention period, or activate an unbound archive job.
+When compression omits intermediate recorded times, the summary explicitly reports
+`cannot_reconstruct_intermediate_known_at`; exact historical knowledge queries still require the
+original records. A final-window summary is not a substitute for what was known halfway through it.
+
 ### Archive and purge
 
 Archive partitions are immutable and content addressed. A manifest records the covered source

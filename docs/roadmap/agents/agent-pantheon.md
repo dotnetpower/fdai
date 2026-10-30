@@ -15,6 +15,17 @@ Consumers of this document:
 - The rule-catalog and executor ([action-ontology.md](../decisioning/action-ontology.md), [execution-model.md](../decisioning/execution-model.md)) read §7 to bind each ActionType to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
+Heimdall sensing recovery persists subject records and an ordered active-membership manifest instead
+of copying every unchanged subject into each global snapshot. Repeated exactly equal records reuse
+acknowledged durable state after checking for another writer; legacy snapshot recovery remains
+available. This storage optimization changes no AgentSpec, topic ownership, authority, approval,
+event identity, detection threshold, or required audit behavior.
+
+The manifest binds each active subject's canonical digest. A subject update followed by a failed
+manifest write cannot silently restore a mixed checkpoint: recovery reports repair required.
+Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
+characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
+
 ## 1. Design principles
 
 The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.
