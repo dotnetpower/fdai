@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 333f13935f5cbfe0433b09067ed5ce0dd8ac2f6a
+translation_source_sha: 3a25d7a9fa561ab1715e54802acf219e66232324
 translation_revised: 2026-10-31
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -94,6 +94,11 @@ uv run python scripts/deployment/local/compact-local-database.py --max-prefix-by
 Heimdall은 고정 참조 버킷을 사용합니다. PostgreSQL의 Saga는 작은 버전 3 헤드와
 인덱스를 사용하는 원장 조상 복구를 사용합니다. 원장 기록은 그대로 유지하며
 재시작은 마지막 항목 하나가 아닌 기존과 같은 최대 512개 항목의 조회 범위를 복원합니다.
+자동 생성된 감사 헤더 열은 기록별 메타데이터 공간을 추가로 사용합니다. 전체 감사
+용량을 비교할 때 이 열과 인덱스를 포함하세요. 작은 체크포인트만으로 전체 비용을
+측정하지 않습니다. 헤더/인덱스가 준비되지 않은 스키마는 버전 2를 계속 씁니다.
+헤더를 사용하면 복구 시 과거 원문을 읽지 않으며 기존 512 KiB 메타데이터 구간 예산을
+유지합니다.
 
 작은 헤드로 전환하기 전에 이전 쓰기 프로세스를 모두 중지하세요. 이전 판독기는
 버전 3 체크포인트를 읽을 수 없습니다. 코드만 되돌려서는 충분하지 않습니다.

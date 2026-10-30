@@ -53,13 +53,13 @@ from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
+    PostgresAuditChainWindowMixin,
+)
+from fdai.delivery.persistence.postgres_audit_history import (
     list_incident_evidence as _list_incident_evidence,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
     read_audit_chain_entries as _read_audit_chain_entries,
-)
-from fdai.delivery.persistence.postgres_audit_history import (
-    read_audit_chain_window as _read_audit_chain_window,
 )
 from fdai.delivery.persistence.postgres_audit_history import (
     read_audit_entries as _read_audit_entries,
@@ -123,7 +123,10 @@ class PostgresStateStoreConfig:
 
 
 class PostgresStateStore(
-    PostgresStatePairMixin, PostgresAssuranceTwinConfirmationMixin, StateStore
+    PostgresStatePairMixin,
+    PostgresAssuranceTwinConfirmationMixin,
+    PostgresAuditChainWindowMixin,
+    StateStore,
 ):
     """Async :class:`StateStore` implementation for PostgreSQL."""
 
@@ -669,13 +672,6 @@ class PostgresStateStore(
         self, *, limit: int
     ) -> tuple[tuple[Mapping[str, Any], ...], bool]:
         return await _read_audit_chain_entries(self, limit=limit)
-
-    async def read_audit_chain_window(
-        self, *, start_seq: int, end_seq: int, head_hash: str
-    ) -> tuple[Mapping[str, Any], ...]:
-        return await _read_audit_chain_window(
-            self, start_seq=start_seq, end_seq=end_seq, head_hash=head_hash
-        )
 
     async def read_latest_consumed_canary(self) -> Mapping[str, Any] | None:
         return await _read_latest_consumed_canary(self)

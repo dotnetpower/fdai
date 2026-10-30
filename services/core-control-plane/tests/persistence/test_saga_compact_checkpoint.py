@@ -16,6 +16,7 @@ from fdai.agents._framework.audit_chain_journal import (
     AUDIT_CHECKPOINT_KEY,
     AuditJournal,
     entry_hash,
+    load_journal,
 )
 from fdai.agents._framework.audit_chain_rehydrate import rehydrate_audit_entries
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
@@ -45,7 +46,7 @@ def _migration_statements(operation: str) -> list[str]:
     path = (
         Path(__file__).resolve().parents[4]
         / "service-migrations/branches/core-control-plane/versions"
-        / "20261031_core_saga_compact_checkpoint.py"
+        / "20261031_core_saga_header_storage.py"
     )
     spec = importlib.util.spec_from_file_location("saga_checkpoint_migration", path)
     assert spec is not None and spec.loader is not None
@@ -65,7 +66,9 @@ async def _database() -> AsyncIterator[AuditDatabase]:
     generator = _saga_database.__wrapped__()
     dsn = await anext(generator)
     try:
-        async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as conn:
+        async with await psycopg.AsyncConnection.connect(
+            dsn, autocommit=True, connect_timeout=5
+        ) as conn:
             await conn.execute("SET statement_timeout='15s'")
             schema = (await (await conn.execute("SELECT current_schema()")).fetchone())[0]
             identity = (
@@ -82,13 +85,16 @@ async def _database() -> AsyncIterator[AuditDatabase]:
                     "ALTER TABLE audit_log ALTER COLUMN seq "
                     "SET DEFAULT nextval('audit_window_test_seq')"
                 )
-            await conn.execute(
-                sql.SQL(
-                    "CREATE INDEX saga_window_test_idx ON audit_log ((entry->>'entry_hash')) "
-                    "WHERE jsonb_exists_all(entry::jsonb,{fields}) OR "
-                    "(entry->>'actor'='Saga' AND entry->>'action_kind'='audit.record')"
-                ).format(fields=sql.Literal(sorted(AUDIT_CHAIN_ENTRY_FIELDS)))
-            )
+            header = await (
+                await conn.execute(
+                    "SELECT 1 FROM pg_attribute WHERE attrelid='audit_log'::regclass "
+                    "AND attname='saga_header' AND NOT attisdropped"
+                )
+            ).fetchone()
+            if header:
+                await conn.execute("ALTER TABLE audit_log DROP COLUMN saga_header")
+            for statement in _migration_statements("upgrade"):
+                await conn.execute(statement)
             await conn.execute(
                 "ALTER TABLE state_kv SET (autovacuum_enabled=false, "
                 "toast.autovacuum_enabled=false)"
@@ -156,13 +162,14 @@ async def test_exact_migration_index_supports_bounded_ancestry_and_downgrades(
     async with await psycopg.AsyncConnection.connect(
         audit_databases[0].admin, autocommit=True, connect_timeout=5
     ) as conn:
-        await conn.execute("DROP INDEX saga_window_test_idx")
+        for statement in _migration_statements("downgrade"):
+            await conn.execute(statement)
         for statement in _migration_statements("upgrade"):
             await conn.execute(statement)
         row = await (
             await conn.execute(
                 "SELECT indisvalid,indisready FROM pg_index "
-                "WHERE indexrelid='audit_log_saga_entry_hash_idx'::regclass"
+                "WHERE indexrelid='audit_log_saga_header_hash_idx'::regclass"
             )
         ).fetchone()
         assert row == (True, True)
@@ -172,13 +179,82 @@ async def test_exact_migration_index_supports_bounded_ancestry_and_downgrades(
                 sql.SQL("EXPLAIN (FORMAT JSON) ") + _CHAIN_WINDOW_SQL, ("0" * 64, 1, 2)
             )
         ).fetchone()
-        assert "audit_log_saga_entry_hash_idx" in json.dumps(plan[0])
+        assert "audit_log_saga_header_hash_idx" in json.dumps(plan[0])
         for statement in _migration_statements("downgrade"):
             await conn.execute(statement)
         row = await (
-            await conn.execute("SELECT to_regclass('audit_log_saga_entry_hash_idx')")
+            await conn.execute("SELECT to_regclass('audit_log_saga_header_hash_idx')")
         ).fetchone()
         assert row == (None,)
+
+
+async def test_recovery_transfers_headers_not_large_historical_payloads(
+    audit_databases: tuple[AuditDatabase, AuditDatabase],
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=audit_databases[0].core))
+    try:
+        chain = StateStoreAuditChainAdapter(store)
+        for index in range(3):
+            await chain.append(
+                principal="Saga",
+                topic="object.event",
+                correlation_id=f"large-{index}",
+                payload={"blob": "x" * (4 * 1024 * 1024), "index": index},
+            )
+        headers = await store.read_audit_chain_window(
+            start_seq=0, end_seq=3, head_hash=chain.entries[-1].entry_hash
+        )
+        assert len(headers) == 3
+        assert all(set(header) == AUDIT_CHAIN_ENTRY_FIELDS for header in headers)
+        assert len(json.dumps(headers).encode()) < 4096
+        assert await rehydrate_audit_entries(store) == chain.entries
+        assert await store.verify_chain()
+    finally:
+        await store.aclose()
+
+
+async def test_backfill_preserves_rows_and_recovers_an_existing_compact_head(
+    audit_databases: tuple[AuditDatabase, AuditDatabase],
+) -> None:
+    database = audit_databases[0]
+    async with await psycopg.AsyncConnection.connect(
+        database.admin, autocommit=True, connect_timeout=5
+    ) as conn:
+        for statement in _migration_statements("downgrade"):
+            await conn.execute(statement)
+    old_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=database.core))
+    try:
+        chain = StateStoreAuditChainAdapter(old_store)
+        for index in range(8):
+            await chain.append(
+                principal="Saga",
+                topic="object.event",
+                correlation_id=f"old-{index}",
+                payload={"blob": "x" * 32768, "index": index},
+            )
+        journal = await load_journal(old_store)
+        assert journal is not None
+        await old_store.write_state(AUDIT_CHECKPOINT_KEY, journal.encode(compact=True))
+    finally:
+        await old_store.aclose()
+    async with await psycopg.AsyncConnection.connect(
+        database.admin, autocommit=True, connect_timeout=5
+    ) as conn:
+        query = "SELECT to_jsonb(row)-'saga_header' FROM audit_log row ORDER BY seq"
+        before = await (await conn.execute(query)).fetchall()
+        for statement in _migration_statements("upgrade"):
+            await conn.execute(statement)
+        after = await (await conn.execute(query)).fetchall()
+        assert after == before
+        with pytest.raises(psycopg.errors.GeneratedAlways):
+            await conn.execute("UPDATE audit_log SET saga_header='{}'::jsonb")
+    upgraded = PostgresStateStore(config=PostgresStateStoreConfig(dsn=database.core))
+    try:
+        assert await upgraded.supports_compact_audit_checkpoint()
+        assert await rehydrate_audit_entries(upgraded) == chain.entries
+        assert await upgraded.verify_chain()
+    finally:
+        await upgraded.aclose()
 
 
 async def test_identical_canonical_stream_reduces_actual_checkpoint_allocation(

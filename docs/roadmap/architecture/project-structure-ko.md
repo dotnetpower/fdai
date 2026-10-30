@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2bc1b9f374b0034b24921de155db7b8b9647537d
+translation_source_sha: 2ccc2fe7c8ef99f6577f036b59f7c1a301962112
 translation_revised: 2026-10-31
 ---
 # 프로젝트 구조
@@ -917,6 +917,10 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
 원장 항목을 최대 512개까지 거슬러 읽습니다. 순번이 같은 별도 체인을 선택하지 않습니다.
 이 기능이 없는 백엔드는 기존 버전 2 저널을 쓰며 버전 3의 작은 헤드는 읽을 수 없습니다.
 감사 기록, 권한, 추가/CAS 확정 경계는 제거하지 않습니다.
+PostgreSQL은 자동 생성된 원장 헤더 열과 유효한 인덱스가 있을 때만 준비됐다고
+알립니다. SDK에 선택적 메서드가 있어도 이전 스키마는 버전 2를 계속 씁니다.
+복구는 이 헤더만 읽고 임의 크기의 원문을 메모리에 올리지 않으며, 최근 메타데이터의
+512 KiB 예산을 유지합니다. 본문을 포함한 물리 체인 전체 검증은 별도로 유지합니다.
 
 WARA 작업은 `delivery/wara_assessment_cli.py`에서 `WaraManualEvidenceSource`와
 `WaraReportSink`를 받습니다. 배포 어댑터는 서명된 정확한 범위의 수동 증적이나 비공개 읽기 전용

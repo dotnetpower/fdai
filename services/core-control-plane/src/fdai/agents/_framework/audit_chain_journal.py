@@ -87,6 +87,9 @@ class AuditJournal:
         return self.entries[-1].entry_hash if self.entries else self.base_hash
 
     def encode(self, *, compact: bool = False) -> dict[str, Any]:
+        if compact:
+            # A small head must not bypass the complete recent-window admission budget.
+            self.encode()
         entries = self.entries[-1:] if compact else self.entries
         base_length = self.length - len(entries)
         base_hash = entries[0].prev_hash if entries else self.base_hash
@@ -167,7 +170,16 @@ async def _load_window(store: StateStore, journal: AuditJournal) -> AuditJournal
     verify_entries(entries, base_length=start, base_hash=base_hash)
     if entries[-1].entry_hash != journal.head_hash:
         raise AuditChainError("compact audit recovery head mismatch")
-    return AuditJournal(journal.revision, start, base_hash, tuple(entries))
+    restored = AuditJournal(journal.revision, start, base_hash, tuple(entries))
+    restored.encode()
+    return restored
+
+
+async def supports_compact_checkpoint(store: StateStore) -> bool:
+    return (
+        isinstance(store, StateStoreAuditChainWindowReader)
+        and await store.supports_compact_audit_checkpoint()
+    )
 
 
 async def load_journal(store: StateStore, *, with_window: bool = False) -> AuditJournal | None:
@@ -182,6 +194,8 @@ async def load_journal(store: StateStore, *, with_window: bool = False) -> Audit
         if stored["schema_version"] == "3.0.0":
             if not isinstance(store, StateStoreAuditChainWindowReader):
                 raise AuditChainError("compact audit checkpoint requires the bounded window reader")
+            if not await store.supports_compact_audit_checkpoint():
+                raise AuditChainError("compact audit checkpoint requires canonical header storage")
             if with_window:
                 return await _load_window(store, journal)
         return journal

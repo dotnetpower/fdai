@@ -45,6 +45,15 @@ All writers need the compact-head reader before cutover. The critique boundary i
 amplification, not relaxed chain verification: restart, independent replicas, paired CAS and
 payload/hash integrity retain their existing observable behavior.
 
+Compact encoding keeps the existing 512 KiB budget for the complete recent metadata window.
+Canonical Saga headers are generated beside the immutable audit JSON, so recovery reads bounded
+headers rather than arbitrary historical payloads. Storage readiness is negotiated: schemas
+without that header projection retain the v2 writer, and a v3 head requires the projection.
+Header/hash recovery is distinct from the existing full physical audit-chain verification.
+The critique includes large payloads and oversized metadata, not only small-event throughput.
+The additive projection migration has explicit lock/statement deadlines; a large installation
+that cannot fit those deadlines needs a reviewed migration window rather than relaxed controls.
+
 ## 1. Design principles
 
 The pantheon is a thin re-framing of the existing FDAI control loop into named organizational roles. It does not change the safety envelope in [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md); it makes the roles legible and auditable.

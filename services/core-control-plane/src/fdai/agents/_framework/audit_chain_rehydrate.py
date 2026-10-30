@@ -14,11 +14,11 @@ from fdai.agents._framework.audit_chain_journal import (
     AuditJournal,
     entry_hash,
     load_journal,
+    supports_compact_checkpoint,
     verify_entries,
 )
 from fdai.shared.providers.state_store import (
     StateStore,
-    StateStoreAuditChainWindowReader,
     StateStorePairAuditWriter,
 )
 
@@ -109,9 +109,7 @@ class StateStoreAuditChainAdapter:
                     raise AuditAppendDeferredError("durable audit append deadline exceeded")
                 committed = await self.store.compare_and_set_state_with_audit(
                     AUDIT_CHECKPOINT_KEY,
-                    advanced.encode(
-                        compact=isinstance(self.store, StateStoreAuditChainWindowReader)
-                    ),
+                    advanced.encode(compact=await supports_compact_checkpoint(self.store)),
                     expected_revision=journal.revision,
                     audit_entry={
                         "actor": "Saga",
@@ -195,9 +193,7 @@ class StateStoreAuditChainAdapter:
                 advanced = journal.advanced(entry)
                 committed = await self.store.compare_and_set_state_pair_with_audit(
                     AUDIT_CHECKPOINT_KEY,
-                    advanced.encode(
-                        compact=isinstance(self.store, StateStoreAuditChainWindowReader)
-                    ),
+                    advanced.encode(compact=await supports_compact_checkpoint(self.store)),
                     expected_revision=journal.revision,
                     second_key=state_key,
                     second_value=state_value,

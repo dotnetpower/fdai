@@ -3,11 +3,17 @@
 import json
 from collections.abc import Mapping
 from copy import deepcopy
+from dataclasses import replace
 from typing import Any
 
 import pytest
-from fdai.agents._framework.adapters import AuditChainError
-from fdai.agents._framework.audit_chain_journal import AUDIT_CHECKPOINT_KEY, load_journal
+from fdai.agents._framework.adapters import AuditChainError, AuditEntry
+from fdai.agents._framework.audit_chain_journal import (
+    AUDIT_CHECKPOINT_KEY,
+    AuditJournal,
+    entry_hash,
+    load_journal,
+)
 from fdai.agents._framework.audit_chain_rehydrate import (
     StateStoreAuditChainAdapter,
     rehydrate_audit_entries,
@@ -37,6 +43,9 @@ class CountingStore(InMemoryStateStore):
 class CompactStore(CountingStore):
     window_reads = 0
 
+    async def supports_compact_audit_checkpoint(self) -> bool:
+        return True
+
     async def read_audit_chain_window(
         self, *, start_seq: int, end_seq: int, head_hash: str
     ) -> tuple[Mapping[str, Any], ...]:
@@ -60,6 +69,19 @@ async def _append(chain: StateStoreAuditChainAdapter, index: int) -> None:
         correlation_id=f"correlation-{index}",
         payload={"event": index, "reason": "unchanged"},
     )
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_compact_encoding_keeps_the_existing_full_window_byte_budget(compact: bool) -> None:
+    journal = AuditJournal(1, 0, "0" * 64, ())
+    for index in range(2):
+        entry = AuditEntry(
+            index, journal.head_hash, "", "Saga", "object.event", "x" * 270_000, "a" * 64
+        )
+        entry = replace(entry, entry_hash=entry_hash(entry))
+        journal = journal.advanced(entry)
+    with pytest.raises(AuditChainError, match="byte budget"):
+        journal.encode(compact=compact)
 
 
 async def test_same_history_writes_a_compact_head_but_retains_512_entry_restart_view() -> None:
@@ -153,6 +175,25 @@ async def test_v3_checkpoint_cannot_fall_back_to_an_unsupported_reader() -> None
     await unsupported.write_state(AUDIT_CHECKPOINT_KEY, checkpoint)
     with pytest.raises(AuditChainError, match="requires the bounded window reader"):
         await load_journal(unsupported)
+
+
+async def test_unready_header_storage_keeps_v2_and_cannot_accept_a_v3_head() -> None:
+    class UnreadyStore(CompactStore):
+        async def supports_compact_audit_checkpoint(self) -> bool:
+            return False
+
+    store = UnreadyStore()
+    await _append(StateStoreAuditChainAdapter(store), 0)
+    checkpoint = await store.read_state(AUDIT_CHECKPOINT_KEY)
+    assert checkpoint is not None and checkpoint["schema_version"] == "2.0.0"
+    assert store.window_reads == 0
+    ready = CompactStore()
+    await _append(StateStoreAuditChainAdapter(ready), 0)
+    compact = await ready.read_state(AUDIT_CHECKPOINT_KEY)
+    assert compact is not None
+    await store.write_state(AUDIT_CHECKPOINT_KEY, compact)
+    with pytest.raises(AuditChainError, match="canonical header storage"):
+        await load_journal(store)
 
 
 async def test_window_ignores_detached_chains_with_equal_sequences() -> None:

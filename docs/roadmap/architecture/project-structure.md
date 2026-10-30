@@ -917,6 +917,10 @@ checkpoints. PostgreSQL follows the committed head hash through at most 512 cano
 using an indexed, bounded query, rather than selecting unrelated chains with equal sequence
 numbers. Backends without this capability keep the existing version-2 journal writer; they cannot
 read a version-3 compact head. No audit record, permission, or append/CAS boundary is removed.
+PostgreSQL reports readiness only when its generated canonical-header column and valid index
+exist. An older schema keeps the v2 writer even when the SDK exposes the optional methods.
+Recovery projects only these headers, preserving the 512 KiB recent-metadata budget without
+materializing arbitrary raw payloads. Full physical payload-chain verification remains separate.
 
 The WARA job accepts `WaraManualEvidenceSource` and `WaraReportSink` in
 `delivery/wara_assessment_cli.py`. Deployment adapters supply signed exact-scope manual receipts

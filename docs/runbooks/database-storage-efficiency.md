@@ -85,6 +85,10 @@ value does not rule out repeated large checkpoint rewrites or accumulated dead t
 Heimdall uses fixed reference buckets; PostgreSQL Saga uses a compact v3 head with indexed
 canonical-ancestor recovery. Canonical audit rows remain intact, and restart restores the
 same bounded 512-entry view rather than only the last entry.
+The generated audit-header column adds per-record metadata storage. Include that column and its
+index when comparing total audit size; a smaller checkpoint alone does not measure total cost.
+Schemas without the ready header/index keep v2 writes. The header projection avoids loading raw
+historical payloads during recovery and keeps the existing 512 KiB metadata-window admission.
 
 Stop all old writers before compact-head cutover. Older readers cannot use v3 checkpoints.
 Code rollback alone is insufficient: use a separately reviewed compatible checkpoint restore

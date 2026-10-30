@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from contextlib import AbstractAsyncContextManager
+from typing import TYPE_CHECKING, Any, Protocol
 
-from psycopg import sql
+from psycopg import AsyncConnection, sql
 
 from fdai.delivery.persistence.postgres_audit_fields import json_object
 from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS
@@ -12,24 +13,62 @@ from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS
 if TYPE_CHECKING:
     from fdai.delivery.persistence.postgres import PostgresStateStore
 
-# An unsorted outer LIMIT also bounds duplicate-hash branching in corrupted history.
+# Read only stored headers; an unsorted LIMIT bounds corrupt duplicate-hash branching.
 _CHAIN_WINDOW_SQL = sql.SQL(
     "WITH RECURSIVE recent(entry,depth) AS ("
-    "(SELECT entry,1 FROM audit_log WHERE "
-    "(jsonb_exists_all(entry::jsonb,{fields}) OR "
-    "(entry->>'actor'='Saga' AND entry->>'action_kind'='audit.record')) "
-    "AND entry->>'entry_hash'=%s LIMIT 2) "
-    "UNION ALL SELECT parent.entry,recent.depth+1 FROM recent "
-    "CROSS JOIN LATERAL (SELECT entry FROM audit_log WHERE "
-    "(jsonb_exists_all(entry::jsonb,{fields}) OR "
-    "(entry->>'actor'='Saga' AND entry->>'action_kind'='audit.record')) "
-    "AND entry->>'entry_hash'=recent.entry->>'prev_hash' LIMIT 2) parent "
+    "(SELECT saga_header,1 FROM audit_log "
+    "WHERE saga_header->>'entry_hash'=%s LIMIT 2) "
+    "UNION ALL SELECT parent.saga_header,recent.depth+1 FROM recent "
+    "CROSS JOIN LATERAL (SELECT saga_header FROM audit_log "
+    "WHERE saga_header->>'entry_hash'=recent.entry->>'prev_hash' LIMIT 2) parent "
     "WHERE recent.depth<%s) SELECT entry FROM recent LIMIT %s"
-).format(fields=sql.Literal(sorted(AUDIT_CHAIN_ENTRY_FIELDS)))
+)
+
+
+class _AuditHistoryContext(Protocol):
+    _compact_audit_schema_available: bool | None
+
+    def _connection(
+        self,
+    ) -> AbstractAsyncContextManager[AsyncConnection[dict[str, Any]]]: ...
+
+    async def _set_statement_timeout(self, conn: AsyncConnection[Any]) -> None: ...
+
+
+class PostgresAuditChainWindowMixin:
+    _compact_audit_schema_available: bool | None = None
+
+    async def supports_compact_audit_checkpoint(self: _AuditHistoryContext) -> bool:
+        if self._compact_audit_schema_available is None:
+            async with self._connection() as conn:
+                async with conn.transaction():
+                    await self._set_statement_timeout(conn)
+                    row = await (
+                        await conn.execute(
+                            "SELECT EXISTS(SELECT 1 FROM pg_attribute "
+                            "WHERE attrelid='audit_log'::regclass AND attname='saga_header' "
+                            "AND attgenerated='s' AND NOT attisdropped) "
+                            "AND EXISTS(SELECT 1 FROM pg_index "
+                            "WHERE indexrelid=to_regclass('audit_log_saga_header_hash_idx') "
+                            "AND indrelid='audit_log'::regclass AND indisvalid AND indisready) "
+                            "AS available"
+                        )
+                    ).fetchone()
+            if row is None:
+                raise RuntimeError("compact audit schema readiness returned no result")
+            self._compact_audit_schema_available = bool(row["available"])
+        return self._compact_audit_schema_available
+
+    async def read_audit_chain_window(
+        self: _AuditHistoryContext, *, start_seq: int, end_seq: int, head_hash: str
+    ) -> tuple[dict[str, Any], ...]:
+        return await read_audit_chain_window(
+            self, start_seq=start_seq, end_seq=end_seq, head_hash=head_hash
+        )
 
 
 async def read_audit_chain_window(
-    store: PostgresStateStore, *, start_seq: int, end_seq: int, head_hash: str
+    store: _AuditHistoryContext, *, start_seq: int, end_seq: int, head_hash: str
 ) -> tuple[dict[str, Any], ...]:
     if (
         type(start_seq) is not int
