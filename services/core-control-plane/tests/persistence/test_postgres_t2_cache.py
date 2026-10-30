@@ -100,6 +100,8 @@ def _store(dsn: str, *, timeout_ms: int = 15_000) -> PostgresT2Cache:
 @pytest.fixture
 async def database_url() -> str:
     dsn = _requires_live_db()
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("T2 cache integration requires service-owned migrations")
     _upgrade()
     async with await psycopg.AsyncConnection.connect(dsn) as connection:
         cursor = await connection.execute(

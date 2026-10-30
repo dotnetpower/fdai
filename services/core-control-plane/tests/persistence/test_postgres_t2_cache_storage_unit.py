@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import inspect
 import runpy
 import subprocess
 import sys
@@ -111,9 +112,28 @@ async def test_put_uses_the_exact_read_key_and_preserves_expiry_winner(
         "output = EXCLUDED.output, model = EXCLUDED.model, "
         "created_at = EXCLUDED.created_at, expires_at = EXCLUDED.expires_at"
     )
+
     assert params[:2] == (_ACTIVE, _INPUT)
     assert params[-2:] == ("another-model", expiry)
     store._prepare_transaction.assert_awaited_once_with(connection)
+
+
+async def test_db_fixture_never_runs_service_migrations_in_the_legacy_shard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = runpy.run_path(
+        str(_ROOT / "services/core-control-plane/tests/persistence/test_postgres_t2_cache.py")
+    )
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example@127.0.0.1:5433/fdai")
+    monkeypatch.delenv("FDAI_SERVICE_MIGRATIONS_READY", raising=False)
+
+    def reject_upgrade() -> None:
+        raise AssertionError("legacy shard must not run service migrations")
+
+    function = inspect.unwrap(fixture["database_url"])
+    monkeypatch.setitem(function.__globals__, "_upgrade", reject_upgrade)
+    with pytest.raises(pytest.skip.Exception, match="service-owned migrations"):
+        await function()
 
 
 async def test_put_rejects_nonactive_catalog_before_writing(

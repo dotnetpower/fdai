@@ -79,6 +79,8 @@ def test_ci_separates_root_and_service_migration_database_tests() -> None:
     assert "FDAI_SERVICE_DATABASE_URL:" in workflow
     assert 'stream.write(f"FDAI_DATABASE_URL={service_url}\\n")' in workflow
     assert "test_postgres_inventory_snapshot.py" in service_tests
+    assert "test_postgres_inventory_storage_efficiency_db.py" in service_tests
+    assert "test_postgres_t2_cache.py" in service_tests
     provider_tests = workflow[provider_step:job_end]
     assert "if: matrix.shard == 2" in provider_tests
     assert "FDAI_PROVIDER_CONTRACT_BACKENDS: real" in provider_tests
