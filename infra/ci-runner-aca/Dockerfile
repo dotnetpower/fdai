@@ -9,7 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Bootstrap prerequisites the provisioner itself needs before it reads the manifest.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq python3 tini unzip \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq pipx python-is-python3 sudo python3 tini unzip \
+ && install -d -m 0755 /etc/sudoers.d \
+ && printf '%s\n' 'runner ALL=(root) NOPASSWD: /usr/bin/tar, /bin/tar' > /etc/sudoers.d/fdai-ci-trivy \
+ && chmod 0440 /etc/sudoers.d/fdai-ci-trivy \
+ && printf '[global]\nbreak-system-packages = true\n' > /etc/pip.conf \
+ && chmod 0644 /etc/pip.conf \
  && rm -rf /var/lib/apt/lists/*
 
 # The same manifest, provisioner, and verifier every VM runner uses: one declared toolchain.

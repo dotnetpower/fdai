@@ -629,6 +629,7 @@ def test_image_capture_verifies_source_before_exact_builder_cleanup(
         "verify_gallery": {"id": builder.ids["gallery"], "location": image_args.location},
         "list_definitions": [],
         "list_versions": [],
+        "check_power": {"instanceView": {"statuses": [{"code": "PowerState/stopped"}]}},
     }
     builder.az = Mock(side_effect=lambda stage, *args, **kwargs: responses.get(stage, {}))
     if violation != "none":
@@ -658,6 +659,7 @@ def test_image_capture_verifies_source_before_exact_builder_cleanup(
         assert parsed_tags == expected_tags and (not aaz or len(values) == 1)
     stages = [call.args[0] for call in calls]
     assert stages.index("verify_image") < stages.index("delete_builder")
+    assert stages.index("check_power") < stages.index("deallocate")
     vm_args = next(call.args for call in calls if call.args[0] == "create_vm")
     assert "--assign-identity" not in vm_args
     assert "--public-ip-address" not in vm_args
@@ -675,7 +677,30 @@ def test_image_capture_verifies_source_before_exact_builder_cleanup(
     assert capture[capture.index("--replication-mode") + 1] == "Full"
     assert builder.run_script.call_count == 2
     assert "cloud-init status --wait" in builder.run_script.call_args_list[0].args[1]
+    assert "systemd-run --unit=fdai-ci-deprovision" in builder.run_script.call_args_list[1].args[1]
     assert "waagent -deprovision+user" in builder.run_script.call_args_list[1].args[1]
+    assert "systemctl poweroff" in builder.run_script.call_args_list[1].args[1]
+
+
+def test_image_builder_waits_for_poweroff_and_fails_closed_when_running(
+    image_builder: ModuleType,
+    image_args: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(image_builder.shutil, "which", lambda executable: "/usr/bin/az")
+    monkeypatch.setattr(image_builder.time, "sleep", lambda _: None)
+    builder = image_builder.Builder(image_args)
+    builder.az = Mock(
+        side_effect=[
+            {"instanceView": {"statuses": [{"code": "PowerState/running"}]}},
+            {"instanceView": {"statuses": [{"code": "PowerState/stopped"}]}},
+        ]
+    )
+    builder.await_poweroff()
+    assert builder.az.call_count == 2
+    builder.az = Mock(return_value={"instanceView": {"statuses": [{"code": "PowerState/running"}]}})
+    with pytest.raises(image_builder.BuildError, match="builder_stage_unconfirmed"):
+        builder.await_poweroff()
 
 
 def test_image_capture_failure_never_deletes_ambiguous_builder(
@@ -689,6 +714,7 @@ def test_image_capture_failure_never_deletes_ambiguous_builder(
     builder.prepare_gallery = Mock()
     builder.verify_builder = Mock()
     builder.run_script = Mock()
+    builder.await_poweroff = Mock()
     builder.az = Mock(return_value={})
     with pytest.raises(image_builder.BuildError, match="captured_image_unconfirmed"):
         builder.execute(Path("example-cloud-init.json"), "example-public-key")

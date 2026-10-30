@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     hook.chmod(0o555)
     environment = {
         "HOME": "/home/runner",
-        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "PATH": "/home/runner/.local/bin:/usr/local/bin:/usr/bin:/bin",
         "AGENT_TOOLSDIRECTORY": "/opt/hostedtoolcache",
         "ACTIONS_RUNNER_INPUT_JITCONFIG": credential,
         "ACTIONS_RUNNER_HOOK_JOB_STARTED": str(hook),

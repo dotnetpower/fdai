@@ -34,8 +34,12 @@ export DEBIAN_FRONTEND=noninteractive
 install -d -m 0700 /opt/fdai-ci/image-work
 export TMPDIR=/opt/fdai-ci/image-work
 apt-get update -y
-apt-get install -y --no-install-recommends ca-certificates curl gnupg jq python3 tini unzip tzdata tzdata-legacy
-install -d -m 0755 /opt/fdai-ci
+apt-get install -y --no-install-recommends ca-certificates curl docker-buildx docker-compose-v2 gnupg jq pipx python-is-python3 sudo python3 tini unzip tzdata tzdata-legacy
+install -d -m 0755 /opt/fdai-ci /etc/sudoers.d
+printf '%s\n' 'runner ALL=(root) NOPASSWD: /usr/bin/tar, /bin/tar' > /etc/sudoers.d/fdai-ci-trivy
+chmod 0440 /etc/sudoers.d/fdai-ci-trivy
+printf '[global]\nbreak-system-packages = true\n' > /etc/pip.conf
+chmod 0644 /etc/pip.conf
 install -m 0644 "$source_root/infra/ci-runner/toolchain.json" /opt/fdai-ci/toolchain.json
 install -m 0755 "$source_root/infra/ci-runner/verify-toolchain.py" /opt/fdai-ci/verify-toolchain.py
 install -m 0755 "$source_root/infra/ci-runner/provision-toolchain.sh" /opt/fdai-ci/provision-toolchain.sh
@@ -60,6 +64,8 @@ install -o root -g root -m 0755 "$source_root/infra/ci-runner-aca/broker-entrypo
 systemctl enable --now docker
 systemctl is-active --quiet docker
 docker info >/dev/null
+docker compose version >/dev/null
+docker buildx version >/dev/null
 /opt/fdai-ci/verify-toolchain.py
 
 # The listener bundles its action JavaScript runtime. Workflows select Node/npm with setup-node.
