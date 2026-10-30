@@ -910,6 +910,8 @@ typed explanatory diagrams. Operator attaches one matching guide to the existing
 read; Core's public-guide report builder and delivery-owned Office renderer reuse the same data.
 This shared package adds no cross-service implementation import, upload/document-ingestion path,
 ontology observation, assessment writer or operational authority.
+Node explanations follow the [diagram wording contract](../rules-and-detection/wara-illustrated-guidance.md#content-contract):
+authored connections belong on nodes, while shared illustrative scope belongs in the diagram description.
 
 `fdai_service_contracts.framework_guidance` carries the separate bilingual WAF, MCSB, and CAF
 presentation corpus. Delivery validates its assessment and definition pins before materialization;

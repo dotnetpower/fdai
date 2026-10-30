@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 20fab9d9fff42402b7a81c06b5cf0b625e034156
+translation_source_sha: 39c5c90a6a04f761785b0dd46dd9fe1f94080528
 translation_revised: 2026-10-31
 ---
 # 프로젝트 구조
@@ -909,6 +909,8 @@ WARA 작업은 `delivery/wara_assessment_cli.py`에서 `WaraManualEvidenceSource
 연결하며 Core의 공용 가이드 보고서 생성기와 delivery 소유 Office 렌더러가 같은 데이터를
 재사용합니다. 공통 패키지는 서비스 간 구현 참조, 업로드·문서 수집 경로, 온톨로지 관찰,
 평가 작성기, 운영 권한을 추가하지 않습니다.
+노드 설명은 [도식 문구 계약](../rules-and-detection/wara-illustrated-guidance-ko.md#콘텐츠-계약)을 따릅니다.
+노드에는 원본 도식의 연결 관계를 설명하고, 구성 예시라는 공통 안내는 도식 설명에 둡니다.
 
 `fdai_service_contracts.framework_guidance`는 WAF, MCSB, CAF의 별도 영한 표시용 안내 모음을
 제공합니다. delivery는 데이터를 구체화하기 전에 평가와 정의 핀을 검증하며, Operator는 상세
