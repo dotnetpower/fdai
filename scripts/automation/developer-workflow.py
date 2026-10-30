@@ -57,6 +57,9 @@ from scripts.automation.developer_workflow_runtime import (
 from scripts.automation.developer_workflow_runtime import (
     warning_diagnostic as _warning_diagnostic,
 )
+from scripts.automation.developer_workflow_worktrees import (
+    worktrees_diagnostic as _worktrees_diagnostic,
+)
 
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
@@ -339,11 +342,27 @@ def _render_local_services(report: dict[str, Any]) -> str:
     )
 
 
+def _render_worktrees(report: dict[str, Any]) -> str:
+    if report["status"] == "unavailable":
+        return f"developer-workflow: unavailable ({report['reason_code']})"
+    return (
+        f"developer-workflow: worktrees {report['status']}\n"
+        f"  worktrees:          {report['worktree_count']} "
+        f"(active={report['active_worktree_count']}, reclaimable={report['reclaimable_count']})\n"
+        f"  behind_active:      {report['behind_active_count']}\n"
+        f"  path_collisions:    {report['path_collision_count']}\n"
+        f"  hotspot_collisions: {report['hotspot_doc_collision_count']}"
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--json", action="store_true", dest="as_json")
+    worktrees_parser = subparsers.add_parser("worktrees")
+    worktrees_parser.add_argument("--base", default=None, dest="base_ref")
+    worktrees_parser.add_argument("--json", action="store_true", dest="as_json")
     local_services_parser = subparsers.add_parser("local-services")
     local_services_parser.add_argument("--json", action="store_true", dest="as_json")
     local_services_parser.add_argument("--wait-seconds", type=float, default=15.0)
@@ -406,6 +425,9 @@ def main(argv: list[str] | None = None) -> int:
     elif arguments.command == "delegation-preflight":
         report = delegation_preflight_report(Path.cwd())
         renderer = _render_preflight
+    elif arguments.command == "worktrees":
+        report = _worktrees_diagnostic(Path.cwd(), base_ref=arguments.base_ref)
+        renderer = _render_worktrees
     else:
         report = status_report(Path.cwd())
         renderer = _render_text

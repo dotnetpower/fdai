@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: bbd9ad08dc0619f48f55092fa25a942fbf218b42
-translation_revised: 2026-10-30
+translation_source_sha: 9fd369a0db3fbbea6617ca5fb29d71d91ebbeb06
+translation_revised: 2026-10-31
 ---
 
 # 개발 워크플로 보증
@@ -74,6 +74,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 | 명령 | 결과 |
 |------|------|
 | `status` | Git, 검증, 인계, 테스트 환경, hook 위험, 로컬 서비스, 브라우저 runner 및 편집기 부하 진단을 집계합니다. |
+| `worktrees` | 등록된 worktree의 base drift, 회수 가능한 병합 완료 checkout, 겹치는 활성 경로 및 공유 `docs_update` hotspot 충돌을 보고합니다. |
 | `resume` | 최신 관련 인계를 현재 검증 및 worktree drift와 함께 렌더링합니다. |
 | `context-plan <path>...` | 대상 경로의 중복 제거된 현재 설계 문서와 집중 검사를 출력합니다. |
 | `preflight` | Git index, hook 상태, Python path, virtual environment 또는 database identity가 오염되면 집중 검사 전에 실패합니다. |
@@ -394,7 +395,15 @@ extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비�
 트리를 사용합니다. 캐시가 없거나 손상되었거나 실패 또는 불일치 기록이면 검사를 실행하며,
 성공으로 대신 처리하지 않습니다. 캐시 사용 가능 여부는 필수 조건이 아닙니다.
 구조 증적은 24시간 후 만료되며 Git common dir의 `fdai-local-validation` 상태에 최대
-128개를 보관합니다. 관련 hook 명령은 그룹마다 환경 준비를 한 번만 수행합니다. 집중 게이트
+128개를 보관합니다. 최대 `FDAI_LOCAL_VALIDATION_SLOTS`개(기본값 4, 최대 16)의 풀링된 스크래치
+슬롯이 검증된 의존성 환경을 재사용하고 내용 주소 기반 `receipts/` 디렉터리를 공유하며, 모든 슬롯이
+사용 중일 때만 캐시되지 않는 비공개 checkout으로 전환합니다. 관련 hook 명령은 그룹마다 환경 준비를
+한 번만 수행합니다. 로드맵 소유 문서가 상태 섹션을 `docs/roadmap-implementation/<area>/<name>.md`로
+위임한 경우 해당 원장을 갱신하면 설계 영향 검사를 충족하므로 쌍을 이루는 규범 설계 문서를 인위적으로
+수정할 필요가 없습니다. 명시적 `developer_workflow_worktrees.py sync`는 깨끗한 토픽 worktree를
+base와 동기화하고 사전 병합이 검증된 `translation_source_sha` 머리말 충돌, 추가 전용 구현 원장 표
+행 및 추가 전용 `service-suites.json` 등록만 조정하며 그 외의 충돌에서는 fail-closed로 중단합니다.
+집중 게이트
 캐시 식별자는 게이트마다가 아니라 묶음 실행 전후에 한 번씩 계산합니다. 순수 검사는 내용에,
 이력 검사는 리비전과 참조에도 연결됩니다. 입력이 바뀌면 묶음을 수락하지 않습니다.
 무결성과 외부 근거 검사는 캐시하지 않으며 CI는 자체 실행 환경을 유지합니다.

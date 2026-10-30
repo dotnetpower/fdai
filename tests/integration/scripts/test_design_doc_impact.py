@@ -231,6 +231,65 @@ def test_localized_owning_doc_satisfies_route() -> None:
     assert failures == []
 
 
+def test_delegated_implementation_ledger_satisfies_roadmap_owner_route(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "parity",
+                "paths": ["services/operator-service/**"],
+                "docs_update": ["docs/roadmap/deployment/dev-and-deploy-parity.md"],
+            }
+        ]
+    }
+    monkeypatch.setattr(module, "_has_inline_implementation_status", lambda _owner: False)
+
+    assert (
+        module.missing_doc_updates(
+            {
+                "services/operator-service/src/fdai_operator_service/main.py",
+                "docs/roadmap-implementation/deployment/dev-and-deploy-parity.md",
+            },
+            manifest,
+        )
+        == []
+    )
+
+
+def test_mirrored_ledger_cannot_satisfy_inline_status_roadmap_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    manifest = {
+        "routes": [
+            {
+                "id": "inline-owner",
+                "paths": ["services/operator-service/**"],
+                "docs_update": ["docs/roadmap/deployment/legacy-inline.md"],
+            }
+        ]
+    }
+    monkeypatch.setattr(module, "_has_inline_implementation_status", lambda _owner: True)
+
+    failures = module.missing_doc_updates(
+        {
+            "services/operator-service/src/fdai_operator_service/main.py",
+            "docs/roadmap-implementation/deployment/legacy-inline.md",
+        },
+        manifest,
+    )
+
+    assert failures == [
+        (
+            "inline-owner",
+            ("services/operator-service/src/fdai_operator_service/main.py",),
+            ("docs/roadmap/deployment/legacy-inline.md",),
+        )
+    ]
+
+
 def test_unrouted_change_needs_no_doc_churn() -> None:
     module = _load_module()
 

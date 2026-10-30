@@ -68,6 +68,7 @@ commands:
 | Command | Result |
 |---------|--------|
 | `status` | Aggregates Git, validation, handover, test-environment, hook-risk, local-service, browser-runner, and editor-pressure diagnostics. |
+| `worktrees` | Reports registered worktree base drift, reclaimable merged checkouts, overlapping active paths, and shared `docs_update` hotspot collisions. |
 | `resume` | Renders the latest relevant handover with current validation and worktree drift. |
 | `context-plan <path>...` | Prints deduplicated current design documents and focused checks for the target paths. |
 | `preflight` | Fails before a focused check when the Git index, hook state, Python path, virtual environment, or database identity is contaminated. |
@@ -402,7 +403,16 @@ hook only when its complete content and execution context match. Gates without a
 dependency set use the complete tracked tree. Missing, malformed, failed, or mismatched cache
 records cause execution, never a successful fallback. Cache availability is optional.
 Structural receipts expire after 24 hours and retain at most 128 entries in Git-common-dir
-`fdai-local-validation` state. Related hook commands share one environment preparation per group.
+`fdai-local-validation` state. Up to `FDAI_LOCAL_VALIDATION_SLOTS` (default 4, maximum 16) pooled
+scratch slots reuse verified dependency environments and share the content-addressed `receipts/`
+directory before an all-slots-busy push falls back to an uncached private checkout. Related hook
+commands share one environment preparation per group. When a roadmap owner delegates its status
+section to `docs/roadmap-implementation/<area>/<name>.md`, updating that ledger satisfies the
+route's design-impact check without requiring an artificial edit to the paired normative design
+document. Explicit `developer_workflow_worktrees.py sync` synchronizes a clean topic worktree with
+its base and reconciles only verified pre-merge `translation_source_sha` front-matter conflicts,
+append-only implementation-ledger table rows, and additive `service-suites.json` registrations,
+aborting fail-closed on any other conflict.
 Fast-gate cache identities are computed once before and after the batch, not once per gate.
 Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
 batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
