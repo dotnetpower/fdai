@@ -84,10 +84,19 @@ def test_service_container_job_cannot_be_routed_to_non_docker_pool() -> None:
 
 
 def test_ready_evidence_is_an_observation_and_never_grants_execution() -> None:
-    receipt = CHECK.assess(POLICY, WORKFLOW, _evidence(), NOW)
+    workflow = copy.deepcopy(WORKFLOW)
+    for name, pool in POLICY["jobs"].items():
+        workflow["jobs"][name]["runs-on"] = POLICY["pools"][pool]["labels"]
+    receipt = CHECK.assess(POLICY, workflow, _evidence(), NOW)
     assert receipt["ready"] is True
     assert receipt["routing_changed"] is False
     assert receipt["authority"] == "none"
+
+
+def test_snapshot_claims_cannot_override_the_actual_workflow_runner_selection() -> None:
+    receipt = CHECK.assess(POLICY, WORKFLOW, _evidence(), NOW)
+    assert receipt["ready"] is False
+    assert "changes:workflow-source-route-not-on-control" in receipt["blockers"]
 
 
 @pytest.mark.parametrize("seconds", [-1, 61])

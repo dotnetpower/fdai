@@ -161,6 +161,13 @@ def assess(
     for name, expected in policy["jobs"].items():
         if actual_routes[name] != expected:
             blockers.append(f"{name}:route-not-on-{expected}")
+        selection = workflow["jobs"][name]["runs-on"]
+        if (
+            not isinstance(selection, list)
+            or not all(isinstance(label, str) for label in selection)
+            or set(selection) != set(policy["pools"][expected]["labels"])
+        ):
+            blockers.append(f"{name}:workflow-source-route-not-on-{expected}")
     return {
         "ready": not blockers,
         "blockers": blockers,
