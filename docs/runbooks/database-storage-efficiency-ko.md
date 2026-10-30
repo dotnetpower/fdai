@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: d5b004d0ff2b840ec422948aca6d7f6cb793594b
+translation_source_sha: 45824cd868739a4569ac760ee43f3c9ac465439c
 translation_revised: 2026-10-31
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -91,7 +91,12 @@ uv run python scripts/deployment/local/compact-local-database.py --max-prefix-by
 고정 상태 계열 `heimdall_buckets`, `saga_audit_checkpoint`,
 `saga_verdict_aggregate`는 복구 비용을 원장 이력과 구분합니다. 최신 값이 작아도
 큰 체크포인트의 반복 재쓰기나 누적된 미회수 행이 없다고 단정하지 않습니다.
-Heimdall은 고정 참조 버킷을 사용합니다. PostgreSQL의 Saga는 작은 버전 3 헤드와
+Heimdall은 고정 참조 버킷 64개를 사용하고 큰 리프는 16진 분기 하위 페이지로 나눕니다
+(`bucket_node_format=radix16-v1`). 리프, 분기, 큰 값의 조각 쓰기를 JSON 5,000바이트
+미만으로 제한하며, 쓰기 크기가 줄어도 행 수와 쓰기 횟수는 늘 수 있습니다.
+페이지 노드로 전환하기 전에 이전 쓰기 프로세스를 중지하세요. 새 판독기는 페이지 없는
+v2 버킷을 읽지만 이전 판독기는 페이지 노드를 지원하지 않습니다. 코드만 되돌리지 말고
+검토된 호환 체크포인트 복원을 사용하세요. PostgreSQL의 Saga는 작은 버전 3 헤드와
 인덱스를 사용하는 원장 조상 복구를 사용합니다. 원장 기록은 그대로 유지하며
 재시작은 마지막 항목 하나가 아닌 기존과 같은 최대 512개 항목의 조회 범위를 복원합니다.
 자동 생성된 감사 헤더 열은 기록별 메타데이터 공간을 추가로 사용합니다. 전체 감사

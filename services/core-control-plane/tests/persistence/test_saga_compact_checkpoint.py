@@ -12,21 +12,21 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 from fdai.agents import StateStoreAuditChainAdapter, prepare_saga_audit_migration
-from fdai.agents._framework.adapters import AuditEntry, _digest
-from fdai.agents._framework.audit_chain_journal import (
-    AUDIT_CHECKPOINT_KEY,
-    AuditJournal,
-    entry_hash,
-    load_journal,
-)
-from fdai.agents._framework.audit_chain_rehydrate import rehydrate_audit_entries
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_audit_history import _CHAIN_WINDOW_SQL
 from fdai.shared.providers.state_store import AUDIT_CHAIN_ENTRY_FIELDS
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-from tests.agents.test_audit_chain_migration import _checkpoint, _history
+from tests.agents.test_audit_chain_migration import _checkpoint, _digest, _history
+from tests.agents.test_audit_compact_checkpoint import (
+    AUDIT_CHECKPOINT_KEY,
+    AuditEntry,
+    AuditJournal,
+    entry_hash,
+    load_journal,
+    rehydrate_audit_entries,
+)
 from tests.persistence.test_postgres_state_store import saga_database as _saga_database
 
 pytestmark = pytest.mark.integration

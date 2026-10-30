@@ -82,7 +82,12 @@ statement, and lock deadlines.
 The fixed families `heimdall_buckets`, `saga_audit_checkpoint`, and
 `saga_verdict_aggregate` separate recovery overhead from canonical history. A small latest
 value does not rule out repeated large checkpoint rewrites or accumulated dead tuples.
-Heimdall uses fixed reference buckets; PostgreSQL Saga uses a compact v3 head with indexed
+Heimdall uses 64 fixed reference buckets with radix-16 subpages for oversized leaves
+(`bucket_node_format=radix16-v1`). Leaf, branch and large-value fragment writes stay below
+5,000 JSON bytes; smaller writes can increase row and write counts. Stop older writers before
+paged-node cutover. The new reader accepts unpaged v2 buckets, but old readers do not support
+paged nodes. Use a reviewed compatible checkpoint restore, not code rollback alone.
+PostgreSQL Saga uses a compact v3 head with indexed
 canonical-ancestor recovery. Canonical audit rows remain intact, and restart restores the
 same bounded 512-entry view rather than only the last entry.
 The generated audit-header column adds per-record metadata storage. Include that column and its

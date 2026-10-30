@@ -6,6 +6,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from copy import deepcopy
+from decimal import Decimal
 from typing import Any
 
 from fdai.agents._framework.heimdall_alert_window import MAX_TRACKED_KEYS
@@ -20,6 +21,9 @@ SUBJECT_LAYOUT = "subject-records-v1"
 BUCKET_LAYOUT = "subject-buckets-v2"
 BUCKET_COUNT = 64
 BUCKET_PREFIX = _STATE_KEY + "/buckets/"
+NODE_FORMAT = "radix16-v1"
+MAX_NODE_BYTES = 5_000
+_RADIX = "0123456789abcdef"
 
 
 def bucket_key(slot: int) -> str:
@@ -32,6 +36,244 @@ def _bucket_slot(key: str) -> int:
 
 def _bucket_commitment(digests: list[str]) -> str:
     return hashlib.sha256(json.dumps(digests, separators=(",", ":")).encode()).hexdigest()
+
+
+def _node_key(slot: int, path: str) -> str:
+    return bucket_key(slot) + ("/" + path if path else "")
+
+
+def _route(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()[8:]
+
+
+def _node_size(body: Mapping[str, Any]) -> int:
+    """Bound JSONB text without changing payloads, including expanded numeric literals."""
+
+    def jsonb_bound(value: Any) -> Any:
+        if isinstance(value, float):
+            number = Decimal(str(value))
+            if not number.is_finite():
+                raise ValueError("Heimdall sensing checkpoint requires finite JSON numbers")
+            return format(number, "f")
+        if isinstance(value, Mapping):
+            return {key: jsonb_bound(item) for key, item in value.items()}
+        if isinstance(value, list | tuple):
+            return [jsonb_bound(item) for item in value]
+        return value
+
+    return len(json.dumps(jsonb_bound(body), ensure_ascii=True, allow_nan=False).encode())
+
+
+async def _write_node(
+    agent: Any,
+    slot: int,
+    path: str,
+    entries: dict[str, dict[str, Any]],
+    affected: set[str],
+    migrate: bool,
+) -> str:
+    key = _node_key(slot, path)
+    old = agent._persisted_sensing_records.get(key)
+    if not migrate and not affected and old is not None:
+        return str(agent._persisted_sensing_digests[key])
+    body = {
+        "schema_version": "1.0.0",
+        "slot": slot,
+        "path": path,
+        "node_type": "leaf",
+        "entries": entries,
+    }
+    if _node_size(body) >= MAX_NODE_BYTES and len(entries) == 1:
+        return await _write_fragment(agent, slot, path, entries)
+    if _node_size(body) >= MAX_NODE_BYTES or (old is not None and old.get("node_type") == "branch"):
+        if len(path) >= 56:
+            raise ValueError(
+                "Heimdall sensing reference cannot fit a bounded leaf; repair required"
+            )
+        grouped: dict[str, dict[str, dict[str, Any]]] = {}
+        for entry_key, entry in entries.items():
+            grouped.setdefault(_route(entry_key)[len(path)], {})[entry_key] = entry
+        children = {}
+        for digit, child_entries in sorted(grouped.items()):
+            child_path = path + digit
+            child_affected = {
+                entry_key for entry_key in affected if _route(entry_key).startswith(child_path)
+            }
+            children[digit] = await _write_node(
+                agent, slot, child_path, child_entries, child_affected, migrate
+            )
+        body = {
+            "schema_version": "1.0.0",
+            "slot": slot,
+            "path": path,
+            "node_type": "branch",
+            "children": children,
+        }
+    if _node_size(body) >= MAX_NODE_BYTES:
+        raise ValueError("Heimdall sensing checkpoint node exceeds byte bound; repair required")
+    await write_changed_state(agent, key, body)
+    return str(agent._persisted_sensing_digests[key])
+
+
+async def _write_fragment(
+    agent: Any, slot: int, path: str, entries: dict[str, dict[str, Any]]
+) -> str:
+    """Bound a single large metadata value without position-paging subject membership."""
+    data = json.dumps(entries, ensure_ascii=True, separators=(",", ":"), allow_nan=False)
+    parts = [data[index : index + 1_500] for index in range(0, len(data), 1_500)]
+    successor: str | None = None
+    for index in reversed(range(len(parts))):
+        body = {
+            "schema_version": "1.0.0",
+            "slot": slot,
+            "path": path,
+            "node_type": "data",
+            "index": index,
+            "data": parts[index],
+            "next": successor,
+        }
+        if _node_size(body) >= MAX_NODE_BYTES:
+            raise ValueError("Heimdall sensing checkpoint data exceeds byte bound; repair required")
+        key = _node_key(slot, path) + f"/value/{index}"
+        await write_changed_state(agent, key, body)
+        successor = str(agent._persisted_sensing_digests[key])
+    node = {
+        "schema_version": "1.0.0",
+        "slot": slot,
+        "path": path,
+        "node_type": "fragment",
+        "count": len(parts),
+        "head": successor,
+        "value_digest": _subject_digest(entries),
+    }
+    if _node_size(node) >= MAX_NODE_BYTES:
+        raise ValueError("Heimdall sensing checkpoint fragment exceeds byte bound; repair required")
+    key = _node_key(slot, path)
+    await write_changed_state(agent, key, node)
+    return str(agent._persisted_sensing_digests[key])
+
+
+async def _read_fragment(
+    agent: Any, slot: int, path: str, body: Mapping[str, Any]
+) -> Mapping[str, Any]:
+    count = body.get("count")
+    expected = body.get("head")
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        raise ValueError("Heimdall sensing checkpoint fragment invalid; repair required")
+    parts = []
+    for index in range(count):
+        key = _node_key(slot, path) + f"/value/{index}"
+        chunk = await agent._state_store.read_state(key)
+        if (
+            chunk is None
+            or _subject_digest(chunk) != expected
+            or chunk.get("slot") != slot
+            or chunk.get("path") != path
+            or chunk.get("node_type") != "data"
+            or chunk.get("index") != index
+            or not isinstance(chunk.get("data"), str)
+            or _node_size(chunk) >= MAX_NODE_BYTES
+        ):
+            raise ValueError(
+                "Heimdall sensing checkpoint fragment digest mismatch; repair required"
+            )
+        parts.append(chunk["data"])
+        expected = chunk.get("next")
+        agent._persisted_sensing_records[key] = deepcopy(dict(chunk))
+        agent._persisted_sensing_digests[key] = _subject_digest(chunk)
+    if expected is not None:
+        raise ValueError("Heimdall sensing checkpoint fragment tail invalid; repair required")
+    try:
+        entries = json.loads("".join(parts))
+    except ValueError as exc:
+        raise ValueError(
+            "Heimdall sensing checkpoint fragment JSON invalid; repair required"
+        ) from exc
+    if not isinstance(entries, dict) or _subject_digest(entries) != body.get("value_digest"):
+        raise ValueError("Heimdall sensing checkpoint fragment value invalid; repair required")
+    return entries
+
+
+def _reachable_nodes(agent: Any) -> set[str]:
+    active: set[str] = set()
+
+    def visit(slot: int, path: str) -> None:
+        key = _node_key(slot, path)
+        active.add(key)
+        node = agent._persisted_sensing_records[key]
+        if node.get("node_type") == "branch":
+            for digit in node["children"]:
+                visit(slot, path + digit)
+        elif node.get("node_type") == "fragment":
+            active.update(key + f"/value/{index}" for index in range(node["count"]))
+
+    for slot in range(BUCKET_COUNT):
+        visit(slot, "")
+    return active
+
+
+async def _read_node(
+    agent: Any,
+    slot: int,
+    path: str,
+    expected: str | None,
+    entries: dict[str, Any],
+    *,
+    prefetched: Mapping[str, Any] | None = None,
+    allow_legacy: bool = False,
+) -> str:
+    key = _node_key(slot, path)
+    body = prefetched if prefetched is not None else await agent._state_store.read_state(key)
+    if body is None or body.get("slot") != slot:
+        raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
+    observed = _subject_digest(body)
+    if expected is not None and observed != expected:
+        raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
+    node_type = body.get("node_type")
+    if node_type is None and (path or not allow_legacy):
+        raise ValueError("Heimdall sensing checkpoint untyped node invalid; repair required")
+    if node_type is not None and (body.get("path") != path or _node_size(body) >= MAX_NODE_BYTES):
+        raise ValueError(
+            "Heimdall sensing checkpoint node violates byte/path bound; repair required"
+        )
+    if node_type == "branch":
+        children = body.get("children")
+        if (
+            not isinstance(children, dict)
+            or len(path) >= 56
+            or any(digit not in _RADIX or len(digit) != 1 for digit in children)
+        ):
+            raise ValueError("Heimdall sensing checkpoint branch invalid; repair required")
+        for digit, digest in children.items():
+            if not isinstance(digest, str):
+                raise ValueError(
+                    "Heimdall sensing checkpoint child digest invalid; repair required"
+                )
+            await _read_node(agent, slot, path + digit, digest, entries)
+    elif node_type in (None, "leaf", "fragment"):
+        raw_entries = (
+            await _read_fragment(agent, slot, path, body)
+            if node_type == "fragment"
+            else body.get("entries")
+        )
+        if not isinstance(raw_entries, dict):
+            raise ValueError("Heimdall sensing checkpoint bucket entries invalid; repair required")
+        for entry_key, entry in raw_entries.items():
+            if (
+                _bucket_slot(entry_key) != slot
+                or not _route(entry_key).startswith(path)
+                or entry_key in entries
+                or not isinstance(entry, dict)
+            ):
+                raise ValueError(
+                    "Heimdall sensing checkpoint bucket membership invalid; repair required"
+                )
+            entries[entry_key] = entry
+    else:
+        raise ValueError("Heimdall sensing checkpoint node type invalid; repair required")
+    agent._persisted_sensing_records[key] = deepcopy(dict(body))
+    agent._persisted_sensing_digests[key] = observed
+    return observed
 
 
 def _active_subjects(agent: Any) -> list[tuple[str, str, str]]:
@@ -61,6 +303,8 @@ def _subject_storage_key(family: str, prefix: str, identity: str) -> str:
 
 async def persist_bucket_checkpoint(agent: Any) -> None:
     """Update hash-stable buckets only; insertion ranks never shift on eviction."""
+    if not hasattr(agent, "_persisted_sensing_records"):
+        agent._persisted_sensing_records = {}
     previous = getattr(agent, "_sensing_bucket_entries", {})
     next_ordinal = getattr(agent, "_sensing_next_ordinal", 0)
     entries: dict[str, dict[str, Any]] = {}
@@ -134,30 +378,35 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
     slots = {
         _bucket_slot(key) for key in changed | dirty_subjects if key in entries or key in previous
     }
-    if not getattr(agent, "_sensing_bucket_layout", False):
+    migrate = not getattr(agent, "_sensing_trie_layout", False)
+    if migrate:
         slots.update(range(BUCKET_COUNT))
     for slot in sorted(slots):
-        body = {
-            "schema_version": "1.0.0",
-            "slot": slot,
-            "entries": {key: value for key, value in entries.items() if _bucket_slot(key) == slot},
-        }
-        await write_changed_state(agent, bucket_key(slot), body)
+        await _write_node(
+            agent,
+            slot,
+            "",
+            {key: value for key, value in entries.items() if _bucket_slot(key) == slot},
+            {key for key in changed | dirty_subjects if _bucket_slot(key) == slot},
+            migrate,
+        )
     root = {
         "schema_version": "1.0.0",
         "revision": 1,
         "storage_layout": BUCKET_LAYOUT,
+        "bucket_node_format": NODE_FORMAT,
         "bucket_digest": _bucket_commitment(
             [agent._persisted_sensing_digests[bucket_key(slot)] for slot in range(BUCKET_COUNT)]
         ),
         "next_ordinal": next_ordinal,
     }
     await write_changed_state(agent, _STATE_KEY, root)
-    agent._sensing_bucket_entries = entries
+    agent._sensing_bucket_entries = deepcopy(entries)
     agent._sensing_next_ordinal = next_ordinal
     agent._sensing_bucket_layout = True
+    agent._sensing_trie_layout = True
     agent._sensing_subject_layout = True
-    active = {_STATE_KEY, *entries, *(bucket_key(slot) for slot in range(BUCKET_COUNT))}
+    active = {_STATE_KEY, *entries, *_reachable_nodes(agent)}
     agent._persisted_sensing_records = {
         key: value for key, value in agent._persisted_sensing_records.items() if key in active
     }
@@ -174,9 +423,11 @@ async def read_bucket_records(
     """Verify root, buckets and subject bodies before restoring any sensing projection."""
     digests = record.get("bucket_digests")
     expected_commitment = record.get("bucket_digest")
+    node_format = record.get("bucket_node_format")
     next_ordinal = record.get("next_ordinal")
     if (
-        not (
+        node_format not in (None, NODE_FORMAT)
+        or not (
             (isinstance(digests, list) and len(digests) == BUCKET_COUNT)
             or isinstance(expected_commitment, str)
         )
@@ -188,35 +439,31 @@ async def read_bucket_records(
     entries: dict[str, Any] = {}
     agent._persisted_sensing_digests = {}
     observed_digests: list[str] = []
+    roots: list[Mapping[str, Any]] = []
     for slot in range(BUCKET_COUNT):
-        key = bucket_key(slot)
-        body = await agent._state_store.read_state(key)
+        body = await agent._state_store.read_state(bucket_key(slot))
         if body is None or body.get("slot") != slot:
             raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
         observed = _subject_digest(body)
         if isinstance(digests, list) and observed != digests[slot]:
             raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
         observed_digests.append(observed)
-        raw_entries = body.get("entries")
-        if not isinstance(raw_entries, dict):
-            raise ValueError("Heimdall sensing checkpoint bucket entries invalid; repair required")
-        for entry_key, entry in raw_entries.items():
-            if (
-                _bucket_slot(entry_key) != slot
-                or entry_key in entries
-                or not isinstance(entry, dict)
-            ):
-                raise ValueError(
-                    "Heimdall sensing checkpoint bucket membership invalid; repair required"
-                )
-            entries[entry_key] = entry
-        agent._persisted_sensing_records[key] = deepcopy(dict(body))
-        agent._persisted_sensing_digests[key] = observed
+        roots.append(body)
     if (
         expected_commitment is not None
         and _bucket_commitment(observed_digests) != expected_commitment
     ):
         raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
+    for slot, body in enumerate(roots):
+        await _read_node(
+            agent,
+            slot,
+            "",
+            observed_digests[slot],
+            entries,
+            prefetched=body,
+            allow_legacy=node_format is None,
+        )
     grouped: dict[str, list[tuple[int, Mapping[str, Any]]]] = {
         "episode": [],
         "readiness": [],
@@ -285,9 +532,10 @@ async def read_bucket_records(
         grouped[family].append((rank, row))
         agent._persisted_sensing_records[key] = deepcopy(dict(row))
         agent._persisted_sensing_digests[key] = entry["digest"]
-    agent._sensing_bucket_entries = entries
+    agent._sensing_bucket_entries = deepcopy(entries)
     agent._sensing_next_ordinal = next_ordinal
     agent._sensing_bucket_layout = True
+    agent._sensing_trie_layout = record.get("bucket_node_format") == NODE_FORMAT
     ordered = [
         list(reversed([row for _, row in sorted(grouped[family])]))
         for family in ("episode", "readiness", "pending")
