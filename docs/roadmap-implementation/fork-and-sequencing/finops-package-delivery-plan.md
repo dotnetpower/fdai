@@ -19,6 +19,8 @@ foundation does not advance a wave until that wave's FinOps-specific exit gate p
 | W7 operational validation | in-progress | Protected lifecycle and observation workflows; W7 migrations and focused tests; issue #902 live dev receipts; corrected candidate and campaign `34747311873`/`34766958589`; [W7 exit gate](../../roadmap/fork-and-sequencing/finops-package-delivery-plan.md#w7-operational-validation-and-promotion-readiness) | Live N-1 rollback, exact restore, corrected-source revision-21 enable, and collector completion are validated. The first corrected review-only campaign retained six readiness-blocked zero-sample targets. The 30-day and 100-sample cohort and six independent review receipts remain open, so W7 is not complete. |
 | W7 independent target review | implemented | `cost_governance_review.py`; `postgres_cost_governance_review.py`; `record_cost_governance_review.py`; `record_cost_governance_review_batch.py`; protected review workflow; focused checks | The protected path records one target or decomposes a bounded six-target envelope into independent records after exact-release re-evaluation. Every child has a stable request id and no approval, execution, or promotion authority. Live receipts remain open. |
 
+| CI execution profile and publication boundary | implemented | Current change in `.github/workflows/container-supply-chain.yml`, CI route contracts and focused routing/admission/canary tests | Elastic routing remains opt-in. The publisher keeps its own production verification and existing permissions/environment/image selection; the main-only canary cannot publish or grant package activation/promotion. Runtime pool acceptance is tracked in the deployment ledger. |
+
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
@@ -53,7 +55,13 @@ foundation does not advance a wave until that wave's FinOps-specific exit gate p
 | 2026-10-18 | implemented | Closed the remaining local F07 runtime handoff, clarification reinjection, forecast calibration, and settlement-integrity gaps while preserving W7 as operational evidence work. | `current change`; 321 focused tests passed with one externally configured PostgreSQL test skipped in that slice; isolated PostgreSQL migration proof passed 4 tests; strict mypy, Ruff, inventory, convergence, semantic-profile, layout, and import gates passed. | W7 still requires natural live observations, the configured cohort and dwell, six independent reviews, and production cutover evidence. |
 | 2026-10-18 | implemented | Revalidated the final cumulative slice after runtime and documentation convergence. This row supersedes only the earlier same-day validation counts. | `current change`; `331 passed, 1 skipped`; isolated PostgreSQL `4 passed`; strict mypy passed 33 files; all recorded package, architecture, and documentation gates passed. | W7 external evidence requirements remain unchanged. |
 
+| 2026-10-30 | implemented | Added opt-in capability-specific CI execution for package image validation/publication and a separate protected-main pool canary without changing package activation or publication authority. | Current workflow changes and focused routing/admission/canary tests passed; the publisher's production prefix remains distinct from CI candidate admission. | Retain real runner/capacity acceptance through the [deployment ledger](../deployment/deployment-resource-conventions.md); W7 package qualification remains independent. |
+
 ### Remaining work
+
+- [ ] Retain successful exact-source package validation/publication on the selected runner profile
+  and the independently governed [pool acceptance receipts](../deployment/deployment-resource-conventions.md)
+  before claiming operational cutover; CI canaries alone do not qualify the package.
 
 - [x] Complete W0 with replayable allow, hold, deny, no-op, human-approval, execute, rollback, and
   unverified-effect cases in the digest-bound inventory for issue #320, and record the frozen

@@ -119,6 +119,12 @@ Exit gate:
 - Core imports no `fdai_cost_governance` module;
 - package absence keeps the base control plane healthy and reports Cost Governance unavailable.
 
+Package validation and image builds may use the opt-in elastic CI pools. Selecting that runner
+profile does not select, activate or promote the Cost Governance package. Image publication retains
+its own protected-main source verification, permissions, environment and explicit image selection.
+The separate main-only pool canary never publishes package images. Runner readiness and live
+capacity acceptance remain governed by the [CI pool design](../deployment/deployment-resource-conventions.md#opt-in-ci-routing-and-independent-canaries).
+
 ## W3 - Typed 15-agent choreography
 
 Bind package behavior to existing pantheon owners and topics. Do not add a topic, agent, direct
