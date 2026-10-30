@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 958204e434d3823d2e917614addd9134634a0903
-translation_revised: 2026-10-30
+translation_source_sha: 60727a68753dbe2915e9666ececb691508200951
+translation_revised: 2026-10-31
 ---
 # 프로젝트 구조
 
@@ -444,6 +444,17 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 구성원, 단일 소유권, 이중 역할 패키지, 직접 가져오기 호환성 및 동료 격리를 고정합니다.
 `verticals`는 자체 최상위 그룹으로 유지합니다. 이후 실제 이동은 필요하지 않으며 진행하려면
 커버리지와 fan-out 의미를 명시적으로 보존하는 별도의 도메인 범위 설계가 필요합니다.
+### 의미 기반 저장 보조 모듈
+
+형식이 명확한 시간 요약 통계는 `core/ontology_platform/semantic_rollup_temporal.py`에,
+병합 규칙은 `semantic_rollup_merge.py`에 둡니다. 기존
+`delivery/inventory_rollup.py` 어댑터는 정책이 선택한 통계를 아카이브 메타데이터로
+변환하며 런타임 보존 정책을 선택하거나 폐기를 승인하지 않습니다.
+원본 파티션, 관측 범위, 과거에 알고 있던 내용의 한계는
+[요약 규칙](continuous-operational-instance-graph-ko.md#rollup-규칙)을 참조하세요.
+Heimdall의 변경된 주체별 복구 표현은 `agents/_framework/` 안에 두며,
+새 공급자 연결점이나 에이전트 권한을 추가하지 않습니다.
+
 ## 모듈 경계(모듈 Boundaries)
 공유 실행기 대상 계약은 리소스 태그와 구독 태그 작업에 서로 다른 논리 대상 형식과 작업 ID를 사용합니다. 독립 Executor는 변경 신원으로 구독 작업을 적용하고 Core는 별도 신원으로 결과를 읽으므로, 구독 pilot을 추가해도 기존 리소스 태그 작업의 범위가 넓어지지 않습니다. [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md)가 타입 지정 근거, 다시 생성한 Python 및 TypeScript 계약 뷰를 포함한 등록된 공급자 중립 계획/결과 `1.1.0` 스키마 및 Process를 소유합니다. Core는 일반 대체 경로보다 먼저 알림 전용 unavailable direct-API 경로를 등록하고 읽기 전용 보관 디코더로 미출시 `1.0.0` 레코드를 폐기하며 Terraform은 운영자가 로컬에서 사용하는 배포 도구일 뿐 런타임 권한을 제공하지 않습니다. 전용 Operator 조립은 요청 의존성과 감독되는 브리지 하나를 연결하며 공통 루트는 수명 주기만 소유합니다. 역할별 framework mixin은 에이전트 API와 인스턴스 격리를 보존합니다. 공유 수락 목록이 결정 검증을 고정합니다. 기존 검증 절차를 갖춘 생성기는 운영 증적을 재작성하지 않고 release 기반 소스 참조를 재평가하며, 소스 테스트와 생성 지식은 권한을 부여하지 않습니다. 공유 SDK는 기존 타입 모델에서 생성한 `test-context-draft`, `test-context-command`, `test-context-application` 버전 `1.0.0` 스키마를 제공합니다. 검증기는 모델의 필드 간 조건도 검사하며, 스키마에 맞는 레코드가 인증된 근거나 현재 권한이 되는 것은 아닙니다. 이 개별 등록만으로 브로커의 N/N-1 배포 전환이 검증되지는 않습니다. 통합 후 System Knowledge를 다시 생성하면 이 경계를 release 메타데이터로만 기록하며 전송 호환성이나 운영 검증 상태를 승격하지 않습니다. 예측 평가 제외 사유는 모델 facade가 공개하는 문자열 열거형이며 JSON 값과 기존 결과 전송 형식은 바뀌지 않습니다. 컨텍스트 변환 모듈은 Core wheel에 포함되고, Operator 컨텍스트 명령 테스트는 명시적인 서비스 검사 소유자를 가지며, DB 전용 테스트는 통합 검사에서 실행됩니다. 타입 검증 뒤에 근거 허용 여부를 평가하고, 상태를 바꾸지 않는 정확한 재생과 새로 허용된 쓰기를 구분합니다. 레코드 내용이 그대로여도 소유 문서의 줄 배치가 바뀌면 카탈로그 원본 해시를 갱신합니다.
 알림 과다 수신 관리의 권한 및 작성자 경계는 명시적인 조립 입력으로 유지합니다. 운영 및 공용 경보 변경은 권한이 있는 서로 다른 사람 두 명을 유지하고, Owner 한 명 정족수는 구성된 full-authority 개발 프로필 범위에서만 수락하며, 강제 조건부 업데이트가 없는 공급자 작성자는 관리되는 독점 작성자 증명이 결속되지 않으면 보류합니다.
