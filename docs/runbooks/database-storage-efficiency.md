@@ -82,7 +82,7 @@ statement, and lock deadlines.
 The storage review has the following dispositions. Local implementation is not a completed
 production migration or a claim that the running database is smaller.
 
-| # | Review finding | Handling |
+| # | Review observation | Handling |
 |---|----------------|----------|
 | 1 | Repeated generation membership | Share immutable member/freshness pages and retain exact per-generation bindings without a replay chain. |
 | 2 | Repeated snapshot properties | Share immutable staging bodies, preserve per-row observation metadata, and collect only unreferenced staging bodies. |

@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: ac52cf749eec3721ac9baa2054c19763198d70e3
+translation_source_sha: f84205a6fd820aa7d42d23683a1e948ce833f233
 translation_revised: 2026-10-30
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -91,7 +91,7 @@ uv run python scripts/deployment/local/compact-local-database.py --max-prefix-by
 저장 구조 비평의 항목별 처리 방향은 다음과 같습니다.
 로컬 구현은 운영 데이터 이행 완료나 실행 중인 데이터베이스의 용량 감소를 뜻하지 않습니다.
 
-| # | 비평 항목 | 처리 방향 |
+| # | 점검 항목 | 처리 방향 |
 |---|-----------|-----------|
 | 1 | 세대별 멤버십 반복 저장 | 불변 멤버·최신성 페이지를 공유하고 재생 참조 체인 없이 세대별 바인딩을 정확히 보존합니다. |
 | 2 | 스냅샷 속성 반복 저장 | 준비 단계의 불변 본문을 공유하고 행별 관측 메타데이터를 보존하며 참조가 없는 준비 단계 본문만 정리합니다. |
