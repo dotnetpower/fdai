@@ -526,6 +526,10 @@ GitHub observations must prove exact successful job accounting, actual requested
 the selected warm/burst queue thresholds. Simulated receipts and a successful dispatch are not
 acceptance evidence.
 
+The focused pre-push workflow gate includes legacy SSD/elastic and image-publication contract
+consumers alongside the new pool/canary tests. Static workflow checks alone do not verify that
+every existing selector and source-revision assertion still matches the enabled and rollback paths.
+
 ### Design critique and revision
 
 - **Dispatch and handover**: use at most eight concurrent provider starts, with a 120-second

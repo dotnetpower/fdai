@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
+from scripts.quality.ci.ci_pool_routes import runner_expression
 
 ROOT = Path(__file__).resolve().parents[3]
 INFRA = ROOT / "infra" / "ci-runner-aca"
@@ -20,21 +21,26 @@ def _workflow() -> dict[str, dict[str, object]]:
     return yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8"))
 
 
-def test_elastic_job_runs_eight_shards_on_main_only_behind_the_source_guard() -> None:
+def test_elastic_job_keeps_main_legacy_and_admits_prs_only_with_the_pool_profile() -> None:
     workflow = _workflow()
     hosted = workflow["jobs"]["python-tests"]
     elastic = workflow["jobs"]["python-tests-elastic"]
-    assert elastic["runs-on"] == ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-aca"]
+    assert elastic["runs-on"] == runner_expression(
+        ["self-hosted", "Linux", "X64", "fdai-ci-general"],
+        ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-aca"],
+    )
     assert elastic["strategy"]["matrix"]["shard"] == [1, 2, 3, 4, 5, 6, 7, 8]
     assert elastic["strategy"]["max-parallel"] == 8
     assert elastic["env"]["FDAI_PYTEST_SHARD_COUNT"] == "8"
     assert elastic["env"]["FDAI_PYTEST_SHARD_INDEX"] == "${{ matrix.shard }}"
     assert elastic["steps"] == hosted["steps"]
     assert "protected-ci-source" in elastic["needs"]
+    assert "ci-admission" in elastic["needs"]
     assert " ".join(elastic["if"].split()) == (
         "needs.changes.outputs.python == 'true' && "
-        "vars.FDAI_CI_ELASTIC_RUNNER_ENABLED == 'true' && "
-        "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'"
+        "(vars.FDAI_CI_POOLS_ENABLED == 'true' || "
+        "(vars.FDAI_CI_ELASTIC_RUNNER_ENABLED == 'true' && "
+        "github.ref == 'refs/heads/main' && github.event_name != 'pull_request'))"
     )
     assert "python-tests-elastic" in workflow["jobs"]["required"]["needs"]
 

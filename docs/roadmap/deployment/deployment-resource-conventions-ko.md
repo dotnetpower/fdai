@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 6efcc8c31e8fa6496c4b98bbae8581b72b38b08d
+translation_source_sha: 89f51695745683addba50d2a253f43fafcb9e55b
 translation_revised: 2026-10-30
 ---
 # 배포 리소스 규약
@@ -513,6 +513,10 @@ control/general/Docker별 4/64/16이며, 유지 시간은 120-180초입니다.
 독립적인 GitHub 관측으로 모든 예상 작업의 정확한 성공 집계, 요청한 실제 동시 실행 수,
 선택한 warm/burst 대기 시간 기준을 확인해야 합니다.
 모의 증적이나 실행 요청 성공만으로 수용 검증을 완료했다고 판단하지 않습니다.
+
+푸시 전 워크플로 집중 검사는 새 풀과 canary 테스트뿐 아니라 기존 SSD/탄력적 러너와 이미지
+게시 계약을 검증하는 테스트도 실행합니다. 정적 워크플로 검사만으로는 기존 선택 식과 소스
+리비전 검증이 활성화 경로와 롤백 경로에 모두 맞는지 확인할 수 없습니다.
 
 ### 설계 비평과 수정
 
