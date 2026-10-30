@@ -503,10 +503,10 @@ async def test_keyset_state_keys_stay_stable_after_audited_cas() -> None:
 
 
 @pytest.mark.asyncio
-async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit() -> None:
-    url = _requires_live_db()
-    _upgrade_head()
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit(
+    saga_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
     deleted = _pattern_case("a", OperationalOutcomeClass.SUCCESS)
     peer = _pattern_case("b", OperationalOutcomeClass.ROLLBACK)
     assert deleted is not None and peer is not None
@@ -543,6 +543,7 @@ async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit()
     assert [row["case"]["case_id"] for row in observed["cases"]] == [peer.case_id]
     assert await store.write_state_if_absent(snapshot_key, cohort) is False
     assert await store.verify_chain() is True
+    await store.aclose()
 
 
 @pytest.mark.parametrize("field", ["status", "delivery.status"])
