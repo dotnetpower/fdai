@@ -26,7 +26,7 @@ presentation metadata and do not change WAF or CAF control mappings, assessment 
 The shared catalog materializer exposes WARA's exact query and Rule evaluator identities and
 distinguishes required manual evidence from optional signed fallback. Its illustrated detail
 guidance is an inert source-pinned shared record, not another assessment specification or evidence
-writer. It may carry one reviewed Microsoft Learn image shipped as a packaged, digest-verified asset with its source document, license and attribution; the image is a reference, never an observation of the installation. These WARA additions do not change WAF/CAF requirements, admission, results or authority.
+writer. It may carry one reviewed Microsoft Learn image shipped as a packaged, digest-verified asset with its source document, license and attribution; the image is a reference, never an observation of the installation, and ships only after its byte-identical public repository copy and CC BY 4.0 notice are verified. These WARA additions do not change WAF/CAF requirements, admission, results or authority.
 
 The shared assessment boundary has six deterministic stages:
 
