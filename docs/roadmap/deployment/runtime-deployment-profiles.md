@@ -1022,7 +1022,7 @@ classified as validated or advertised as ready for production. Two opt-in Operat
 | To learn about | Read |
 |----------------|------|
 | Implementation progress | [Runtime deployment profile implementation](../../roadmap-implementation/deployment/runtime-deployment-profiles.md) |
-| Standalone command behavior | [Installable Deployment CLI](installable-deployment-cli.md) |
+| Standalone command and web-guided setup | [Installable Deployment CLI](installable-deployment-cli.md), [Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap.md) |
 | Concrete Azure inventory | [Deploy and Onboard](deploy-and-onboard.md) |
 | Production gates | [Production deployment hardening](production-deployment-hardening.md) |
 | Runtime portability | [CSP-Neutrality Contracts](../architecture/csp-neutrality.md) |

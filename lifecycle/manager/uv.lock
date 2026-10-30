@@ -547,7 +547,7 @@ wheels = [
 
 [[package]]
 name = "fdai-deployment-cli"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "../../packages/deployment-cli" }
 dependencies = [
     { name = "cryptography" },
@@ -595,7 +595,7 @@ requires-dist = [
 
 [[package]]
 name = "fdai-lifecycle-hub"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "../hub" }
 dependencies = [
     { name = "azure-identity" },

@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 서명된 Release Hub 이미지, 명시적 소스 빌드 또는 서명된 오프라인 패키지로 FDAI를 배포합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 48079d3ea36518fef6736797bb956e0048b7572a
-translation_revised: 2026-10-28
+translation_source_sha: 47e98f36bac1a478001b2e3ba81544b4007466b0
+translation_revised: 2026-10-31
 ---
 
 # 배포 빠른 시작
@@ -39,6 +39,12 @@ Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 �
 | 연결된 환경의 복제 후 배포 | `az login` 뒤 복제한 저장소에서 `scripts/deployment/azure/fdai-up.sh --hub-public-key <trusted-public.pem> --region <region>` 실행 | 독립적으로 신뢰한 Release 공개키, 호환되는 게시 Release, 레지스트리 읽기 권한 |
 | 자체 구독의 명시적 소스 빌드 | `az login` 뒤 `scripts/deployment/azure/fdai-up.sh --source . --region <region>` 실행 | Hub, 검증 키, 키트나 게시 Release가 필요하지 않음 |
 | 인터넷에 연결되지 않은 Azure VM | 그 VM에서 `fdaictl provision azure --offline-kit <package>` 실행 | 키 보유자가 만든 서명된 오프라인 패키지 하나 |
+
+> **선택적 로컬 설정:** 검토한 Lifecycle Hub 패키지를 설치했다면 `fdai-lifecycle-hub start`로
+> [Bootstrap 마법사](../roadmap/deployment/lifecycle-hub-bootstrap-ko.md)를 열 수 있습니다.
+> Hub PostgreSQL 없이 시작하며 같은 배포 엔진과 정확한 승인을 재사용합니다.
+> Hub 이미지는 호환되는 지원용 Release가 필요합니다. 이 변경이 PyPI 게시나 관리형 등록의
+> 완료를 뜻하지는 않습니다.
 
 GitHub Actions는 저장소를 테스트합니다. 대상 환경에 배포하는 전달 경로가 아닙니다.
 

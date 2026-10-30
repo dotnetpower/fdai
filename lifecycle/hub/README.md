@@ -9,6 +9,21 @@ Lifecycle I0 runs in observation mode (shadow mode): the Hub decides and records
 reports, but never applies a change itself. It needs no Azure credential and grants no lifecycle
 authority.
 
+## Local first-installation Bootstrap
+
+`fdai-lifecycle-hub start` opens the packaged setup interface on an ephemeral IPv4 loopback port.
+It starts without a Hub database or FDAI Runtime. A separate customer-side executor owns Azure
+login and reuses the existing deployment CLI, Terraform, exact approvals and independent checks.
+The web process never runs Terraform or holds Azure tokens.
+
+Use Python 3.12 or later on Linux with a local browser. Install the reviewed Hub wheel and its
+declared dependencies from your approved source; this change does not publish a PyPI release.
+The executor checks tools and retains its own Azure CLI profile. Signed Release Hub images need
+an independently approved public key; explicit source mode needs a clean checkout. The current
+AKS/Console profile is not a Lite topology, and automatic lifecycle enrollment is not implied.
+See the [Bootstrap guide](../../docs/roadmap/deployment/lifecycle-hub-bootstrap.md) for private
+state, review, recovery and package/live-validation boundaries.
+
 ## Local Release Hub catalog admission
 
 The separate [Release Hub](../release-hub/README.md) provides a local-only vendor UI and export.

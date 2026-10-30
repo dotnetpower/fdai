@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -9,6 +10,7 @@ from pathlib import Path
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from fdai_deployment_cli import __version__
 
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/deployment-cli"
@@ -21,7 +23,7 @@ def test_workspace_registers_installable_fdaictl_distribution() -> None:
     assert "packages/deployment-cli" not in root["tool"]["uv"]["workspace"]["members"]
     assert package["project"]["scripts"]["fdaictl"] == "fdai_deployment_cli.cli:main"
     assert package["project"]["name"] == "fdai-deployment-cli"
-    assert package["project"]["version"] == "0.1.1"
+    assert package["project"]["version"] == __version__
 
 
 def test_fdai_up_uses_the_verified_root_interpreter_in_isolation(tmp_path: Path) -> None:
@@ -270,7 +272,8 @@ def test_source_entrypoint_reports_stable_version_json(tmp_path: Path) -> None:
         timeout=60,
     )
 
-    assert completed.stdout == ('{"schema_version":"fdai.version.v1","version":"0.1.1"}\n')
+    expected = {"schema_version": "fdai.version.v1", "version": __version__}
+    assert completed.stdout == json.dumps(expected, sort_keys=True, separators=(",", ":")) + "\n"
 
 
 def test_release_tooling_is_exactly_pinned() -> None:

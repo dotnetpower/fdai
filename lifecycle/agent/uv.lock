@@ -525,7 +525,7 @@ wheels = [
 
 [[package]]
 name = "fdai-deployment-cli"
-version = "0.1.1"
+version = "0.1.2"
 source = { editable = "../../packages/deployment-cli" }
 dependencies = [
     { name = "cryptography" },

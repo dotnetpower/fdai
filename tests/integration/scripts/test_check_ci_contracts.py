@@ -1626,6 +1626,35 @@ def test_redundant_workflow_stages_stay_consolidated() -> None:
     assert "Initialize Terraform remote state" in destroy
 
 
+@pytest.mark.parametrize("layout", ["hosted", "self-hosted"])
+def test_gitleaks_artifact_root_contains_report_for_each_runner_layout(
+    tmp_path: Path, layout: str
+) -> None:
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    job = workflow["jobs"]["secret-scan"]
+    action = next(
+        step
+        for step in job["steps"]
+        if step.get("uses", "").startswith("gitleaks/gitleaks-action@")
+    )
+    runner_home = tmp_path / "home/runner"
+    workspace = (
+        runner_home / "work/repository" if layout == "hosted" else tmp_path / "pool/work/repository"
+    )
+    home_binding = action.get("env", {}).get("HOME")
+    upload_root = workspace if home_binding == "${{ github.workspace }}" else runner_home
+
+    assert (workspace / "results.sarif").is_relative_to(upload_root)
+    assert action["env"]["GIT_CONFIG_GLOBAL"] == "/dev/null"
+    assert action.get("env", {}).get("GITLEAKS_ENABLE_UPLOAD_ARTIFACT", "true") not in {
+        False,
+        "false",
+        "0",
+    }
+    assert "HOME" not in job.get("env", {})
+    assert "HOME" not in workflow.get("env", {})
+
+
 def test_ci_supports_exact_main_revalidation() -> None:
     workflow = (_REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
