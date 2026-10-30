@@ -112,7 +112,6 @@
   .wara-guidance-source-figure > .wara-guidance-figure-head { grid-area: head; flex-direction: column; align-items: flex-start; gap: 8px; }
   .wara-guidance-source-figure > .wara-guidance-image-frame { grid-area: image; }
   .wara-guidance-source-figure > figcaption { grid-area: caption; }
-  .wara-guidance-source-figure img { max-width: 898px; }
   .wara-guidance-pair, .wara-guidance-procedures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .wara-runtime .detail-grid { grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) minmax(120px, max-content) minmax(0, 1fr); column-gap: 24px; }
 }

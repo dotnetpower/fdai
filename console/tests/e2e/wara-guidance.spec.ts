@@ -383,7 +383,7 @@ test("serves the packaged official VM backup image without a remote image reques
   page.on("request", (request) => {
     if (request.resourceType() === "image" && !["localhost", "127.0.0.1"].includes(new URL(request.url()).hostname)) externalImages.push(request.url());
   });
-  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 1140, height: 800 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport);
     for (const locale of ["en", "ko"] as const) {
       const [response] = await Promise.all([
@@ -410,7 +410,7 @@ test("serves the packaged official VM backup image without a remote image reques
       expect(buttonBounds?.height).toBe(viewport.width === 390 ? 44 : 32);
       expect(buttonBounds!.width).toBeLessThan(160);
       const rationale = page.locator(".wara-guidance-pair").first();
-      const wide = viewport.width === 1440;
+      const wide = viewport.width >= 1140;
       const [imageBox, captionBox, summaryBox, navBox] = await Promise.all([
         picture.boundingBox(),
         figure.locator("figcaption").boundingBox(),
@@ -423,7 +423,8 @@ test("serves the packaged official VM backup image without a remote image reques
       if (!pairStart || !pairEnd) throw new Error("Missing paired reading sections");
       if (wide) {
         expect(captionBox.x).toBeGreaterThanOrEqual(imageBox.x + imageBox.width);
-        expect(imageBox.width).toBeGreaterThan(800);
+        expect(imageBox.width).toBeGreaterThan(viewport.width === 1440 ? 800 : 640);
+        expect(imageBox.x + imageBox.width).toBeLessThanOrEqual(captionBox.x);
         expect(navBox.x).toBeGreaterThanOrEqual(summaryBox.x + summaryBox.width);
         expect(Math.abs(pairStart.y - pairEnd.y)).toBeLessThan(2);
         expect(pairEnd.x).toBeGreaterThan(pairStart.x + pairStart.width);
@@ -486,6 +487,40 @@ test("serves the packaged official VM backup image without a remote image reques
   await expect(page.locator(".wara-guidance-image-actions button")).not.toBeVisible();
   await expect(page.locator(".wara-guidance-rationale")).toBeVisible();
   await page.emulateMedia({ media: "screen" });
+});
+
+test("keeps reading regions from overlapping at every layout boundary width (packaged image)", async ({ page }) => {
+  test.setTimeout(120_000);
+  const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service")!;
+  await installFixture(page, [control]);
+  for (const width of [641, 700, 720, 730, 760, 800, 900, 1000, 1100, 1110, 1120, 1130, 1160, 1200, 1280, 1312, 1313, 1400]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/rules?view=controls&framework=azure-wara&recommendation=${control.id}`);
+    await expect(page.locator(".wara-guidance-image-frame img")).toBeVisible();
+    const overlaps = await page.evaluate(() => {
+      const groups = [
+        ".wara-guidance-source-figure > *:not(dialog)", ".wara-guidance-intro > *", ".wara-guidance-pair:nth-of-type(1) > *",
+        ".wara-guidance-procedures > *", ".wara-guidance-comparison > *", ".wara-guidance-source-figure > figcaption > *",
+      ];
+      const found: string[] = [];
+      for (const selector of groups) {
+        const boxes = Array.from(document.querySelectorAll<HTMLElement>(selector)).filter((element) => element.getClientRects().length > 0)
+          .map((element) => ({ name: element.className || element.tagName, ...element.getBoundingClientRect().toJSON() }));
+        for (let first = 0; first < boxes.length; first += 1) for (let second = first + 1; second < boxes.length; second += 1) {
+          const a = boxes[first]!;
+          const b = boxes[second]!;
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) found.push(`${selector}: ${a.name} / ${b.name}`);
+        }
+      }
+      const body = document.querySelector<HTMLElement>(".wara-drawer .rule-drawer-body")!;
+      const image = document.querySelector<HTMLElement>(".wara-guidance-image-frame img")!.getBoundingClientRect();
+      const frame = document.querySelector<HTMLElement>(".wara-guidance-image-frame")!.getBoundingClientRect();
+      if (image.right > frame.right + 1) found.push("image exceeds its frame");
+      if (body.scrollWidth > body.clientWidth) found.push("document overflows horizontally");
+      return found;
+    });
+    expect(overlaps, `viewport ${width}`).toEqual([]);
+  }
 });
 
 test("renders attributed images and explicit asset failures (synthetic transport fixture, not approved Microsoft artwork)", async ({ page }, testInfo) => {
