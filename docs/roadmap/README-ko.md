@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 6d03359e1ef7749705685896447aabe30bfd5336
-translation_revised: 2026-10-22
+translation_source_sha: 3efdba6f6e9765a8cde2dbed0f22a56cdb386239
+translation_revised: 2026-10-31
 ---
 # FDAI 로드맵
 
@@ -108,7 +108,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 20e | [network-connectivity-matrix-ko.md](deployment/network-connectivity-matrix-ko.md) | 시나리오별 DNS, IP, 프로토콜, 포트, 비공개 영역, PTU, APIM 및 차단 경로 동작 |
 | 20f | [runtime-deployment-profiles-ko.md](deployment/runtime-deployment-profiles-ko.md) | 신규 설치의 Container Apps 또는 AKS 선택, 노드 하한, 데이터베이스 배치, 분리된 상태, 서명된 키트 실행 |
 | 20g | [source-deployment-ko.md](deployment/source-deployment-ko.md) | 클론에서 실행하는 단일 명령 소스 배포: 레지스트리 이미지 빌드, 패키지 없는 연속 실행, 키가 없을 때의 30일 Trial, 키 보유자 설치 사용권 |
-| 20h | [hub-managed-lifecycle-ko.md](deployment/hub-managed-lifecycle-ko.md) | 세 번째 설치 경로: Lifecycle Hub 배치, 설치 에이전트, Lifecycle Plan, 제약 조건, 드리프트, 고객 격리 |
+| 20h | [hub-managed-lifecycle-ko.md](deployment/hub-managed-lifecycle-ko.md), [lifecycle-hub-bootstrap-ko.md](deployment/lifecycle-hub-bootstrap-ko.md) | Hub 수명 주기와 로컬 최초 설치 Bootstrap: 배치, 설치 에이전트, Plan, 제약 조건, 드리프트, 고객 격리 |
 | 20i | [lifecycle-configuration-ko.md](deployment/lifecycle-configuration-ko.md) | 값 분류, 구성 계층, 고객 Git에서 만든 서명된 구성 패키지, 봉인된 식별자, 비밀 참조 |
 | 20i.1 | [lifecycle-configuration-publication-ko.md](deployment/lifecycle-configuration-publication-ko.md) | 검토나 Hub 수락을 추정하지 않는 로컬 출판 상태 보존, 정확한 재시도 증적 및 읽기 전용 검사 |
 | 20j | [lifecycle-releases-and-channels-ko.md](deployment/lifecycle-releases-and-channels-ko.md) | Release 매니페스트, release channel, 자동 업그레이드, 회수, 카탈로그 무결성, 스키마 호환성, 업그레이드 번들 |

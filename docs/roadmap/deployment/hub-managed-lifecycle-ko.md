@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 3a9cb2e42ad027317b2b072a71c482c490406a16
-translation_revised: 2026-10-27
+translation_source_sha: 60d464af89284ae07c178ab2b0998b6960e12b55
+translation_revised: 2026-10-31
 ---
 # Hub 관리형 수명 주기
 
@@ -1482,6 +1482,6 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 | 구성 계층, 패키지, 비밀 | [수명 주기 구성](lifecycle-configuration-ko.md) |
 | Release, 채널, 번들, 회수 | [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md) |
 | 승인 프로필과 정책 관리 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |
-| 기존 설치 경로 | [단일 명령 소스 배포](source-deployment-ko.md), [연결 끊김 배포](disconnected-deployment-ko.md) |
+| 최초 설치 진입과 기존 경로 | [Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md), [소스](source-deployment-ko.md), [오프라인](disconnected-deployment-ko.md) |
 | 정확한 계획 적용과 복구 | [설치 가능한 배포 CLI](installable-deployment-cli-ko.md) |
 | 제공 현황과 남은 작업 | [구현 ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md) |

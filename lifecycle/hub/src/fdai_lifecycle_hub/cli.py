@@ -87,6 +87,15 @@ def _parser() -> argparse.ArgumentParser:
 
     command("migrate", _migrate, "create the Hub schema")
     command("prepare", _migrate, "prepare an existing Hub without advancing its reader floor")
+    start = command("start", _start, "open the local first-installation wizard without PostgreSQL")
+    start.add_argument(
+        "--state-dir",
+        type=Path,
+        default=Path.home() / ".local/state/fdai/lifecycle-hub-bootstrap",
+        help="private retained Bootstrap and executor directory",
+    )
+    start.add_argument("--port", type=int, default=0, help="loopback port; 0 selects a free port")
+    start.add_argument("--no-browser", action="store_true", help="start for local diagnostics only")
 
     keygen = command("dev-keygen", _dev_keygen, "write a development Hub signing key")
     keygen.add_argument("path", type=Path)
@@ -218,6 +227,17 @@ def _parser() -> argparse.ArgumentParser:
         help="built operator UI directory; defaults to ui/dist when it exists",
     )
     return parser
+
+
+def _start(args: argparse.Namespace) -> int:
+    from fdai_lifecycle_hub.setup_start import start
+
+    try:
+        return start(args)
+    except OSError as error:
+        raise ValueError(
+            "Bootstrap could not start; check the loopback port and private directory access."
+        ) from error
 
 
 def _store() -> HubStore:

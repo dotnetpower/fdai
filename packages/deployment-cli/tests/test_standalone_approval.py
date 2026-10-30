@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from fdai_deployment_cli import (
+    bootstrap_approval,
     cli,
     standalone_application,
     standalone_approval_input,
@@ -201,6 +202,44 @@ def test_exact_approval_still_passes_managed_host_validation(
     approval = json.loads(path.read_text())
     assert approval["stage"] == stage
     standalone_host._validate_approval(review, approval, context=review)
+
+
+@pytest.mark.parametrize("action", ["create", "delete"])
+def test_injected_exact_approval_preserves_actor_order_and_terminal_seam(
+    tmp_path, monkeypatch, action
+) -> None:
+    review = _review(summary={"action_counts": {action: 1}})
+    events = []
+    confirmation = "application-apply-destructive" if action == "delete" else "application-apply"
+
+    def actor(binding, *, timeout_seconds):
+        assert binding == review["target_binding"]
+        assert 0 < timeout_seconds <= 60
+        events.append("actor")
+        return "d" * 64
+
+    def approve(checkpoint):
+        events.append("approval")
+        assert checkpoint["digest"] == review["review_digest"]
+        assert checkpoint["confirmation_required"] == confirmation
+        assert f"{action}=1" in checkpoint["details"][-1]
+        return {"approved": True, "digest": checkpoint["digest"], "confirmation": confirmation}
+
+    monkeypatch.setattr(standalone_application, "_azure_actor_digest", actor)
+    monkeypatch.setattr(
+        standalone_application,
+        "_approval_input",
+        lambda **_: pytest.fail("injected approval must not read terminal input"),
+    )
+    with bootstrap_approval.approval_source(approve):
+        approval_path = standalone_application._approve_plan(tmp_path, review)
+
+    assert events == ["actor", "approval", "actor"]
+    assert approval_path.name == "application-approval.json"
+    assert approval_path.stat().st_mode & 0o777 == 0o600
+    standalone_host._validate_approval(
+        review, json.loads(approval_path.read_text()), context=review
+    )
 
 
 def test_runtime_profile_bound_review_passes_exact_approval(

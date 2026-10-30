@@ -39,7 +39,7 @@ from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.contracts import ProvisionProfile
 from fdai_deployment_cli.doctor import ToolCheck
 from fdai_deployment_cli.license import LicenseInspectionError, inspect_license
-from fdai_deployment_cli import license_issue
+from fdai_deployment_cli import __version__, license_issue
 from fdai_deployment_cli.offline_kit import (
     MANIFEST_NAME,
     SIGNATURE_NAME,
@@ -998,7 +998,7 @@ def test_cli_version_and_private_profile(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main(["version", "--output", "json"]) == 0
-    assert json.loads(capsys.readouterr().out)["version"] == "0.1.1"
+    assert json.loads(capsys.readouterr().out)["version"] == __version__
     profile = tmp_path / "private" / "profile.json"
     assert (
         main(
