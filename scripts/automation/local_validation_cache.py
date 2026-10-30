@@ -122,11 +122,17 @@ def write_record(path: Path, value: dict[str, object]) -> bool:
 
 
 def prune_receipts(root: Path) -> None:
-    """Bound optional receipt retention without touching other validation state."""
+    """Bound optional receipt retention without failing on concurrent slot pruning."""
     try:
-        entries = sorted(root.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
-        for path in entries[MAX_RECEIPTS:]:
-            path.unlink()
+        dated: list[tuple[float, Path]] = []
+        for path in root.glob("*.json"):
+            try:
+                dated.append((path.stat().st_mtime, path))
+            except FileNotFoundError:
+                continue
+        dated.sort(key=lambda item: item[0], reverse=True)
+        for _, path in dated[MAX_RECEIPTS:]:
+            path.unlink(missing_ok=True)
     except OSError:
         print("local-validation: cache-prune=unavailable")
 
@@ -163,6 +169,9 @@ def locked_state(root: Path) -> Iterator[Path]:
                     break
                 except BlockingIOError:
                     candidate_lock.close()
+                except OSError:
+                    candidate_lock.close()
+                    raise
             if lock is not None:
                 break
             if time.monotonic() >= deadline:

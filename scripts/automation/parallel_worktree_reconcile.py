@@ -28,6 +28,13 @@ DEFAULT_BASE_REFS = ("refs/remotes/origin/main", "refs/heads/main")
 SERVICE_SUITES_PATH = "tests/integration/service-suites.json"
 SERVICE_TEST_GROUPS = frozenset({"unit", "contract", "integration", "smoke"})
 LEDGER_PREFIX = "docs/roadmap-implementation/"
+ROADMAP_PREFIX = "docs/roadmap/"
+RESERVED_TABLE_HEADERS = frozenset(
+    {
+        ("Area", "State", "Evidence", "Notes"),
+        ("Date", "State", "Change", "Evidence", "Remaining"),
+    }
+)
 FM_RE = re.compile(r"\A(---\r?\n)(.*?)(\r?\n---\r?\n)", re.DOTALL)
 CONFLICT_MARKER_RE = re.compile(r"^(?:<<<<<<< |=======$|>>>>>>> )", re.MULTILINE)
 HUNK_RE = re.compile(
@@ -46,11 +53,24 @@ def _load_script_module(name: str, relative_path: str) -> ModuleType:
     return module
 
 
+def _is_valid_ref_token(value: str) -> bool:
+    return (
+        bool(value)
+        and not value.startswith("-")
+        and ".." not in value
+        and not any(char.isspace() or ord(char) < 32 for char in value)
+    )
+
+
 def resolve_base_ref(repo_root: Path, requested: str | None) -> tuple[str, str] | None:
     """Resolve the requested or default base ref to its ref name and commit SHA."""
+    if requested is not None and not _is_valid_ref_token(requested):
+        return None
     candidates = (requested,) if requested else DEFAULT_BASE_REFS
     for ref in candidates:
         if not ref:
+            continue
+        if git(repo_root, "check-ref-format", "--allow-onelevel", ref).returncode != 0:
             continue
         verified = git(repo_root, "rev-parse", "--verify", f"{ref}^{{commit}}")
         if verified.returncode == 0:
@@ -130,6 +150,28 @@ def _safe_worktree_file(root: Path, relative: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+def _heading_levels(markdown_body: str) -> list[int]:
+    levels: list[int] = []
+    in_fence = False
+    for line in markdown_body.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and stripped.startswith("#"):
+            hashes = len(stripped) - len(stripped.lstrip("#"))
+            if 1 <= hashes <= 6 and stripped[hashes : hashes + 1] == " ":
+                levels.append(hashes)
+    return levels
+
+
+def _is_in_translation_scope(ko_path: str) -> bool:
+    return ko_path == "README-ko.md" or (
+        ko_path.startswith("docs/")
+        and ko_path.endswith("-ko.md")
+        and not ko_path.startswith(("docs/internals/", LEDGER_PREFIX))
+    )
+
+
 def _reconcile_ko_conflict(
     root: Path,
     ko_path: str,
@@ -139,6 +181,8 @@ def _reconcile_ko_conflict(
     unmerged: set[str],
     stamp: str,
 ) -> bool:
+    if not _is_in_translation_scope(ko_path):
+        return False
     src_path = f"{ko_path.removesuffix('-ko.md')}.md"
     target_ko = _safe_worktree_file(root, ko_path)
     target_src = _safe_worktree_file(root, src_path)
@@ -155,6 +199,11 @@ def _reconcile_ko_conflict(
     fm_end = 3 + closing_match.end()
     fm_block, body_block = working_text[:fm_end], working_text[fm_end:]
     if CONFLICT_MARKER_RE.search(body_block):
+        return False
+    src_text = target_src.read_text(encoding="utf-8")
+    src_fm = FM_RE.match(src_text)
+    src_body = src_text[src_fm.end() :] if src_fm else src_text
+    if _heading_levels(src_body) != _heading_levels(body_block):
         return False
     cleaned_fm = HUNK_RE.sub(lambda m: m.group("ours"), fm_block)
     if CONFLICT_MARKER_RE.search(cleaned_fm):
@@ -176,7 +225,11 @@ def _table_row_cells(line: str) -> tuple[str, ...] | None:
     if not stripped.startswith("|") or not stripped.endswith("|"):
         return None
     cells = tuple(cell.strip() for cell in stripped[1:-1].split("|"))
-    if all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells if cell):
+    if (
+        cells in RESERVED_TABLE_HEADERS
+        or any(not cell for cell in cells)
+        or all(re.fullmatch(r":?-{3,}:?", cell) for cell in cells)
+    ):
         return None
     return cells
 
@@ -231,6 +284,11 @@ def _reconcile_ledger_conflict(
         "check_roadmap_implementation_tracking",
         "scripts/quality/architecture/check-roadmap-implementation-tracking.py",
     )
+    owner_file = _safe_worktree_file(
+        root, f"{ROADMAP_PREFIX}{ledger_path.removeprefix(LEDGER_PREFIX)}"
+    )
+    if owner_file is not None and tracker.has_inline_status(owner_file.read_text(encoding="utf-8")):
+        return False
     scope_heading, history_heading, remaining_heading = tracker.SUBSECTION_HEADINGS
     if (
         raw_text.count(scope_heading) != 1
@@ -349,9 +407,11 @@ def sync_worktree_base(
     status_res = git(repo_root, "status", "--porcelain=v1", "--untracked-files=all")
     if status_res.returncode != 0 or status_res.stdout.strip():
         return {"reason_code": "worktree_dirty", "schema_version": 1, "status": "blocked"}
+    if not _is_valid_ref_token(base_ref):
+        return {"reason_code": "base_ref_unavailable", "schema_version": 1, "status": "blocked"}
     if fetch and base_ref.startswith("refs/remotes/"):
         parts = base_ref.removeprefix("refs/remotes/").split("/", 1)
-        if len(parts) == 2:
+        if len(parts) == 2 and all(_is_valid_ref_token(part) for part in parts):
             remote_name, remote_branch = parts
             try:
                 fetch_res = subprocess.run(
@@ -359,6 +419,7 @@ def sync_worktree_base(
                         "git",
                         "fetch",
                         "--quiet",
+                        "--",
                         remote_name,
                         f"+refs/heads/{remote_branch}:{base_ref}",
                     ],
@@ -400,7 +461,8 @@ def sync_worktree_base(
             "status": "ok",
         }
     if ahead == 0:
-        git(repo_root, "merge", "--ff-only", "--quiet", base_sha)
+        if git(repo_root, "merge", "--ff-only", "--quiet", base_sha).returncode != 0:
+            return {"reason_code": "fast_forward_failed", "schema_version": 1, "status": "blocked"}
         return {
             "base_ref": canonical_base_ref,
             "base_sha": base_sha,
@@ -410,12 +472,19 @@ def sync_worktree_base(
             "schema_version": 1,
             "status": "ok",
         }
-    merge_base = git(repo_root, "merge-base", head_sha, base_sha).stdout.strip()
+    merge_base_res = git(repo_root, "merge-base", head_sha, base_sha)
+    if merge_base_res.returncode != 0:
+        return {"reason_code": "no_merge_base", "schema_version": 1, "status": "blocked"}
+    merge_base = merge_base_res.stdout.strip()
     stamp = today or _dt.date.today().isoformat()
-    git(repo_root, "merge", "--no-commit", "--no-ff", base_sha)
+    merge_res = git(repo_root, "merge", "--no-commit", "--no-ff", base_sha)
     reconciled: set[str] = set()
     unmerged_res = git(repo_root, "diff", "--name-only", "--diff-filter=U")
     unmerged = {line for line in unmerged_res.stdout.splitlines() if line}
+    if merge_res.returncode != 0 and not unmerged:
+        if (git_dir / "MERGE_HEAD").exists():
+            git(repo_root, "merge", "--abort")
+        return {"reason_code": "merge_failed", "schema_version": 1, "status": "blocked"}
 
     for path in sorted(unmerged):
         ok = False
@@ -455,13 +524,17 @@ def sync_worktree_base(
             }
         reconciled.add(path)
 
-    git(
+    commit_res = git(
         repo_root,
         "commit",
         "--no-edit",
         "-m",
         f"Merge {canonical_base_ref} into {branch_res.stdout.strip()}",
     )
+    if commit_res.returncode != 0:
+        if (git_dir / "MERGE_HEAD").exists():
+            git(repo_root, "merge", "--abort")
+        return {"reason_code": "merge_commit_failed", "schema_version": 1, "status": "blocked"}
     new_head = git(repo_root, "rev-parse", "--verify", "HEAD^{commit}").stdout.strip()
     return {
         "base_ref": canonical_base_ref,

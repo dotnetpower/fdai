@@ -409,10 +409,14 @@ directory before an all-slots-busy push falls back to an uncached private checko
 commands share one environment preparation per group. When a roadmap owner delegates its status
 section to `docs/roadmap-implementation/<area>/<name>.md`, updating that ledger satisfies the
 route's design-impact check without requiring an artificial edit to the paired normative design
-document. Explicit `developer_workflow_worktrees.py sync` synchronizes a clean topic worktree with
-its base and reconciles only verified pre-merge `translation_source_sha` front-matter conflicts,
-append-only implementation-ledger table rows, and additive `service-suites.json` registrations,
-aborting fail-closed on any other conflict.
+document. Read-only `developer-workflow.py worktrees` probes use `--no-optional-locks`, expand
+graduated service route aliases, and split rename/copy porcelain paths so diagnostics never contend
+on worktree `index.lock` files. Explicit `developer_workflow_worktrees.py sync` validates ref
+syntax before Git calls, synchronizes a clean topic worktree with its base, and reconciles only
+in-scope pre-merge `translation_source_sha` front-matter conflicts whose merged Markdown heading
+levels match, append-only implementation-ledger table data rows for delegated owners, and additive
+`service-suites.json` registrations, aborting fail-closed on any failed merge/commit or other
+conflict.
 Fast-gate cache identities are computed once before and after the batch, not once per gate.
 Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
 batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
