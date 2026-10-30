@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: de273cf5e24323741a5cfcc6251b9f574a371428
-translation_revised: 2026-10-30
+translation_source_sha: c9885fb75fcfb68471067af963e968431f82ef9a
+translation_revised: 2026-10-31
 ---
 # AKS 역방향 커넥터
 
@@ -377,6 +377,21 @@ Illumio를 이미 사용한다면 기존 정책 관리 주체를 유지하고 �
 허용 및 차단 검사가 필요합니다. 정책 수신, Kubernetes 수락, 대상별 적용, 실제 연결은 별도 기록입니다.
 DNS, 인증, API, 게이트웨이, 감사, 복구 의존성은 명시적인 허용 목록이며 포트 443 전체 예외가 아닙니다.
 초기 적용은 선택된 namespace 하나로 제한합니다.
+
+shadow로 시작하는 `remediate.kubernetes-network-policy` ActionType은 이 계약을 `snapshot_restore`
+롤백 계획(`SegmentationRollbackPlan`)에 연결합니다. 새 `NetworkPolicy`를 만들 때는
+`delete_created_policy`를, 기존 `fdai-segmentation` 소유 정책을 수정할 때는 `restore_prior_policy`를
+사용하며 외부 소유 정책은 거부합니다. `inspect_aks_policy_engine`은 클러스터의 ARM `networkProfile`을
+평가해 `PolicyEngineCapabilityFact`를 생성하며, Azure CNI에 정책 엔진이 없으면 `NetworkPolicy`가
+무효이므로 클러스터를 거부(`policy_engine_missing`)합니다. `ManagementDependencyAllowlist`와
+`render_segmentation_network_policy`는 관찰자의 DNS(`kube-dns`와 `dns_cidrs`), Kubernetes
+API(`api_cidrs`), 커넥터 게이트웨이(`gateway_cidrs` 또는 `gateway_peer`) 송신 규칙을 항상 포함하고
+검증해 자기 잠금을 막습니다. `render_executor_installation`과 `verify_executor_documents`는 단일 대상
+네임스페이스에 네임스페이스 한정 `Role`과 `RoleBinding`(`networkpolicies`와 `leases`만 허용하고
+`ClusterRole`이나 `Secret`/`ConfigMap` 읽기는 없음)을 가진 클러스터 실행기를 렌더링하며 `shadow`
+모드에서는 `replicas: 0`을 유지합니다. `render_segmentation_probe_job`은 셸 문자열이나 토큰 없이 제한된
+TCP probe `Job`을 렌더링하고, `evaluate_segmentation_scenario`는 `assess_policy_flow` 예측과 독립적인
+양성·음성 probe 관측을 비교해 `agreement_rate == 1.0`과 정책 우회 0건을 요구합니다.
 
 ## 장애와 수명 주기
 
