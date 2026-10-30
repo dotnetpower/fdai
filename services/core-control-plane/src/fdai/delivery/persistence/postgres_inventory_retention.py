@@ -12,6 +12,7 @@ from fdai.delivery.inventory_configuration_events import (
     configuration_delivery_key,
     configuration_delivery_pending,
 )
+from fdai.delivery.persistence.postgres_inventory_shared_properties import prune_shared_properties
 
 
 async def require_snapshot_capacity(connection: psycopg.AsyncConnection[Any]) -> None:
@@ -69,6 +70,7 @@ async def prune_terminal_snapshots(connection: psycopg.AsyncConnection[Any]) -> 
             continue
         snapshot_ids.append(generation)
     if not snapshot_ids:
+        await prune_shared_properties(connection)
         return 0
     await connection.execute(
         "DELETE FROM state_kv WHERE EXISTS ("
@@ -81,4 +83,5 @@ async def prune_terminal_snapshots(connection: psycopg.AsyncConnection[Any]) -> 
         "DELETE FROM inventory_snapshot WHERE id=ANY(%s::text[])",
         (snapshot_ids,),
     )
+    await prune_shared_properties(connection)
     return len(snapshot_ids)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -19,6 +20,9 @@ _DIGEST = re.compile(r"^sha256:[a-f0-9]{64}$")
 _MAX_IDEMPOTENCY_KEY_LENGTH = 256
 _ROTATION_LOCK_NAMESPACE = 0x46444149
 _ROTATION_LOCK_KEY = 0x54324348
+_EXPIRY_BATCH_ROWS = 1_000
+_ROTATION_PARTITIONS = 32
+_ROTATION_TIMEOUT_S = 15
 
 
 class T2CacheLifecycleError(RuntimeError):
@@ -76,15 +80,17 @@ class T2CacheCatalogTransitionReceipt:
 
 @dataclass(frozen=True, slots=True)
 class T2CacheRotationReceipt:
-    """Atomic record of the exact expired partitions removed by one rotation."""
+    """Atomic record of removed partitions and bounded TTL row reclamation."""
 
     idempotency_key: str
     active_catalog_version: str
-    rollback_catalog_version: str
+    rollback_catalog_version: str | None
     cutoff: datetime
     dropped_catalog_versions: tuple[str, ...]
     receipt_digest: str
     recorded_at: datetime
+    expired_rows_deleted: int = 0
+    cleanup_cutoff: datetime | None = None
 
 
 class PostgresT2Cache:
@@ -178,7 +184,7 @@ class PostgresT2Cache:
         model: str,
         expires_at: datetime,
     ) -> None:
-        """Write only to the current exact catalog partition with a finite TTL."""
+        """Keep the read-order winner for an exact catalog/input key, ignoring model."""
         _require_digest(catalog_version, "catalog_version")
         _require_digest(input_hash, "input_hash")
         _require_utc(expires_at, "expires_at")
@@ -197,6 +203,13 @@ class PostgresT2Cache:
                     catalog_version, input_hash, output, model, expires_at
                 )
                 VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (catalog_version, input_hash) DO UPDATE
+                   SET output = EXCLUDED.output,
+                       model = EXCLUDED.model,
+                       created_at = EXCLUDED.created_at,
+                       expires_at = EXCLUDED.expires_at
+                 WHERE (EXCLUDED.expires_at, EXCLUDED.created_at)
+                       >= (t2_cache.expires_at, t2_cache.created_at)
                 """,
                 (catalog_version, input_hash, Jsonb(dict(output)), model, expires_at),
             )
@@ -250,18 +263,29 @@ class PostgresT2Cache:
         self,
         *,
         active_catalog_version: str,
-        rollback_catalog_version: str,
+        rollback_catalog_version: str | None,
         idempotency_key: str,
         cutoff: datetime,
     ) -> T2CacheRotationReceipt:
-        """Drop only fully expired, unprotected partitions and append one receipt."""
+        """Reclaim at most 1,000 expired rows and 32 unprotected partitions in 15 seconds.
+
+        Row expiry is clamped to server time, including in protected catalogs.
+        A missing rollback catalog must match the authoritative initial catalog state.
+        Replay returns the original receipt without further cleanup. Detached legacy
+        rollback material and catalog/transition bindings are never pruned here.
+        """
         _require_digest(active_catalog_version, "active_catalog_version")
-        _require_digest(rollback_catalog_version, "rollback_catalog_version")
+        if rollback_catalog_version is not None:
+            _require_digest(rollback_catalog_version, "rollback_catalog_version")
         _require_idempotency_key(idempotency_key)
         _require_utc(cutoff, "cutoff")
         if active_catalog_version == rollback_catalog_version:
             raise ValueError("active and rollback catalog versions must differ")
-        async with await self._connect() as connection, connection.transaction():
+        async with (
+            asyncio.timeout(_ROTATION_TIMEOUT_S),
+            await self._connect() as connection,
+            connection.transaction(),
+        ):
             await self._prepare_transaction(connection)
             duplicate = await self._rotation_receipt(connection, idempotency_key)
             if duplicate is not None:
@@ -284,10 +308,31 @@ class PostgresT2Cache:
                 raise T2CacheLifecycleError(
                     "T2 cache rotation does not match authoritative active and rollback catalogs"
                 )
+            cursor = await connection.execute(
+                """
+                SELECT LEAST(%s, statement_timestamp()) AS cleanup_cutoff
+                """,
+                (cutoff,),
+            )
+            cleanup = await cursor.fetchone()
+            if cleanup is None:
+                raise T2CacheLifecycleError("T2 cache cleanup cutoff is unavailable")
+            cleanup_cutoff = cleanup["cleanup_cutoff"]
+            cursor = await connection.execute(
+                "SELECT fdai_t2_cache_prune_expired(%s, %s) AS deleted_rows",
+                (cleanup_cutoff, _EXPIRY_BATCH_ROWS),
+            )
+            deleted = await cursor.fetchone()
+            if deleted is None:
+                raise T2CacheLifecycleError("T2 cache expiry cleanup returned no row count")
+            expired_rows_deleted = int(deleted["deleted_rows"])
+            if not 0 <= expired_rows_deleted <= _EXPIRY_BATCH_ROWS:
+                raise T2CacheLifecycleError("T2 cache expiry cleanup exceeded its row budget")
             candidates = await self._rotation_candidates(
                 connection,
                 active_catalog_version=active_catalog_version,
                 rollback_catalog_version=rollback_catalog_version,
+                cutoff=cutoff,
             )
             dropped: list[str] = []
             for catalog_version, partition_name in candidates:
@@ -305,6 +350,8 @@ class PostgresT2Cache:
                 rollback_catalog_version=rollback_catalog_version,
                 cutoff=cutoff,
                 dropped_catalog_versions=tuple(dropped),
+                expired_rows_deleted=expired_rows_deleted,
+                cleanup_cutoff=cleanup_cutoff,
             )
 
     async def state(self) -> T2CacheCatalogState | None:
@@ -476,17 +523,24 @@ class PostgresT2Cache:
         connection: psycopg.AsyncConnection[Any],
         *,
         active_catalog_version: str,
-        rollback_catalog_version: str,
+        rollback_catalog_version: str | None,
+        cutoff: datetime,
     ) -> tuple[tuple[str, str], ...]:
         cursor = await connection.execute(
             """
-            SELECT catalog_version, partition_name
-              FROM t2_cache_partition_registry
-             WHERE catalog_version <> %s
-               AND catalog_version <> %s
-             ORDER BY catalog_version
+            SELECT registry.catalog_version, registry.partition_name
+              FROM t2_cache_partition_registry AS registry
+             WHERE registry.catalog_version <> %s
+               AND registry.catalog_version IS DISTINCT FROM %s
+               AND NOT EXISTS (
+                   SELECT 1 FROM t2_cache AS cache
+                    WHERE cache.catalog_version = registry.catalog_version
+                      AND cache.expires_at > %s
+               )
+             ORDER BY registry.catalog_version
+             LIMIT %s
             """,
-            (active_catalog_version, rollback_catalog_version),
+            (active_catalog_version, rollback_catalog_version, cutoff, _ROTATION_PARTITIONS),
         )
         return tuple(
             (str(row["catalog_version"]), str(row["partition_name"]))
@@ -500,10 +554,17 @@ class PostgresT2Cache:
         cutoff: datetime,
     ) -> bool:
         cursor = await connection.execute(
-            sql.SQL("SELECT count(*) = 0 OR max(expires_at) <= %s AS eligible FROM {}").format(
-                sql.Identifier(partition_name)
-            ),
-            (cutoff,),
+            """
+            SELECT NOT EXISTS (
+                SELECT 1 FROM t2_cache
+                 WHERE catalog_version = (
+                     SELECT catalog_version FROM t2_cache_partition_registry
+                      WHERE partition_name = %s
+                 )
+                   AND expires_at > %s
+            ) AS eligible
+            """,
+            (partition_name, cutoff),
         )
         row = await cursor.fetchone()
         return row is not None and row["eligible"] is True
@@ -538,9 +599,11 @@ class PostgresT2Cache:
         *,
         idempotency_key: str,
         active_catalog_version: str,
-        rollback_catalog_version: str,
+        rollback_catalog_version: str | None,
         cutoff: datetime,
         dropped_catalog_versions: tuple[str, ...],
+        expired_rows_deleted: int,
+        cleanup_cutoff: datetime,
     ) -> T2CacheRotationReceipt:
         digest = _canonical_digest(
             {
@@ -549,15 +612,18 @@ class PostgresT2Cache:
                 "dropped_catalog_versions": dropped_catalog_versions,
                 "idempotency_key": idempotency_key,
                 "rollback_catalog_version": rollback_catalog_version,
+                "expired_rows_deleted": expired_rows_deleted,
+                "cleanup_cutoff": cleanup_cutoff.isoformat(),
             }
         )
         cursor = await connection.execute(
             """
             INSERT INTO t2_cache_rotation_receipt (
                 idempotency_key, active_catalog_version, rollback_catalog_version,
-                cutoff, dropped_catalog_versions, receipt_digest
+                cutoff, dropped_catalog_versions, receipt_digest,
+                expired_rows_deleted, cleanup_cutoff
             )
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING *
             """,
             (
@@ -567,6 +633,8 @@ class PostgresT2Cache:
                 cutoff,
                 list(dropped_catalog_versions),
                 digest,
+                expired_rows_deleted,
+                cleanup_cutoff,
             ),
         )
         row = await cursor.fetchone()
@@ -638,11 +706,17 @@ def _rotation_receipt(row: Mapping[str, Any]) -> T2CacheRotationReceipt:
     return T2CacheRotationReceipt(
         idempotency_key=str(row["idempotency_key"]),
         active_catalog_version=str(row["active_catalog_version"]),
-        rollback_catalog_version=str(row["rollback_catalog_version"]),
+        rollback_catalog_version=(
+            str(row["rollback_catalog_version"])
+            if row["rollback_catalog_version"] is not None
+            else None
+        ),
         cutoff=row["cutoff"],
         dropped_catalog_versions=tuple(str(item) for item in row["dropped_catalog_versions"]),
         receipt_digest=str(row["receipt_digest"]),
         recorded_at=row["recorded_at"],
+        expired_rows_deleted=int(row.get("expired_rows_deleted", 0)),
+        cleanup_cutoff=row.get("cleanup_cutoff"),
     )
 
 

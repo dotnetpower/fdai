@@ -557,6 +557,26 @@ continues to reuse its prior journal generation and does not create a new histor
 generations keep their exact-generation replay path. The journal and lifecycle bindings remain
 append-only; unchanged members add neither journal rows nor lifecycle bindings.
 
+The compact storage format shares content-addressed, hash-partitioned member and freshness
+templates across generations. Each generation retains its own immutable clock and generation
+bindings, while its root references pages directly rather than chaining through an earlier
+generation. Factoring uses exact string equality and external substitution paths, so literal
+marker-shaped properties and nonuniform times remain unchanged. Missing pages or bindings
+hold replay; older row-based generations remain readable without an implicit backfill or deletion.
+
+Rebuildable staging snapshots also share immutable property bodies by digest. Per-row observation
+metadata remains separate, and the original logical resource/link relations reconstruct the same
+properties through compatibility views. Foreign keys protect referenced bodies. Opportunistic
+orphan cleanup removes at most 1,000 unreferenced bodies and 16 MiB of canonical body text per pass
+under a writer/collector lock; it never deletes membership pages or journal evidence.
+
+The schema transition requires stopped inventory readers and writers and rejects pre-existing
+dependent views before changing storage. Downgrade materializes exact retained rows before restoring
+the previous schema. Additional normalized tables are an implementation detail, not evidence that
+total storage grew or shrank. Compare physical relation sizes on the same workload, and use
+[database storage diagnostics](../../runbooks/database-storage-efficiency.md) before applying
+deployment-specific retention or moving binary data.
+
 ### Retention policy and partition lifecycle
 
 A deployment-owned retention policy registry assigns each fact family its purpose, hot and warm

@@ -26,7 +26,10 @@ _LOGGER = logging.getLogger(__name__)
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--active", required=True, help="exact active catalog SHA-256 digest")
-    parser.add_argument("--rollback", required=True, help="exact rollback catalog SHA-256 digest")
+    parser.add_argument(
+        "--rollback",
+        help="exact rollback catalog SHA-256 digest; omit only when no rollback catalog is bound",
+    )
     parser.add_argument("--idempotency-key", required=True)
     parser.add_argument("--cutoff", help="RFC 3339 cutoff; defaults to current UTC time")
     return parser

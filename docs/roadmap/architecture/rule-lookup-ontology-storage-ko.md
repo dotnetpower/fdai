@@ -1,8 +1,8 @@
 ---
 title: 규칙 조회 온톨로지 저장소
 translation_of: rule-lookup-ontology-storage.md
-translation_source_sha: b6ef983b70180169c39f855a1ab15821e01badf8
-translation_revised: 2026-08-27
+translation_source_sha: 633c218e686a0bf9105028bb0b9cc29bbeb9652e
+translation_revised: 2026-10-30
 ---
 
 # 규칙 조회 온톨로지 저장소
@@ -17,12 +17,16 @@ translation_revised: 2026-08-27
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 정확한 키 기반 T2 캐시 저장과 범위가 제한된 만료 정리 | implemented | `20261030_core_cache_storage_efficiency.py`; `postgres_t2_cache.py`; 새로 채택한 분리 검증 데이터베이스의 `test_postgres_t2_cache.py`: 23개 통과; 집중 단위·CLI 검사 | 만료·생성 시각 우선순위를 유지하고 롤백 바인딩을 임의로 만들지 않은 채 첫 카탈로그도 지원합니다. 만료 행과 이전 파티션의 정리 범위를 제한하고 불변 증적과 분리된 레거시 데이터를 보존합니다. 운영 배포나 레거시 폐기 완료를 주장하지 않습니다. |
 | 버전이 지정된 온톨로지와 Rule 카탈로그 산출물 | implemented | `rule-catalog/vocabulary/`; `rule-catalog/catalog/`; `test_ontology_catalog.py`; `test_rule_catalog.py` | 카탈로그 로더는 시작 전에 ObjectType, LinkType, ActionType, Rule 참조 및 전달 의미 체계를 검증합니다. |
 | 관계형 온톨로지 인스턴스와 정확한 릴리스 고정 | implemented | `alembic/versions/20260713_0011_ontology_instances.py`; `20260801_0067_ontology_release_pinning.py`; `20260813_0081_ontology_release_registry.py`; `test_postgres_ontology_instance.py` | PostgreSQL은 방향 및 호환성 가드와 함께 타입이 지정된 인스턴스와 정확한 릴리스 메타데이터를 저장합니다. |
 | 단일 저장소 L2-L4 영속성 표면 | implemented | `service-migrations/branches/core-control-plane/versions/20260829_core_catalog_lifecycle.py`; `services/core-control-plane/tests/persistence/test_catalog_lifecycle_integration.py` | 현재 서비스 헤드는 학습된 액션을 카탈로그 버전으로 범위 지정하고, 서로 다른 버전에서 같은 signature를 허용하며, T2 항목을 만료시킵니다. 라이브 검사는 로컬 PostgreSQL 채택이 가능할 때 legacy backfill, 버전 무효화, 보존 및 migration 롤백도 확인합니다. |
 | 부트, 리로드 및 전달 인덱스 수명 주기 | implemented | `services/core-control-plane/src/fdai/core/tiers/t0_deterministic/index.py`; `services/core-control-plane/tests/core/tiers/t0_deterministic/test_index.py`; [부트와 리로드](#부트와-리로드) | 카탈로그 후보는 전이 lock 아래 게시 전에 컴파일됩니다. 컴파일 실패 시 현재 및 N-1 인덱스가 변경되지 않고, 보존된 버전의 충돌하는 내용은 거부되며, 승인된 N/N-1 인덱스는 replay할 수 있습니다. |
 
 ### 구현 이력
+
+T2 캐시 용량 개선의 최신 검증 이력은
+[영문 구현 이력](rule-lookup-ontology-storage.md#implementation-history)에서 관리합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
@@ -32,6 +36,8 @@ translation_revised: 2026-08-27
 | 2026-08-27 | implemented | bounded 카탈로그 digest tombstone을 추가하여 제거된 버전을 다른 규칙으로 재바인딩할 수 없게 했으며, 카탈로그 버전에 걸친 signature 충돌이 있으면 실행 가능한 preflight 오류로 downgrade를 거부하도록 했습니다. | `current change`; `test_index.py`; `test_catalog_lifecycle_integration.py`; 집중 PostgreSQL 수명 주기 검사입니다. | 라이브 증적을 얻으려면 로컬 PostgreSQL 채택이 필요합니다. 원격 또는 Azure 증적은 주장하지 않습니다. |
 
 ### 남은 작업
+
+- [x] 롤백 바인딩이 없는 첫 카탈로그를 포함한 정확한 키 기반 캐시 쓰기와 만료 정리는 위의 집중 단위·CLI 검사와 분리된 PostgreSQL 검증으로 확인했습니다.
 
 - [x] 내부 구현을 완료했습니다. 서비스 헤드 migration, 집중 수명 주기 검사, 원자적 리로드 및 롤백 동작, 권위 있는 스키마 스케치는 범위 및 이력 표의 근거로 다룹니다. 라이브 PostgreSQL 증적은 검증되지 않은 로컬 주장이 아니라 운영 증적으로 남겨 둡니다.
 
@@ -165,13 +171,40 @@ CREATE TABLE t2_cache (                   -- L4
   output            jsonb NOT NULL,
   model             text NOT NULL,
   created_at        timestamptz NOT NULL DEFAULT now(),
-  expires_at        timestamptz NOT NULL DEFAULT (now() + interval '1 hour'),
-  PRIMARY KEY (catalog_version, id)
+  expires_at        timestamptz NOT NULL,
+  PRIMARY KEY (catalog_version, id),
+  UNIQUE (catalog_version, input_hash)
 ) PARTITION BY LIST (catalog_version);
-CREATE TABLE t2_cache_default PARTITION OF t2_cache DEFAULT;
-CREATE INDEX idx_t2_cache_input_hash ON t2_cache(catalog_version, input_hash);
-CREATE INDEX idx_t2_cache_expires_at ON t2_cache(expires_at);
+CREATE INDEX idx_t2_cache_lookup
+  ON t2_cache(catalog_version, input_hash, expires_at DESC, created_at DESC);
+CREATE INDEX idx_t2_cache_expiry_cleanup
+  ON t2_cache(expires_at, catalog_version, id);
 ```
+
+### 캐시 용량과 유지관리
+
+수명주기 관리 경로가 카탈로그별 파티션을 관리합니다.
+분리된 `t2_cache_legacy_default`는 쓰기용 기본 파티션이 아니라 롤백 자료로 유지합니다.
+각 `(catalog_version, input_hash)`에는 결과를 최대 하나만 저장합니다.
+동시 쓰기에서도 중복 결과를 누적하지 않고 만료 시각과 생성 시각에 따른 기존 조회
+우선순위를 유지합니다.
+
+회전 작업은 활성 카탈로그와 등록된 롤백 카탈로그를 포함해 만료 행을 최대 1,000개 정리합니다.
+카탈로그 바인딩과 불변 전환 증적은 삭제하지 않습니다.
+전체 제한 시간 15초 안에서 이전 파티션을 최대 32개 검토합니다.
+행 정리의 기준 시점은 데이터베이스의 현재 시각을 넘지 않으며 잠긴 행은 건너뜁니다.
+일반적인 DELETE 권한 대신 Core 전용 유지관리 함수를 사용합니다.
+정리 건수와 기준 시점을 회전 증적에 함께 기록하므로 같은 증적을 재생해도 정리를
+다시 실행하지 않습니다.
+
+첫 카탈로그의 권위 있는 바인딩이 `None`일 때만 CLI의 `--rollback`을 생략합니다.
+롤백 카탈로그가 있으면 바인딩을 임의로 만들거나 무시하지 않고 생략을 차단합니다.
+
+마이그레이션은 중복 행을 최대 10,000개까지 원자적으로 정리합니다.
+누적량이 더 많으면 유지관리가 필요하다는 오류와 함께 실패합니다.
+분리된 레거시 데이터를 폐기하거나 롤백 보존 기간을 임의로 정하지 않습니다.
+배포별 보존 정책이나 레거시 폐기를 결정하기 전에
+[데이터베이스 저장 공간 진단](../../runbooks/database-storage-efficiency-ko.md)을 확인하세요.
 
 스키마 노트:
 

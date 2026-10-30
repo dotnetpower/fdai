@@ -19,6 +19,17 @@ _RENAME_TABLE = re.compile(
     r"RENAME\s+TO\s+(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE,
 )
+_RENAME_STATEMENT = re.compile(r"\bALTER\s+TABLE\s+[^;]*\bRENAME\s+TO\b[^;]*", re.IGNORECASE)
+_CREATE_VIEW = re.compile(
+    r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:MATERIALIZED\s+)?VIEW\s+"
+    r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.IGNORECASE,
+)
+_DROP_RELATION = re.compile(
+    r"\bDROP\s+(?:TABLE|(?:MATERIALIZED\s+)?VIEW)\s+(?:IF\s+EXISTS\s+)?"
+    r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.IGNORECASE,
+)
 _DDL_TABLE = re.compile(
     r"\b(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+TABLE"
     r"|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"
@@ -71,6 +82,9 @@ class RevisionMetadata:
     touched_tables: tuple[str, ...]
     created_tables: tuple[str, ...]
     rollback: dict[str, str]
+    renamed_tables: tuple[tuple[str, str], ...] = ()
+    created_views: tuple[str, ...] = ()
+    relation_operations: tuple[tuple[str, str, str | None], ...] = ()
 
 
 def _assignment_value(tree: ast.Module, name: str) -> object:
@@ -145,6 +159,68 @@ def _literal_table_argument(call: ast.Call, operation: str, index: int) -> str:
     return value
 
 
+def _rename_arguments(call: ast.Call) -> tuple[str, str]:
+    arguments = []
+    for index, name in enumerate(("old_table_name", "new_table_name")):
+        value = (
+            call.args[index]
+            if len(call.args) > index
+            else next((item.value for item in call.keywords if item.arg == name), None)
+        )
+        if value is None or not isinstance(decoded := ast.literal_eval(value), str):
+            raise ValueError("op.rename_table() requires literal source and target names")
+        arguments.append(decoded)
+    schema = next((item.value for item in call.keywords if item.arg == "schema"), None)
+    if schema is not None and ast.literal_eval(schema) not in (None, "public"):
+        raise ValueError("table rename supports the public schema only")
+    return arguments[0], arguments[1]
+
+
+def _relation_operations(function: ast.FunctionDef) -> tuple[tuple[str, str, str | None], ...]:
+    """Track literal relation names in statement order without executing migration code."""
+    operations: list[tuple[str, str, str | None]] = []
+
+    class Visitor(ast.NodeVisitor):
+        def visit_Call(self, node: ast.Call) -> None:
+            if not (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "op"
+            ):
+                self.generic_visit(node)
+                return
+            operation = node.func.attr
+            if operation == "rename_table":
+                source, target = _rename_arguments(node)
+                operations.append(("rename_table", source, target))
+            elif operation in ("create_table", "drop_table"):
+                name = _literal_table_argument(node, operation, 0)
+                operations.append((operation, name, None))
+            elif operation == "execute" and node.args and isinstance(node.args[0], ast.Constant):
+                statement = node.args[0].value
+                if not isinstance(statement, str):
+                    return
+                events: list[tuple[int, tuple[str, str, str | None]]] = []
+                for pattern, action in (
+                    (_CREATE_TABLE, "create_table"),
+                    (_CREATE_VIEW, "create_view"),
+                    (_DROP_RELATION, "drop_relation"),
+                ):
+                    events.extend(
+                        (match.start(), (action, match[1], None))
+                        for match in pattern.finditer(statement)
+                    )
+                for match in _RENAME_STATEMENT.finditer(statement):
+                    renamed = _RENAME_TABLE.fullmatch(match[0].strip())
+                    if renamed is None:
+                        raise ValueError("table rename must use literal public table names")
+                    events.append((match.start(), ("rename_table", renamed[1], renamed[2])))
+                operations.extend(event for _, event in sorted(events, key=lambda event: event[0]))
+
+    Visitor().visit(function)
+    return tuple(operations)
+
+
 def _sql_tables(statement: str) -> set[str]:
     tables = {
         table
@@ -166,8 +242,7 @@ def _touched_tables(upgrade: ast.FunctionDef) -> set[str]:
             continue
         operation = node.func.attr
         if operation == "rename_table":
-            tables.add(_literal_table_argument(node, operation, 0))
-            tables.add(_literal_table_argument(node, operation, 1))
+            tables.update(_rename_arguments(node))
             continue
         if operation == "bulk_insert":
             raise ValueError("op.bulk_insert() cannot prove literal table ownership")
@@ -183,6 +258,10 @@ def _touched_tables(upgrade: ast.FunctionDef) -> set[str]:
         index = _TABLE_ARG_BY_OPERATION.get(operation)
         if index is not None:
             tables.add(_literal_table_argument(node, operation, index))
+    for operation, source, target in _relation_operations(upgrade):
+        if operation == "rename_table" and target is not None:
+            tables.add(source)
+            tables.add(target)
     return tables
 
 
@@ -260,6 +339,19 @@ def load_revision_metadata(path: Path) -> RevisionMetadata:
     downgrade = _migration_function(tree, "downgrade")
     touched_tables = tuple(sorted(_touched_tables(upgrade) | _touched_tables(downgrade)))
     created_tables = tuple(sorted(_created_tables(upgrade)))
+    relation_operations = _relation_operations(upgrade)
+    renamed_tables = tuple(
+        (source, target)
+        for operation, source, target in relation_operations
+        if operation == "rename_table" and target is not None
+    )
+    if any(source == target for source, target in renamed_tables):
+        raise ValueError(f"{path.name}: table rename requires distinct source and target")
+    created_views = tuple(
+        sorted(
+            {source for operation, source, _ in relation_operations if operation == "create_view"}
+        )
+    )
     undeclared = set(touched_tables) - set(owned_tables)
     if undeclared:
         raise ValueError(f"{path.name}: migration touches unowned tables {sorted(undeclared)}")
@@ -270,4 +362,7 @@ def load_revision_metadata(path: Path) -> RevisionMetadata:
         touched_tables=touched_tables,
         created_tables=created_tables,
         rollback=cast(dict[str, str], rollback),
+        renamed_tables=renamed_tables,
+        created_views=created_views,
+        relation_operations=relation_operations,
     )

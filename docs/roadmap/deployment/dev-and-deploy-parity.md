@@ -127,7 +127,18 @@ state uses Docker PostgreSQL on `127.0.0.1:5432` with the owning service role, a
 transport uses Redpanda on `127.0.0.1:19092`. Console preparation checks a 2 GiB development
 database bound by default. Exceeding `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` blocks preparation
 with an actionable message and preserves the existing database and broker. An ordinary start
-or restart never authorizes deletion. `dev-status.sh` reports the size, the largest tables, and growth since the last report, warning at 75% of the bound, and `compact-local-database.py` applies the services' newest-N state retention to existing rows (dry run by default; `--vacuum` rewrites `state_kv` through the table-owner role). It never touches evidence tables, the audit log, or the inventory journal.
+or restart never authorizes deletion. `dev-status.sh` reports the size, the largest tables, and
+growth since the last report, warning at 75% of the bound. The storage report also separates heap,
+indexes, TOAST, estimated dead rows, and index usage; `--details` measures binary payloads, expired
+cache rows, and recorded retention policies without returning stored content.
+
+`compact-local-database.py` applies the services' newest-N state retention to existing rows and
+defaults to a dry run. Its optional byte budget blocks deletion when the required retained window
+cannot fit. Cleanup commits bounded batches under one deadline and reports failures explicitly.
+`--vacuum` runs ordinary vacuum through the table-owner role; the separate `--vacuum-full` option
+explicitly requests a rewrite. It never touches evidence tables, the audit log, or the inventory
+journal. See [database storage diagnostics](../../runbooks/database-storage-efficiency.md) for
+measurement semantics, approval boundaries, and migration prerequisites.
 
 Compaction connections have a five-second connection deadline, a 30-second statement deadline,
 and a one-second lock deadline. `--vacuum` also sets the local `state_kv` and TOAST autovacuum

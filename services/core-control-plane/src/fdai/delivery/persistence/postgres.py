@@ -68,6 +68,12 @@ from fdai.delivery.persistence.postgres_canary import (
     read_latest_consumed_canary as _read_latest_consumed_canary,
 )
 from fdai.delivery.persistence.postgres_state_pair import PostgresStatePairMixin
+from fdai.delivery.persistence.postgres_state_queries import (
+    delete_states_beyond as _delete_states_beyond,
+)
+from fdai.delivery.persistence.postgres_state_queries import (
+    read_state_page as _read_state_page,
+)
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
     IncidentAppendStatus,
@@ -417,33 +423,27 @@ class PostgresStateStore(
         field: str | None = None,
         value: str | None = None,
     ) -> int:
+        """Prune in bounded transactions under one deadline.
+
+        Completed batches remain committed if a later batch fails. Retrying is safe:
+        each batch re-evaluates the retained window and rejects concurrently changed rows.
+        """
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
         if retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
         path = state_retention_path(field, value)
-        filter_sql = "AND value #>> %s::text[] = %s" if path is not None else ""
-        filter_params: tuple[object, ...] = (list(path), value) if path is not None else ()
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        async with self._connection() as conn:
-            async with conn.transaction():
-                await self._set_statement_timeout(conn)
-                cursor = await conn.execute(
-                    f"""
-                    DELETE FROM state_kv
-                     WHERE key IN (
-                           SELECT key
-                             FROM state_kv
-                            WHERE key LIKE %s ESCAPE '\\'
-                            {filter_sql}
-                            ORDER BY updated_at DESC, key DESC
-                           OFFSET %s
-                     )
-                       {filter_sql}
-                      """,  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params, retain_newest, *filter_params),
+        async with asyncio.timeout(self._config.statement_timeout_ms / 1000):
+            async with self._connection() as conn:
+                return await _delete_states_beyond(
+                    conn,
+                    escaped_prefix=escaped_prefix,
+                    retain_newest=retain_newest,
+                    path=path,
+                    value=value,
+                    set_statement_timeout=self._set_statement_timeout,
                 )
-        return cursor.rowcount if cursor.rowcount > 0 else 0
 
     async def delete_state(self, key: str) -> bool:
         if not key:
@@ -482,22 +482,14 @@ class PostgresStateStore(
         async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
-                count_cursor = await conn.execute(
-                    f"""SELECT COUNT(*) AS total FROM state_kv
-                         WHERE key LIKE %s ESCAPE '\\' {filter_sql}""",  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params),
+                return await _read_state_page(
+                    conn,
+                    escaped_prefix=escaped_prefix,
+                    filter_sql=filter_sql,
+                    filter_params=filter_params,
+                    limit=limit,
+                    offset=offset,
                 )
-                count_row = await count_cursor.fetchone()
-                page_cursor = await conn.execute(
-                    f"""SELECT value FROM state_kv
-                         WHERE key LIKE %s ESCAPE '\\' {filter_sql}
-                         ORDER BY updated_at DESC, key DESC
-                         LIMIT %s OFFSET %s""",  # noqa: S608
-                    (f"{escaped_prefix}%", *filter_params, limit, offset),
-                )
-                rows = await page_cursor.fetchall()
-        total = int(count_row["total"]) if count_row is not None else 0
-        return tuple(_json_object(row["value"]) for row in rows), total
 
     async def append_incident_transition(self, entry: Mapping[str, Any]) -> IncidentAppendStatus:
         """Route incident transitions into the same audit chain.
