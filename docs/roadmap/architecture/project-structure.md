@@ -911,6 +911,13 @@ read; Core's public-guide report builder and delivery-owned Office renderer reus
 This shared package adds no cross-service implementation import, upload/document-ingestion path,
 ontology observation, assessment writer or operational authority.
 
+`fdai_service_contracts.framework_guidance` carries the separate bilingual WAF, MCSB, and CAF
+presentation corpus. Delivery validates its assessment and definition pins before materialization;
+Operator attaches one guide and inert exact-Rule action references only on detail reads. Shared
+`control_enablement` and `control_enablement_profile` contracts describe assessment preferences,
+not Rule activation or execution authority. Their owning contract is
+[framework assessment](../rules-and-detection/framework-assessment.md#control-enablement-and-implementation-guidance).
+
 Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
 API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.
 Missing sources reject the explicit lane; manual defaults and Thor authority remain unchanged.
