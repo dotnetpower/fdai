@@ -156,7 +156,7 @@ async def _allocated_bytes(store: ServiceRoleStore) -> dict[str, int]:
 
 @asynccontextmanager
 async def _measurement_database() -> AsyncIterator[_RedactedDSN]:
-    database = _saga_database.__wrapped__()
+    database = saga_database.__wrapped__()
     try:
         dsn = _RedactedDSN(await anext(database))
         schema = conninfo_to_dict(dsn)["options"].removeprefix("-c search_path=")

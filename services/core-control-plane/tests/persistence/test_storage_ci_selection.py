@@ -6,6 +6,9 @@ import pytest
 import yaml
 
 from tests.persistence.test_heimdall_sensing_persistence_postgres import (
+    _measurement_database,
+)
+from tests.persistence.test_heimdall_sensing_persistence_postgres import (
     saga_database as sensing_database,
 )
 from tests.persistence.test_saga_compact_checkpoint import _database
@@ -41,6 +44,7 @@ async def test_core_role_fixtures_do_not_open_a_legacy_only_database(
             await anext(sensing)
     finally:
         await sensing.aclose()
-    with pytest.raises(pytest.skip.Exception, match="service-owned migrations"):
-        async with _database():
-            pytest.fail("unmigrated fixture unexpectedly entered")
+    for database_context in (_measurement_database, _database):
+        with pytest.raises(pytest.skip.Exception, match="service-owned migrations"):
+            async with database_context():
+                pytest.fail("unmigrated fixture unexpectedly entered")
