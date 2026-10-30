@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 3a25d7a9fa561ab1715e54802acf219e66232324
+translation_source_sha: d5b004d0ff2b840ec422948aca6d7f6cb793594b
 translation_revised: 2026-10-31
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -104,6 +104,12 @@ Heimdall은 고정 참조 버킷을 사용합니다. PostgreSQL의 Saga는 작�
 버전 3 체크포인트를 읽을 수 없습니다. 코드만 되돌려서는 충분하지 않습니다.
 쓰기 프로세스를 중지한 상태에서 별도로 검토된 호환 체크포인트 복원을 사용하세요.
 복구나 용량 검사를 통과하려고 원장 기록을 삭제하지 않습니다.
+
+실제 Core 역할을 쓰는 체크포인트 PostgreSQL 테스트는 5433 포트의 분리된 검증 DB에
+서비스 마이그레이션 다섯 개가 모두 적용돼야 합니다. 준비 후에만
+`FDAI_SERVICE_MIGRATIONS_READY=1`을 지정하세요. 이 플래그가 마이그레이션을
+실행하지는 않습니다. CI는 레거시 스키마 단계가 아닌 서비스 소유 DB 단계에서
+두 테스트 파일을 명시적으로 실행합니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 

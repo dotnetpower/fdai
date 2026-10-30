@@ -94,6 +94,11 @@ Stop all old writers before compact-head cutover. Older readers cannot use v3 ch
 Code rollback alone is insufficient: use a separately reviewed compatible checkpoint restore
 while writers are stopped. Never remove canonical audit rows to make recovery or capacity pass.
 
+Core-role checkpoint PostgreSQL suites require an isolated port-5433 validation database with all
+five service migration branches prepared. Set `FDAI_SERVICE_MIGRATIONS_READY=1` only after that
+preparation; the flag does not apply migrations. CI runs both suites explicitly in its service-owned
+database step, not against the legacy-only schema.
+
 ## Explicitly recreate a disposable development database
 
 Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup

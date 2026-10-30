@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, nullcontext
 from dataclasses import asdict, dataclass, field, replace
@@ -63,6 +64,8 @@ def _migration_statements(operation: str) -> list[str]:
 
 @asynccontextmanager
 async def _database() -> AsyncIterator[AuditDatabase]:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("Core-role checkpoint integration requires service-owned migrations")
     generator = _saga_database.__wrapped__()
     dsn = await anext(generator)
     try:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from typing import Any
@@ -40,6 +41,8 @@ class _RedactedDSN(str):
 
 @pytest.fixture
 async def saga_database() -> AsyncIterator[_RedactedDSN]:
+    if os.environ.get("FDAI_SERVICE_MIGRATIONS_READY") != "1":
+        pytest.skip("Core-role checkpoint integration requires service-owned migrations")
     database = _saga_database.__wrapped__()
     try:
         yield _RedactedDSN(await anext(database))
