@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 3eb8bf532c9801aacb7a1dff381da6a675e69985
-translation_revised: 2026-10-30
+translation_source_sha: c9f8fd56a5a841f0f08e833920fd7c9122a5b96d
+translation_revised: 2026-10-31
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -149,6 +149,63 @@ MCSB 카탈로그는 WAF와 같은 런타임과 워크로드 범위를 사용합
 근거 역할을 MCSB 카탈로그 읽기에 결합합니다. Console은 이 상태를 구현 커버리지 옆에 보여 주며 직접
 계산하지 않습니다.
 [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#mcsb-평가)를 참조하세요.
+
+## 컨트롤 활성화와 구현 안내
+
+심각도가 `critical`, `high`, `medium`인 컨트롤은 shadow 평가 대상으로 기본 활성화됩니다.
+`low`와 `informational` 컨트롤은 기본 비활성화됩니다. 검토된 프로필에 명시적인 설정이 있으면
+기본값보다 우선합니다. 비활성화한 컨트롤도 전체 결과에 남으며 `not_evaluated`, `unknown`,
+`control_disabled` 제한 사유를 표시합니다. 비활성화는 승인된 적용 제외 결정이 아닙니다.
+과거 WARA 권고는 심각도와 관계없이 비활성 상태를 유지합니다.
+
+WAF는 각 Best Practice의 심각도를 유지하고 WARA는 공개된 영향도를 정규화합니다. CAF나
+MCSB가 심각도를 제공하지 않으면 FDAI가 평가 우선순위로 `medium`을 사용하며 그 출처를
+명시합니다. 이는 Microsoft가 부여한 심각도가 아니라 FDAI의 기본값입니다. 변경 불가능한
+평가 결과에는 결정된 설정과 검토된 프로필의 재정의가 결속됩니다. Rule 활성화는 별도 통제
+절차를 따르며, 컨트롤을 활성화해도 미검토 Rule이나 ActionType 실행 모드는 바뀌지 않습니다.
+
+WAF 59개, MCSB v1 86개, CAF 15개 컨트롤에 출처가 고정된 영어와 한국어 안내를 제공합니다.
+상세 읽기는 식별자와 원본 버전이 일치하는 안내 하나를 연결합니다. 안내에는 적용 조건, 설명용
+변경 전후 상태, 구현 및 검증 절차, 주의점, 방향성 도표와 공개 참조가 포함됩니다. 목록 읽기는
+전체 안내 모음을 포함하지 않습니다. 안내와 그 digest는 표시용 정보이며 관측된 근거, 승인,
+평가 판정이 아닙니다.
+
+원본 핀을 제공하기 전에 materializer는 설치된 안내를 검토된 평가와 현재 정의 파일의
+바이트에 대조합니다. 상세 필드 `guidance_source_revision`과 `guidance_source_digest`는 각각
+평가의 `source_revision_digest`와 선택한 컨트롤의 `specification_digest`를 유지합니다.
+이 필드는 CAF의 원래 `source_revision`을 바꾸지 않습니다. 이전 기록에 핀이 없으면 안내
+이용 불가를 명시하고, 핀이 있지만 일치하지 않으면 읽기가 실패합니다. MCSB v2-preview는
+v1 안내를 물려받지 않습니다. 상세 버전은 안내 digest와 실행되지 않는 조치 후보를
+표시하는 데 사용한 권위 있는 Rule 변환 결과를 함께 반영합니다.
+
+안내를 수정할 때는 패키지에 포함된 JSON이 아니라
+[`framework_guidance_build.py`](../../../scripts/catalog/framework_guidance_build.py) 옆의
+컨트롤별 원본 모듈을 편집합니다. 검토된 평가를 변경한 뒤에는 평가 카탈로그를 먼저 다시
+생성하고 `uv run python scripts/catalog/framework_guidance_build.py`를 실행합니다. 같은 명령에
+`--check`를 붙이면 정확한 항목 수, 원본 핀, 생성 파일의 일치 여부를 검증할 수 있습니다.
+
+**설계 비판과 수정.** 비활성 컨트롤을 결과에서 제거하면 프레임워크의 전체 항목 수가 가려지고,
+적용 제외로 처리하면 존재하지 않는 승인을 만들어 냅니다. 따라서 해당 항목을 표시하면서 충족
+상태는 알 수 없음으로 유지합니다. 기존 WARA 표시 요소를 재사용해 렌더러가 세 갈래로
+달라지지 않도록 하되, WAF, MCSB, CAF의 식별자와 평가 의미는 각각 유지합니다. 수정 안내는
+검토된 Rule과 ActionType 연결을 보여 줄 수 있지만, 교차표만으로 실행 지원을 주장하지
+않습니다. 실제 변경에는 기존 위험 검토, 승인, 승격, 롤백, 대상 잠금, dry-run, 멱등성, 감사,
+독립적인 효과 검증 절차가 계속 적용됩니다.
+
+### 검토된 설치별 설정
+
+두 평가 작업은 `FDAI_CONTROL_ENABLEMENT_PROFILES_PATH`를 통해 배포 환경이 소유한 JSON
+설정 묶음을 선택적으로 받습니다. 각 항목은 프레임워크, 원본 버전, 정확한 범위 digest,
+검토자, 검토 시각, 순서가 정해진 `{control_id, enabled}` 재정의와 정규 프로필 digest를
+고정합니다. WAF, CAF, MCSB는 평가 카탈로그의 `source_revision_digest`를 사용하고 WARA는
+고정된 APRL 원본 버전을 사용합니다. 선택적 프로필이 없으면 심각도별 기본값을 유지합니다.
+읽을 수 없거나 형식과 크기 제한에 맞지 않는 프로필, 검토 시각이 미래인 프로필, 범위나 원본
+버전이 다른 프로필은 명시적으로 실패하며 기본값으로 조용히 되돌아가지 않습니다.
+
+설정된 프레임워크 검토자는 해당 설정의 검토자와도 일치해야 합니다. 결정된 WAF, CAF,
+MCSB 설정은 기존의 변경 불가능한 검토된 평가 프로필과 감사 흐름에 포함됩니다. WARA는
+전체 설정 프로필을 결과와 함께 보존합니다. Console은 서버가 소유한 이 설정을 표시합니다.
+이 입력은 브라우저의 변경 API, Rule 활성화, 리소스 실행 권한을 추가하지 않습니다.
 
 ## 배포 제공 프로필
 

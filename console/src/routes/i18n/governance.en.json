@@ -219,6 +219,49 @@
     }
   },
   "rules": {
+    "remediation": {
+      "title": "Remediation references",
+      "manual_guidance": "Manual guidance only. No governed action candidate is reported.",
+      "governed_candidates": "Server-reported governed candidates, not execution-ready actions.",
+      "unavailable": "Remediation references are unavailable. No action candidate is inferred.",
+      "boundary": "Rule and ActionType references grant no execution authority. Existing safety, approval and promotion gates remain required."
+    },
+    "frameworkGuidance": {
+      "openRow": "Open {title}",
+      "reason": "Server-reported reason: {reason}.",
+      "unavailable": "Illustrated guidance is not available for this control and source revision. Assessment and evidence below remain server-owned."
+    },
+    "enablement": {
+      "title": "Assessment enablement",
+      "column": "Enabled",
+      "severity": "Severity",
+      "severitySource": "Severity source",
+      "severitySources": {
+        "source": "Published source",
+        "fdai_default": "FDAI default (not a published severity)",
+        "unknown": "Not reported"
+      },
+      "effective": "Installation setting",
+      "default": "Severity default",
+      "source": "Setting source",
+      "sources": {
+        "severity_default": "Severity default",
+        "profile_override": "Reviewed installation profile override",
+        "lifecycle_disabled": "Disabled by source lifecycle"
+      },
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "unknown": "Not reported",
+      "available": "Assessment readiness",
+      "availableYes": "Available",
+      "availableNo": "Unavailable",
+      "unavailableReason": "Unavailable reason",
+      "mode": "Mode",
+      "boundary": "Server-owned setting only. Enabled does not mean evidence is available, the control is satisfied, or execution is authorized. Execution authority: none.",
+      "disabledBoundary": "Disabled assessment remains unknown or not evaluated, never automatically not applicable.",
+      "unavailable": "The server did not report an enablement setting. No default is inferred.",
+      "profileOnly": "Changes require an immutable, reviewed deployment profile. This view cannot change settings or grant authority."
+    },
     "view": {
       "aria": "Rule catalog views",
       "controls": "Controls"

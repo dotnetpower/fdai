@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:88f12c04ef403a20d9184715b77fd2838bd10430a158b214fe23266e437d5873",
+  "catalog_digest": "sha256:bbfbc3b449e9306c605163684c764f760835995b31117df378f07eee9f78406b",
   "controls": [
     {
       "area": "methodology",
@@ -77,7 +77,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:2db5ca0936ce8780ad4ab481ab419dd5bef705e002feb2b4bb952a99f701203d",
+      "severity": "medium",
+      "specification_digest": "sha256:11ea299edc2d8ec3a52239dbb3ae3e53d4c3675c4794ab301b77ab0cf3a22adc",
       "title": "Adopt"
     },
     {
@@ -174,7 +175,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:a71a530273d8ced146c451b38f91b2c7d77795c4d935499aea370ef7e523eae6",
+      "severity": "medium",
+      "specification_digest": "sha256:745a07cc3bda774b1458ea129bbc5da6293ed0ae552a04e184733f5c4147bab1",
       "title": "Govern"
     },
     {
@@ -235,7 +237,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:02e640efec7c31f2de0c741c992d7ec51b7457f9727868f647637666cbaa2f43",
+      "severity": "medium",
+      "specification_digest": "sha256:7b33f7538265b58de36d3d8cadfa37553a6ff93494ef6682d264116478625670",
       "title": "Landing zone: billing and tenant"
     },
     {
@@ -314,7 +317,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:41962467b7af405e2f296c850bd40e0d105cf6a2c03533514a385df4b9070ea1",
+      "severity": "medium",
+      "specification_digest": "sha256:ba701b46cc9e94021a12acf2c9827c5e032b15d70f5eea968161f6e5f416a0a5",
       "title": "Landing zone: governance"
     },
     {
@@ -375,7 +379,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:59d0d375d604f32b1b4813cfc760c882c0edb670716b644defd2f3f940b7f9af",
+      "severity": "medium",
+      "specification_digest": "sha256:f8effc58f9c015fa4b63dec89f132d367e4e7b631550ee65210e994899c00971",
       "title": "Landing zone: identity and access"
     },
     {
@@ -454,7 +459,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:cbe37e7e98069afa2eb2a9d6b569f2e427a6e303d2317751e190e2ea1a474e8e",
+      "severity": "medium",
+      "specification_digest": "sha256:75017043452ddc9f6f57a4d7eb54e7dcc77207a81f229d4bd2e1fd2405e9b8a7",
       "title": "Landing zone: management"
     },
     {
@@ -533,7 +539,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:aba28952204c7155d85c97ee907531a7b4441dd89a2dffba107068702201ae55",
+      "severity": "medium",
+      "specification_digest": "sha256:9de5fd6848eed602d36fa241074c3f527fbe0d4667bb03b1292080b780609463",
       "title": "Landing zone: network topology and connectivity"
     },
     {
@@ -612,7 +619,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:fbb16bb644b2d60a5eac699c1e84ced2462e9d227a017a94a6969f79cf77d8db",
+      "severity": "medium",
+      "specification_digest": "sha256:19fa595a7b142efe3478720a30c46c46461a49b0ae7f039a9bc1b95d2cc0f4de",
       "title": "Landing zone: platform automation and DevOps"
     },
     {
@@ -673,7 +681,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:82ca928b5fa8790d52354fa7d7d3083ff2bd9d5f962bf9611c83cc0d7781d900",
+      "severity": "medium",
+      "specification_digest": "sha256:46b427533938253790f1736bbe77f70a8439a06c0076777e4f55a2307667cc29",
       "title": "Landing zone: resource organization"
     },
     {
@@ -734,7 +743,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c8a7efc73aa4caec4287cfe2c45586d0cbd99577787ec9d512fb3274b63032d5",
+      "severity": "medium",
+      "specification_digest": "sha256:ae6fcfaf6dd3639b9f6b47575285cdd1722e34424efb5891d2b08012f32e93c1",
       "title": "Landing zone: security"
     },
     {
@@ -831,7 +841,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:e6a2a2ef2ecdaff36cbed9c77a85f0d6faf16de0eae1e517b5480425a5c77206",
+      "severity": "medium",
+      "specification_digest": "sha256:385c9557c0c3fc375a5ca6f3111e6140ba2f720824a531fc5784420cf5ad9383",
       "title": "Manage"
     },
     {
@@ -910,7 +921,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:8dabdadc8c697907d649339a6f7070866a55f0e1d9a289603a4ff6d2032e6bef",
+      "severity": "medium",
+      "specification_digest": "sha256:52ce5d06d900b0852d6d0ba73cb7c14f9177bdba1216e2a631277b6cb87e61e9",
       "title": "Plan"
     },
     {
@@ -989,7 +1001,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:162cae63524233173a9bb27678f72ace81922f7fc2469fcf61d4a3261b0c8cbf",
+      "severity": "medium",
+      "specification_digest": "sha256:8bfe38adc33a7c1c269466580d42bb46e7574651f60ad701c8cd2010e28629f7",
       "title": "Ready"
     },
     {
@@ -1086,7 +1099,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:34d3d6717a4e140d09708ea9d47c7aabd0dff4f92b724361e46646488bac5715",
+      "severity": "medium",
+      "specification_digest": "sha256:e2a259a4a3fa5fc9005da359a67fd3f82380cfc349c53c51cd31809e84a3115c",
       "title": "Secure"
     },
     {
@@ -1165,7 +1179,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:9134794b449e17815a9e1fb248fea4f536d5a3cb728f15ffcba7cfb5a13c112d",
+      "severity": "medium",
+      "specification_digest": "sha256:7d941d5261b5068c6ec9ea3e973ee36bf834b2a5b7eca1be12645e6574b43512",
       "title": "Strategy"
     }
   ],

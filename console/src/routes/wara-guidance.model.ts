@@ -26,12 +26,7 @@ export interface GuidanceReferenceImage {
   readonly caption: GuidanceText;
   readonly english_in_image_notice: GuidanceText;
 }
-export interface WaraGuidance {
-  readonly schema_version: "1.0.0";
-  readonly recommendation_id: string;
-  readonly source_revision: string;
-  readonly source_digest: string;
-  readonly lifecycle: "active" | "disabled";
+export interface GuidancePresentation {
   readonly title: GuidanceText;
   readonly summary: GuidanceText;
   readonly benefits: GuidanceText;
@@ -51,6 +46,14 @@ export interface WaraGuidance {
     readonly edges: readonly GuidanceEdge[];
   };
   readonly sources: readonly { readonly label: GuidanceText; readonly url: string; readonly kind: "aprl" | "learn" | "vendor" }[];
+}
+
+export interface WaraGuidance extends GuidancePresentation {
+  readonly schema_version: "1.0.0";
+  readonly recommendation_id: string;
+  readonly source_revision: string;
+  readonly source_digest: string;
+  readonly lifecycle: "active" | "disabled";
   readonly content_digest: string;
 }
 
@@ -105,7 +108,7 @@ export function guidanceText(value: GuidanceText, locale: string): string {
   return locale === "ko" && value.ko ? value.ko : value.en;
 }
 
-export function guidanceMissingKoreanFields(guidance: WaraGuidance): number {
+export function guidanceMissingKoreanFields(guidance: GuidancePresentation): number {
   const image = guidance.reference_image;
   const fields = [
     guidance.title, guidance.summary, guidance.benefits, guidance.rationale,
@@ -176,6 +179,17 @@ export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): W
   }
   if (!["active", "disabled"].includes(control.lifecycle)) invalid("lifecycle is unsupported");
   digest(raw["source_digest"], "source_digest");
+  return {
+    schema_version: "1.0.0", recommendation_id: control.id, source_revision: control.source_revision,
+    source_digest: control.source_digest, lifecycle: control.lifecycle as WaraGuidance["lifecycle"],
+    ...decodeGuidancePresentation(raw, control.source_revision),
+    content_digest: digest(raw["content_digest"], "content_digest"),
+  };
+}
+
+export function decodeGuidancePresentation(
+  raw: Record<string, unknown>, sourceRevision: string, framework = false,
+): GuidancePresentation {
   const config = object(raw["configuration"], ["before", "after"], "configuration");
   const diagram = object(raw["diagram"], ["id", "kind", "title", "description", "nodes", "edges"], "diagram");
   const nodes = list(diagram["nodes"], 3, 9, (item, label): GuidanceNode => {
@@ -197,7 +211,7 @@ export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): W
   if (nodes.some((node) => !edges.some((edge) => edge.from === node.id || edge.to === node.id))) invalid("diagram contains an isolated node");
   const sources = list(raw["sources"], 1, 8, (item, label) => {
     const source = object(item, ["label", "url", "kind"], label);
-    if (source["kind"] !== "aprl" && source["kind"] !== "learn" && source["kind"] !== "vendor") invalid(`${label}.kind is unsupported`);
+    if (framework ? source["kind"] !== "learn" : source["kind"] !== "aprl" && source["kind"] !== "learn" && source["kind"] !== "vendor") invalid(`${label}.kind is unsupported`);
     const url = text(source["url"], `${label}.url`);
     let parsed: URL;
     try { parsed = new URL(url); } catch { invalid(`${label}.url MUST be an absolute source URL`); }
@@ -205,17 +219,15 @@ export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): W
       ? url === "https://docs.citrix.com/us/en/citrix-daas-azure/limits.html"
       : source["kind"] === "learn"
         ? parsed.hostname === "learn.microsoft.com"
-        : (parsed.hostname === "github.com" && parsed.pathname.startsWith(`/Azure/Azure-Proactive-Resiliency-Library-v2/blob/${control.source_revision}/`))
-          || (parsed.hostname === "raw.githubusercontent.com" && parsed.pathname.startsWith(`/Azure/Azure-Proactive-Resiliency-Library-v2/${control.source_revision}/`));
+        : (parsed.hostname === "github.com" && parsed.pathname.startsWith(`/Azure/Azure-Proactive-Resiliency-Library-v2/blob/${sourceRevision}/`))
+          || (parsed.hostname === "raw.githubusercontent.com" && parsed.pathname.startsWith(`/Azure/Azure-Proactive-Resiliency-Library-v2/${sourceRevision}/`));
     if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.port || parsed.search || /[\u0000-\u0020]/.test(url) || !approved) {
       invalid(`${label}.url MUST identify an approved source; APRL references MUST be revision-pinned`);
     }
     return { label: localized(source["label"], `${label}.label`), url, kind: source["kind"] as "aprl" | "learn" | "vendor" };
   }, "sources");
-  if (!sources.some((source) => source.kind === "aprl")) invalid("MUST cite the revision-pinned APRL source");
+  if (!framework && !sources.some((source) => source.kind === "aprl")) invalid("MUST cite the revision-pinned APRL source");
   return {
-    schema_version: "1.0.0", recommendation_id: control.id, source_revision: control.source_revision,
-    source_digest: control.source_digest, lifecycle: control.lifecycle as WaraGuidance["lifecycle"],
     title: localized(raw["title"], "title"), summary: localized(raw["summary"], "summary"),
     benefits: localized(raw["benefits"], "benefits"), rationale: localized(raw["rationale"], "rationale"),
     applicability: list(raw["applicability"], 2, 12, localized, "applicability"),
@@ -225,7 +237,7 @@ export function decodeWaraGuidance(value: unknown, control: GuidanceIdentity): W
     cautions: list(raw["cautions"], 2, 12, localized, "cautions"),
     ...(raw["reference_image"] === undefined || raw["reference_image"] === null ? {} : { reference_image: referenceImage(raw["reference_image"]) }),
     diagram: { id: token(diagram["id"], "diagram.id"), kind: token(diagram["kind"], "diagram.kind"), title: localized(diagram["title"], "diagram.title"), description: localized(diagram["description"], "diagram.description"), nodes, edges },
-    sources, content_digest: digest(raw["content_digest"], "content_digest"),
+    sources,
   };
 }
 
@@ -239,7 +251,7 @@ function canonicalValue(value: unknown): unknown {
   return value;
 }
 
-export async function verifyWaraGuidanceDigest(guidance: WaraGuidance | null | undefined): Promise<void> {
+export async function verifyWaraGuidanceDigest<T extends { readonly content_digest: string }>(guidance: T | null | undefined): Promise<void> {
   if (!guidance) return;
   const { content_digest, ...material } = guidance;
   // Match the shared catalog's ASCII canonical wire encoding, not the source-file encoding.

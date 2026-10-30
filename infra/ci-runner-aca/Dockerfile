@@ -9,7 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Bootstrap prerequisites the provisioner itself needs before it reads the manifest.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq python3 tini unzip \
+ && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq pipx python-is-python3 sudo python3 tini unzip \
+ && install -d -m 0755 /etc/sudoers.d \
+ && printf '%s\n' 'runner ALL=(root) NOPASSWD: /usr/bin/tar, /bin/tar' > /etc/sudoers.d/fdai-ci-trivy \
+ && chmod 0440 /etc/sudoers.d/fdai-ci-trivy \
+ && printf '[global]\nbreak-system-packages = true\n' > /etc/pip.conf \
+ && chmod 0644 /etc/pip.conf \
  && rm -rf /var/lib/apt/lists/*
 
 # The same manifest, provisioner, and verifier every VM runner uses: one declared toolchain.
@@ -19,7 +24,12 @@ RUN chmod 0755 /opt/fdai-ci/provision-toolchain.sh /opt/fdai-ci/verify-toolchain
  && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --shell /bin/bash runner \
- && install -d -o runner -g runner /opt/actions-runner /opt/hostedtoolcache /home/runner/_work \
+ && install -d -o runner -g runner /home/runner/actions-runner /opt/hostedtoolcache /home/runner/_work \
+ && ln -s /home/runner/actions-runner /opt/actions-runner \
+ && chgrp runner /usr/local/bin \
+ && chmod 0775 /usr/local/bin \
+ && printf '#!/bin/sh\nwhile [ $# -gt 0 ]; do case "$1" in -n) shift;; --) shift; break;; -*) shift;; *) break;; esac; done\nexec "$@"\n' > /usr/local/bin/sudo \
+ && chmod 0755 /usr/local/bin/sudo \
  && curl --fail --silent --show-error --location --max-time 180 \
       "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz" \
       --output /tmp/runner.tar.gz \
@@ -28,7 +38,7 @@ RUN useradd --create-home --shell /bin/bash runner \
  && rm /tmp/runner.tar.gz \
  && /opt/actions-runner/bin/installdependencies.sh \
  && rm -rf /var/lib/apt/lists/* \
- && chown -R runner:runner /opt/actions-runner
+ && chown -R runner:runner /home/runner/actions-runner
 
 COPY entrypoint.sh /opt/fdai-ci/entrypoint.sh
 COPY broker-entrypoint.py /opt/fdai-ci/broker-entrypoint.py

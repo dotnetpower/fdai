@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { fixtureFrameworkGuidance } from "./framework-guidance.fixture";
 import {
   bestPracticeHref,
   bestPracticeStateFromSearch,
@@ -59,6 +60,24 @@ function response(controls: readonly unknown[] = [CONTROL]): unknown {
 }
 
 describe("best practice controls contract", () => {
+  test("binds shared guidance and server-owned overrides without changing unknown evidence", () => {
+    const guidance = fixtureFrameworkGuidance("azure-waf", CONTROL.control_id);
+    const raw = {
+      ...CONTROL, requirement_count: 0, requirements: [], provenance: {}, guidance,
+      source_revision: "official-git-revision", source_digest: "official-content-digest",
+      guidance_source_revision: guidance.source_revision, guidance_source_digest: guidance.source_digest,
+      enablement: { severity: "critical", default_enabled: true, enabled: false, source: "profile_override", mode: "shadow", execution_authority: false },
+      severity_source: "source",
+    };
+    const detail = decodeBestPracticeDetail(raw, CONTROL.id);
+    expect(detail.guidance).toEqual(guidance);
+    expect(detail.enablement?.enabled).toBe(false);
+    expect(detail.satisfaction).toBe("unknown");
+    expect(detail.evaluation_status).toBe("not_evaluated");
+    expect(() => decodeBestPracticeDetail(raw, "different-control")).toThrow(/selected control/);
+    expect(() => decodeBestPracticeDetail({ ...raw, guidance_source_digest: `sha256:${"d".repeat(64)}` })).toThrow(/does not match/);
+    expect(() => decodeBestPracticeDetail({ ...raw, guidance_source_digest: undefined })).toThrow(/does not match/);
+  });
   test("decodes an evidence-honest control list", () => {
     const decoded = decodeBestPracticeResponse(response());
     expect(decoded.controls[0]?.control_id).toBe("RE:09");

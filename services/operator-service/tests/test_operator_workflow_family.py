@@ -884,6 +884,11 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             "source_revision": "catalog-revision",
             "crosswalk_digest": "sha256:" + "b" * 64,
         },
+        "rule.list": {
+            "_revision": "rules-revision",
+            "rules": [],
+            "details": {},
+        },
         "caf.list": {
             "_revision": "caf-revision",
             "framework_id": "azure-caf",
@@ -983,36 +988,62 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert best_list.payload["controls"][0]["control_id"] == "RE:01"
     assert "requirements" not in best_list.payload["controls"][0]
     assert "rule_filter" not in best_list.payload
-    assert best_detail.payload == best_practice
-    assert best_detail.provenance.revision == "best-practice-revision"
+    assert {key: best_detail.payload[key] for key in best_practice} == best_practice
+    assert best_detail.payload["remediation"]["status"] == "manual_guidance"
+    assert best_detail.payload["guidance"] is None
+    assert best_detail.payload["guidance_unavailable_reason"] == "missing_source_pins"
+    assert best_detail.provenance.revision != "best-practice-revision"
     assert mcsb_list.payload["benchmark"] == benchmark
     assert mcsb_list.payload["controls"][0]["control_id"] == "NS-1"
     assert "rule_ids" not in mcsb_list.payload["controls"][0]
     assert mcsb_detail.payload == {
         **mcsb_control,
+        "guidance": None,
+        "guidance_unavailable_reason": "missing_source_pins",
         "assessment": None,
         "assessment_summary": {
             "status": "unavailable",
             "framework_id": "azure-mcsb",
             "execution_authority": False,
         },
+        "remediation": {
+            "status": "unavailable",
+            "candidates": [],
+            "limitations": [
+                "rule_activation_runtime_support_and_safety_gates_required",
+                "rule_not_in_active_catalog",
+            ],
+            "execution_authority": False,
+        },
     }
     assert mcsb_list.payload["controls"][0]["assessment"] is None
-    assert mcsb_detail.provenance.revision == "mcsb-revision"
+    assert mcsb_detail.provenance.revision != "mcsb-revision"
     assert wara_list.payload["filtered_total"] == 1
     assert wara_list.payload["controls"] == [wara_control]
     assert wara_list.payload["evaluation_source"] == "not_connected"
     assert wara_list.payload["inventory"]["active_recommendations"] == 1
     assert wara_list.payload["facets"]["by_product_group_verified"] == {"true": 1}
     assert wara_list.payload["facets"]["by_automation_available"] == {"false": 1}
-    assert wara_detail.payload == {**wara_control, "guidance": None}
-    assert wara_detail.provenance.revision == "wara-revision"
+    assert wara_detail.payload == {
+        **wara_control,
+        "guidance": None,
+        "remediation": {
+            "status": "manual_guidance",
+            "candidates": [],
+            "limitations": ["manual_or_process_evidence_required"],
+            "execution_authority": False,
+        },
+    }
+    assert wara_detail.provenance.revision != "wara-revision"
     assert caf_list.payload["filtered_total"] == 1
     assert caf_list.payload["controls"][0]["control_id"] == "strategy"
     assert "evidence_specifications" not in caf_list.payload["controls"][0]
     assert caf_list.payload["facets"]["by_applicability"] == {"applicable": 1}
-    assert caf_detail.payload == caf_control
-    assert caf_detail.provenance.revision == "caf-revision"
+    assert {key: caf_detail.payload[key] for key in caf_control} == caf_control
+    assert caf_detail.payload["remediation"]["status"] == "manual_guidance"
+    assert caf_detail.payload["guidance"] is None
+    assert caf_detail.payload["guidance_unavailable_reason"] == "missing_source_pins"
+    assert caf_detail.provenance.revision != "caf-revision"
 
 
 async def test_best_practice_list_filters_controls_by_exact_rule_citation() -> None:

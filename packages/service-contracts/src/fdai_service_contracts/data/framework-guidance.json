@@ -1,0 +1,297 @@
+{
+  "authoring_digest": "sha256:b2eb2dd1229f3faa6144ed182ed942197f45277e43a7638545caf3d0930d964f",
+  "catalog_digest": "sha256:18bbac367c26d30d6e390296916c3f36591b0468a28bb1ad515e1bb3df3828f6",
+  "manifest_digest": "sha256:ed285753e64faebcab8541d64dd5bba2275e73e3f9eb6d0bbcdba620847b29c5",
+  "official_sources": [
+    {
+      "content_hash": "git:687e8febe6ddfa4646952220e057a50b1046a75a",
+      "framework_id": "azure-waf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "687e8febe6ddfa4646952220e057a50b1046a75a",
+      "source_url": "https://learn.microsoft.com/en-us/azure/well-architected/reliability/checklist"
+    },
+    {
+      "content_hash": "git:1df1c6023e01032c7be0013b086379c176827b1c",
+      "framework_id": "azure-waf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "1df1c6023e01032c7be0013b086379c176827b1c",
+      "source_url": "https://learn.microsoft.com/en-us/azure/well-architected/security/checklist"
+    },
+    {
+      "content_hash": "git:28a78d22523542beeafc7de5eaa11fad791559b6",
+      "framework_id": "azure-waf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "28a78d22523542beeafc7de5eaa11fad791559b6",
+      "source_url": "https://learn.microsoft.com/en-us/azure/well-architected/cost-optimization/checklist"
+    },
+    {
+      "content_hash": "git:84fd234f106eacce573ee415497edd96436e6620",
+      "framework_id": "azure-waf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "84fd234f106eacce573ee415497edd96436e6620",
+      "source_url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+    },
+    {
+      "content_hash": "git:ce3921ce25f18132fc642077a7e9edfc0fa69cc3",
+      "framework_id": "azure-waf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "ce3921ce25f18132fc642077a7e9edfc0fa69cc3",
+      "source_url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+    },
+    {
+      "content_hash": "git:f01c1dab5d89efad6e7f4b54739d8c03ba6b4545",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "f01c1dab5d89efad6e7f4b54739d8c03ba6b4545",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/strategy/"
+    },
+    {
+      "content_hash": "git:67c4c4dcec8a6e24c28b34342d46e5b3cfea0e5d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "67c4c4dcec8a6e24c28b34342d46e5b3cfea0e5d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/plan/prepare-organization-for-cloud"
+    },
+    {
+      "content_hash": "git:5c260b3f1e0676826d514a018b5c4226da1b29a1",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "5c260b3f1e0676826d514a018b5c4226da1b29a1",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/"
+    },
+    {
+      "content_hash": "git:bb4d2f198b2cb6b4a67449bf01922b43784d3757",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "bb4d2f198b2cb6b4a67449bf01922b43784d3757",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/migrate/plan-migration"
+    },
+    {
+      "content_hash": "git:082e3bf69bd3a5045d8c51c47774d15ec01642e1",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "082e3bf69bd3a5045d8c51c47774d15ec01642e1",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/govern/build-cloud-governance-team"
+    },
+    {
+      "content_hash": "git:d139382c5522f77ab28cbbeddbbc517064f5ff8c",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "d139382c5522f77ab28cbbeddbbc517064f5ff8c",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/secure/overview"
+    },
+    {
+      "content_hash": "git:9454caeefed88e57d5134e2bd25738b3b8dc967b",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "9454caeefed88e57d5134e2bd25738b3b8dc967b",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/manage/ready-cloud-operations"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "git:7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "framework_id": "azure-caf",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "7ad494e8e4d704b4e89be8091979fe80c0281a8d",
+      "source_url": "https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/design-areas"
+    },
+    {
+      "content_hash": "sha256:759bc9cddf82d5406a835e1fdcbbae2bc30d38d7c2205cafc599053f4dffeb8e",
+      "framework_id": "azure-mcsb",
+      "license": "CC-BY-4.0",
+      "resolved_ref": "2e2db1189667b3108c91fe104661f6869fffd965",
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+    }
+  ],
+  "pins": [
+    {
+      "assessment_catalog_digest": "sha256:6749a7b50f99188cfcb4553c5dddad432d2a4c1a333d3b7314816b03cd3e371a",
+      "expected_control_count": 59,
+      "framework_definition_digest": "sha256:e12b0ea45f287768e38e688d24a88588a6c9d67babb0712274cef568d0088a8d",
+      "framework_id": "azure-waf",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711"
+    },
+    {
+      "assessment_catalog_digest": "sha256:12164e2c31f1cdf02dfb5fc66da53484ef2bb2ebaf1d0fb1270c330799999394",
+      "expected_control_count": 86,
+      "framework_definition_digest": "sha256:8a70fb917f4e7ab48ea8442aa515421064d66f0ca059cf2c283e1cc3e9b18b4a",
+      "framework_id": "azure-mcsb",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11"
+    },
+    {
+      "assessment_catalog_digest": "sha256:bbfbc3b449e9306c605163684c764f760835995b31117df378f07eee9f78406b",
+      "expected_control_count": 15,
+      "framework_definition_digest": "sha256:bf3549fb13493184493c4c03fecc5172643e82cb6aa875f7d9e5139b0f330a13",
+      "framework_id": "azure-caf",
+      "source_revision": "sha256:1503b64fc25e2f35262437f894621273ee0acbe2f469e557a412b6d66bbb87d2"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "shards": [
+    {
+      "digest": "sha256:a86aa4b3594420c95e21a52e73bfe352acb593eab40e329cd0efa0d2f776a726",
+      "entry_count": 16,
+      "file": "framework-guidance-00.json"
+    },
+    {
+      "digest": "sha256:e172021dd0a1797f5fd6222277380319ae2c79a2151731d215413c0c45e5c772",
+      "entry_count": 16,
+      "file": "framework-guidance-01.json"
+    },
+    {
+      "digest": "sha256:6944b9e8aedb8dceef8efe3810f77ebcc713de065e439dff4a25bd4172e3cfd6",
+      "entry_count": 16,
+      "file": "framework-guidance-02.json"
+    },
+    {
+      "digest": "sha256:4bd233c19cf9d7a90376eb241f35558d4bcd80156550066dbf3ba219d2fa72bb",
+      "entry_count": 16,
+      "file": "framework-guidance-03.json"
+    },
+    {
+      "digest": "sha256:33e70505344733048323a954f9ee7e7bf8888db7d56c084a457634440a43b84c",
+      "entry_count": 16,
+      "file": "framework-guidance-04.json"
+    },
+    {
+      "digest": "sha256:fcf4ecd7902d59b3a7a3cc6323c3503c104d2d0e6fd3fc3701b826bc7f17657a",
+      "entry_count": 16,
+      "file": "framework-guidance-05.json"
+    },
+    {
+      "digest": "sha256:d879f2b7e0ca1a8f771c80025cadf38d25bf6efa5aeecfd59d1cd105ea9cdaa1",
+      "entry_count": 16,
+      "file": "framework-guidance-06.json"
+    },
+    {
+      "digest": "sha256:1a99f5c6add1be93880fc22ac5951f99a0a74b3de43610d607116058734dd20f",
+      "entry_count": 16,
+      "file": "framework-guidance-07.json"
+    },
+    {
+      "digest": "sha256:84e025f7066b99df1af753b8c905a345a1b4a9ee38ed7d498f5e8efe6499357b",
+      "entry_count": 16,
+      "file": "framework-guidance-08.json"
+    },
+    {
+      "digest": "sha256:0ebbd2bc993f2914fc497a1b424033d676e2294ca589cc9f2c90071260c07c08",
+      "entry_count": 16,
+      "file": "framework-guidance-09.json"
+    }
+  ],
+  "source_files": {
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-01.yaml": "sha256:ea9146ccd651e1b3e6db7d53fa3dc1e55ce0217d300edbc5419c948dbe05789c",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-02.yaml": "sha256:20630aa059afca4ab2bd298e79fffecfa653dd347cc045e224dfeb65b8859798",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-03.yaml": "sha256:6fa5db33987706830520f3418d7ef23cfebde645f0502218b74ab3c325bccd92",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-04.yaml": "sha256:f3394230e60d3f16a4ff3cc7c7443dbf36d0e2b3276c2e9424a4f34f3b666298",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-05.yaml": "sha256:8611d2054800bb24199b17d13458e3f4270d97cc07e60b67958448977962dd46",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-06.yaml": "sha256:66b67560e64d7650d9430c0a50595bf7cce719a2814775bbd9e9ceb2df033e35",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-07.yaml": "sha256:52091a4f79b105c833bec594cdc186db407c7287d10601754ad33229d759ce68",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-08.yaml": "sha256:b042cb8c9072d867e0df299afb73c92dcb2587d1a5aad0ba3976a61246ed83e5",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-09.yaml": "sha256:69087c2eeef2fa6f86a416022f672c1870e559ca82de07d70337db59bad331fb",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-10.yaml": "sha256:f25f7aa2293a19c034480532fa901a11f5bb6b547986e631d9f8036eb9f32cb4",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-11.yaml": "sha256:619bda264f75d06476cb1b5ecd7bd819eec9f73b7ba3d569f827ca54fe48cac4",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-12.yaml": "sha256:793b8e9283e531f5fb55319e513dfbd7a63b1b98dd2d56bc3f411181c92bf6fa",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-13.yaml": "sha256:914ce4625c749a217fb52cbe07d9cb8193e899b9ca739d59b574ed5765e159d1",
+    "rule-catalog/best-practices/azure-waf.cost-optimization.co-14.yaml": "sha256:f1aee536394043d1c2c98b9a97fa936cbf07ca9e697ab4dfb5f8a0c05bb12eb9",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-01.yaml": "sha256:d0d6a9dcc3140f1e1990603dc118487e5cf18d9bde3740d7cfd32d840d0c148e",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-02.yaml": "sha256:955c7b0b29ed3141cefda05f0b506ceb073611e7e694017c3f452c9f1fbb559b",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-03.yaml": "sha256:81c0c96c155c9391a70d56cb2aa06f28cf05cf47ce1f419a7a99364f88afd98b",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-04.yaml": "sha256:20c77413078bd4e2a1398e599e6cce85a266b12f2f4086f93897de3cdcb24dc0",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-05.yaml": "sha256:83d71188d1f3c53979c657f103ac09ecf67ff2acb8b3c0fa096f3e0915a1d949",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-06.yaml": "sha256:a56851151537d49fafca7fcdeb94b99a997c5e27f302f884489ada36114fec34",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-07.yaml": "sha256:2c44d9574d88621fa2df4008ea61b2284744c2c21b686880d9b041ed2ea6e790",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-08.yaml": "sha256:363762f8469a731f4e4e1ba679040011b3b4b70aba8cec3c017ef40d0147d505",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-09.yaml": "sha256:037ca4050a977b0b6f19d30cea1013ca126bbc3a8f3cc1a2c6a6014c4ea70304",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-10.yaml": "sha256:bd9707e3541d2680ba0b4d4969d0d9b874f7a23439aadba9280954dce324c1a8",
+    "rule-catalog/best-practices/azure-waf.operational-excellence.oe-11.yaml": "sha256:49d8cebed064fd6285763617eecb0d3c62b90a89eaeee350ccfd3b630352c95f",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-01.yaml": "sha256:73d80962ff4f5723219e1d38431833020e4ebe472a39f21b7d727c27eda66210",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-02.yaml": "sha256:bec3891d9cef896d0b84bd7e2e64fee02f1c4f09d0935d24c0b1e82844ebdf0e",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-03.yaml": "sha256:6a88f219755f36dcfb04d3cfd40fcedc587208fa59bb1322b56a0a94b2b10dbb",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-04.yaml": "sha256:bfd03609c116d00167f7d89db1b1d3bb9f5a781f1d94f2e08789f8af03851358",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-05.yaml": "sha256:7db46738deefb413d963ef3757a8f9becc53d4042d7873beebd16a84fac31072",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-06.yaml": "sha256:f7441e19c0796f15e40a2a8de53be7c2ce8c6782fd89b499fa531b5793abc658",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-07.yaml": "sha256:64008a86ecde16a1d14fba750a78dc490b4e57a4dca38dbe85696ab0103ebfef",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-08.yaml": "sha256:b420fcc033b5a6c27675745ce0df86ed7618635022880a1b61026bda235cfa15",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-09.yaml": "sha256:ee63d79dd00fea85e100886fb8e22442e3fe96a3344338d7e99d225902bc4d67",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-10.yaml": "sha256:e40ed8d16042918336993dc37f3520188a4448c61361ac6934f49e9e9d08b8c5",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-11.yaml": "sha256:7d77ea7c4b36aa8165dfd0565bc22d102526c99b42905a259fa972cbc907a39f",
+    "rule-catalog/best-practices/azure-waf.performance-efficiency.pe-12.yaml": "sha256:02300e9c0bb9d9200f1978abbc50d286fe420d42be6b9615a11ef6da196de67c",
+    "rule-catalog/best-practices/azure-waf.reliability.re-01.yaml": "sha256:abc37a6c055aa1ad60e5f116fed6c9db4743289b31c02b81ddd736caf07fad9a",
+    "rule-catalog/best-practices/azure-waf.reliability.re-02.yaml": "sha256:7043689a20b00b55a3d08773ef4ecfe90dc67466622551210a5116154be3f22c",
+    "rule-catalog/best-practices/azure-waf.reliability.re-03.yaml": "sha256:f3f82ecf3460420e6598d944ec7e7b93dd57f8e13ac33ccd9d690737fb11c9c2",
+    "rule-catalog/best-practices/azure-waf.reliability.re-04.yaml": "sha256:512228d909ab65929e81613272b9c76faad85aa828a89e4d422fa5229514c2d0",
+    "rule-catalog/best-practices/azure-waf.reliability.re-05.yaml": "sha256:7eff829850585e4c68f6f1726afede259f60a1343ecfb7ea31ae4ef3439749c5",
+    "rule-catalog/best-practices/azure-waf.reliability.re-06.yaml": "sha256:ba82fa87aa8e8a769b54c9781b8a4d6efb3b1e8959d856df10b125337e4e2d8c",
+    "rule-catalog/best-practices/azure-waf.reliability.re-07.yaml": "sha256:db7fb062a749de48009334205ef3edfe04f7498f28c18f5b260c6bbb94d57caa",
+    "rule-catalog/best-practices/azure-waf.reliability.re-08.yaml": "sha256:31d12f352182bb7f5d4924d7f797c6b147411817c7769fae0ccbb3d55a3e2323",
+    "rule-catalog/best-practices/azure-waf.reliability.re-09.yaml": "sha256:707c5a21617796998ff0655338d1c74923f1d669d7bf6428bff7bbf5366d489d",
+    "rule-catalog/best-practices/azure-waf.reliability.re-10.yaml": "sha256:94086561214ecbeab089b21c901200c5726ce45390b40fa9fd05d3f3a62ef889",
+    "rule-catalog/best-practices/azure-waf.security.se-01.yaml": "sha256:514c2c9a86334420cd81054f0cb05eac7313b4d2d59c5cf21db8f91c79f90bab",
+    "rule-catalog/best-practices/azure-waf.security.se-02.yaml": "sha256:f144076bdd2f7ca8803b5bc0351660b1a731857c04d3a6ebbf89265ed8e3c879",
+    "rule-catalog/best-practices/azure-waf.security.se-03.yaml": "sha256:5c98004bf0cd600cba4f928296b6b337fbba5e4104f9b305f0ae2f6c6c58f1fd",
+    "rule-catalog/best-practices/azure-waf.security.se-04.yaml": "sha256:132dd09e47a60739d40e2226766053865eee3f0bb8648557681e5647be1b1574",
+    "rule-catalog/best-practices/azure-waf.security.se-05.yaml": "sha256:433bc2e1a3b1dcfaa568c52adfc3d3f86f1c8607cb5fef49533ca3ef0fb4be6f",
+    "rule-catalog/best-practices/azure-waf.security.se-06.yaml": "sha256:63f648f628c84d255b71709c741c659963391cacc6a1c01118e80063589d1e26",
+    "rule-catalog/best-practices/azure-waf.security.se-07.yaml": "sha256:f131746859c658ec73e110b09f8ad380df367fbc9cc304d50b0f82b55cbd3c5d",
+    "rule-catalog/best-practices/azure-waf.security.se-08.yaml": "sha256:faaaea571bf06506814a0cc217e8d40b26999e2651431e8a0672e3b659ead54f",
+    "rule-catalog/best-practices/azure-waf.security.se-09.yaml": "sha256:5c13a87e71ec705eb557e338a5bbc3f21fef536cfc630d430a8d583b4f6c3240",
+    "rule-catalog/best-practices/azure-waf.security.se-10.yaml": "sha256:a5d3aa4170639d461d1104deb563bdef99b7daf6c48c292750b1752d0e7d7f01",
+    "rule-catalog/best-practices/azure-waf.security.se-11.yaml": "sha256:397fd29e9f121f970959799e26067597c2e04e5abc747946a97f916242d9426c",
+    "rule-catalog/best-practices/azure-waf.security.se-12.yaml": "sha256:9b258f8f7f96f898c111415e9cd220103c9e4f8fef72265f5e6cbc1df0259fce",
+    "rule-catalog/compliance/mcsb/v1/controls.yaml": "sha256:8a70fb917f4e7ab48ea8442aa515421064d66f0ca059cf2c283e1cc3e9b18b4a",
+    "rule-catalog/framework-assessments/generated/azure-caf.json": "sha256:86d28845249475dd6750c9e268fb9de361de42d89fb790b0cc9e01af57565f8d",
+    "rule-catalog/framework-assessments/generated/azure-mcsb.json": "sha256:cb60b04e3b8a1c8962ebe1df015faa75923340fed729ab79d33ae2b138498496",
+    "rule-catalog/framework-assessments/generated/azure-waf.json": "sha256:72e4ec0c357d2009a545a66faa6ee6555747646214b4f719d11241c4a1bba363",
+    "rule-catalog/frameworks/azure-caf.yaml": "sha256:bf3549fb13493184493c4c03fecc5172643e82cb6aa875f7d9e5139b0f330a13",
+    "rule-catalog/frameworks/azure-waf.yaml": "sha256:e12b0ea45f287768e38e688d24a88588a6c9d67babb0712274cef568d0088a8d"
+  }
+}

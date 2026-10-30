@@ -1,5 +1,8 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import { decodeControlEnablement, decodeSeveritySource, type ControlEnablement, type SeveritySource } from "./control-enablement.model";
+import { decodeFrameworkGuidance, type FrameworkGuidance } from "./framework-guidance.model";
+import { decodeControlRemediation, type ControlRemediation } from "./control-remediation.model";
 import {
   panelArray,
   panelBoolean,
@@ -63,6 +66,8 @@ export interface McsbBenchmarkSummary {
 }
 
 export interface McsbControl {
+  readonly enablement?: ControlEnablement | null;
+  readonly severity_source?: SeveritySource | null;
   readonly control_id: string;
   readonly title: string;
   readonly domain: string;
@@ -74,6 +79,9 @@ export interface McsbControl {
 }
 
 export interface McsbControlDetail extends Omit<McsbControl, "assessment"> {
+  readonly guidance?: FrameworkGuidance | null;
+  readonly guidance_unavailable_reason?: string | null;
+  readonly remediation?: ControlRemediation | null;
   readonly benchmark_version: McsbVersion;
   readonly rule_ids: readonly string[];
   readonly runtime_observation_ids: readonly string[];
@@ -221,6 +229,8 @@ function decodeControl(value: unknown, index: number): McsbControl {
   const raw = panelRecord(value, label);
   return {
     control_id: panelNonEmptyString(raw, "control_id", label),
+    enablement: decodeControlEnablement(raw["enablement"]),
+    severity_source: decodeSeveritySource(raw["severity_source"]),
     title: panelNonEmptyString(raw, "title", label),
     domain: panelNonEmptyString(raw, "domain", label),
     coverage: decodeCoverage(panelNonEmptyString(raw, "coverage", label), label),
@@ -268,12 +278,23 @@ export function decodeMcsbControlResponse(value: unknown): McsbControlResponse {
   };
 }
 
-export function decodeMcsbControlDetail(value: unknown): McsbControlDetail {
+export function decodeMcsbControlDetail(value: unknown, selectedId?: string, selectedVersion?: McsbVersion): McsbControlDetail {
   const root = panelRecord(value, "MCSB control detail");
   const control = decodeControl({ ...root, assessment: null }, 0);
+  if ((selectedId !== undefined && control.control_id !== selectedId)
+    || (selectedVersion !== undefined && root["benchmark_version"] !== selectedVersion)) {
+    throw new OperatorApiError(502, "invalid Operator API response: MCSB detail does not match the selected control or version");
+  }
   const assessment = decodeAssessment(root["assessment"], "MCSB control detail.assessment");
   return {
     ...control,
+    remediation: decodeControlRemediation(root["remediation"]),
+    guidance: decodeFrameworkGuidance(root["guidance"], {
+      framework_id: "azure-mcsb", control_id: control.control_id,
+      source_revision: root["guidance_source_revision"], source_digest: root["guidance_source_digest"],
+    }),
+    guidance_unavailable_reason: root["guidance_unavailable_reason"] === undefined ? null
+      : panelNullableString(root, "guidance_unavailable_reason", "MCSB control detail"),
     assessment:
       assessment === null
         ? null

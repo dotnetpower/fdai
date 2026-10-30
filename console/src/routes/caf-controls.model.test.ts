@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { fixtureFrameworkGuidance } from "./framework-guidance.fixture";
 import {
   cafHref,
   cafStateFromSearch,
@@ -56,6 +57,23 @@ function response(controls: readonly unknown[] = [CONTROL]): unknown {
 }
 
 describe("CAF controls contract", () => {
+  test("keeps a disabled guide advisory and binds exact source and control identity", () => {
+    const guidance = fixtureFrameworkGuidance("azure-caf", CONTROL.control_id);
+    const raw = {
+      ...CONTROL, evidence_specifications: [], crosswalk: [], guidance,
+      guidance_source_revision: guidance.source_revision, guidance_source_digest: guidance.source_digest,
+      enablement: { severity: "medium", default_enabled: true, enabled: false, source: "profile_override", mode: "shadow", execution_authority: false },
+      severity_source: "fdai_default",
+    };
+    const detail = decodeCafDetail(raw, CONTROL.control_id);
+    expect(detail.guidance).toEqual(guidance);
+    expect(detail.enablement?.enabled).toBe(false);
+    expect(detail.satisfaction).toBe("unknown");
+    expect(detail.applicability).toBe("applicable");
+    expect(detail.execution_authority).toBe(false);
+    expect(detail.source_revision).toBe(CONTROL.source_revision);
+    expect(() => decodeCafDetail(raw, "govern")).toThrow(/selected control/);
+  });
   test("decodes independent assessment states", () => {
     const decoded = decodeCafResponse(response());
     expect(decoded.controls[0]?.reference_state).toBe("present");

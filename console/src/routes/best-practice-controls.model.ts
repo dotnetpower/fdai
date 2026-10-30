@@ -1,5 +1,8 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import { decodeControlEnablement, decodeSeveritySource, type ControlEnablement, type SeveritySource } from "./control-enablement.model";
+import { decodeFrameworkGuidance, type FrameworkGuidance } from "./framework-guidance.model";
+import { decodeControlRemediation, type ControlRemediation } from "./control-remediation.model";
 import {
   panelArray,
   panelBoolean,
@@ -24,6 +27,8 @@ export type EvaluationStatus = "not_evaluated" | "evaluated";
 export type RulesCatalogView = "rules" | "controls";
 
 export interface BestPracticeControl {
+  readonly enablement?: ControlEnablement | null;
+  readonly severity_source?: SeveritySource | null;
   readonly id: string;
   readonly version: string;
   readonly framework: string;
@@ -108,6 +113,9 @@ export interface RuleCoverageSummary {
 }
 
 export interface BestPracticeDetail extends BestPracticeControl {
+  readonly guidance?: FrameworkGuidance | null;
+  readonly guidance_unavailable_reason?: string | null;
+  readonly remediation?: ControlRemediation | null;
   readonly requirements: readonly BestPracticeRequirementView[];
   readonly provenance: Readonly<Record<string, unknown>>;
   readonly rule_coverage: RuleCoverageSummary | null;
@@ -189,6 +197,8 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
   }
   return {
     id: panelNonEmptyString(row, "id", label),
+    enablement: decodeControlEnablement(row["enablement"]),
+    severity_source: decodeSeveritySource(row["severity_source"]),
     version: panelNonEmptyString(row, "version", label),
     framework: panelNonEmptyString(row, "framework", label),
     control_id: panelNonEmptyString(row, "control_id", label),
@@ -285,9 +295,12 @@ export function decodeBestPracticeResponse(value: unknown): BestPracticeResponse
   };
 }
 
-export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
+export function decodeBestPracticeDetail(value: unknown, selectedId?: string): BestPracticeDetail {
   const root = panelRecord(value, "best practice detail");
   const base = decodeControl(root, 0);
+  if (selectedId !== undefined && base.id !== selectedId) {
+    throw new OperatorApiError(502, "invalid Operator API response: WAF detail does not match the selected control");
+  }
   const requirements = panelArray(root["requirements"], "best practice requirements").map(
     (item, index) => {
       const label = `best practice requirements[${index}]`;
@@ -312,6 +325,13 @@ export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
   }
   return {
     ...base,
+    remediation: decodeControlRemediation(root["remediation"]),
+    guidance: decodeFrameworkGuidance(root["guidance"], {
+      framework_id: "azure-waf", control_id: base.control_id,
+      source_revision: root["guidance_source_revision"], source_digest: root["guidance_source_digest"],
+    }),
+    guidance_unavailable_reason: root["guidance_unavailable_reason"] === undefined ? null
+      : panelNullableString(root, "guidance_unavailable_reason", "best practice detail"),
     requirements,
     provenance: panelRecord(root["provenance"], "provenance"),
     rule_coverage: root["rule_coverage"] === undefined

@@ -489,9 +489,16 @@ power observation can recover a lost listener callback, but deletion still requi
 no-active-job evidence and owned-resource readback. A missing startup observation is not termination.
 
 The controller app uses AzAPI generic ARM GET, not AzureRM's secret-listing refresh. Terraform
-owns only initial `unset` placeholders and excludes later secret changes; the interactive setter
-owns actual credentials. CI pins Terraform to the shared runner manifest and validates/tests this
-root with mocked providers. Neither a plan nor Terraform state needs the PAT or webhook key.
+owns only initial `unset` placeholders and excludes later secret changes (`ignore_changes` on
+`body.properties.configuration.secrets` without `ignore_body_changes`, because ARM `PUT` rejects
+`GET`-redacted secret stubs that omit `value`); the interactive setter owns actual credentials and
+polls `202 Accepted` ARM updates to `Succeeded` completion. The controller Container App
+environment runs in a dedicated controller VNet with a Blob private endpoint and private DNS zone
+so state storage keeps `public_network_access_enabled = false` without sharing worker or
+application networks. User-assigned Managed Identity token requests pass `AZURE_CLIENT_ID` and
+cache unexpired tokens, while concurrent state updates coalesce under the active Blob lease. CI
+pins Terraform to the shared runner manifest and validates/tests this root with mocked providers.
+Neither a plan nor Terraform state needs the PAT or webhook key.
 
 Use an operator-approved encrypted state venue, separate from application and legacy-runner state.
 If a private backend rejects access, retain its network controls and stop provisioning until an

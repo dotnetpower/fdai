@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2ccc2fe7c8ef99f6577f036b59f7c1a301962112
+translation_source_sha: 99bbac0ceaa0b99c22ebec4b60cc15629f44f7c2
 translation_revised: 2026-10-31
 ---
 # 프로젝트 구조
@@ -930,6 +930,15 @@ WARA 작업은 `delivery/wara_assessment_cli.py`에서 `WaraManualEvidenceSource
 연결하며 Core의 공용 가이드 보고서 생성기와 delivery 소유 Office 렌더러가 같은 데이터를
 재사용합니다. 공통 패키지는 서비스 간 구현 참조, 업로드·문서 수집 경로, 온톨로지 관찰,
 평가 작성기, 운영 권한을 추가하지 않습니다.
+노드 설명은 [도식 문구 계약](../rules-and-detection/wara-illustrated-guidance-ko.md#콘텐츠-계약)을 따릅니다.
+노드에는 원본 도식의 연결 관계를 설명하고, 구성 예시라는 공통 안내는 도식 설명에 둡니다.
+
+`fdai_service_contracts.framework_guidance`는 WAF, MCSB, CAF의 별도 영한 표시용 안내 모음을
+제공합니다. delivery는 데이터를 구체화하기 전에 평가와 정의 핀을 검증하며, Operator는 상세
+읽기에서만 안내 하나와 실행되지 않는 정확한 Rule 조치 참조를 연결합니다. 공통
+`control_enablement`와 `control_enablement_profile` 계약은 평가 설정을 표현할 뿐 Rule
+활성화나 실행 권한을 표현하지 않습니다. 소유 계약은
+[프레임워크 평가](../rules-and-detection/framework-assessment-ko.md#컨트롤-활성화와-구현-안내)에 있습니다.
 
 Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
 API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.

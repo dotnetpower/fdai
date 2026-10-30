@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import timedelta
 from typing import Protocol
 
+from fdai_service_contracts.control_enablement import resolve_control_enablement
 from fdai_service_contracts.framework_assessment import FRAMEWORK_ASSESSMENT_TOPIC
 
 from fdai.rule_catalog.schema.framework_assessment import (
@@ -81,12 +83,18 @@ class FrameworkAssessmentRuntime:
             evidence_by_control.setdefault(receipt.control_id, []).append(receipt)
 
         controls = tuple(
-            self._evaluate_control(
-                specification,
-                request,
-                decisions[specification.control_id],
-                owners[specification.control_id].owner_slot,
-                tuple(evidence_by_control.get(specification.control_id, ())),
+            replace(
+                self._evaluate_control(
+                    specification,
+                    request,
+                    decisions[specification.control_id],
+                    owners[specification.control_id].owner_slot,
+                    tuple(evidence_by_control.get(specification.control_id, ())),
+                ),
+                enablement=resolve_control_enablement(
+                    specification.severity or "medium",
+                    enabled=decisions[specification.control_id].enabled,
+                ),
             )
             for specification in self._catalog.controls
         )
@@ -174,6 +182,27 @@ class FrameworkAssessmentRuntime:
                 "framework profile owner does not match reviewed evidence specification"
             )
         mapping_state = _mapping_state(specification)
+        if not resolve_control_enablement(
+            specification.severity or "medium", enabled=decision.enabled
+        ).enabled:
+            return _control_result(
+                specification,
+                decision.status,
+                mapping_state,
+                FrameworkEvaluationStatus.NOT_EVALUATED,
+                FrameworkSatisfactionStatus.UNKNOWN,
+                tuple(
+                    FrameworkRequirementResult(
+                        requirement_id=requirement.requirement_id,
+                        status=FrameworkSatisfactionStatus.UNKNOWN,
+                        evidence_refs=(),
+                        evidence_digests=(),
+                        limitations=("control_disabled",),
+                    )
+                    for requirement in specification.evidence
+                ),
+                ("control_disabled",),
+            )
         if decision.status is FrameworkApplicabilityStatus.NOT_APPLICABLE:
             if (
                 decision.expires_at is None

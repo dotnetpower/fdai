@@ -487,6 +487,36 @@ EDGE_LABELS = {
 }
 
 
+def _node_detail(
+    node_id: str,
+    labels: dict[str, dict[str, str]],
+    edges: list[tuple[str, str, str, str]],
+) -> dict[str, str]:
+    outgoing = [(target, relation) for source, target, relation, _ in edges if source == node_id]
+    connections = outgoing or [
+        (source, relation) for source, target, relation, _ in edges if target == node_id
+    ]
+    if not connections:
+        raise ValueError(f"WARA diagram node has no authored relationship: {node_id}")
+    relations = [
+        (
+            labels[neighbor],
+            localized(relation, EDGE_LABELS.get(relation) or EDGES_KO.get(relation)),
+        )
+        for neighbor, relation in connections
+    ]
+    english = ", ".join(f"{label['en']} ({relation['en']})" for label, relation in relations)
+    korean = (
+        ", ".join(f"{label['ko']} ({relation['ko']})" for label, relation in relations)
+        if all(label.get("ko") and relation.get("ko") for label, relation in relations)
+        else None
+    )
+    return localized(
+        f"{'Connects to' if outgoing else 'Connected from'}: {english}.",
+        f"{'연결 대상' if outgoing else '연결 출발점'}: {korean}." if korean else None,
+    )
+
+
 def build_diagram(
     focus: str,
     observation: str,
@@ -500,6 +530,14 @@ def build_diagram(
     label_translations = {
         group[index]: group[index + 1] for group in SHAPE_GROUPS.values() for index in (0, 2, 4)
     }
+    labels = {
+        node_id: (
+            localized(focus, focus_ko)
+            if node_id == "setting"
+            else localized(en, ko or label_translations.get(en) or LABELS_KO.get(en))
+        )
+        for node_id, en, ko, _ in nodes
+    }
     return {
         "id": shape,
         "kind": shape,
@@ -511,22 +549,10 @@ def build_diagram(
         "nodes": [
             {
                 "id": node_id,
-                "label": localized(focus, focus_ko)
-                if node_id == "setting"
-                else localized(en, ko or label_translations.get(en) or LABELS_KO.get(en)),
+                "label": labels[node_id],
                 "detail": localized(observation, observation_ko)
                 if node_id == "evidence"
-                else (
-                    localized(
-                        f"Source-specific focus: {focus}. {en}. "
-                        "Conceptual component; not a discovered environment resource.",
-                        f"이 권고의 초점은 {focus_ko}입니다. "
-                        f"{ko or label_translations.get(en) or LABELS_KO.get(en)}을 나타내는 "
-                        "개념 요소이며 실제 환경에서 발견한 리소스가 아닙니다."
-                        if focus_ko and (ko or label_translations.get(en) or LABELS_KO.get(en))
-                        else None,
-                    )
-                ),
+                else _node_detail(node_id, labels, edges),
                 "role": role,
             }
             for node_id, en, ko, role in nodes

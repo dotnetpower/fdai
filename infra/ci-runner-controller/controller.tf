@@ -66,14 +66,16 @@ resource "azapi_resource" "controller" {
   response_export_values    = ["properties.configuration.ingress.fqdn"]
   schema_validation_enabled = true
 
-  # On an unrelated update, use redacted metadata from generic GET rather than
-  # replaying the initial "unset" values. No ListSecrets action is invoked.
-  ignore_body_changes = ["properties.configuration.secrets"]
+  # ARM PUT rejects GET-redacted secret entries that omit value; keep secret
+  # drift ignored in Terraform and re-apply credentials through the setter
+  # after template updates. No ListSecrets action is invoked.
   lifecycle {
-    ignore_changes = [body.properties.configuration.secrets]
+    ignore_changes       = [body.properties.configuration.secrets]
+    replace_triggered_by = [azurerm_container_app_environment.controller]
   }
 
   depends_on = [
+    azurerm_private_endpoint.state_blob,
     azurerm_role_assignment.controller_pull,
     azurerm_role_assignment.state,
     azurerm_role_assignment.jobs,

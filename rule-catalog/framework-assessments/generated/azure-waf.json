@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:dd443e450a27f0c82f836d9b3ad01a5d344cfd349a443bc4a84fe1223180452c",
+  "catalog_digest": "sha256:6749a7b50f99188cfcb4553c5dddad432d2a4c1a333d3b7314816b03cd3e371a",
   "controls": [
     {
       "area": "cost-optimization",
@@ -90,7 +90,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:d23398ef5500503e9b710eaa4585c2735e65d4bf092444cd413804459f927637",
+      "severity": "medium",
+      "specification_digest": "sha256:06b115e76219f5643d2a6a2d0642739e45807683800a4f2e7d666555e5b122cd",
       "title": "Create a culture of financial responsibility"
     },
     {
@@ -182,7 +183,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:851a7758b12fe80dc2685323c694d184f324611c2a139f2ff9b6e2e9a4c4e74d",
+      "severity": "high",
+      "specification_digest": "sha256:de3a4742ada6112139be21b4f291d95a1868e495a56010adc9b508aacd2c0976",
       "title": "Create and maintain a cost model"
     },
     {
@@ -274,7 +276,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:275c5a67307a65f24d8d7572c9eb62683c9b20415dcf583ccd34524fcf52aab9",
+      "severity": "high",
+      "specification_digest": "sha256:69e8fe0b346e2a0a7091114ad40393a2987857ffd34ab6a31a047f16b5baf3d1",
       "title": "Collect and review cost data"
     },
     {
@@ -366,7 +369,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:ceabf765dfe4039bd11bc1440f5f6abe6021c6bee690a0b3ea02a7852a48da15",
+      "severity": "high",
+      "specification_digest": "sha256:1def23de89355bd5644380ebb1ee010380fd9f9263fd51c06eca6c13864b282f",
       "title": "Set spending guardrails"
     },
     {
@@ -434,7 +438,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:12da9c8a1a73b1f8b5c6aa2812b9a3068d1831ec2afa5bd4e9ca59adb3c9008b",
+      "severity": "medium",
+      "specification_digest": "sha256:32c0660186b7992fcfdbe2af4074e1e1e2a10e4ec885e7309b1020d9dfba3938",
       "title": "Obtain the best available provider rates"
     },
     {
@@ -502,7 +507,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:4fa1380ba339d92df5ffe7bd52c452225770db88afaff4bd088d5703610a4731",
+      "severity": "medium",
+      "specification_digest": "sha256:93284d4790bed6d08f3855f0fd712c2ae0ace01621f2fa85514ea6ee67c61a04",
       "title": "Align usage to billing increments"
     },
     {
@@ -570,7 +576,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:58bb7adc542c512f0d61b2d7b40b0cbc6b8b16e000bac784309a4e1824eba513",
+      "severity": "high",
+      "specification_digest": "sha256:a950cbac78cb1c6c4a3df54ba9399d793c29234323e16bbf843fe659d9496ac3",
       "title": "Optimize component costs"
     },
     {
@@ -638,7 +645,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:3763ae5f3448b9673d3c3883de0c697397c54d92159657cb8645e5f0c1ba0cfb",
+      "severity": "medium",
+      "specification_digest": "sha256:0126a0ff9db4931d2455bb66e89a9b9f49598b30c0e62c51c3542ff0dbfd5450",
       "title": "Optimize environment costs"
     },
     {
@@ -706,7 +714,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:bb707c1e5307af3a53463be298905a4f33aa24ebb9f6f8d619563cfaf115d4c2",
+      "severity": "medium",
+      "specification_digest": "sha256:e8e7688a7ac61613a22b249c3262cf548d1ac2c487e2d4c6078ebb6f4c81a423",
       "title": "Optimize flow costs"
     },
     {
@@ -774,7 +783,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:2d190dc4d780761f427702c97d61789dc395b3f9eb4b63412447f1140320e534",
+      "severity": "medium",
+      "specification_digest": "sha256:588b11d72b1370465e8850e1a70e15f6ee83b0184459b17c5a8ead43e8e5f505",
       "title": "Optimize data costs"
     },
     {
@@ -842,7 +852,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:4466dae8d45496463c89df2d2cc53cc01f1655d7dceb45b0209981bd86f90ba2",
+      "severity": "medium",
+      "specification_digest": "sha256:91af6c761876d9416d4efe98981e17dcb161ac6a4002d2ef2120abe8c6c2f9ef",
       "title": "Optimize code costs"
     },
     {
@@ -910,7 +921,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:e5619016d57325759a27e6a3d8f1b85b41fa8dec6b25448422ccc9f4334f5212",
+      "severity": "high",
+      "specification_digest": "sha256:00387f53b5b0429c16468651f6cc6535023193fd698404e26581d7cfe6ecd345",
       "title": "Optimize scaling costs"
     },
     {
@@ -978,7 +990,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:5eee33390735700e1bc3e5d8c7451ef7acdda45d93c3322ae9a5d73768add7b8",
+      "severity": "medium",
+      "specification_digest": "sha256:1e56af05d08e4366ec7ad635d91036b740773b7e61504f7b7ea4f96d6d7800aa",
       "title": "Optimize personnel time"
     },
     {
@@ -1046,7 +1059,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:f26b903ce15d5c9ec5531cd7e92a1f45fc845d495362d20e94f348a0b4461606",
+      "severity": "medium",
+      "specification_digest": "sha256:b40a2a6286781e8a772a9eedc290375134505d28698465e5f0c09e1ec4bc32dd",
       "title": "Consolidate resources and responsibility"
     },
     {
@@ -1114,7 +1128,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:8feabb834d53a3f848fc2d13a49f6cbef34b3b472d479cf6e3476820546f6492",
+      "severity": "high",
+      "specification_digest": "sha256:6370f5537d1d3af3a3d73b56ed506120f975f75e0a075fd3db6953ae68ea5b55",
       "title": "Define standard workload development and operating practices"
     },
     {
@@ -1182,7 +1197,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:d44163acc20240cc0fe0be4ef337020913c1b407d086148172695a3542b07938",
+      "severity": "high",
+      "specification_digest": "sha256:7e632e87e51b8271e72710b5a1906af2658689823433cbd46e674574ff55a16d",
       "title": "Standardize routine ad-hoc and emergency operations"
     },
     {
@@ -1250,7 +1266,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:f126e296abaffc48ef2ecc98d6cd66b337c84fa3333d2041bf31f6b774cb3a0a",
+      "severity": "high",
+      "specification_digest": "sha256:7be1864a35c323b60f88d650d7abc96b67ea1869f0ba4db5ecb7899d8148df91",
       "title": "Formalize practices across the software development lifecycle"
     },
     {
@@ -1318,7 +1335,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:a160e667eb72e93ff14a9b9af498f5dcf3e2e5ffc0688a2baff5f4c93b06ad8d",
+      "severity": "high",
+      "specification_digest": "sha256:7050f24811250182cfa0d344a3179481e41f2e5b028b5430defdecdc3e158ce0",
       "title": "Standardize development tools and quality processes"
     },
     {
@@ -1386,7 +1404,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:6a18cd41531eeaad5c7d6934998f9eb592e08e59e61573f757827059e2950c1b",
+      "severity": "high",
+      "specification_digest": "sha256:990c035accc29228ff923e6d40f8955923f9d5987f3d438c4e02946bb6b068df",
       "title": "Use a standardized infrastructure-as-code approach"
     },
     {
@@ -1478,7 +1497,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:76213b7022968e44298ccc6cab467888fa2a7294c9ce5ec46d92b0c7c444cd53",
+      "severity": "critical",
+      "specification_digest": "sha256:4dc95b08b9803024bfcf7bb9e9b16df9022f2d3e1c6ef0bdd314806ea98eb303",
       "title": "Build a predictable workload supply chain"
     },
     {
@@ -1690,7 +1710,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:53ddccce92c8794ccd9707aa9dfc5c902fe27d1b38feb759f91a2cd1459d0c2a",
+      "severity": "high",
+      "specification_digest": "sha256:bb4145aef06b95cf0d1302e207283a08fc2a5cbf5b70f3a0b77dadbda31ef235",
       "title": "Design a workload monitoring stack"
     },
     {
@@ -1782,7 +1803,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:ff3aa60e1d08e8b7e4d19eee17fba5b8f573f1c1511a4a0ce9af6f12b895bcde",
+      "severity": "critical",
+      "specification_digest": "sha256:4f8ec588f5a50c417aed40fa61ab0e47c695b61c20b889bb51c751ed6598c8b9",
       "title": "Establish a structured incident management process"
     },
     {
@@ -1850,7 +1872,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:21df1904f91e9ce3e2c4e600401bdeabbf4338161075fc63c83c517096919df8",
+      "severity": "high",
+      "specification_digest": "sha256:61aa61fd2c33d950f23eeed3224e05fe15313902b769b4b7d9fbb76188519afa",
       "title": "Adopt testing practices aligned with business objectives"
     },
     {
@@ -1942,7 +1965,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c12de6d6d92cfd3740791074545a06df938ec062ef7687bf72ee37cd1873c6d2",
+      "severity": "high",
+      "specification_digest": "sha256:19705a199c54da4dd76add92f1a302d07e8793a14c8afbd4e0b2df0684b3b0ad",
       "title": "Design reliable secure and maintainable automation"
     },
     {
@@ -2034,7 +2058,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:0fd9d3c4c34502f466630795fbefe45d530469930a0e24c0a03c18ed02d63d7e",
+      "severity": "critical",
+      "specification_digest": "sha256:5fbab05e345185e82f1394848617d571001b46956bebcb56b042ea2115f4d31f",
       "title": "Define safe deployment practices"
     },
     {
@@ -2102,7 +2127,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:af5a42dc67fef7a484fc19ca16ca16db1f5b71ff7b15ea88c839d2398b0f7efe",
+      "severity": "high",
+      "specification_digest": "sha256:e1059280177cbd8dc99c5b93ee2f57460c193339912d4c2632dd07b85930163f",
       "title": "Define numerical performance targets for workload flows"
     },
     {
@@ -2194,7 +2220,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:020c9a8713cbee337df2eafb932b951c813479bd468587e30d03233752eeeeab",
+      "severity": "high",
+      "specification_digest": "sha256:f2bd6d6dc2841956f1f5ff2fb4ad42b85e38ec29580f269644087e5ce693b941",
       "title": "Conduct capacity planning before predicted demand changes"
     },
     {
@@ -2286,7 +2313,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:d02ab51397f822bf123b363570f396b9b24f090b84fca88211aa6df707894a04",
+      "severity": "high",
+      "specification_digest": "sha256:3a3ad0d9d9b118edcea26bdfb4b268fed320b05212b659c7682d7d239a5e8ae6",
       "title": "Select services and tiers that meet performance targets"
     },
     {
@@ -2378,7 +2406,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:44292d92c6b2ead2320f79cb4033512d1afcc8071e9ee6fe3bfb07bf3543ea07",
+      "severity": "high",
+      "specification_digest": "sha256:ab3d1f9bc9e723a8bf4406f58c7e681b47201608c60fa4fabc097acc517bb4cc",
       "title": "Establish consistent performance measurement"
     },
     {
@@ -2470,7 +2499,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:eb5d40af55ab33947f29b9e28a5d6e7984d686dc1fdd0312882aecc5fc7dee20",
+      "severity": "high",
+      "specification_digest": "sha256:e79589ea7028cab11237ba1f1e9f392dd29204931c996be4f30ec1e7c6a72fad",
       "title": "Optimize scaling and partitioning"
     },
     {
@@ -2538,7 +2568,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:4fdee588f8d4dc56af6b57c530c9975f78cd5857c524ee7186fae4903e070bed",
+      "severity": "high",
+      "specification_digest": "sha256:68edfe4e3b8d171263019cef4b787e4c4f31a8eea0f47c9f1a5e4b06ee539c4a",
       "title": "Test performance in a production-like environment"
     },
     {
@@ -2606,7 +2637,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:48a715cad0c78d43ed99759f38b6d344b734cf393f9f08a75252fa670c1b486f",
+      "severity": "medium",
+      "specification_digest": "sha256:6a214139e93bc09fff62967221ed4951c93f6dbbdc4cae3586115f5bd15c4325",
       "title": "Optimize code and infrastructure"
     },
     {
@@ -2698,7 +2730,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:8955d5831f9f7bb27437bcb7bf037c47972081f4d415b74687df28e1ae69fabe",
+      "severity": "high",
+      "specification_digest": "sha256:108cf951771ab69cd14513fa75a36991e5d4d2ef32f609282667d5b7e327dff3",
       "title": "Optimize data usage and data-store performance"
     },
     {
@@ -2790,7 +2823,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c2eb89b0261f655744b99e43ff7c3575ac750c24a8a1de21423c1f27a5d1c005",
+      "severity": "high",
+      "specification_digest": "sha256:757e5c6bbe06df74fde42f0bec19f3a3d9a08bef9048f7ad9b43ff059b958b89",
       "title": "Prioritize performance of critical flows"
     },
     {
@@ -2882,7 +2916,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:b785654465cf5138eaacadc5a3f943b14b42195fcc9045f529400650b04f6870",
+      "severity": "medium",
+      "specification_digest": "sha256:121c4046bbc407f8ef76e45b4c08aa7d312cae941b8ddbacba6de64bd5c3ce47",
       "title": "Minimize operational task performance impact"
     },
     {
@@ -2974,7 +3009,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:f67e68169ac988c8ed4720402f485771880f6165c548c16464413f83b89b191e",
+      "severity": "high",
+      "specification_digest": "sha256:6419b4244d18ec74cb0069cf62f5287a1356641687ea9485fb45b0c01ef6f17c",
       "title": "Respond effectively to live performance issues"
     },
     {
@@ -3042,7 +3078,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:0eca25758c163e8ae240aa530599e37687b99b0d85172a76cafe37b7475af292",
+      "severity": "medium",
+      "specification_digest": "sha256:e4a721c13bba42e0ffc0a340dae7dbe94ca5d3b47025459cde66a0a40938f46a",
       "title": "Continuously optimize deteriorating performance"
     },
     {
@@ -3134,7 +3171,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:14baefba3ccff4a02eae4670256ddcac5861472e5bd1b84f99103390da396a38",
+      "severity": "medium",
+      "specification_digest": "sha256:80b2d83556e478d9322c46b27bf68f01f6cf116e5b06b72a37069e7bff6549f9",
       "title": "Focus workload design on simplicity and efficiency"
     },
     {
@@ -3202,7 +3240,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:4f563c83e447b3ed8b0400f72997d670017ab598c5667cbc4ebac1015c27651c",
+      "severity": "high",
+      "specification_digest": "sha256:b09e824b92b9442314b98e15a391fdb22571180d1c0ca17a85207fb5c6236eea",
       "title": "Identify and rate user and system flows"
     },
     {
@@ -3270,7 +3309,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:46a4fbd6806703c889e99bc898a977fdb33e8dee1093dbba56bef1ac2b3d24a9",
+      "severity": "high",
+      "specification_digest": "sha256:71c882679cfcd306961d1374d72ca388949f7db9349111263bf2d7f176210a85",
       "title": "Perform failure mode analysis"
     },
     {
@@ -3362,7 +3402,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:21c384055c5964f7d8669b9ae08ac3726a2101c1502ab1dc3156e9cce1850aca",
+      "severity": "high",
+      "specification_digest": "sha256:e31b4ad96746ecb790ce90ca56d24cfd52c78712af830cf1c34359e4010b5ce2",
       "title": "Define reliability and recovery targets"
     },
     {
@@ -3555,7 +3596,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:5999bae5b3d66a6d9ae0d1f59e6b33a891d10fabc86d82ab0d26cd583756cf6c",
+      "severity": "high",
+      "specification_digest": "sha256:e12fc11d7a67d9622eae3be8c907d50cbf3bd8908b415b2ae6ddd086470de752",
       "title": "Add redundancy for critical flows"
     },
     {
@@ -3647,7 +3689,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:1065b393389afedf9d0b15f603339141c0fe7bd722f556e7b9708058bfa4e183",
+      "severity": "high",
+      "specification_digest": "sha256:4e42dcfc85ee6c452f51cc7eb5c7427e5d16f9ee0dba9c47e16f9a7fd7685682",
       "title": "Implement timely and reliable scaling"
     },
     {
@@ -3787,7 +3830,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:76c563c1ad0abe06da68a196fefa83a165bc789fb142c58e7e673872fb3e9a51",
+      "severity": "high",
+      "specification_digest": "sha256:30c2e2287dee03a7514e2d3622832e87146a2db9c7c22fc910677d64355dd522",
       "title": "Implement self-preservation and self-healing"
     },
     {
@@ -3855,7 +3899,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:ffe48e07ef806d06431d26d50f7077b1fc08c94466140c82a77abed30bea0f76",
+      "severity": "high",
+      "specification_digest": "sha256:14429ccf58f78b00743a4d17bdcd74c46bc73e68abff539252659b9052890845",
       "title": "Test resiliency and availability scenarios"
     },
     {
@@ -3971,7 +4016,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:6a964c16b5fe661fd5a22d0424294f669417d4c7c3444376f179247e3529de78",
+      "severity": "critical",
+      "specification_digest": "sha256:21eb038e89b82dc2a3c2f5656091ec4591b1378cb8a74e813bc1642c25760cc8",
       "title": "Implement tested disaster recovery plans"
     },
     {
@@ -4183,7 +4229,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:ffcea5502d86d154502c2916efcfacd5833403f9ee7b67088f4e199432362fb1",
+      "severity": "high",
+      "specification_digest": "sha256:118751212321c350bf168d21a7c54aada17c8fabe8c309fa07b35dd125c68b2a",
       "title": "Continuously measure and track system health"
     },
     {
@@ -4275,7 +4322,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c83b5bc0358ca60e4588ce5335efaf16edb4fa64b12895876c765ea67c60e7f3",
+      "severity": "critical",
+      "specification_digest": "sha256:2d10a8732fe506d4dae484a65209f960f8fe60edb650f4fbcbc48c5562574cee",
       "title": "Establish and continuously improve a security baseline"
     },
     {
@@ -4367,7 +4415,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:9c9ea08d419c1b799f278e42ac82427e436f399ffe7cb8213e44e9a980a93da2",
+      "severity": "critical",
+      "specification_digest": "sha256:0549796691d62d110869b46a7d0d6315faccd70b12a74e83895f6147d92abc16",
       "title": "Apply a secure development lifecycle"
     },
     {
@@ -4459,7 +4508,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c9f50c37e3a39c6682df69220abbaf0466a61b9e67400afd4da1b36629caa925",
+      "severity": "high",
+      "specification_digest": "sha256:16d9383032c4958671c9796294c39eed84a61ff2b9f11aa2d640b2fdb398abfc",
       "title": "Classify workload data and systems"
     },
     {
@@ -4551,7 +4601,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:c02b2b67345c482d26bbfbbec170e528feea034b1716907caacc8237947dcd2e",
+      "severity": "critical",
+      "specification_digest": "sha256:c3cdda2b281bb9d994571ec8d35c2e7fc15b487c8b805106233ebfcd9505c31f",
       "title": "Design intentional segmentation and perimeters"
     },
     {
@@ -4739,7 +4790,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:fd4d1d0d0fe8d723a55e43e58f8d6c6a171a06d5176f14e05c713f01af6a3b8d",
+      "severity": "critical",
+      "specification_digest": "sha256:808224277fb5be71581d1938eedba87d8bb2a3856e3abf1a95f277c3398cd2d5",
       "title": "Implement strict conditional and auditable identity and access management"
     },
     {
@@ -4951,7 +5003,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:20bbe5eb5b02ac9687a152712b93f69f76f276d554c277520f2c636c7eed0b26",
+      "severity": "critical",
+      "specification_digest": "sha256:a9f259146602e778be3a4bba57f99d1a354c2998663f96dcd435961586b2aca6",
       "title": "Isolate filter and control network traffic"
     },
     {
@@ -5139,7 +5192,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:df830dc64d10634a130cf8d7c3242b1e9091ad26d343d9a805237a1e4881865e",
+      "severity": "critical",
+      "specification_digest": "sha256:f5d0357dfc556202ed30f49a0690451fa18ef77467465b52633c6a15a9fbce91",
       "title": "Encrypt data with modern methods"
     },
     {
@@ -5231,7 +5285,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:e49371e382260a05147a3e7d652db1ccfb252bf7dbb1986d6958cd677799cffb",
+      "severity": "high",
+      "specification_digest": "sha256:bbea976f570a9bc2e550885f5631ad03924c9618043bd4b645c269112e5d8214",
       "title": "Harden workload resources"
     },
     {
@@ -5395,7 +5450,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:8c2ded693c8e18ca0fb6c2406f0d862d5cac52109ce47a12b2002ccdbf2b044b",
+      "severity": "critical",
+      "specification_digest": "sha256:fc0f179aacb30da5e4206462ee68afe05a30b0205488dcaae32c943a9fa99c38",
       "title": "Protect and rotate application secrets"
     },
     {
@@ -5487,7 +5543,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:63567a74199b4778922394c18735ae649d93e09b7de56dd0397d43895b45f883",
+      "severity": "critical",
+      "specification_digest": "sha256:e964d001894f15211990019bb6ff6fe5858ded8c4acff19b39cace3c01a57b3c",
       "title": "Implement holistic threat monitoring"
     },
     {
@@ -5579,7 +5636,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:3716a9667280c856074990bd5cd3c8532c6b18adcff1c0a539a14aee516b17da",
+      "severity": "critical",
+      "specification_digest": "sha256:060d78eb0a136edd1dbc624ac75ceb54797284db21b2717d23140421fac832b2",
       "title": "Establish comprehensive security testing"
     },
     {
@@ -5695,7 +5753,8 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:0c14eaefeb7ca07bcd4780706c74ba847c12b0333b7ee1318a090fc49946df41",
+      "severity": "critical",
+      "specification_digest": "sha256:64af29911e1979c0f30c08360d0a505e28710eacbbda9902f8fb9a8ae4454f24",
       "title": "Define and test security incident response"
     }
   ],

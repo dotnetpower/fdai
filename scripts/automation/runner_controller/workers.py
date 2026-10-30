@@ -258,9 +258,9 @@ class Workers:
             return True
         if not worker.get("provider_ref"):
             return False
+        if worker.get("listener_exit_code") is not None:
+            return True
         if worker["pool"] == "docker":
-            if worker.get("listener_exit_code") is not None:
-                return True
             try:
                 view = self.azure.get_resource(
                     self._resource("Microsoft.Compute/virtualMachines", worker["name"])

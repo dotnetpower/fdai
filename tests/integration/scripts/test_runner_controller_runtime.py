@@ -281,6 +281,9 @@ def test_retained_terminal_proof_allows_post_delete_nic_readback() -> None:
     worker = _worker(pool="docker")
     worker.update(cleanup_requested=True, terminal_observed_at=NOW.isoformat())
     assert Workers(_settings(), None).terminal(worker) is True
+    container_worker = _worker(pool="general")
+    container_worker["listener_exit_code"] = 0
+    assert Workers(_settings(), None).terminal(container_worker) is True
 
 
 @pytest.mark.parametrize("lose_lease", [False, True])
@@ -691,3 +694,67 @@ def test_broker_worker_never_passes_jit_material_as_a_command_line() -> None:
     assert '"--jitconfig"' not in source
     assert "GITHUB_RUNNER_CREDENTIAL" not in source
     assert "environment.clear()" in source
+
+
+def test_blob_state_coalesces_concurrent_transactions_and_isolates_failures() -> None:
+    entered, release = threading.Event(), threading.Event()
+    writes = 0
+
+    class CoalescingTransport(BlobTransport):
+        def request(self, method, url, *, body=None, headers=None, accepted=(200,)):
+            nonlocal writes
+            if method == "PUT" and "?comp=lease" not in url and headers.get("If-None-Match") != "*":
+                writes += 1
+                if writes == 1:
+                    entered.set()
+                    assert release.wait(3)
+                self.etag = f'"{writes + 1}"'
+                self.value = body
+                return HttpResponse(201, None, {"ETag": self.etag})
+            return super().request(method, url, body=body, headers=headers, accepted=accepted)
+
+    transport = CoalescingTransport()
+    state = BlobState(
+        "https://examplestate.blob.core.windows.net",
+        "ci-state",
+        "state.json",
+        lambda: "synthetic-token",
+        transport,
+    )
+    state.open()
+    results: dict[str, Any] = {}
+    errors: dict[str, str] = {}
+
+    def apply_item(name: str, fail: bool = False) -> None:
+        try:
+
+            def mutate(data: dict[str, Any]) -> str:
+                data["workers"][name] = {"status": "starting"}
+                if fail:
+                    raise ValueError("isolated failure")
+                return name
+
+            results[name] = state.transaction(mutate)
+        except ValueError as exc:
+            errors[name] = str(exc)
+
+    first = threading.Thread(target=apply_item, args=("w1",))
+    first.start()
+    assert entered.wait(3)
+    queued = [
+        threading.Thread(target=apply_item, args=("w2",)),
+        threading.Thread(target=apply_item, args=("w-bad", True)),
+        threading.Thread(target=apply_item, args=("w3",)),
+    ]
+    for thread in queued:
+        thread.start()
+    while len(state._pending) < 3:
+        threading.Event().wait(0.005)
+    release.set()
+    first.join(timeout=3)
+    for thread in queued:
+        thread.join(timeout=3)
+    assert writes == 2
+    assert results == {"w1": "w1", "w2": "w2", "w3": "w3"}
+    assert errors == {"w-bad": "isolated failure"}
+    assert set(state.read()["workers"]) == {"w1", "w2", "w3"}

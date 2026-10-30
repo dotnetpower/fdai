@@ -102,7 +102,9 @@ class Transport:
                 payload = response.read(MAX_RESPONSE_BYTES + 1)
                 if len(payload) > MAX_RESPONSE_BYTES:
                     raise ProviderError("response_limit", status)
-                if status in {202, 204} and not payload:
+                if (
+                    status in {202, 204} or (method != "GET" and status in {200, 201})
+                ) and not payload:
                     data = None
                 else:
                     try:

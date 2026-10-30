@@ -1,0 +1,3164 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-8 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 1 days.",
+          "ko": "NS-8은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Do not disable a required legacy integration without an approved migration path.",
+          "ko": "승인된 이전 경로 없이 필요한 기존 연동을 끄지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Avoidable weak transport and service exposure can be reduced.",
+        "ko": "피할 수 있는 약한 전송과 서비스 노출을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A protocol can remain exposed through alternate ports or proxy paths.",
+          "ko": "다른 포트나 프록시 경로를 통해 프로토콜이 계속 노출될 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Inventory listeners and disable reviewed insecure or unnecessary services.",
+            "ko": "수신 서비스를 목록화하고 검토한 안전하지 않거나 불필요한 서비스를 비활성화합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-8-control-evidence, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-8-control-evidence, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Unused legacy listeners remain open beside the supported secure endpoint.",
+            "ko": "지원 보안 엔드포인트 옆에 쓰지 않는 기존 수신 포트가 열려 있습니다."
+          },
+          {
+            "en": "Illustrative gap: NS-8 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-8에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:58203ab2bba9ed1b420b5e362cf08276722322402c2b8d7f0ed8e66c5dd9a5bc",
+      "control_id": "NS-8",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-8",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Unused legacy listeners remain open beside the supported secure endpoint.",
+              "ko": "지원 보안 엔드포인트 옆에 쓰지 않는 기존 수신 포트가 열려 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Detect and disable insecure services and  protocols",
+              "ko": "안전하지 않은 서비스와 프로토콜 비활성화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Inventory listeners and disable reviewed insecure or unnecessary services.",
+              "ko": "수신 서비스를 목록화하고 검토한 안전하지 않거나 불필요한 서비스를 비활성화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Scan the authorized scope and verify removed listeners and working replacements.",
+              "ko": "승인 범위를 검사하고 제거한 수신 경로 및 대체 기능의 동작을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Avoidable weak transport and service exposure can be reduced.",
+              "ko": "피할 수 있는 약한 전송과 서비스 노출을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Detect and disable insecure services and  protocols",
+          "ko": "안전하지 않은 서비스와 프로토콜 비활성화"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-8 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-8의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Inventory listeners and disable reviewed insecure or unnecessary services.",
+          "ko": "수신 서비스를 목록화하고 검토한 안전하지 않거나 불필요한 서비스를 비활성화합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-8-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-8-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-inbound-any-rdp from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-inbound-any-rdp을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-inbound-any-ssh from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-inbound-any-ssh을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-internet-inbound-rdp from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-internet-inbound-rdp을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:network.nsg.no-internet-inbound-ssh from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-ns-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:network.nsg.no-internet-inbound-ssh을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Protocol review removes obsolete or plaintext paths where supported alternatives exist. In FDAI, NS-8 is assessed through artifact:mcsb-ns-8-control-evidence, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "프로토콜 검토는 지원 대안이 있는 구식 또는 평문 경로를 제거합니다. FDAI는 NS-8을 artifact:mcsb-ns-8-control-evidence, rule:network.nsg.no-inbound-any-rdp, rule:network.nsg.no-inbound-any-ssh, rule:network.nsg.no-internet-inbound-rdp, rule:network.nsg.no-internet-inbound-ssh 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:4a52ecaeb4bcf28114c8b9ca3a49d9b81267339d55db0b2fe0b74aa673d2b196",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Protocol review removes obsolete or plaintext paths where supported alternatives exist.",
+        "ko": "프로토콜 검토는 지원 대안이 있는 구식 또는 평문 경로를 제거합니다."
+      },
+      "title": {
+        "en": "Detect and disable insecure services and  protocols",
+        "ko": "안전하지 않은 서비스와 프로토콜 비활성화"
+      },
+      "verification_steps": [
+        {
+          "en": "Scan the authorized scope and verify removed listeners and working replacements.",
+          "ko": "승인 범위를 검사하고 제거한 수신 경로 및 대체 기능의 동작을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-8 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-8을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply NS-9 only to the reviewed workload scope with accountable owner role mcsb-ns-owner; review cadence 180 days.",
+          "ko": "NS-9은 책임 역할 mcsb-ns-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Private connectivity does not guarantee encryption or authorize every connected host.",
+          "ko": "비공개 연결이 암호화를 보장하거나 모든 연결 호스트를 허가하지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Required cross-environment traffic can avoid unnecessary public exposure.",
+        "ko": "환경 간 필수 트래픽의 불필요한 공개 노출을 피할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Shared routes can unintentionally enable transit between trust domains.",
+          "ko": "공용 경로는 의도하지 않게 신뢰 영역 간 중계를 허용할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Review approved private connectivity, routes, authentication and failover.",
+            "ko": "승인된 비공개 연결, 경로, 인증, 장애 조치를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-ns-9-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-ns-9-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Cross-environment services use publicly reachable routes by default.",
+            "ko": "환경 간 서비스가 기본적으로 공개 접근 가능한 경로를 사용합니다."
+          },
+          {
+            "en": "Illustrative gap: NS-9 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: NS-9에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:5143a86b764cec0307de665c7859fccc0940d666d6acdbb9479726f4ca4991da",
+      "control_id": "NS-9",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.ns-9",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Cross-environment services use publicly reachable routes by default.",
+              "ko": "환경 간 서비스가 기본적으로 공개 접근 가능한 경로를 사용합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Connect on-premises or cloud network privately",
+              "ko": "온프레미스 또는 클라우드 네트워크의 비공개 연결"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Review approved private connectivity, routes, authentication and failover.",
+              "ko": "승인된 비공개 연결, 경로, 인증, 장애 조치를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test name resolution, intended routes and failure behavior between approved environments.",
+              "ko": "승인 환경 사이의 이름 확인, 의도한 경로, 장애 동작을 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Required cross-environment traffic can avoid unnecessary public exposure.",
+              "ko": "환경 간 필수 트래픽의 불필요한 공개 노출을 피할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Connect on-premises or cloud network privately",
+          "ko": "온프레미스 또는 클라우드 네트워크의 비공개 연결"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm NS-9 scope, owner mcsb-ns-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 NS-9의 범위, 담당 역할 mcsb-ns-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Review approved private connectivity, routes, authentication and failover.",
+          "ko": "승인된 비공개 연결, 경로, 인증, 장애 조치를 검토합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-ns-9-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-ns-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-ns-9-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-ns-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Private connectivity defines controlled paths between connected environments. In FDAI, NS-9 is assessed through artifact:mcsb-ns-9-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "비공개 연결은 연결 환경 사이의 통제된 경로를 정합니다. FDAI는 NS-9을 artifact:mcsb-ns-9-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:d6a2e1fc77782aad6ca79b6ae054b7e1d0a7c87cb76a52bb86637405e6ba5909",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Private connectivity defines controlled paths between connected environments.",
+        "ko": "비공개 연결은 연결 환경 사이의 통제된 경로를 정합니다."
+      },
+      "title": {
+        "en": "Connect on-premises or cloud network privately",
+        "ko": "온프레미스 또는 클라우드 네트워크의 비공개 연결"
+      },
+      "verification_steps": [
+        {
+          "en": "Test name resolution, intended routes and failure behavior between approved environments.",
+          "ko": "승인 환경 사이의 이름 확인, 의도한 경로, 장애 동작을 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess NS-9 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 NS-9을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-1 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 1 days.",
+          "ko": "PA-1은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Separate accounts do not justify retaining unnecessary privileges.",
+          "ko": "계정을 분리했다고 불필요한 권한 유지가 정당화되지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Routine account compromise has fewer direct administrative consequences.",
+        "ko": "일상 계정 침해가 직접 관리 권한 침해로 이어질 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Administrative recovery paths must remain attributable and protected.",
+          "ko": "관리 복구 경로도 행위자를 식별할 수 있고 보호되어야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Limit administrative membership and separate approved privileged identities.",
+            "ko": "관리자 구성원을 제한하고 승인한 권한 신원을 분리합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-1-control-evidence, rule:resource-group.role-assignment.owner-count-within-limit, rule:subscription.role-assignment.no-guest-privileged for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-1-control-evidence, rule:resource-group.role-assignment.owner-count-within-limit, rule:subscription.role-assignment.no-guest-privileged 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The same account handles email and broad production administration.",
+            "ko": "같은 계정으로 이메일과 광범위한 운영 관리를 수행합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-1 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-1에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:a99941451e0799576d87764cdf5de30bb99defd6b7d9fe594c274f69acf88cb0",
+      "control_id": "PA-1",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-1",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The same account handles email and broad production administration.",
+              "ko": "같은 계정으로 이메일과 광범위한 운영 관리를 수행합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Separate and limit highly privileged/administrative users",
+              "ko": "고권한 관리자 분리와 제한"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Limit administrative membership and separate approved privileged identities.",
+              "ko": "관리자 구성원을 제한하고 승인한 권한 신원을 분리합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Review privileged memberships and verify routine identities lack administrative access.",
+              "ko": "권한 구성원을 검토하고 일상 신원에 관리 접근이 없는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Routine account compromise has fewer direct administrative consequences.",
+              "ko": "일상 계정 침해가 직접 관리 권한 침해로 이어질 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Separate and limit highly privileged/administrative users",
+          "ko": "고권한 관리자 분리와 제한"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-1 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-1의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Limit administrative membership and separate approved privileged identities.",
+          "ko": "관리자 구성원을 제한하고 승인한 권한 신원을 분리합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-1-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-1-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:resource-group.role-assignment.owner-count-within-limit from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role supporting_only. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:resource-group.role-assignment.owner-count-within-limit을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 supporting_only입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:subscription.role-assignment.no-guest-privileged from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:subscription.role-assignment.no-guest-privileged을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Dedicated administrative identities separate privileged duties from everyday activity. In FDAI, PA-1 is assessed through artifact:mcsb-pa-1-control-evidence, rule:resource-group.role-assignment.owner-count-within-limit, rule:subscription.role-assignment.no-guest-privileged. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "전용 관리 신원은 권한 업무와 일상 활동을 구분합니다. FDAI는 PA-1을 artifact:mcsb-pa-1-control-evidence, rule:resource-group.role-assignment.owner-count-within-limit, rule:subscription.role-assignment.no-guest-privileged 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:f8c5a33a8579b4dd993b0f93ae3b995dc30c9ae37ea8703d8e5837452376d5e0",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Dedicated administrative identities separate privileged duties from everyday activity.",
+        "ko": "전용 관리 신원은 권한 업무와 일상 활동을 구분합니다."
+      },
+      "title": {
+        "en": "Separate and limit highly privileged/administrative users",
+        "ko": "고권한 관리자 분리와 제한"
+      },
+      "verification_steps": [
+        {
+          "en": "Review privileged memberships and verify routine identities lack administrative access.",
+          "ko": "권한 구성원을 검토하고 일상 신원에 관리 접근이 없는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-1 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-1을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-2 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 1 days.",
+          "ko": "PA-2은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Service identities may need a distinct lifecycle rather than interactive activation.",
+          "ko": "서비스 신원에는 대화형 활성화와 다른 수명 주기가 필요할 수 있습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Unused administrative access is less likely to remain continuously exploitable.",
+        "ko": "쓰지 않는 관리 접근이 계속 악용 가능한 상태로 남을 가능성을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Eligibility itself is sensitive and requires ownership and periodic review.",
+          "ko": "권한 자격 자체도 민감하므로 담당자와 정기 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Use reviewed eligible or time-bound access with required activation checks.",
+            "ko": "필수 활성화 검사를 갖춘 검토된 자격 기반 또는 기한부 접근을 사용합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-2-control-evidence, rule:subscription.role-assignment.no-standing-privileged-access for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-2-control-evidence, rule:subscription.role-assignment.no-standing-privileged-access 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Administrators retain permanent active access between rare tasks.",
+            "ko": "관리자가 드문 작업 사이에도 상시 활성 접근을 유지합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-2 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-2에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:4181340e2e17da17edda9ae94e7d27a30f11109c69d4756c786eab5759d3d9da",
+      "control_id": "PA-2",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-2",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Administrators retain permanent active access between rare tasks.",
+              "ko": "관리자가 드문 작업 사이에도 상시 활성 접근을 유지합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Avoid standing access for user accounts and permissions",
+              "ko": "상시 사용자 권한 방지"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Use reviewed eligible or time-bound access with required activation checks.",
+              "ko": "필수 활성화 검사를 갖춘 검토된 자격 기반 또는 기한부 접근을 사용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Activate a test role and verify expiry removes active access.",
+              "ko": "테스트 역할을 활성화하고 만료 후 활성 접근이 사라지는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Unused administrative access is less likely to remain continuously exploitable.",
+              "ko": "쓰지 않는 관리 접근이 계속 악용 가능한 상태로 남을 가능성을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Avoid standing access for user accounts and permissions",
+          "ko": "상시 사용자 권한 방지"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-2 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-2의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Use reviewed eligible or time-bound access with required activation checks.",
+          "ko": "필수 활성화 검사를 갖춘 검토된 자격 기반 또는 기한부 접근을 사용합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-2-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-2-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:subscription.role-assignment.no-standing-privileged-access from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:subscription.role-assignment.no-standing-privileged-access을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Time-bounded activation reduces the duration of available privilege. In FDAI, PA-2 is assessed through artifact:mcsb-pa-2-control-evidence, rule:subscription.role-assignment.no-standing-privileged-access. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "기한이 있는 활성화는 권한을 사용할 수 있는 시간을 줄입니다. FDAI는 PA-2을 artifact:mcsb-pa-2-control-evidence, rule:subscription.role-assignment.no-standing-privileged-access 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:11603a87428d59431d035d525242abb31d437e15a4b1a981cdee19644f8e9858",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Time-bounded activation reduces the duration of available privilege.",
+        "ko": "기한이 있는 활성화는 권한을 사용할 수 있는 시간을 줄입니다."
+      },
+      "title": {
+        "en": "Avoid standing access for user accounts and permissions",
+        "ko": "상시 사용자 권한 방지"
+      },
+      "verification_steps": [
+        {
+          "en": "Activate a test role and verify expiry removes active access.",
+          "ko": "테스트 역할을 활성화하고 만료 후 활성 접근이 사라지는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-2 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-2을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-3 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 180 days.",
+          "ko": "PA-3은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Disabling a directory account may not revoke every application session or local account.",
+          "ko": "디렉터리 계정 비활성화만으로 모든 세션이나 로컬 계정이 철회되지는 않을 수 있습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Obsolete accounts and accumulated entitlements can be removed.",
+        "ko": "오래된 계정과 누적된 권한을 제거할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Automation must handle failed downstream revocations explicitly.",
+          "ko": "자동화는 하위 시스템의 철회 실패를 명시적으로 처리해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Tie account creation, role changes and removal to approved lifecycle events.",
+            "ko": "계정 생성, 역할 변경, 제거를 승인된 수명 주기 이벤트와 연결합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-3-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-3-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A transferred employee retains access from every previous role.",
+            "ko": "부서를 옮긴 직원이 이전 모든 역할의 접근을 유지합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-3 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-3에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:51763c47b7e21ecea53934061dbe99841bccb3f62197150c1317d3eb3f8b3bc1",
+      "control_id": "PA-3",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-3",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A transferred employee retains access from every previous role.",
+              "ko": "부서를 옮긴 직원이 이전 모든 역할의 접근을 유지합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Manage lifecycle of identities and entitlements",
+              "ko": "신원과 권한 수명 주기 관리"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Tie account creation, role changes and removal to approved lifecycle events.",
+              "ko": "계정 생성, 역할 변경, 제거를 승인된 수명 주기 이벤트와 연결합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Sample a departure and role transfer and verify timely access reconciliation.",
+              "ko": "퇴사와 역할 이동을 표본 확인하고 적시에 접근을 조정했는지 검증합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Obsolete accounts and accumulated entitlements can be removed.",
+              "ko": "오래된 계정과 누적된 권한을 제거할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Manage lifecycle of identities and entitlements",
+          "ko": "신원과 권한 수명 주기 관리"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-3 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-3의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Tie account creation, role changes and removal to approved lifecycle events.",
+          "ko": "계정 생성, 역할 변경, 제거를 승인된 수명 주기 이벤트와 연결합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-3-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-3-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Joiner, mover and leaver workflows keep access aligned with current duties. In FDAI, PA-3 is assessed through artifact:mcsb-pa-3-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "입사, 이동, 퇴사 절차는 접근을 현재 업무와 맞춥니다. FDAI는 PA-3을 artifact:mcsb-pa-3-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:222171555d2f550cb0b490c6969c4b890d462ec6d6714ec117105c53876e3c6f",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Joiner, mover and leaver workflows keep access aligned with current duties.",
+        "ko": "입사, 이동, 퇴사 절차는 접근을 현재 업무와 맞춥니다."
+      },
+      "title": {
+        "en": "Manage lifecycle of identities and entitlements",
+        "ko": "신원과 권한 수명 주기 관리"
+      },
+      "verification_steps": [
+        {
+          "en": "Sample a departure and role transfer and verify timely access reconciliation.",
+          "ko": "퇴사와 역할 이동을 표본 확인하고 적시에 접근을 조정했는지 검증합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-3 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-3을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-4 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 180 days.",
+          "ko": "PA-4은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Reviewer sign-off alone does not demonstrate completed revocation.",
+          "ko": "검토자 승인만으로 철회 완료를 입증할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Excess entitlements can be found after organizational or workload changes.",
+        "ko": "조직이나 워크로드 변경 뒤의 과도한 권한을 찾을 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Reviewers need enough context and independence to make meaningful decisions.",
+          "ko": "검토자에게 의미 있는 결정을 위한 충분한 맥락과 독립성이 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Assign reviewers and reconcile users, roles and justified exceptions.",
+            "ko": "검토자를 배정하고 사용자, 역할, 타당한 예외를 대조합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-4-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-4-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "An access review is approved in bulk without checking role purpose.",
+            "ko": "역할 목적을 확인하지 않고 접근 검토를 일괄 승인합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-4 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-4에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:a7ed2fc8e086d2b41e2129455f428d3985dc50004445a34408a085c09183466a",
+      "control_id": "PA-4",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-4",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "An access review is approved in bulk without checking role purpose.",
+              "ko": "역할 목적을 확인하지 않고 접근 검토를 일괄 승인합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Review and reconcile user access regularly",
+              "ko": "사용자 접근의 정기 검토와 조정"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Assign reviewers and reconcile users, roles and justified exceptions.",
+              "ko": "검토자를 배정하고 사용자, 역할, 타당한 예외를 대조합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace a revoked entitlement to its actual removal and verify a retained one has rationale.",
+              "ko": "철회한 권한의 실제 제거를 추적하고 유지 권한의 이유를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Excess entitlements can be found after organizational or workload changes.",
+              "ko": "조직이나 워크로드 변경 뒤의 과도한 권한을 찾을 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Review and reconcile user access regularly",
+          "ko": "사용자 접근의 정기 검토와 조정"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-4 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-4의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Assign reviewers and reconcile users, roles and justified exceptions.",
+          "ko": "검토자를 배정하고 사용자, 역할, 타당한 예외를 대조합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-4-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-4-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Periodic attestation compares existing access with current business need. In FDAI, PA-4 is assessed through artifact:mcsb-pa-4-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "정기 확인은 기존 접근과 현재 업무 필요를 비교합니다. FDAI는 PA-4을 artifact:mcsb-pa-4-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:c9ad57d549d6a8259f2a314f2bdc6af63fd1f202bb67f511524563a99534d20e",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Periodic attestation compares existing access with current business need.",
+        "ko": "정기 확인은 기존 접근과 현재 업무 필요를 비교합니다."
+      },
+      "title": {
+        "en": "Review and reconcile user access regularly",
+        "ko": "사용자 접근의 정기 검토와 조정"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace a revoked entitlement to its actual removal and verify a retained one has rationale.",
+          "ko": "철회한 권한의 실제 제거를 추적하고 유지 권한의 이유를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-4 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-4을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-5 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 180 days.",
+          "ko": "PA-5은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Emergency access is not a blanket exemption from audit or scope constraints.",
+          "ko": "비상 접근은 감사나 범위 제약의 포괄적 면제가 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Identity outages need not remove every recovery option.",
+        "ko": "신원 장애가 모든 복구 방안을 없애지 않게 할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Do not expose emergency credentials in reports or automated tests.",
+          "ko": "보고서나 자동 테스트에 비상 자격 증명을 노출하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define protected emergency access, ownership, monitoring and periodic authorized drills.",
+            "ko": "보호된 비상 접근, 담당자, 모니터링, 정기 승인 훈련을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-5-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-5-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Emergency credentials are unknown, untested or used for routine work.",
+            "ko": "비상 자격 증명이 알려지지 않았거나 시험하지 않았거나 일상 작업에 사용됩니다."
+          },
+          {
+            "en": "Illustrative gap: PA-5 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-5에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9cb5372d5dabc898e5d3883c26ffd20316d9eb7278ab6b54419401e0ff9c39f1",
+      "control_id": "PA-5",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-5",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Emergency credentials are unknown, untested or used for routine work.",
+              "ko": "비상 자격 증명이 알려지지 않았거나 시험하지 않았거나 일상 작업에 사용됩니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Set up emergency access",
+              "ko": "비상 접근 준비"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define protected emergency access, ownership, monitoring and periodic authorized drills.",
+              "ko": "보호된 비상 접근, 담당자, 모니터링, 정기 승인 훈련을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run an authorized recovery drill and verify alerting and post-use review.",
+              "ko": "승인된 복구 훈련을 실행하고 경고 및 사용 후 검토를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Identity outages need not remove every recovery option.",
+              "ko": "신원 장애가 모든 복구 방안을 없애지 않게 할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Set up emergency access",
+          "ko": "비상 접근 준비"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-5 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-5의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define protected emergency access, ownership, monitoring and periodic authorized drills.",
+          "ko": "보호된 비상 접근, 담당자, 모니터링, 정기 승인 훈련을 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-5-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-5-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Protected emergency access provides recovery when normal administration is unavailable. In FDAI, PA-5 is assessed through artifact:mcsb-pa-5-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "보호된 비상 접근은 일반 관리가 불가능할 때 복구 경로를 제공합니다. FDAI는 PA-5을 artifact:mcsb-pa-5-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:99862bb1e338ed39bf263a1f8e65329ed8c9a50a2db460abc8e9a0ddab4cb880",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Protected emergency access provides recovery when normal administration is unavailable.",
+        "ko": "보호된 비상 접근은 일반 관리가 불가능할 때 복구 경로를 제공합니다."
+      },
+      "title": {
+        "en": "Set up emergency access",
+        "ko": "비상 접근 준비"
+      },
+      "verification_steps": [
+        {
+          "en": "Run an authorized recovery drill and verify alerting and post-use review.",
+          "ko": "승인된 복구 훈련을 실행하고 경고 및 사용 후 검토를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-5 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-5을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-6 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 180 days.",
+          "ko": "PA-6은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A remote desktop connection alone does not establish a hardened workstation.",
+          "ko": "원격 데스크톱 연결만으로 강화 워크스테이션이 성립하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Compromised browsing or email environments have fewer routes to administrative sessions.",
+        "ko": "침해된 웹 사용이나 이메일 환경에서 관리 세션으로 이어지는 경로를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Recovery access must be designed if the dedicated channel is unavailable.",
+          "ko": "전용 경로가 불가능할 때를 위한 복구 접근을 설계해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Use approved hardened workstations or administration channels with scoped access.",
+            "ko": "제한된 접근을 갖춘 승인된 강화 워크스테이션이나 관리 경로를 사용합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-6-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-6-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Production administration uses the same unmanaged device as personal browsing.",
+            "ko": "개인 웹 사용과 같은 비관리 기기로 운영 환경을 관리합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-6 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-6에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:66b78ee2c6a415050f4dcdfe4725a08b87d6a85868a1d625686280e1ad553dbf",
+      "control_id": "PA-6",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-6",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Production administration uses the same unmanaged device as personal browsing.",
+              "ko": "개인 웹 사용과 같은 비관리 기기로 운영 환경을 관리합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Use privileged access workstations / channel for administrative tasks",
+              "ko": "관리 작업용 보안 워크스테이션과 경로 사용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Use approved hardened workstations or administration channels with scoped access.",
+              "ko": "제한된 접근을 갖춘 승인된 강화 워크스테이션이나 관리 경로를 사용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test administrative access through the approved channel and rejection of an unapproved path.",
+              "ko": "승인 경로의 관리 접근과 미승인 경로의 거부를 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Compromised browsing or email environments have fewer routes to administrative sessions.",
+              "ko": "침해된 웹 사용이나 이메일 환경에서 관리 세션으로 이어지는 경로를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Use privileged access workstations / channel for administrative tasks",
+          "ko": "관리 작업용 보안 워크스테이션과 경로 사용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-6 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-6의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Use approved hardened workstations or administration channels with scoped access.",
+          "ko": "제한된 접근을 갖춘 승인된 강화 워크스테이션이나 관리 경로를 사용합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-6-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-6-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A hardened administrative channel isolates privileged sessions from everyday exposure. In FDAI, PA-6 is assessed through artifact:mcsb-pa-6-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "강화된 관리 경로는 권한 세션을 일상적인 노출에서 격리합니다. FDAI는 PA-6을 artifact:mcsb-pa-6-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e83c4a9925d47e05df0b5ca26d69ef9c16c8b9830c8f8eef2138afe4b1121743",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "A hardened administrative channel isolates privileged sessions from everyday exposure.",
+        "ko": "강화된 관리 경로는 권한 세션을 일상적인 노출에서 격리합니다."
+      },
+      "title": {
+        "en": "Use privileged access workstations / channel for administrative tasks",
+        "ko": "관리 작업용 보안 워크스테이션과 경로 사용"
+      },
+      "verification_steps": [
+        {
+          "en": "Test administrative access through the approved channel and rejection of an unapproved path.",
+          "ko": "승인 경로의 관리 접근과 미승인 경로의 거부를 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-6 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-6을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-7 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 1 days.",
+          "ko": "PA-7은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Role names alone do not describe effective permissions and inheritance.",
+          "ko": "역할 이름만으로 실제 권한과 상속을 설명할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "An operator error or compromise has a smaller authorized reach.",
+        "ko": "운영자 오류나 침해가 영향을 줄 수 있는 권한 범위를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Custom roles can drift and need versioned review.",
+          "ko": "사용자 지정 역할은 달라질 수 있으므로 버전 관리 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define a reviewed role and target scope matching the actual administrative task.",
+            "ko": "실제 관리 작업에 맞는 검토된 역할과 대상 범위를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-7-control-evidence, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:secret-store.rbac-authorization.enabled for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-7-control-evidence, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:secret-store.rbac-authorization.enabled 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A routine support task requires a subscription-wide owner role.",
+            "ko": "일상 지원 작업에 구독 전체 소유자 역할을 요구합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-7 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-7에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:1e03e55645e0731aafd912090432063d8defa96fc637c32e5be837b2345ed644",
+      "control_id": "PA-7",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-7",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A routine support task requires a subscription-wide owner role.",
+              "ko": "일상 지원 작업에 구독 전체 소유자 역할을 요구합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Follow just enough administration (least privilege) principle",
+              "ko": "필요한 최소 관리 권한 적용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define a reviewed role and target scope matching the actual administrative task.",
+              "ko": "실제 관리 작업에 맞는 검토된 역할과 대상 범위를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Perform the intended task and verify unrelated privileged operations are denied.",
+              "ko": "의도한 작업을 수행하고 무관한 권한 작업이 거부되는지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "An operator error or compromise has a smaller authorized reach.",
+              "ko": "운영자 오류나 침해가 영향을 줄 수 있는 권한 범위를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Follow just enough administration (least privilege) principle",
+          "ko": "필요한 최소 관리 권한 적용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-7 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-7의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define a reviewed role and target scope matching the actual administrative task.",
+          "ko": "실제 관리 작업에 맞는 검토된 역할과 대상 범위를 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-7-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-7-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:managed-identity.role-assignment.no-privileged-subscription-scope from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:managed-identity.role-assignment.no-privileged-subscription-scope을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:managed-identity.role-assignment.no-wildcard-action from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:managed-identity.role-assignment.no-wildcard-action을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.rbac-authorization.enabled from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.rbac-authorization.enabled을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Task-scoped roles limit administration to the permissions required for the job. In FDAI, PA-7 is assessed through artifact:mcsb-pa-7-control-evidence, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:secret-store.rbac-authorization.enabled. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "작업 범위 역할은 관리를 업무에 필요한 권한으로 제한합니다. FDAI는 PA-7을 artifact:mcsb-pa-7-control-evidence, rule:managed-identity.role-assignment.no-privileged-subscription-scope, rule:managed-identity.role-assignment.no-wildcard-action, rule:secret-store.rbac-authorization.enabled 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:70d1c333cb54e2ae8b14d23e860ee38c5b0c274848598213c1f6d2a5bce0c51e",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Task-scoped roles limit administration to the permissions required for the job.",
+        "ko": "작업 범위 역할은 관리를 업무에 필요한 권한으로 제한합니다."
+      },
+      "title": {
+        "en": "Follow just enough administration (least privilege) principle",
+        "ko": "필요한 최소 관리 권한 적용"
+      },
+      "verification_steps": [
+        {
+          "en": "Perform the intended task and verify unrelated privileged operations are denied.",
+          "ko": "의도한 작업을 수행하고 무관한 권한 작업이 거부되는지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-7 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-7을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PA-8 only to the reviewed workload scope with accountable owner role mcsb-pa-owner; review cadence 180 days.",
+          "ko": "PA-8은 책임 역할 mcsb-pa-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Provider support features vary by service and must not be assumed universally available.",
+          "ko": "공급자 지원 기능은 서비스마다 다르므로 모두 제공된다고 가정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "External support can be reviewed without granting indefinite broad access.",
+        "ko": "무기한 광범위한 접근을 주지 않고 외부 지원을 검토할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Troubleshooting artifacts must not expose secrets or unnecessary customer data.",
+          "ko": "문제 해결 산출물에 비밀이나 불필요한 고객 데이터를 노출하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Document supported provider-access approval, duration, data handling and audit review.",
+            "ko": "지원하는 공급자 접근의 승인, 기간, 데이터 처리, 감사 검토를 문서화합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pa-8-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pa-8-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A support request is assumed to authorize unrestricted provider access.",
+            "ko": "지원 요청만으로 공급자의 무제한 접근을 허가했다고 가정합니다."
+          },
+          {
+            "en": "Illustrative gap: PA-8 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PA-8에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9beb06e65d89bd4114c921ee7ecd5ad12cfae95e3b745188d8433dc619898abd",
+      "control_id": "PA-8",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pa-8",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A support request is assumed to authorize unrestricted provider access.",
+              "ko": "지원 요청만으로 공급자의 무제한 접근을 허가했다고 가정합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Determine access process for cloud provider support",
+              "ko": "클라우드 공급자 지원 접근 절차 결정"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Document supported provider-access approval, duration, data handling and audit review.",
+              "ko": "지원하는 공급자 접근의 승인, 기간, 데이터 처리, 감사 검토를 문서화합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Review a support-access case for attributed approval, bounded scope and closure.",
+              "ko": "지원 접근 사례의 책임이 기록된 승인, 제한 범위, 종료를 검토합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "External support can be reviewed without granting indefinite broad access.",
+              "ko": "무기한 광범위한 접근을 주지 않고 외부 지원을 검토할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Determine access process for cloud provider support",
+          "ko": "클라우드 공급자 지원 접근 절차 결정"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PA-8 scope, owner mcsb-pa-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PA-8의 범위, 담당 역할 mcsb-pa-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Document supported provider-access approval, duration, data handling and audit review.",
+          "ko": "지원하는 공급자 접근의 승인, 기간, 데이터 처리, 감사 검토를 문서화합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pa-8-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pa-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pa-8-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pa-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A support-access process defines approval, scope and audit for provider-assisted access. In FDAI, PA-8 is assessed through artifact:mcsb-pa-8-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "지원 접근 절차는 공급자 지원 접근의 승인, 범위, 감사를 정합니다. FDAI는 PA-8을 artifact:mcsb-pa-8-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:1b93c2573dec1aeb4ee45dee6ba82be34dd8b9f0631d4cd798a036b82eb8ec62",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "A support-access process defines approval, scope and audit for provider-assisted access.",
+        "ko": "지원 접근 절차는 공급자 지원 접근의 승인, 범위, 감사를 정합니다."
+      },
+      "title": {
+        "en": "Determine access process for cloud provider support",
+        "ko": "클라우드 공급자 지원 접근 절차 결정"
+      },
+      "verification_steps": [
+        {
+          "en": "Review a support-access case for attributed approval, bounded scope and closure.",
+          "ko": "지원 접근 사례의 책임이 기록된 승인, 제한 범위, 종료를 검토합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PA-8 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PA-8을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-1 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-1은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A generic benchmark is not automatically suitable for every resource.",
+          "ko": "일반 벤치마크가 모든 리소스에 자동으로 적합한 것은 아닙니다."
+        }
+      ],
+      "benefits": {
+        "en": "Configuration decisions can be tested against a consistent reference.",
+        "ko": "구성 결정을 일관된 기준과 비교해 시험할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Baseline adoption needs compatibility and recovery review.",
+          "ko": "기준선 채택에는 호환성과 복구 검토가 필요합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define versioned secure settings and reviewed applicability or exceptions.",
+            "ko": "버전 관리한 안전 설정과 검토된 적용 범위 또는 예외를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-1-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-1-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Resources rely on undocumented defaults that differ across deployments.",
+            "ko": "리소스가 배포마다 다른 문서화되지 않은 기본값에 의존합니다."
+          },
+          {
+            "en": "Illustrative gap: PV-1 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-1에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:d2095416c9a5c5cb2064c018c3f980ad92a2571b8e7c8757c48e0d696a9309c4",
+      "control_id": "PV-1",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-1",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Resources rely on undocumented defaults that differ across deployments.",
+              "ko": "리소스가 배포마다 다른 문서화되지 않은 기본값에 의존합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define and establish secure configurations",
+              "ko": "안전한 구성 기준 수립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define versioned secure settings and reviewed applicability or exceptions.",
+              "ko": "버전 관리한 안전 설정과 검토된 적용 범위 또는 예외를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare representative resource settings with the approved baseline revision.",
+              "ko": "대표 리소스 설정을 승인한 기준선 리비전과 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Configuration decisions can be tested against a consistent reference.",
+              "ko": "구성 결정을 일관된 기준과 비교해 시험할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define and establish secure configurations",
+          "ko": "안전한 구성 기준 수립"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-1 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-1의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define versioned secure settings and reviewed applicability or exceptions.",
+          "ko": "버전 관리한 안전 설정과 검토된 적용 범위 또는 예외를 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-1-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-1-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A reviewed configuration baseline defines expected security settings. In FDAI, PV-1 is assessed through artifact:mcsb-pv-1-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "검토된 구성 기준선은 예상 보안 설정을 정합니다. FDAI는 PV-1을 artifact:mcsb-pv-1-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e78edbc04e809658b1982e5b104f946cf61f34696c7f78731c38b46e75e9478f",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "A reviewed configuration baseline defines expected security settings.",
+        "ko": "검토된 구성 기준선은 예상 보안 설정을 정합니다."
+      },
+      "title": {
+        "en": "Define and establish secure configurations",
+        "ko": "안전한 구성 기준 수립"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare representative resource settings with the approved baseline revision.",
+          "ko": "대표 리소스 설정을 승인한 기준선 리비전과 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-1 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-1을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-2 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-2은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Policy assignment is not equivalent to resource compliance.",
+          "ko": "정책 배정은 리소스의 준수와 같지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Nonconforming settings can reach an owned remediation decision.",
+        "ko": "기준에 맞지 않는 설정을 담당자가 수정 여부를 결정하도록 전달할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Enforcement can block deployment and must not be enabled without authority.",
+          "ko": "강제 적용은 배포를 막을 수 있으므로 권한 없이 활성화하지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Audit supported settings and stage approved enforcement with exception tracking.",
+            "ko": "지원 설정을 감사하고 예외를 추적하며 승인된 강제 적용을 단계적으로 진행합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-2-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-2-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A policy is assigned but its evaluation coverage and exceptions are unknown.",
+            "ko": "정책은 배정했지만 평가 범위와 예외를 알 수 없습니다."
+          },
+          {
+            "en": "Illustrative gap: PV-2 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-2에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:3efec1c692f96bf121385c7292f77ea226aa944585d2412c7031bc2c0a03cba7",
+      "control_id": "PV-2",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-2",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A policy is assigned but its evaluation coverage and exceptions are unknown.",
+              "ko": "정책은 배정했지만 평가 범위와 예외를 알 수 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Audit and enforce secure configurations",
+              "ko": "안전한 구성 감사와 강제 적용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Audit supported settings and stage approved enforcement with exception tracking.",
+              "ko": "지원 설정을 감사하고 예외를 추적하며 승인된 강제 적용을 단계적으로 진행합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Verify evaluation freshness and test a known compliant and noncompliant setting.",
+              "ko": "평가 최신 여부를 확인하고 적합 및 부적합 설정을 시험합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Nonconforming settings can reach an owned remediation decision.",
+              "ko": "기준에 맞지 않는 설정을 담당자가 수정 여부를 결정하도록 전달할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Audit and enforce secure configurations",
+          "ko": "안전한 구성 감사와 강제 적용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-2 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-2의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Audit supported settings and stage approved enforcement with exception tracking.",
+          "ko": "지원 설정을 감사하고 예외를 추적하며 승인된 강제 적용을 단계적으로 진행합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-2-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-2-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Drift assessment compares effective settings with the approved configuration baseline. In FDAI, PV-2 is assessed through artifact:mcsb-pv-2-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "드리프트 평가는 실제 설정을 승인한 구성 기준선과 비교합니다. FDAI는 PV-2을 artifact:mcsb-pv-2-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:4fe054c03d52e5dd34c0ec4beb6d50d10546341d870f49b2863fbc347169d295",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Drift assessment compares effective settings with the approved configuration baseline.",
+        "ko": "드리프트 평가는 실제 설정을 승인한 구성 기준선과 비교합니다."
+      },
+      "title": {
+        "en": "Audit and enforce secure configurations",
+        "ko": "안전한 구성 감사와 강제 적용"
+      },
+      "verification_steps": [
+        {
+          "en": "Verify evaluation freshness and test a known compliant and noncompliant setting.",
+          "ko": "평가 최신 여부를 확인하고 적합 및 부적합 설정을 시험합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-2 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-2을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-3 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-3은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "A cloud resource policy alone may not inspect guest operating-system settings.",
+          "ko": "클라우드 리소스 정책만으로 게스트 운영체제 설정을 검사하지 못할 수 있습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Images and hosts can share reviewable security defaults.",
+        "ko": "이미지와 호스트가 검토 가능한 보안 기본값을 공유할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Guest hardening may disable required agents or application features.",
+          "ko": "게스트 강화는 필수 에이전트나 애플리케이션 기능을 끌 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define compute hardening for supported images, services and management access.",
+            "ko": "지원 이미지, 서비스, 관리 접근의 컴퓨팅 강화 기준을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-3-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-3-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "VM images retain unreviewed operating-system defaults.",
+            "ko": "VM 이미지에 검토하지 않은 운영체제 기본값이 남아 있습니다."
+          },
+          {
+            "en": "Illustrative gap: PV-3 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-3에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:75ba3db0b1bcec847d19e3feacc9a2218811b961af080d053f9913229b08e4cb",
+      "control_id": "PV-3",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-3",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "VM images retain unreviewed operating-system defaults.",
+              "ko": "VM 이미지에 검토하지 않은 운영체제 기본값이 남아 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define and establish secure configurations for compute resources",
+              "ko": "컴퓨팅 리소스의 안전 구성 수립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define compute hardening for supported images, services and management access.",
+              "ko": "지원 이미지, 서비스, 관리 접근의 컴퓨팅 강화 기준을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect a built image and a running host against the same approved baseline.",
+              "ko": "빌드 이미지와 실행 호스트를 같은 승인 기준선에 따라 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Images and hosts can share reviewable security defaults.",
+              "ko": "이미지와 호스트가 검토 가능한 보안 기본값을 공유할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define and establish secure configurations for compute resources",
+          "ko": "컴퓨팅 리소스의 안전 구성 수립"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-3 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-3의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define compute hardening for supported images, services and management access.",
+          "ko": "지원 이미지, 서비스, 관리 접근의 컴퓨팅 강화 기준을 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-3-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-3-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Compute baselines define operating-system and runtime hardening expectations. In FDAI, PV-3 is assessed through artifact:mcsb-pv-3-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "컴퓨팅 기준선은 운영체제와 실행 환경의 강화 기준을 정합니다. FDAI는 PV-3을 artifact:mcsb-pv-3-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:00eb57ec4a351ee27db60cafe90f9ea2fbbd9e42b33492dbf472ba193997c828",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Compute baselines define operating-system and runtime hardening expectations.",
+        "ko": "컴퓨팅 기준선은 운영체제와 실행 환경의 강화 기준을 정합니다."
+      },
+      "title": {
+        "en": "Define and establish secure configurations for compute resources",
+        "ko": "컴퓨팅 리소스의 안전 구성 수립"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect a built image and a running host against the same approved baseline.",
+          "ko": "빌드 이미지와 실행 호스트를 같은 승인 기준선에 따라 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-3 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-3을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-4 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-4은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Unavailable guest telemetry must remain an explicit assessment gap.",
+          "ko": "사용할 수 없는 게스트 원격 분석은 명시적 평가 공백으로 남깁니다."
+        }
+      ],
+      "benefits": {
+        "en": "Host hardening can be checked after provisioning rather than assumed permanent.",
+        "ko": "호스트 강화를 생성 시점의 영구 상태로 가정하지 않고 이후에도 확인할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Automatic correction can conflict with application configuration management.",
+          "ko": "자동 수정은 애플리케이션 구성 관리와 충돌할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Audit supported guest settings and review authorized correction or exemptions.",
+            "ko": "지원 게스트 설정을 감사하고 승인된 수정이나 예외를 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-4-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-4-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A secure image drifts after manual host changes with no reassessment.",
+            "ko": "안전한 이미지가 수동 호스트 변경 후 달라져도 다시 평가하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: PV-4 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-4에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:37278e30d963346b9a63d4107b9edf46082bce22743c35caf006183f048e5659",
+      "control_id": "PV-4",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-4",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A secure image drifts after manual host changes with no reassessment.",
+              "ko": "안전한 이미지가 수동 호스트 변경 후 달라져도 다시 평가하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Audit and enforce secure configurations for compute resources",
+              "ko": "컴퓨팅 안전 구성 감사와 강제 적용"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Audit supported guest settings and review authorized correction or exemptions.",
+              "ko": "지원 게스트 설정을 감사하고 승인된 수정이나 예외를 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Introduce a safe test drift and confirm detection and approved correction.",
+              "ko": "안전한 테스트 이탈을 만들고 감지 및 승인된 수정을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Host hardening can be checked after provisioning rather than assumed permanent.",
+              "ko": "호스트 강화를 생성 시점의 영구 상태로 가정하지 않고 이후에도 확인할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Audit and enforce secure configurations for compute resources",
+          "ko": "컴퓨팅 안전 구성 감사와 강제 적용"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-4 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-4의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Audit supported guest settings and review authorized correction or exemptions.",
+          "ko": "지원 게스트 설정을 감사하고 승인된 수정이나 예외를 검토합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-4-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-4-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Guest configuration assessment exposes drift from the approved compute baseline. In FDAI, PV-4 is assessed through artifact:mcsb-pv-4-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "게스트 구성 평가는 승인한 컴퓨팅 기준선의 이탈을 드러냅니다. FDAI는 PV-4을 artifact:mcsb-pv-4-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:485fdabb955458c87057dfc04746f2c810d85b8017e35b998a6628893687bec6",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Guest configuration assessment exposes drift from the approved compute baseline.",
+        "ko": "게스트 구성 평가는 승인한 컴퓨팅 기준선의 이탈을 드러냅니다."
+      },
+      "title": {
+        "en": "Audit and enforce secure configurations for compute resources",
+        "ko": "컴퓨팅 안전 구성 감사와 강제 적용"
+      },
+      "verification_steps": [
+        {
+          "en": "Introduce a safe test drift and confirm detection and approved correction.",
+          "ko": "안전한 테스트 이탈을 만들고 감지 및 승인된 수정을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-4 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-4을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-5 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-5은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "An unscanned asset cannot be described as free of vulnerabilities.",
+          "ko": "검사하지 않은 자산에 취약점이 없다고 설명할 수 없습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Remediation can be prioritized using observed exposure and affected versions.",
+        "ko": "관측한 노출과 영향 버전을 바탕으로 수정 우선순위를 정할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Authenticated scans may need privileged access and careful credential handling.",
+          "ko": "인증 검사는 권한 접근과 신중한 자격 증명 처리가 필요할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Run approved supported assessments and assign triage for in-scope findings.",
+            "ko": "승인된 지원 평가를 실행하고 범위 내 발견 사항의 분류 담당자를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-5-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-5-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Hosts are inventoried but vulnerability results are stale or absent.",
+            "ko": "호스트 목록은 있지만 취약점 결과가 오래되었거나 없습니다."
+          },
+          {
+            "en": "Illustrative gap: PV-5 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-5에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:9708bb252b376cfc9a7ccdfe2053d281f1df82b5255978b15ede76f8985c7e8a",
+      "control_id": "PV-5",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-5",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Hosts are inventoried but vulnerability results are stale or absent.",
+              "ko": "호스트 목록은 있지만 취약점 결과가 오래되었거나 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Perform vulnerability assessments",
+              "ko": "취약점 평가 수행"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Run approved supported assessments and assign triage for in-scope findings.",
+              "ko": "승인된 지원 평가를 실행하고 범위 내 발견 사항의 분류 담당자를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Check scan coverage, freshness and a finding's affected version or configuration.",
+              "ko": "검사 범위, 최신 여부, 발견 사항의 영향 버전이나 구성을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Remediation can be prioritized using observed exposure and affected versions.",
+              "ko": "관측한 노출과 영향 버전을 바탕으로 수정 우선순위를 정할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Perform vulnerability assessments",
+          "ko": "취약점 평가 수행"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-5 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-5의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Run approved supported assessments and assign triage for in-scope findings.",
+          "ko": "승인된 지원 평가를 실행하고 범위 내 발견 사항의 분류 담당자를 정합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-5-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-5-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Current vulnerability assessment identifies exposed software and configuration weaknesses. In FDAI, PV-5 is assessed through artifact:mcsb-pv-5-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "최신 취약점 평가는 노출된 소프트웨어 및 구성 취약점을 식별합니다. FDAI는 PV-5을 artifact:mcsb-pv-5-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:338b1b253677cf17a4d43752add67c4a3d8867a30858e13ca58d5260420efa1e",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Current vulnerability assessment identifies exposed software and configuration weaknesses.",
+        "ko": "최신 취약점 평가는 노출된 소프트웨어 및 구성 취약점을 식별합니다."
+      },
+      "title": {
+        "en": "Perform vulnerability assessments",
+        "ko": "취약점 평가 수행"
+      },
+      "verification_steps": [
+        {
+          "en": "Check scan coverage, freshness and a finding's affected version or configuration.",
+          "ko": "검사 범위, 최신 여부, 발견 사항의 영향 버전이나 구성을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-5 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-5을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PV-6 only to the reviewed workload scope with accountable owner role mcsb-pv-owner; review cadence 180 days.",
+          "ko": "PV-6은 책임 역할 mcsb-pv-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Automation does not waive maintenance, approval or rollback requirements.",
+          "ko": "자동화가 유지보수, 승인, 롤백 요구를 면제하지는 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Known exposure can be reduced without treating deployment success as verification.",
+        "ko": "배포 성공을 검증으로 간주하지 않으면서 알려진 노출을 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A patch may require reboot or introduce incompatibility; retain stop conditions.",
+          "ko": "패치에는 재시작이 필요하거나 호환 문제가 생길 수 있으므로 중지 조건을 유지합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Prioritize exposure, test the fix and use an approved staged remediation path.",
+            "ko": "노출 우선순위를 정하고 수정을 시험한 뒤 승인된 단계적 수정 경로를 사용합니다."
+          },
+          {
+            "en": "Illustrative target: retain artifact:mcsb-pv-6-control-evidence for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 artifact:mcsb-pv-6-control-evidence 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Patches are deployed without checking the vulnerable version or service health afterward.",
+            "ko": "패치를 배포한 뒤 취약 버전이나 서비스 상태를 확인하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: PV-6 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PV-6에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:affe5b78518b55446f310fab1a959292fc5193f5d02248ca32078a1e367d5ff9",
+      "control_id": "PV-6",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-mcsb.pv-6",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Patches are deployed without checking the vulnerable version or service health afterward.",
+              "ko": "패치를 배포한 뒤 취약 버전이나 서비스 상태를 확인하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Rapidly and automatically remediate vulnerabilities",
+              "ko": "취약점의 신속하고 자동화된 수정"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Prioritize exposure, test the fix and use an approved staged remediation path.",
+              "ko": "노출 우선순위를 정하고 수정을 시험한 뒤 승인된 단계적 수정 경로를 사용합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Reassess the affected version and independently verify workload health.",
+              "ko": "영향 버전을 다시 평가하고 워크로드 상태를 독립적으로 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Known exposure can be reduced without treating deployment success as verification.",
+              "ko": "배포 성공을 검증으로 간주하지 않으면서 알려진 노출을 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Rapidly and automatically remediate vulnerabilities",
+          "ko": "취약점의 신속하고 자동화된 수정"
+        }
+      },
+      "framework_id": "azure-mcsb",
+      "implementation_steps": [
+        {
+          "en": "Confirm PV-6 scope, owner mcsb-pv-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PV-6의 범위, 담당 역할 mcsb-pv-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Prioritize exposure, test the fix and use an approved staged remediation path.",
+          "ko": "노출 우선순위를 정하고 수정을 시험한 뒤 승인된 단계적 수정 경로를 사용합니다."
+        },
+        {
+          "en": "Retain artifact:mcsb-pv-6-control-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner mcsb-pv-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:mcsb-pv-6-control-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 mcsb-pv-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Risk-based remediation connects findings to tested patches or bounded mitigations. In FDAI, PV-6 is assessed through artifact:mcsb-pv-6-control-evidence. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "위험 기반 수정은 발견 사항을 시험한 패치나 제한된 완화 조치와 연결합니다. FDAI는 PV-6을 artifact:mcsb-pv-6-control-evidence 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:1233693023cfe5a57713ca2dbf47e6ff44c8d6ff4c0abb8e472184b3da9a7c76",
+      "source_revision": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/security/benchmark/azure/overview-mcsb-v1"
+        }
+      ],
+      "summary": {
+        "en": "Risk-based remediation connects findings to tested patches or bounded mitigations.",
+        "ko": "위험 기반 수정은 발견 사항을 시험한 패치나 제한된 완화 조치와 연결합니다."
+      },
+      "title": {
+        "en": "Rapidly and automatically remediate vulnerabilities",
+        "ko": "취약점의 신속하고 자동화된 수정"
+      },
+      "verification_steps": [
+        {
+          "en": "Reassess the affected version and independently verify workload health.",
+          "ko": "영향 버전을 다시 평가하고 워크로드 상태를 독립적으로 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PV-6 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PV-6을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

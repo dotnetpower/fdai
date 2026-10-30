@@ -146,6 +146,63 @@ v1 control's server-owned state, and each requirement's evidence role, onto the 
 The Console shows that state beside implementation coverage and never derives it. See
 [Framework Rule Evidence from T0](framework-rule-evidence.md#mcsb-assessment).
 
+## Control enablement and implementation guidance
+
+Controls with `critical`, `high`, or `medium` severity start enabled for shadow assessment.
+`low` and `informational` controls start disabled. An explicit reviewed profile choice takes
+precedence over that default. Disabled controls remain in the complete result with
+`not_evaluated`, `unknown`, and a `control_disabled` limitation; disabling is not an approved
+not-applicable decision. Historical WARA recommendations remain disabled regardless of severity.
+
+WAF retains each Best Practice's severity, and WARA normalizes its published impact. Where CAF or
+MCSB doesn't publish a severity, FDAI uses an explicitly identified `medium` assessment priority;
+this is an FDAI default, not a severity attributed to Microsoft. The immutable assessment binds
+the resolved setting and any reviewed profile override. Rule activation remains independently
+governed, and enabling a control can't activate an unreviewed Rule or change an ActionType mode.
+
+All 59 WAF, 86 MCSB v1, and 15 CAF controls receive source-pinned English and Korean guidance.
+The detail read attaches one identity- and revision-matched guide with applicability, illustrative
+before/after state, implementation and verification steps, cautions, a directed diagram, and public
+references. List reads don't embed the corpus. Guidance and its digest are presentation metadata,
+not observed evidence, approval, or an assessment verdict.
+
+The materializer validates the installed guidance against the reviewed assessment and the current
+definition bytes before publishing its source pins. Detail fields `guidance_source_revision` and
+`guidance_source_digest` retain the assessment's `source_revision_digest` and the selected control's
+`specification_digest`, respectively. They never replace CAF's original `source_revision`.
+Missing legacy pins produce an explicit unavailable guide; present mismatched pins fail the read.
+MCSB v2-preview never inherits a v1 guide. A detail revision covers both its guide digest and any
+authoritative Rule projection used to show inert action candidates.
+
+Author changes in the control-specific source modules beside
+[`framework_guidance_build.py`](../../../scripts/catalog/framework_guidance_build.py), not in the
+packaged JSON. After a reviewed assessment change, regenerate the assessment catalogs first,
+then run `uv run python scripts/catalog/framework_guidance_build.py`. Use the same command with
+`--check` to verify exact accounting, source pins, and generated-file equality.
+
+**Design critique and revision.** Filtering disabled controls out would hide the framework
+denominator, while treating them as not applicable would invent approval. Keep them visible and
+unknown instead. Reusing the existing WARA presentation primitives avoids three divergent
+renderers, but WAF, MCSB, and CAF keep their own identities and assessment semantics. Remediation
+guidance can identify reviewed Rule and ActionType connections; it cannot claim execution support
+from a crosswalk alone. Actual changes continue through the existing risk, approval, promotion,
+rollback, target-lock, dry-run, idempotency, audit, and independent effect-verification gates.
+
+### Reviewed installation preferences
+
+Both assessment jobs accept an optional deployment-owned JSON bundle through
+`FDAI_CONTROL_ENABLEMENT_PROFILES_PATH`. Each entry pins the framework, source revision, exact
+scope digest, reviewer, review time, ordered `{control_id, enabled}` overrides, and a canonical
+profile digest. WAF, CAF, and MCSB use their assessment catalog's `source_revision_digest`;
+WARA uses the pinned APRL source revision. Missing optional profiles retain severity defaults.
+An unreadable, malformed, oversized, future-dated, wrong-scope, or wrong-revision profile fails
+explicitly rather than silently reverting to defaults.
+
+The configured framework reviewer also matches the preference reviewer. Resolved WAF, CAF, and
+MCSB choices enter the existing immutable reviewed assessment profile and audit flow; WARA retains
+the complete preference profile with its result. The Console displays these server-owned settings.
+This input adds no browser mutation endpoint, Rule activation, or resource-execution permission.
+
 ## Deployment-supplied profile
 
 A profile covers the catalog's complete control-id set. Every control is explicitly `applicable` or

@@ -50,6 +50,7 @@ from fdai.delivery.authoritative_stewardship_projection import (
 from fdai.delivery.authoritative_workflow_projection import (
     _workflow_catalog,
 )
+from fdai.delivery.framework_guidance_presentation import validate_framework_guidance_inputs
 from fdai.delivery.ontology_console_projection import (
     build_catalog_topology,
 )
@@ -172,6 +173,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         )
         for framework_id in ("azure-waf", "azure-caf", "azure-mcsb")
     }
+    validate_framework_guidance_inputs(catalog_root, framework_assessments)
     caf_framework = next(item for item in frameworks if item.id == "azure-caf")
     wara_framework = next(item for item in frameworks if item.id == "azure-wara")
     wara_assessment, wara_queries = load_wara_assessment_catalog(

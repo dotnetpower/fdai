@@ -62,14 +62,66 @@ resource "azurerm_log_analytics_workspace" "workers" {
   tags                = local.worker_tags
 }
 
+resource "azurerm_network_security_group" "controller" {
+  name                = "nsg-${var.name}-controller"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.controller.name
+  tags                = local.tags
+}
+
+resource "azurerm_virtual_network" "controller" {
+  name                = "vnet-${var.name}-controller"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.controller.name
+  address_space       = ["10.241.0.0/22"]
+  tags                = local.tags
+}
+
+resource "azurerm_subnet" "controller_apps" {
+  name                 = "snet-controller-apps"
+  resource_group_name  = azurerm_resource_group.controller.name
+  virtual_network_name = azurerm_virtual_network.controller.name
+  address_prefixes     = ["10.241.0.0/23"]
+
+  delegation {
+    name = "container-apps"
+    service_delegation {
+      name    = "Microsoft.App/environments"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
+resource "azurerm_subnet_network_security_group_association" "controller_apps" {
+  subnet_id                 = azurerm_subnet.controller_apps.id
+  network_security_group_id = azurerm_network_security_group.controller.id
+}
+
+resource "azurerm_subnet" "controller_pe" {
+  name                              = "snet-controller-pe"
+  resource_group_name               = azurerm_resource_group.controller.name
+  virtual_network_name              = azurerm_virtual_network.controller.name
+  address_prefixes                  = ["10.241.2.0/24"]
+  private_endpoint_network_policies = "Disabled"
+}
+
+resource "azurerm_subnet_network_security_group_association" "controller_pe" {
+  subnet_id                 = azurerm_subnet.controller_pe.id
+  network_security_group_id = azurerm_network_security_group.controller.id
+}
+
 # Separate environments, not just separate app identities: build code never shares the
 # controller's managed-identity endpoint, environment, state mount or workspace.
 resource "azurerm_container_app_environment" "controller" {
-  name                       = "cae-${var.name}-controller"
-  resource_group_name        = azurerm_resource_group.controller.name
-  location                   = var.location
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.controller.id
-  tags                       = local.tags
+  name                           = "cae-${var.name}-controller"
+  resource_group_name            = azurerm_resource_group.controller.name
+  location                       = var.location
+  log_analytics_workspace_id     = azurerm_log_analytics_workspace.controller.id
+  infrastructure_subnet_id       = azurerm_subnet.controller_apps.id
+  internal_load_balancer_enabled = false
+  tags                           = local.tags
+
+  depends_on = [azurerm_subnet_network_security_group_association.controller_apps]
 }
 
 resource "azurerm_container_app_environment" "workers" {
@@ -80,17 +132,13 @@ resource "azurerm_container_app_environment" "workers" {
   tags                       = local.worker_tags
 }
 
-# The controller has no VNet attachment. Public Blob HTTPS is Entra-only, not
-# anonymous access; adding a private endpoint requires a separate trusted subnet.
+# Dedicated controller VNet + private endpoint keep state Blob traffic off the public
+# internet without sharing the untrusted worker or application networks.
 # Blob service diagnostic settings below replace legacy shared-key queue logging.
 # Platform-managed double encryption avoids adding a Key Vault/key-management identity.
-#trivy:ignore:AZU-0012
 #trivy:ignore:AZU-0057
 #trivy:ignore:AZU-0060
 resource "azurerm_storage_account" "state" {
-  # checkov:skip=CKV_AZURE_59:Dedicated non-VNet controller uses authenticated HTTPS to Blob; shared keys and anonymous access are disabled and its RBAC is container-scoped.
-  # checkov:skip=CKV_AZURE_190:No application or worker network is attached; a private endpoint needs a separately reviewed controller VNet, not the untrusted CI subnet.
-  # checkov:skip=CKV2_AZURE_33:Private endpoints require a separately reviewed trusted controller VNet; this Blob-only account uses Entra-authenticated HTTPS and container-only RBAC.
   # checkov:skip=CKV2_AZURE_1:Platform-managed double encryption protects isolated nonsecret CI state without introducing a Key Vault/key-management identity.
   # checkov:skip=CKV_AZURE_33:Queues are not used; Blob read/write/delete diagnostics are enabled below without enabling shared-key Storage Analytics.
   # checkov:skip=CKV_AZURE_206:ZRS replicates this single-region CI lease/state across availability zones; geographic failover of stale controller state is not part of this root's recovery contract.
@@ -108,8 +156,13 @@ resource "azurerm_storage_account" "state" {
   allow_nested_items_to_be_public   = false
   cross_tenant_replication_enabled  = false
   local_user_enabled                = false
-  public_network_access_enabled     = true
+  public_network_access_enabled     = false
   tags                              = local.tags
+
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["AzureServices"]
+  }
 
   blob_properties {
     versioning_enabled       = true
@@ -122,6 +175,46 @@ resource "azurerm_storage_account" "state" {
       days = 7
     }
   }
+}
+
+resource "azurerm_private_dns_zone" "state_blob" {
+  name                = "privatelink.blob.core.windows.net"
+  resource_group_name = azurerm_resource_group.controller.name
+  tags                = local.tags
+}
+
+resource "azurerm_private_dns_zone_virtual_network_link" "state_blob" {
+  name                  = "link-${var.name}-state-blob"
+  resource_group_name   = azurerm_resource_group.controller.name
+  private_dns_zone_name = azurerm_private_dns_zone.state_blob.name
+  virtual_network_id    = azurerm_virtual_network.controller.id
+  registration_enabled  = false
+  tags                  = local.tags
+}
+
+resource "azurerm_private_endpoint" "state_blob" {
+  name                = "pe-${var.name}-state-blob"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.controller.name
+  subnet_id           = azurerm_subnet.controller_pe.id
+  tags                = local.tags
+
+  private_service_connection {
+    name                           = "psc-${var.name}-state-blob"
+    private_connection_resource_id = azurerm_storage_account.state.id
+    is_manual_connection           = false
+    subresource_names              = ["blob"]
+  }
+
+  private_dns_zone_group {
+    name                 = "default"
+    private_dns_zone_ids = [azurerm_private_dns_zone.state_blob.id]
+  }
+
+  depends_on = [
+    azurerm_subnet_network_security_group_association.controller_pe,
+    azurerm_private_dns_zone_virtual_network_link.state_blob,
+  ]
 }
 
 resource "azurerm_storage_container" "state" {

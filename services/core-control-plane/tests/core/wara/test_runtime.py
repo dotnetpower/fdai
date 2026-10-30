@@ -137,6 +137,7 @@ def test_site_candidate_union_uses_exact_observed_provider_identity() -> None:
         for item in catalog.recommendations
         if item.applicability.normalized_provider_type == "microsoft.web/sites"
         and item.manual_evidence is not None
+        and item.impact in {"Medium", "High"}
     )
     assert record.applicability.canonical_resource_type is None
     assert record.applicability.canonical_resource_types == ("compute.function", "compute.web-app")
@@ -585,6 +586,7 @@ async def test_service_collects_exact_observations_before_assessment() -> None:
         candidate.aprl_guid
         for candidate in catalog.recommendations
         if candidate.query_review is not None
+        and candidate.impact in {"Medium", "High"}
         and bindings.resolve(candidate.aprl_guid, candidate.query_review.body_digest) is not None
         and candidate.applicability.disposition is ResourceTypeDisposition.CANONICAL
         and request.resources[0].provider_resource_type.casefold()

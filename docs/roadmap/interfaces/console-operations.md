@@ -22,6 +22,14 @@ The Operations area reads existing domain projections and submits requests throu
 that already owns each schema and lifecycle. The responsible agents judge, approve, execute,
 recover, and audit the request through typed events.
 
+Framework control details keep server-owned enablement separate from assessed satisfaction and
+original source provenance. The shared bilingual guide renderer covers WAF, MCSB, and CAF alongside
+the existing WARA view; missing guides or mismatched guide pins stay explicit. Inert Rule/ActionType
+references link to existing Rule details and add no execution control. Reviewed profile overrides,
+the medium-or-higher default, and source-pin admission remain owned by
+[framework assessment](../rules-and-detection/framework-assessment.md#control-enablement-and-implementation-guidance),
+not browser inference or another authorization path.
+
 ![Design at a glance. The main stages are FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.en.svg)
 
 ## Architectural decision
