@@ -164,6 +164,8 @@ class Controller:
                 and bool(exclusive.intersection(label.casefold() for label in row["labels"]))
                 for row in jobs
             )
+            if name == "general" and any(row.get("name") == "plan pool canary" for row in jobs):
+                queued = max(queued, policy.maximum)
             current = self.state.read()
             owned = [
                 worker
