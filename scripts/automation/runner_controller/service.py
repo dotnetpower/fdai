@@ -185,8 +185,13 @@ def handler(
                     self.reply(200, {"accepted": True})
             except (ValueError, KeyError, TypeError):
                 self.reply(409, {"error": "invalid_or_used_worker_request"})
-            except (ProviderError, LeaseLostError, TimeoutError):
+            except (LeaseLostError, TimeoutError):
                 stop.set()
+                wake.set()
+                self.reply(503, {"error": "controller_provider_or_lease_unavailable"})
+            except ProviderError:
+                if not getattr(controller.state, "alive", True):
+                    stop.set()
                 wake.set()
                 self.reply(503, {"error": "controller_provider_or_lease_unavailable"})
             except (BrokenPipeError, ConnectionResetError):
@@ -271,8 +276,22 @@ def main() -> int:
                 while not stop.is_set():
                     started = time.monotonic()
                     lease_state.renew()
-                    receipt = controller.reconcile()
-                    print(json.dumps({"event": "capacity_reconciled", **receipt}), flush=True)
+                    try:
+                        receipt = controller.reconcile()
+                    except ProviderError as error:
+                        if not lease_state.alive or controller.last_success is None:
+                            raise
+                        print(
+                            json.dumps(
+                                {
+                                    "event": "controller_reconcile_TransientProviderError",
+                                    "provider_status": error.status,
+                                }
+                            ),
+                            flush=True,
+                        )
+                    else:
+                        print(json.dumps({"event": "capacity_reconciled", **receipt}), flush=True)
                     wake.wait(settings.interval_seconds)
                     wake.clear()
                     stop.wait(max(0, 2 - (time.monotonic() - started)))
