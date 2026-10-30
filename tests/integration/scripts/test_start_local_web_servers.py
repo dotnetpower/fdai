@@ -225,6 +225,23 @@ def test_design_mocks_launcher_serves_repository_root(tmp_path: Path) -> None:
     launcher = repo / "scripts/deployment/local/start-design-mocks.sh"
     launcher.parent.mkdir(parents=True)
     shutil.copy2(_DESIGN_MOCKS_SCRIPT, launcher)
+    _write_executable(
+        repo / "scripts/automation/run-local-service.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == design-mocks ]]
+[[ "$2" == "$PWD/.fdai/local-logs/design-mocks.log" ]]
+[[ "$3" == -- ]]
+[[ "$FDAI_LOCAL_SERVICE_REUSE_EXISTING" == 1 ]]
+[[ "$FDAI_LOCAL_SERVICE_RESTART_STALE" == 0 ]]
+[[ "$FDAI_LOCAL_SERVICE_INPUT_DIGEST" =~ ^[0-9a-f]{64}$ ]]
+[[ "$FDAI_LOCAL_SERVICE_LOG_FORMAT" == raw ]]
+shift 3
+exec "$@"
+""",
+    )
+    for dependency in ("run-local-service-child.py", "capture-local-service-log.py"):
+        (repo / "scripts/automation" / dependency).write_text("", encoding="utf-8")
     log_path = repo / "launcher.log"
     fake_bin = tmp_path / "bin"
     _write_executable(
