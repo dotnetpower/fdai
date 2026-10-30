@@ -21,6 +21,7 @@ _RUNNER_NAME = re.compile(r"[A-Za-z0-9_.-]{1,64}")
 _MAX_PAGES = 100
 _MAX_WORKFLOW_BYTES = 1024 * 1024
 _MAX_CACHED_GETS = 512
+_CI_WORKFLOW_FILES = ("ci.yml", "container-supply-chain.yml")
 
 
 def _id(value: Any) -> int:
@@ -177,26 +178,34 @@ class GitHubAPI:
         return self._pages("/actions/runners", "runners")
 
     def queued_jobs(self) -> list[dict[str, Any]]:
+        """Observe only canonical CI queues; provider errors never become empty demand."""
         jobs: list[dict[str, Any]] = []
-        seen_runs: set[int] = set()
+        seen_runs: dict[int, str] = {}
         seen_jobs: set[int] = set()
-        for status in ("queued", "in_progress"):
-            runs = self._pages(f"/actions/workflows/ci.yml/runs?status={status}", "workflow_runs")
-            for run in runs:
-                if run.get("status") not in ("queued", "in_progress"):
-                    continue
-                run_id = _id(run.get("id"))
-                if run_id in seen_runs:
-                    continue
-                seen_runs.add(run_id)
-                for job in self._pages(f"/actions/runs/{run_id}/jobs?filter=latest", "jobs"):
-                    if job.get("status") not in ("queued", "in_progress"):
+        for workflow in _CI_WORKFLOW_FILES:
+            for status in ("queued", "in_progress"):
+                runs = self._pages(
+                    f"/actions/workflows/{workflow}/runs?status={status}", "workflow_runs"
+                )
+                for run in runs:
+                    if run.get("status") not in ("queued", "in_progress"):
                         continue
-                    job_id = _id(job.get("id"))
-                    if job_id in seen_jobs:
+                    if run.get("path") != f".github/workflows/{workflow}":
                         raise ProviderError("invalid_response")
-                    seen_jobs.add(job_id)
-                    jobs.append({**job, "_run": dict(run)})
+                    run_id = _id(run.get("id"))
+                    if run_id in seen_runs:
+                        if seen_runs[run_id] != workflow:
+                            raise ProviderError("invalid_response")
+                        continue
+                    seen_runs[run_id] = workflow
+                    for job in self._pages(f"/actions/runs/{run_id}/jobs?filter=latest", "jobs"):
+                        if job.get("status") not in ("queued", "in_progress"):
+                            continue
+                        job_id = _id(job.get("id"))
+                        if job_id in seen_jobs:
+                            raise ProviderError("invalid_response")
+                        seen_jobs.add(job_id)
+                        jobs.append({**job, "_run": dict(run)})
         return jobs
 
     def jit(self, name: str, labels: list[str]) -> tuple[int, str]:

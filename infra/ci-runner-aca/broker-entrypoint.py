@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import os
 import subprocess
@@ -48,6 +49,25 @@ def request(origin: str, endpoint: str, payload: dict[str, object]) -> dict[str,
     return result
 
 
+def notify_started(origin: str, auth: dict[str, object]) -> None:
+    """A failed observation cannot terminate an already-running workflow child."""
+    try:
+        request(origin, "/started", auth)
+    except (OSError, ValueError, KeyError, http.client.HTTPException) as error:
+        print(
+            json.dumps(
+                {
+                    "event": "worker_started_notification_failed",
+                    "level": "warning",
+                    "failure_class": type(error).__name__,
+                    "child_preserved": True,
+                    "retry": False,
+                }
+            ),
+            flush=True,
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
@@ -86,11 +106,11 @@ def main(argv: list[str] | None = None) -> int:
     notified = False
     while process.poll() is None:
         if started.exists() and not notified:
-            request(origin, "/started", auth)
             notified = True
+            notify_started(origin, auth)
         time.sleep(0.1)
     if started.exists() and not notified:
-        request(origin, "/started", auth)
+        notify_started(origin, auth)
     code = process.returncode if process.returncode is not None and process.returncode >= 0 else 1
     request(origin, "/finished", {**auth, "exit_code": min(code, 255)})
     return code

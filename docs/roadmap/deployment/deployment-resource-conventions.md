@@ -502,6 +502,15 @@ operational exit criteria.
 
 ### Design critique and revision
 
+- **Dispatch and handover**: use at most eight concurrent provider starts, with a 120-second
+  dispatch deadline and durable per-worker reservations. Cancelling pending dispatch never stops
+  a running CI job. The unavailable HTTP front grants no authority; acquire the lease and verify
+  scope before activating the broker. An expected lease conflict has a bounded 90-second handover.
+- **Controller outages**: a failed job-start callback reports a warning but preserves the running
+  listener. Missing credentials remain explicitly unavailable until credential entry and restart.
+- **CI image builds**: admit only allowlisted CI validation jobs. Artifact publication retains its
+  own production source verifier, permissions and main-only condition. Publish the expanded guard
+  before wiring the additional workflow; a CI admission dependency does not grant publication authority.
 - **Double scaling**: separate Manual Job ownership and `fdai-ci-general` demand from legacy KEDA.
 - **Drain race**: reserve retirement under the state lock, but require natural terminal evidence
   rather than equating registration removal with completion.

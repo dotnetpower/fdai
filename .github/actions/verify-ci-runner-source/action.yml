@@ -7,7 +7,7 @@ inputs:
     description: Exact github.sha of this CI run, including the PR merge commit.
     required: true
   workflow-path:
-    description: Must be .github/workflows/ci.yml.
+    description: Explicitly allowed CI validation workflow (ci.yml or container-supply-chain.yml).
     required: true
   origin-url:
     description: Credential-free HTTPS Git URL of this run's repository.

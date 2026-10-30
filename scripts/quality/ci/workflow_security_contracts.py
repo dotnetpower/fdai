@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from scripts.quality.ci import ci_pool_routes
 
 PRIVILEGED_COMMAND_RE = re.compile(
     r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
@@ -30,9 +31,14 @@ CI_CANDIDATE_WORKFLOW = ".github/workflows/ci.yml"
 
 def uses_ci_candidate_guard(document: Any) -> bool:
     """Recognize only the additive CI guard, never a permission exemption."""
+    return uses_action(document, CI_CANDIDATE_ACTION_REF)
+
+
+def uses_action(document: Any, action_ref: str) -> bool:
+    """Identify action references without treating textual mentions as executed steps."""
     jobs = document.get("jobs") if isinstance(document, dict) else None
     return isinstance(jobs, dict) and any(
-        isinstance(step, dict) and step.get("uses") == CI_CANDIDATE_ACTION_REF
+        isinstance(step, dict) and step.get("uses") == action_ref
         for job in jobs.values()
         if isinstance(job, dict) and isinstance(job.get("steps"), list)
         for step in job["steps"]
@@ -367,7 +373,7 @@ def condition_can_run_for_event(condition: Any, event_name: str) -> bool:
 
 
 def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
-    """Keep every pull-request reachable supply-chain job read-only and hosted."""
+    """Keep PR jobs read-only and hosted or on exact guarded isolated CI pools."""
     if relative != ".github/workflows/container-supply-chain.yml":
         return []
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
@@ -383,7 +389,13 @@ def container_pr_boundary_errors(document: Any, relative: str) -> list[str]:
         permissions = job.get("permissions", default_permissions)
         if (
             permissions_are_privileged(permissions)
-            or runner_is_privileged(job.get("runs-on"))
+            or (
+                runner_is_privileged(job.get("runs-on"))
+                and not (
+                    uses_ci_candidate_guard(document)
+                    and ci_pool_routes.approved_container_runner(job_name, job.get("runs-on"))
+                )
+            )
             or node_uses_privileged_secret(job)
             or node_uses_privileged_secret(document.get("env"))
         ):
@@ -525,9 +537,10 @@ def protected_guard_prefix_errors(
     """Require each privileged job to own or depend on an exact verifier prefix."""
     if not isinstance(document, dict) or not isinstance(document.get("jobs"), dict):
         return [f"{relative} is privileged and has no executable protected-source guard"]
+    production_action_ref, production_guard_name = protected_action_ref, guard_name
     candidate_guard = uses_ci_candidate_guard(document)
     if candidate_guard:
-        if relative != CI_CANDIDATE_WORKFLOW:
+        if relative not in ci_pool_routes.VALIDATION_WORKFLOWS:
             return [f"{relative} cannot use the CI-only candidate verifier"]
         protected_action_ref = CI_CANDIDATE_ACTION_REF
         guard_name = "Verify CI candidate source"
@@ -536,30 +549,45 @@ def protected_guard_prefix_errors(
         *container_candidate_boundary_errors(document, relative),
     ]
     guarded_jobs: set[str] = set()
-    expected_checkout_with = {
+    production_checkout = {
         "ref": "main",
         "fetch-depth": 1,
         "sparse-checkout": ".github/actions/verify-protected-workflow-source",
         "path": ".fdai-protected-workflow-verifier",
     }
-    if candidate_guard:
-        expected_checkout_with = {
-            "ref": "main",
-            "fetch-depth": 1,
-            "sparse-checkout": ".github/actions/verify-ci-runner-source",
-            "path": ".fdai-ci-source-verifier",
-            "persist-credentials": False,
-        }
+    candidate_checkout = {
+        "ref": "main",
+        "fetch-depth": 1,
+        "sparse-checkout": ".github/actions/verify-ci-runner-source",
+        "path": ".fdai-ci-source-verifier",
+        "persist-credentials": False,
+    }
     for job_name, job in document["jobs"].items():
         if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
             continue
         steps = job["steps"]
+        publisher = (
+            candidate_guard
+            and relative == ci_pool_routes.CONTAINER
+            and job_name == "build-scan-attest"
+        )
+        job_candidate_guard = candidate_guard and not publisher
+        job_action_ref = production_action_ref if publisher else protected_action_ref
+        job_guard_name = production_guard_name if publisher else guard_name
+        if candidate_guard and relative == ci_pool_routes.CONTAINER:
+            if (
+                job_name not in ci_pool_routes.CONTAINER_VALIDATION_ROLES
+                and uses_ci_candidate_guard({"jobs": {job_name: job}})
+            ):
+                errors.append(f"{relative} job {job_name} cannot use CI admission as authority")
         guard_indexes = [
             index
             for index, step in enumerate(steps)
-            if isinstance(step, dict) and step.get("uses") == protected_action_ref
+            if isinstance(step, dict) and step.get("uses") == job_action_ref
         ]
         if not guard_indexes:
+            if publisher:
+                errors.append(f"{relative} job {job_name} must own its production-source prefix")
             continue
         guarded_jobs.add(job_name)
         if job.get("continue-on-error") not in {None, False}:
@@ -578,7 +606,8 @@ def protected_guard_prefix_errors(
         checkout, guard = steps[:2]
         allowed_condition = (
             "github.event_name != 'pull_request'"
-            if relative == ".github/workflows/container-supply-chain.yml"
+            if not candidate_guard
+            and relative == ".github/workflows/container-supply-chain.yml"
             and job_name == "select-images"
             else None
         )
@@ -586,11 +615,12 @@ def protected_guard_prefix_errors(
             checkout.get("name")
             != (
                 "Checkout CI source verifier"
-                if candidate_guard
+                if job_candidate_guard
                 else "Checkout protected workflow verifier"
             )
             or checkout.get("uses") != approved_checkout_ref
-            or checkout.get("with") != expected_checkout_with
+            or checkout.get("with")
+            != (candidate_checkout if job_candidate_guard else production_checkout)
             or checkout.get("continue-on-error") not in {None, False}
             or checkout.get("if") != allowed_condition
         ):
@@ -604,7 +634,7 @@ def protected_guard_prefix_errors(
             "${{ inputs.commit_sha != '' && inputs.commit_sha || github.sha }}",
             "${{ github.event_name == 'workflow_dispatch' && inputs.commit_sha || github.sha }}",
         }
-        if candidate_guard:
+        if job_candidate_guard:
             allowed_targets = {"${{ github.sha }}"}
             for prefix_step in (checkout, guard):
                 if not isinstance(prefix_step, dict) or set(prefix_step) - {
@@ -615,8 +645,8 @@ def protected_guard_prefix_errors(
                 }:
                     errors.append(f"{relative} job {job_name} has unsafe CI verifier prefix fields")
         if not isinstance(guard, dict) or (
-            guard.get("name") != guard_name
-            or guard.get("uses") != protected_action_ref
+            guard.get("name") != job_guard_name
+            or guard.get("uses") != job_action_ref
             or not isinstance(guard_with, dict)
             or guard_with.get("target-commit-sha") not in allowed_targets
             or guard_with.get("workflow-path") != relative
@@ -742,7 +772,11 @@ def validate_privileged_workflow_guards(
             guard_name=guard_name,
         )
         errors.extend(guard_errors)
-        if not guard_errors and not action_checked and not candidate_guard:
+        if (
+            not guard_errors
+            and not action_checked
+            and (not candidate_guard or uses_action(document, protected_action_ref))
+        ):
             errors.extend(protected_action_source_errors(action, expected_verifier_digest))
             action_checked = True
     return errors

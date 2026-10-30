@@ -25,6 +25,7 @@ from scripts.automation.runner_controller.transport import ProviderError
 from scripts.automation.runner_controller.workers import Workers
 
 MAX_BODY = 2 * 1024 * 1024
+LEASE_HANDOVER_SECONDS = 90.0
 
 
 class BoundedHTTPServer(ThreadingHTTPServer):
@@ -67,6 +68,55 @@ def verify_webhook(secret: str, signature: str, body: bytes) -> bool:
     return hmac.compare_digest(signature, expected)
 
 
+class JSONHandler(BaseHTTPRequestHandler):
+    def log_message(self, _format: str, *_args: Any) -> None:
+        # Never log paths, queries, tickets, headers or request/response bodies.
+        return
+
+    def reply(self, status: int, data: dict[str, Any]) -> None:
+        body = json.dumps(data).encode()
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+class UnavailableHandler(JSONHandler):
+    """Accept TCP handover probes without exposing broker or provider authority."""
+
+    def do_GET(self) -> None:
+        self.reply(503, {"ready": False, "authority": "none", "error": "controller_unavailable"})
+
+    def do_POST(self) -> None:
+        self.do_GET()
+
+
+def acquire_state(state: BlobState, stop: threading.Event) -> bool:
+    """Wait only for an unowned lease's expected acquire conflict, never provider outages."""
+    deadline = time.monotonic() + LEASE_HANDOVER_SECONDS
+    waiting = False
+    while not stop.is_set():
+        if time.monotonic() >= deadline:
+            raise LeaseLostError("controller lease handover deadline exceeded")
+        try:
+            state.open()
+            return not stop.is_set()
+        except ProviderError as error:
+            if error.status != 409 or state.alive:
+                raise
+            if not waiting:
+                print(
+                    json.dumps({"event": "controller_lease_wait", "authority": "none"}), flush=True
+                )
+                waiting = True
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise LeaseLostError("controller lease handover deadline exceeded") from None
+            stop.wait(min(2.0, remaining))
+    return False
+
+
 def handler(
     broker: Broker,
     controller: Controller,
@@ -74,19 +124,7 @@ def handler(
     webhook_secret: str,
     stop: threading.Event,
 ) -> type[BaseHTTPRequestHandler]:
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, _format: str, *_args: Any) -> None:
-            # Never include paths, queries, bootstrap tickets, headers or request/response bodies.
-            return
-
-        def reply(self, status: int, data: dict[str, Any]) -> None:
-            body = json.dumps(data).encode()
-            self.send_response(status)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
+    class Handler(JSONHandler):
         def do_GET(self) -> None:
             if self.path != "/health":
                 self.reply(404, {"error": "unknown_endpoint"})
@@ -147,13 +185,14 @@ def handler(
                     self.reply(200, {"accepted": True})
             except (ValueError, KeyError, TypeError):
                 self.reply(409, {"error": "invalid_or_used_worker_request"})
-            except (ProviderError, LeaseLostError):
+            except (ProviderError, LeaseLostError, TimeoutError):
                 stop.set()
                 wake.set()
                 self.reply(503, {"error": "controller_provider_or_lease_unavailable"})
             except (BrokenPipeError, ConnectionResetError):
                 # The ticket remains claimed; no credential is minted again for a lost response.
                 stop.set()
+                wake.set()
 
     return Handler
 
@@ -165,63 +204,95 @@ def main() -> int:
         hostname=os.environ.get("CONTAINER_APP_HOSTNAME", ""),
     )
     token = os.environ.pop("GITHUB_RUNNER_CREDENTIAL", "")
-    if token in {"", "unset"}:
-        raise ValueError("controller GitHub credential is unavailable; use direct credential setup")
     webhook_secret = os.environ.pop("GITHUB_WEBHOOK_SECRET", "")
     if webhook_secret in {"", "unset"}:
         webhook_secret = ""
-    pool_policies, metadata = policies(Path("config/ci-runner-pools.json"))
-    azure = AzureAPI(settings.subscription_id, settings.resource_group, ManagedIdentityToken())
-    state = BlobState(
-        settings.storage_url,
-        settings.storage_container,
-        settings.storage_blob,
-        ManagedIdentityToken(resource="https://storage.azure.com/"),
-    )
-    state.open()
-    github = GitHubAPI(token, settings.repository)
     wake, stop = threading.Event(), threading.Event()
-
-    def ensure_effects() -> None:
-        if stop.is_set():
-            raise LeaseLostError("controller is stopping")
-        state.renew()
-
-    controller = Controller(
-        settings, pool_policies, metadata, state, github, Workers(settings, azure, ensure_effects)
-    )
-    broker = Broker(state, github, metadata["pools"])
 
     def request_stop(_signal: int, _frame: Any) -> None:
         stop.set()
         wake.set()
 
-    signal.signal(signal.SIGTERM, request_stop)
-    signal.signal(signal.SIGINT, request_stop)
-    server = BoundedHTTPServer(
-        ("0.0.0.0", 8080),  # noqa: S104 - ACA terminates TLS before the replica port
-        handler(broker, controller, wake, webhook_secret, stop),
-    )
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    previous_signals = {
+        number: signal.signal(number, request_stop) for number in (signal.SIGTERM, signal.SIGINT)
+    }
+    server: BoundedHTTPServer | None = None
+    thread: threading.Thread | None = None
+    state: BlobState | None = None
     result = 0
     try:
-        controller.verify_scope()
-        while not stop.is_set():
-            started = time.monotonic()
-            state.renew()
-            receipt = controller.reconcile()
-            print(json.dumps({"event": "capacity_reconciled", **receipt}), flush=True)
-            wake.wait(settings.interval_seconds)
-            wake.clear()
-            stop.wait(max(0, 5 - (time.monotonic() - started)))
-    except (ProviderError, LeaseLostError, ValueError, KeyError, TypeError) as error:
+        server = BoundedHTTPServer(
+            ("0.0.0.0", 8080),  # noqa: S104 - ACA terminates TLS before the replica port
+            UnavailableHandler,
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        if token in {"", "unset"}:
+            print(
+                json.dumps({"event": "controller_unavailable", "reason": "credential_unavailable"}),
+                flush=True,
+            )
+            stop.wait()
+        else:
+            pool_policies, metadata = policies(Path("config/ci-runner-pools.json"))
+            azure = AzureAPI(
+                settings.subscription_id, settings.resource_group, ManagedIdentityToken()
+            )
+            lease_state = BlobState(
+                settings.storage_url,
+                settings.storage_container,
+                settings.storage_blob,
+                ManagedIdentityToken(resource="https://storage.azure.com/"),
+            )
+            state = lease_state
+            if acquire_state(lease_state, stop):
+                github = GitHubAPI(token, settings.repository)
+
+                def ensure_effects() -> None:
+                    if stop.is_set():
+                        raise LeaseLostError("controller is stopping")
+                    lease_state.renew()
+
+                controller = Controller(
+                    settings,
+                    pool_policies,
+                    metadata,
+                    lease_state,
+                    github,
+                    Workers(settings, azure, ensure_effects),
+                    stop=stop,
+                )
+                controller.verify_scope()
+                if not stop.is_set():
+                    broker = Broker(lease_state, github, metadata["pools"])
+                    server.RequestHandlerClass = handler(
+                        broker, controller, wake, webhook_secret, stop
+                    )
+                while not stop.is_set():
+                    started = time.monotonic()
+                    lease_state.renew()
+                    receipt = controller.reconcile()
+                    print(json.dumps({"event": "capacity_reconciled", **receipt}), flush=True)
+                    wake.wait(settings.interval_seconds)
+                    wake.clear()
+                    stop.wait(max(0, 5 - (time.monotonic() - started)))
+    except (
+        ProviderError,
+        LeaseLostError,
+        ValueError,
+        KeyError,
+        TypeError,
+        TimeoutError,
+        OSError,
+    ) as error:
         print(
             json.dumps(
                 {
                     "event": "controller_stopped",
                     "failure_class": type(error).__name__,
-                    "reason": str(error) if isinstance(error, ProviderError) else "scope_or_state",
+                    "reason": "provider_unavailable"
+                    if isinstance(error, (ProviderError, TimeoutError))
+                    else "scope_or_state",
                     "provider_status": error.status if isinstance(error, ProviderError) else None,
                 }
             ),
@@ -230,8 +301,21 @@ def main() -> int:
         result = 1
     finally:
         stop.set()
-        server.shutdown()
-        state.close()
+        wake.set()
+        if server is not None:
+            server.RequestHandlerClass = UnavailableHandler
+            if thread is not None and thread.is_alive():
+                server.shutdown()
+                thread.join(timeout=5)
+            server.server_close()
+        if state is not None:
+            try:
+                state.close()
+            except (ProviderError, LeaseLostError, OSError):
+                print(json.dumps({"event": "controller_lease_release_failed"}), flush=True)
+                result = 1
+        for number, previous in previous_signals.items():
+            signal.signal(number, previous)
     return result
 
 
