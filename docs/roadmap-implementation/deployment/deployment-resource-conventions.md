@@ -172,7 +172,15 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-30 | implemented | Repaired live elastic-runner image prerequisites: declare and verify timezone data and use `tini` as PID 1 to reap orphaned service children. | Current change in `infra/ci-runner/toolchain.json`, `verify-toolchain.py`, and `infra/ci-runner-aca/Dockerfile`; 22 focused tests passed. Exact failed image reproduction confirmed an unreaped zombie and missing `America/Buenos_Aires` data; run `40904690911` attempt 1 passed six of eight real elastic shards, with these two environment failures. | Publish and verify the repaired image, then retain a successful exact-source elastic run and lifecycle observations before enabling the route; see #2657. |
 
+| 2026-10-30 | implemented | Added a plan-only performance-first pool policy, deterministic warm-reserve capacity decisions, complete job inventory, shared-quota readiness checks, and successful-burst queue/drain acceptance checks. Revised the design after critique exposed KEDA/external-controller ownership conflict, the missing PR admission path, and the need for a separate short-lived registration broker and atomic drain interlock. | Current change in `config/ci-runner-pools.json`, `runner_pool_policy.py`, `plan_runner_pools.py`, `runner-pool-readiness.py`, and focused tests. No live routing or capacity was changed. | These are advisory decisions, not a running controller. Implement and validate the scoped management and PR admission boundaries before full cutover; retain real 8/16/32/64 burst and safe-drain evidence. See #2657. |
+
 ### Remaining work
+
+- [ ] Implement a separately scoped registration broker and controller with exclusive scaler ownership,
+  an atomic busy/idle drain interlock, and credential isolation from worker code before enabling
+  the plan-only warm-pool policy. Preserve the existing KEDA trigger until the reviewed cutover.
+- [ ] Retain successful PR/control/Docker-pool executions and complete 8/16/32/64 job accounting,
+  queue SLO measurements and automatic safe return to the ready reserve for the no-hosted rollout.
 
 - [ ] Complete protected delivery of the job-local OPA compatibility fix, verify the enabled opt-in
   takes effect on an actual main run, and retain exact-SHA CI results plus a comparable workload timing measurement in

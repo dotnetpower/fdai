@@ -1,6 +1,24 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { expect, test } from "vitest";
-import { decodeWaraGuidance, verifyWaraGuidanceDigest } from "./wara-guidance.model";
+import { decodeWaraGuidance, guidanceMissingKoreanFields, guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
+
+function assertKoreanReaderText(value: unknown, path: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertKoreanReaderText(item, `${path}[${index}]`));
+  } else if (typeof value === "object" && value !== null) {
+    if ("en" in value) {
+      expect("ko" in value && typeof value.ko === "string" && value.ko.trim().length > 0, path).toBe(true);
+      if ("ko" in value && typeof value.ko === "string" && typeof value.en === "string") {
+        expect(guidanceText({ en: value.en, ko: value.ko }, "ko"), path).toBe(value.ko);
+      }
+    } else {
+      for (const [key, child] of Object.entries(value)) {
+        if (key !== "sources") assertKoreanReaderText(child, `${path}.${key}`);
+      }
+    }
+  }
+}
 
 test("the complete installed public corpus passes the Console renderer boundary with exact source identities", async () => {
   const framework = JSON.parse(readFileSync(new URL("../../../rule-catalog/collected/wara-aprl/azure-wara.json", import.meta.url), "utf8")) as {
@@ -28,5 +46,14 @@ test("the complete installed public corpus passes the Console renderer boundary 
     expect(identity, entry.recommendation_id).toBeDefined();
     const guidance = decodeWaraGuidance(entry, identity!);
     await expect(verifyWaraGuidanceDigest(guidance), entry.recommendation_id).resolves.toBeUndefined();
+    assertKoreanReaderText(guidance, entry.recommendation_id);
+    expect(guidanceMissingKoreanFields(guidance!), entry.recommendation_id).toBe(0);
+    if (guidance!.reference_image) {
+      const image = guidance!.reference_image;
+      const bytes = readFileSync(new URL(`../../public/wara-guidance-assets/${image.asset_id}.png`, import.meta.url));
+      expect(bytes.byteLength).toBeLessThanOrEqual(2 * 1024 * 1024);
+      expect(bytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+      expect(`sha256:${createHash("sha256").update(bytes).digest("hex")}`).toBe(image.digest);
+    }
   }
 });

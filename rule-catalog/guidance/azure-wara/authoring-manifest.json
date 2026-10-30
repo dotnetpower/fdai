@@ -9,6 +9,8 @@
   },
   "source": "rule-catalog/collected/wara-aprl/azure-wara.json",
   "binding_source": "rule-catalog/guidance/azure-wara/controls.tsv",
+  "localized_binding_source": "rule-catalog/guidance/azure-wara/controls-ko.tsv",
+  "localization_source": "rule-catalog/guidance/azure-wara/reader-text-ko.json",
   "output": "packages/service-contracts/src/fdai_service_contracts/data/wara-guidance.json",
   "coverage_output": "rule-catalog/guidance/azure-wara/coverage.json",
   "notice_source": "rule-catalog/guidance/azure-wara/NOTICE.txt",
@@ -27,7 +29,7 @@
   "quality_limits": [
     "Three pilots and sixteen expanded conditional guides have individually authored explanations and diagrams grounded in scoped current public documentation. The other 437 entries combine pinned source descriptions and benefits, explicit per-GUID mechanism and observation bindings, shared bilingual mechanism context and applicable service-domain cautions.",
     "The 437 shared-context entries instantiate reusable conceptual diagram families with recommendation-specific focus and observation details. They are not 437 independently designed deployment topologies.",
-    "Pinned metadata and most per-GUID observation bindings retain explicit English fallback. Shared explanations, the three pilots and the sixteen expanded guides' primary summaries and rationales are bilingual. Some benefits, procedures, verification questions and diagram labels still use English fallback; this is not a complete Korean translation of every field.",
+    "The Korean reader-text source contains reviewed, source-pinned field overrides. Localization remains incomplete until every reader field across all 456 recommendations is translated; the authoring build fails closed for English-only or English-wrapped reader text. Source citation labels are excluded.",
     "No live Azure or model validation was performed. Structural completeness, source pins and focused semantic tests do not establish evaluator coverage, current support for every source recommendation or operational compliance."
   ],
   "semantic_review_gaps": [

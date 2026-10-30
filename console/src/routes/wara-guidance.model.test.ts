@@ -1,9 +1,63 @@
 import { describe, expect, test } from "vitest";
 import { decodeWaraDetail } from "./wara-controls.model";
 import { fixtureControl, fixtureGuidance, signFixtureGuidance } from "./wara-guidance.fixture";
-import { decodeWaraGuidance, guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
+import { decodeWaraGuidance, guidanceMissingKoreanFields, guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 
 describe("WARA illustrated detail boundary", () => {
+  const image = {
+    asset_id: `sha256-${"a".repeat(64)}`, digest: `sha256:${"a".repeat(64)}`,
+    source_document_url: "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction",
+    image_url: "https://learn.microsoft.com/en-us/azure/backup/media/backup-azure-vms-introduction/vmbackup-architecture.png",
+    source_revision: "b".repeat(40), attribution: "Microsoft, CC BY 4.0, unmodified",
+    license: "CC-BY-4.0" as const, license_url: "https://creativecommons.org/licenses/by/4.0/" as const,
+    alt: { en: "VM snapshot transfer to a vault", ko: "VM 스냅샷을 자격 증명 모음으로 전송하는 구조" },
+    caption: { en: "Reference architecture, not runtime evidence", ko: "실제 관측 정보가 아닌 참고 구조" },
+    english_in_image_notice: { en: "Original English labels", ko: "그림 내부는 영어 원문입니다." },
+  };
+
+  test("preserves reviewed image provenance in the verified content without changing authority", async () => {
+    const control = fixtureControl();
+    const guidance = signFixtureGuidance({ ...fixtureGuidance(control), reference_image: image });
+    const decoded = decodeWaraDetail({ ...control, guidance }, control.id);
+    expect(decoded.guidance!.reference_image).toEqual(image);
+    await expect(verifyWaraGuidanceDigest(decoded.guidance)).resolves.toBeUndefined();
+    expect(decoded.execution_authority).toBe(false);
+    expect(decoded.satisfaction).toBe("unknown");
+  });
+
+  test("normalizes an explicitly absent optional image without changing a legacy guide digest", async () => {
+    const control = fixtureControl();
+    const guidance = fixtureGuidance(control);
+    const decoded = decodeWaraGuidance({ ...guidance, reference_image: null }, control);
+    expect(decoded).toEqual(guidance);
+    await expect(verifyWaraGuidanceDigest(decoded)).resolves.toBeUndefined();
+  });
+
+  test("counts missing reader translations without treating original citation titles as Korean defects", () => {
+    const guide = fixtureGuidance();
+    const missing = guidanceMissingKoreanFields(guide);
+    expect(missing).toBeGreaterThan(0);
+    expect(guidanceMissingKoreanFields({ ...guide, sources: [] })).toBe(missing);
+    expect(guidanceMissingKoreanFields({ ...guide, title: { en: "Title" } })).toBe(missing + 1);
+    expect(guidanceMissingKoreanFields({ ...guide, reference_image: image })).toBe(missing);
+  });
+
+  test.each([
+    { asset_id: "../image" }, { digest: `sha256:${"b".repeat(64)}` },
+    { source_revision: "main" }, { license: "unknown" },
+    { source_document_url: "https://example.com/image" },
+    { image_url: "https://learn.microsoft.com:443/en-us/image.png" },
+    { image_url: "https://learn.microsoft.com/en-us/%2e%2e/image.png" },
+    { image_url: "https://learn.microsoft.com/en-us/image.png?token=example" },
+    { image_url: "javascript:alert(1)" }, { alt: { en: "<svg onload='x' />" } },
+    { attribution: "x".repeat(513) },
+  ])("rejects unreviewed image metadata %j", (change) => {
+    const control = fixtureControl();
+    expect(() => decodeWaraGuidance({
+      ...fixtureGuidance(control), reference_image: { ...image, ...change },
+    }, control)).toThrow(/WARA guidance/);
+  });
+
   test("accepts a pinned, bilingual, content-addressed guide without changing assessment", async () => {
     const control = fixtureControl();
     const guidance = fixtureGuidance(control);

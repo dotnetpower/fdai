@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import textwrap
 import unicodedata
+from io import BytesIO
 from typing import Literal
 
-from fdai_service_contracts.wara_guidance import GuidanceDiagram
+from fdai_service_contracts.reference_image_assets import load_packaged_reference_image
+from fdai_service_contracts.wara_guidance import GuidanceDiagram, GuidanceText, ReferenceImage
 from pptx.enum.dml import MSO_LINE_DASH_STYLE, MSO_THEME_COLOR
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE, MSO_CONNECTOR
 from pptx.enum.text import MSO_ANCHOR
@@ -254,9 +256,77 @@ def guidance_diagram_slides(
     )
 
 
+def guidance_reference_image_slides(
+    presentation: Presentation,
+    image: ReferenceImage,
+    locale: Literal["en", "ko"],
+) -> None:
+    """Embed a verified package asset before the supplementary authored diagram."""
+
+    if len(presentation.slides) >= _SLIDE_LIMIT:
+        raise ValueError("WARA guidance presentation exceeds its slide limit")
+    asset = load_packaged_reference_image(image)
+    slide = presentation.slides.add_slide(presentation.slide_layouts[6])
+    _textbox(
+        slide,
+        "공식 참고 이미지" if locale == "ko" else "Official reference image",
+        x=0.5,
+        y=0.3,
+        width=12.3,
+        height=0.7,
+        size=26,
+    )
+    max_width, max_height = 11.8, 5.0
+    scale = min(max_width / asset.width, max_height / asset.height)
+    width, height = asset.width * scale, asset.height * scale
+    picture = slide.shapes.add_picture(
+        BytesIO(asset.content),
+        Inches((13.333 - width) / 2),
+        Inches(1.15 + (max_height - height) / 2),
+        width=Inches(width),
+        height=Inches(height),
+    )
+    picture._element.nvPicPr.cNvPr.set("descr", _localized_image_text(image.alt, locale))
+    _textbox(
+        slide,
+        f"{image.attribution} | {image.license} | {image.source_document_url}",
+        x=0.5,
+        y=6.5,
+        width=12.3,
+        height=0.7,
+        size=12,
+    )
+    provenance = "\n".join(
+        (
+            f"{'설명' if locale == 'ko' else 'Caption'}: "
+            f"{_localized_image_text(image.caption, locale)}",
+            f"{'대체 텍스트' if locale == 'ko' else 'Alt text'}: "
+            f"{_localized_image_text(image.alt, locale)}",
+            f"{'이미지 내 텍스트' if locale == 'ko' else 'Text in image'}: "
+            f"{_localized_image_text(image.english_in_image_notice, locale)}",
+            f"{'저작자 표시' if locale == 'ko' else 'Attribution'}: {image.attribution}",
+            f"{'라이선스' if locale == 'ko' else 'License'}: {image.license} ({image.license_url})",
+            f"{'문서 출처' if locale == 'ko' else 'Source document'}: {image.source_document_url}",
+            f"{'이미지 출처' if locale == 'ko' else 'Image source'}: {image.image_url}",
+            f"{'원본 개정' if locale == 'ko' else 'Source revision'}: {image.source_revision}",
+            f"{'자산 다이제스트' if locale == 'ko' else 'Asset digest'}: {image.digest}",
+        )
+    )
+    guidance_text_slides(
+        presentation,
+        "참고 이미지 출처 및 설명" if locale == "ko" else "Reference image attribution",
+        provenance,
+    )
+
+
+def _localized_image_text(image_text: GuidanceText, locale: Literal["en", "ko"]) -> str:
+    return image_text.ko if locale == "ko" and image_text.ko is not None else image_text.en
+
+
 __all__ = [
     "guidance_diagram_geometry",
     "guidance_diagram_slides",
+    "guidance_reference_image_slides",
     "guidance_text_pages",
     "guidance_text_slides",
 ]

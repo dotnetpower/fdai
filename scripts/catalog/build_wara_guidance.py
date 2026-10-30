@@ -17,6 +17,17 @@ from wara_guidance_critique import apply_specifics, critique_report
 from wara_guidance_data import PROFILES as DATA
 from wara_guidance_diagrams import build_diagram
 from wara_guidance_domains import domain_note
+from wara_guidance_images import (
+    apply_reference_image,
+    image_authoring_inputs,
+    image_review_summary,
+)
+from wara_guidance_localization import (
+    LOCALIZATION_SOURCE,
+    apply_reader_text,
+    assert_korean_reader_text,
+    load_reader_text,
+)
 from wara_guidance_network import PROFILES as NETWORK
 from wara_guidance_operations import PROFILES as OPERATIONS
 from wara_guidance_pilots import PILOT_IDS, apply_pilot
@@ -110,10 +121,36 @@ def _sources(control: dict[str, Any], revision: str) -> list[dict[str, Any]]:
     return sources
 
 
-def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> dict[str, Any]:
+def load_korean_bindings(path: Path, bindings: dict[str, dict[str, str]]) -> None:
+    localized = {}
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line or line.startswith("#"):
+            continue
+        columns = line.split("|")
+        if len(columns) != 3 or any(not part.strip() for part in columns):
+            raise ValueError(f"{path}:{number}: expected three nonempty Korean binding columns")
+        prefix, focus, observation = columns
+        if prefix in localized:
+            raise ValueError(f"{path}:{number}: duplicate Korean binding prefix {prefix}")
+        localized[prefix] = {"focus_ko": focus, "observation_ko": observation}
+    if set(localized) != set(bindings):
+        raise ValueError(
+            "Korean guidance bindings must cover every pinned GUID prefix exactly once"
+        )
+    for prefix, values in localized.items():
+        bindings[prefix].update(values)
+
+
+def _entry(
+    control: dict[str, Any],
+    binding: dict[str, str],
+    revision: str,
+    reader_text: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
     metadata = control["wara"]
     family = PROFILES[binding["family"]]
     focus, observation = binding["focus"], binding["observation"]
+    focus_ko, observation_ko = binding["focus_ko"], binding["observation_ko"]
     note = domain_note(metadata["source_path"])
     description = text(
         "Repository-authored conceptual diagram, not an observed deployment or assessment result. "
@@ -138,7 +175,10 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
             text(
                 f"Source resource or workload: "
                 f"{metadata['resource_type'] or metadata['source_path']}. "
-                f"Specific focus: {focus}."
+                f"Specific focus: {focus}.",
+                f"원본의 리소스 또는 워크로드: "
+                f"{metadata['resource_type'] or metadata['source_path']}. "
+                f"구체적인 초점: {focus_ko}.",
             ),
             family["applies"],
         ],
@@ -147,14 +187,17 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
                 family["before"],
                 text(
                     f"Recommendation-specific baseline to inspect: {observation}. "
-                    "This is an inspection question, not a finding about the current environment."
+                    "This is an inspection question, not a finding about the current environment.",
+                    f"권고별 점검 기준: {observation_ko}. "
+                    "이는 점검할 질문이며 현재 환경에서 발견한 문제를 뜻하지 않습니다.",
                 ),
             ],
             "after": [
                 family["after"],
                 text(
                     f"Intended source-specific outcome: {control['title']}. "
-                    f"Validate using: {observation}."
+                    f"Validate using: {observation}.",
+                    f"이 권고의 설정 의도를 구현한 뒤 다음을 검증합니다: {observation_ko}.",
                 ),
             ],
         },
@@ -163,30 +206,41 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
                 f"Identify the actual in-scope {metadata['resource_type'] or 'workload'} objects "
                 f"and read their current {focus} configuration. "
                 "Record the scope and observation time; "
-                "do not infer inventory from this conceptual guide."
+                "do not infer inventory from this conceptual guide.",
+                f"실제 범위에 포함된 {metadata['resource_type'] or '워크로드'} 대상을 식별하고 "
+                f"현재 {focus_ko} 구성을 읽습니다. 범위와 관측 시각을 기록하며 "
+                "이 개념 설명으로 리소스 목록을 추정하지 않습니다.",
             ),
             family["configure"],
             text(
                 f"Review the pinned APRL action '{control['title']}' "
                 "against the original description and cited documentation. "
                 "Prepare a supported, scoped change proposal and rollback; "
-                "this guide itself does not execute or approve changes."
+                "this guide itself does not execute or approve changes.",
+                "고정된 APRL 권고의 작업을 원문 설명 및 인용 문서와 대조합니다. "
+                "지원되는 변경의 범위와 롤백 계획을 준비합니다. "
+                "이 설명 자체는 변경을 실행하거나 승인하지 않습니다.",
             ),
             text(
                 f"Prepare independent observations for: {observation}. "
-                "Resolve unsupported or ambiguous conditions before proposing a change."
+                "Resolve unsupported or ambiguous conditions before proposing a change.",
+                f"다음 항목의 독립적인 확인 자료를 준비합니다: {observation_ko}. "
+                "변경을 제안하기 전에 미지원 조건과 모호한 부분을 해결합니다.",
             ),
         ],
         "verification_steps": [
             text(
                 "Inspect and retain source-attributed configuration or workload evidence for: "
-                f"{observation}."
+                f"{observation}.",
+                f"출처가 명시된 구성 또는 워크로드 정보를 확인하고 보존합니다: {observation_ko}.",
             ),
             family["verify"],
             text(
                 f"Compare the observed {focus} behavior with this recommendation's "
                 "intended mechanism and the original source. Record timestamps, scope, "
-                "missing coverage and conflicting observations."
+                "missing coverage and conflicting observations.",
+                f"관측한 {focus_ko} 동작을 이 권고의 의도한 원리 및 원문과 비교합니다. "
+                "시각, 범위, 누락된 점검 범위, 상충하는 확인 결과를 기록합니다.",
             ),
             text(
                 "Keep the existing automated, manual, blocked or unsupported assessment "
@@ -207,7 +261,14 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
                 "검증된 한국어 번역이 아닙니다. 사용 전에 현재 제품 지원을 확인해야 합니다.",
             ),
         ],
-        "diagram": build_diagram(focus, observation, family["shape"], description),
+        "diagram": build_diagram(
+            focus,
+            observation,
+            family["shape"],
+            description,
+            focus_ko=focus_ko,
+            observation_ko=observation_ko,
+        ),
         "sources": _sources(control, revision),
     }
     if note:
@@ -227,7 +288,10 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
         entry["implementation_steps"][0] = text(
             f"Identify actual {focus} target objects inside the workload's subscription scope "
             "and read their specific current configuration. Subscription classification is "
-            "not a substitute for identifying host pools, shares, clusters or other real targets."
+            "not a substitute for identifying host pools, shares, clusters or other real targets.",
+            f"워크로드의 구독 범위 안에서 실제 {focus_ko} 대상을 식별하고 "
+            "그 대상의 현재 구성을 읽습니다. 구독 분류는 호스트 풀, 공유, 클러스터 등 "
+            "실제 대상을 식별하는 작업을 대신하지 않습니다.",
         )
     if metadata["state"] == "Disabled":
         entry["cautions"].append(
@@ -277,6 +341,8 @@ def _entry(control: dict[str, Any], binding: dict[str, str], revision: str) -> d
     apply_specifics(entry)
     apply_pilot(entry)
     apply_resolution(entry)
+    apply_reader_text(entry, reader_text)
+    apply_reference_image(entry)
     normalized = _normalize(entry)
     normalized["content_digest"] = canonical_digest(normalized)
     return normalized
@@ -308,6 +374,18 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
     bindings = load_bindings(root / manifest["binding_source"])
     if len({guid[:8] for guid in ids}) != len(ids) or set(bindings) != {guid[:8] for guid in ids}:
         raise ValueError("Explicit guidance bindings must cover every source GUID exactly once")
+    load_korean_bindings(root / manifest["localized_binding_source"], bindings)
+    reader_text = load_reader_text(
+        root / manifest.get("localization_source", LOCALIZATION_SOURCE),
+        framework_revision=revision,
+        framework_digest=digest,
+    )
+    unknown_localizations = set(reader_text) - ids
+    if unknown_localizations:
+        raise ValueError(
+            "Korean reader text contains recommendations outside the pinned source: "
+            + ", ".join(sorted(unknown_localizations)[:8])
+        )
     if any(
         control["wara"]["source_digest"] != area["source_digest"]
         for area in framework["areas"]
@@ -315,9 +393,10 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
     ):
         raise ValueError("Control source digests do not match their pinned source areas")
     entries = [
-        _entry(control, bindings[control["id"][:8]], revision)
+        _entry(control, bindings[control["id"][:8]], revision, reader_text)
         for control in sorted(controls, key=lambda value: value["id"])
     ]
+    assert_korean_reader_text(entries, ids)
     catalog = {
         "schema_version": "1.0.0",
         "framework_revision": revision,
@@ -325,7 +404,13 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
         "entries": entries,
     }
     catalog["catalog_digest"] = canonical_digest(catalog)
-    inputs = [MANIFEST, Path(manifest["binding_source"]), Path(manifest["notice_source"])]
+    inputs = [
+        MANIFEST,
+        Path(manifest["binding_source"]),
+        Path(manifest["localized_binding_source"]),
+        Path(manifest["notice_source"]),
+        Path(manifest.get("localization_source", LOCALIZATION_SOURCE)),
+    ]
     inputs += [Path(path) for path in manifest["critique_inputs"]]
     crosswalk, semantics = [
         json.loads((root / path).read_text(encoding="utf-8"))
@@ -337,6 +422,7 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
         path.relative_to(root) for path in (root / "scripts/catalog").glob("wara_guidance_*.py")
     )
     inputs.append(Path("scripts/catalog/build_wara_guidance.py"))
+    inputs += [path.relative_to(root) for path in image_authoring_inputs(root)]
     omitted = [
         {
             "recommendation_id": control["id"],
@@ -354,12 +440,10 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
         "retained_source_description_and_benefit_entries": sum(
             entry["recommendation_id"] not in PILOT_IDS
             and entry["recommendation_id"][:8] not in RESOLUTIONS
-            and entry["summary"]
-            == text(_normalize(original_by_id[entry["recommendation_id"]]["description"]))
-            and entry["benefits"]
-            == text(
-                _normalize(original_by_id[entry["recommendation_id"]]["wara"]["potential_benefits"])
-            )
+            and entry["summary"]["en"]
+            == _normalize(original_by_id[entry["recommendation_id"]]["description"])
+            and entry["benefits"]["en"]
+            == _normalize(original_by_id[entry["recommendation_id"]]["wara"]["potential_benefits"])
             for entry in entries
         ),
         "individually_rewritten_pilots": len(PILOT_IDS),
@@ -395,6 +479,7 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
             "live_azure_or_model_validations": 0,
         },
         "quality_limits": manifest["quality_limits"],
+        "image_review": image_review_summary(),
         "content_critique": critique,
         "semantic_review_gaps": manifest["semantic_review_gaps"],
         "non_allowlisted_original_references": omitted,
@@ -415,8 +500,15 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
         ],
         "localization": {
             "authored_mechanisms": "English and Korean",
-            "pinned_source_metadata": "English fallback; not mislabeled as Korean",
-            "per_guid_observation_bindings": "English fallback",
+            "pinned_source_metadata": (
+                "Original English preserved with source-pinned Korean reader text"
+            ),
+            "per_guid_observation_bindings": "English and Korean",
+            "complete_korean_recommendations": len(entries),
+            "missing_korean_reader_fields": 0,
+            "source_citation_labels": (
+                "Original reference labels retained; excluded from reader translation coverage"
+            ),
         },
         "diagram_provenance": manifest["diagram_provenance"],
         "authoring_inputs": {str(path): file_digest(root / path) for path in sorted(inputs)},
@@ -425,7 +517,7 @@ def build(root: Path = ROOT) -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def encoded(value: dict[str, Any]) -> bytes:
-    return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode()
+    return (json.dumps(value, ensure_ascii=False, separators=(",", ":")) + "\n").encode("utf-8")
 
 
 def artifact_outputs(

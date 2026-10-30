@@ -583,7 +583,7 @@
         "unknown": "충족 여부 알 수 없음"
       },
       "column": {
-        "recommendation": "권고",
+        "recommendation": "권고 (원문 제목)",
         "resourceType": "리소스 종류",
         "control": "권고 컨트롤",
         "impact": "자문 영향도"
@@ -611,7 +611,7 @@
         "title": "WARA 권고 세부 정보",
         "loading": "WARA 권고 로드 중...",
         "loadFailed": "WARA 권고를 로드하지 못했습니다: {message}",
-        "boundary": "Shadow 자문 근거입니다. 카탈로그 존재와 제품 검증은 충족을 증명하지 않습니다.",
+        "boundary": "변경을 적용하지 않는 관찰 모드의 자문 정보입니다. 카탈로그 등록과 제품 검증만으로 이 권고를 충족했다고 판단하지 않습니다.",
         "sourceRevision": "원본 리비전",
         "evaluationScope": "평가 범위",
         "evaluatedAt": "평가 시각",
@@ -630,13 +630,16 @@
         "manualEvidence": "필수 수동 근거",
         "manualFallback": "선택적 수동 검토",
         "evidenceKind": "근거 종류",
-        "evidenceProducer": "권위 있는 생성자",
+        "evidenceProducer": "공식 근거 제공자",
         "evidenceScope": "범위 계약",
         "evidenceFreshness": "최신성 상한",
         "evidenceOwner": "책임 담당자",
-        "blockedReason": "차단 사유"
+        "blockedReason": "차단 사유",
+        "days": "{count}일",
+        "seconds": "{count}초"
       },
       "guidance": {
+        "onThisPage": "이 페이지의 내용",
         "explanation": "핵심 설명",
         "rationale": "설계 근거",
         "fullExplanation": "전체 설명 읽기",
@@ -657,9 +660,20 @@
         "after": "변경 후 - 권장 예시",
         "exampleBoundary": "실제 환경을 관측한 결과가 아닌 구성 예시입니다. 이 예시는 평가 결과를 바꾸거나 권고 충족을 입증하지 않습니다.",
         "referenceFigure": "직접 작성한 설명 도식 - 실제 환경 토폴로지 아님",
-        "solid": "실선 화살표",
-        "dashed": "점선 화살표",
-        "relationships": "모든 연결 관계를 텍스트로 읽기",
+        "partialTranslation": "이전에 저장한 설명에는 아직 한국어 번역이 누락된 부분이 있습니다. 해당 부분은 영어 원문으로 표시하며 번역이 완료된 것으로 보지 않습니다.",
+        "officialImage": "Microsoft Learn 참고 이미지 - 실제 배포를 관측한 결과 아님",
+        "originalDocument": "원본 문서 열기",
+        "enlargeImage": "이미지 확대",
+        "imageScope": "설명 범위와 제한",
+        "imageAttribution": "저작자 및 이용 조건",
+        "imagePanHint": "원본 크기 이미지입니다. 화면이 좁으면 이미지 안에서 스크롤하여 글자를 확인하세요.",
+        "sourceDocument": "출처 문서",
+        "supplementaryDiagram": "보충 구성 도식과 연결 관계",
+        "imageUnavailable": "패키지의 참고 이미지를 불러오지 못했습니다. 텍스트 대안과 출처 문서를 확인하세요. 이미지의 가용성이나 평가 결과를 추정하지 않습니다.",
+        "legendConnection": "연결 관계",
+        "legendConditional": "조건부 연결 관계",
+        "legendNumbers": "화살표 옆 번호는 아래 번호별 연결 관계와 같습니다",
+        "relationships": "번호별 연결 관계와 의미",
         "conditional": "조건부",
         "connection": "연결 관계",
         "expand": "읽기 화면 넓히기",
@@ -691,6 +705,18 @@
     }
   },
   "display": {
+    "waraLimitation": {
+      "missing_exact_evaluator": "이 권고에 정확히 연결된 평가기가 없습니다.",
+      "undeclared_resource_type": "리소스 유형에 대한 평가 연결이 선언되지 않았습니다.",
+      "unsupported_join": "평가에 필요한 근거 간 연결을 지원하지 않습니다.",
+      "manual_evidence_fallback_available": "필요하면 수동으로 근거를 검토할 수 있습니다."
+    },
+    "waraEvidence": {
+      "recovery_drill": "복구 훈련 기록",
+      "workload-evidence-owner": "워크로드 공식 근거 담당자",
+      "exact-workload-and-resource-scope": "정확히 지정한 워크로드 및 리소스 범위",
+      "workload-reliability-owner": "워크로드 안정성 책임자"
+    },
     "status": {
       "selected": "선택됨",
       "ready": "준비됨",

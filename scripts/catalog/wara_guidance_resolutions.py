@@ -5,9 +5,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from wara_guidance_edges_ko import EDGES_KO
 from wara_guidance_graphs import graph
+from wara_guidance_labels_ko import LABELS_KO
 from wara_guidance_node_details import qualified_node_details
+from wara_guidance_qualified_edges_ko import QUALIFIED_EDGES_KO
+from wara_guidance_qualified_labels_ko import QUALIFIED_LABELS_KO
 from wara_guidance_reliability import localized as text
+from wara_guidance_resolutions_ko import RESOLUTIONS_KO
 from wara_guidance_resolutions_network import RESOLUTIONS as NETWORK
 from wara_guidance_resolutions_workloads import RESOLUTIONS as WORKLOADS
 
@@ -155,29 +160,35 @@ def apply_resolution(entry: dict[str, Any]) -> None:
     resolution = RESOLUTIONS.get(prefix)
     if resolution is None:
         return
+    korean = RESOLUTIONS_KO[prefix]
     entry["title"] = text(TITLES[prefix])
     entry["summary"] = text(*SUMMARIES[prefix])
     entry["benefits"] = text(BENEFITS[prefix])
     entry["rationale"] = text(*resolution["explanation"])
     entry["configuration"] = {
         "before": [
-            text(resolution["before"]),
+            text(resolution["before"], korean["before"]),
             text(
-                "The actual scope and prerequisites have not yet been mapped to this recommendation's qualified mechanism."
+                "The actual scope and prerequisites have not yet been mapped to this recommendation's qualified mechanism.",
+                "실제 범위와 선행 조건을 이 권고의 조건부 원리에 아직 매핑하지 않았습니다.",
             ),
         ],
         "after": [
-            text(resolution["after"]),
+            text(resolution["after"], korean["after"]),
             text(
-                "Current eligibility, effective configuration and independently observed workload behavior are recorded separately."
+                "Current eligibility, effective configuration and independently observed workload behavior are recorded separately.",
+                "현재 요건 충족 여부, 실효 구성, 독립적으로 관측한 워크로드 동작을 별도로 기록합니다.",
             ),
         ],
     }
-    entry["implementation_steps"] = [text(value) for value in resolution["actions"]]
+    entry["implementation_steps"] = [
+        text(en, ko) for en, ko in zip(resolution["actions"], korean["actions"], strict=True)
+    ]
     entry["verification_steps"] = [
-        *[text(value) for value in resolution["checks"]],
+        *[text(en, ko) for en, ko in zip(resolution["checks"], korean["checks"], strict=True)],
         text(
-            "Keep any existing blocked, manual, disabled or unsupported assessment status unchanged until its own evidence is sufficient. This guide grants no execution approval."
+            "Keep any existing blocked, manual, disabled or unsupported assessment status unchanged until its own evidence is sufficient. This guide grants no execution approval.",
+            "각 평가의 근거가 충분해질 때까지 기존 차단, 수동, 비활성, 미지원 평가 상태를 유지합니다. 이 설명은 실행을 승인하지 않습니다.",
         ),
     ]
     historical = [
@@ -186,9 +197,10 @@ def apply_resolution(entry: dict[str, Any]) -> None:
         if caution["en"].startswith("This recommendation is Disabled")
     ]
     entry["cautions"] = [
-        *[text(value) for value in resolution["limits"]],
+        *[text(en, ko) for en, ko in zip(resolution["limits"], korean["limits"], strict=True)],
         text(
-            "Public documentation reviewed on 2026-10-30. These are conditional instructional requirements, not claims about the current installation. Missing deployment observations remain unknown; changes and failure exercises need their own approval."
+            "Public documentation reviewed on 2026-10-30. These are conditional instructional requirements, not claims about the current installation. Missing deployment observations remain unknown; changes and failure exercises need their own approval.",
+            "2026-10-30에 공개 문서를 검토했습니다. 이는 조건부 안내 요구사항이며 현재 설치 상태에 대한 주장이 아닙니다. 관측하지 않은 배포 상태는 미확정으로 유지하고 변경과 장애 훈련은 별도 승인을 받아야 합니다.",
         ),
         *historical,
     ]
@@ -225,14 +237,19 @@ def apply_resolution(entry: dict[str, Any]) -> None:
         "nodes": [
             {
                 "id": identity,
-                "label": text(label),
-                "detail": text(details[identity]),
+                "label": text(label, QUALIFIED_LABELS_KO.get(label) or LABELS_KO.get(label)),
+                "detail": details[identity],
                 "role": role,
             }
             for identity, label, _ko, role in nodes
         ],
         "edges": [
-            {"from": start, "to": end, "label": text(label), "style": style}
+            {
+                "from": start,
+                "to": end,
+                "label": text(label, QUALIFIED_EDGES_KO.get(label) or EDGES_KO.get(label)),
+                "style": style,
+            }
             for start, end, label, style in edges
         ],
     }

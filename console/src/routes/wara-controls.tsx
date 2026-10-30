@@ -380,7 +380,7 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
           ) : (
             <div class="stack">
               <WaraGuidanceContent control={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />
-              <section class="wara-runtime">
+              <section id="wara-runtime" tabIndex={-1} class="wara-runtime">
               <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
               <p>{t("governance.rules.wara.detail.boundary")}</p>
               <div class="pill-row">
@@ -389,24 +389,26 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                 <StatusPill kind="neutral" label={displayValue("controlEvaluation", detail.data.evaluation_status)} />
               </div>
               <dl class="detail-grid">
-                <dt>{t("governance.rules.wara.filter.applicability")}</dt><dd>{displayValue("controlApplicability", detail.data.applicability)}</dd>
+                <dt>{t("governance.rules.wara.filter.applicability")}</dt><dd>{displayValue("controlStatus", detail.data.applicability)}</dd>
                 <dt>{t("governance.rules.wara.detail.evaluationScope")}</dt><dd><code>{detail.data.evaluation_scope ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evaluatedAt")}</dt><dd><code>{detail.data.evaluated_at ?? "-"}</code></dd>
                 <dt>{t("governance.rules.wara.detail.evidenceComplete")}</dt><dd>{displayValue("boolean", String(detail.data.evidence_complete))}</dd>
                 <dt>{t("governance.rules.wara.detail.evidenceRefs")}</dt><dd>{detail.data.evidence_refs.join(", ") || "-"}</dd>
-                <dt>{t("governance.rules.wara.detail.limitations")}</dt><dd>{detail.data.limitations.join(", ") || "-"}</dd>
+                <dt>{t("governance.rules.wara.detail.limitations")}</dt><dd><ul>{detail.data.limitations.map((reason) => <li key={reason}>{displayValue("waraLimitation", reason)}</li>)}</ul>{detail.data.limitations.length === 0 ? "-" : null}</dd>
               </dl>
               {detail.data.manual_evidence !== null ? (
                 <DetailSection title={t(detail.data.manual_evidence.role === "fallback"
                   ? "governance.rules.wara.detail.manualFallback"
                   : "governance.rules.wara.detail.manualEvidence")}>
                   <dl class="detail-grid">
-                    <DetailRow label={t("governance.rules.wara.detail.evidenceKind")} value={detail.data.manual_evidence.kind} mono />
-                    <DetailRow label={t("governance.rules.wara.detail.evidenceProducer")} value={detail.data.manual_evidence.authoritative_producer} mono />
-                    <DetailRow label={t("governance.rules.wara.detail.evidenceScope")} value={detail.data.manual_evidence.scope_contract} mono />
-                    <DetailRow label={t("governance.rules.wara.detail.evidenceFreshness")} value={`${detail.data.manual_evidence.freshness_ceiling_seconds}s`} mono />
-                    <DetailRow label={t("governance.rules.wara.detail.evidenceOwner")} value={detail.data.manual_evidence.accountable_owner_slot} mono />
-                    <DetailRow label={t("governance.rules.wara.detail.blockedReason")} value={detail.data.manual_evidence.blocked_reason ?? "-"} mono />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceKind")} value={displayValue("waraEvidence", detail.data.manual_evidence.kind)} />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceProducer")} value={displayValue("waraEvidence", detail.data.manual_evidence.authoritative_producer)} />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceScope")} value={displayValue("waraEvidence", detail.data.manual_evidence.scope_contract)} />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceFreshness")} value={detail.data.manual_evidence.freshness_ceiling_seconds % 86400 === 0
+                      ? t("governance.rules.wara.detail.days", { count: detail.data.manual_evidence.freshness_ceiling_seconds / 86400 })
+                      : t("governance.rules.wara.detail.seconds", { count: detail.data.manual_evidence.freshness_ceiling_seconds })} />
+                    <DetailRow label={t("governance.rules.wara.detail.evidenceOwner")} value={displayValue("waraEvidence", detail.data.manual_evidence.accountable_owner_slot)} />
+                    <DetailRow label={t("governance.rules.wara.detail.blockedReason")} value={detail.data.manual_evidence.blocked_reason ? displayValue("waraLimitation", detail.data.manual_evidence.blocked_reason) : "-"} />
                   </dl>
                 </DetailSection>
               ) : null}
@@ -414,6 +416,8 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
               <details class="wara-technical">
                 <summary>{t("governance.rules.wara.guidance.technical")}</summary>
                 <dl class="detail-grid">
+                  <DetailRow label={t("governance.rules.wara.detail.limitations")} value={detail.data.limitations.join(", ") || "-"} mono />
+                  {detail.data.manual_evidence ? <DetailRow label={t("governance.rules.wara.detail.manualEvidence")} value={JSON.stringify(detail.data.manual_evidence, null, 2)} mono /> : null}
                   <DetailRow label={t("governance.rules.wara.guidance.recommendationId")} value={detail.data.id} mono />
                   <DetailRow label={t("governance.rules.wara.column.resourceType")} value={detail.data.resource_type} mono />
                   <DetailRow label={t("governance.rules.wara.column.control")} value={detail.data.recommendation_control} />

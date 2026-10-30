@@ -583,7 +583,7 @@
         "unknown": "Unknown satisfaction"
       },
       "column": {
-        "recommendation": "Recommendation",
+        "recommendation": "Recommendation (source title)",
         "resourceType": "Resource type",
         "control": "Recommendation control",
         "impact": "Advisory impact"
@@ -634,9 +634,12 @@
         "evidenceScope": "Scope contract",
         "evidenceFreshness": "Freshness ceiling",
         "evidenceOwner": "Accountable owner",
-        "blockedReason": "Blocked reason"
+        "blockedReason": "Blocked reason",
+        "days": "{count} days",
+        "seconds": "{count} seconds"
       },
       "guidance": {
+        "onThisPage": "On this page",
         "explanation": "Key explanation",
         "rationale": "Why this design",
         "fullExplanation": "Read full explanation",
@@ -657,9 +660,20 @@
         "after": "After - recommended example",
         "exampleBoundary": "Illustrative configuration, not an observation of your environment. These examples do not change the assessment or prove satisfaction.",
         "referenceFigure": "Original explanatory diagram - not runtime topology",
-        "solid": "Solid arrows",
-        "dashed": "Dashed arrows",
-        "relationships": "Read all directed relationships",
+        "partialTranslation": "This retained guide has incomplete Korean text. Missing translations use the original English; translation completion is not claimed.",
+        "officialImage": "Microsoft Learn reference image - not an observed deployment",
+        "originalDocument": "Open original document",
+        "enlargeImage": "Enlarge image",
+        "imageScope": "Scope and limitations",
+        "imageAttribution": "Attribution details",
+        "imagePanHint": "Original-size image. On narrow screens, scroll within the image to read its labels.",
+        "sourceDocument": "Source document",
+        "supplementaryDiagram": "Supplementary configuration diagram and relationships",
+        "imageUnavailable": "The packaged reference image could not be loaded. Read the text alternative and source document; no image availability or assessment result is inferred.",
+        "legendConnection": "Relationship",
+        "legendConditional": "Conditional relationship",
+        "legendNumbers": "Arrow numbers match the numbered connections below",
+        "relationships": "Numbered connections and their meaning",
         "conditional": "conditional",
         "connection": "relationship",
         "expand": "Expand reading view",
@@ -691,6 +705,18 @@
     }
   },
   "display": {
+    "waraLimitation": {
+      "missing_exact_evaluator": "No evaluator is bound to this exact recommendation.",
+      "undeclared_resource_type": "The resource type has no declared evaluation binding.",
+      "unsupported_join": "The required evidence relationship is not supported.",
+      "manual_evidence_fallback_available": "Optional manual evidence review is available."
+    },
+    "waraEvidence": {
+      "recovery_drill": "Recovery drill record",
+      "workload-evidence-owner": "Authoritative workload evidence owner",
+      "exact-workload-and-resource-scope": "Exact workload and resource scope",
+      "workload-reliability-owner": "Workload reliability owner"
+    },
     "status": {
       "selected": "Selected",
       "ready": "Ready",

@@ -5,13 +5,21 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import struct
+import zlib
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from fdai_service_contracts.catalog_canonical import canonical_digest
+from fdai_service_contracts.reference_image_assets import (
+    load_packaged_reference_image,
+    verify_reference_image_bytes,
+)
 from fdai_service_contracts.wara_guidance import (
+    ReferenceImage,
     WaraGuidance,
     assert_wara_guidance_framework,
     load_wara_guidance,
@@ -32,6 +40,51 @@ def _seal(value: dict[str, object], key: str) -> dict[str, object]:
         {name: item for name, item in value.items() if name != key}
     )
     return value
+
+
+def _png_chunk(kind: bytes, data: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )
+
+
+def _png(width: int = 1, height: int = 1) -> bytes:
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    pixels = b"\x00" + b"\x00\x00\x00" * width * height
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", zlib.compress(pixels))
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _reference_image(content: bytes) -> dict[str, object]:
+    digest = hashlib.sha256(content).hexdigest()
+    return {
+        "asset_id": f"sha256-{digest}",
+        "digest": f"sha256:{digest}",
+        "source_document_url": (
+            "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction"
+        ),
+        "image_url": (
+            "https://learn.microsoft.com/en-us/azure/backup/media/"
+            "backup-azure-vms-introduction/vmbackup-architecture.png"
+        ),
+        "source_revision": "a" * 40,
+        "attribution": "Microsoft, About Azure VM backup - Azure Backup",
+        "license": "CC-BY-4.0",
+        "license_url": "https://creativecommons.org/licenses/by/4.0/",
+        "alt": {"en": "A reference image.", "ko": "참고 이미지."},
+        "caption": {"en": "Backup flow.", "ko": "백업 흐름."},
+        "english_in_image_notice": {
+            "en": "Text in the image is in English.",
+            "ko": "이미지 내 텍스트는 영어입니다.",
+        },
+    }
 
 
 @pytest.fixture(scope="module")
@@ -134,6 +187,86 @@ def test_complete_lifecycle_corpus_is_immutable_and_source_bound(catalog_materia
         assert_wara_guidance_framework(catalog, b"tampered")
     with pytest.raises(ValueError):
         catalog.entries[0].lifecycle = "disabled"
+
+
+def test_optional_reference_image_is_typed_and_legacy_digest_shape_is_unchanged(
+    catalog_material,
+) -> None:
+    legacy = WaraGuidance.model_validate(catalog_material["entries"][0])
+    assert legacy.reference_image is None
+    assert "reference_image" not in legacy.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+    raw = copy.deepcopy(catalog_material["entries"][0])
+    raw["reference_image"] = _reference_image(_png())
+    _seal(raw, "content_digest")
+    guide = WaraGuidance.model_validate(raw)
+    serialized = guide.model_dump(mode="json", by_alias=True, exclude_none=True)
+    assert serialized["reference_image"] == raw["reference_image"]
+    assert "reference_image" not in serialized["diagram"]
+    assert guide.content_digest == raw["content_digest"]
+
+
+@pytest.mark.parametrize(
+    "change",
+    ["asset_id", "digest", "source_document_url", "image_url", "license_url", "markup"],
+)
+def test_reference_image_provenance_and_local_origin_are_strict(catalog_material, change) -> None:
+    raw = copy.deepcopy(catalog_material["entries"][0])
+    image = _reference_image(_png())
+    if change == "asset_id":
+        image["asset_id"] = "sha256-" + "0" * 64
+    elif change == "digest":
+        image["digest"] = "sha256:" + "0" * 64
+    elif change == "source_document_url":
+        image["source_document_url"] = "https://learn.microsoft.com@evil.example/doc"
+    elif change == "image_url":
+        image["image_url"] = "https://learn.microsoft.com/azure/backup/image.png?token=x"
+    elif change == "license_url":
+        image["license_url"] = "https://example.com/license"
+    else:
+        image["alt"] = {"en": "<img src=x>", "ko": "참고 이미지."}
+    raw["reference_image"] = image
+    _seal(raw, "content_digest")
+    with pytest.raises(ValueError):
+        WaraGuidance.model_validate(raw)
+
+
+def test_packaged_reference_image_is_content_addressed_and_bounded(monkeypatch) -> None:
+    content = _png(898, 400)
+    image = ReferenceImage.model_validate(_reference_image(content))
+    joined_paths: list[tuple[str, ...]] = []
+
+    class MemoryResource:
+        def joinpath(self, *parts: str) -> MemoryResource:
+            joined_paths.append(parts)
+            return self
+
+        def open(self, mode: str) -> BytesIO:
+            assert mode == "rb"
+            return BytesIO(content)
+
+    monkeypatch.setattr(
+        "fdai_service_contracts.reference_image_assets.resources.files",
+        lambda _: MemoryResource(),
+    )
+    asset = load_packaged_reference_image(image)
+    assert (asset.width, asset.height) == (898, 400)
+    assert asset.content == content
+    assert joined_paths == [
+        ("data", "wara-guidance-assets"),
+        (f"{image.asset_id}.png",),
+    ]
+    assert verify_reference_image_bytes(image, content).content == content
+    with pytest.raises(ValueError, match="digest"):
+        verify_reference_image_bytes(image, content + b"tampered")
+    oversized_content = content + b"\x00" * (2_097_153 - len(content))
+    oversized_image = ReferenceImage.model_validate(_reference_image(oversized_content))
+    with pytest.raises(ValueError, match="byte limit"):
+        verify_reference_image_bytes(oversized_image, oversized_content)
+    oversized = _png(4_097, 1)
+    oversized_image = ReferenceImage.model_validate(_reference_image(oversized))
+    with pytest.raises(ValueError, match="dimensions"):
+        verify_reference_image_bytes(oversized_image, oversized)
 
 
 @pytest.mark.parametrize("change", ["duplicate", "omission", "source", "lifecycle", "digest"])

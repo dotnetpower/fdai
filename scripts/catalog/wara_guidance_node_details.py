@@ -1,6 +1,8 @@
 """Short, entity-specific descriptions for the sixteen qualified diagrams."""
 # ruff: noqa: E501
 
+from wara_guidance_node_details_ko import NODE_DETAILS_KO
+
 NODE_DETAILS = {
     "e7dbd21f": {
         "message": "Telemetry enters IoT Hub with properties that routing conditions can evaluate.",
@@ -139,13 +141,18 @@ NODE_DETAILS = {
 }
 
 
-def qualified_node_details(prefix: str, nodes: list[tuple[str, str, str, str]]) -> dict[str, str]:
+def qualified_node_details(
+    prefix: str, nodes: list[tuple[str, str, str, str]]
+) -> dict[str, dict[str, str]]:
     """Reject missing or copy-pasted figure text rather than falling back to prose."""
     details = NODE_DETAILS[prefix]
+    korean = NODE_DETAILS_KO[prefix]
     if set(details) != {identity for identity, _label, _ko, _role in nodes}:
         raise ValueError(f"{prefix}: qualified diagram node descriptions must match its entities")
     if len({detail.casefold().strip() for detail in details.values()}) != len(details):
         raise ValueError(f"{prefix}: qualified diagram node descriptions must be distinct")
+    if set(korean) != set(details) or len(set(korean.values())) != len(details):
+        raise ValueError(f"{prefix}: qualified Korean descriptions must cover distinct entities")
     for identity, label, _ko, _role in nodes:
         detail = details[identity]
         if (
@@ -157,4 +164,6 @@ def qualified_node_details(prefix: str, nodes: list[tuple[str, str, str, str]]) 
             raise ValueError(
                 f"{prefix}/{identity}: qualified diagram text exceeds its figure budget"
             )
-    return details
+    return {
+        identity: {"en": detail, "ko": korean[identity]} for identity, detail in details.items()
+    }
