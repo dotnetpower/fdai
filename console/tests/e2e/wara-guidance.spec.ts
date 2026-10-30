@@ -360,6 +360,44 @@ for (const locale of ["en", "ko"] as const) test(`smokes all 456 installed guide
   }
 });
 
+test("serves the packaged official VM backup image without a remote image request", async ({ page }, testInfo) => {
+  const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service")!;
+  const image = control.guidance!.reference_image!;
+  expect(image).toBeDefined();
+  await installFixture(page, [control]);
+  const externalImages: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "image" && !["localhost", "127.0.0.1"].includes(new URL(request.url()).hostname)) externalImages.push(request.url());
+  });
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const locale of ["en", "ko"] as const) {
+      const [response] = await Promise.all([
+        page.waitForResponse((response) => response.url().endsWith(`/wara-guidance-assets/${image.asset_id}.png`)),
+        page.goto(`/rules?view=controls&framework=azure-wara&locale=${locale}&recommendation=${control.id}`),
+      ]);
+      expect(response.ok()).toBe(true);
+      expect(response.headers()["content-type"]).toContain("image/png");
+      expect(`sha256:${createHash("sha256").update(await response.body()).digest("hex")}`).toBe(image.digest);
+      const figure = page.locator(".wara-guidance-source-figure");
+      const picture = figure.getByRole("img", { name: guidanceText(image.alt, locale), exact: true });
+      await expect(picture).toBeVisible();
+      expect(await picture.evaluate((element) => ({ width: (element as HTMLImageElement).naturalWidth, height: (element as HTMLImageElement).naturalHeight }))).toEqual({ width: 898, height: 400 });
+      await expect(figure.locator("header a")).toHaveAttribute("href", image.source_document_url);
+      await expect(figure).toContainText(guidanceText(image.caption, locale));
+      expect(await figure.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+      await figure.scrollIntoViewIfNeeded();
+      await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`official-backup-${locale}-${viewport.width}.png`) });
+      const supplement = page.locator(".wara-guidance-supplement");
+      await supplement.locator(":scope > summary").click();
+      await expect(supplement).toHaveAttribute("open");
+      await expect.poll(async () => (await measure(page)).crossings).toEqual([]);
+      expect((await measure(page)).surfaces.every((surface) => surface.scrollWidth <= surface.clientWidth)).toBe(true);
+    }
+  }
+  expect(externalImages).toEqual([]);
+});
+
 test("renders attributed images and explicit asset failures (synthetic transport fixture, not approved Microsoft artwork)", async ({ page }, testInfo) => {
   const control = waraCorpusControls().find((item) => item.title === "Backup VMs with Azure Backup service");
   expect(control).toBeDefined();

@@ -68,7 +68,10 @@ def recompute_summary(manifest: dict[str, Any]) -> None:
         urls = recommendation["learn_document_urls"]
         states = [grouped[url]["inspection_status"] for url in urls]
         candidates = [candidate for url in urls for candidate in grouped[url]["candidates"]]
-        if not urls:
+        if recommendation.get("decision") == "selected":
+            recommendation["review_status"] = "asset_reviewed"
+            recommendation["reason"] = REVIEW_REASONS["approved_asset"]
+        elif not urls:
             recommendation["review_status"] = "no_cited_learn_document"
             recommendation["decision"] = "no_learn_document_to_inspect"
             recommendation["reason"] = (
@@ -232,12 +235,13 @@ def compact_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         }
         if item.get("reference_image") is not None:
             record["reference_image"] = item["reference_image"]
+            record["rights_review"] = item["rights_review"]
         recommendations[item["recommendation_id"]] = record
     return {
         "storage_format": _COMPACT_FORMAT,
         "schema_version": manifest["schema_version"],
         "framework_revision": manifest["framework_revision"],
-        "catalog_digest": manifest["catalog_digest"],
+        "citation_digest": manifest["citation_digest"],
         "recommendation_count": manifest["recommendation_count"],
         "learn_citation_count": manifest["learn_citation_count"],
         "document_group_count": manifest["document_group_count"],
@@ -334,11 +338,12 @@ def expand_compact_manifest(value: dict[str, Any]) -> dict[str, Any]:
         }
         if record.get("reference_image") is not None:
             item["reference_image"] = record["reference_image"]
+            item["rights_review"] = record.get("rights_review")
         recommendations.append(item)
     return {
         "schema_version": value.get("schema_version"),
         "framework_revision": value.get("framework_revision"),
-        "catalog_digest": value.get("catalog_digest"),
+        "citation_digest": value.get("citation_digest"),
         "recommendation_count": value.get("recommendation_count"),
         "learn_citation_count": value.get("learn_citation_count"),
         "document_group_count": value.get("document_group_count"),

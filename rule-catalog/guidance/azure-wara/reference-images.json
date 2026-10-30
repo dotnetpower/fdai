@@ -5479,7 +5479,7 @@
    "image_url": "https://learn.microsoft.com/en-us/azure/sap/center-sap-solutions/media/get-quality-checks-insights/configuration-load-balancer-monitor.png"
   }
  },
- "catalog_digest": "sha256:d9e08633b3561f9e768d0f8f0a374ee0d1f96f037f0b0b8722b04a7dad3d18c0",
+ "citation_digest": "sha256:ae31a2a3bcfb36d514a882b0b0bf2f0587ceeabac0fbe7c8299758a9fa2a2edb",
  "document_group_count": 408,
  "document_groups": {
   "https://learn.microsoft.com/Azure/managed-grafana/how-to-enable-zone-redundancy": {
@@ -7712,9 +7712,9 @@
    "reason_code": "page_candidates_pending",
    "related_candidate_research": [
     {
-     "candidate_suitability": "technically_relevant_rights_blocked",
+     "candidate_suitability": "reviewed_for_selected_asset",
      "image_url": "https://learn.microsoft.com/en-us/azure/backup/media/backup-azure-vms-introduction/vmbackup-architecture.png",
-     "reason": "The cited backup overview page is a separate document from this related image source. The Learn article and its media reference were inspected, and the diagram appears technically relevant to VM backup. Redistribution was not approved: exact asset inclusion in the licensed source and any asset-specific third-party notice could not be independently verified after the MicrosoftDocs API returned SAML 403. Microsoft Learn Terms of Use restrict image reuse unless expressly permitted. Do not vendor this candidate until an authorized source confirms the applicable license and notices.",
+     "reason": "The public Learn article identifies this public documentation source and embeds the downloaded media. The published repository notice licenses Microsoft documentation and other content under CC BY 4.0. The image was visually reviewed: no third-party credit or customer data is displayed. Downloaded directly from public Learn, not through the SSO-denied GitHub API. No claim is made that the image blob was verified through that API. The article revision and exact image bytes are pinned separately. Reuse illustrates VM backup only and does not imply Microsoft endorsement or trademark rights.",
      "source_document_url": "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction",
      "source_revision": "6e232e43ce97e38e61c9a265b3148485e5414892"
     }
@@ -12567,12 +12567,39 @@
    "review_status": "document_inspected"
   },
   "1981f704-97b9-b645-9c57-33f8ded9261a": {
-   "decision": "review_required",
+   "decision": "selected",
    "groups": [
     120
    ],
-   "reason_code": "rights_verification_blocked",
-   "review_status": "partially_reviewed"
+   "reason_code": "approved_asset",
+   "reference_image": {
+    "alt": {
+     "en": "Extension-based Azure VM backup: the VM agent and backup extension capture OS and data-disk snapshots and transfer backup data to a vault. The temporary disk has no snapshot.",
+     "ko": "확장 기반 Azure VM 백업: VM 에이전트와 백업 확장이 OS 및 데이터 디스크의 스냅샷을 만들고 백업 데이터를 vault로 전송합니다. 임시 디스크에는 스냅샷이 없습니다."
+    },
+    "asset_id": "sha256-50960288bb63db67a0510019914bc27d3ca2709cee8c459f263e8b7331b70012",
+    "attribution": "Microsoft and contributors, About Azure VM backup. CC BY 4.0. Original image, unchanged. Microsoft trademarks remain with their owners.",
+    "caption": {
+     "en": "Official extension-based VM backup architecture. Temporary disks are excluded. This image does not describe agentless backup or prove policy compliance, application consistency or a successful restore; use the supplementary diagram and verification steps for those distinctions.",
+     "ko": "확장 기반 VM 백업의 공식 아키텍처입니다. 임시 디스크는 제외됩니다. 이 그림은 에이전트 없는 백업을 설명하거나 정책 준수, 애플리케이션 일관성 또는 복원 성공을 입증하지 않습니다. 보충 도식과 검증 절차에서 이 차이를 확인합니다."
+    },
+    "digest": "sha256:50960288bb63db67a0510019914bc27d3ca2709cee8c459f263e8b7331b70012",
+    "english_in_image_notice": {
+     "en": "The original image contains English labels. The Korean alternative text and caption explain its scope; the image itself has not been translated.",
+     "ko": "원본 이미지의 표시는 영어입니다. 한국어 대체 텍스트와 캡션으로 설명 범위를 안내하며, 이미지 자체를 번역한 것은 아닙니다."
+    },
+    "image_url": "https://learn.microsoft.com/en-us/azure/backup/media/backup-azure-vms-introduction/vmbackup-architecture.png",
+    "license": "CC-BY-4.0",
+    "license_url": "https://creativecommons.org/licenses/by/4.0/",
+    "source_document_url": "https://learn.microsoft.com/en-us/azure/backup/backup-azure-vms-introduction",
+    "source_revision": "6e232e43ce97e38e61c9a265b3148485e5414892"
+   },
+   "review_status": "asset_reviewed",
+   "rights_review": {
+    "license_evidence_url": "https://github.com/MicrosoftDocs/azure-docs/blob/main/ThirdPartyNotices.md",
+    "reviewed_scope": "The public Learn article identifies this public documentation source and embeds the downloaded media. The published repository notice licenses Microsoft documentation and other content under CC BY 4.0. The image was visually reviewed: no third-party credit or customer data is displayed. Downloaded directly from public Learn, not through the SSO-denied GitHub API. No claim is made that the image blob was verified through that API. The article revision and exact image bytes are pinned separately. Reuse illustrates VM backup only and does not imply Microsoft endorsement or trademark rights.",
+    "source_repository_url": "https://github.com/MicrosoftDocs/azure-docs/blob/main/articles/backup/backup-azure-vms-introduction.md"
+   }
   },
   "19b6df57-f6b5-3e4f-843a-273daa087cb0": {
    "decision": "no_candidate_in_cited_documents",
@@ -15876,14 +15903,14 @@
    "document_fetch_failed": 1,
    "no_candidate_in_cited_documents": 167,
    "no_learn_document_to_inspect": 27,
-   "review_required": 1
+   "selected": 1
   },
   "recommendation_review_status_counts": {
+   "asset_reviewed": 1,
    "document_inspected": 427,
    "no_cited_learn_document": 27,
-   "partially_reviewed": 1,
    "unreviewed": 1
   },
-  "selected_reference_image_count": 0
+  "selected_reference_image_count": 1
  }
 }

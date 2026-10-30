@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from functools import lru_cache
@@ -89,7 +90,20 @@ def _learn_inventory() -> tuple[dict[str, list[str]], dict[str, list[str]], str,
         {url: sorted(identities) for url, identities in sorted(groups.items())},
         {identity: sorted(urls) for identity, urls in recommendation_urls.items()},
         str(manifest["framework_revision"]),
-        str(manifest["catalog_digest"]),
+        "sha256:"
+        + hashlib.sha256(
+            json.dumps(
+                {
+                    "revision": manifest["framework_revision"],
+                    "citations": {
+                        identity: sorted(urls)
+                        for identity, urls in sorted(recommendation_urls.items())
+                    },
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest(),
     )
 
 
@@ -103,8 +117,8 @@ def _related_backup_candidate() -> dict[str, object]:
     }
 
 
-def _initial_manifest() -> dict[str, object]:
-    groups, recommendation_urls, framework_revision, catalog_digest = _learn_inventory()
+def _initial_manifest() -> dict[str, Any]:
+    groups, recommendation_urls, framework_revision, citation_digest = _learn_inventory()
     document_groups = []
     for url, identities in groups.items():
         document_groups.append(
@@ -143,7 +157,7 @@ def _initial_manifest() -> dict[str, object]:
     return {
         "schema_version": "1.0.0",
         "framework_revision": framework_revision,
-        "catalog_digest": catalog_digest,
+        "citation_digest": citation_digest,
         "recommendation_count": len(recommendations),
         "learn_citation_count": sum(len(urls) for urls in recommendation_urls.values()),
         "document_group_count": len(document_groups),
@@ -162,10 +176,10 @@ def _validate_manifest(value: Any) -> dict[str, Any]:
         or not isinstance(value.get("document_groups"), list)
     ):
         raise ValueError("WARA image review manifest has an invalid envelope")
-    source_groups, recommendation_urls, framework_revision, catalog_digest = _learn_inventory()
+    source_groups, recommendation_urls, framework_revision, citation_digest = _learn_inventory()
     if (
         value.get("framework_revision") != framework_revision
-        or value.get("catalog_digest") != catalog_digest
+        or value.get("citation_digest") != citation_digest
         or value.get("document_group_count") != len(source_groups)
         or value.get("learn_citation_count")
         != sum(len(urls) for urls in recommendation_urls.values())
@@ -217,6 +231,14 @@ def _validate_manifest(value: Any) -> dict[str, Any]:
 
             model = ReferenceImage.model_validate(reference)
             load_packaged_reference_image(model)
+            review = item.get("rights_review")
+            if not isinstance(review, dict) or not all(
+                isinstance(review.get(key), str) and review[key].strip()
+                for key in ("license_evidence_url", "source_repository_url", "reviewed_scope")
+            ):
+                raise ValueError(
+                    "a selected WARA image requires recorded license and scope evidence"
+                )
         elif reference is not None:
             raise ValueError("an unselected WARA image must not carry a renderable asset")
         records[identity] = item
@@ -258,6 +280,23 @@ def refresh_inventory() -> None:
         if previous is not None:
             group.update(previous)
             group["recommendation_ids"] = _learn_inventory()[0][group["source_document_url"]]
+    previous_records = {
+        item["recommendation_id"]: item for item in existing.get("recommendations", [])
+    }
+    for item in manifest["recommendations"]:
+        previous = previous_records.get(item["recommendation_id"])
+        if previous is not None and previous.get("decision") == "selected":
+            if (
+                existing.get("framework_revision") != manifest["framework_revision"]
+                or previous["learn_document_urls"] != item["learn_document_urls"]
+            ):
+                raise ValueError("selected WARA image source changed; review it before refreshing")
+            item.update(previous)
+            for group in manifest["document_groups"]:
+                for candidate in group.get("related_candidate_research", []):
+                    if candidate.get("image_url") == previous["reference_image"]["image_url"]:
+                        candidate["candidate_suitability"] = "reviewed_for_selected_asset"
+                        candidate["reason"] = previous["rights_review"]["reviewed_scope"]
     _save_manifest(manifest)
 
 

@@ -22,8 +22,11 @@ from fdai.delivery.wara_guidance_presentation import (
 )
 from fdai.delivery.wara_office_formats import PptxFormatEncoder
 from fdai_service_contracts.catalog_canonical import canonical_digest
+from fdai_service_contracts.reference_image_assets import (
+    load_packaged_reference_image,
+    verify_reference_image_bytes,
+)
 from fdai_service_contracts.reference_image_assets import resources as image_resources
-from fdai_service_contracts.reference_image_assets import verify_reference_image_bytes
 from fdai_service_contracts.wara_guidance import (
     ReferenceImage,
     WaraGuidance,
@@ -304,6 +307,45 @@ def test_actual_guidance_pptx_embeds_packaged_image_and_complete_provenance(
             '/image"' in relationship and "../media/" in relationship
             for relationship in relationships
         )
+
+
+@pytest.mark.parametrize("locale", ["en", "ko"])
+def test_official_packaged_backup_png_is_embedded_unchanged_in_pptx(locale) -> None:
+    guide = next(
+        guide
+        for guide in packaged_wara_guidance().entries
+        if guide.title.en == "Backup VMs with Azure Backup service"
+    )
+    image = guide.reference_image
+    assert image is not None
+    asset = load_packaged_reference_image(image)
+    assert (asset.width, asset.height) == (898, 400)
+    content = asset.content
+    report = build_wara_guidance_report(
+        guide, locale=locale, generated_at=datetime(2026, 10, 30, tzinfo=UTC)
+    )
+    output = PptxFormatEncoder().encode(report)
+    deck = Presentation(BytesIO(output))
+    pictures = [
+        shape
+        for slide in deck.slides
+        for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert len(pictures) == 1
+    assert pictures[0].image.blob == content
+    text = "\n".join(
+        shape.text for slide in deck.slides for shape in slide.shapes if shape.has_text_frame
+    )
+    assert image.source_document_url in text
+    assert image.attribution in text
+    assert image.license_url in text
+    caption = image.caption.ko if locale == "ko" else image.caption.en
+    assert " ".join(caption.split()) in " ".join(text.split())
+    with ZipFile(BytesIO(output)) as package:
+        media = [name for name in package.namelist() if name.startswith("ppt/media/")]
+        assert len(media) == 1
+        assert package.read(media[0]) == content
 
 
 @pytest.mark.parametrize("failure", ["missing", "tampered"])

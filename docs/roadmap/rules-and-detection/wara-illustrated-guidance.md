@@ -56,6 +56,15 @@ leave the custom diagram active without attaching a broken or unapproved image. 
 accepts reviewed, content-addressed PNGs of at most 2 MiB and verifies both package and Console copies.
 Synthetic image tests demonstrate transport and export behavior only, not Microsoft image approval.
 
+The VM backup guide ships the unchanged 898-by-400 Learn architecture PNG in both the Console
+static assets and the shared export package. Its review records the public article's source
+mapping, the repository's CC BY 4.0 notice and the image's extension-based backup scope.
+The visible source link opens the containing document, not the media file. Rendering doesn't
+fetch a remote image. Original English image labels remain unchanged, with Korean alternative
+text, a caption and an explicit language notice. This single selection doesn't approve the
+remaining 455 recommendations. Refresh preserves reviewed selections but requires renewed review
+when their framework revision or exact cited documents change.
+
 Custom diagrams use meaningful reading order, separated orthogonal routes and explicit relationship
 descriptions. Node intrusion alone is not a sufficient acceptance test: routing, crossings, shared
 segments, label association and bilingual readability need focused checks. Desktop acceptance
