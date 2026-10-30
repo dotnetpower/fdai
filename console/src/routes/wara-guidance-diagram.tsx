@@ -159,7 +159,11 @@ export function WaraGuidanceDiagram({ diagram, expanded, onExpand }: {
       </div>
       <figcaption>
         <p id={`${diagram.id}-description`}>{guidanceText(diagram.description, locale)}</p>
-        <p class="wara-guidance-legend"><span>{t("governance.rules.wara.guidance.solid")}</span><span>{t("governance.rules.wara.guidance.dashed")}</span></p>
+        <p class="wara-guidance-legend">
+          <span class="wara-guidance-legend-solid">{t("governance.rules.wara.guidance.legendConnection")}</span>
+          {diagram.edges.some((edge) => edge.style === "dashed") ? <span class="wara-guidance-legend-dashed">{t("governance.rules.wara.guidance.legendConditional")}</span> : null}
+          <span class="wara-guidance-legend-number">{t("governance.rules.wara.guidance.legendNumbers")}</span>
+        </p>
       </figcaption>
     </figure>
         {extendedNodes.length > 0 ? <section id={explanationsId} class="wara-guidance-explanations" ref={explanationsRef} aria-labelledby={`${explanationsId}-title`}>

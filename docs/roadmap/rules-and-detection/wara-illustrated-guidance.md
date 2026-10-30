@@ -125,7 +125,10 @@ A native modal offers the unchanged image at original size, keyboard-scrollable 
 Escape closes only that modal and returns focus to its opener. The containing recommendation
 stays open, and illustrative guidance remains separate from the actual environment assessment.
 
-The document reading surface uses the shared 16px lead scale for prose. Before and after content
+The document reading surface follows the Console type scale: 24px title, 16px summary and section
+headings, 14px body text, and no text below 12px. The diagram legend names the relationship styles
+that are drawn, shows the conditional style only when a conditional relationship exists, and
+explains that arrow numbers match the numbered connection list. Before and after content
 are independent lists: their array positions do not establish paired comparison rows. Design
 rationale remains visible beside applicability and is printed with the document. The image text
 alternative is not repeated as a second visible caption. Longer diagram descriptions move to

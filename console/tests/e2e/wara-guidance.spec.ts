@@ -137,6 +137,16 @@ test("illustrates three public pilots in English and Korean, desktop before resp
         await expect(figure.locator("[data-guidance-edge]")).toHaveCount(guidance.diagram.edges.length);
         await expect(figure.locator("[marker-end]")).toHaveCount(guidance.diagram.edges.length);
         await expect(figure.locator("figcaption")).toContainText(guidanceText(guidance.diagram.description, locale));
+        const legend = figure.locator(".wara-guidance-legend");
+        await expect(legend).toContainText(locale === "ko" ? "연결 관계" : "Relationship");
+        await expect(legend.locator(".wara-guidance-legend-dashed")).toHaveCount(guidance.diagram.edges.some((edge) => edge.style === "dashed") ? 1 : 0);
+        await expect(legend).not.toContainText(/실선 화살표|점선 화살표|Solid arrows|Dashed arrows/);
+        expect(await page.evaluate(() => {
+          const size = (selector: string) => parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize);
+          const small = Array.from(document.querySelectorAll<HTMLElement>(".wara-guidance-content *"))
+            .filter((element) => Array.from(element.childNodes).some((node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== "") && parseFloat(getComputedStyle(element).fontSize) < 12).length;
+          return { title: size(".wara-guidance-title"), lead: size(".wara-guidance-lead"), heading: size(".wara-guidance-section > h3"), body: size(".wara-guidance-implementation li"), small };
+        })).toEqual({ title: 24, lead: 16, heading: 16, body: 14, small: 0 });
         if (index === 2) {
           expect(guidance.diagram.nodes.length).toBeGreaterThanOrEqual(5);
           await expect(figure.locator('[data-guidance-edge="dashed"]')).not.toHaveCount(0);
