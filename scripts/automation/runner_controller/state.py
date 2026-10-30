@@ -8,6 +8,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Protocol, TypeVar
 from urllib.parse import quote, urlsplit
@@ -15,6 +16,14 @@ from urllib.parse import quote, urlsplit
 from scripts.automation.runner_controller.transport import ProviderError, Transport
 
 T = TypeVar("T")
+
+
+@dataclass
+class _PendingTransaction:
+    change: Callable[[dict[str, Any]], Any]
+    done: threading.Event = field(default_factory=threading.Event)
+    result: Any = None
+    error: BaseException | None = None
 
 
 class StateStore(Protocol):
@@ -73,6 +82,8 @@ class BlobState:
         self.token = token
         self.transport = transport or Transport()
         self.lock = threading.RLock()
+        self._queue_lock = threading.Lock()
+        self._pending: list[_PendingTransaction] = []
         self.lease = str(uuid.uuid4())
         self.etag = ""
         self.renewed = 0.0
@@ -158,39 +169,81 @@ class BlobState:
             return copy.deepcopy(self.data)
 
     def transaction(self, change: Callable[[dict[str, Any]], T]) -> T:
+        item = _PendingTransaction(change)
+        with self._queue_lock:
+            self._pending.append(item)
         with self.lock:
-            if not self.alive or time.monotonic() - self.renewed >= 50:
-                self.alive = False
-                raise LeaseLostError("controller lease expired before effect reservation")
-            if time.monotonic() - self.renewed >= 15:
-                self.renew()
-            updated = copy.deepcopy(self.data)
-            result = change(updated)
-            _assert_no_secrets(updated)
-            try:
-                response = self.transport.request(
-                    "PUT",
-                    self.url,
-                    body=updated,
-                    accepted=(201,),
-                    headers={
-                        **self._headers(),
-                        "x-ms-blob-type": "BlockBlob",
-                        "x-ms-lease-id": self.lease,
-                        "If-Match": self.etag,
-                    },
-                )
-            except ProviderError:
-                self.alive = False
-                raise LeaseLostError(
-                    "controller conditional state write failed; stopping effects"
-                ) from None
-            self.etag = next((v for k, v in response.headers.items() if k.lower() == "etag"), "")
-            if not self.etag:
-                self.alive = False
-                raise LeaseLostError("controller state write returned no revision")
-            self.data = updated
-            return result
+            if not item.done.is_set():
+                with self._queue_lock:
+                    batch = list(self._pending)
+                    self._pending.clear()
+                try:
+                    if not self.alive or time.monotonic() - self.renewed >= 50:
+                        self.alive = False
+                        raise LeaseLostError("controller lease expired before effect reservation")
+                    if time.monotonic() - self.renewed >= 15:
+                        self.renew()
+                except BaseException as exc:
+                    for entry in batch:
+                        entry.error = exc
+                        entry.done.set()
+                else:
+                    updated = copy.deepcopy(self.data)
+                    succeeded: list[_PendingTransaction] = []
+                    for entry in batch:
+                        candidate = copy.deepcopy(updated)
+                        try:
+                            value = entry.change(candidate)
+                            _assert_no_secrets(candidate)
+                        except BaseException as exc:
+                            entry.error = exc
+                            entry.done.set()
+                        else:
+                            updated = candidate
+                            entry.result = value
+                            succeeded.append(entry)
+                    if succeeded:
+                        try:
+                            response = self.transport.request(
+                                "PUT",
+                                self.url,
+                                body=updated,
+                                accepted=(201,),
+                                headers={
+                                    **self._headers(),
+                                    "x-ms-blob-type": "BlockBlob",
+                                    "x-ms-lease-id": self.lease,
+                                    "If-Match": self.etag,
+                                },
+                            )
+                            etag = next(
+                                (v for k, v in response.headers.items() if k.lower() == "etag"),
+                                "",
+                            )
+                            if not etag:
+                                self.alive = False
+                                raise LeaseLostError("controller state write returned no revision")
+                            self.etag = etag
+                            self.data = updated
+                        except ProviderError:
+                            self.alive = False
+                            loss = LeaseLostError(
+                                "controller conditional state write failed; stopping effects"
+                            )
+                            loss.__cause__ = None
+                            for entry in succeeded:
+                                entry.error = loss
+                                entry.done.set()
+                        except BaseException as exc:
+                            for entry in succeeded:
+                                entry.error = exc
+                                entry.done.set()
+                        else:
+                            for entry in succeeded:
+                                entry.done.set()
+        if item.error is not None:
+            raise item.error
+        return item.result  # type: ignore[no-any-return]
 
     def close(self) -> None:
         with self.lock:

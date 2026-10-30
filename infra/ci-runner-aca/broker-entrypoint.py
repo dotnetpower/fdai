@@ -84,12 +84,14 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("broker returned no short-lived registration")
     request(origin, "/registered", auth)
     runner = Path("/opt/actions-runner")
+    if runner.is_symlink():
+        runner = runner.resolve()
     hook, started = runner / ".fdai-job-started.sh", runner / ".fdai-job-started"
     hook.write_text(f"#!/bin/sh\n: > '{started}'\n", encoding="utf-8")
     hook.chmod(0o555)
     environment = {
         "HOME": "/home/runner",
-        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "PATH": "/home/runner/.local/bin:/usr/local/bin:/usr/bin:/bin",
         "AGENT_TOOLSDIRECTORY": "/opt/hostedtoolcache",
         "ACTIONS_RUNNER_INPUT_JITCONFIG": credential,
         "ACTIONS_RUNNER_HOOK_JOB_STARTED": str(hook),

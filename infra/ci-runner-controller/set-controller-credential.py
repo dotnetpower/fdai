@@ -21,6 +21,7 @@ import secrets
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import warnings
@@ -130,9 +131,33 @@ def store_credentials(resource_id: str, token: str, pat: str, webhook_key: str) 
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     try:
         with opener.open(request, timeout=30) as response:
-            if response.status != 200:
+            status = response.status
+        if status == 200:
+            return
+        if status != 202:
+            raise CredentialError("credential_update_unconfirmed")
+        for _ in range(30):
+            check = urllib.request.Request(
+                "https://management.azure.com" + resource_id + "?api-version=2024-03-01",
+                method="GET",
+                headers={"Authorization": request.get_header("Authorization") or ""},
+            )
+            with opener.open(check, timeout=30) as poll:
+                if poll.status != 200 or not hasattr(poll, "read"):
+                    raise CredentialError("credential_update_unconfirmed")
+                raw = json.loads(poll.read(1024 * 1024).decode("utf-8"))
+            state = (
+                raw.get("properties", {}).get("provisioningState")
+                if isinstance(raw, dict)
+                else None
+            )
+            if state == "Succeeded":
+                return
+            if state in {"Failed", "Canceled"}:
                 raise CredentialError("credential_update_unconfirmed")
-    except (urllib.error.URLError, OSError):
+            time.sleep(2)
+        raise CredentialError("credential_update_unconfirmed")
+    except (urllib.error.URLError, OSError, ValueError):
         raise CredentialError("credential_update_failed") from None
 
 

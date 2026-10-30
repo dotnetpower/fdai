@@ -304,7 +304,9 @@ def build_receipt(
     for job in jobs:
         name = job.get("name", "")
         require(isinstance(name, str), "canary job name is invalid")
-        match = re.fullmatch(r"pool canary / (control|general|docker) / ([0-9]+)", name)
+        match = re.fullmatch(
+            r"pool canary / (control|general|docker) / ([0-9]+|\$\{\{ matrix\.slot \}\})", name
+        )
         if match is None:
             require(not name.startswith("pool canary / "), "unexpected canary job name")
             require(

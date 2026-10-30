@@ -167,7 +167,8 @@ def admit(context: Context, api: ApiEvidence, git: GitEvidence) -> None:
         and run.get("event") == context.event_name
         and repository_matches(run.get("repository"), context)
         and run.get("path") == context.workflow_path
-        and run.get("status") == "in_progress"
+        and run.get("status") in {"queued", "in_progress"}
+        and run.get("conclusion") is None
         and actor_matches(run.get("actor"), context.actor, context.actor_id)
         and actor_matches(run.get("triggering_actor"), context.triggering_actor),
         "workflow run binding mismatch",
