@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 89f51695745683addba50d2a253f43fafcb9e55b
-translation_revised: 2026-10-30
+translation_source_sha: 0f1d6555d57f37af2379fad6fb7a469cd8b26a52
+translation_revised: 2026-10-31
 ---
 # 배포 리소스 규약
 
@@ -477,7 +477,13 @@ ETag가 있다는 이유만으로 오래된 데이터를 현재 상태로 취급
 
 컨트롤러 앱은 비밀값을 조회하는 AzureRM 새로고침 대신 AzAPI의 일반 ARM GET을 사용합니다.
 Terraform은 초기 `unset` 자리표시자만 관리하고 이후 비밀값 변경은 제외합니다.
-실제 자격증명은 대화형 설정 스크립트로 관리합니다. CI는 공통 러너 매니페스트의 Terraform
+실제 자격증명은 대화형 설정 스크립트로 관리하며, ARM `PUT`이 `value`가 생략된 `GET` 마스킹
+비밀 항목을 거부하므로 `ignore_body_changes` 없이 `ignore_changes`만 사용하고 `202 Accepted`
+장기 실행 업데이트가 `Succeeded`로 완료될 때까지 확인합니다. 컨트롤러 Container Apps 환경은
+전용 컨트롤러 VNet과 Blob 프라이빗 엔드포인트 및 프라이빗 DNS 영역을 사용하여 워커나
+애플리케이션 네트워크를 공유하지 않고도 상태 스토리지의 `public_network_access_enabled = false`를
+유지합니다. 사용자 할당 관리 ID 토큰 요청은 `AZURE_CLIENT_ID`를 전달하고 만료 전 토큰을
+캐시하며, 동시 상태 쓰기는 활성 Blob 임대 아래에서 병합 커밋됩니다. CI는 공통 러너 매니페스트의 Terraform
 버전을 사용하며 모의 공급자로 이 루트를 검증하고 테스트합니다.
 계획과 Terraform 상태에 PAT나 웹후크 키를 저장할 필요가 없습니다.
 

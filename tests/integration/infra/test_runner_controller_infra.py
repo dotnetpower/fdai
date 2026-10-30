@@ -203,7 +203,7 @@ def test_single_controller_owns_only_nonsecret_runtime_config_and_placeholders()
     assignment(controller, "allowInsecure", "false")
     assignment(controller, "targetPort", "8080")
     assignment(controller, "ignore_changes", "[body.properties.configuration.secrets]")
-    assignment(controller, "ignore_body_changes", '["properties.configuration.secrets"]')
+    assert "ignore_body_changes" not in controller
     assignment(controller, "response_export_values", '["properties.configuration.ingress.fqdn"]')
     assert re.findall(r'name\s*=\s*"([^"]+)",\s*value\s*=\s*"unset"', controller) == [
         "github-pat",

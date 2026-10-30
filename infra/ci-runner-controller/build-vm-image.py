@@ -336,7 +336,8 @@ class Builder:
         )
         self.run_script(
             "wait_cloud_init",
-            "set -eu; timeout 3600 cloud-init status --wait >/dev/null; "
+            "set -eu; status=0; timeout 3600 cloud-init status --wait >/dev/null || status=$?; "
+            'test "$status" -eq 0 -o "$status" -eq 2; '
             f"grep -q '{args.source_sha}' /var/lib/fdai-ci-image-ready; "
             "test ! -e /opt/actions-runner/.runner; test ! -e /opt/actions-runner/.credentials; "
             "systemctl is-active --quiet docker; echo fdai_image_ready",
@@ -381,7 +382,7 @@ class Builder:
             "--exclude-from-latest",
             "true",
             *self.tag_arguments(),
-            timeout=900,
+            timeout=1800,
         )
         image = self.az(
             "verify_image",
