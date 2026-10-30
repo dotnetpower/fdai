@@ -94,6 +94,9 @@ The transport keeps English fallback for legacy records, not as evidence of tran
 Machine identities, digests and serialized tokens stay unchanged across languages.
 Per-recommendation source meaning takes precedence over a reusable family illustration.
 Titles or shared diagrams alone are not substantive guidance.
+Keep the illustrative-versus-observed notice in the diagram description rather than repeating it
+on every node. Node details name their authored connection targets and relationships, while
+evidence nodes retain the recommendation's specific inspection instructions.
 
 The corpus verifies all 456 IDs exactly once, their 393/63 lifecycle split, the exact source
 revision, an aggregate digest and per-entry digests. Missing instructional sections, disconnected

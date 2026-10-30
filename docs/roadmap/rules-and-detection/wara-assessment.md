@@ -145,6 +145,22 @@ freshness ceiling, accountable owner slot, and blocked reason. It does not provi
 control. Until a separately authorized producer supplies admissible evidence, the recommendation
 remains `not_evaluated` with `manual_evidence_required`.
 
+## Control assessment selection
+
+Published `High` and `Medium` impact recommendations start enabled for shadow assessment, while
+`Low` recommendations start disabled. Their catalog lifecycle stays `active`; all 393 active
+recommendations still appear in the result. A disabled recommendation stays `not_evaluated` and
+`unknown` with `control_disabled`, and its automatic observation query isn't dispatched.
+The 63 historical recommendations remain lifecycle-disabled regardless of assessment preference.
+
+An optional reviewed installation profile can explicitly enable or disable an active control.
+Its exact source revision, workload scope, review time, control identities, and digest are checked
+before provider collection, and the complete profile is retained in the immutable result.
+See [reviewed installation preferences](framework-assessment.md#reviewed-installation-preferences).
+This choice neither approves non-applicability nor changes query admission, Rule activation,
+ActionType promotion, or execution authority. The detail may show inert action candidates from
+an exact active Rule binding; a candidate still needs the ordinary execution capability and gates.
+
 ## Shadow assessment contract
 
 An assessment request pins the framework revision, crosswalk digest, ontology release, inventory

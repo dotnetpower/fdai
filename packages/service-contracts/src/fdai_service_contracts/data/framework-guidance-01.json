@@ -1,0 +1,3244 @@
+{
+  "entries": [
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:03 only to the reviewed workload scope with accountable owner role release-owner; review cadence 180 days.",
+          "ko": "OE:03은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not treat one team's development checklist as an estate-wide lifecycle process.",
+          "ko": "한 팀의 개발 점검표를 전체 환경의 수명 주기 절차로 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Changes retain traceability beyond a successful build.",
+        "ko": "빌드 성공 이후에도 변경의 추적성을 유지할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Excessive gates can encourage undocumented workarounds; keep evidence proportional.",
+          "ko": "과도한 검토 단계는 기록 없는 우회를 유도할 수 있으므로 필요한 만큼의 근거를 요구합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define lifecycle responsibilities and required review artifacts at each transition.",
+            "ko": "각 전환 단계의 수명 주기 책임과 필수 검토 산출물을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:development-practices for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:development-practices 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A release is approved from build status alone with no lifecycle record.",
+            "ko": "수명 주기 기록 없이 빌드 상태만 보고 배포를 승인합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:03 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:03에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:5faf52c36f10b3422828772548df6630d7da1ad3f7348820d4c3c722f178f03f",
+      "control_id": "OE:03",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-03",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A release is approved from build status alone with no lifecycle record.",
+              "ko": "수명 주기 기록 없이 빌드 상태만 보고 배포를 승인합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Formalize practices across the software development lifecycle",
+              "ko": "소프트웨어 수명 주기 관행 정립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define lifecycle responsibilities and required review artifacts at each transition.",
+              "ko": "각 전환 단계의 수명 주기 책임과 필수 검토 산출물을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Trace a delivered change from requirement through review, release and support.",
+              "ko": "전달된 변경을 요구사항부터 검토, 배포, 지원까지 추적합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Changes retain traceability beyond a successful build.",
+              "ko": "빌드 성공 이후에도 변경의 추적성을 유지할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Formalize practices across the software development lifecycle",
+          "ko": "소프트웨어 수명 주기 관행 정립"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:03 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:03의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define lifecycle responsibilities and required review artifacts at each transition.",
+          "ko": "각 전환 단계의 수명 주기 책임과 필수 검토 산출물을 정합니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:development-practices from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:development-practices을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Lifecycle gates connect planning, development, release and retirement evidence. In FDAI, OE:03 is assessed through approval:release-owner, artifact:development-practices. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "수명 주기 검토 단계는 계획, 개발, 배포, 폐기의 근거를 연결합니다. FDAI는 OE:03을 approval:release-owner, artifact:development-practices 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:7be1864a35c323b60f88d650d7abc96b67ea1869f0ba4db5ecb7899d8148df91",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Lifecycle gates connect planning, development, release and retirement evidence.",
+        "ko": "수명 주기 검토 단계는 계획, 개발, 배포, 폐기의 근거를 연결합니다."
+      },
+      "title": {
+        "en": "Formalize practices across the software development lifecycle",
+        "ko": "소프트웨어 수명 주기 관행 정립"
+      },
+      "verification_steps": [
+        {
+          "en": "Trace a delivered change from requirement through review, release and support.",
+          "ko": "전달된 변경을 요구사항부터 검토, 배포, 지원까지 추적합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:03 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:03을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:04 only to the reviewed workload scope with accountable owner role release-owner; review cadence 180 days.",
+          "ko": "OE:04은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude unsupported personal tooling from the team's supported delivery contract.",
+          "ko": "지원하지 않는 개인 도구를 팀의 공식 전달 규약에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can reproduce failures and share quality expectations.",
+        "ko": "팀은 실패를 재현하고 품질 기준을 공유할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A shared tool does not eliminate the need for design and code review.",
+          "ko": "공용 도구가 설계 검토와 코드 검토의 필요성을 없애지는 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Pin supported tools and align local and pipeline quality checks.",
+            "ko": "지원하는 도구 버전을 고정하고 로컬 및 파이프라인 품질 검사를 맞춥니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:development-quality-standards for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:development-quality-standards 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Local builds and CI use different tool versions and checks.",
+            "ko": "로컬 빌드와 CI가 서로 다른 도구 버전과 검사를 사용합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:04 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:04에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:060a1ba788d1097043838a49323ba80d7475b0cbe5b3307bfc70d68be7a60f4c",
+      "control_id": "OE:04",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-04",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Local builds and CI use different tool versions and checks.",
+              "ko": "로컬 빌드와 CI가 서로 다른 도구 버전과 검사를 사용합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Standardize development tools and quality processes",
+              "ko": "개발 도구와 품질 절차 표준화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Pin supported tools and align local and pipeline quality checks.",
+              "ko": "지원하는 도구 버전을 고정하고 로컬 및 파이프라인 품질 검사를 맞춥니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run the documented checks from a clean checkout and compare pipeline results.",
+              "ko": "깨끗한 체크아웃에서 문서화된 검사를 실행하고 파이프라인 결과와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can reproduce failures and share quality expectations.",
+              "ko": "팀은 실패를 재현하고 품질 기준을 공유할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Standardize development tools and quality processes",
+          "ko": "개발 도구와 품질 절차 표준화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:04 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:04의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Pin supported tools and align local and pipeline quality checks.",
+          "ko": "지원하는 도구 버전을 고정하고 로컬 및 파이프라인 품질 검사를 맞춥니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:development-quality-standards from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:development-quality-standards을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A reviewed toolchain applies consistent checks to repeatable delivery work. In FDAI, OE:04 is assessed through approval:release-owner, artifact:development-quality-standards. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "검토된 도구 체계는 반복되는 전달 작업에 일관된 검사를 적용합니다. FDAI는 OE:04을 approval:release-owner, artifact:development-quality-standards 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:7050f24811250182cfa0d344a3179481e41f2e5b028b5430defdecdc3e158ce0",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "A reviewed toolchain applies consistent checks to repeatable delivery work.",
+        "ko": "검토된 도구 체계는 반복되는 전달 작업에 일관된 검사를 적용합니다."
+      },
+      "title": {
+        "en": "Standardize development tools and quality processes",
+        "ko": "개발 도구와 품질 절차 표준화"
+      },
+      "verification_steps": [
+        {
+          "en": "Run the documented checks from a clean checkout and compare pipeline results.",
+          "ko": "깨끗한 체크아웃에서 문서화된 검사를 실행하고 파이프라인 결과와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:04 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:04을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:05 only to the reviewed workload scope with accountable owner role release-owner; review cadence 30 days.",
+          "ko": "OE:05은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not import unmanaged resources without ownership and state-migration review.",
+          "ko": "소유권과 상태 이전을 검토하지 않고 비관리 리소스를 가져오지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can compare actual infrastructure with a versioned intended state.",
+        "ko": "팀은 실제 인프라를 버전이 있는 의도된 상태와 비교할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Plans can contain sensitive values and are not authorization to apply changes.",
+          "ko": "계획에는 민감한 값이 들어갈 수 있으며 계획 자체가 변경 적용 권한은 아닙니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Describe infrastructure in versioned modules with reviewed plans and protected state.",
+            "ko": "버전 관리 모듈로 인프라를 정의하고 계획을 검토하며 상태를 보호합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:production-terraform-plan for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:production-terraform-plan 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Portal changes are not represented in the deployment repository.",
+            "ko": "포털에서 바꾼 구성이 배포 저장소에 반영되지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: OE:05 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:05에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:3b7c43175cee47761db36b83551fe23ae03e1e6e26a294b45b5b32354dcf0fd0",
+      "control_id": "OE:05",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-05",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Portal changes are not represented in the deployment repository.",
+              "ko": "포털에서 바꾼 구성이 배포 저장소에 반영되지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Use a standardized infrastructure-as-code approach",
+              "ko": "코드형 인프라 접근 방식 표준화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Describe infrastructure in versioned modules with reviewed plans and protected state.",
+              "ko": "버전 관리 모듈로 인프라를 정의하고 계획을 검토하며 상태를 보호합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Create a plan from the approved revision and inspect unexpected drift.",
+              "ko": "승인된 리비전으로 계획을 만들고 예상치 못한 드리프트를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can compare actual infrastructure with a versioned intended state.",
+              "ko": "팀은 실제 인프라를 버전이 있는 의도된 상태와 비교할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Use a standardized infrastructure-as-code approach",
+          "ko": "코드형 인프라 접근 방식 표준화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:05 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:05의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Describe infrastructure in versioned modules with reviewed plans and protected state.",
+          "ko": "버전 관리 모듈로 인프라를 정의하고 계획을 검토하며 상태를 보호합니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:production-terraform-plan from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:production-terraform-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Declarative infrastructure makes desired configuration reviewable and repeatable. In FDAI, OE:05 is assessed through approval:release-owner, artifact:production-terraform-plan. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "선언형 인프라는 원하는 구성을 검토하고 반복할 수 있게 합니다. FDAI는 OE:05을 approval:release-owner, artifact:production-terraform-plan 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:990c035accc29228ff923e6d40f8955923f9d5987f3d438c4e02946bb6b068df",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Declarative infrastructure makes desired configuration reviewable and repeatable.",
+        "ko": "선언형 인프라는 원하는 구성을 검토하고 반복할 수 있게 합니다."
+      },
+      "title": {
+        "en": "Use a standardized infrastructure-as-code approach",
+        "ko": "코드형 인프라 접근 방식 표준화"
+      },
+      "verification_steps": [
+        {
+          "en": "Create a plan from the approved revision and inspect unexpected drift.",
+          "ko": "승인된 리비전으로 계획을 만들고 예상치 못한 드리프트를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:05 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:05을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:06 only to the reviewed workload scope with accountable owner role release-owner; review cadence 30 days.",
+          "ko": "OE:06은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Exclude development-only dependencies from claims about deployed artifact coverage.",
+          "ko": "배포 산출물의 적용 범위를 설명할 때 개발 전용 의존성을 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "A release can be reproduced and traced to its approved inputs.",
+        "ko": "배포를 재현하고 승인된 입력까지 추적할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A signed artifact still requires vulnerability and suitability review.",
+          "ko": "서명된 산출물도 취약점과 적합성을 검토해야 합니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Pin dependencies and release artifacts with integrity and provenance checks.",
+            "ko": "의존성과 배포 산출물을 고정하고 무결성과 출처를 검사합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:signed-image-provenance, metric:supply-chain-gate-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:signed-image-provenance, metric:supply-chain-gate-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A mutable package tag selects different code between build and release.",
+            "ko": "변경 가능한 패키지 태그가 빌드와 배포 사이에 다른 코드를 선택합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:06 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:06에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:275a03e5d5200c9f7e4d82b6d1f156c13ab457d23dc4f3d87b5479dce6cc14ad",
+      "control_id": "OE:06",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-06",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A mutable package tag selects different code between build and release.",
+              "ko": "변경 가능한 패키지 태그가 빌드와 배포 사이에 다른 코드를 선택합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Build a predictable workload supply chain",
+              "ko": "예측 가능한 공급 체인 구축"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Pin dependencies and release artifacts with integrity and provenance checks.",
+              "ko": "의존성과 배포 산출물을 고정하고 무결성과 출처를 검사합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Resolve a deployed artifact to its digest, source revision and build record.",
+              "ko": "배포된 산출물을 다이제스트, 소스 리비전, 빌드 기록과 연결합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A release can be reproduced and traced to its approved inputs.",
+              "ko": "배포를 재현하고 승인된 입력까지 추적할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Build a predictable workload supply chain",
+          "ko": "예측 가능한 공급 체인 구축"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:06 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:06의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Pin dependencies and release artifacts with integrity and provenance checks.",
+          "ko": "의존성과 배포 산출물을 고정하고 무결성과 출처를 검사합니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:signed-image-provenance from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:signed-image-provenance을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:supply-chain-gate-results from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:supply-chain-gate-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Artifact provenance and controlled dependencies preserve the identity of delivered software. In FDAI, OE:06 is assessed through approval:release-owner, artifact:signed-image-provenance, metric:supply-chain-gate-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "산출물 출처와 의존성 통제는 전달하는 소프트웨어의 동일성을 유지합니다. FDAI는 OE:06을 approval:release-owner, artifact:signed-image-provenance, metric:supply-chain-gate-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:4dc95b08b9803024bfcf7bb9e9b16df9022f2d3e1c6ef0bdd314806ea98eb303",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Artifact provenance and controlled dependencies preserve the identity of delivered software.",
+        "ko": "산출물 출처와 의존성 통제는 전달하는 소프트웨어의 동일성을 유지합니다."
+      },
+      "title": {
+        "en": "Build a predictable workload supply chain",
+        "ko": "예측 가능한 공급 체인 구축"
+      },
+      "verification_steps": [
+        {
+          "en": "Resolve a deployed artifact to its digest, source revision and build record.",
+          "ko": "배포된 산출물을 다이제스트, 소스 리비전, 빌드 기록과 연결합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:06 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:06을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:07 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 1 days.",
+          "ko": "OE:07은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 1일입니다."
+        },
+        {
+          "en": "Exclude telemetry gaps from claims of complete end-to-end visibility.",
+          "ko": "원격 분석이 빠진 구간을 종단 간 가시성 확보로 설명하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Operators can investigate critical flows rather than isolated resource charts.",
+        "ko": "운영자는 개별 리소스 차트 대신 핵심 흐름을 조사할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Telemetry can expose sensitive payloads and incur material ingestion costs.",
+          "ko": "원격 분석은 민감한 내용을 노출하고 상당한 수집 비용을 발생시킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define health signals and correlation identifiers for critical workload flows.",
+            "ko": "핵심 워크로드 흐름의 상태 신호와 상관 식별자를 정의합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, artifact:alerting-and-retention-review, metric:health-monitoring-evidence, rule:kubernetes-cluster.diagnostic-settings-required, rule:object-storage.diagnostic-settings-required, rule:postgresql-server.diagnostic-settings-required, rule:secret-store.diagnostic-settings-required, rule:sql-database.diagnostic-settings-required for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, artifact:alerting-and-retention-review, metric:health-monitoring-evidence, rule:kubernetes-cluster.diagnostic-settings-required, rule:object-storage.diagnostic-settings-required, rule:postgresql-server.diagnostic-settings-required, rule:secret-store.diagnostic-settings-required, rule:sql-database.diagnostic-settings-required 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Resource metrics exist but cannot be correlated with failed user requests.",
+            "ko": "리소스 메트릭은 있지만 실패한 사용자 요청과 연결할 수 없습니다."
+          },
+          {
+            "en": "Illustrative gap: OE:07 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:07에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:fb7cda5ccf94f5abdb577e54b25b411c93ca749c1940dc0d146d00c2381974e6",
+      "control_id": "OE:07",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-07",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Resource metrics exist but cannot be correlated with failed user requests.",
+              "ko": "리소스 메트릭은 있지만 실패한 사용자 요청과 연결할 수 없습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Design a workload monitoring stack",
+              "ko": "워크로드 모니터링 체계 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define health signals and correlation identifiers for critical workload flows.",
+              "ko": "핵심 워크로드 흐름의 상태 신호와 상관 식별자를 정의합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Follow a test request across services and confirm alert and trace linkage.",
+              "ko": "테스트 요청을 서비스 간에 추적하고 경고와 추적 정보의 연결을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Operators can investigate critical flows rather than isolated resource charts.",
+              "ko": "운영자는 개별 리소스 차트 대신 핵심 흐름을 조사할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Design a workload monitoring stack",
+          "ko": "워크로드 모니터링 체계 설계"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:07 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:07의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define health signals and correlation identifiers for critical workload flows.",
+          "ko": "핵심 워크로드 흐름의 상태 신호와 상관 식별자를 정의합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:alerting-and-retention-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:alerting-and-retention-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:health-monitoring-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:health-monitoring-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain rule:kubernetes-cluster.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:kubernetes-cluster.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:object-storage.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:object-storage.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:postgresql-server.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:postgresql-server.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:secret-store.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:secret-store.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        },
+        {
+          "en": "Retain rule:sql-database.diagnostic-settings-required from t0-rule-evaluator for exact-workload; freshness limit 86400 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation inventory.",
+          "ko": "정확한 워크로드 범위의 규칙 rule:sql-database.diagnostic-settings-required을 t0-rule-evaluator에서 확보합니다. 최신성 한도는 86400초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 inventory입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Correlated logs, metrics and traces connect user impact with dependency behavior. In FDAI, OE:07 is assessed through approval:operations-owner, artifact:alerting-and-retention-review, metric:health-monitoring-evidence, rule:kubernetes-cluster.diagnostic-settings-required, rule:object-storage.diagnostic-settings-required, rule:postgresql-server.diagnostic-settings-required, rule:secret-store.diagnostic-settings-required, rule:sql-database.diagnostic-settings-required. Process phases: none; generation contract: inventory, none. The original example explains the control, not a new official requirement.",
+        "ko": "상관관계를 갖는 로그, 메트릭, 추적 정보는 사용자 영향과 의존성 동작을 연결합니다. FDAI는 OE:07을 approval:operations-owner, artifact:alerting-and-retention-review, metric:health-monitoring-evidence, rule:kubernetes-cluster.diagnostic-settings-required, rule:object-storage.diagnostic-settings-required, rule:postgresql-server.diagnostic-settings-required, rule:secret-store.diagnostic-settings-required, rule:sql-database.diagnostic-settings-required 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 inventory, none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:bb4145aef06b95cf0d1302e207283a08fc2a5cbf5b70f3a0b77dadbda31ef235",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Correlated logs, metrics and traces connect user impact with dependency behavior.",
+        "ko": "상관관계를 갖는 로그, 메트릭, 추적 정보는 사용자 영향과 의존성 동작을 연결합니다."
+      },
+      "title": {
+        "en": "Design a workload monitoring stack",
+        "ko": "워크로드 모니터링 체계 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Follow a test request across services and confirm alert and trace linkage.",
+          "ko": "테스트 요청을 서비스 간에 추적하고 경고와 추적 정보의 연결을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:07 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:07을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:08 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 180 days.",
+          "ko": "OE:08은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Do not treat an unacknowledged alert as an actively managed incident.",
+          "ko": "확인하지 않은 경고를 관리 중인 인시던트로 간주하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Responders can prioritize restoration while keeping stakeholders informed.",
+        "ko": "대응자는 이해관계자에게 상황을 알리면서 복구를 우선할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Incident speed must not erase audit records or approval requirements.",
+          "ko": "빠른 대응을 이유로 감사 기록이나 승인 요구를 없애지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define incident roles, severity criteria, escalation and communication cadence.",
+            "ko": "인시던트 역할, 심각도 기준, 보고 경로, 상황 공유 주기를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, artifact:incident-response-plan, drill:incident-response-drill for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, artifact:incident-response-plan, drill:incident-response-drill 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Alerts reach a shared mailbox without an incident commander or escalation.",
+            "ko": "인시던트 지휘자나 보고 절차 없이 경고가 공용 메일함에 도착합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:08 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:08에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:6132e0a57c26adad7749822d72a300f7b24f81bd1b91e6474b98ad71aa0756f5",
+      "control_id": "OE:08",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-08",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Alerts reach a shared mailbox without an incident commander or escalation.",
+              "ko": "인시던트 지휘자나 보고 절차 없이 경고가 공용 메일함에 도착합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Establish a structured incident management process",
+              "ko": "체계적인 인시던트 관리 정립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define incident roles, severity criteria, escalation and communication cadence.",
+              "ko": "인시던트 역할, 심각도 기준, 보고 경로, 상황 공유 주기를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Run a tabletop incident and inspect ownership, timeline and stakeholder updates.",
+              "ko": "모의 인시던트를 진행하고 담당자, 시간 기록, 이해관계자 공지를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Responders can prioritize restoration while keeping stakeholders informed.",
+              "ko": "대응자는 이해관계자에게 상황을 알리면서 복구를 우선할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Establish a structured incident management process",
+          "ko": "체계적인 인시던트 관리 정립"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:08 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:08의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define incident roles, severity criteria, escalation and communication cadence.",
+          "ko": "인시던트 역할, 심각도 기준, 보고 경로, 상황 공유 주기를 정합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:incident-response-plan from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:incident-response-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain drill:incident-response-drill from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 drill:incident-response-drill을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Severity, ownership and communication rules coordinate incident response. In FDAI, OE:08 is assessed through approval:operations-owner, artifact:incident-response-plan, drill:incident-response-drill. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "심각도, 담당자, 의사소통 규칙은 인시던트 대응을 조정합니다. FDAI는 OE:08을 approval:operations-owner, artifact:incident-response-plan, drill:incident-response-drill 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:4f8ec588f5a50c417aed40fa61ab0e47c695b61c20b889bb51c751ed6598c8b9",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Severity, ownership and communication rules coordinate incident response.",
+        "ko": "심각도, 담당자, 의사소통 규칙은 인시던트 대응을 조정합니다."
+      },
+      "title": {
+        "en": "Establish a structured incident management process",
+        "ko": "체계적인 인시던트 관리 정립"
+      },
+      "verification_steps": [
+        {
+          "en": "Run a tabletop incident and inspect ownership, timeline and stakeholder updates.",
+          "ko": "모의 인시던트를 진행하고 담당자, 시간 기록, 이해관계자 공지를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:08 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:08을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:09 only to the reviewed workload scope with accountable owner role release-owner; review cadence 90 days.",
+          "ko": "OE:09은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude synthetic-only results from claims of production behavior.",
+          "ko": "합성 데이터만 쓴 결과를 운영 환경의 동작으로 주장하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Testing effort addresses important failure modes rather than only coverage totals.",
+        "ko": "테스트 작업을 단순한 커버리지 수치보다 중요한 장애 유형에 집중할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A high coverage percentage alone does not demonstrate business fitness.",
+          "ko": "높은 커버리지 수치만으로 사업 목적에 맞는 동작을 입증할 수 없습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Map critical journeys and failure risks to executable acceptance tests.",
+            "ko": "핵심 사용자 경로와 장애 위험을 실행 가능한 수용 테스트와 연결합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:test-strategy-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:test-strategy-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Tests pass while the business-critical user journey remains untested.",
+            "ko": "테스트는 통과하지만 사업상 핵심인 사용자 경로를 시험하지 않습니다."
+          },
+          {
+            "en": "Illustrative gap: OE:09 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:09에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:71c9167b59428d86118fcd408d09910ba690286a64ca62c031cc82d6271e31b9",
+      "control_id": "OE:09",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-09",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Tests pass while the business-critical user journey remains untested.",
+              "ko": "테스트는 통과하지만 사업상 핵심인 사용자 경로를 시험하지 않습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Adopt testing practices aligned with business objectives",
+              "ko": "사업 목표에 맞춘 테스트"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Map critical journeys and failure risks to executable acceptance tests.",
+              "ko": "핵심 사용자 경로와 장애 위험을 실행 가능한 수용 테스트와 연결합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Review a critical journey's positive, failure and recovery test results.",
+              "ko": "핵심 경로의 정상, 실패, 복구 테스트 결과를 검토합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Testing effort addresses important failure modes rather than only coverage totals.",
+              "ko": "테스트 작업을 단순한 커버리지 수치보다 중요한 장애 유형에 집중할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Adopt testing practices aligned with business objectives",
+          "ko": "사업 목표에 맞춘 테스트"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:09 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:09의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Map critical journeys and failure risks to executable acceptance tests.",
+          "ko": "핵심 사용자 경로와 장애 위험을 실행 가능한 수용 테스트와 연결합니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:test-strategy-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:test-strategy-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "A risk-based test strategy links workload behavior to business acceptance criteria. In FDAI, OE:09 is assessed through approval:release-owner, artifact:test-strategy-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "위험 기반 테스트 전략은 워크로드 동작과 사업 수용 기준을 연결합니다. FDAI는 OE:09을 approval:release-owner, artifact:test-strategy-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:61aa61fd2c33d950f23eeed3224e05fe15313902b769b4b7d9fbb76188519afa",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "A risk-based test strategy links workload behavior to business acceptance criteria.",
+        "ko": "위험 기반 테스트 전략은 워크로드 동작과 사업 수용 기준을 연결합니다."
+      },
+      "title": {
+        "en": "Adopt testing practices aligned with business objectives",
+        "ko": "사업 목표에 맞춘 테스트"
+      },
+      "verification_steps": [
+        {
+          "en": "Review a critical journey's positive, failure and recovery test results.",
+          "ko": "핵심 경로의 정상, 실패, 복구 테스트 결과를 검토합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:09 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:09을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:10 only to the reviewed workload scope with accountable owner role operations-owner; review cadence 90 days.",
+          "ko": "OE:10은 책임 역할 operations-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude irreversible steps from automatic retries without a reviewed recovery path.",
+          "ko": "검토된 복구 경로가 없는 비가역 단계를 자동 재시도에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Routine operations can be repeated with predictable failure handling.",
+        "ko": "일상 운영을 예측 가능한 실패 처리와 함께 반복할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Automation never supplies its own approval or expands its target scope.",
+          "ko": "자동화는 스스로 승인하거나 대상 범위를 넓히지 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Design automation with idempotency keys, scoped permissions and stop conditions.",
+            "ko": "멱등성 키, 제한된 권한, 중지 조건을 포함해 자동화를 설계합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:operations-owner, artifact:automation-safety-review, metric:automation-reliability-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:operations-owner, artifact:automation-safety-review, metric:automation-reliability-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A retry repeats a partially completed mutation without checking state.",
+            "ko": "재시도가 상태를 확인하지 않고 일부 완료된 변경을 다시 수행합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:10 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:10에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:16cd6fc26160cf2727153595924efd9974eb467af01e7c16fd1d466b3004e189",
+      "control_id": "OE:10",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-10",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A retry repeats a partially completed mutation without checking state.",
+              "ko": "재시도가 상태를 확인하지 않고 일부 완료된 변경을 다시 수행합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Design reliable secure and maintainable automation",
+              "ko": "안정적이고 안전한 자동화 설계"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Design automation with idempotency keys, scoped permissions and stop conditions.",
+              "ko": "멱등성 키, 제한된 권한, 중지 조건을 포함해 자동화를 설계합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inject duplicate requests and partial failures and inspect recovery and audit records.",
+              "ko": "중복 요청과 부분 실패를 주입하고 복구 및 감사 기록을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Routine operations can be repeated with predictable failure handling.",
+              "ko": "일상 운영을 예측 가능한 실패 처리와 함께 반복할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Design reliable secure and maintainable automation",
+          "ko": "안정적이고 안전한 자동화 설계"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:10 scope, owner operations-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:10의 범위, 담당 역할 operations-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Design automation with idempotency keys, scoped permissions and stop conditions.",
+          "ko": "멱등성 키, 제한된 권한, 중지 조건을 포함해 자동화를 설계합니다."
+        },
+        {
+          "en": "Retain approval:operations-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:operations-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:automation-safety-review from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:automation-safety-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:automation-reliability-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner operations-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, operations-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:automation-reliability-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 operations-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, operations-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Idempotency and bounded recovery keep repeated automation from compounding failures. In FDAI, OE:10 is assessed through approval:operations-owner, artifact:automation-safety-review, metric:automation-reliability-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "멱등성과 범위가 제한된 복구는 반복 자동화가 장애를 확대하지 않게 합니다. FDAI는 OE:10을 approval:operations-owner, artifact:automation-safety-review, metric:automation-reliability-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:19705a199c54da4dd76add92f1a302d07e8793a14c8afbd4e0b2df0684b3b0ad",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Idempotency and bounded recovery keep repeated automation from compounding failures.",
+        "ko": "멱등성과 범위가 제한된 복구는 반복 자동화가 장애를 확대하지 않게 합니다."
+      },
+      "title": {
+        "en": "Design reliable secure and maintainable automation",
+        "ko": "안정적이고 안전한 자동화 설계"
+      },
+      "verification_steps": [
+        {
+          "en": "Inject duplicate requests and partial failures and inspect recovery and audit records.",
+          "ko": "중복 요청과 부분 실패를 주입하고 복구 및 감사 기록을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:10 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:10을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply OE:11 only to the reviewed workload scope with accountable owner role release-owner; review cadence 30 days.",
+          "ko": "OE:11은 책임 역할 release-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Do not assume application rollback reverses a destructive schema migration.",
+          "ko": "애플리케이션 롤백이 파괴적인 스키마 이전을 되돌린다고 가정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "A release can stop before all users receive a harmful change.",
+        "ko": "모든 사용자에게 해로운 변경이 전달되기 전에 배포를 중지할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A successful deployment API call is not proof of a healthy release.",
+          "ko": "배포 API 호출 성공은 정상적인 배포 결과의 증거가 아닙니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define staged rollout, independent health checks and a tested rollback path.",
+            "ko": "단계적 배포, 독립적인 상태 검사, 시험한 롤백 경로를 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:release-owner, artifact:deployment-and-rollback, drill:smoke-canary-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:release-owner, artifact:deployment-and-rollback, drill:smoke-canary-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A release updates every instance without health comparison or rollback rehearsal.",
+            "ko": "상태 비교나 롤백 연습 없이 배포가 모든 인스턴스를 갱신합니다."
+          },
+          {
+            "en": "Illustrative gap: OE:11 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: OE:11에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:b690324a2fe91c9587255e869ce64959122ec8e9898f057d3a21a2dcbfac37b1",
+      "control_id": "OE:11",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.oe-11",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A release updates every instance without health comparison or rollback rehearsal.",
+              "ko": "상태 비교나 롤백 연습 없이 배포가 모든 인스턴스를 갱신합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define safe deployment practices",
+              "ko": "안전한 배포 관행 정의"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define staged rollout, independent health checks and a tested rollback path.",
+              "ko": "단계적 배포, 독립적인 상태 검사, 시험한 롤백 경로를 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Rehearse a failed stage and verify rollout stop and restoration of service health.",
+              "ko": "배포 단계 실패를 연습하고 배포 중지 및 서비스 상태 복원을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A release can stop before all users receive a harmful change.",
+              "ko": "모든 사용자에게 해로운 변경이 전달되기 전에 배포를 중지할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define safe deployment practices",
+          "ko": "안전한 배포 관행 정의"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm OE:11 scope, owner release-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 OE:11의 범위, 담당 역할 release-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define staged rollout, independent health checks and a tested rollback path.",
+          "ko": "단계적 배포, 독립적인 상태 검사, 시험한 롤백 경로를 정합니다."
+        },
+        {
+          "en": "Retain approval:release-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:release-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:deployment-and-rollback from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:deployment-and-rollback을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain drill:smoke-canary-results from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner release-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, release-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 drill:smoke-canary-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 release-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, release-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Progressive exposure and health gates limit the impact of a faulty release. In FDAI, OE:11 is assessed through approval:release-owner, artifact:deployment-and-rollback, drill:smoke-canary-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "점진적 노출과 상태 검토 단계는 잘못된 배포의 영향을 제한합니다. FDAI는 OE:11을 approval:release-owner, artifact:deployment-and-rollback, drill:smoke-canary-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:5fbab05e345185e82f1394848617d571001b46956bebcb56b042ea2115f4d31f",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Progressive exposure and health gates limit the impact of a faulty release.",
+        "ko": "점진적 노출과 상태 검토 단계는 잘못된 배포의 영향을 제한합니다."
+      },
+      "title": {
+        "en": "Define safe deployment practices",
+        "ko": "안전한 배포 관행 정의"
+      },
+      "verification_steps": [
+        {
+          "en": "Rehearse a failed stage and verify rollout stop and restoration of service health.",
+          "ko": "배포 단계 실패를 연습하고 배포 중지 및 서비스 상태 복원을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess OE:11 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 OE:11을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:01 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 90 days.",
+          "ko": "PE:01은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude background jobs from interactive response targets unless explicitly included.",
+          "ko": "명시적으로 포함하지 않은 백그라운드 작업에 대화형 응답 목표를 적용하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Performance discussions can use measurable acceptance rather than impressions.",
+        "ko": "성능 논의를 인상 대신 측정 가능한 수용 기준으로 진행할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Average latency can hide a poor tail experience.",
+          "ko": "평균 지연은 일부 사용자의 긴 응답 시간을 가릴 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Specify response-time percentiles and throughput for each critical flow and load profile.",
+            "ko": "핵심 흐름과 부하 특성별로 응답 시간 백분위와 처리량을 정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, metric:performance-targets for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, metric:performance-targets 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "The requirement says fast without a percentile or workload definition.",
+            "ko": "요구사항에 백분위나 부하 정의 없이 빠르게 동작해야 한다고만 적혀 있습니다."
+          },
+          {
+            "en": "Illustrative gap: PE:01 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:01에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:440f6f22e7f1528e67791d5dd3e28682928dfd0ca6ddc1a20174ee8dfc94c353",
+      "control_id": "PE:01",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-01",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "The requirement says fast without a percentile or workload definition.",
+              "ko": "요구사항에 백분위나 부하 정의 없이 빠르게 동작해야 한다고만 적혀 있습니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Define numerical performance targets for workload flows",
+              "ko": "흐름별 수치형 성능 목표 정의"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Specify response-time percentiles and throughput for each critical flow and load profile.",
+              "ko": "핵심 흐름과 부하 특성별로 응답 시간 백분위와 처리량을 정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Evaluate a representative run against the declared percentile and throughput targets.",
+              "ko": "대표 실행 결과를 선언한 백분위 및 처리량 목표와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Performance discussions can use measurable acceptance rather than impressions.",
+              "ko": "성능 논의를 인상 대신 측정 가능한 수용 기준으로 진행할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Define numerical performance targets for workload flows",
+          "ko": "흐름별 수치형 성능 목표 정의"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:01 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:01의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Specify response-time percentiles and throughput for each critical flow and load profile.",
+          "ko": "핵심 흐름과 부하 특성별로 응답 시간 백분위와 처리량을 정합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:performance-targets from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:performance-targets을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Numerical latency and throughput targets give critical flows testable boundaries. In FDAI, PE:01 is assessed through approval:performance-owner, metric:performance-targets. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "지연과 처리량의 수치형 목표는 핵심 흐름에 시험 가능한 경계를 제공합니다. FDAI는 PE:01을 approval:performance-owner, metric:performance-targets 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e1059280177cbd8dc99c5b93ee2f57460c193339912d4c2632dd07b85930163f",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Numerical latency and throughput targets give critical flows testable boundaries.",
+        "ko": "지연과 처리량의 수치형 목표는 핵심 흐름에 시험 가능한 경계를 제공합니다."
+      },
+      "title": {
+        "en": "Define numerical performance targets for workload flows",
+        "ko": "흐름별 수치형 성능 목표 정의"
+      },
+      "verification_steps": [
+        {
+          "en": "Evaluate a representative run against the declared percentile and throughput targets.",
+          "ko": "대표 실행 결과를 선언한 백분위 및 처리량 목표와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:01 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:01을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:02 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 90 days.",
+          "ko": "PE:02은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude unsupported growth assumptions from a committed capacity forecast.",
+          "ko": "근거 없는 성장 가정을 확정적인 용량 예측에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Capacity gaps can be addressed before a known traffic event.",
+        "ko": "예정된 트래픽 증가 전에 용량 부족에 대응할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Approved quota does not guarantee immediate regional capacity.",
+          "ko": "승인된 할당량이 해당 지역의 즉시 사용 가능한 용량을 보장하지는 않습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Forecast peak demand and review bottlenecks, quotas and capacity lead times.",
+            "ko": "최대 수요를 예측하고 병목, 할당량, 용량 확보 소요 시간을 검토합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, artifact:capacity-plan, metric:capacity-test-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, artifact:capacity-plan, metric:capacity-test-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A seasonal event is planned without dependency quotas or headroom estimates.",
+            "ko": "의존성 할당량이나 여유 용량 추정 없이 계절성 행사를 준비합니다."
+          },
+          {
+            "en": "Illustrative gap: PE:02 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:02에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:0be36d4562bd8b8f222314ed93ed6146024e3dabf1cb1c8a743241487f456853",
+      "control_id": "PE:02",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-02",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A seasonal event is planned without dependency quotas or headroom estimates.",
+              "ko": "의존성 할당량이나 여유 용량 추정 없이 계절성 행사를 준비합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Conduct capacity planning before predicted demand changes",
+              "ko": "수요 변화에 앞선 용량 계획"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Forecast peak demand and review bottlenecks, quotas and capacity lead times.",
+              "ko": "최대 수요를 예측하고 병목, 할당량, 용량 확보 소요 시간을 검토합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Compare forecast scenarios with load tests and available quota records.",
+              "ko": "예측 시나리오를 부하 테스트 및 사용 가능한 할당량 기록과 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Capacity gaps can be addressed before a known traffic event.",
+              "ko": "예정된 트래픽 증가 전에 용량 부족에 대응할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Conduct capacity planning before predicted demand changes",
+          "ko": "수요 변화에 앞선 용량 계획"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:02 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:02의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Forecast peak demand and review bottlenecks, quotas and capacity lead times.",
+          "ko": "최대 수요를 예측하고 병목, 할당량, 용량 확보 소요 시간을 검토합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:capacity-plan from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:capacity-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:capacity-test-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:capacity-test-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Forecasts connect demand growth to service quotas and provisioning lead times. In FDAI, PE:02 is assessed through approval:performance-owner, artifact:capacity-plan, metric:capacity-test-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "예측은 수요 증가를 서비스 할당량과 용량 확보 소요 시간에 연결합니다. FDAI는 PE:02을 approval:performance-owner, artifact:capacity-plan, metric:capacity-test-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:f2bd6d6dc2841956f1f5ff2fb4ad42b85e38ec29580f269644087e5ce693b941",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Forecasts connect demand growth to service quotas and provisioning lead times.",
+        "ko": "예측은 수요 증가를 서비스 할당량과 용량 확보 소요 시간에 연결합니다."
+      },
+      "title": {
+        "en": "Conduct capacity planning before predicted demand changes",
+        "ko": "수요 변화에 앞선 용량 계획"
+      },
+      "verification_steps": [
+        {
+          "en": "Compare forecast scenarios with load tests and available quota records.",
+          "ko": "예측 시나리오를 부하 테스트 및 사용 가능한 할당량 기록과 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:02 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:02을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:03 only to the reviewed workload scope with accountable owner role architecture-owner; review cadence 180 days.",
+          "ko": "PE:03은 책임 역할 architecture-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 180일입니다."
+        },
+        {
+          "en": "Exclude preview features from production assumptions unless their use is approved.",
+          "ko": "사용을 승인하지 않은 미리 보기 기능을 운영 가정에서 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Early capability checks avoid tuning a fundamentally unsuitable tier.",
+        "ko": "기능을 일찍 확인하면 근본적으로 맞지 않는 계층을 계속 조정하는 일을 피할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "A higher tier can move the bottleneck to another dependency.",
+          "ko": "상위 계층을 사용하면 병목이 다른 의존성으로 이동할 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Benchmark candidate services and tiers against flow targets and dependency limits.",
+            "ko": "후보 서비스와 계층을 흐름 목표 및 의존성 제한에 따라 벤치마크합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:architecture-owner, approval:performance-owner, artifact:service-selection-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:architecture-owner, approval:performance-owner, artifact:service-selection-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A tier is selected by price without checking connection or throughput limits.",
+            "ko": "연결 수나 처리량 제한을 확인하지 않고 가격만으로 계층을 선택합니다."
+          },
+          {
+            "en": "Illustrative gap: PE:03 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:03에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:0507fde3850be9dae81d08b4f9b4624e80a886095b1de636416ca83249a03043",
+      "control_id": "PE:03",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-03",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A tier is selected by price without checking connection or throughput limits.",
+              "ko": "연결 수나 처리량 제한을 확인하지 않고 가격만으로 계층을 선택합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Select services and tiers that meet performance targets",
+              "ko": "성능 목표에 맞는 서비스와 계층 선택"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Benchmark candidate services and tiers against flow targets and dependency limits.",
+              "ko": "후보 서비스와 계층을 흐름 목표 및 의존성 제한에 따라 벤치마크합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Inspect peak throughput, latency and throttling for the chosen tier.",
+              "ko": "선택한 계층의 최대 처리량, 지연, 제한 발생 여부를 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Early capability checks avoid tuning a fundamentally unsuitable tier.",
+              "ko": "기능을 일찍 확인하면 근본적으로 맞지 않는 계층을 계속 조정하는 일을 피할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Select services and tiers that meet performance targets",
+          "ko": "성능 목표에 맞는 서비스와 계층 선택"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:03 scope, owner architecture-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:03의 범위, 담당 역할 architecture-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Benchmark candidate services and tiers against flow targets and dependency limits.",
+          "ko": "후보 서비스와 계층을 흐름 목표 및 의존성 제한에 따라 벤치마크합니다."
+        },
+        {
+          "en": "Retain approval:architecture-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner architecture-owner, role decisive. Verify complete coverage and approval roles architecture-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:architecture-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 architecture-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 architecture-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles architecture-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 architecture-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:service-selection-review from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner architecture-owner, role decisive. Verify complete coverage and approval roles architecture-owner, framework-assessment-approver; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:service-selection-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 architecture-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 architecture-owner, framework-assessment-approver을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Service capabilities and limits determine whether a design can sustain its target load. In FDAI, PE:03 is assessed through approval:architecture-owner, approval:performance-owner, artifact:service-selection-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "서비스 기능과 제한은 설계가 목표 부하를 유지할 수 있는지 좌우합니다. FDAI는 PE:03을 approval:architecture-owner, approval:performance-owner, artifact:service-selection-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:3a3ad0d9d9b118edcea26bdfb4b268fed320b05212b659c7682d7d239a5e8ae6",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Service capabilities and limits determine whether a design can sustain its target load.",
+        "ko": "서비스 기능과 제한은 설계가 목표 부하를 유지할 수 있는지 좌우합니다."
+      },
+      "title": {
+        "en": "Select services and tiers that meet performance targets",
+        "ko": "성능 목표에 맞는 서비스와 계층 선택"
+      },
+      "verification_steps": [
+        {
+          "en": "Inspect peak throughput, latency and throttling for the chosen tier.",
+          "ko": "선택한 계층의 최대 처리량, 지연, 제한 발생 여부를 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:03 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:03을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:04 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 30 days.",
+          "ko": "PE:04은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 30일입니다."
+        },
+        {
+          "en": "Exclude incomplete or differently sampled windows from direct baseline comparison.",
+          "ko": "불완전하거나 표본 방식이 다른 구간은 기준선과 직접 비교하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Teams can evaluate tuning against a repeatable baseline.",
+        "ko": "팀은 반복 가능한 기준선에 따라 조정 효과를 평가할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Sampling gaps can hide rare but important slow requests.",
+          "ko": "표본 누락은 드물지만 중요한 느린 요청을 가릴 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Define consistent instrumentation, sampling and baseline workload conditions.",
+            "ko": "일관된 계측, 표본 추출, 기준 부하 조건을 정의합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, metric:health-monitoring-evidence, metric:performance-baseline for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, metric:health-monitoring-evidence, metric:performance-baseline 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "Two reports compare different traffic mixes and call the difference a regression.",
+            "ko": "두 보고서가 다른 트래픽 구성을 비교하고 차이를 성능 저하로 단정합니다."
+          },
+          {
+            "en": "Illustrative gap: PE:04 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:04에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:f9a5f79bcdb2769bed9b934213ab6504fcddcc5c58777f42313f508367f6b857",
+      "control_id": "PE:04",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-04",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "Two reports compare different traffic mixes and call the difference a regression.",
+              "ko": "두 보고서가 다른 트래픽 구성을 비교하고 차이를 성능 저하로 단정합니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Establish consistent performance measurement",
+              "ko": "일관된 성능 측정 확립"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Define consistent instrumentation, sampling and baseline workload conditions.",
+              "ko": "일관된 계측, 표본 추출, 기준 부하 조건을 정의합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Repeat the baseline test and confirm comparable inputs and percentile calculations.",
+              "ko": "기준 테스트를 반복하고 입력 및 백분위 계산이 비교 가능한지 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Teams can evaluate tuning against a repeatable baseline.",
+              "ko": "팀은 반복 가능한 기준선에 따라 조정 효과를 평가할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Establish consistent performance measurement",
+          "ko": "일관된 성능 측정 확립"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:04 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:04의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Define consistent instrumentation, sampling and baseline workload conditions.",
+          "ko": "일관된 계측, 표본 추출, 기준 부하 조건을 정의합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:health-monitoring-evidence from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:health-monitoring-evidence을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:performance-baseline from architecture-review-evidence-provider for exact-workload; freshness limit 2592000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:performance-baseline을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 2592000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Comparable measurement windows distinguish regressions from workload changes. In FDAI, PE:04 is assessed through approval:performance-owner, metric:health-monitoring-evidence, metric:performance-baseline. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "비교 가능한 측정 구간은 성능 저하와 부하 변화를 구분합니다. FDAI는 PE:04을 approval:performance-owner, metric:health-monitoring-evidence, metric:performance-baseline 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:ab3d1f9bc9e723a8bf4406f58c7e681b47201608c60fa4fabc097acc517bb4cc",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Comparable measurement windows distinguish regressions from workload changes.",
+        "ko": "비교 가능한 측정 구간은 성능 저하와 부하 변화를 구분합니다."
+      },
+      "title": {
+        "en": "Establish consistent performance measurement",
+        "ko": "일관된 성능 측정 확립"
+      },
+      "verification_steps": [
+        {
+          "en": "Repeat the baseline test and confirm comparable inputs and percentile calculations.",
+          "ko": "기준 테스트를 반복하고 입력 및 백분위 계산이 비교 가능한지 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:04 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:04을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:05 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 90 days.",
+          "ko": "PE:05은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude indivisible transactions from an assumed transparent partition split.",
+          "ko": "분리할 수 없는 트랜잭션을 손쉽게 분할할 수 있다고 가정하지 않습니다."
+        }
+      ],
+      "benefits": {
+        "en": "Balanced load can reduce hot partitions and capacity waste.",
+        "ko": "균형 잡힌 부하는 과열된 파티션과 용량 낭비를 줄일 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Repartitioning can change consistency, ordering and migration requirements.",
+          "ko": "재분할은 일관성, 순서, 이전 요구사항을 바꿀 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Choose a partition key and scaling signal using measured access distribution.",
+            "ko": "측정한 접근 분포를 기준으로 분할 키와 확장 신호를 선택합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, artifact:scaling-partitioning-plan, metric:capacity-test-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, artifact:scaling-partitioning-plan, metric:capacity-test-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "One partition is saturated while other replicas remain idle.",
+            "ko": "한 파티션이 포화되지만 다른 복제본은 유휴 상태입니다."
+          },
+          {
+            "en": "Illustrative gap: PE:05 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:05에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:426b90eeb2a77445fb1b9ae2e0c6bc66174d62b9609aab5a51290924863d16d4",
+      "control_id": "PE:05",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-05",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "One partition is saturated while other replicas remain idle.",
+              "ko": "한 파티션이 포화되지만 다른 복제본은 유휴 상태입니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize scaling and partitioning",
+              "ko": "확장과 분할 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Choose a partition key and scaling signal using measured access distribution.",
+              "ko": "측정한 접근 분포를 기준으로 분할 키와 확장 신호를 선택합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Test skewed traffic and inspect per-partition saturation and rebalance behavior.",
+              "ko": "편중된 트래픽을 시험하고 파티션별 포화 및 재분배 동작을 확인합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Balanced load can reduce hot partitions and capacity waste.",
+              "ko": "균형 잡힌 부하는 과열된 파티션과 용량 낭비를 줄일 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize scaling and partitioning",
+          "ko": "확장과 분할 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:05 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:05의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Choose a partition key and scaling signal using measured access distribution.",
+          "ko": "측정한 접근 분포를 기준으로 분할 키와 확장 신호를 선택합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:scaling-partitioning-plan from architecture-review-evidence-provider for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:scaling-partitioning-plan을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain metric:capacity-test-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 평가 항목 metric:capacity-test-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Partitioning and scaling distribute demand across independently constrained capacity. In FDAI, PE:05 is assessed through approval:performance-owner, artifact:scaling-partitioning-plan, metric:capacity-test-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "분할과 확장은 수요를 각각 제한이 있는 용량에 분산합니다. FDAI는 PE:05을 approval:performance-owner, artifact:scaling-partitioning-plan, metric:capacity-test-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:e79589ea7028cab11237ba1f1e9f392dd29204931c996be4f30ec1e7c6a72fad",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Partitioning and scaling distribute demand across independently constrained capacity.",
+        "ko": "분할과 확장은 수요를 각각 제한이 있는 용량에 분산합니다."
+      },
+      "title": {
+        "en": "Optimize scaling and partitioning",
+        "ko": "확장과 분할 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Test skewed traffic and inspect per-partition saturation and rebalance behavior.",
+          "ko": "편중된 트래픽을 시험하고 파티션별 포화 및 재분배 동작을 확인합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:05 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:05을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:06 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 90 days.",
+          "ko": "PE:06은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude real customer data unless its use and protection are separately authorized.",
+          "ko": "별도 사용 승인과 보호 조치가 없는 실제 고객 데이터는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Capacity decisions can be based on realistic flow behavior.",
+        "ko": "실제에 가까운 흐름 동작을 바탕으로 용량을 결정할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Load tests can affect shared dependencies and incur substantial charges.",
+          "ko": "부하 테스트는 공용 의존성에 영향을 주고 상당한 비용을 발생시킬 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Build an authorized production-like test with representative data sizes and load patterns.",
+            "ko": "대표 데이터 크기와 부하 패턴을 사용해 승인된 유사 운영 테스트를 구성합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, artifact:performance-test-results for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, artifact:performance-test-results 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "A small dataset benchmark omits network and dependency latency.",
+            "ko": "소규모 데이터 벤치마크가 네트워크 및 의존성 지연을 빠뜨립니다."
+          },
+          {
+            "en": "Illustrative gap: PE:06 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:06에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:d0f2b203eda9d4c251caf79941085a72ca6498d173f9ccd94fa47ad7142f29f1",
+      "control_id": "PE:06",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-06",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "A small dataset benchmark omits network and dependency latency.",
+              "ko": "소규모 데이터 벤치마크가 네트워크 및 의존성 지연을 빠뜨립니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Test performance in a production-like environment",
+              "ko": "운영 환경에 가까운 성능 테스트"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Build an authorized production-like test with representative data sizes and load patterns.",
+              "ko": "대표 데이터 크기와 부하 패턴을 사용해 승인된 유사 운영 테스트를 구성합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Record saturation points and compare end-to-end results with flow targets.",
+              "ko": "포화 지점을 기록하고 종단 간 결과를 흐름 목표와 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Capacity decisions can be based on realistic flow behavior.",
+              "ko": "실제에 가까운 흐름 동작을 바탕으로 용량을 결정할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Test performance in a production-like environment",
+          "ko": "운영 환경에 가까운 성능 테스트"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:06 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:06의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Build an authorized production-like test with representative data sizes and load patterns.",
+          "ko": "대표 데이터 크기와 부하 패턴을 사용해 승인된 유사 운영 테스트를 구성합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:performance-test-results from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:performance-test-results을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Representative data and dependencies expose limits that small isolated tests miss. In FDAI, PE:06 is assessed through approval:performance-owner, artifact:performance-test-results. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "대표 데이터와 의존성은 작은 독립 테스트가 놓치는 제한을 드러냅니다. FDAI는 PE:06을 approval:performance-owner, artifact:performance-test-results 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:68edfe4e3b8d171263019cef4b787e4c4f31a8eea0f47c9f1a5e4b06ee539c4a",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Representative data and dependencies expose limits that small isolated tests miss.",
+        "ko": "대표 데이터와 의존성은 작은 독립 테스트가 놓치는 제한을 드러냅니다."
+      },
+      "title": {
+        "en": "Test performance in a production-like environment",
+        "ko": "운영 환경에 가까운 성능 테스트"
+      },
+      "verification_steps": [
+        {
+          "en": "Record saturation points and compare end-to-end results with flow targets.",
+          "ko": "포화 지점을 기록하고 종단 간 결과를 흐름 목표와 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:06 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:06을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    },
+    {
+      "applicability": [
+        {
+          "en": "Apply PE:07 only to the reviewed workload scope with accountable owner role performance-owner; review cadence 90 days.",
+          "ko": "PE:07은 책임 역할 performance-owner이 있는 검토된 워크로드 범위에만 적용합니다. 검토 주기는 90일입니다."
+        },
+        {
+          "en": "Exclude measurements collected with materially different profiling overhead.",
+          "ko": "프로파일링 부하가 크게 다른 측정 결과는 제외합니다."
+        }
+      ],
+      "benefits": {
+        "en": "Tuning can target the measured constraint rather than adding capacity blindly.",
+        "ko": "측정한 제약에 맞춰 조정하여 무작정 용량을 늘리는 일을 피할 수 있습니다."
+      },
+      "cautions": [
+        {
+          "en": "Optimizing a local hotspot can worsen the complete request path.",
+          "ko": "국소적인 병목을 최적화하면 전체 요청 경로가 더 느려질 수 있습니다."
+        },
+        {
+          "en": "These before/after examples are instructional only. Missing, stale, incomplete or conflicting required evidence remains unknown; this guide grants no execution authority.",
+          "ko": "변경 전후 예시는 설명용입니다. 필수 근거가 누락되거나 오래되었거나 불완전하거나 충돌하면 알 수 없음 상태를 유지합니다. 이 안내는 실행 권한을 부여하지 않습니다."
+        }
+      ],
+      "configuration": {
+        "after": [
+          {
+            "en": "Profile CPU, allocation, I/O and contention before changing code or instance size.",
+            "ko": "코드나 인스턴스 크기를 바꾸기 전에 CPU, 할당, 입출력, 경합을 측정합니다."
+          },
+          {
+            "en": "Illustrative target: retain approval:performance-owner, artifact:code-infrastructure-performance-review for the exact reviewed scope.",
+            "ko": "예시 목표: 검토한 정확한 범위에 대해 approval:performance-owner, artifact:code-infrastructure-performance-review 항목을 보존합니다."
+          }
+        ],
+        "before": [
+          {
+            "en": "More compute is added although lock contention dominates response time.",
+            "ko": "잠금 경합이 응답 시간을 지배하지만 컴퓨팅만 늘립니다."
+          },
+          {
+            "en": "Illustrative gap: PE:07 has no current, source-bound evidence bundle.",
+            "ko": "예시 공백: PE:07에 최신이며 출처와 연결된 근거 묶음이 없습니다."
+          }
+        ]
+      },
+      "content_digest": "sha256:4ae28ba7ca96fb043d60b1be0099456440cb417ca8b4970851648f5b9cb33ebb",
+      "control_id": "PE:07",
+      "diagram": {
+        "description": {
+          "en": "Illustrative directed relationship, not an observed installation or compliance result.",
+          "ko": "관측한 설치 환경이나 준수 결과가 아닌, 방향이 있는 관계의 예시입니다."
+        },
+        "edges": [
+          {
+            "from": "subject",
+            "label": {
+              "en": "Apply scoped practice",
+              "ko": "범위 내 관행 적용"
+            },
+            "style": "solid",
+            "to": "configuration"
+          },
+          {
+            "from": "configuration",
+            "label": {
+              "en": "Verify independently",
+              "ko": "독립적으로 검증"
+            },
+            "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "evidence",
+            "label": {
+              "en": "Assess, do not assume",
+              "ko": "가정하지 않고 평가"
+            },
+            "style": "dashed",
+            "to": "outcome"
+          }
+        ],
+        "id": "azure-waf.pe-07",
+        "kind": "control-evidence-flow",
+        "nodes": [
+          {
+            "detail": {
+              "en": "More compute is added although lock contention dominates response time.",
+              "ko": "잠금 경합이 응답 시간을 지배하지만 컴퓨팅만 늘립니다."
+            },
+            "id": "subject",
+            "label": {
+              "en": "Optimize code and infrastructure",
+              "ko": "코드와 인프라 성능 최적화"
+            },
+            "role": "subject"
+          },
+          {
+            "detail": {
+              "en": "Profile CPU, allocation, I/O and contention before changing code or instance size.",
+              "ko": "코드나 인스턴스 크기를 바꾸기 전에 CPU, 할당, 입출력, 경합을 측정합니다."
+            },
+            "id": "configuration",
+            "label": {
+              "en": "Reviewed design",
+              "ko": "검토한 설계"
+            },
+            "role": "configuration"
+          },
+          {
+            "detail": {
+              "en": "Repeat the same workload and compare bottleneck metrics and tail latency.",
+              "ko": "같은 부하를 반복하고 병목 메트릭 및 상위 백분위 지연을 비교합니다."
+            },
+            "id": "evidence",
+            "label": {
+              "en": "Independent check",
+              "ko": "독립 확인"
+            },
+            "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Tuning can target the measured constraint rather than adding capacity blindly.",
+              "ko": "측정한 제약에 맞춰 조정하여 무작정 용량을 늘리는 일을 피할 수 있습니다."
+            },
+            "id": "outcome",
+            "label": {
+              "en": "Expected benefit",
+              "ko": "기대 효과"
+            },
+            "role": "outcome"
+          }
+        ],
+        "title": {
+          "en": "Optimize code and infrastructure",
+          "ko": "코드와 인프라 성능 최적화"
+        }
+      },
+      "framework_id": "azure-waf",
+      "implementation_steps": [
+        {
+          "en": "Confirm PE:07 scope, owner performance-owner and the exclusion above before proposing a change.",
+          "ko": "변경을 제안하기 전에 PE:07의 범위, 담당 역할 performance-owner, 앞서 설명한 제외 조건을 확인합니다."
+        },
+        {
+          "en": "Profile CPU, allocation, I/O and contention before changing code or instance size.",
+          "ko": "코드나 인스턴스 크기를 바꾸기 전에 CPU, 할당, 입출력, 경합을 측정합니다."
+        },
+        {
+          "en": "Retain approval:performance-owner from human-approval-ledger for exact-workload; freshness limit 15552000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 승인 approval:performance-owner을 human-approval-ledger에서 확보합니다. 최신성 한도는 15552000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        },
+        {
+          "en": "Retain artifact:code-infrastructure-performance-review from architecture-review-evidence-provider for exact-workload; freshness limit 7776000 seconds, owner performance-owner, role decisive. Verify complete coverage and approval roles framework-assessment-approver, performance-owner; failure disposition unknown, phase none, generation none.",
+          "ko": "정확한 워크로드 범위의 산출물 artifact:code-infrastructure-performance-review을 architecture-review-evidence-provider에서 확보합니다. 최신성 한도는 7776000초이며 담당 역할은 performance-owner, 근거 역할은 decisive입니다. 완전한 범위와 승인 역할 framework-assessment-approver, performance-owner을 확인합니다. 실패 시 처리 상태는 unknown, 절차 단계는 none, 세대 일치 규약은 none입니다."
+        }
+      ],
+      "rationale": {
+        "en": "Profiling separates inefficient code from infrastructure bottlenecks. In FDAI, PE:07 is assessed through approval:performance-owner, artifact:code-infrastructure-performance-review. Process phases: none; generation contract: none. The original example explains the control, not a new official requirement.",
+        "ko": "프로파일링은 비효율적인 코드와 인프라 병목을 구분합니다. FDAI는 PE:07을 approval:performance-owner, artifact:code-infrastructure-performance-review 항목으로 평가합니다. 절차 단계는 none, 세대 일치 규약은 none입니다. 직접 작성한 예시는 통제의 설명이며 새로운 공식 요구사항이 아닙니다."
+      },
+      "schema_version": "1.0.0",
+      "source_digest": "sha256:6a214139e93bc09fff62967221ed4951c93f6dbbdc4cae3586115f5bd15c4325",
+      "source_revision": "sha256:fd5dbcc13eeddecdae3fd67ed92942a95627c8188608e3399813327258041711",
+      "sources": [
+        {
+          "kind": "learn",
+          "label": {
+            "en": "Microsoft Learn - pinned source; original FDAI example, source license CC BY 4.0",
+            "ko": "Microsoft Learn - 고정한 원천, FDAI가 작성한 예시, 원천 라이선스 CC BY 4.0"
+          },
+          "url": "https://learn.microsoft.com/en-us/azure/well-architected/performance-efficiency/checklist"
+        }
+      ],
+      "summary": {
+        "en": "Profiling separates inefficient code from infrastructure bottlenecks.",
+        "ko": "프로파일링은 비효율적인 코드와 인프라 병목을 구분합니다."
+      },
+      "title": {
+        "en": "Optimize code and infrastructure",
+        "ko": "코드와 인프라 성능 최적화"
+      },
+      "verification_steps": [
+        {
+          "en": "Repeat the same workload and compare bottleneck metrics and tail latency.",
+          "ko": "같은 부하를 반복하고 병목 메트릭 및 상위 백분위 지연을 비교합니다."
+        },
+        {
+          "en": "Check every required item (all mode), its producer, scope, freshness, completeness and required approval roles against the pinned specification.",
+          "ko": "고정된 명세에 따라 모든 필수 항목(all 방식)의 생성 원천, 범위, 최신 여부, 완전성, 필수 승인 역할을 확인합니다."
+        },
+        {
+          "en": "Reassess PE:07 against independent observations; preserve missing and blocked items rather than treating this illustration as satisfaction.",
+          "ko": "독립적인 관측으로 PE:07을 다시 평가합니다. 그림을 충족 근거로 간주하지 말고 누락 및 차단 항목을 그대로 유지합니다."
+        }
+      ]
+    }
+  ]
+}

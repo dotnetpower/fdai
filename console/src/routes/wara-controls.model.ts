@@ -1,5 +1,7 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import { decodeControlEnablement, decodeSeveritySource, type ControlEnablement, type SeveritySource } from "./control-enablement.model";
+import { decodeControlRemediation, type ControlRemediation } from "./control-remediation.model";
 import { decodeWaraGuidance, type WaraGuidance } from "./wara-guidance.model";
 import {
   panelArray,
@@ -48,12 +50,15 @@ export interface WaraManualEvidence {
 }
 
 export interface WaraControl {
+  readonly enablement?: ControlEnablement | null;
+  readonly severity_source?: SeveritySource | null;
   readonly id: string;
   readonly title: string;
   readonly title_ko?: string | null;
   readonly description?: string | null;
   readonly potential_benefits?: string | null;
   readonly guidance?: WaraGuidance | null;
+  readonly remediation?: ControlRemediation | null;
   readonly recommendation_control: string;
   readonly impact: string;
   readonly resource_type: string;
@@ -200,6 +205,8 @@ function decodeControl(value: unknown, index: number): WaraControl {
   }
   return {
     id: panelNonEmptyString(raw, "id", label),
+    enablement: decodeControlEnablement(raw["enablement"]),
+    severity_source: decodeSeveritySource(raw["severity_source"]),
     title: panelNonEmptyString(raw, "title", label),
     title_ko: raw["title_ko"] === undefined ? null : panelNullableString(raw, "title_ko", label),
     description: raw["description"] === undefined ? null : panelNullableString(raw, "description", label),
@@ -340,7 +347,7 @@ export function decodeWaraDetail(value: unknown, selectedId?: string): WaraContr
     throw new OperatorApiError(502, "invalid Operator API response: WARA detail does not match the selected recommendation");
   }
   const raw = panelRecord(value, "WARA detail");
-  return { ...control, guidance: decodeWaraGuidance(raw["guidance"], control) };
+  return { ...control, guidance: decodeWaraGuidance(raw["guidance"], control), remediation: decodeControlRemediation(raw["remediation"]) };
 }
 
 export function waraStateFromSearch(search: URLSearchParams): {

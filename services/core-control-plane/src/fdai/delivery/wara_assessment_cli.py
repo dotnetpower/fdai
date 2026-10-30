@@ -31,6 +31,7 @@ from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdent
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.wara_observation import AzureResourceGraphWaraObservationProvider
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.control_enablement_profile import load_control_enablement_profiles
 from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_wara_scope import (
@@ -118,6 +119,7 @@ class WaraJobSettings:
     maximum_resources_per_workload: int = 1_000
     tick_timeout_seconds: int = _DEFAULT_TICK_TIMEOUT_SECONDS
     run_slot_seconds: int = _DEFAULT_RUN_SLOT_SECONDS
+    control_profiles_path: Path | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -213,6 +215,11 @@ class WaraJobSettings:
                 minimum=60,
                 maximum=604_800,
             ),
+            control_profiles_path=(
+                Path(environ["FDAI_CONTROL_ENABLEMENT_PROFILES_PATH"])
+                if environ.get("FDAI_CONTROL_ENABLEMENT_PROFILES_PATH")
+                else None
+            ),
         )
 
 
@@ -263,6 +270,7 @@ async def execute_wara_assessment_tick(
         tag for recommendation in catalog.recommendations for tag in recommendation.workload_tags
     }
     configured_tags = {tag for tags in settings.workload_tags.values() for tag in tags}
+    control_profiles = load_control_enablement_profiles(settings.control_profiles_path)
     unknown_tags = configured_tags - allowed_tags
     if unknown_tags:
         raise WaraJobConfigurationError("WARA workload tags include unknown catalog values")
@@ -283,6 +291,27 @@ async def execute_wara_assessment_tick(
                 workload_tags=settings.workload_tags[scope.workload_id],
                 evaluated_at=evaluated_at,
             )
+            if control_profiles is not None:
+                enablement_profile = control_profiles.for_framework("azure-wara")
+                request = replace(request, enablement_profile=enablement_profile)
+                if enablement_profile is not None:
+                    enablement_profile.validate_binding(
+                        framework_id="azure-wara",
+                        source_revision=catalog.source_revision,
+                        scope_digest=request.scope_digest,
+                        evaluated_at=evaluated_at,
+                        control_ids={record.aprl_guid for record in catalog.recommendations},
+                    )
+                    request = replace(
+                        request,
+                        assessment_id="wara-"
+                        + canonical_digest(
+                            {
+                                "assessment_id": request.assessment_id,
+                                "enablement_profile_digest": enablement_profile.profile_digest,
+                            }
+                        ).removeprefix("sha256:"),
+                    )
             if manual_evidence_source is not None:
                 request = replace(
                     request,

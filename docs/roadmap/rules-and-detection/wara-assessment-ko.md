@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 2e18f3cc0c35b40b131b956154c97902b1938392
-translation_revised: 2026-10-30
+translation_source_sha: 396725211350c7c52c310bfbace99e3bdb59bef8
+translation_revised: 2026-10-31
 ---
 # WARA 근거 기반 평가
 
@@ -143,6 +143,22 @@ Console 세부 화면은 근거 종류, 권위 있는 생성자, 정확한 범�
 슬롯 및 차단 사유를 표시합니다. 근거 증적을 작성하는 컨트롤은 제공하지 않습니다. 별도로
 권한이 부여된 생성자가 허용 가능한 근거를 제공할 때까지 권고는
 `manual_evidence_required`와 함께 `not_evaluated`로 유지됩니다.
+
+## 컨트롤 평가 선택
+
+공개된 영향도가 `High`와 `Medium`인 권고는 shadow 평가 대상으로 기본 활성화되며 `Low`
+권고는 기본 비활성화됩니다. 카탈로그 수명 주기는 `active`로 유지되고 활성 권고 393개가
+모두 결과에 표시됩니다. 비활성화한 권고는 `not_evaluated`, `unknown`과 `control_disabled`
+제한 사유를 유지하며 자동 관측 쿼리를 보내지 않습니다. 과거 권고 63개는 평가 설정과
+관계없이 수명 주기상 비활성 상태를 유지합니다.
+
+검토된 설치별 프로필은 활성 컨트롤을 명시적으로 켜거나 끌 수 있습니다. 공급자 정보를
+수집하기 전에 정확한 원본 버전, 워크로드 범위, 검토 시각, 컨트롤 식별자와 digest를
+검증하고 전체 프로필을 변경 불가능한 결과에 보존합니다.
+[검토된 설치별 설정](framework-assessment-ko.md#검토된-설치별-설정)을 참조하세요.
+이 설정은 적용 제외를 승인하지 않으며 쿼리 수락, Rule 활성화, ActionType 승격, 실행
+권한을 바꾸지 않습니다. 상세 화면에는 정확한 활성 Rule 바인딩에서 얻은 실행되지 않는
+조치 후보를 표시할 수 있습니다. 후보도 기존 실행 기능과 통제 절차를 거쳐야 합니다.
 
 ## Shadow 평가 계약
 

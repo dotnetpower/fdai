@@ -3,6 +3,7 @@ import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api
 import { ErrorState, LoadingState, UnavailableState } from "../components/ui";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import { t } from "./i18n/governance";
+import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { McsbControlsBody } from "./mcsb-controls-body";
 import { McsbControlDrawer } from "./mcsb-controls-detail";
 import {
@@ -101,7 +102,9 @@ export function McsbControlsRoute({ client }: { readonly client: OperatorApiClie
           await client.panel<unknown>(
             `/mcsb-controls/${encodeURIComponent(version)}/${encodeURIComponent(selected)}`,
           ),
+          selected, version,
         );
+        await verifyFrameworkGuidanceDigest(result.guidance);
         if (!cancelled) setDetail({ status: "ready", data: result });
       } catch (error) {
         if (!cancelled) {

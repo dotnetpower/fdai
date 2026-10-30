@@ -24,6 +24,10 @@ from starlette.exceptions import HTTPException
 from fdai_operator_service.context_selection_projection import (
     project_context_selection_comparisons,
 )
+from fdai_operator_service.control_remediation_projection import (
+    control_detail_revision,
+    control_remediation,
+)
 from fdai_operator_service.conversation_family_adapters import (
     PostgresConversationAdapters,
     UnavailableConversationAdapters,
@@ -50,6 +54,7 @@ from fdai_operator_service.families.workflow.contracts import (
     WorkflowReadResult,
 )
 from fdai_operator_service.family_adapter_values import mapping as _mapping
+from fdai_operator_service.framework_guidance_projection import attach_framework_guidance
 from fdai_operator_service.framework_mcsb_assessment_projection import attach_mcsb_assessment
 from fdai_operator_service.framework_rule_coverage_projection import attach_rule_coverage
 from fdai_operator_service.operations_family_adapters import (
@@ -362,6 +367,35 @@ class PostgresWorkflowAdapters:
             raise HTTPException(
                 status_code=503,
                 detail="authoritative workflow projection has no revision",
+            )
+        if request.operation in {
+            WorkflowOperation.BEST_PRACTICE_DETAIL,
+            WorkflowOperation.CAF_DETAIL,
+            WorkflowOperation.MCSB_DETAIL,
+            WorkflowOperation.WARA_DETAIL,
+        }:
+            guidance_framework = {
+                WorkflowOperation.BEST_PRACTICE_DETAIL: "azure-waf",
+                WorkflowOperation.CAF_DETAIL: "azure-caf",
+                WorkflowOperation.MCSB_DETAIL: "azure-mcsb",
+            }.get(request.operation)
+            if guidance_framework is not None:
+                payload = attach_framework_guidance(payload, framework_id=guidance_framework)
+            remediation = control_remediation(payload, None)
+            rule_catalog = None
+            if remediation["status"] == "unavailable":
+                try:
+                    rule_catalog = await self.store.read_projection(
+                        family="workflow", operation=WorkflowOperation.RULE_LIST.value
+                    )
+                except PostgresFamilyStoreUnavailable:
+                    remediation = control_remediation(payload, None)
+                else:
+                    remediation = control_remediation(payload, rule_catalog)
+            payload["remediation"] = remediation
+            rule_revision = rule_catalog.get("_revision") if rule_catalog is not None else None
+            revision = control_detail_revision(
+                revision, payload, rule_revision if isinstance(rule_revision, str) else None
             )
         return WorkflowReadResult(
             payload=cast(JsonObject, payload),

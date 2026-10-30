@@ -8,7 +8,15 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from fdai_service_contracts.control_enablement import ControlSeverity
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 _IDENTIFIER = r"^[A-Za-z0-9][A-Za-z0-9._:@-]{0,255}$"
 _LOWER_IDENTIFIER = r"^[a-z0-9][a-z0-9._:-]{0,255}$"
@@ -142,6 +150,15 @@ class FrameworkControlSpecification(BaseModel):
     reviewer: Annotated[str, Field(pattern=_LOWER_IDENTIFIER)]
     review_state: Annotated[str, Field(pattern=r"^reviewed$")]
     specification_digest: Annotated[str, Field(pattern=_SHA256)]
+    severity: ControlSeverity | None = None
+
+    @model_serializer(mode="wrap")
+    def serialize_control(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Preserve pre-severity catalog digests within the declared Pydantic range."""
+        material: dict[str, Any] = handler(self)
+        if self.severity is None:
+            material.pop("severity", None)
+        return material
 
     @model_validator(mode="after")
     def validate_control(self) -> Self:

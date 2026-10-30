@@ -1,10 +1,13 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { displayValue, t } from "./i18n/governance";
 import { MCSB_COVERAGE_PILL, MCSB_SATISFACTION_PILL, mcsbAssessmentSummaryText } from "./mcsb-controls-body";
 import type { McsbDetailState } from "./mcsb-controls";
 import type { McsbControlDetail } from "./mcsb-controls.model";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
+import { FrameworkGuidanceContent } from "./framework-guidance";
+import { ControlEnablementSection } from "./control-enablement";
+import { ControlRemediationSection } from "./control-remediation";
 
 export function McsbControlDrawer({
   detail,
@@ -14,6 +17,7 @@ export function McsbControlDrawer({
   readonly onClose: () => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -44,13 +48,13 @@ export function McsbControlDrawer({
 
   return (
     <div class="drawer-overlay" onClick={onClose}>
-      <aside ref={panelRef} tabIndex={-1} class="rule-drawer" role="dialog" aria-modal="true" aria-label={t("governance.rules.mcsb.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
+      <aside id="mcsb-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.mcsb.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.mcsb.detail.title")}</h3>
           <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
         </header>
         <div class="rule-drawer-body">
-          {detail.status === "loading" ? <LoadingState label={t("governance.rules.mcsb.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.mcsb.detail.loadFailed", { message: detail.message })} /> : <McsbControlDetailContent data={detail.data} />}
+          {detail.status === "loading" ? <LoadingState label={t("governance.rules.mcsb.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.mcsb.detail.loadFailed", { message: detail.message })} /> : <McsbControlDetailContent data={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />}
         </div>
       </aside>
     </div>
@@ -67,21 +71,22 @@ function ReferenceList({ values }: { readonly values: readonly string[] }) {
   );
 }
 
-function McsbControlDetailContent({ data }: { readonly data: McsbControlDetail }) {
+function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data: McsbControlDetail; readonly expanded: boolean; readonly onExpand: () => void }) {
   const source = Object.fromEntries(
     Object.entries(data.source).filter(([, value]) => typeof value === "string" && value.length > 0),
   ) as Readonly<Record<string, string>>;
   return (
     <div class="stack">
+      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={t("governance.rules.mcsb.detail.boundary")} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
+      <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
+      <ControlRemediationSection value={data.remediation} />
       <div class="pill-row">
         <StatusPill kind={MCSB_COVERAGE_PILL[data.coverage]} label={displayValue("mcsbCoverage", data.coverage)} />
         <StatusPill kind="info" label={displayValue("mcsbDomain", data.domain)} />
         <StatusPill kind="neutral" label={data.benchmark_version} />
       </div>
-      <section class="rule-overview">
-        <h4 class="rule-overview-title">{data.title}</h4>
-        <p class="rule-overview-desc">{t("governance.rules.mcsb.detail.boundary")}</p>
-      </section>
+      <p class="muted">{t("governance.rules.mcsb.detail.boundary")}</p>
       {data.benchmark_version === "v1" ? <McsbAssessmentSection data={data} /> : null}
       <DetailSection title={t("governance.rules.mcsb.detail.rules")}>
         <ReferenceList values={data.rule_ids} />

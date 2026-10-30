@@ -81,6 +81,12 @@ async def attach_mcsb_assessment(
         control_id = attached.get("control_id")
         source = by_id.get(control_id) if isinstance(control_id, str) else None
         attached["assessment"] = _control_assessment(source, detail=True)
+        if source is not None and "enablement" in source:
+            attached["enablement"] = source["enablement"]
+        if source is not None:
+            for field in ("guidance_source_revision", "guidance_source_digest"):
+                if field in source:
+                    attached[field] = source[field]
     else:
         controls = attached.get("controls")
         if isinstance(controls, list):
@@ -89,6 +95,11 @@ async def attach_mcsb_assessment(
                     **item,
                     "assessment": _control_assessment(
                         by_id.get(str(item.get("control_id"))), detail=False
+                    ),
+                    **(
+                        {"enablement": by_id[str(item.get("control_id"))]["enablement"]}
+                        if "enablement" in by_id.get(str(item.get("control_id")), {})
+                        else {}
                     ),
                 }
                 if isinstance(item, dict)

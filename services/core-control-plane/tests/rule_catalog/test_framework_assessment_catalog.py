@@ -10,6 +10,7 @@ import pytest
 import yaml
 from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkAssessmentCatalog,
+    FrameworkControlSpecification,
     FrameworkCrosswalkKind,
     FrameworkEvidenceRole,
     FrameworkProcessPhase,
@@ -43,6 +44,23 @@ def test_waf_catalog_covers_all_controls_and_evidence_references() -> None:
         FrameworkCrosswalkKind.RULE,
         FrameworkCrosswalkKind.MANUAL_EVIDENCE,
     }
+
+
+def test_legacy_control_serialization_keeps_original_digest_material() -> None:
+    from fdai.rule_catalog.schema.framework_assessment import canonical_digest
+
+    material = _catalog("azure-waf").model_dump(mode="json")
+    control = material["controls"][0]
+    control.pop("severity")
+    control.pop("specification_digest")
+    control["specification_digest"] = canonical_digest(control)
+    parsed = FrameworkControlSpecification.model_validate(control)
+    assert parsed.severity is None
+    assert parsed.model_dump(mode="json") == control
+    material.pop("catalog_digest")
+    material["catalog_digest"] = canonical_digest(material)
+    legacy = FrameworkAssessmentCatalog.model_validate(material)
+    assert legacy.model_dump(mode="json") == material
 
 
 def test_caf_catalog_covers_all_areas_and_process_evidence() -> None:

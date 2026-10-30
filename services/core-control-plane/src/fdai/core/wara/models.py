@@ -7,6 +7,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai_service_contracts.control_enablement import ControlEnablement
+from fdai_service_contracts.control_enablement_profile import ControlEnablementProfile
+
 from fdai.rule_catalog.schema.wara_assessment import canonical_digest
 
 
@@ -94,6 +97,7 @@ class WaraAssessmentRequest:
     evaluator_bindings_digest: str | None = None
     evidence: tuple[WaraEvidenceReceipt, ...] = ()
     rule_bindings_digest: str | None = None
+    enablement_profile: ControlEnablementProfile | None = None
 
     def __post_init__(self) -> None:
         if any(
@@ -153,9 +157,10 @@ class WaraControlResult:
     evidence_digests: tuple[str, ...]
     evidence_complete: bool
     limitations: tuple[str, ...]
+    enablement: ControlEnablement | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "recommendation_id": self.recommendation_id,
             "catalog_state": self.catalog_state,
             "mapping_state": self.mapping_state,
@@ -167,6 +172,9 @@ class WaraControlResult:
             "evidence_complete": self.evidence_complete,
             "limitations": list(self.limitations),
         }
+        if self.enablement is not None:
+            value["enablement"] = self.enablement.to_dict()
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +195,7 @@ class WaraAssessmentResult:
     aggregate_counts: dict[str, int]
     result_digest: str
     rule_bindings_digest: str | None = None
+    enablement_profile: ControlEnablementProfile | None = None
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         value: dict[str, object] = {
@@ -208,6 +217,8 @@ class WaraAssessmentResult:
             value["evaluator_bindings_digest"] = self.evaluator_bindings_digest
         if self.rule_bindings_digest is not None:
             value["rule_bindings_digest"] = self.rule_bindings_digest
+        if self.enablement_profile is not None:
+            value["enablement_profile"] = self.enablement_profile.model_dump(mode="json")
         if include_digest:
             value["result_digest"] = self.result_digest
         return value
