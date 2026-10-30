@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: a3f745efb0afc86b156d80500aafea28d49bf679
-translation_revised: 2026-10-25
+translation_source_sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220
+translation_revised: 2026-10-31
 ---
 
 # 단일 명령 소스 배포
@@ -27,6 +27,11 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 > 이 문서의 Hub 독립 빌드 계약을 사용하려면 `--source .`을 명시적으로 선택하세요.
 
 ## 한눈에 보는 설계
+
+[Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md)에서 소스 모드를 선택하면 명시적인
+고객 측 승인 어댑터로 같은 조정기의 정확한 승인 지점을 표시할 수 있습니다.
+어댑터는 실행 주체, 대상, 다이제스트, 만료, 파괴적 변경 검사를 유지합니다.
+터미널 명령 동작, 소스 독립성, Trial 기준 시각, 검증은 바뀌지 않습니다.
 
 | 관심사 | 결정 |
 |--------|------|

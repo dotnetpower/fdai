@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI with signed Release Hub images, an explicit source build, or a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5ed506756c13326d19e4ccc4031a628b07eef774 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a3f745efb0afc86b156d80500aafea28d49bf679 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5ed506756c13326d19e4ccc4031a628b07eef774 }, { source: docs/roadmap/deployment/source-deployment.md, sha: fedbd6eff0d58aa7989eebd0c5df0ab5da45d220 }, { source: docs/roadmap/deployment/hub-image-deployment.md, sha: 073c3c7c2aa71caf864a9e7a8e5d42969f6504c3 }]
 ---
 
 # Deploy Quickstart
@@ -38,6 +38,12 @@ Review this read scope in the plan.
 | Connected clone deployment | Run `az login`, then `scripts/deployment/azure/fdai-up.sh --hub-public-key <trusted-public.pem> --region <region>` from your clone | Independently trusted Release public key, compatible published Release and registry pull access |
 | Explicit source build in your own subscription | Run `az login`, then `scripts/deployment/azure/fdai-up.sh --source . --region <region>` | No Hub, verification key, kit or published Release |
 | An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
+
+> **Optional local setup:** With a reviewed Lifecycle Hub package installed, run
+> `fdai-lifecycle-hub start` to open the [Bootstrap wizard](../roadmap/deployment/lifecycle-hub-bootstrap.md).
+> It starts without Hub PostgreSQL and reuses the same deployment engine and exact approvals.
+> A compatible support Release is required for Hub images; this change does not publish to PyPI
+> or complete managed enrollment.
 
 GitHub Actions tests the repository. It is not the tenant deployment transport.
 

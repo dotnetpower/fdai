@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_oci_archive import make_archive
 
-from fdai_deployment_cli import deployment_kit, offline_prepare, runtime_stage
+from fdai_deployment_cli import __version__, deployment_kit, offline_prepare, runtime_stage
 from fdai_deployment_cli.cli import main
 from fdai_deployment_cli.contracts import ProvisionProfile, canonical_bytes
 from fdai_deployment_cli.offline_kit import (
@@ -32,7 +32,7 @@ from fdai_deployment_cli.profile import write_profile
 from fdai_deployment_cli.runtime_stage import stage_runtime_release
 
 COMMIT = "a" * 40
-CLI_VERSION = "0.1.1"
+CLI_VERSION = __version__
 SERVICES = (
     "core-control-plane",
     "operator-service",

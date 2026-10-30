@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 913977cefde17b57e59813b71335316d23ad8b83
+translation_source_sha: 92fb6b4a0b9e229198dc546d30a36694638a4bad
 translation_revised: 2026-10-31
 ---
 # 런타임 배포 프로파일
@@ -1078,7 +1078,7 @@ source와 공급자 테스트는 구현을 증명합니다. AKS 경로를 검증
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 구현 진행 상태 | [런타임 배포 프로파일 구현](../../roadmap-implementation/deployment/runtime-deployment-profiles.md) |
-| Standalone 명령 동작 | [설치 가능한 배포 CLI](installable-deployment-cli-ko.md) |
+| 독립 실행 명령과 웹 설치 안내 | [설치 가능한 배포 CLI](installable-deployment-cli-ko.md), [Lifecycle Hub Bootstrap](lifecycle-hub-bootstrap-ko.md) |
 | 구체적인 Azure 인벤토리 | [배포 및 온보딩](deploy-and-onboard-ko.md) |
 | 프로덕션 게이트 | [프로덕션 배포 강화](production-deployment-hardening-ko.md) |
 | 런타임 이식성 | [CSP 중립 계약](../architecture/csp-neutrality-ko.md) |
