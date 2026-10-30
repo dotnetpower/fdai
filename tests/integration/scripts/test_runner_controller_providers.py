@@ -249,6 +249,8 @@ def test_queued_jobs_preserve_run_provenance_and_latest_attempt() -> None:
         ),
         reply({"total_count": 101, "jobs": [{"id": 101, "status": "in_progress"}]}),
         reply({"workflow_runs": [run]}),
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": []}),
     )
     jobs = GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
     assert [job["id"] for job in jobs] == [1, 101]
@@ -257,6 +259,162 @@ def test_queued_jobs_preserve_run_provenance_and_latest_attempt() -> None:
     assert "page=2" in fake.calls[2].url
     assert "status=in_progress" in fake.calls[-1].url
     assert not any("/runs/21/" in call.url for call in fake.calls)
+
+
+def test_candidate_ci_queue_counts_control_and_docker_publication_demand() -> None:
+    run = {
+        "id": 80,
+        "status": "queued",
+        "event": "workflow_dispatch",
+        "path": ".github/workflows/container-supply-chain.yml",
+    }
+    fake = FakeTransport(
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": [run]}),
+        reply(
+            {
+                "jobs": [
+                    {"id": 81, "status": "queued", "labels": ["fdai-ci-control"]},
+                    {"id": 82, "status": "queued", "labels": ["fdai-ci-docker"]},
+                ]
+            }
+        ),
+        reply({"workflow_runs": [dict(run, status="in_progress")]}),
+    )
+    jobs = GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
+    assert [job["id"] for job in jobs] == [81, 82]
+    assert all(job["_run"] == run for job in jobs)
+    assert sum("/runs/80/jobs" in call.url for call in fake.calls) == 1
+    paths = [
+        urlsplit(call.url).path.split("/workflows/")[1].split("/")[0]
+        for call in fake.calls
+        if "/workflows/" in call.url
+    ]
+    assert paths == ["ci.yml", "ci.yml", "container-supply-chain.yml", "container-supply-chain.yml"]
+
+
+def test_candidate_ci_run_and_job_pagination_are_both_complete() -> None:
+    first = [{"id": n, "status": "waiting"} for n in range(1, 101)]
+    run = {"id": 101, "status": "queued", "path": ".github/workflows/container-supply-chain.yml"}
+    fake = FakeTransport(
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": []}),
+        reply({"total_count": 101, "workflow_runs": first}),
+        reply({"total_count": 101, "workflow_runs": [run]}),
+        reply(
+            {"total_count": 101, "jobs": [{"id": n, "status": "queued"} for n in range(1001, 1101)]}
+        ),
+        reply({"total_count": 101, "jobs": [{"id": 1101, "status": "queued"}]}),
+        reply({"workflow_runs": []}),
+    )
+    jobs = GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
+    assert len(jobs) == 101 and jobs[-1]["id"] == 1101
+    assert "page=2" in fake.calls[3].url and "page=2" in fake.calls[5].url
+    assert all("/runs/101/jobs" in call.url for call in fake.calls[4:6])
+
+
+@pytest.mark.parametrize("collision", ["run", "job"])
+def test_global_ci_ids_cannot_collide_across_workflows(collision: str) -> None:
+    ci = {"id": 10, "status": "queued", "path": ".github/workflows/ci.yml"}
+    candidate = {
+        "id": 10 if collision == "run" else 20,
+        "status": "queued",
+        "path": ".github/workflows/container-supply-chain.yml",
+    }
+    fake = FakeTransport(
+        reply({"workflow_runs": [ci]}),
+        reply({"jobs": [{"id": 99, "status": "queued"}]}),
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": [candidate]}),
+        reply({"jobs": [{"id": 99, "status": "queued"}]}),
+    )
+    with pytest.raises(ProviderError, match="response is invalid"):
+        GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
+    assert len(fake.calls) == (4 if collision == "run" else 5)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [None, ".github/workflows/deploy-dev.yml", ".github/workflows/container-supply-chain.yml"],
+)
+def test_ci_queue_response_cannot_substitute_another_workflow(path: str | None) -> None:
+    fake = FakeTransport(reply({"workflow_runs": [{"id": 10, "status": "queued", "path": path}]}))
+    with pytest.raises(ProviderError, match="response is invalid"):
+        GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
+    assert len(fake.calls) == 1
+
+
+def test_both_ci_workflow_queues_revalidate_etags_before_reusing_demand() -> None:
+    candidate = {
+        "id": 80,
+        "status": "queued",
+        "path": ".github/workflows/container-supply-chain.yml",
+    }
+    bodies = [
+        {"workflow_runs": []},
+        {"workflow_runs": []},
+        {"workflow_runs": [candidate]},
+        {"jobs": [{"id": 81, "status": "queued"}]},
+        {"workflow_runs": []},
+    ]
+    fake = FakeTransport(
+        *[HttpResponse(200, body, {"ETag": f'"page-{i}"'}) for i, body in enumerate(bodies)],
+        *[HttpResponse(304, None, {}) for _ in bodies],
+    )
+    api = GitHubAPI(_PAT, "example/repo", fake)
+    first = api.queued_jobs()
+    first[0]["status"] = "completed"
+    second = api.queued_jobs()
+    assert second[0]["status"] == "queued"
+    for i, call in enumerate(fake.calls[len(bodies) :]):
+        assert call.headers is not None
+        assert call.headers["If-None-Match"] == f'"page-{i}"'
+        assert 304 in call.accepted
+
+
+@pytest.mark.parametrize("failed_page", [2, 3])
+def test_candidate_queue_503_never_returns_or_caches_empty_demand(failed_page: int) -> None:
+    run = {"id": 80, "status": "queued", "path": ".github/workflows/container-supply-chain.yml"}
+    bodies = [
+        {"workflow_runs": []},
+        {"workflow_runs": []},
+        {"workflow_runs": [run]},
+        {"jobs": [{"id": 81, "status": "queued"}]},
+        {"workflow_runs": []},
+    ]
+    initial = [HttpResponse(200, body, {"ETag": f'"page-{i}"'}) for i, body in enumerate(bodies)]
+    fake = FakeTransport(
+        *initial,
+        *[HttpResponse(304, None, {}) for _ in range(failed_page)],
+        HttpResponse(503, {"workflow_runs": [], "jobs": []}, {"ETag": '"bad-empty"'}),
+        *[HttpResponse(304, None, {}) for _ in bodies],
+    )
+    api = GitHubAPI(_PAT, "example/repo", fake)
+    assert len(api.queued_jobs()) == 1
+    with pytest.raises(ProviderError) as failure:
+        api.queued_jobs()
+    assert failure.value.status == 503
+    assert len(fake.calls) == len(bodies) + failed_page + 1
+    assert [job["id"] for job in api.queued_jobs()] == [81]
+    assert all(
+        call.headers is not None and call.headers.get("If-None-Match") != '"bad-empty"'
+        for call in fake.calls
+    )
+
+
+def test_candidate_provider_failure_cannot_return_partial_ci_demand() -> None:
+    run = {"id": 10, "status": "queued", "path": ".github/workflows/ci.yml"}
+    fake = FakeTransport(
+        reply({"workflow_runs": [run]}),
+        reply({"jobs": [{"id": 11, "status": "queued"}]}),
+        reply({"workflow_runs": []}),
+        ProviderError("http_status", 503),
+    )
+    with pytest.raises(ProviderError) as failure:
+        GitHubAPI(_PAT, "example/repo", fake).queued_jobs()
+    assert failure.value.status == 503
+    assert len(fake.calls) == 4
 
 
 def test_jit_is_memory_only_and_manual_configuration_is_exact(
@@ -652,6 +810,8 @@ def test_etag_pagination_keys_keep_pages_and_filters_distinct() -> None:
         HttpResponse(200, second, {"ETag": '"page2"'}),
         reply(None, 304),
         reply(None, 304),
+        reply({"workflow_runs": []}),
+        reply({"workflow_runs": []}),
         reply({"workflow_runs": []}),
         reply({"workflow_runs": []}),
     )

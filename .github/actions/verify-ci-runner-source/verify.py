@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-WORKFLOW = ".github/workflows/ci.yml"
+WORKFLOWS = frozenset((".github/workflows/ci.yml", ".github/workflows/container-supply-chain.yml"))
 SHA = re.compile(r"[0-9a-f]{40}")
 LOGIN = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]*(?:\[bot\])?")
 
@@ -75,7 +75,7 @@ class Context:
             and LOGIN.fullmatch(self.triggering_actor) is not None,
             "invalid actor binding",
         )
-        require(self.workflow_path == WORKFLOW, "CI workflow path required")
+        require(self.workflow_path in WORKFLOWS, "CI workflow path required")
         require(
             self.origin_url == f"https://github.com/{self.repository}.git",
             "invalid repository origin",
@@ -85,7 +85,7 @@ class Context:
             "target must match this run and workflow revision",
         )
         require(
-            self.workflow_ref == f"{self.repository}/{WORKFLOW}@{self.ref}",
+            self.workflow_ref == f"{self.repository}/{self.workflow_path}@{self.ref}",
             "invalid workflow ref binding",
         )
         if self.event_name == "pull_request":
@@ -166,7 +166,7 @@ def admit(context: Context, api: ApiEvidence, git: GitEvidence) -> None:
         and identifier(run.get("run_attempt")) == context.run_attempt
         and run.get("event") == context.event_name
         and repository_matches(run.get("repository"), context)
-        and run.get("path") == WORKFLOW
+        and run.get("path") == context.workflow_path
         and run.get("status") == "in_progress"
         and actor_matches(run.get("actor"), context.actor, context.actor_id)
         and actor_matches(run.get("triggering_actor"), context.triggering_actor),
@@ -174,7 +174,7 @@ def admit(context: Context, api: ApiEvidence, git: GitEvidence) -> None:
     )
     require(
         identifier(api.workflow.get("id")) == identifier(run.get("workflow_id"))
-        and api.workflow.get("path") == WORKFLOW
+        and api.workflow.get("path") == context.workflow_path
         and api.workflow.get("state") == "active",
         "workflow identity mismatch",
     )
@@ -351,8 +351,8 @@ class Git:
         # Reading blob bytes rejects a missing workflow instead of treating two
         # missing paths as equality. No worktree or candidate config is loaded.
         equal = (
-            self.call("cat-file", "blob", f"{target}:{WORKFLOW}").stdout
-            == self.call("cat-file", "blob", f"{main}:{WORKFLOW}").stdout
+            self.call("cat-file", "blob", f"{target}:{context.workflow_path}").stdout
+            == self.call("cat-file", "blob", f"{main}:{context.workflow_path}").stdout
         )
         ancestor = (
             self.call("merge-base", "--is-ancestor", target, main, allow_difference=True).returncode

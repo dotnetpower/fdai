@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 import urllib.error
+from copy import deepcopy
 from dataclasses import replace
 from email.message import Message
 from pathlib import Path
@@ -17,6 +18,7 @@ from unittest.mock import Mock
 
 import pytest
 import yaml
+from scripts.quality.ci import ci_pool_routes
 from scripts.quality.ci import workflow_security_contracts as security
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -394,10 +396,15 @@ def test_client_queries_permission_only_for_same_repository_workflow_changes(
     assert len(permission_calls) == (0 if external or workflow_equal else 1)
 
 
+@pytest.mark.parametrize("workflow", [WORKFLOW, ".github/workflows/container-supply-chain.yml"])
 def test_git_uses_only_fixed_plumbing_and_environment_auth(
-    verifier: ModuleType, evidence: tuple[Any, Any, Any], monkeypatch: pytest.MonkeyPatch
+    verifier: ModuleType,
+    evidence: tuple[Any, Any, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    workflow: str,
 ) -> None:
     context, _, _ = evidence
+    context = replace(context, workflow_path=workflow)
     calls: list[tuple[list[str], dict[str, Any]]] = []
 
     def run(args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[bytes]:
@@ -420,6 +427,7 @@ def test_git_uses_only_fixed_plumbing_and_environment_auth(
     assert result.parents == (BASE, HEAD)
     assert result.head_sha == HEAD and result.merge_sha == TARGET
     assert result.workflow_equal
+    assert all(args[-1].endswith(f":{workflow}") for args, _ in calls if "cat-file" in args)
     serialized = json.dumps([call[0] for call in calls])
     assert "example-token" not in serialized
     assert not any(command in serialized for command in ["checkout", "config --file", "clone"])
@@ -632,3 +640,167 @@ def test_composite_runs_only_its_standalone_trusted_script() -> None:
     assert step["env"]["CI_GITHUB_TOKEN"] == "${{ inputs.github-token }}"
     assert "CI_GITHUB_TOKEN" not in step["run"]
     assert "scripts/quality" not in step["run"]
+
+
+@pytest.mark.parametrize("workflow", ci_pool_routes.VALIDATION_WORKFLOWS)
+def test_only_explicit_validation_workflows_are_admitted(
+    verifier: ModuleType, evidence: tuple[Any, Any, Any], workflow: str
+) -> None:
+    context, api, git = evidence
+    context = replace(
+        context,
+        workflow_path=workflow,
+        workflow_ref=f"example/project/{workflow}@{context.ref}",
+    )
+    api.run["path"] = workflow
+    api.workflow["path"] = workflow
+    verifier.admit(context, api, git)
+    with pytest.raises(verifier.AdmissionDeniedError):
+        verifier.admit(replace(context, workflow_path=".github/workflows/deploy-dev.yml"), api, git)
+    api.run["path"] = ".github/workflows/deploy-dev.yml"
+    with pytest.raises(verifier.AdmissionDeniedError):
+        verifier.admit(context, api, git)
+
+
+def mixed_container_workflow() -> dict[str, Any]:
+    path = ci_pool_routes.CONTAINER
+    document: dict[str, Any] = yaml.safe_load((ROOT / path).read_text())
+    selection = document["jobs"]["select-images"]
+    steps = selection["steps"]
+    index = next(i for i, step in enumerate(steps) if step.get("uses") == PRODUCTION)
+    production_prefix = deepcopy(steps[index - 1 : index + 1])
+    production_prefix[0]["uses"] = CHECKOUT
+    for step in production_prefix:
+        step.pop("if", None)
+    for name in ("ci-admission", "required"):
+        job = candidate_job()
+        job["runs-on"] = ci_pool_routes.runner_expression(
+            ["self-hosted", "Linux", "X64", "fdai-ci-control"]
+        )
+        job["steps"][1]["with"]["workflow-path"] = path
+        document["jobs"][name] = job
+    document["jobs"]["required"].update({"if": "always()", "needs": ["ci-admission"]})
+    candidate_prefix = deepcopy(document["jobs"]["ci-admission"]["steps"][:2])
+    selection["steps"] = candidate_prefix + (
+        steps[2:] if steps[1].get("uses") == security.CI_CANDIDATE_ACTION_REF else steps
+    )
+    selection["runs-on"] = document["jobs"]["ci-admission"]["runs-on"]
+    selection["needs"] = "ci-admission"
+    build = document["jobs"]["pr-build-scan"]
+    build["needs"] = ["ci-admission", "select-images"]
+    build["runs-on"] = ci_pool_routes.runner_expression(
+        ["self-hosted", "Linux", "X64", "fdai-ci-docker"]
+    )
+    publisher = document["jobs"]["build-scan-attest"]
+    publisher_steps = publisher["steps"]
+    if publisher_steps[1].get("uses") == PRODUCTION:
+        publisher_steps = publisher_steps[2:]
+    publisher["steps"] = production_prefix + publisher_steps
+    publisher["runs-on"] = build["runs-on"]
+    return document
+
+
+def test_mixed_container_publisher_owns_production_authority_on_docker_vm() -> None:
+    document = mixed_container_workflow()
+    publisher = document["jobs"]["build-scan-attest"]
+    assert publisher["needs"] == "select-images"
+    assert publisher["steps"][1]["uses"] == PRODUCTION
+    assert "github.event_name == 'workflow_dispatch'" in publisher["if"]
+    assert publisher["permissions"] == {
+        "contents": "read",
+        "packages": "write",
+        "attestations": "write",
+        "id-token": "write",
+    }
+    assert ci_pool_routes.CONTAINER_ROLES["build-scan-attest"] == "docker"
+    assert not ci_pool_routes.approved_container_runner("build-scan-attest", publisher["runs-on"])
+    assert prefix_errors(document, ci_pool_routes.CONTAINER) == []
+
+
+@pytest.mark.parametrize(
+    "violation",
+    [
+        "no-own-guard",
+        "ci-dependency-only",
+        "candidate-prefix",
+        "late-guard",
+        "continue-on-error",
+        "container",
+        "services",
+        "wrong-pin",
+        "wrong-main",
+        "wrong-workflow",
+        "guard-condition",
+    ],
+)
+def test_ci_admission_never_substitutes_for_publisher_production_guard(violation: str) -> None:
+    document = mixed_container_workflow()
+    publisher = document["jobs"]["build-scan-attest"]
+    if violation in {"no-own-guard", "ci-dependency-only"}:
+        publisher["steps"] = publisher["steps"][2:]
+        if violation == "ci-dependency-only":
+            publisher["needs"] = "ci-admission"
+    elif violation == "candidate-prefix":
+        publisher["steps"][:2] = deepcopy(document["jobs"]["ci-admission"]["steps"][:2])
+    elif violation == "late-guard":
+        publisher["steps"].insert(0, {"run": "echo candidate"})
+    elif violation in {"continue-on-error", "container", "services"}:
+        publisher[violation] = True if violation == "continue-on-error" else {"image": "example"}
+    elif violation == "wrong-pin":
+        publisher["steps"][0]["uses"] = "actions/checkout@main"
+    elif violation == "wrong-main":
+        publisher["steps"][0]["with"]["ref"] = "${{ github.sha }}"
+    elif violation == "wrong-workflow":
+        publisher["steps"][1]["with"]["workflow-path"] = WORKFLOW
+    else:
+        publisher["steps"][1]["if"] = "success()"
+    assert prefix_errors(document, ci_pool_routes.CONTAINER)
+
+
+def test_unknown_container_job_cannot_claim_validation_guard_authority() -> None:
+    document = mixed_container_workflow()
+    document["jobs"]["other-publisher"] = deepcopy(document["jobs"]["ci-admission"])
+    assert any(
+        "cannot use CI admission as authority" in error
+        for error in prefix_errors(document, ci_pool_routes.CONTAINER)
+    )
+
+
+def test_mixed_guard_still_checks_reviewed_production_action_bytes(tmp_path: Path) -> None:
+    workflow = tmp_path / ci_pool_routes.CONTAINER
+    workflow.parent.mkdir(parents=True)
+    workflow.write_text(yaml.safe_dump(mixed_container_workflow()))
+    action = tmp_path / ".github/actions/verify-protected-workflow-source/action.yml"
+    action.parent.mkdir(parents=True)
+    action.write_text("tampered")
+    errors = security.validate_privileged_workflow_guards(
+        tmp_path,
+        (workflow,),
+        approved_actions={
+            "actions/checkout": ("e" * 40, "example"),
+            "actions/github-script": ("f" * 40, "example"),
+        },
+        protected_action_ref=PRODUCTION,
+        guard_name="Verify protected workflow source",
+        expected_verifier_digest="reviewed-production-digest",
+    )
+    assert any("digest differs from the reviewed source" in error for error in errors)
+
+
+def test_full_container_inventory_includes_main_publisher_without_ci_authority() -> None:
+    policy = json.loads((ROOT / "config/ci-runner-pools.json").read_text())
+    policy["jobs"]["ci-admission"] = "control"
+    policy["workflow_jobs"] = {ci_pool_routes.CONTAINER: dict(ci_pool_routes.CONTAINER_ROLES)}
+    ci = yaml.safe_load((ROOT / WORKFLOW).read_text())
+    ci["jobs"]["ci-admission"] = candidate_job()
+    for name, pool in policy["jobs"].items():
+        job = ci["jobs"][name]
+        job["runs-on"] = ci_pool_routes.runner_expression(
+            policy["pools"][pool]["labels"], ci_pool_routes.LEGACY_RUNNERS.get(name)
+        )
+        if name != "ci-admission":
+            job["needs"] = ["ci-admission"]
+        if name in {"python-tests", "python-tests-ssd"}:
+            job["if"] = f"vars.FDAI_CI_POOLS_ENABLED != 'true' && ({job['if']})"
+    documents = {WORKFLOW: ci, ci_pool_routes.CONTAINER: mixed_container_workflow()}
+    assert ci_pool_routes.routing_errors(policy, documents) == []

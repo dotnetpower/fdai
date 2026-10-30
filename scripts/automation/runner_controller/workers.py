@@ -44,11 +44,32 @@ class Workers:
                 f"{self.settings.resource_group}/providers/Microsoft.App/jobs/{job}"
             )
             actual = self.azure.get_resource(path)
-            if actual["properties"]["configuration"]["triggerType"] != "Manual":
+            configuration = actual["properties"]["configuration"]
+            if configuration["triggerType"] != "Manual":
                 raise ValueError("worker job still has another scaler; refusing dual ownership")
-            for container in actual["properties"]["template"]["containers"]:
-                if container["image"] != self.settings.worker_image:
-                    raise ValueError("worker image differs from the approved immutable digest")
+            manual = configuration["manualTriggerConfig"]
+            if any(
+                type(manual.get(field)) is not int or manual[field] != 1
+                for field in ("parallelism", "replicaCompletionCount")
+            ):
+                raise ValueError("one start reservation must create exactly one worker replica")
+            if (
+                type(configuration.get("replicaRetryLimit")) is not int
+                or configuration["replicaRetryLimit"] != 0
+                or configuration.get("replicaTimeout") != 86400
+            ):
+                raise ValueError(
+                    "worker retries or execution lifetime differ from the approved shape"
+                )
+            containers = actual["properties"]["template"]["containers"]
+            if (
+                len(containers) != 1
+                or containers[0]["name"] != "runner"
+                or containers[0]["image"] != self.settings.worker_image
+            ):
+                raise ValueError(
+                    "worker template differs from the approved single-container digest"
+                )
 
     def start(self, worker: dict[str, Any], ticket: str) -> str:
         bootstrap = {

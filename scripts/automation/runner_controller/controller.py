@@ -6,13 +6,16 @@ import hashlib
 import json
 import secrets
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
+from threading import Event
 from typing import Any
 
 from scripts.automation.runner_controller.config import Settings
 from scripts.automation.runner_controller.github import GitHubAPI
-from scripts.automation.runner_controller.state import StateStore
+from scripts.automation.runner_controller.state import LeaseLostError, StateStore
+from scripts.automation.runner_controller.transport import ProviderError
 from scripts.automation.runner_controller.workers import Workers
 from scripts.automation.runner_pool_policy import (
     PoolPolicy,
@@ -20,6 +23,8 @@ from scripts.automation.runner_pool_policy import (
     RunnerSnapshot,
     plan_capacity,
 )
+
+START_BATCH_TIMEOUT_SECONDS = 120
 
 
 class Controller:
@@ -31,6 +36,8 @@ class Controller:
         state: StateStore,
         github: GitHubAPI,
         workers: Workers,
+        *,
+        stop: Event | None = None,
     ) -> None:
         self.settings = settings
         self.policies = policies
@@ -38,6 +45,7 @@ class Controller:
         self.state = state
         self.github = github
         self.workers = workers
+        self.stop = stop if stop is not None else Event()
         self.last_success: datetime | None = None
 
     def verify_scope(self) -> None:
@@ -137,6 +145,7 @@ class Controller:
                     self._drain(worker["id"])
         self._retire_finished(by_name, active_runner_ids)
         plans: dict[str, Any] = {}
+        starts: dict[str, int] = {}
         for name, policy in self.policies.items():
             if name == "docker" and not self.settings.vm_image_id:
                 plans[name] = {"blocked_reason": "docker_image_unavailable"}
@@ -217,12 +226,34 @@ class Controller:
                 continue
             for worker_id in plan.drain_ids:
                 self._drain(worker_id)
-            for _ in range(plan.start_count):
-                self._start(name, now)
+            starts[name] = plan.start_count
+        requests = [
+            name
+            for turn in range(max(starts.values(), default=0))
+            for name, count in starts.items()
+            if turn < count
+        ]
+        self._start_batch(requests, now)
         self.last_success = now
         return {"mode": "apply" if self.settings.apply else "observe", "plans": plans}
 
+    def _start_batch(self, requests: list[str], now: datetime) -> None:
+        if not requests:
+            return
+        with ThreadPoolExecutor(max_workers=min(8, len(requests))) as executor:
+            pending = [executor.submit(self._start, name, now) for name in requests]
+            try:
+                for completed in as_completed(pending, timeout=START_BATCH_TIMEOUT_SECONDS):
+                    completed.result()
+            except (ProviderError, LeaseLostError, ValueError, KeyError, TypeError, TimeoutError):
+                self.stop.set()
+                for future in pending:
+                    future.cancel()
+                raise
+
     def _start(self, pool: str, now: datetime) -> None:
+        if self.stop.is_set():
+            raise LeaseLostError("controller stopped before worker start reservation")
         identity = uuid.uuid4().hex[:20]
         ticket = secrets.token_urlsafe(32)
         record = {
@@ -266,6 +297,9 @@ class Controller:
         )
 
     def _drain(self, identity: str) -> None:
+        if self.stop.is_set():
+            raise LeaseLostError("controller stopped before worker drain reservation")
+
         def reserve(data: dict[str, Any]) -> bool:
             worker = data["workers"][identity]
             if (
@@ -294,6 +328,8 @@ class Controller:
     def _retire_finished(self, registered: dict[str, Any], active: set[int]) -> None:
         if not self.settings.apply:
             return
+        if self.stop.is_set():
+            raise LeaseLostError("controller stopped before worker retirement")
         for worker in self.state.read()["workers"].values():
             if worker["status"] == "terminal":
                 continue
