@@ -12,7 +12,8 @@
       "cooldown_seconds": 600
     },
     "general": {
-      "labels": ["self-hosted", "Linux", "X64", "fdai-ci", "fdai-ci-aca"],
+      "labels": ["self-hosted", "Linux", "X64", "fdai-ci-general"],
+      "warm_idle_low": 2,
       "warm_idle": 8,
       "maximum": 64,
       "cpu_per_runner": 4,
@@ -23,6 +24,7 @@
     "docker": {
       "labels": ["self-hosted", "Linux", "X64", "fdai-ci-docker"],
       "warm_idle": 2,
+      "warm_idle_low": 1,
       "maximum": 16,
       "cpu_per_runner": 4,
       "quota_group": "vm_cpu",

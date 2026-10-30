@@ -35,6 +35,10 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Console static artifact publication | implemented | `.github/workflows/deploy-dev.yml`, `scripts/deployment/azure/publish-console.sh`, and focused deployment workflow tests | Apply builds the authenticated SPA with environment-owned API and Entra bindings, publishes it to the provisioned Static Web App, and verifies the exact entry asset plus History API fallback. |
 | Publisher-split root composition | implemented | `infra/main.tf`; `infra/variables.tf`; root Terraform checks (`5 passed`) | Root sends partner capabilities to the Foundry module, retains OpenAI capabilities in the existing account, and conditionally creates the services.ai private endpoint/DNS path. |
 | Sealed partner endpoint bindings | implemented | `seal_model_endpoint_bindings.py`; `deploy-dev.yml`; focused checks (`6 passed`) | The plan path adds replay-stable partner bindings before full/deployment manifest hashing and preserves those exact bytes for apply. |
+| Stage-1 PAT-only runner controller and adaptive pools | implemented | `scripts/automation/runner_controller/`; `config/ci-runner-pools.json`; `test_runner_controller_runtime.py`, `test_runner_controller_providers.py`, `test_runner_controller_worker.py`, and `test_runner_pool_policy.py` | Local implementation, not merged or deployed. A non-build controller owns the PAT, lease-bound start intents and one-use registration; warm reserves adapt from 2/8/2 to 2/2/1 with ceilings 4/64/16. Ambiguous starts/JIT retain their slot; provider reference recovery and authenticated-304 caching do not authorize blind retries. |
+| Isolated Manual Job infrastructure and baked-image assets | implemented | `infra/ci-runner-controller/`; `tests/integration/infra/test_runner_controller_infra.py`: 47 passed; `terraform -chdir=infra/ci-runner-controller test`: 8 passed; Terraform validation, Ruff, ShellCheck and scoped security scans passed | Separate controller/worker environments and identities, AcrPull-only workers, private lease/state, digest-pinned images and a clean-builder image path exist locally. Actual credentials, image build, target apply, identity-endpoint restrictions, quotas and worker execution receipts remain open. |
+| Additive CI-only source guard | implemented | `.github/actions/verify-ci-runner-source/`; `tests/integration/scripts/test_ci_candidate_admission.py`; CI source-guard contract checks | The production/main verifier is unchanged. The new guard needs trusted publication before stage-2 PR routing consumes it; local source presence does not publish or activate it. |
+| Stage-2 PR routing and observed no-hosted rollout | not-started | Stage-1 source/infra and the operational exit criteria below; `scripts/quality/ci/runner-pool-readiness.py` | No new PR route, measured queue SLO, successful burst/drain rollout or production cutover is claimed. Existing legacy KEDA demand remains separate from the new fdai-ci-general pool. |
 
 ### Implementation history
 
@@ -173,14 +177,29 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-30 | implemented | Repaired live elastic-runner image prerequisites: declare and verify timezone data and use `tini` as PID 1 to reap orphaned service children. | Current change in `infra/ci-runner/toolchain.json`, `verify-toolchain.py`, and `infra/ci-runner-aca/Dockerfile`; 22 focused tests passed. Exact failed image reproduction confirmed an unreaped zombie and missing `America/Buenos_Aires` data; run `40904690911` attempt 1 passed six of eight real elastic shards, with these two environment failures. | Publish and verify the repaired image, then retain a successful exact-source elastic run and lifecycle observations before enabling the route; see #2657. |
 
 | 2026-10-30 | implemented | Added a plan-only performance-first pool policy, deterministic warm-reserve capacity decisions, complete job inventory, shared-quota readiness checks, and successful-burst queue/drain acceptance checks. Revised the design after critique exposed KEDA/external-controller ownership conflict, the missing PR admission path, and the need for a separate short-lived registration broker and atomic drain interlock. | Current change in `config/ci-runner-pools.json`, `runner_pool_policy.py`, `plan_runner_pools.py`, `runner-pool-readiness.py`, and focused tests. No live routing or capacity was changed. | These are advisory decisions, not a running controller. Implement and validate the scoped management and PR admission boundaries before full cutover; retain real 8/16/32/64 burst and safe-drain evidence. See #2657. |
+| 2026-10-30 | implemented | Added the local stage-1 PAT-only controller/runtime, separate Manual Job environments/identities, one-use registration broker, adaptive 2/8/2 to 2/2/1 reserves and concrete clean-builder VM image assets. Revised double-scaler ownership, deregistration/termination races, stale cache authority and secret isolation. Unknown starts or ambiguous JIT preserve the starting slot and starting_timeout; provider readback can recover references and conditional GET cache reuse requires authenticated 304. | `current change`; `scripts/automation/runner_controller/`, `infra/ci-runner-controller/`, `.github/actions/verify-ci-runner-source/` and their owning focused tests; infrastructure contracts: 47 passed; mocked Terraform plans: 8 passed; Terraform validation, Ruff, ShellCheck, scoped Checkov and Trivy passed. | Not merged, published or deployed. Publish the CI-only guard before stage-2 PR routing; retain approved credential/image/apply, real quota/capacity, MI isolation, execution, natural-drain and complete burst accounting receipts before operational completion. Configured CPU budgets 260/64 are not provider quota guarantees. |
 
 ### Remaining work
 
-- [ ] Implement a separately scoped registration broker and controller with exclusive scaler ownership,
-  an atomic busy/idle drain interlock, and credential isolation from worker code before enabling
-  the plan-only warm-pool policy. Preserve the existing KEDA trigger until the reviewed cutover.
+- [ ] Publish the stage-1 CI-only guard from trusted source and retain its exact-source verification
+  before stage-2 PR routing uses it. Keep the production/main verifier unchanged and reject
+  candidate-controlled verification code.
+- [ ] Retain an approved exact-target apply and independent readback for separate controller/worker
+  environments, exact role scopes, digest-pinned images, private lease/state and worker inability to
+  obtain the controller PAT or Managed Identity. Enter credentials interactively on the controller
+  only; keep existing KEDA demand separate from the new Manual Jobs.
+- [ ] Build and verify the baked Docker VM image from published, CI-green source on a new clean
+  builder, then retain credential-free worker bootstrap and successful Docker-job evidence. Record
+  actual regional/container/VM-family quota, existing use and SKU-capacity preflight for the
+  configured 260/64 CPU ceilings rather than treating those values as allocated capacity.
+- [ ] Retain real lifecycle evidence that ambiguous start/JIT outcomes preserve their slot without
+  duplicate dispatch, unsafe registration retry or forced stop; provider reference recovery and
+  authenticated-304 cache revalidation must remain attributable to the exact source.
+- [ ] Enable stage-2 PR routing only after published trusted admission and exact-source checks pass;
+  retain successful trusted-control, same-repository PR and safely rejected untrusted-source cases.
 - [ ] Retain successful PR/control/Docker-pool executions and complete 8/16/32/64 job accounting,
-  queue SLO measurements and automatic safe return to the ready reserve for the no-hosted rollout.
+  queue SLO measurements and safe return to the adaptive ready reserve for the no-hosted rollout.
+  Distinguish deregistration from natural job/provider termination before owned resource deletion.
 
 - [ ] Complete protected delivery of the job-local OPA compatibility fix, verify the enabled opt-in
   takes effect on an actual main run, and retain exact-SHA CI results plus a comparable workload timing measurement in
