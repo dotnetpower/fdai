@@ -6,7 +6,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import cast
 
-from fdai_service_contracts.wara_guidance import wara_guidance_detail
+from fdai_service_contracts.wara_guidance import localized_wara_titles, wara_guidance_detail
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.workflow.contracts import (
@@ -241,6 +241,7 @@ def _wara_catalog_payload(
     )
     filters = {field: request.query.get(field, "").strip().lower() for field in filter_fields}
     needle = request.query.get("q", "").strip().lower()
+    korean_titles = localized_wara_titles(controls)
     matched = [
         item
         for item in controls
@@ -252,8 +253,13 @@ def _wara_catalog_payload(
             not needle
             or needle
             in "\n".join(
-                str(item.get(field, ""))
-                for field in ("id", "title", "resource_type", "recommendation_control")
+                [
+                    *(
+                        str(item.get(field, ""))
+                        for field in ("id", "title", "resource_type", "recommendation_control")
+                    ),
+                    korean_titles.get(str(item.get("id", "")), ""),
+                ]
             ).lower()
         )
     ]
@@ -288,7 +294,12 @@ def _wara_catalog_payload(
             "by_evaluation": _wara_counts(controls, "evaluation_status"),
             "by_satisfaction": _wara_counts(controls, "satisfaction"),
         },
-        "controls": matched[offset : offset + limit],
+        "controls": [
+            {**item, "title_ko": korean_titles[str(item.get("id"))]}
+            if str(item.get("id")) in korean_titles
+            else item
+            for item in matched[offset : offset + limit]
+        ],
         "inventory": dict(inventory_value),
         "evaluation_source": evaluation_source,
         "source_revision": stored.get("source_revision"),

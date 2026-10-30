@@ -583,7 +583,7 @@
         "unknown": "Unknown satisfaction"
       },
       "column": {
-        "recommendation": "Recommendation (source title)",
+        "recommendation": "Recommendation",
         "resourceType": "Resource type",
         "control": "Recommendation control",
         "impact": "Advisory impact"
@@ -611,6 +611,7 @@
         "title": "WARA recommendation detail",
         "loading": "Loading WARA recommendation...",
         "loadFailed": "Failed to load WARA recommendation: {message}",
+        "sourceTitle": "Source title: {title}",
         "boundary": "Advisory shadow evidence. Catalog presence and product verification do not prove satisfaction.",
         "sourceRevision": "Source revision",
         "evaluationScope": "Evaluation scope",
