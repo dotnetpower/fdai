@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  architectureBlastRadiusHref,
   architectureParentBoundary,
   architectureRelationshipLabel,
   architectureStatusLabel,
@@ -40,5 +41,12 @@ describe("architecture inspector labels", () => {
     };
 
     expect(architectureParentBoundary(graph, "subnet")?.id).toBe("vnet");
+  });
+
+  it("preserves sample mode in blast-radius drill-down links", () => {
+    expect(architectureBlastRadiusHref("res-1", "prod", new URLSearchParams("data=sample")))
+      .toBe("/blast-radius?target=res-1&view=prod&data=sample");
+    expect(architectureBlastRadiusHref("res-1", "prod", new URLSearchParams()))
+      .toBe("/blast-radius?target=res-1&view=prod");
   });
 });

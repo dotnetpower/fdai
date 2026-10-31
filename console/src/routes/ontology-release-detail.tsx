@@ -4,7 +4,7 @@ import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { currentRoute, ROUTE_STATE_EVENT } from "../router";
+import { currentRoute, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { t } from "./i18n/ontology";
 import {
   decodeOntologyReleaseDiff,
@@ -71,7 +71,18 @@ export function OntologyReleaseDetailRoute({
       <PageHeader
         title={t("ontology.release.title")}
         subtitle={<code>{digest}</code>}
-        actions={<a class="button button-secondary" href="/ontology">{t("ontology.detail.back")}</a>}
+        actions={(
+          <a
+            class="button button-secondary"
+            href={routeHref("ontology", {
+              params: {
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              },
+            })}
+          >
+            {t("ontology.detail.back")}
+          </a>
+        )}
       />
       <AsyncBoundary state={state} resourceLabel={t("ontology.release.loadingLabel")}>
         {(diff) => <OntologyReleaseDiffView diff={diff} />}

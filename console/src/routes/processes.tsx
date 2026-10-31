@@ -33,6 +33,7 @@ import {
     type PlanningRoom as PlanningRoomData,
   defaultProcessId,
   processHref,
+  processRouteHref,
   processEventHref,
   processIdFromHash,
   processListFailure,
@@ -101,6 +102,8 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setListState({ status: "loading" });
+    setDetailState({ status: "idle" });
     client.panel<unknown>("/views/process").then(
       (payload) => {
         if (cancelled) return;
@@ -118,8 +121,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
         });
         const defaultId = currentRoute().segments[0] ?? defaultProcessId(data.items, "");
         if (!currentRoute().segments[0] && defaultId) {
-          const href = processHref(defaultId);
-          replaceRouteState(dataMode === "sample" ? `${href}?data=sample` : href);
+          replaceRouteState(processRouteHref(defaultId, dataMode));
           setSelectedId(defaultId);
         } else if (!defaultId) {
           dispatchRefresh({ type: "finish", generation: refreshCycle.generation });
@@ -217,6 +219,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
             selectedId={selectedId}
             detailState={detailState}
             activeView={activeView}
+            dataMode={dataMode}
           />
         )}
       </AsyncBoundary>
@@ -224,11 +227,12 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
   );
 }
 
-function ProcessWorkspace({ processList, selectedId, detailState, activeView }: {
+function ProcessWorkspace({ processList, selectedId, detailState, activeView, dataMode }: {
   readonly processList: ProcessListResponse;
   readonly selectedId: string | null;
   readonly detailState: AsyncState<ProcessDetailData>;
   readonly activeView: "workspace" | "provenance";
+  readonly dataMode: ConsoleDataMode;
 }) {
   const processes = processList.items;
   const selected = processes.find((item) => item.id === selectedId) ?? null;
@@ -291,7 +295,7 @@ function ProcessWorkspace({ processList, selectedId, detailState, activeView }: 
                 {processes.map((process) => (
                   <a
                     key={process.id}
-                    href={processHref(process.id)}
+                    href={processRouteHref(process.id, dataMode)}
                     class={`process-list-entry ${process.id === selectedId ? "is-active" : ""}`}
                     aria-current={process.id === selectedId ? "page" : undefined}
                   >

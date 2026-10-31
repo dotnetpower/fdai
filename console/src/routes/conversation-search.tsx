@@ -109,7 +109,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
           conversation_id: hit.conversation_id,
           role: hit.role,
           channel: hit.channel_id,
-          recorded_at: hit.recorded_at,
+          recorded_at: formatConsoleTimestamp(hit.recorded_at),
         })),
       },
     }),

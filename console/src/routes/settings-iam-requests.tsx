@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, StatusPill, type PillKind } from "../components/ui";
@@ -45,6 +45,16 @@ export function AccessRequestsView({
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const loadMoreGeneration = useRef(0);
+
+  useEffect(() => {
+    loadMoreGeneration.current += 1;
+    setLoadingMore(false);
+    setPageError(null);
+    return () => {
+      loadMoreGeneration.current += 1;
+    };
+  }, [client]);
 
   if (!canManage) {
     return (
@@ -158,11 +168,18 @@ export function AccessRequestsView({
           class="secondary"
           disabled={loadingMore}
           onClick={() => {
+            const generation = ++loadMoreGeneration.current;
             setLoadingMore(true);
             setPageError(null);
             void loadMore().catch((reason: unknown) => {
-              setPageError(reason instanceof Error ? reason.message : String(reason));
-            }).finally(() => setLoadingMore(false));
+              if (loadMoreGeneration.current === generation) {
+                setPageError(reason instanceof Error ? reason.message : String(reason));
+              }
+            }).finally(() => {
+              if (loadMoreGeneration.current === generation) {
+                setLoadingMore(false);
+              }
+            });
           }}
         >
           {loadingMore ? t("settings.iam.loading") : t("settings.iam.loadMore")}
