@@ -20,6 +20,7 @@ MAIN_RS = CRATE_DIR / "src" / "main.rs"
 LIB_RS = CRATE_DIR / "src" / "lib.rs"
 _MEMOIZED_DEFAULT_BIN_DIR: Path | None = None
 _MEMOIZED_SOURCE_DIGEST: tuple[tuple[int, int, int, int], str] | None = None
+_MEMOIZED_READY_BINARY: tuple[str, int, int, int, Path] | None = None
 
 
 def is_disabled() -> bool:
@@ -138,12 +139,35 @@ def _ready_binary(path: Path) -> bool:
 
 def ensure_binary(_root: Path | None = None) -> Path | None:
     """Return the verified cached Rust binary, compiling once if `rustc` is available."""
+    global _MEMOIZED_READY_BINARY
     if is_disabled():
         return None
     digest = source_digest()
     if digest is None:
         return None
     bin_dir = _cache_bin_dir()
+    if (
+        _MEMOIZED_READY_BINARY is not None
+        and _MEMOIZED_READY_BINARY[0] == digest
+        and _MEMOIZED_READY_BINARY[4].parent == bin_dir
+    ):
+        _, exp_mtime, exp_size, exp_mode, cached_path = _MEMOIZED_READY_BINARY
+        try:
+            st = cached_path.lstat()
+            if (
+                not stat.S_ISLNK(st.st_mode)
+                and stat.S_ISREG(st.st_mode)
+                and st.st_mtime_ns == exp_mtime
+                and st.st_size == exp_size
+                and st.st_mode == exp_mode
+                and st.st_uid == os.getuid()
+                and (st.st_mode & 0o022) == 0
+                and (st.st_mode & 0o100) != 0
+            ):
+                return cached_path
+        except OSError:
+            pass
+        _MEMOIZED_READY_BINARY = None
     if not bin_dir.exists():
         bin_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(bin_dir, 0o700)
@@ -151,6 +175,8 @@ def ensure_binary(_root: Path | None = None) -> Path | None:
         return None
     binary_path = bin_dir / f"fdai-sdlc-rs-{digest[:16]}"
     if _ready_binary(binary_path):
+        st = binary_path.lstat()
+        _MEMOIZED_READY_BINARY = (digest, st.st_mtime_ns, st.st_size, st.st_mode, binary_path)
         return binary_path
     rustc = shutil.which("rustc")
     lock_path = bin_dir / "compile.lock"
@@ -259,6 +285,62 @@ def rust_worktree_digests(
     if len(tokens) != 2:
         return None
     return tokens[0], tokens[1]
+
+
+def rust_count_lines(root: Path, paths: list[str]) -> dict[str, int] | None:
+    """Count newline bytes across `paths` in parallel via Rust; return None when unavailable."""
+    binary = ensure_binary(root)
+    if binary is None:
+        return None
+    payload = b"\0".join(path.encode("utf-8") for path in paths) + b"\0"
+    try:
+        rc, out, err = _run_subprocess(
+            [str(binary), "count-lines", "--root", str(root)],
+            stdin_bytes=payload,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if rc != 0:
+        _raise_mapped_error(err.decode("utf-8", errors="replace"))
+    counts: dict[str, int] = {}
+    for line in out.decode("utf-8", errors="replace").splitlines():
+        if "\t" not in line:
+            return None
+        raw_count, rel = line.split("\t", 1)
+        if not raw_count.isdecimal():
+            return None
+        counts[rel] = int(raw_count)
+    return counts if len(counts) == len(paths) else None
+
+
+def rust_scan_core_fanout(
+    root: Path,
+    paths: list[str],
+) -> list[tuple[str, int, list[str]]] | None:
+    """Scan `core/` sibling subsystem fanout in parallel via Rust; return None when unavailable."""
+    binary = ensure_binary(root)
+    if binary is None:
+        return None
+    payload = b"\0".join(path.encode("utf-8") for path in paths) + b"\0"
+    try:
+        rc, out, err = _run_subprocess(
+            [str(binary), "scan-core-fanout", "--root", str(root)],
+            stdin_bytes=payload,
+            timeout=60,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if rc != 0:
+        _raise_mapped_error(err.decode("utf-8", errors="replace"))
+    rows: list[tuple[str, int, list[str]]] = []
+    for line in out.decode("utf-8", errors="replace").splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3 or not parts[1].isdecimal():
+            return None
+        subs = [sub for sub in parts[2].split(",") if sub] if parts[2] else []
+        rows.append((parts[0], int(parts[1]), subs))
+    return rows if len(rows) == len(paths) else None
 
 
 def rust_installed_files(

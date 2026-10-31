@@ -8,7 +8,10 @@ use std::process::ExitCode;
 #[path = "lib.rs"]
 mod sdlc;
 
-use sdlc::{check_translations, compute_worktree_digests, scan_installed_venv, verify_snapshot};
+use sdlc::{
+    check_translations, compute_worktree_digests, count_file_lines, scan_core_fanout,
+    scan_installed_venv, verify_snapshot,
+};
 
 fn require_arg_value<'a>(args: &'a [String], index: &mut usize, flag: &str) -> Result<&'a str, ()> {
     *index += 1;
@@ -27,7 +30,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(subcommand) = args.first().map(String::as_str) else {
         eprintln!(
-            "usage: fdai-sdlc-rs <verify-snapshot|installed-digest|worktree-digests|check-translations> ..."
+            "usage: fdai-sdlc-rs <verify-snapshot|installed-digest|worktree-digests|check-translations|count-lines|scan-core-fanout> ..."
         );
         return ExitCode::from(2);
     };
@@ -36,6 +39,8 @@ fn main() -> ExitCode {
         "installed-digest" => cmd_installed_digest(&args[1..]),
         "worktree-digests" => cmd_worktree_digests(&args[1..]),
         "check-translations" => cmd_check_translations(&args[1..]),
+        "count-lines" => cmd_count_lines(&args[1..]),
+        "scan-core-fanout" => cmd_scan_core_fanout(&args[1..]),
         other => {
             eprintln!("fdai-sdlc-rs: unknown subcommand: {other}");
             ExitCode::from(2)
@@ -231,4 +236,79 @@ fn cmd_check_translations(args: &[String]) -> ExitCode {
         "check-translations: OK ({en_count} English docs, {ko_count} translations verified)"
     );
     ExitCode::SUCCESS
+}
+
+fn parse_only_root(args: &[String], cmd: &str) -> Result<String, ExitCode> {
+    let mut root = None;
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--root" => {
+                let Ok(val) = require_arg_value(args, &mut index, "--root") else {
+                    return Err(ExitCode::from(2));
+                };
+                root = Some(val.to_string());
+            }
+            other => {
+                eprintln!("{cmd}: unexpected argument: {other}");
+                return Err(ExitCode::from(2));
+            }
+        }
+        index += 1;
+    }
+    root.ok_or_else(|| {
+        eprintln!("{cmd}: --root is required");
+        ExitCode::from(2)
+    })
+}
+
+fn cmd_count_lines(args: &[String]) -> ExitCode {
+    let root_str = match parse_only_root(args, "count-lines") {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
+    let mut input = Vec::new();
+    if let Err(err) = io::stdin().read_to_end(&mut input) {
+        eprintln!("OSError: {err}");
+        return ExitCode::from(1);
+    }
+    match count_file_lines(Path::new(&root_str), &input) {
+        Ok(rows) => {
+            let mut stdout = io::stdout().lock();
+            for (count, rel) in rows {
+                let _ = writeln!(stdout, "{count}\t{rel}");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn cmd_scan_core_fanout(args: &[String]) -> ExitCode {
+    let root_str = match parse_only_root(args, "scan-core-fanout") {
+        Ok(v) => v,
+        Err(code) => return code,
+    };
+    let mut input = Vec::new();
+    if let Err(err) = io::stdin().read_to_end(&mut input) {
+        eprintln!("OSError: {err}");
+        return ExitCode::from(1);
+    }
+    match scan_core_fanout(Path::new(&root_str), &input) {
+        Ok(rows) => {
+            let mut stdout = io::stdout().lock();
+            for (rel, count, subs) in rows {
+                let joined = subs.join(",");
+                let _ = writeln!(stdout, "{rel}\t{count}\t{joined}");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::from(1)
+        }
+    }
 }

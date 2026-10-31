@@ -114,21 +114,28 @@ trap 'rm -f "$hit_file"' EXIT
 
 fail=0
 allowlisted=0
+scan_files=()
 for path in "${files[@]}"; do
   if _allowlisted "$path"; then
     allowlisted=$((allowlisted + 1))
     continue
   fi
-  if grep -nE "$banned_re" "$path" > "$hit_file" 2>/dev/null; then
-    while IFS=: read -r lineno rest; do
-      printf '::error file=%s,line=%s::check-agents-imports: forbidden import\n' \
-        "$path" "$lineno"
-    done < "$hit_file"
-    echo "check-agents-imports: forbidden import in $path"
-    sed 's/^/  /' "$hit_file"
-    fail=1
-  fi
+  scan_files+=("$path")
 done
+
+if (( ${#scan_files[@]} > 0 )) && grep -qE "$banned_re" "${scan_files[@]}" 2>/dev/null; then
+  for path in "${scan_files[@]}"; do
+    if grep -nE "$banned_re" "$path" > "$hit_file" 2>/dev/null; then
+      while IFS=: read -r lineno rest; do
+        printf '::error file=%s,line=%s::check-agents-imports: forbidden import\n' \
+          "$path" "$lineno"
+      done < "$hit_file"
+      echo "check-agents-imports: forbidden import in $path"
+      sed 's/^/  /' "$hit_file"
+      fail=1
+    fi
+  done
+fi
 
 # Stale-allowlist audit - drift protection.
 stale=0

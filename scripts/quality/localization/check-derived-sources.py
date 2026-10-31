@@ -43,6 +43,7 @@ Exit codes: 0 on success, 1 on any drift or malformed declaration.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -70,21 +71,58 @@ def repo_root() -> Path:
     return Path(out)
 
 
+_STAGED_INDEX_CACHE: dict[Path, dict[str, str]] = {}
+_DIRTY_WORKTREE_CACHE: dict[Path, frozenset[str]] = {}
+
+
+def _staged_index_shas(root: Path) -> dict[str, str]:
+    cached = _STAGED_INDEX_CACHE.get(root)
+    if cached is not None:
+        return cached
+    result = subprocess.run(
+        ["git", "ls-files", "--stage", "-z"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    shas: dict[str, str] = {}
+    for entry in result.stdout.split("\0"):
+        if not entry or "\t" not in entry:
+            continue
+        meta, rel = entry.split("\t", 1)
+        parts = meta.split()
+        if len(parts) >= 2:
+            shas[rel] = parts[1]
+    _STAGED_INDEX_CACHE[root] = shas
+    return shas
+
+
+def _dirty_worktree_paths(root: Path) -> frozenset[str]:
+    cached = _DIRTY_WORKTREE_CACHE.get(root)
+    if cached is not None:
+        return cached
+    result = subprocess.run(
+        ["git", "diff", "--name-only", "-z"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    dirty = frozenset(p for p in result.stdout.split("\0") if p)
+    _DIRTY_WORKTREE_CACHE[root] = dirty
+    return dirty
+
+
 def git_hash(root: Path, path: Path, *, cached: bool) -> str | None:
     """Return the worktree or index blob hash, or None when the file is absent."""
     if cached:
         rel = path.relative_to(root).as_posix()
-        result = subprocess.run(
-            ["git", "rev-parse", "--verify", f":{rel}"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        return result.stdout.strip() if result.returncode == 0 else None
+        return _staged_index_shas(root).get(rel)
     if not path.is_file():
         return None
-    return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
+    data = path.read_bytes()
+    return hashlib.sha1(f"blob {len(data)}\0".encode() + data, usedforsecurity=False).hexdigest()
 
 
 def git_commit(root: Path, ref: str) -> str | None:
@@ -125,6 +163,8 @@ def read_repo_text(root: Path, path: Path, *, cached: bool) -> str | None:
     """Read one worktree or staged repository file."""
     if cached:
         rel = path.relative_to(root).as_posix()
+        if rel not in _dirty_worktree_paths(root) and path.is_file():
+            return path.read_text(encoding="utf-8")
         result = subprocess.run(
             ["git", "show", f":{rel}"],
             cwd=root,
@@ -153,6 +193,8 @@ def read_front_matter(root: Path, path: Path, *, cached: bool) -> dict[str, obje
     for idx in range(1, len(lines)):
         if lines[idx].strip() == FRONT_MATTER_DELIM:
             block = "\n".join(lines[1:idx])
+            if "derives_from" not in block:
+                return {}
             parsed = yaml.safe_load(block)
             return parsed if isinstance(parsed, dict) else {}
     return None
@@ -392,16 +434,18 @@ def main(argv: list[str] | None = None) -> int:
     all_errors: list[str] = []
     checked = 0
     for doc in sorted(docs):
+        rel = doc.relative_to(root).as_posix()
+        try:
+            fm = read_front_matter(root, doc, cached=args.cached)
+        except yaml.YAMLError as exc:
+            all_errors.append(f"{rel}: malformed YAML front-matter ({exc})")
+            continue
+        if not fm or "derives_from" not in fm:
+            continue
+        checked += 1
         errors = check_doc(root, doc, cached=args.cached)
         if errors:
             all_errors.extend(errors)
-        # Count only docs that actually declared a derivation.
-        try:
-            fm = read_front_matter(root, doc, cached=args.cached)
-        except yaml.YAMLError:
-            fm = None
-        if fm and "derives_from" in fm:
-            checked += 1
     catalog_errors, catalog_sources = check_system_knowledge_catalog(root, cached=args.cached)
     all_errors.extend(catalog_errors)
 

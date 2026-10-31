@@ -35,8 +35,15 @@ cd "$repo_root"
 mapfile -t files < <(
   find services/core-control-plane/src/fdai/core -type f -name '*.py' \
     ! -path '*/__pycache__/*' \
+    ! -path '*/.pytest_cache/*' \
+    ! -path '*/.mypy_cache/*' \
+    ! -path '*/.ruff_cache/*' \
+    ! -path '*/.tox/*' \
+    ! -path '*/.venv/*' \
+    ! -path '*/venv/*' \
+    ! -path '*/.git/*' \
     ! -name '__init__.pyc' \
-    | sort
+    | LC_ALL=C sort
 )
 
 if (( ${#files[@]} == 0 )); then
@@ -50,15 +57,18 @@ fi
 banned_re='^[[:space:]]*(from|import)[[:space:]]+(httpx|requests|aiohttp|boto3|azure(\.|[[:space:]])|google\.cloud|fdai\.delivery)'
 
 fail=0
-while IFS= read -r path; do
-  if grep -nE "$banned_re" "$path" > /tmp/core-import-hit 2>/dev/null; then
-    echo "check-core-imports: forbidden import in $path"
-    sed 's/^/  /' /tmp/core-import-hit
-    fail=1
-  fi
-done < <(printf '%s\n' "${files[@]}")
-
-rm -f /tmp/core-import-hit
+if grep_hits="$(grep -nHE "$banned_re" "${files[@]}" 2>/dev/null)"; then
+  fail=1
+  current_file=""
+  while IFS=: read -r hit_path hit_line hit_rest; do
+    [[ -n "$hit_path" ]] || continue
+    if [[ "$hit_path" != "$current_file" ]]; then
+      echo "check-core-imports: forbidden import in $hit_path"
+      current_file="$hit_path"
+    fi
+    printf '  %s:%s\n' "$hit_line" "$hit_rest"
+  done <<< "$grep_hits"
+fi
 
 if (( fail )); then
   cat >&2 <<'EOF'

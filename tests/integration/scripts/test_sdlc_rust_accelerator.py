@@ -299,3 +299,50 @@ def test_cold_compile_prunes_stale_binaries_and_handles_timeouts(
         accel.rust_verify_snapshot(tmp_path, "sha1", b"no-tab-entry\0")
     with pytest.raises(ValueError, match="malformed ls-tree metadata"):
         accel.rust_verify_snapshot(tmp_path, "sha1", b"onlytwo tokens\tfile.py\0")
+
+
+def test_rust_count_lines_and_scan_core_fanout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    core_dir = tmp_path / "services/core-control-plane/src/fdai/core/alpha"
+    core_dir.mkdir(parents=True)
+    mod_a = core_dir / "service.py"
+    mod_a.write_text(
+        "from fdai.core.executor import ShadowExecutor\n"
+        "import fdai.core.audit\n"
+        "from fdai.core.alpha.helper import x\n",
+        encoding="utf-8",
+    )
+    rel_a = mod_a.relative_to(tmp_path).as_posix()
+
+    if accel.shutil.which("rustc") is not None:
+        counts = accel.rust_count_lines(tmp_path, [rel_a])
+        assert counts == {rel_a: 3}
+        fanout = accel.rust_scan_core_fanout(tmp_path, [rel_a])
+        assert fanout == [(rel_a, 2, ["audit", "executor"])]
+        with pytest.raises(ValueError, match="unsafe path"):
+            accel.rust_count_lines(tmp_path, ["../outside.py"])
+        with pytest.raises(ValueError, match="unsafe path"):
+            accel.rust_scan_core_fanout(tmp_path, ["../outside.py"])
+
+    monkeypatch.setenv("FDAI_DISABLE_RUST_ACCELERATOR", "1")
+    assert accel.rust_count_lines(tmp_path, [rel_a]) is None
+    assert accel.rust_scan_core_fanout(tmp_path, [rel_a]) is None
+    monkeypatch.delenv("FDAI_DISABLE_RUST_ACCELERATOR", raising=False)
+
+    monkeypatch.setattr(accel, "ensure_binary", lambda *_a: Path("/bin/true"))
+    monkeypatch.setattr(accel, "_run_subprocess", lambda *_a, **_kw: (0, b"bad-line\n", b""))
+    assert accel.rust_count_lines(tmp_path, [rel_a]) is None
+    assert accel.rust_scan_core_fanout(tmp_path, [rel_a]) is None
+    monkeypatch.setattr(accel, "_run_subprocess", lambda *_a, **_kw: (0, b"notnum\ta.py\n", b""))
+    assert accel.rust_count_lines(tmp_path, [rel_a]) is None
+
+    def _raise_oserror(*_a: object, **_kw: object) -> tuple[int, bytes, bytes]:
+        raise OSError("spawn failed")
+
+    monkeypatch.setattr(accel, "_run_subprocess", _raise_oserror)
+    assert accel.rust_count_lines(tmp_path, [rel_a]) is None
+    assert accel.rust_scan_core_fanout(tmp_path, [rel_a]) is None
+    assert accel.rust_verify_snapshot(tmp_path, "sha1", b"") is None
+    assert accel.rust_worktree_digests(tmp_path, (), b"") is None

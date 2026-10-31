@@ -60,9 +60,7 @@ impl Sha1 {
             }
         }
         while data.len() >= 64 {
-            let mut block = [0u8; 64];
-            block.copy_from_slice(&data[..64]);
-            self.compress(&block);
+            self.compress(&data[..64]);
             data = &data[64..];
         }
         if !data.is_empty() {
@@ -97,7 +95,7 @@ impl Sha1 {
         to_hex(&digest)
     }
 
-    fn compress(&mut self, block: &[u8; 64]) {
+    fn compress(&mut self, block: &[u8]) {
         let mut w = [0u32; 80];
         for (i, word) in w.iter_mut().take(16).enumerate() {
             let offset = i * 4;
@@ -199,9 +197,7 @@ impl Sha256 {
             }
         }
         while data.len() >= 64 {
-            let mut block = [0u8; 64];
-            block.copy_from_slice(&data[..64]);
-            self.compress(&block);
+            self.compress(&data[..64]);
             data = &data[64..];
         }
         if !data.is_empty() {
@@ -240,7 +236,7 @@ impl Sha256 {
         to_hex(&self.finalize_bytes())
     }
 
-    fn compress(&mut self, block: &[u8; 64]) {
+    fn compress(&mut self, block: &[u8]) {
         let mut w = [0u32; 64];
         for (i, word) in w.iter_mut().take(16).enumerate() {
             let offset = i * 4;
@@ -925,6 +921,212 @@ fn check_one_translation_pair(root: &Path, src: &str) -> Vec<String> {
     errors
 }
 
+/// Count newline (`\n`) bytes across NUL-delimited relative file paths in parallel.
+pub fn count_file_lines(root: &Path, input: &[u8]) -> Result<Vec<(usize, String)>, String> {
+    let mut paths: Vec<&str> = Vec::new();
+    for raw in input.split(|&b| b == 0) {
+        if raw.is_empty() {
+            continue;
+        }
+        let rel = std::str::from_utf8(raw).map_err(|e| format!("ValueError: UTF8Error: {e}"))?;
+        let rel_path = Path::new(rel);
+        if rel_path.components().any(|c| {
+            matches!(
+                c,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        }) {
+            return Err("ValueError: unsafe path in count-lines".to_string());
+        }
+        paths.push(rel);
+    }
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let workers = thread::available_parallelism()
+        .map(|n| n.get().min(16))
+        .unwrap_or(4)
+        .min(paths.len().max(1));
+    let next_index = AtomicUsize::new(0);
+    let results: Mutex<Vec<Option<(usize, String)>>> = Mutex::new(vec![None; paths.len()]);
+    let first_error: Mutex<Option<String>> = Mutex::new(None);
+
+    thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| loop {
+                let idx = next_index.fetch_add(1, Ordering::Relaxed);
+                if idx >= paths.len() {
+                    break;
+                }
+                let rel = paths[idx];
+                match fs::read(root.join(rel)) {
+                    Ok(bytes) => {
+                        let count = bytes.iter().filter(|&&b| b == b'\n').count();
+                        if let Ok(mut guard) = results.lock() {
+                            guard[idx] = Some((count, rel.to_string()));
+                        }
+                    }
+                    Err(err) => {
+                        if let Ok(mut guard) = first_error.lock() {
+                            if guard.is_none() {
+                                *guard = Some(format!("OSError: {err}"));
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    if let Some(err) = first_error.into_inner().unwrap_or(None) {
+        return Err(err);
+    }
+    let guard = results
+        .into_inner()
+        .map_err(|_| "ValueError: mutex poisoned".to_string())?;
+    Ok(guard.into_iter().flatten().collect())
+}
+
+fn extract_core_subsystems(text: &str, own: &str) -> Vec<String> {
+    let mut subs = BTreeSet::new();
+    let bytes = text.as_bytes();
+    let mut i = 0usize;
+    while i < bytes.len() {
+        let kw_len = if bytes[i..].starts_with(b"from")
+            && bytes
+                .get(i + 4)
+                .is_some_and(|b| b.is_ascii_whitespace())
+        {
+            4
+        } else if bytes[i..].starts_with(b"import")
+            && bytes
+                .get(i + 6)
+                .is_some_and(|b| b.is_ascii_whitespace())
+        {
+            6
+        } else {
+            i += 1;
+            continue;
+        };
+        let mut j = i + kw_len;
+        while j < bytes.len() && bytes[j].is_ascii_whitespace() {
+            j += 1;
+        }
+        const PREFIX: &[u8] = b"fdai.core.";
+        if bytes[j..].starts_with(PREFIX) {
+            let start = j + PREFIX.len();
+            if let Some(&first) = bytes.get(start) {
+                if first.is_ascii_alphabetic() || first == b'_' {
+                    let mut end = start + 1;
+                    while end < bytes.len()
+                        && (bytes[end].is_ascii_alphanumeric() || bytes[end] == b'_')
+                    {
+                        end += 1;
+                    }
+                    if let Ok(sub) = std::str::from_utf8(&bytes[start..end]) {
+                        if sub != own {
+                            subs.insert(sub.to_string());
+                        }
+                    }
+                    i = end;
+                    continue;
+                }
+            }
+        }
+        i = j;
+    }
+    subs.into_iter().collect()
+}
+
+/// Scan `services/core-control-plane/src/fdai/core/**/*.py` files in parallel for sibling subsystem fanout.
+pub fn scan_core_fanout(
+    root: &Path,
+    input: &[u8],
+) -> Result<Vec<(String, usize, Vec<String>)>, String> {
+    let mut paths: Vec<&str> = Vec::new();
+    for raw in input.split(|&b| b == 0) {
+        if raw.is_empty() {
+            continue;
+        }
+        let rel = std::str::from_utf8(raw).map_err(|e| format!("ValueError: UTF8Error: {e}"))?;
+        let rel_path = Path::new(rel);
+        if rel_path.components().any(|c| {
+            matches!(
+                c,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        }) {
+            return Err("ValueError: unsafe path in scan-core-fanout".to_string());
+        }
+        paths.push(rel);
+    }
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    let workers = thread::available_parallelism()
+        .map(|n| n.get().min(16))
+        .unwrap_or(4)
+        .min(paths.len().max(1));
+    let next_index = AtomicUsize::new(0);
+    let results: Mutex<Vec<Option<(String, usize, Vec<String>)>>> =
+        Mutex::new(vec![None; paths.len()]);
+    let first_error: Mutex<Option<String>> = Mutex::new(None);
+
+    thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| loop {
+                let idx = next_index.fetch_add(1, Ordering::Relaxed);
+                if idx >= paths.len() {
+                    break;
+                }
+                let rel = paths[idx];
+                let trimmed = rel
+                    .strip_prefix("services/core-control-plane/src/fdai/core/")
+                    .unwrap_or(rel);
+                let own = match trimmed.split_once('/') {
+                    Some((first, _)) => first,
+                    None => trimmed.strip_suffix(".py").unwrap_or(""),
+                };
+                match fs::read(root.join(rel)) {
+                    Ok(bytes) => {
+                        let text = String::from_utf8_lossy(&bytes);
+                        let subs = extract_core_subsystems(&text, own);
+                        let count = subs.len();
+                        if let Ok(mut guard) = results.lock() {
+                            guard[idx] = Some((rel.to_string(), count, subs));
+                        }
+                    }
+                    Err(err) => {
+                        if let Ok(mut guard) = first_error.lock() {
+                            if guard.is_none() {
+                                *guard = Some(format!("OSError: {err}"));
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    if let Some(err) = first_error.into_inner().unwrap_or(None) {
+        return Err(err);
+    }
+    let guard = results
+        .into_inner()
+        .map_err(|_| "ValueError: mutex poisoned".to_string())?;
+    Ok(guard.into_iter().flatten().collect())
+}
+
+/// Fast byte pre-filter for caller-supplied ASCII markers or NUL bytes.
+pub fn contains_any_token_or_nul(data: &[u8], tokens: &[&[u8]]) -> bool {
+    if data.contains(&0) {
+        return true;
+    }
+    tokens
+        .iter()
+        .any(|needle| !needle.is_empty() && data.windows(needle.len()).any(|w| w == *needle))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -976,5 +1178,16 @@ mod tests {
         );
         assert!(parse_translation_front_matter("no front matter").is_none());
         assert!(parse_translation_front_matter("---\nunclosed: true\n").is_none());
+    }
+
+    #[test]
+    fn test_extract_core_subsystems_and_token_filter() {
+        let code = "from fdai.core.executor import X\nimport fdai.core.audit\nfrom fdai.core.foo.bar import Y\n";
+        let subs = extract_core_subsystems(code, "foo");
+        assert_eq!(subs, vec!["audit".to_string(), "executor".to_string()]);
+        let needles: [&[u8]; 2] = [b"MARKER_ALPHA", b"MARKER_BETA"];
+        assert!(!contains_any_token_or_nul(b"normal python code\n", &needles));
+        assert!(contains_any_token_or_nul(b"x = 'MARKER_ALPHA'\n", &needles));
+        assert!(contains_any_token_or_nul(b"u\x00t\x00f\x001\x006\x00", &needles));
     }
 }
