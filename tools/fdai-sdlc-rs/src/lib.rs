@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
@@ -210,7 +210,7 @@ impl Sha256 {
         }
     }
 
-    pub fn finalize_hex(mut self) -> String {
+    pub fn finalize_bytes(mut self) -> [u8; 32] {
         let bit_len = self.total_len.wrapping_mul(8);
         self.buffer[self.buffer_len] = 0x80;
         self.buffer_len += 1;
@@ -233,7 +233,11 @@ impl Sha256 {
         for (i, word) in self.state.iter().enumerate() {
             digest[i * 4..(i + 1) * 4].copy_from_slice(&word.to_be_bytes());
         }
-        to_hex(&digest)
+        digest
+    }
+
+    pub fn finalize_hex(self) -> String {
+        to_hex(&self.finalize_bytes())
     }
 
     fn compress(&mut self, block: &[u8; 64]) {
@@ -454,6 +458,14 @@ fn verify_one_entry(
     expected: &str,
     rel: &str,
 ) -> Result<(), String> {
+    let expected_len = if algorithm == "sha1" { 40 } else { 64 };
+    if expected.len() != expected_len
+        || !expected
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    {
+        return Err("ValueError: invalid object id in ls-tree entry".to_string());
+    }
     if kind != "blob" {
         return Err("ValueError: snapshot contains an unsupported external input".to_string());
     }
@@ -511,7 +523,8 @@ pub fn scan_installed_venv(
 
     let workers = thread::available_parallelism()
         .map(|n| n.get().min(16))
-        .unwrap_or(4);
+        .unwrap_or(4)
+        .min(files.len().max(1));
     let next_index = AtomicUsize::new(0);
     let mut results: Vec<Option<Result<(String, u32, String, String), String>>> =
         (0..files.len()).map(|_| None).collect();
@@ -632,7 +645,8 @@ fn hash_venv_file(
 
 /// Extract `translation_of` and `translation_source_sha` from leading YAML front-matter.
 fn parse_translation_front_matter(text: &str) -> Option<(Option<String>, Option<String>)> {
-    let mut lines = text.lines();
+    let trimmed = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let mut lines = trimmed.lines();
     if lines.next()? != "---" {
         return None;
     }
@@ -651,6 +665,10 @@ fn parse_translation_front_matter(text: &str) -> Option<(Option<String>, Option<
     let mut translation_of = None;
     let mut recorded_sha = None;
     for line in fm_lines {
+        let stripped = line.trim();
+        if stripped.is_empty() || stripped.starts_with('#') {
+            continue;
+        }
         if let Some((k, v)) = line.split_once(':') {
             let key = k.trim();
             let val = v.trim().trim_matches(|c| c == '"' || c == '\'').to_string();
@@ -662,6 +680,109 @@ fn parse_translation_front_matter(text: &str) -> Option<(Option<String>, Option<
         }
     }
     Some((translation_of, recorded_sha))
+}
+
+/// Compute `(content_hex, status_hex)` for `changed_test_inputs.py::worktree_digests` in parallel.
+pub fn compute_worktree_digests(
+    root: &Path,
+    excluded: &[PathBuf],
+    listed: &[u8],
+) -> Result<(String, String), String> {
+    let mut unique_paths: BTreeSet<&[u8]> = BTreeSet::new();
+    for raw in listed.split(|&b| b == 0) {
+        if !raw.is_empty() {
+            unique_paths.insert(raw);
+        }
+    }
+    let mut selected: Vec<(&[u8], PathBuf)> = Vec::with_capacity(unique_paths.len());
+    for raw in unique_paths {
+        let rel_os = std::ffi::OsStr::from_bytes(raw);
+        let full = root.join(rel_os);
+        if excluded.iter().any(|prefix| full.starts_with(prefix)) {
+            continue;
+        }
+        selected.push((raw, full));
+    }
+
+    let workers = thread::available_parallelism()
+        .map(|n| n.get().min(16))
+        .unwrap_or(4)
+        .min(selected.len().max(1));
+    let next_index = AtomicUsize::new(0);
+    let mut chunks: Vec<Option<Result<(Vec<u8>, Vec<u8>), String>>> =
+        (0..selected.len()).map(|_| None).collect();
+    let chunks_mutex = Mutex::new(&mut chunks);
+
+    thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| loop {
+                let idx = next_index.fetch_add(1, Ordering::Relaxed);
+                if idx >= selected.len() {
+                    break;
+                }
+                let (raw_path, ref full_path) = selected[idx];
+                let item = hash_worktree_entry(raw_path, full_path);
+                if let Ok(mut guard) = chunks_mutex.lock() {
+                    guard[idx] = Some(item);
+                }
+            });
+        }
+    });
+
+    let mut content = Sha256::new();
+    let mut status = Sha256::new();
+    for slot in chunks.into_iter().flatten() {
+        let (c_bytes, s_bytes) = slot?;
+        content.update(&c_bytes);
+        status.update(&s_bytes);
+    }
+    Ok((content.finalize_hex(), status.finalize_hex()))
+}
+
+fn hash_worktree_entry(raw_path: &[u8], full_path: &Path) -> Result<(Vec<u8>, Vec<u8>), String> {
+    let mut content_chunk = Vec::with_capacity(raw_path.len() + 48);
+    let mut status_chunk = Vec::with_capacity(raw_path.len() + 64);
+    content_chunk.extend_from_slice(raw_path);
+    content_chunk.push(0);
+    status_chunk.extend_from_slice(raw_path);
+    status_chunk.push(0);
+
+    let meta = match fs::symlink_metadata(full_path) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            content_chunk.extend_from_slice(b"missing\0");
+            status_chunk.extend_from_slice(b"missing\0");
+            return Ok((content_chunk, status_chunk));
+        }
+        Err(e) => return Err(format!("OSError: {e}")),
+    };
+    let mtime_ns = (meta.mtime() as i128) * 1_000_000_000 + (meta.mtime_nsec() as i128);
+    let ctime_ns = (meta.ctime() as i128) * 1_000_000_000 + (meta.ctime_nsec() as i128);
+    status_chunk.extend_from_slice(format!("{}\0{}\0{}\0", meta.ino(), mtime_ns, ctime_ns).as_bytes());
+
+    let ft = meta.file_type();
+    if ft.is_symlink() {
+        let link = fs::read_link(full_path).map_err(|e| format!("OSError: {e}"))?;
+        content_chunk.extend_from_slice(b"link\0");
+        content_chunk.extend_from_slice(link.as_os_str().as_bytes());
+        content_chunk.push(0);
+    } else if ft.is_file() {
+        let mode_byte = if (meta.permissions().mode() & 0o100) != 0 {
+            b'x'
+        } else {
+            b'-'
+        };
+        let bytes = fs::read(full_path).map_err(|e| format!("OSError: {e}"))?;
+        let mut file_hasher = Sha256::new();
+        file_hasher.update(&bytes);
+        let file_digest = file_hasher.finalize_bytes();
+        content_chunk.extend_from_slice(b"file\0");
+        content_chunk.push(mode_byte);
+        content_chunk.extend_from_slice(&file_digest);
+    } else {
+        content_chunk.extend_from_slice(b"other\0");
+    }
+    Ok((content_chunk, status_chunk))
 }
 
 /// Verify English/Korean doc pairs in parallel (Rules 1-4 of `check-translations.sh`).
@@ -684,7 +805,8 @@ pub fn check_translations(
     let en_vec: Vec<String> = en_set.iter().cloned().collect();
     let workers = thread::available_parallelism()
         .map(|n| n.get().min(16))
-        .unwrap_or(4);
+        .unwrap_or(4)
+        .min(en_vec.len().max(1));
     let next_index = AtomicUsize::new(0);
     let mut per_doc_errors: Vec<Vec<String>> = (0..en_vec.len()).map(|_| Vec::new()).collect();
     let errors_mutex = Mutex::new(&mut per_doc_errors);
@@ -845,7 +967,7 @@ mod tests {
 
     #[test]
     fn test_parse_translation_front_matter() {
-        let valid = "---\ntranslation_of: guide.md\ntranslation_source_sha: 0123456789abcdef0123456789abcdef01234567\n---\n# Title\n";
+        let valid = "\u{feff}---\n# comment\ntranslation_of: guide.md\n\ntranslation_source_sha: 0123456789abcdef0123456789abcdef01234567\n---\n# Title\n";
         let (to, sha) = parse_translation_front_matter(valid).unwrap();
         assert_eq!(to.as_deref(), Some("guide.md"));
         assert_eq!(

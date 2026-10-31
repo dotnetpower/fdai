@@ -345,14 +345,21 @@ def _render_local_services(report: dict[str, Any]) -> str:
 def _render_worktrees(report: dict[str, Any]) -> str:
     if report["status"] == "unavailable":
         return f"developer-workflow: unavailable ({report['reason_code']})"
-    return (
-        f"developer-workflow: worktrees {report['status']}\n"
+    lines = [
+        f"developer-workflow: worktrees {report['status']}",
         f"  worktrees:          {report['worktree_count']} "
-        f"(active={report['active_worktree_count']}, reclaimable={report['reclaimable_count']})\n"
-        f"  behind_active:      {report['behind_active_count']}\n"
-        f"  path_collisions:    {report['path_collision_count']}\n"
-        f"  hotspot_collisions: {report['hotspot_doc_collision_count']}"
-    )
+        f"(active={report['active_worktree_count']}, reclaimable={report['reclaimable_count']})",
+        f"  behind_active:      {report['behind_active_count']}",
+        f"  path_collisions:    {report['path_collision_count']}",
+        f"  hotspot_collisions: {report['hotspot_doc_collision_count']}",
+    ]
+    if report.get("path_collisions"):
+        paths = ", ".join(item["path"] for item in report["path_collisions"][:5])
+        lines.append(f"  colliding_paths:    {paths}")
+    if report.get("hotspot_doc_collisions"):
+        docs = ", ".join(item["document"] for item in report["hotspot_doc_collisions"][:5])
+        lines.append(f"  colliding_docs:     {docs}")
+    return "\n".join(lines)
 
 
 def _parser() -> argparse.ArgumentParser:

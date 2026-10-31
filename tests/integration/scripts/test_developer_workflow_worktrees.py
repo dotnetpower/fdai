@@ -807,3 +807,61 @@ def test_ten_round_hardening_invariants(
         == "merge_commit_failed"
     )
     monkeypatch.setattr(reconcile, "git", real_git)
+
+    # Locked worktrees are excluded; unlocked merged worktrees are pruned.
+    wt_reclaim = tmp_path / "wt-reclaim"
+    _git(repo, "worktree", "add", "--quiet", "-b", "feat/reclaim", str(wt_reclaim), "main")
+    _git(repo, "worktree", "lock", str(wt_reclaim))
+    assert (
+        str(wt_reclaim.resolve())
+        not in worktrees.worktrees_diagnostic(repo, base_ref="refs/heads/main")[
+            "reclaimable_worktrees"
+        ]
+    )
+    _git(repo, "worktree", "unlock", str(wt_reclaim))
+    preview = worktrees.prune_reclaimable_worktrees(repo, base_ref="refs/heads/main", apply=False)
+    assert str(wt_reclaim.resolve()) in preview["candidate_worktrees"]
+    assert preview["pruned_count"] == 0
+    applied = worktrees.prune_reclaimable_worktrees(repo, base_ref="refs/heads/main", apply=True)
+    assert str(wt_reclaim.resolve()) in applied["pruned_worktrees"]
+    assert not wt_reclaim.exists()
+
+    # Tree-identical squash-merged branch returns tree_identical_to_base.
+    wt_squash = tmp_path / "wt-squash"
+    _git(repo, "worktree", "add", "--quiet", "-b", "feat/squash", str(wt_squash), "main")
+    (wt_squash / "squashed.txt").write_text("squashed content\n", encoding="utf-8")
+    _git(wt_squash, "add", "squashed.txt")
+    _git(wt_squash, "commit", "--quiet", "-m", "topic commit 1")
+    (repo / "squashed.txt").write_text("squashed content\n", encoding="utf-8")
+    _git(repo, "add", "squashed.txt")
+    _git(repo, "commit", "--quiet", "-m", "squash on main")
+    squash_sync = reconcile.sync_worktree_base(wt_squash, base_ref="refs/heads/main")
+    assert squash_sync["status"] == "ok"
+    assert squash_sync["outcome"] == "tree_identical_to_base"
+
+    # CLI prune modes, _parse_status_z rename parsing, and table deduplication.
+    assert worktrees._parse_status_z("R  new_name.py\0old_name.py\0M  mod.py\0") == [
+        "new_name.py",
+        "old_name.py",
+        "mod.py",
+    ]
+    assert worktrees.prune_reclaimable_worktrees(tmp_path / "missing")["status"] == "blocked"
+    monkeypatch.chdir(repo)
+    assert worktrees.main(["prune", "--base", "refs/heads/main"]) == 0
+    assert worktrees.main(["prune", "--base", "refs/heads/main", "--json"]) == 0
+    rewritten_fm = reconcile._rewrite_ko_front_matter(
+        "---\n# comment line\ncustom_key: kept\n---\n",
+        "# Body\n",
+        source_name="doc.md",
+        new_sha="a" * 40,
+        stamp="2026-10-31",
+    )
+    assert "# comment line" in rewritten_fm and "custom_key: kept" in rewritten_fm
+    deduped = reconcile._reconcile_table_hunks(
+        "| Area A | implemented | `a.py` | ok |\n"
+        "<<<<<<< HEAD\n| Area A | implemented | `a.py` | ok |\n=======\n"
+        "| Area B | implemented | `b.py` | ok |\n>>>>>>> main\n",
+        expected_columns=4,
+        unique_first_col=True,
+    )
+    assert deduped is not None and deduped.count("| Area A |") == 1

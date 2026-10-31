@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from scripts.automation.local_validation_inputs import installed_digest
+from scripts.automation.sdlc_rust_accelerator import rust_worktree_digests
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,9 @@ def worktree_digests(root: Path, excluded: tuple[Path, ...]) -> tuple[str, str]:
         check=True,
         timeout=120,
     ).stdout
+    accelerated = rust_worktree_digests(root, excluded, listed)
+    if accelerated is not None:
+        return accelerated
     content = hashlib.sha256()
     status = hashlib.sha256()
     for raw_path in sorted(set(listed.split(b"\0")) - {b""}):
