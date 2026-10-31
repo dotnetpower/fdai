@@ -9,6 +9,7 @@ completed one is reconciled to its measured usage, and a cancelled turn reserves
 
 from __future__ import annotations
 
+import math
 import time
 from collections.abc import AsyncIterator, Callable, Iterable, Mapping
 from contextlib import asynccontextmanager
@@ -64,9 +65,21 @@ class StageCost:
     read_rows: int = 0
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool)
+            for value in (
+                self.calls,
+                self.input_bytes,
+                self.output_tokens,
+                self.wall_seconds,
+                self.cost_microusd,
+                self.read_rows,
+            )
+        ):
+            raise ValueError("stage cost values MUST NOT be booleans")
         if min(self.calls, self.input_bytes, self.output_tokens, self.cost_microusd) < 0:
             raise ValueError("stage cost MUST NOT be negative")
-        if self.wall_seconds < 0 or self.read_rows < 0:
+        if not math.isfinite(self.wall_seconds) or self.wall_seconds < 0 or self.read_rows < 0:
             raise ValueError("stage cost MUST NOT be negative")
 
     def __add__(self, other: StageCost) -> StageCost:
@@ -100,7 +113,11 @@ class PlannedStage:
     conditional: bool = False
 
     def __post_init__(self) -> None:
-        if not 1 <= self.max_calls <= 64 or self.worst.calls != 1:
+        if (
+            isinstance(self.max_calls, bool)
+            or not 1 <= self.max_calls <= 64
+            or self.worst.calls != 1
+        ):
             raise ValueError("a planned stage reserves one call at a time, at most 64 times")
 
 

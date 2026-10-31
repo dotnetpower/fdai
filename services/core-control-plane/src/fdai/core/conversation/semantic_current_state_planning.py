@@ -129,6 +129,8 @@ def compile_target_current_state_plan(
 
     if (
         frame.output_shape != SemanticOutputShape.TARGET_CURRENT_STATE
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_current_state_function(manifest.descriptors)
     ):
         return None
@@ -225,7 +227,7 @@ def _current_state_measures(
     if not isinstance(output_schema, Mapping):
         return frozenset()
     measures = output_schema.get("x-fdai-measure-concepts")
-    if not isinstance(measures, list):
+    if not isinstance(measures, (list, tuple)):
         return frozenset()
     return frozenset(measure for measure in measures if isinstance(measure, str))
 

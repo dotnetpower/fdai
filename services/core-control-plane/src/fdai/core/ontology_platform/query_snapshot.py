@@ -85,6 +85,15 @@ def snapshot_projection_digest(
     observation_cutoff: datetime,
 ) -> str:
     """Bind every ordered projected row without exceeding the wire JSON ceiling."""
+    if (
+        not object_type_names
+        or not ontology_release_digest.strip()
+        or not principal_scope_digest.strip()
+        or not purpose.strip()
+        or observation_cutoff.tzinfo is None
+        or observation_cutoff.utcoffset() is None
+    ):
+        raise ValueError("snapshot projection digest requires bounded identities and aware cutoff")
     object_root = hashlib.sha256()
     for record in sorted(graph.objects, key=lambda item: (item.object_type, item.id)):
         object_root.update(
@@ -118,6 +127,8 @@ def snapshot_projection_digest(
 def _mutable_json(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {key: _mutable_json(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        return [_mutable_json(item) for item in sorted(value, key=str)]
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_mutable_json(item) for item in value]
     return value

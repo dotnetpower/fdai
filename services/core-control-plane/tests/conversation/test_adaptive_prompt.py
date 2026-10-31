@@ -346,3 +346,159 @@ def test_rounds_9_to_12_semantic_judgment_reasoning_and_adaptive_hardening() -> 
         AdaptivePolicy(total_seconds=True, per_stage_seconds=True)  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="server-owned and bounded"):
         ConversationProfile(agent="Bragi", role_directive="Valid\x00directive")
+
+
+def test_campaign_3_rounds_1_to_18_hardening() -> None:
+    from types import MappingProxyType
+
+    from fdai.core.conversation.causal_grade_receipts import load_causal_mechanism_catalog
+    from fdai.core.conversation.model_observation import ConversationModelObservation
+    from fdai.core.conversation.question_candidates import QuestionModelUsage
+    from fdai.core.conversation.question_novelty import QuestionEmbeddingIdentity
+    from fdai.core.conversation.read_plan import _scalar
+    from fdai.core.conversation.semantic_planning_frame_facets import _facet_affirms_concept
+    from fdai.core.conversation.semantic_planning_value_filters import stated_value_filters
+    from fdai.core.conversation.semantic_reasoning_coverage import (
+        CoverageCell,
+        ReasoningCoverageReceipt,
+    )
+    from fdai.core.conversation.semantic_reasoning_lifecycle import (
+        lifecycle_values,
+        parse_lifecycle,
+    )
+    from fdai.core.conversation.semantic_reasoning_measure_reads import (
+        state_transition_arguments,
+    )
+    from fdai.core.conversation.semantic_reasoning_measures import listed_health_concepts
+    from fdai.core.conversation.semantic_reasoning_metric_selection import MetricStage
+    from fdai.core.conversation.semantic_target_health import (
+        target_health_nodes,
+        target_health_window,
+    )
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost
+    from fdai.delivery.catalog_search.ontology_evaluation_replay import embedding_result_payload
+    from fdai.delivery.catalog_search.ontology_selection_errors import (
+        CandidateSelectionError,
+        SelectionFailure,
+    )
+    from fdai.delivery.catalog_search.ontology_semantic_evaluation import (
+        OntologySemanticEvaluationBudget,
+    )
+    from fdai.delivery.catalog_search.ontology_semantic_qualification import clopper_pearson_upper
+    from fdai_core_service.semantic_presentation_semantics import project_presentation_semantics
+
+    # E02 & E03: tuple-backed value_groups and hyphenated/uppercase facets
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": (
+                        {"id": "vm", "terms": ("virtual machine",), "values": ("compute.vm",)},
+                    )
+                }
+            },
+        },
+    )
+    assert stated_value_filters("show virtual machines", descriptors) == {
+        ("Resource", "type"): ("compute.vm",)
+    }
+    assert _facet_affirms_concept("Configuration-Drift", "configuration_drift")
+    assert not _facet_affirms_concept("", "")
+
+    # E05: target_health_window and target_health_nodes bounds
+    with pytest.raises(ValueError, match="timezone-aware"):
+        target_health_window(_NOW.replace(tzinfo=None))
+    with pytest.raises(ValueError, match="non-empty"):
+        target_health_nodes(" ", "anchor-1", _NOW)
+
+    # E16 & E18: listed_health_concepts deduplicates and state_transition_arguments rejects bool
+    assert listed_health_concepts(((" h1 ", ("a",)), ("h1", ("b",)), (" ", ("c",)))) == ("h1",)
+    with pytest.raises(ValueError, match="positive integer"):
+        state_transition_arguments(_NOW, True)
+
+    # E20: MetricStage validates window_kind and seconds
+    with pytest.raises(ValueError, match="metric stage"):
+        MetricStage(arguments={}, concept="cpu", window_kind="invalid", seconds=60)
+
+    # E27: parse_lifecycle strips input and lifecycle_values accepts tuple
+    assert parse_lifecycle(" lifecycle:Incident.status=open ") is not None
+    assert (
+        len(
+            lifecycle_values(
+                (
+                    {
+                        "kind": "object",
+                        "name": "Incident",
+                        "properties": {"status": {"lifecycle_state": True, "values": ("open",)}},
+                    },
+                )
+            )
+        )
+        == 1
+    )
+
+    # E35 & E36: QuestionEmbeddingIdentity and QuestionModelUsage guards
+    with pytest.raises(ValueError, match="bounded"):
+        QuestionEmbeddingIdentity(
+            space_digest="sha256:" + "a" * 64,
+            model_version="   ",
+            dimension=8,
+            vector_digest="sha256:" + "b" * 64,
+        )
+    with pytest.raises(ValueError, match="non-negative"):
+        QuestionModelUsage(model_calls=True)  # type: ignore[arg-type]
+
+    # E38 & E39: _scalar rejects NaN/blank and load_causal_mechanism_catalog accepts Mapping
+    assert not _scalar(float("nan"))
+    assert not _scalar("   ")
+    specs = load_causal_mechanism_catalog(
+        MappingProxyType(
+            {
+                "schema_version": "1.0",
+                "mechanisms": (
+                    MappingProxyType(
+                        {
+                            "id": " m1 ",
+                            "required_evidence": (" complete_activity_window ",),
+                            "refutation_reads": (" r1 ",),
+                        }
+                    ),
+                ),
+            }
+        )
+    )
+    assert specs[0].mechanism_id == "m1"
+
+    # E40 & E42: StageCost, PlannedStage, and ConversationModelObservation guards
+    with pytest.raises(ValueError, match="booleans"):
+        StageCost(calls=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="at most 64"):
+        PlannedStage(stage="plan", worst=StageCost(calls=1), max_calls=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-empty model"):
+        ConversationModelObservation(model="   ", usage=None, trace_call={})
+
+    # E47, E49, E50, E51: catalog_search error, budget, qualification, and replay guards
+    assert CandidateSelectionError(SelectionFailure.AMBIGUOUS_REQUEST).clarification is True
+    with pytest.raises(ValueError, match="bounded calls"):
+        OntologySemanticEvaluationBudget(total_timeout_seconds=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="binomial bound"):
+        clopper_pearson_upper(0, True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-empty identity"):
+        embedding_result_payload("q", (1.0,), call_index=True, identity=("s", "m", 1))  # type: ignore[arg-type]
+
+    # E52 & E60: project_presentation_semantics rejects blank unit; CoverageCell/Receipt guards
+    assert (
+        project_presentation_semantics(
+            operation="aggregate",
+            output_shape="aggregation_table",
+            outputs=({"rows": ({"values": {"category": "vm", "value": 1, "unit": "   "}},)},),
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="unique cell_ids"):
+        ReasoningCoverageReceipt(
+            manifest_release_digest="sha256:" + "a" * 64,
+            cells=(CoverageCell("c1", "compiled", ()), CoverageCell("c1", "compiled", ())),
+        )

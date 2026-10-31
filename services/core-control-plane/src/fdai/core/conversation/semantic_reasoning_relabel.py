@@ -91,7 +91,13 @@ def _renames(repaired: SemanticQuestionForm, restored: dict[str, str]) -> dict[s
     for mention in repaired.mentions:
         if mention.id in renames:
             continue
-        renames[mention.id] = mention.id if mention.id in kept else next(free)
+        if mention.id in kept:
+            renames[mention.id] = mention.id
+        else:
+            candidate = next(free, None)
+            if candidate is None:
+                raise ValueError("mention relabel budget exhausted")
+            renames[mention.id] = candidate
     return renames
 
 

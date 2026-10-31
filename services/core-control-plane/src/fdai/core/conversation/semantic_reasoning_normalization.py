@@ -45,11 +45,9 @@ def syntactic_label_covers(
 ) -> bool:
     """Return whether trusted label spans cover every alphanumeric character in ``quote``."""
 
-    indices = [
-        index
-        for index in range(quote.start, min(quote.end, len(utterance)))
-        if utterance[index].isalnum()
-    ]
+    start = max(0, quote.start)
+    end = min(max(start, quote.end), len(utterance))
+    indices = [index for index in range(start, end) if utterance[index].isalnum()]
     return (
         bool(labels)
         and bool(indices)

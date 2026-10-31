@@ -195,7 +195,9 @@ def listed_health_concepts(
 ) -> tuple[str, ...]:
     """Return every reviewed health concept a listing reads, in stable order."""
 
-    return tuple(sorted(str(concept) for concept, _states in health_labels))
+    return tuple(
+        sorted({str(concept).strip() for concept, _states in health_labels if str(concept).strip()})
+    )
 
 
 def _names_lifecycle(mention_id: str, ctx: CompileContext) -> bool:

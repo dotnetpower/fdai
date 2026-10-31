@@ -97,7 +97,15 @@ class OntologyQualificationReport:
 
 def clopper_pearson_upper(failures: int, trials: int, confidence: float = 0.95) -> float:
     """One-sided exact upper confidence bound for a binomial failure rate."""
-    if trials <= 0 or not 0 <= failures <= trials or not 0 < confidence < 1:
+    if (
+        isinstance(failures, bool)
+        or isinstance(trials, bool)
+        or isinstance(confidence, bool)
+        or not math.isfinite(confidence)
+        or trials <= 0
+        or not 0 <= failures <= trials
+        or not 0 < confidence < 1
+    ):
         raise ValueError("binomial bound requires valid counts and confidence")
     if failures == trials:
         return 1.0

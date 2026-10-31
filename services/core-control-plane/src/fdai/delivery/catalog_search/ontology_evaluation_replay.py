@@ -40,6 +40,13 @@ def embedding_result_payload(
     identity: tuple[str, str, int],
 ) -> dict[str, object]:
     """Validate before persisting exact provider output; never include the input text."""
+    if (
+        isinstance(call_index, bool)
+        or isinstance(identity[2], bool)
+        or not identity[0].strip()
+        or not identity[1].strip()
+    ):
+        raise ValueError("embedding result payload requires non-empty identity and integer counts")
     frozen = tuple(vector)
     _validate_vector(frozen, identity[2])
     return _EmbeddingResult(

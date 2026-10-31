@@ -78,6 +78,10 @@ def health_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
 def state_transition_arguments(evaluation_time: datetime, seconds: int) -> dict[str, Any]:
     """Return the reviewed transition read over every type and target state."""
 
+    if evaluation_time.tzinfo is None or evaluation_time.utcoffset() is None:
+        raise ValueError("state transition evaluation_time MUST be timezone-aware")
+    if isinstance(seconds, bool) or seconds <= 0:
+        raise ValueError("state transition lookback seconds MUST be a positive integer")
     end = evaluation_time.astimezone(UTC)
     return {
         "state_types": list(RESOURCE_STATE_TRANSITION_TYPES),

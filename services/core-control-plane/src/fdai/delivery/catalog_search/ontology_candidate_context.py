@@ -53,6 +53,10 @@ class CandidateContextLimits(_ContextRecord):
     max_context_bytes: int = Field(default=_MAX_CONTEXT_BYTES, ge=1, le=_MAX_CONTEXT_BYTES)
     max_page_bytes: int = Field(default=65536, ge=1024, le=65536)
 
+    @property
+    def fragment_bytes(self) -> int:
+        return (self.max_page_bytes - 256) // 2
+
 
 class CandidateContextBinding(_ContextRecord):
     protocol: Literal["typed-selection-context-transport.v1"] = CONTEXT_PROTOCOL

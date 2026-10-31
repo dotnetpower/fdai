@@ -41,7 +41,8 @@ async def materialize_conversation_history(
     conversation_id = query.path_params.get("conversation_id", "")
     if (
         not isinstance(conversation_id, str)
-        or not conversation_id
+        or not conversation_id.strip()
+        or conversation_id != conversation_id.strip()
         or len(conversation_id) > 200
         or set(query.query) - {"limit"}
         or set(query.path_params) != {"conversation_id"}

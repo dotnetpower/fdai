@@ -80,6 +80,8 @@ class OntologySemanticEvaluationBudget:
     def __post_init__(self) -> None:
         if (
             type(self.max_proposal_calls) is not int
+            or isinstance(self.total_timeout_seconds, bool)
+            or isinstance(self.query_timeout_seconds, bool)
             or not 1 <= self.max_proposal_calls <= 64
             or not math.isfinite(self.total_timeout_seconds)
             or not math.isfinite(self.query_timeout_seconds)

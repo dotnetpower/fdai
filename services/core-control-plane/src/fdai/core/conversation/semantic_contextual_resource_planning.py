@@ -47,10 +47,12 @@ def compile_contextual_resource_plan(
     if (
         frame.operation is not SemanticOperation.SELECT
         or frame.output_shape != SemanticOutputShape.CONTEXTUAL_RESOURCE_LIST
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or bound_context is None
         or not _has_contextual_function(manifest)
-        or bound_context.principal_id is None
-        or not bound_context.selection_token
+        or not bound_context.principal_id.strip()
+        or not bound_context.selection_token.strip()
     ):
         return None
     resource_ids = tuple(bound_context.resource_ids)

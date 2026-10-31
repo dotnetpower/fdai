@@ -50,21 +50,29 @@ def exact_resource_target_from_constraints(
 
     identity_properties = _resource_identity_properties(descriptors)
     arm_targets = tuple(
-        match.group(0).rstrip(".,!?;:)]}") for match in _ARM_RESOURCE_TARGET.finditer(utterance)
+        dict.fromkeys(
+            match.group(0).rstrip(".,!?;:)]}") for match in _ARM_RESOURCE_TARGET.finditer(utterance)
+        )
     )
     if len(arm_targets) == 1 and "id" in identity_properties:
         return ExactResourceTarget(property_name="id", value=arm_targets[0])
     if arm_targets:
         return None
-    typed_targets = []
+    typed_targets: list[ExactResourceTarget] = []
     folded = utterance.casefold()
     for constraint in subject_constraints:
-        match = _TYPED_RESOURCE_TARGET.fullmatch(constraint)
+        match = _TYPED_RESOURCE_TARGET.fullmatch(constraint.strip())
         if match is None:
             continue
-        property_name, value = match.groups()
-        if property_name in identity_properties and value and folded.count(value.casefold()) == 1:
-            typed_targets.append(ExactResourceTarget(property_name=property_name, value=value))
+        property_name, value = match.group(1), match.group(2).strip()
+        candidate = ExactResourceTarget(property_name=property_name, value=value)
+        if (
+            property_name in identity_properties
+            and value
+            and folded.count(value.casefold()) == 1
+            and candidate not in typed_targets
+        ):
+            typed_targets.append(candidate)
     if len(typed_targets) == 1:
         return typed_targets[0]
     if typed_targets:

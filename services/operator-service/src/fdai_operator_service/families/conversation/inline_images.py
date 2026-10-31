@@ -18,7 +18,7 @@ def inline_images_present(body: Mapping[str, object]) -> bool:
         value = body.get(field)
         if value is None:
             continue
-        if not isinstance(value, list):
+        if not isinstance(value, (list, tuple)):
             raise ConversationBoundaryError(
                 400,
                 "invalid_inline_images",

@@ -53,6 +53,15 @@ class CompiledBatch:
     frame: SemanticProblemFrame
     plan: OntologyQueryPlan
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.index, bool)
+            or isinstance(self.total, bool)
+            or self.total < 1
+            or not 0 <= self.index < self.total
+        ):
+            raise ValueError("compiled batch requires 0 <= index < total")
+
 
 @dataclass(frozen=True, slots=True)
 class GoalCompilation:
@@ -98,7 +107,10 @@ class ReasoningCompilation:
         )
 
     def goal(self, goal_id: str) -> GoalCompilation:
-        return next(item for item in self.goals if item.goal_id == goal_id)
+        found = next((item for item in self.goals if item.goal_id == goal_id), None)
+        if found is None:
+            raise KeyError(goal_id)
+        return found
 
 
 def compile_question_form(
@@ -119,7 +131,7 @@ def compile_question_form(
 
     if admission.disposition is not AdmissionDisposition.ADMITTED:
         raise ValueError("only an admitted question form may compile")
-    if evaluation_time.tzinfo is None:
+    if evaluation_time.tzinfo is None or evaluation_time.utcoffset() is None:
         raise ValueError("reasoning evaluation time MUST be timezone-aware")
     if purpose not in manifest.purposes:
         raise PermissionError("reasoning purpose is absent from the principal manifest")
