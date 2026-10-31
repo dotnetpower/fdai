@@ -119,7 +119,7 @@ async def test_password_and_api_key_suffixes_are_redacted_and_handle_refs_dedupl
     now = datetime(2026, 9, 27, tzinfo=UTC)
     ref = ResultHandleRef(
         handle_ref="OpaqueHandleRef0123456789abcdefABCDEF",
-        key_version="result-handle-key-v1",
+        key_version="v1",
         issued_at=now,
         expires_at=now + timedelta(minutes=15),
     )
