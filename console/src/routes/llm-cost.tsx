@@ -15,6 +15,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/llm-cost";
 import "./llm-cost-alignment.css";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
@@ -280,8 +281,16 @@ export function decodeLlmCost(value: unknown): LlmCostResponse {
   };
 }
 
-export function llmUsageCorrelationHref(correlationId: string): string {
-  return routeHref("audit", { params: { correlation: correlationId } });
+export function llmUsageCorrelationHref(
+  correlationId: string,
+  search?: URLSearchParams,
+): string {
+  return routeHref("audit", {
+    params: {
+      ...(search?.get("data") === "sample" ? { data: "sample" } : {}),
+      correlation: correlationId,
+    },
+  });
 }
 
 function _summaryColumns(
@@ -305,7 +314,7 @@ function _summaryColumns(
 function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
   const tokens = (value: number) => value.toLocaleString(locale);
   return [
-    { key: "when", header: t("llmCost.column.timestamp"), render: (r) => new Date(r.occurred_at).toLocaleString(locale) },
+    { key: "when", header: t("llmCost.column.timestamp"), render: (r) => formatConsoleTimestamp(r.occurred_at) },
     { key: "scope", header: t("llmCost.column.scope"), render: (r) => <span class={`llm-cost-scope${r.usage_scope === "operator_chat" ? " is-chat" : ""}`}>{t(`llmCost.scope.${r.usage_scope}`)}</span>, cellClass: "mono" },
     { key: "model", header: t("llmCost.column.model"), render: (r) => r.model_key, cellClass: "mono" },
     { key: "cap", header: t("llmCost.column.capability"), render: (r) => r.capability_id, cellClass: "mono" },
@@ -313,7 +322,7 @@ function _recordColumns(locale: string): readonly Column<InvocationRecord>[] {
     { key: "input", header: t("llmCost.column.input"), render: (r) => tokens(r.prompt_tokens), cellClass: "num" },
     { key: "output", header: t("llmCost.column.output"), render: (r) => tokens(r.completion_tokens), cellClass: "num" },
     { key: "total", header: t("llmCost.totalTokens"), render: (r) => tokens(r.total_tokens), cellClass: "num" },
-    { key: "corr", header: t("llmCost.column.correlationId"), render: (r) => <a href={llmUsageCorrelationHref(r.correlation_id)}>{r.correlation_id}</a>, cellClass: "mono" },
+    { key: "corr", header: t("llmCost.column.correlationId"), render: (r) => <a href={llmUsageCorrelationHref(r.correlation_id, currentRoute().search)}>{r.correlation_id}</a>, cellClass: "mono" },
   ];
 }
 
@@ -374,7 +383,7 @@ function LlmCostBody({ data, range }: { readonly data: LlmCostResponse; readonly
         <span>{t("llmCost.rangeEvidence", { range: rangeLabel })}</span>
         <span>{t("llmCost.source")}: {data.source}</span>
         <span>{t("llmCost.measuredCalls", { count: data.record_count.toLocaleString(locale) })}</span>
-        <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: new Date(data.latest_occurred_at).toLocaleString(locale) }) : t("llmCost.noInvocationEvidence")}</span>
+        <span>{data.latest_occurred_at ? t("llmCost.asOf", { time: formatConsoleTimestamp(data.latest_occurred_at) }) : t("llmCost.noInvocationEvidence")}</span>
       </div>
       <div class="llm-cost-kpis">
         <KpiGrid>
@@ -385,7 +394,7 @@ function LlmCostBody({ data, range }: { readonly data: LlmCostResponse; readonly
             evidenceState={data.latest_occurred_at ? "measured" : "not-measured"}
             href={latestHref}
             label={t("llmCost.latestInvocation")}
-            value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{new Date(data.latest_occurred_at).toLocaleString(locale)}</time> : kpiEvidenceLabel("not-measured")}
+            value={data.latest_occurred_at ? <time class="llm-cost-timestamp" dateTime={data.latest_occurred_at}>{formatConsoleTimestamp(data.latest_occurred_at)}</time> : kpiEvidenceLabel("not-measured")}
           />
                   <KpiCard
                     evidenceState="not-connected"

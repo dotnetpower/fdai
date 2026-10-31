@@ -10,6 +10,7 @@ import {
   type Column,
 } from "../components/ui";
 import { getLocale } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/analytics";
 import { currentRoute, routeHref } from "../router";
 import type { ConsoleDataMode } from "../console-data-mode";
@@ -110,7 +111,7 @@ function EvidenceStrip({ autonomy }: { readonly autonomy: AutonomyPayload }) {
       </span>
       <span>{t("overview.evidence.source", { source: autonomy.source.name })}</span>
       {autonomy.source.as_of ? (
-        <span>{t("overview.evidence.asOf", { time: autonomy.source.as_of })}</span>
+        <span>{t("overview.evidence.asOf", { time: formatConsoleTimestamp(autonomy.source.as_of) })}</span>
       ) : null}
     </div>
   );

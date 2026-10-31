@@ -47,6 +47,7 @@ export function ConversationDeliveryRoute({ client }: { readonly client: Operato
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
+    setState({ status: "loading" });
     client.panel<unknown>("/conversation-delivery")
       .then((value) => {
         if (!cancelled) setState({ status: "ready", data: decodeConversationDelivery(value) });
@@ -75,23 +76,35 @@ export function decodeConversationDelivery(value: unknown): ConversationDelivery
     throw new Error("invalid Operator API response: conversation delivery MUST be read-only");
   }
   const latency = panelRecord(root["delivery_latency_ms"], "conversation delivery.delivery_latency_ms");
+  const latencyCount = panelNonNegativeInteger(latency, "count", "conversation delivery.delivery_latency_ms");
+  const latencyAverage = nullableMetric(latency, "average");
+  const latencyP95 = nullableMetric(latency, "p95");
+  if (latencyAverage !== null && latencyP95 !== null && latencyP95 < latencyAverage) {
+    throw new Error("conversation delivery p95 latency MUST be >= average");
+  }
+  const deliveryCount = panelNonNegativeInteger(root, "delivery_count", "conversation delivery");
+  const attemptCount = panelNonNegativeInteger(root, "attempt_count", "conversation delivery");
+  const acknowledgementCount = panelNonNegativeInteger(root, "acknowledgement_count", "conversation delivery");
+  if (acknowledgementCount > attemptCount) {
+    throw new Error("conversation delivery acknowledgements MUST NOT exceed attempts");
+  }
   return {
     source: panelNonEmptyString(root, "source", "conversation delivery"),
     read_only: true,
     mutations_available: false,
-    delivery_count: panelNonNegativeInteger(root, "delivery_count", "conversation delivery"),
+    delivery_count: deliveryCount,
     states: decodeCounts(root["states"], "conversation delivery.states"),
     delivery_latency_ms: {
-      count: panelNonNegativeInteger(latency, "count", "conversation delivery.delivery_latency_ms"),
-      average: nullableMetric(latency, "average"),
-      p95: nullableMetric(latency, "p95"),
+      count: latencyCount,
+      average: latencyAverage,
+      p95: latencyP95,
     },
     duplicate_risk_count: panelNonNegativeInteger(root, "duplicate_risk_count", "conversation delivery"),
     retry_count: panelNonNegativeInteger(root, "retry_count", "conversation delivery"),
     abandonment_count: panelNonNegativeInteger(root, "abandonment_count", "conversation delivery"),
     breaker_states: decodeCounts(root["breaker_states"], "conversation delivery.breaker_states"),
-    attempt_count: panelNonNegativeInteger(root, "attempt_count", "conversation delivery"),
-    acknowledgement_count: panelNonNegativeInteger(root, "acknowledgement_count", "conversation delivery"),
+    attempt_count: attemptCount,
+    acknowledgement_count: acknowledgementCount,
   };
 }
 

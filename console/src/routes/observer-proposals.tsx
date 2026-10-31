@@ -4,6 +4,7 @@ import { EvidenceRefresh } from "../components/evidence-refresh";
 import { AsyncBoundary, type AsyncState } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { panelArray, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 const METHODS = ["gitops", "existing_host", "managed_host", "run_command"] as const;
@@ -118,7 +119,7 @@ export function ObserverProposals({ client, dataMode }: { readonly client: Opera
               <dt>{t(`observerProposals.${entry.method}`)} / {t(`observerProposals.${entry.egress}`)}</dt>
               <dd>{t(`observerProposals.${entry.state}`)}{[...entry.blockers, ...entry.missing].map((reason) => <code key={reason}>{reason}</code>)}</dd>
             </div>)}</dl>
-            <p>{t("observerProposals.expires")}: <time dateTime={new Date(item.expiresAt).toISOString()}>{new Date(item.expiresAt).toLocaleString()}</time></p>
+            <p>{t("observerProposals.expires")}: <time dateTime={new Date(item.expiresAt).toISOString()}>{formatConsoleTimestamp(new Date(item.expiresAt).toISOString())}</time></p>
           </div> : <p>{t("observerProposals.unavailable")}</p>}
         </details>;
       })}</>}

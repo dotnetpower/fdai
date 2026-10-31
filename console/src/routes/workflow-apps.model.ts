@@ -27,11 +27,20 @@ export function decodeWorkflowApps(value: unknown): WorkflowAppsResponse {
   if (count !== items.length) throw new Error("workflow apps count MUST equal items length");
   assertUnique(items.map((item) => item.id), "workflow app ids");
   assertUnique(items.map((item) => item.workflow_ref), "workflow app workflow refs");
+  assertUnique(items.map((item) => String(item.order)), "workflow app orders");
   return { items, count };
 }
 
-export function workflowAppHref(appId: string): string {
-  return routeHref("workflow-apps", { segments: [appId] });
+export function workflowAppHref(
+  appId: string,
+  search?: URLSearchParams,
+): string {
+  return routeHref("workflow-apps", {
+    segments: [appId],
+    params: {
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
+  });
 }
 
 function decodeApp(value: unknown, label: string): WorkflowAppEntry {

@@ -2,7 +2,9 @@ import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
-import { currentRoute } from "../router";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
+import { currentRoute, ROUTE_STATE_EVENT } from "../router";
 import { t } from "./i18n/ontology";
 import {
   decodeOntologyReleaseDiff,
@@ -22,12 +24,25 @@ export function OntologyReleaseDetailRoute({
   readonly client: OperatorApiClient;
   readonly digest: string;
 }) {
+  const [base, setBase] = useState<string | null>(
+    () => currentRoute().search.get("base"),
+  );
   const [state, setState] = useState<AsyncState<OntologyReleaseDiffResponse>>({ status: "loading" });
+  useEffect(() => {
+    const sync = () => setBase(currentRoute().search.get("base"));
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
     (async () => {
-      const base = currentRoute().search.get("base");
       const suffix = base ? `?base=${encodeURIComponent(base)}` : "";
       try {
         const payload = await client.panel<unknown>(
@@ -50,7 +65,7 @@ export function OntologyReleaseDetailRoute({
     return () => {
       cancelled = true;
     };
-  }, [client, digest]);
+  }, [base, client, digest]);
   return (
     <div class="stack governance-route ontology-route ontology-release-route">
       <PageHeader
@@ -66,6 +81,28 @@ export function OntologyReleaseDetailRoute({
 }
 
 function OntologyReleaseDiffView({ diff }: { readonly diff: OntologyReleaseDiffResponse }) {
+  usePublishViewContext(
+    () => ({
+      routeId: "ontology",
+      routeLabel: t("ontology.release.title"),
+      purpose: t("ontology.detail.declarationRefsOnly"),
+      glossary: composeGlossary([TERMS.actionType]),
+      headline: `${diff.compatibility_verdict} (${diff.added.length} added, ${diff.changed.length} changed, ${diff.removed.length} removed)`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "candidate_release_digest", value: diff.candidate_release_digest, group: "release" },
+        { key: "base_release_digest", value: diff.base_release_digest, group: "release" },
+        { key: "compatibility_verdict", value: diff.compatibility_verdict, group: "release" },
+        { key: "migration_required", value: diff.migration_required, group: "release" },
+      ],
+      records: {
+        added: diff.added.map((item) => ({ ...item })),
+        changed: diff.changed.map((item) => ({ ...item })),
+        removed: diff.removed.map((item) => ({ ...item })),
+      },
+    }),
+    [diff],
+  );
   return (
     <article class="ontology-detail-workbench">
       <section class="ontology-detail-identity">

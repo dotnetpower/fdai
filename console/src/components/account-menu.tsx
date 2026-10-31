@@ -61,12 +61,20 @@ function AccountDetailsMenu({ auth, iamSelf }: AccountMenuProps) {
       setError(null);
       window.requestAnimationFrame(() => triggerRef.current?.focus());
     };
+    const dismissOnRoute = () => {
+      setOpen(false);
+      setError(null);
+    };
     document.addEventListener("pointerdown", dismissOutside);
     document.addEventListener("keydown", dismissOnEscape);
+    window.addEventListener("popstate", dismissOnRoute);
+    window.addEventListener("fdai:route-changed", dismissOnRoute);
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.removeEventListener("pointerdown", dismissOutside);
       document.removeEventListener("keydown", dismissOnEscape);
+      window.removeEventListener("popstate", dismissOnRoute);
+      window.removeEventListener("fdai:route-changed", dismissOnRoute);
     };
   }, [open]);
 

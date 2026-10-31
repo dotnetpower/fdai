@@ -6,7 +6,7 @@ import {
   schedulerRunTone,
   summarizeSchedulerRuns,
 } from "./scheduler-runs.model";
-import { assertSchedulerRunTask } from "./scheduler-runs";
+import { assertSchedulerRunTask, schedulerRunsHref } from "./scheduler-runs";
 import { schedulerRunsNumber } from "./scheduler-runs.i18n";
 import { setLocale } from "../i18n";
 
@@ -70,6 +70,10 @@ describe("scheduler run response", () => {
       "task_id does not match",
     );
     expect(() => assertSchedulerRunTask(page, "inventory")).not.toThrow();
+    expect(schedulerRunsHref("inventory", "", "live"))
+      .toBe("/scheduler-runs?task_id=inventory");
+    expect(schedulerRunsHref("inventory", "failed", "sample"))
+      .toBe("/scheduler-runs?task_id=inventory&status=failed&data=sample");
   });
 
   test("formats valid timestamps with a timezone and preserves invalid evidence", () => {

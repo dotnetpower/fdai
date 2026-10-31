@@ -10,7 +10,12 @@ import {
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, routeHref } from "../router";
+import {
+  currentRoute,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { ProcessWidget, RenderedRegion } from "./process-view-renderer";
 import { schedulerRunsText } from "./scheduler-runs.i18n";
@@ -86,9 +91,11 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
     const sync = () => setSelectedId(currentRoute().segments[0] ?? null);
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
@@ -112,11 +119,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
         const defaultId = currentRoute().segments[0] ?? defaultProcessId(data.items, "");
         if (!currentRoute().segments[0] && defaultId) {
           const href = processHref(defaultId);
-          window.history.replaceState(
-            window.history.state,
-            "",
-            dataMode === "sample" ? `${href}?data=sample` : href,
-          );
+          replaceRouteState(dataMode === "sample" ? `${href}?data=sample` : href);
           setSelectedId(defaultId);
         } else if (!defaultId) {
           dispatchRefresh({ type: "finish", generation: refreshCycle.generation });

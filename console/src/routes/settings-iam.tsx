@@ -14,6 +14,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import "./settings-iam.css";
 import { settingsIamText } from "./settings-iam.i18n";
 import { AccessRequestsView } from "./settings-iam-requests";
@@ -462,7 +463,7 @@ function IamWorkflowSummary({ overview }: { readonly overview: IamOverview }) {
         <small>
           {overview.directory.observedAt
             ? settingsIamText("directoryObservedAt", {
-                time: new Date(overview.directory.observedAt).toLocaleString(),
+                time: formatConsoleTimestamp(overview.directory.observedAt),
               })
             : overview.directory.detail ?? settingsIamText("directoryNotObserved")}
         </small>

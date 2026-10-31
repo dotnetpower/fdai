@@ -31,6 +31,7 @@ export function WorkflowAppsRoute({ client }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     client.panel<unknown>("/views/workflow-apps").then(
       (value) => {
         if (cancelled) return;
@@ -112,7 +113,7 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
             <thead><tr><th>{t("workflowApps.app")}</th><th>{t("workflowApps.workflow")}</th><th>{t("workflowApps.lifecycle")}</th></tr></thead>
             <tbody>{data.items.map((app) => (
               <tr key={app.id} class={app.id === selectedId ? "row-active" : undefined}>
-                <td><a href={workflowAppHref(app.id)}><strong>{app.label[locale]}</strong></a><br /><span class="muted small">{app.description[locale]}</span></td>
+                <td><a href={workflowAppHref(app.id, currentRoute().search)}><strong>{app.label[locale]}</strong></a><br /><span class="muted small">{app.description[locale]}</span></td>
                 <td><code>{app.workflow_ref}</code></td>
                 <td><StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} /></td>
               </tr>
@@ -133,6 +134,7 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
   const [statusFilter, setStatusFilter] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     const query = new URLSearchParams({ workflow_ref: app.workflow_ref });
     client.panel<unknown>(`/views/process?${query.toString()}`).then(
       (value) => {
