@@ -103,7 +103,10 @@ def build_gateway_diagnostic_frame(
         resource = exact_resources[0]
     else:
         return None
-    if utterance[resource.source_start : resource.source_end] != resource.value:
+    if (
+        not 0 <= resource.source_start < resource.source_end <= len(utterance)
+        or utterance[resource.source_start : resource.source_end] != resource.value
+    ):
         return None
     times = tuple(target for target in judgment.targets if target.kind == "time_range")
     if len(times) > 1:
@@ -186,6 +189,7 @@ def compile_gateway_diagnostic_plan(
         or frame.measure_concepts
         or purpose != "operations-review"
         or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
     ):
         return None
     functions = {

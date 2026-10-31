@@ -74,6 +74,8 @@ def compile_target_ingress_plan(
 
     if (
         frame.output_shape != SemanticOutputShape.TARGET_INGRESS_CONFIGURATION
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_ingress_function(manifest.descriptors)
     ):
         return None
@@ -187,7 +189,7 @@ def _ingress_measures(descriptors: tuple[dict[str, Any], ...]) -> frozenset[str]
     if not isinstance(output_schema, Mapping):
         return frozenset()
     measures = output_schema.get("x-fdai-measure-concepts")
-    if not isinstance(measures, list):
+    if not isinstance(measures, (list, tuple)):
         return frozenset()
     return frozenset(measure for measure in measures if isinstance(measure, str))
 

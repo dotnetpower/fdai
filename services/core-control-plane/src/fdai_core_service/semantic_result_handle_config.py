@@ -29,7 +29,7 @@ def result_handle_store_from_config(
     """
 
     if enabled is None:
-        enabled = config.get(RESULT_HANDLES_ENV, "").strip().lower() in {"1", "true", "yes"}
+        enabled = config.get(RESULT_HANDLES_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
     if not enabled:
         return None
     dsn = config.get("FDAI_STATE_STORE_DSN", "").strip()

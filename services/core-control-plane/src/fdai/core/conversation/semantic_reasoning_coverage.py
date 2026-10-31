@@ -95,6 +95,10 @@ class CoverageCell:
     status: str
     reasons: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if not self.cell_id.strip() or not self.status.strip():
+            raise ValueError("coverage cell requires non-empty cell_id and status")
+
 
 @dataclass(frozen=True, slots=True)
 class ReasoningCoverageReceipt:
@@ -102,6 +106,14 @@ class ReasoningCoverageReceipt:
 
     manifest_release_digest: str
     cells: tuple[CoverageCell, ...]
+
+    def __post_init__(self) -> None:
+        if not self.manifest_release_digest.strip() or len(
+            {cell.cell_id for cell in self.cells}
+        ) != len(self.cells):
+            raise ValueError(
+                "reasoning coverage receipt requires unique cell_ids and release digest"
+            )
 
     @property
     def status_counts(self) -> dict[str, int]:

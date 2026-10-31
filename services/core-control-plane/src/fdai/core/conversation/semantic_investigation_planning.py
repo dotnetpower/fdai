@@ -57,7 +57,7 @@ class InvestigationTimeWindows:
             self.current_end,
             self.known_at,
         )
-        if any(value.tzinfo is None for value in values):
+        if any(value.tzinfo is None or value.utcoffset() is None for value in values):
             raise ValueError("investigation windows MUST be timezone-aware")
         if not self.baseline_start < self.baseline_end <= self.current_start < self.current_end:
             raise ValueError("investigation windows MUST be ordered and non-overlapping")
@@ -96,10 +96,15 @@ def compile_investigation_plan(
     identity_property = _identity_property(target_descriptor)
     relationships = {item.relationship_id: item for item in intent.relationship_intents}
     primary_measure = next(
-        item
-        for item in intent.symptom_measures
-        if item.measure_id == intent.primary_symptom_measure_id
+        (
+            item
+            for item in intent.symptom_measures
+            if item.measure_id == intent.primary_symptom_measure_id
+        ),
+        None,
     )
+    if primary_measure is None:
+        raise ValueError("investigation primary symptom measure is absent")
 
     nodes: list[OntologyQueryNode] = []
     resolve_id = "resolve-target"

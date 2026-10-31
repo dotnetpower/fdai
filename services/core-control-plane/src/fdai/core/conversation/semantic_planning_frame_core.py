@@ -28,6 +28,14 @@ def build_semantic_frame(
     rebuild that only rebinds judgment fields.
     """
 
+    if isinstance(context, (str, bytes)):
+        raise TypeError("semantic frame context MUST be a tuple of strings")
+    if (
+        investigation_intent is not None
+        and investigation_intent_digest is not None
+        and investigation_intent.intent_digest != investigation_intent_digest
+    ):
+        raise ValueError("semantic frame investigation_intent_digest mismatch")
     input_digest = content_digest({"utterance": utterance, "context": context})
     schema_version: Literal["1.0.0", "1.1.0"] = "1.1.0" if proposal.constraint_slots else "1.0.0"
     payload: dict[str, Any] = {

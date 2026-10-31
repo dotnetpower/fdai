@@ -65,7 +65,13 @@ def review_repair(
 ) -> ReviewRepair | None:
     """Return one repair for a single admitted pass whose review found uncovered words."""
 
-    if review.outcome != "unfaithful" or raw is None or repairs < 1:
+    if (
+        isinstance(passes, bool)
+        or isinstance(repairs, bool)
+        or review.outcome != "unfaithful"
+        or raw is None
+        or repairs < 1
+    ):
         return None
     if len(forms) != 1 or passes != 1:
         return None

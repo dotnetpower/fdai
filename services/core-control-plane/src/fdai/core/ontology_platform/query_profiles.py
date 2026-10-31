@@ -59,16 +59,13 @@ class QueryProfile(ContractBase):
         """Bind a profile to an exact FunctionType in one canonical release."""
 
         expected = build_ontology_release(function_types=(function_type,)).declarations[0]
-        active = next(
-            (
-                declaration
-                for declaration in release.declarations
-                if declaration.kind is OntologyDeclarationKind.FUNCTION
-                and declaration.name == function_type.name
-            ),
-            None,
+        matching = tuple(
+            declaration
+            for declaration in release.declarations
+            if declaration.kind is OntologyDeclarationKind.FUNCTION
+            and declaration.name == function_type.name
         )
-        if active != expected:
+        if len(matching) != 1 or matching[0] != expected:
             raise ValueError("query profile FunctionType does not match release")
         return cls(
             name=name,

@@ -221,3 +221,14 @@ def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
     with pytest.raises(ConversationBoundaryError):
         _moment({"ts": datetime(2026, 9, 27)}, "ts")
     assert _moment({"ts": datetime(2026, 9, 27, tzinfo=UTC)}, "ts").startswith("2026-09-27")
+
+    # E56 & E57: inline_images_present accepts tuple and receipt writer validates DSN
+    from fdai_operator_service.families.conversation.inline_images import inline_images_present
+    from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+        PostgresAuthenticationReceiptWriter,
+    )
+
+    assert inline_images_present({"images": ()}) is False
+    assert inline_images_present({"images": ("img-1",)}) is True
+    with pytest.raises(ValueError, match="non-empty DSN"):
+        PostgresAuthenticationReceiptWriter(dsn="   ")

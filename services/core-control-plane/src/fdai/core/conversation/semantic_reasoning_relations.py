@@ -163,11 +163,11 @@ def _traits(descriptor: Mapping[str, Any]) -> frozenset[str]:
     raw = descriptor.get("semantic_traits")
     if not isinstance(raw, (list, tuple)):
         return frozenset()
-    return frozenset(item for item in raw if isinstance(item, str))
+    return frozenset(item.strip() for item in raw if isinstance(item, str) and item.strip())
 
 
 def _role(value: object) -> str | None:
-    return value if isinstance(value, str) and value else None
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def containment_scope_sides(
@@ -180,7 +180,7 @@ def containment_scope_sides(
         (str(item.get("name")), "outgoing", depth)
         for item in descriptors
         if item.get("kind") == "link"
-        and trait in set(item.get("semantic_traits") or ())
+        and trait in _traits(item)
         and item.get("is_transitive") is True
         and item.get("from_type") == item.get("to_type") == "Resource"
     }

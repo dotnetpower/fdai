@@ -108,6 +108,8 @@ def instance_path_graph_digest(
 def _mutable_json(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {key: _mutable_json(item) for key, item in value.items()}
+    if isinstance(value, (set, frozenset)):
+        return [_mutable_json(item) for item in sorted(value, key=str)]
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_mutable_json(item) for item in value]
     return value

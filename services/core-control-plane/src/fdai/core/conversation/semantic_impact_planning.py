@@ -45,7 +45,11 @@ def compile_target_impact_plan(
 ) -> OntologyQueryPlan | None:
     """Build one exact Resource-to-BusinessService impact traversal when unambiguous."""
 
-    if frame.output_shape != "inventory_impact":
+    if (
+        frame.output_shape != "inventory_impact"
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
+    ):
         return None
     target_name = _exact_target_name(frame, utterance=utterance, manifest=manifest)
     path = _service_impact_path(manifest.descriptors)
