@@ -22,6 +22,8 @@ class EventBusCostOptimizationCandidatePublisher:
         *,
         activation_revision: int,
     ) -> None:
+        if not isinstance(self.topic, str) or not self.topic.strip():
+            raise ValueError("optimization ingress topic MUST be non-empty")
         if (
             isinstance(activation_revision, bool)
             or not isinstance(activation_revision, int)
@@ -34,10 +36,12 @@ class EventBusCostOptimizationCandidatePublisher:
             "object.cost-anomaly",
             {**candidate, "producer_principal": "Njord"},
         )
-        resource_id = str(candidate.get("resource_id") or "")
-        correlation_id = str(candidate.get("correlation_id") or "")
-        idempotency_key = str(candidate.get("idempotency_key") or "")
-        observed_at = str(candidate.get("observed_at") or "")
+        resource_id = str(candidate.get("resource_id") or "").strip()
+        correlation_id = str(candidate.get("correlation_id") or "").strip()
+        idempotency_key = str(candidate.get("idempotency_key") or "").strip()
+        observed_at = str(candidate.get("observed_at") or "").strip()
+        if not resource_id or not correlation_id or not idempotency_key or not observed_at:
+            raise ValueError("optimization candidate envelope fields MUST be non-empty")
         event_digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
         await self.bus.publish(
             self.topic,

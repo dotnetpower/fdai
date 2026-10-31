@@ -10,10 +10,14 @@ from fdai.agents._framework.var_ticket_identity import evict_oldest_ticket
 
 
 async def deliver_admin_card(host: Any, payload: dict[str, Any]) -> AdminCard:
-    initiator = str(payload.get("initiator_principal", ""))
-    action = str(payload.get("attempted_action", ""))
-    severity = str(payload.get("severity", "high"))
-    counter = int(payload.get("counter", 1))
+    initiator = str(payload.get("initiator_principal", "")).strip()
+    action = str(payload.get("attempted_action", "")).strip()
+    severity = str(payload.get("severity", "high")).strip() or "high"
+    raw_counter = payload.get("counter", 1)
+    if isinstance(raw_counter, bool) or not isinstance(raw_counter, int) or raw_counter < 1:
+        counter = 1
+    else:
+        counter = raw_counter
     key = (initiator, action)
     card = AdminCard(
         severity=severity,

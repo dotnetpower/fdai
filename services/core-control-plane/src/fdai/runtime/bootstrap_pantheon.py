@@ -295,8 +295,7 @@ async def initialize_pantheon(
             ),
             recorder=ProcessPlanningRecorder(store=process_store),
         )
-    prospective_lineage_finalizer = None
-    prospective_lineage_materializer = None
+    prospective_lineage_finalizer = prospective_lineage_materializer = proposal_store = None
     if ontology_release is not None and config.control_loop.ontology_instance_store is not None:
         proposal_store = StateStoreKineticActionProposalStore(store=config.incident_audit_store)
         prospective_lineage_finalizer = OperationalPlanningProspectiveFinalizer(
@@ -499,6 +498,7 @@ async def initialize_pantheon(
         evidence_conflict_sink=StateStoreEvidenceConflictProjection(config.incident_audit_store),
         prospective_lineage_finalizer=prospective_lineage_finalizer,
         prospective_lineage_materializer=prospective_lineage_materializer,
+        kinetic_proposal_source=proposal_store,
         capacity_graduation_controller=CapacityGraduationController(
             load_capacity_graduation_policy(
                 asset_root / "rule-catalog" / "capacity-graduation-policy.yaml"
@@ -746,6 +746,7 @@ async def initialize_pantheon(
         snapshot_factory=lambda: runtime_agent_state_snapshot(
             pantheon_runtime.health(),
             active_states=activity_observer.active_states(),
+            recent_states=activity_observer.recent_states(),
         ),
         topic=config.stage_topic,
     )

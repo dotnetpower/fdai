@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import inspect
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -146,7 +147,11 @@ class Saga(
         clock: Callable[[], datetime] = _utc_now,
         issue_timeout_seconds: float = 5.0,
     ) -> None:
-        if issue_timeout_seconds <= 0:
+        if (
+            isinstance(issue_timeout_seconds, bool)
+            or not math.isfinite(issue_timeout_seconds)
+            or issue_timeout_seconds <= 0
+        ):
             raise ValueError("issue timeout MUST be positive")
         super().__init__(spec=_SAGA)
         self.audit_chain: SagaAuditChain = audit_chain or InMemoryAuditChain()

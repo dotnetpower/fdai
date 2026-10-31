@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections import deque
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -132,9 +133,18 @@ class Muninn(
         prospective_lineage_materializer: ProspectiveLineageMaterializer | None = None,
         provider_timeout_seconds: float = _DEFAULT_PROVIDER_TIMEOUT_SECONDS,
     ) -> None:
-        if case_retention_days < 1 or case_deletion_days < case_retention_days:
+        if (
+            isinstance(case_retention_days, bool)
+            or isinstance(case_deletion_days, bool)
+            or case_retention_days < 1
+            or case_deletion_days < case_retention_days
+        ):
             raise ValueError("Muninn case retention days MUST be positive and ordered")
-        if provider_timeout_seconds <= 0:
+        if (
+            isinstance(provider_timeout_seconds, bool)
+            or not math.isfinite(provider_timeout_seconds)
+            or provider_timeout_seconds <= 0
+        ):
             raise ValueError("Muninn provider timeout MUST be positive")
         super().__init__(spec=_MUNINN)
         self.state_store = state_store or InMemoryStateStore()
@@ -161,6 +171,9 @@ class Muninn(
             _MAX_CONVERSATION_PROJECTIONS
         )
         self._context_fetch_latencies: deque[float] = deque(maxlen=_MAX_CONTEXT_FETCH_SAMPLES)
+        self._cache_miss_recomputation_latencies: deque[float] = deque(
+            maxlen=_MAX_CONTEXT_FETCH_SAMPLES
+        )
         self._context_cache_hits = 0
         self._context_cache_misses = 0
         self._context_unavailable_facts: deque[dict[str, Any]] = deque(
@@ -236,6 +249,17 @@ class Muninn(
             self._context_cache_misses += 1
             self.record_behavior("context_fetch:miss")
 
+    def record_cache_miss_recomputation(self, latency_seconds: float) -> None:
+        """Record one bounded cache-miss recomputation latency sample in seconds."""
+        if (
+            isinstance(latency_seconds, bool)
+            or not math.isfinite(latency_seconds)
+            or latency_seconds < 0
+        ):
+            raise ValueError("latency_seconds MUST be finite and non-negative")
+        self._cache_miss_recomputation_latencies.append(float(latency_seconds))
+        self.record_behavior("context_fetch:recomputed")
+
     def _record_context_unavailable(self, reason: str, *, bucket: str, key: str) -> None:
         self._context_unavailable_facts.append(
             {
@@ -270,9 +294,11 @@ class Muninn(
                 self._context_cache_hits + self._context_cache_misses,
             ),
             "cache_miss_recomputation_seconds": _kpi_sample(
-                None,
-                evidence_state="not_observed",
-                sample_count=0,
+                _p99(tuple(self._cache_miss_recomputation_latencies)),
+                evidence_state=(
+                    "measured" if self._cache_miss_recomputation_latencies else "not_observed"
+                ),
+                sample_count=len(self._cache_miss_recomputation_latencies),
                 unit="seconds",
             ),
         }

@@ -179,12 +179,21 @@ class Bragi(
         state_store: StateStore | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if responder_timeout_seconds <= 0:
+        if (
+            isinstance(responder_timeout_seconds, bool)
+            or not math.isfinite(responder_timeout_seconds)
+            or responder_timeout_seconds <= 0
+        ):
             raise ValueError("responder timeout MUST be positive")
-        if proposal_timeout_seconds <= 0:
+        if (
+            isinstance(proposal_timeout_seconds, bool)
+            or not math.isfinite(proposal_timeout_seconds)
+            or proposal_timeout_seconds <= 0
+        ):
             raise ValueError("proposal timeout MUST be positive")
         if (
-            not math.isfinite(semantic_judgment_timeout_seconds)
+            isinstance(semantic_judgment_timeout_seconds, bool)
+            or not math.isfinite(semantic_judgment_timeout_seconds)
             or semantic_judgment_timeout_seconds <= 0
         ):
             raise ValueError("semantic judgment timeout MUST be positive")
