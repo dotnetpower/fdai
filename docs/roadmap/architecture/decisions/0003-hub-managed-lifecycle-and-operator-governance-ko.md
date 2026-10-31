@@ -1,8 +1,8 @@
 ---
 title: ADR-0003 Hub 관리형 수명 주기와 운영자 거버넌스
 translation_of: 0003-hub-managed-lifecycle-and-operator-governance.md
-translation_source_sha: 604a173b9db314f9f8705b567f94eae3e648827b
-translation_revised: 2026-10-15
+translation_source_sha: b227726374dcab74e48014b4156c329bd1e52376
+translation_revised: 2026-10-31
 ---
 # ADR-0003: Hub 관리형 수명 주기와 운영자 거버넌스
 
@@ -13,8 +13,10 @@ release channel과 고객이 승인한 구성에 맞춰 유지합니다. 또한 
 
 ## 상태
 
-**Accepted:** 2026-10-02. 이 기록은 설계 권위만 가집니다. 결정의 어떤 부분도 아직 구현되지
-않았습니다. 각 소유 문서가 제공 현황을 추적하는 ledger로 연결됩니다.
+**Accepted:** 2026-10-02. 이 기록은 설계 권위만 가집니다. 저장소 계약, Hub, 에이전트, Plan,
+구성 패키지, 릴리스/회수/번들 파이프라인, 단일 운영자 거버넌스 프로필은 #1822, #1823, #1824,
+#1825에 걸쳐 구현되었으며, 각 소유 문서는 제공 현황과 남은 실제 운영 검증을 추적하는 ledger로
+연결됩니다.
 
 **명칭 명확화 (2026-10-15):** FDAI Release Hub는 릴리스 발행, 서명, 채널 승격, 회수를
 관리하도록 계획된 공급업체 앱의 이름입니다. Release Catalog는 그 앱이 제공하는 릴리스 목록,
