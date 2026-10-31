@@ -95,7 +95,7 @@ class FreyrCapacityRuntimeMixin:
             limit=_MAX_TRACKED_RESOURCES * 4,
         ):
             sample_key = str(record.get("sample_key") or "")
-            if sample_key:
+            if sample_key and record.get("state", "completed") == "completed":
                 self._accepted_sample_keys.add(sample_key)
         for record in await self._state_store.read_states(_COST_PREFIX, limit=_MAX_COST_EVIDENCE):
             target_ref = str(record.get("target_ref") or "")
@@ -335,6 +335,7 @@ class FreyrCapacityRuntimeMixin:
                     "observed_at": observed_at,
                 },
             )
+            self.record_behavior("capacity_forecast:published")
 
     async def _begin_sample(
         self,

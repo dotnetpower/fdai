@@ -7,6 +7,7 @@ reason codes. Norns emits only their aggregate consensus result.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -42,7 +43,14 @@ class UrdPerspective:
 
     def inspect(self, candidate: dict[str, Any]) -> PerspectiveVerdict:
         evidence = candidate.get("evidence")
-        accepted = isinstance(evidence, dict) and bool(evidence)
+        accepted = (
+            isinstance(evidence, Mapping)
+            and bool(evidence)
+            and any(
+                value is not None and value != "" and value != [] and value != {}
+                for value in evidence.values()
+            )
+        )
         return PerspectiveVerdict(
             perspective=self.name,
             accepted=accepted,
@@ -58,10 +66,12 @@ class VerdandiPerspective:
     name = "Verdandi"
 
     def inspect(self, candidate: dict[str, Any]) -> PerspectiveVerdict:
-        kind = str(candidate.get("proposal_kind", ""))
+        kind = str(candidate.get("proposal_kind", "")).strip()
+        source_signal = candidate.get("source_signal")
         accepted = (
             candidate.get("proposed_by") == "Norns"
-            and bool(candidate.get("source_signal"))
+            and isinstance(source_signal, str)
+            and bool(source_signal.strip())
             and kind in _ALLOWED_KINDS
         )
         return PerspectiveVerdict(
@@ -77,12 +87,14 @@ class SkuldPerspective:
     name = "Skuld"
 
     def inspect(self, candidate: dict[str, Any]) -> PerspectiveVerdict:
-        suggested_change = str(candidate.get("suggested_change", ""))
-        enforcement_mode = str(candidate.get("enforcement_mode", ""))
+        suggested_change = str(candidate.get("suggested_change", "")).strip()
+        enforcement_mode = str(candidate.get("enforcement_mode", "")).strip()
         accepted = (
             suggested_change not in _AUTONOMY_RAISING_CHANGES
             and enforcement_mode != "enforce"
             and candidate.get("auto_promote") is not True
+            and candidate.get("execution_authority") is not True
+            and candidate.get("bypass_hil") is not True
         )
         return PerspectiveVerdict(
             perspective=self.name,

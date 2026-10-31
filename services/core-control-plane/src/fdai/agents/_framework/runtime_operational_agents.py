@@ -8,6 +8,7 @@ from typing import cast
 from fdai.agents._framework import factory
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
+from fdai.agents._framework.arbitration import TemporalPolicy
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.development_authority_runtime import (
@@ -31,7 +32,7 @@ from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.njord import Njord
 from fdai.agents.norns import Norns
-from fdai.agents.odin import Odin
+from fdai.agents.odin import DecisionHistory, Odin
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
@@ -49,7 +50,11 @@ from fdai.core.measurement.operational_promotion import action_type_digest
 from fdai.core.ontology_platform.evidence_conflict import EvidenceConflictSink
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import TestContextSource
-from fdai.core.operational_learning import OperatingPatternCompiler
+from fdai.core.operational_learning import (
+    InvestigationStrategyCandidateCompiler,
+    OperatingPatternCompiler,
+    ShadowDwellLedger,
+)
 from fdai.core.operational_planning.prospective_lineage import (
     ProspectiveLineageFinalizer,
     ProspectiveLineageMaterializer,
@@ -269,6 +274,8 @@ def bind_operational_agents(
     governed_execution_selected: bool = False,
     forseti_state_store: StateStore | None = None,
     forseti_historical_replay_source: ForsetiHistoricalReplaySource | None = None,
+    investigation_strategy_compiler: InvestigationStrategyCandidateCompiler | None = None,
+    shadow_dwell_ledger: ShadowDwellLedger | None = None,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -286,6 +293,8 @@ def bind_operational_agents(
             case_history_analyzer,
             case_history_materializer,
             operating_pattern_compiler,
+            investigation_strategy_compiler,
+            shadow_dwell_ledger,
             semantic_feedback_store,
             muninn_state_store,
         )
@@ -296,6 +305,8 @@ def bind_operational_agents(
             case_history_analyzer=case_history_analyzer,
             case_history_materializer=case_history_materializer,
             operating_pattern_compiler=operating_pattern_compiler,
+            investigation_strategy_compiler=investigation_strategy_compiler,
+            shadow_dwell_ledger=shadow_dwell_ledger,
             semantic_feedback_store=semantic_feedback_store,
             issue_state_store=muninn_state_store,
             operational_state_store=muninn_state_store,
@@ -369,12 +380,16 @@ def bind_durable_governance_stores(
     *,
     odin_state_store: StateStore | None,
     proposal_rate_limit_state_store: StateStore | None,
+    temporal_policy: TemporalPolicy | None = None,
+    history: DecisionHistory | None = None,
 ) -> None:
     """Bind Odin's durable decision fence and every agent's proposal budget store."""
-    if odin_state_store is not None:
+    if odin_state_store is not None or temporal_policy is not None or history is not None:
         instantiated["Odin"] = Odin(
             vertical_precedence=InitialVerticalPrecedence(),
             state_store=odin_state_store,
+            temporal_policy=temporal_policy,
+            history=history,
         )
     if proposal_rate_limit_state_store is not None:
         for agent in instantiated.values():

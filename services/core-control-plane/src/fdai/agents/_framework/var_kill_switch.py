@@ -60,11 +60,15 @@ class VarKillSwitchRequestHandler:
             raise KillSwitchRequestRejectedError("authentication_receipt_expired")
         authenticated_at = receipt.authenticated_at
         max_auth_age_seconds = receipt.max_auth_age_seconds
-        if authenticated_at is None or max_auth_age_seconds is None:
+        if authenticated_at is None or max_auth_age_seconds is None or max_auth_age_seconds <= 0:
             raise KillSwitchRequestRejectedError("auth_time_missing")
-        if self.clock().astimezone(UTC) > authenticated_at + timedelta(
-            seconds=max_auth_age_seconds
-        ):
+        now_raw = self.clock()
+        if now_raw.tzinfo is None or now_raw.utcoffset() is None:
+            raise KillSwitchRequestRejectedError("clock_timezone_missing")
+        now_utc = now_raw.astimezone(UTC)
+        if authenticated_at > now_utc + timedelta(minutes=5):
+            raise KillSwitchRequestRejectedError("auth_time_future")
+        if now_utc > authenticated_at + timedelta(seconds=max_auth_age_seconds):
             raise KillSwitchRequestRejectedError("auth_time_stale")
         raw = KillSwitchRequestEvent.operator_receipt_event(
             body=request,
@@ -125,7 +129,11 @@ class VarKillSwitchMixin:
         if self._kill_switch_request_handler is None:
             record_behavior("kill_switch:unconfigured")
             return True
-        state = await self._kill_switch_request_handler.handle(payload)
+        try:
+            state = await self._kill_switch_request_handler.handle(payload)
+        except KillSwitchRequestRejectedError:
+            record_behavior("kill_switch:rejected")
+            raise
         record_behavior("kill_switch:duplicate" if state is None else "kill_switch:applied")
         return True
 

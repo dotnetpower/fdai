@@ -8,9 +8,11 @@ from typing import Any
 
 from fdai_service_contracts.policy_administration import PolicyRevisionSignatureVerifier
 
+from fdai.agents._framework.adapters import AdminNotificationAdapter
 from fdai.agents._framework.var_development_authority import (
     DevelopmentOwnerAuthorizer,
 )
+from fdai.agents._framework.vidar_rehearsal import RollbackRehearsalPort
 from fdai.agents.thor import Thor
 from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor, Vidar
@@ -59,6 +61,8 @@ def configure_authority_agents(
     vidar_state_store: StateStore | None,
     development: DevelopmentRuntimeBindings | None,
     approval: ApprovalRuntimeBindings | None = None,
+    admin_channel: AdminNotificationAdapter | None = None,
+    rollback_rehearsal_port: RollbackRehearsalPort | None = None,
 ) -> None:
     """Inject optional development evidence into existing Var and Vidar roles."""
 
@@ -72,8 +76,10 @@ def configure_authority_agents(
         or var_state_store is not None
         or profile is not None
         or approval_profile is not None
+        or admin_channel is not None
     ):
         agents["Var"] = Var(
+            admin_channel=admin_channel,
             approver_authorizer=approver_authorizer,
             state_store=var_state_store,
             development_profile=profile,
@@ -93,6 +99,7 @@ def configure_authority_agents(
         or action_rollback_executors is not None
         or vidar_state_store is not None
         or profile is not None
+        or rollback_rehearsal_port is not None
     ):
         agents["Vidar"] = Vidar(
             executors=rollback_executors,
@@ -104,6 +111,7 @@ def configure_authority_agents(
             development_binding_source=(
                 development.binding_source if development is not None else None
             ),
+            rollback_rehearsal_port=rollback_rehearsal_port,
         )
 
 

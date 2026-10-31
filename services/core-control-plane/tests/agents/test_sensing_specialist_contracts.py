@@ -379,6 +379,180 @@ async def test_heimdall_records_duplicate_severity_suppression() -> None:
     assert heimdall.behavior_snapshot()["anomaly_episode:suppressed_duplicate_severity"] == 1
 
 
+async def test_specialist_event_builders_parsers_and_cost_publisher_round_trip() -> None:
+    from decimal import Decimal
+
+    import pytest
+    from fdai.agents._framework.specialist_ingress import (
+        build_capacity_sample_event,
+        build_chaos_schedule_event,
+        has_resource_id_conflict,
+        parse_capacity_sample,
+        parse_chaos_schedule,
+        parse_cost_sample,
+        parse_resilience_score,
+    )
+    from fdai.delivery.cost_sample_publisher import EventBusCostSamplePublisher
+    from fdai.shared.providers.cost_governance import CostObservation
+    from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+
+    cap_event = build_capacity_sample_event(
+        resource_id="resource:vm-1",
+        utilization=0.65,
+        observed_at=NOW.isoformat(),
+        correlation_id="corr:cap",
+        idempotency_key="key:cap-1",
+    )
+    parsed_cap = parse_capacity_sample(cap_event)
+    assert parsed_cap is not None
+    assert parsed_cap.resource_id == "resource:vm-1"
+    assert parsed_cap.utilization == 0.65
+
+    chaos_event = build_chaos_schedule_event(
+        experiment_id="exp:1",
+        action_type="tool.run-chaos-experiment",
+        targets=("target:1", "target:2"),
+        correlation_id="corr:chaos",
+        idempotency_key="key:chaos-1",
+        occurred_at=NOW.isoformat(),
+    )
+    parsed_chaos = parse_chaos_schedule(chaos_event)
+    assert parsed_chaos is not None
+    assert parsed_chaos.targets == ("target:1", "target:2")
+
+    dup_chaos = {
+        **chaos_event,
+        "attributes": {**chaos_event["attributes"], "targets": ["target:1", "target:1"]},
+    }
+    assert parse_chaos_schedule(dup_chaos) is None
+
+    res_signal = parse_resilience_score(
+        {
+            "event_type": "specialist.resilience_score",
+            "resource_id": "resource:vm-1",
+            "correlation_id": "corr:res",
+            "occurred_at": NOW.isoformat(),
+            "attributes": {"score": 0.9, "experiment_id": "exp:1"},
+        }
+    )
+    assert res_signal is not None
+    assert res_signal.score == 0.9
+    assert has_resource_id_conflict({"resource_id": "ok", "attributes": {"resource_id": "bad\x00"}})
+
+    raw_bus = InMemoryEventBus()
+    publisher = EventBusCostSamplePublisher(bus=raw_bus, topic="fdai.events")
+    observation = CostObservation(
+        observation_id="obs:1",
+        package_id="cost-governance",
+        scope_id="scope:sub-1",
+        service_id="Microsoft.Compute",
+        source_uri="resource:vm-1",
+        source_authority="azure-consumption",
+        event_start_at=NOW - timedelta(hours=2),
+        event_end_at=NOW - timedelta(hours=1),
+        observed_at=NOW,
+        recorded_at=NOW + timedelta(minutes=1),
+        retention_until=NOW + timedelta(days=30),
+        amount=Decimal("42.50"),
+        currency="USD",
+        completeness=Decimal("1.0"),
+        ontology_release_id="release:1",
+        ontology_release_digest="sha256:" + "3" * 64,
+        evidence_digest="sha256:" + "4" * 64,
+    )
+    await publisher.publish_cost_sample(observation, activation_revision=1)
+    published_envelope = raw_bus._records["fdai.events"][-1][1]
+    parsed_cost = parse_cost_sample(published_envelope)
+    assert parsed_cost is not None
+    assert parsed_cost.observed_at == NOW.isoformat()
+
+    with pytest.raises(ValueError, match="activation revision"):
+        await publisher.publish_cost_sample(observation, activation_revision=True)
+
+
+async def test_specialist_and_sensing_hardening_guards() -> None:
+    from uuid import UUID
+
+    import pytest
+    from fdai.shared.contracts.models import ForecastOutcome
+
+    with pytest.raises(ValueError, match="smoothing_alpha"):
+        Freyr(smoothing_alpha=0.0)
+    with pytest.raises(ValueError, match="scale thresholds"):
+        Freyr(scale_up_threshold=0.2, scale_down_threshold=0.5)
+    with pytest.raises(ValueError, match="blast_radius_cap"):
+        Loki(blast_radius_cap=0)
+    with pytest.raises(ValueError, match="dedup_capacity"):
+        Huginn(dedup_capacity=True)
+
+    store = InMemoryStateStore()
+    await store.write_state(
+        "pantheon/freyr/accepted-samples/pending-1",
+        {"sample_key": "pending-key", "state": "pending"},
+    )
+    await store.write_state(
+        "pantheon/freyr/accepted-samples/done-1",
+        {"sample_key": "done-key", "state": "completed"},
+    )
+    freyr = Freyr(bus=_bus(), state_store=store, clock=lambda: NOW)
+    await freyr.rehydrate()
+    assert "pending-key" not in freyr._accepted_sample_keys
+    assert "done-key" in freyr._accepted_sample_keys
+
+    await freyr.ingest_utilization(
+        resource_id="resource:vm-1",
+        utilization=0.5,
+        observed_at=NOW.isoformat(),
+        sample_key="fresh-key",
+    )
+    assert freyr.behavior_snapshot()["capacity_forecast:published"] == 1
+
+    njord = Njord()
+    with pytest.raises(ValueError, match="cost forecast"):
+        njord.record_cost_forecast_outcome(forecast_usd=True, actual_usd=10.0)
+    with pytest.raises(ValueError, match="savings_usd"):
+        njord.record_savings_realized(savings_usd=-1.0)
+    with pytest.raises(ValueError, match="missed"):
+        njord.record_budget_breach_outcome(missed=1)  # type: ignore[arg-type]
+
+    loki = Loki()
+    assert await loki.run_adversarial_generation(design_ref="   ") == 0
+    assert loki.behavior_snapshot()["adversarial_scenario:invalid_design_ref"] == 1
+
+    heimdall = Heimdall()
+    outcome = ForecastOutcome.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "outcome_id": UUID(int=1),
+            "idempotency_key": "forecast-outcome-1",
+            "correlation_id": "corr-1",
+            "prediction_id": UUID(int=100),
+            "detector_id": "capacity-linear",
+            "detector_version": "1.0.0",
+            "access_scope_digest": "a" * 64,
+            "target_digest": "b" * 64,
+            "metric": "capacity_percent",
+            "feature_cutoff": NOW,
+            "horizon_started_at": NOW,
+            "horizon_ended_at": NOW + timedelta(hours=1),
+            "direction": "rising",
+            "threshold": 90.0,
+            "predicted_value": 95.0,
+            "interval_lower": 91.0,
+            "interval_upper": 99.0,
+            "observed_value": 70.0,
+            "actual_breach_at": None,
+            "label": "false_positive",
+            "evidence_refs": ["metric-window:1"],
+            "telemetry_completeness": "complete",
+            "closed_at": NOW + timedelta(hours=2),
+            "mode": "shadow",
+        }
+    )
+    assert await heimdall.publish_forecast_outcome(outcome) is False
+    assert heimdall.behavior_snapshot()["forecast_publication:transport_unavailable"] == 1
+
+
 async def test_heimdall_records_chaos_and_t2_publication_noops() -> None:
     heimdall = Heimdall()
 

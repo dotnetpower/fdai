@@ -15,7 +15,9 @@ def record_progress(
 ) -> str:
     if topic not in ("object.verdict", "object.action-run"):
         return "ignored_topic"
-    correlation_id = str(payload.get("correlation_id", ""))
+    if isinstance(max_keys, bool) or max_keys < 1 or isinstance(max_steps, bool) or max_steps < 1:
+        raise ValueError("max_keys and max_steps MUST be >= 1")
+    correlation_id = str(payload.get("correlation_id", "")).strip()
     if not correlation_id:
         return "missing_correlation"
     entry = {
@@ -44,13 +46,19 @@ def append_submitted(
     *,
     max_keys: int,
 ) -> None:
-    progress.setdefault(correlation_id, []).append(
-        {"topic": "object.conversation", "state": "submitted", "action_type": action_type}
-    )
-    evict_oldest(progress, max_keys, keep=correlation_id)
+    clean_correlation = correlation_id.strip()
+    if not clean_correlation:
+        return
+    entry = {"topic": "object.conversation", "state": "submitted", "action_type": action_type}
+    steps = progress.setdefault(clean_correlation, [])
+    if not steps or steps[-1] != entry:
+        steps.append(entry)
+    evict_oldest(progress, max_keys, keep=clean_correlation)
 
 
 def evict_oldest(mapping: dict[str, Any], cap: int, *, keep: str | None = None) -> None:
+    if isinstance(cap, bool) or cap < 1:
+        return
     while len(mapping) > cap:
         for key in mapping:
             if key != keep:

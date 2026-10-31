@@ -73,17 +73,19 @@ class RateLimiter:
         state_store: StateStore | None = None,
         scope: str = "default",
     ) -> None:
-        if per_minute < 1:
+        if isinstance(per_minute, bool) or not isinstance(per_minute, int) or per_minute < 1:
             raise ValueError("per_minute MUST be >= 1")
-        if per_hour < 1:
+        if isinstance(per_hour, bool) or not isinstance(per_hour, int) or per_hour < 1:
             raise ValueError("per_hour MUST be >= 1")
+        if not isinstance(scope, str) or not scope.strip():
+            raise ValueError("scope MUST be a non-empty string")
         self._per_minute = per_minute
         self._per_hour = per_hour
         self._now = now
         self._minute_events: deque[float] = deque()
         self._hour_events: deque[float] = deque()
         self._state_store = state_store
-        self._state_key = f"{_STATE_PREFIX}/{scope}"
+        self._state_key = f"{_STATE_PREFIX}/{scope.strip()}"
         self._reservations: dict[str, float] = {}
         self._reservation_minute_heap: list[tuple[float, str]] = []
         self._reservation_hour_heap: list[tuple[float, str]] = []

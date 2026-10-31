@@ -44,6 +44,7 @@ class HeimdallActionObservationMixin:
             ):
                 raise ValueError("action effect observation returned an unsupported event")
             if self.bus is None:
+                self.record_behavior("action_effect_observation:publication_unavailable")
                 raise RuntimeError("action effect observation requires the Heimdall event bus")
             await self.bus.publish(
                 "Heimdall",
