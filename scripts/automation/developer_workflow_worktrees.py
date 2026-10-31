@@ -28,7 +28,12 @@ from scripts.automation.parallel_worktree_reconcile import (  # noqa: E402
 )
 
 MAX_WORKTREES = 64
-__all__ = ["main", "sync_worktree_base", "worktrees_diagnostic"]
+__all__ = [
+    "main",
+    "prune_reclaimable_worktrees",
+    "sync_worktree_base",
+    "worktrees_diagnostic",
+]
 
 
 def _status_line_paths(line: str) -> tuple[str, ...]:
@@ -37,8 +42,24 @@ def _status_line_paths(line: str) -> tuple[str, ...]:
     raw_path = line[3:]
     if (line[0] in {"R", "C"} or line[1] in {"R", "C"}) and " -> " in raw_path:
         old_path, new_path = raw_path.split(" -> ", 1)
-        return (old_path, new_path)
-    return (raw_path,)
+        return (old_path.strip('"'), new_path.strip('"'))
+    return (raw_path.strip('"'),)
+
+
+def _parse_status_z(output: str) -> list[str]:
+    tokens = output.split("\0")
+    paths: list[str] = []
+    index = 0
+    while index < len(tokens):
+        entry = tokens[index]
+        if len(entry) > 3:
+            paths.append(entry[3:])
+            if entry[0] in {"R", "C"} or entry[1] in {"R", "C"}:
+                index += 1
+                if index < len(tokens) and tokens[index]:
+                    paths.append(tokens[index])
+        index += 1
+    return paths
 
 
 def _is_internal_scratch_worktree(path: Path, common_dir: Path) -> bool:
@@ -53,50 +74,70 @@ def _is_internal_scratch_worktree(path: Path, common_dir: Path) -> bool:
     )
 
 
-def _parse_worktree_porcelain(output: str) -> tuple[list[dict[str, str]], bool]:
+def _parse_worktree_porcelain(output: str) -> list[dict[str, str]]:
     records: list[dict[str, str]] = []
     for block in output.strip().split("\n\n"):
         if not block.strip():
             continue
         entry: dict[str, str] = {}
         for line in block.splitlines():
-            if " " in line:
+            if line == "locked" or line.startswith("locked "):
+                entry["locked"] = "true"
+            elif " " in line:
                 key, value = line.split(" ", 1)
                 entry[key] = value
         if "worktree" in entry:
             records.append(entry)
-    return records[:MAX_WORKTREES], len(records) > MAX_WORKTREES
+    return records
 
 
 def _worktree_changed_paths(
     worktree: Path,
     base_sha: str,
     head_sha: str,
-    status_lines: list[str],
+    dirty_paths: list[str],
 ) -> list[str]:
-    paths = {path for line in status_lines for path in _status_line_paths(line) if path}
+    paths = {path for path in dirty_paths if path}
     committed = git(
         worktree,
         "--no-optional-locks",
         "diff",
+        "-z",
         "--name-only",
         "--diff-filter=ACMRTD",
         f"{base_sha}...{head_sha}",
     )
     if committed.returncode == 0:
-        paths.update(line for line in committed.stdout.splitlines() if line)
+        paths.update(item for item in committed.stdout.split("\0") if item)
     return sorted(paths)
 
 
-def _docs_update_targets(repo_root: Path, changed_paths: list[str]) -> list[str]:
+def _canonical_hotspot_doc(path: str) -> str:
+    if path.endswith("-ko.md"):
+        path = f"{path.removesuffix('-ko.md')}.md"
+    if path.startswith("docs/roadmap-implementation/") and path.endswith(".md"):
+        return f"docs/roadmap/{path.removeprefix('docs/roadmap-implementation/')}"
+    return path
+
+
+def _docs_update_targets(
+    repo_root: Path,
+    changed_paths: list[str],
+    *,
+    manifest: dict[str, Any] | None = None,
+) -> list[str]:
     if not changed_paths:
         return []
-    manifest_path = repo_root / "scripts" / "lib" / "design-routes.json"
-    if not manifest_path.is_file():
-        return []
-    try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    loaded_manifest = manifest
+    if loaded_manifest is None:
+        manifest_path = repo_root / "scripts" / "lib" / "design-routes.json"
+        if not manifest_path.is_file():
+            return []
+        try:
+            loaded_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return []
+    if not isinstance(loaded_manifest, dict):
         return []
     doc_impact = _load_script_module(
         "check_design_doc_impact",
@@ -110,10 +151,12 @@ def _docs_update_targets(repo_root: Path, changed_paths: list[str]) -> list[str]
     if not behavior_paths:
         return []
     docs: set[str] = set()
-    for route in manifest.get("routes", ()):
+    for route in loaded_manifest.get("routes", ()):
         if not isinstance(route, dict):
             continue
-        required_docs = [str(item) for item in route.get("docs_update", ()) if item]
+        required_docs = [
+            _canonical_hotspot_doc(str(item)) for item in route.get("docs_update", ()) if item
+        ]
         if not required_docs:
             continue
         patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
@@ -134,7 +177,7 @@ def worktrees_diagnostic(
     resolved: RepositoryLocation | None = None,
 ) -> dict[str, Any]:
     """Inspect registered worktrees for base drift, reclaimable state, and hotspot collisions."""
-    location = resolved or git_common_dir(root)
+    location = (resolved or git_common_dir(root)) if root.is_dir() else None
     if location is None:
         return {
             "read_only": True,
@@ -162,18 +205,35 @@ def worktrees_diagnostic(
             "schema_version": 1,
             "status": "unavailable",
         }
-    raw_entries, truncated = _parse_worktree_porcelain(listing.stdout)
+    all_entries = [
+        raw
+        for raw in _parse_worktree_porcelain(listing.stdout)
+        if Path(raw["worktree"]).is_dir()
+        and not _is_internal_scratch_worktree(Path(raw["worktree"]), common_dir)
+    ]
+    truncated = len(all_entries) > MAX_WORKTREES
+    raw_entries = all_entries[:MAX_WORKTREES]
+    manifest_path = repo_root / "scripts" / "lib" / "design-routes.json"
+    cached_manifest: dict[str, Any] | None = None
+    if manifest_path.is_file():
+        try:
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                cached_manifest = loaded
+        except (OSError, json.JSONDecodeError):
+            cached_manifest = None
+
     worktrees: list[dict[str, Any]] = []
     path_owners: dict[str, list[str]] = {}
     doc_owners: dict[str, list[str]] = {}
+    reclaimable_worktrees: list[str] = []
     behind_active_count = 0
     reclaimable_count = 0
 
     for index, raw in enumerate(raw_entries):
         wt_path = Path(raw["worktree"])
-        if not wt_path.is_dir() or _is_internal_scratch_worktree(wt_path, common_dir):
-            continue
         is_primary = index == 0
+        is_locked = raw.get("locked") == "true"
         head_sha = raw.get("HEAD", "")
         branch_ref = raw.get("branch", "")
         branch = (
@@ -186,10 +246,11 @@ def worktrees_diagnostic(
             "--no-optional-locks",
             "status",
             "--porcelain=v1",
+            "-z",
             "--untracked-files=normal",
         )
-        status_lines = status_res.stdout.splitlines() if status_res.returncode == 0 else []
-        dirty = bool(status_lines)
+        dirty_paths = _parse_status_z(status_res.stdout) if status_res.returncode == 0 else []
+        dirty = bool(dirty_paths)
         counts = git(wt_path, "rev-list", "--left-right", "--count", f"{base_sha}...{head_sha}")
         behind_count = 0
         ahead_count = 0
@@ -199,17 +260,22 @@ def worktrees_diagnostic(
                 behind_count, ahead_count = int(parts[0]), int(parts[1])
         head_tree_res = git(wt_path, "rev-parse", "HEAD^{tree}")
         same_tree = bool(base_tree) and (head_tree_res.stdout.strip() == base_tree)
-        reclaimable = not is_primary and not dirty and (ahead_count == 0 or same_tree)
+        reclaimable = (
+            not is_primary and not is_locked and not dirty and (ahead_count == 0 or same_tree)
+        )
+        wt_label = str(wt_path.resolve())
         if reclaimable:
             reclaimable_count += 1
+            reclaimable_worktrees.append(wt_label)
         active = dirty or (ahead_count > 0 and not same_tree)
         if active and behind_count > 0:
             behind_active_count += 1
         changed = (
-            _worktree_changed_paths(wt_path, base_sha, head_sha, status_lines) if active else []
+            _worktree_changed_paths(wt_path, base_sha, head_sha, dirty_paths) if active else []
         )
-        docs_targets = _docs_update_targets(repo_root, changed) if active else []
-        wt_label = str(wt_path.resolve())
+        docs_targets = (
+            _docs_update_targets(repo_root, changed, manifest=cached_manifest) if active else []
+        )
         for changed_path in changed:
             path_owners.setdefault(changed_path, []).append(wt_label)
         for doc_path in docs_targets:
@@ -226,6 +292,7 @@ def worktrees_diagnostic(
                 "docs_update_targets": docs_targets[:MAX_PATHS],
                 "head": head_sha,
                 "is_primary": is_primary,
+                "locked": is_locked,
                 "reclaimable": reclaimable,
                 "worktree": wt_label,
             }
@@ -253,11 +320,55 @@ def worktrees_diagnostic(
         "path_collisions": path_collisions,
         "read_only": True,
         "reclaimable_count": reclaimable_count,
+        "reclaimable_worktrees": reclaimable_worktrees[:MAX_PATHS],
         "schema_version": 1,
         "status": "warning" if warning else "ok",
         "worktree_count": len(worktrees),
         "worktrees": worktrees,
         "worktrees_truncated": truncated,
+    }
+
+
+def prune_reclaimable_worktrees(
+    root: Path,
+    *,
+    base_ref: str | None = None,
+    apply: bool = False,
+) -> dict[str, Any]:
+    """Preview or remove clean, unlocked, already-merged non-primary worktrees."""
+    diag = worktrees_diagnostic(root, base_ref=base_ref)
+    if diag["status"] == "unavailable":
+        return {
+            "apply": apply,
+            "pruned_worktrees": [],
+            "reason_code": diag["reason_code"],
+            "schema_version": 1,
+            "status": "blocked",
+        }
+    current_top_res = git(root, "rev-parse", "--show-toplevel")
+    current_top = (
+        str(Path(current_top_res.stdout.strip()).resolve())
+        if current_top_res.returncode == 0
+        else str(root.resolve())
+    )
+    candidates = [
+        str(item["worktree"])
+        for item in diag["worktrees"]
+        if item.get("reclaimable") and item.get("worktree") != current_top
+    ]
+    pruned: list[str] = []
+    if apply:
+        for wt_str in candidates:
+            if git(root, "worktree", "remove", wt_str).returncode == 0:
+                pruned.append(wt_str)
+    return {
+        "apply": apply,
+        "candidate_count": len(candidates),
+        "candidate_worktrees": candidates[:MAX_PATHS],
+        "pruned_count": len(pruned),
+        "pruned_worktrees": pruned[:MAX_PATHS],
+        "schema_version": 1,
+        "status": "ok",
     }
 
 
@@ -272,6 +383,10 @@ def main(argv: list[str] | None = None) -> int:
     sync_parser.add_argument("--base", default="refs/remotes/origin/main", dest="base_ref")
     sync_parser.add_argument("--fetch", action="store_true")
     sync_parser.add_argument("--json", action="store_true", dest="as_json")
+    prune_parser = subparsers.add_parser("prune")
+    prune_parser.add_argument("--base", default=None, dest="base_ref")
+    prune_parser.add_argument("--apply", action="store_true")
+    prune_parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args(argv)
     if args.command == "status":
         report = worktrees_diagnostic(Path.cwd(), base_ref=args.base_ref)
@@ -284,6 +399,17 @@ def main(argv: list[str] | None = None) -> int:
                 f"reclaimable={report.get('reclaimable_count', 0)}"
             )
         return 0 if report["status"] != "unavailable" else 1
+    if args.command == "prune":
+        report = prune_reclaimable_worktrees(Path.cwd(), base_ref=args.base_ref, apply=args.apply)
+        if args.as_json:
+            print(json.dumps(report, sort_keys=True))
+        else:
+            print(
+                f"prune-worktrees: status={report['status']} "
+                f"candidates={report.get('candidate_count', 0)} "
+                f"pruned={report.get('pruned_count', 0)}"
+            )
+        return 0 if report["status"] == "ok" else 1
     report = sync_worktree_base(Path.cwd(), base_ref=args.base_ref, fetch=args.fetch)
     if args.as_json:
         print(json.dumps(report, sort_keys=True))

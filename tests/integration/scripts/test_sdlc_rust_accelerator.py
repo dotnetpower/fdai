@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from scripts.automation import changed_test_inputs
 from scripts.automation import local_validation_inputs as inputs
 from scripts.automation import sdlc_rust_accelerator as accel
 
@@ -81,6 +82,19 @@ def test_rust_binary_compiles_and_matches_python_snapshot_and_venv_digests(
     assert digest_rust_no_bc == digest_py_no_bc
     assert digest_rust_all != digest_rust_no_bc
 
+    # Verify worktree_digests parity (including excluded prefix and missing file).
+    (repo / "excluded_dir").mkdir()
+    (repo / "excluded_dir" / "skip.txt").write_text("skip\n", encoding="utf-8")
+    (repo / "untracked.txt").write_text("untracked\n", encoding="utf-8")
+    (repo / "file_0.txt").unlink()
+    excluded = ((repo / "excluded_dir").resolve(),)
+
+    monkeypatch.delenv("FDAI_DISABLE_RUST_ACCELERATOR", raising=False)
+    wt_rust = changed_test_inputs.worktree_digests(repo, excluded)
+    monkeypatch.setenv("FDAI_DISABLE_RUST_ACCELERATOR", "1")
+    wt_py = changed_test_inputs.worktree_digests(repo, excluded)
+    assert wt_rust == wt_py
+
 
 def test_rust_verify_snapshot_enforces_all_fail_closed_boundaries(
     repo: Path,
@@ -136,6 +150,11 @@ def test_rust_verify_snapshot_enforces_all_fail_closed_boundaries(
     submodule_ls_tree = b"160000 commit " + (b"a" * 40) + b"\tsubmodule\0"
     with pytest.raises(ValueError, match="external input"):
         accel.rust_verify_snapshot(repo, "sha1", submodule_ls_tree)
+
+    # 8. Invalid hex object ID -> ValueError("invalid object id").
+    bad_oid_ls_tree = b"100644 blob NOT_A_VALID_HEX_OID\tsource.py\0"
+    with pytest.raises(ValueError, match="invalid object id"):
+        accel.rust_verify_snapshot(repo, "sha1", bad_oid_ls_tree)
 
 
 def test_rust_installed_files_rejects_escaping_symlink_directory(tmp_path: Path) -> None:
@@ -268,4 +287,15 @@ def test_cold_compile_prunes_stale_binaries_and_handles_timeouts(
     monkeypatch.setattr(accel, "_run_subprocess", lambda *_a, **_kw: (1, b"", b"compile failed"))
     assert accel.ensure_binary() is None
     monkeypatch.setattr(accel, "_cache_bin_dir", real_cache_bin_dir)
+    monkeypatch.setattr(accel, "_MEMOIZED_DEFAULT_BIN_DIR", None)
     assert accel._cache_bin_dir().name.startswith("fdai-sdlc-rs-")
+
+    # rust_worktree_digests error/unavailable branches and malformed ls_tree guards.
+    assert accel.rust_worktree_digests(tmp_path, (), b"") is None
+    monkeypatch.setattr(accel, "ensure_binary", lambda *_a: Path("/bin/true"))
+    monkeypatch.setattr(accel, "_run_subprocess", lambda *_a, **_kw: (0, b"only-one-token\n", b""))
+    assert accel.rust_worktree_digests(tmp_path, (), b"") is None
+    with pytest.raises(ValueError, match="malformed ls-tree entry"):
+        accel.rust_verify_snapshot(tmp_path, "sha1", b"no-tab-entry\0")
+    with pytest.raises(ValueError, match="malformed ls-tree metadata"):
+        accel.rust_verify_snapshot(tmp_path, "sha1", b"onlytwo tokens\tfile.py\0")

@@ -44,11 +44,15 @@ HUNK_RE = re.compile(
 
 
 def _load_script_module(name: str, relative_path: str) -> ModuleType:
+    existing = sys.modules.get(name)
+    if isinstance(existing, ModuleType):
+        return existing
     script_path = REPO_ROOT / relative_path
     spec = importlib.util.spec_from_file_location(name, script_path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load module {relative_path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -89,16 +93,20 @@ def _git_blob_sha(root: Path, revision: str, path: str) -> str | None:
 
 
 def _front_matter_fields(text: str) -> tuple[dict[str, str], str] | None:
-    match = FM_RE.match(text)
+    normalized = text.removeprefix("\ufeff")
+    match = FM_RE.match(normalized)
     if match is None:
         return None
     fields: dict[str, str] = {}
     for line in match.group(2).splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
         if ":" not in line:
             return None
         key, value = line.split(":", 1)
         fields[key.strip()] = value.strip().strip("\"'")
-    return fields, text[match.end() :]
+    return fields, normalized[match.end() :]
 
 
 def _translation_pair_meta(
@@ -135,11 +143,17 @@ def _rewrite_ko_front_matter(
         f"translation_revised: {stamp}",
     ]
     for raw_line in fm_block.splitlines():
-        if raw_line.strip() == "---" or ":" not in raw_line:
+        stripped = raw_line.strip()
+        if stripped == "---" or not stripped:
+            continue
+        if stripped.startswith("#"):
+            lines.append(stripped)
+            continue
+        if ":" not in raw_line:
             continue
         key = raw_line.split(":", 1)[0].strip()
         if key not in {"translation_of", "translation_source_sha", "translation_revised"}:
-            lines.append(raw_line)
+            lines.append(raw_line.rstrip("\r"))
     return "---\n" + "\n".join(lines) + "\n---\n" + body_block
 
 
@@ -266,7 +280,26 @@ def _reconcile_table_hunks(
         resolved = HUNK_RE.sub(replace_hunk, section_text)
     except ValueError:
         return None
-    return None if CONFLICT_MARKER_RE.search(resolved) else resolved
+    if CONFLICT_MARKER_RE.search(resolved):
+        return None
+    # Deduplicate identical data rows across the whole section while preserving non-row lines.
+    deduped_lines: list[str] = []
+    seen_rows: set[tuple[str, ...]] = set()
+    seen_keys: dict[str, tuple[str, ...]] = {}
+    for line in resolved.splitlines():
+        row = _table_row_cells(line)
+        if row is None or len(row) != expected_columns:
+            deduped_lines.append(line)
+            continue
+        if unique_first_col and row[0] in seen_keys and seen_keys[row[0]] != row:
+            return None
+        if row in seen_rows:
+            continue
+        seen_rows.add(row)
+        seen_keys[row[0]] = row
+        deduped_lines.append(line)
+    suffix = "\n" if resolved.endswith("\n") else ""
+    return "\n".join(deduped_lines) + suffix
 
 
 def _reconcile_ledger_conflict(
@@ -361,6 +394,8 @@ def _reconcile_service_suites_conflict(
         return False
     merged = deepcopy(ours_json)
     for ours_svc, theirs_svc in zip(merged["services"], theirs_json["services"], strict=True):
+        if ours_svc.get("id") != theirs_svc.get("id"):
+            return False
         for group in SERVICE_TEST_GROUPS:
             target_list = ours_svc["test_groups"][group]
             for item in theirs_svc["test_groups"][group]:
@@ -381,7 +416,7 @@ def sync_worktree_base(
     today: str | None = None,
 ) -> dict[str, Any]:
     """Synchronize a clean topic worktree with its base and reconcile safe hotspot conflicts."""
-    location = git_common_dir(root)
+    location = git_common_dir(root) if root.is_dir() else None
     if location is None:
         return {
             "reason_code": "git_repository_unavailable",
@@ -468,6 +503,18 @@ def sync_worktree_base(
             "base_sha": base_sha,
             "head": base_sha,
             "outcome": "fast_forwarded",
+            "reconciled_paths": [],
+            "schema_version": 1,
+            "status": "ok",
+        }
+    head_tree = git(repo_root, "rev-parse", f"{head_sha}^{{tree}}").stdout.strip()
+    base_tree = git(repo_root, "rev-parse", f"{base_sha}^{{tree}}").stdout.strip()
+    if head_tree and head_tree == base_tree:
+        return {
+            "base_ref": canonical_base_ref,
+            "base_sha": base_sha,
+            "head": head_sha,
+            "outcome": "tree_identical_to_base",
             "reconciled_paths": [],
             "schema_version": 1,
             "status": "ok",

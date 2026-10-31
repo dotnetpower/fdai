@@ -244,7 +244,11 @@ def test_delegated_implementation_ledger_satisfies_roadmap_owner_route(
             }
         ]
     }
-    monkeypatch.setattr(module, "_has_inline_implementation_status", lambda _owner: False)
+    monkeypatch.setattr(
+        module,
+        "_has_inline_implementation_status",
+        lambda _owner, **_kwargs: False,
+    )
 
     assert (
         module.missing_doc_updates(
@@ -271,7 +275,11 @@ def test_mirrored_ledger_cannot_satisfy_inline_status_roadmap_owner(
             }
         ]
     }
-    monkeypatch.setattr(module, "_has_inline_implementation_status", lambda _owner: True)
+    monkeypatch.setattr(
+        module,
+        "_has_inline_implementation_status",
+        lambda _owner, **_kwargs: True,
+    )
 
     failures = module.missing_doc_updates(
         {

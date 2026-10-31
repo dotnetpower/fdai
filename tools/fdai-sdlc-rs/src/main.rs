@@ -2,23 +2,39 @@
 
 use std::env;
 use std::io::{self, Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 #[path = "lib.rs"]
 mod sdlc;
 
-use sdlc::{check_translations, scan_installed_venv, verify_snapshot};
+use sdlc::{check_translations, compute_worktree_digests, scan_installed_venv, verify_snapshot};
+
+fn require_arg_value<'a>(args: &'a [String], index: &mut usize, flag: &str) -> Result<&'a str, ()> {
+    *index += 1;
+    let Some(val) = args.get(*index).map(String::as_str) else {
+        eprintln!("{flag}: missing value");
+        return Err(());
+    };
+    if val.is_empty() || val.starts_with("--") {
+        eprintln!("{flag}: invalid value '{val}'");
+        return Err(());
+    }
+    Ok(val)
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(subcommand) = args.first().map(String::as_str) else {
-        eprintln!("usage: fdai-sdlc-rs <verify-snapshot|installed-digest|check-translations> ...");
+        eprintln!(
+            "usage: fdai-sdlc-rs <verify-snapshot|installed-digest|worktree-digests|check-translations> ..."
+        );
         return ExitCode::from(2);
     };
     match subcommand {
         "verify-snapshot" => cmd_verify_snapshot(&args[1..]),
         "installed-digest" => cmd_installed_digest(&args[1..]),
+        "worktree-digests" => cmd_worktree_digests(&args[1..]),
         "check-translations" => cmd_check_translations(&args[1..]),
         other => {
             eprintln!("fdai-sdlc-rs: unknown subcommand: {other}");
@@ -34,14 +50,16 @@ fn cmd_verify_snapshot(args: &[String]) -> ExitCode {
     while index < args.len() {
         match args[index].as_str() {
             "--root" => {
-                index += 1;
-                root = args.get(index).cloned();
+                let Ok(val) = require_arg_value(args, &mut index, "--root") else {
+                    return ExitCode::from(2);
+                };
+                root = Some(val.to_string());
             }
             "--algorithm" => {
-                index += 1;
-                if let Some(val) = args.get(index) {
-                    algorithm = val.clone();
-                }
+                let Ok(val) = require_arg_value(args, &mut index, "--algorithm") else {
+                    return ExitCode::from(2);
+                };
+                algorithm = val.to_string();
             }
             other => {
                 eprintln!("verify-snapshot: unexpected argument: {other}");
@@ -78,8 +96,10 @@ fn cmd_installed_digest(args: &[String]) -> ExitCode {
     while index < args.len() {
         match args[index].as_str() {
             "--root" => {
-                index += 1;
-                root = args.get(index).cloned();
+                let Ok(val) = require_arg_value(args, &mut index, "--root") else {
+                    return ExitCode::from(2);
+                };
+                root = Some(val.to_string());
             }
             "--skip-bytecode" => {
                 skip_bytecode = true;
@@ -110,14 +130,62 @@ fn cmd_installed_digest(args: &[String]) -> ExitCode {
     }
 }
 
+fn cmd_worktree_digests(args: &[String]) -> ExitCode {
+    let mut root = None;
+    let mut excluded: Vec<PathBuf> = Vec::new();
+    let mut index = 0;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--root" => {
+                let Ok(val) = require_arg_value(args, &mut index, "--root") else {
+                    return ExitCode::from(2);
+                };
+                root = Some(val.to_string());
+            }
+            "--exclude" => {
+                let Ok(val) = require_arg_value(args, &mut index, "--exclude") else {
+                    return ExitCode::from(2);
+                };
+                excluded.push(PathBuf::from(val));
+            }
+            other => {
+                eprintln!("worktree-digests: unexpected argument: {other}");
+                return ExitCode::from(2);
+            }
+        }
+        index += 1;
+    }
+    let Some(root_str) = root else {
+        eprintln!("worktree-digests: --root is required");
+        return ExitCode::from(2);
+    };
+    let mut listed = Vec::new();
+    if let Err(err) = io::stdin().read_to_end(&mut listed) {
+        eprintln!("OSError: {err}");
+        return ExitCode::from(1);
+    }
+    match compute_worktree_digests(Path::new(&root_str), &excluded, &listed) {
+        Ok((content_hex, status_hex)) => {
+            println!("{content_hex} {status_hex}");
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("{err}");
+            ExitCode::from(1)
+        }
+    }
+}
+
 fn cmd_check_translations(args: &[String]) -> ExitCode {
     let mut root = None;
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
             "--root" => {
-                index += 1;
-                root = args.get(index).cloned();
+                let Ok(val) = require_arg_value(args, &mut index, "--root") else {
+                    return ExitCode::from(2);
+                };
+                root = Some(val.to_string());
             }
             other => {
                 eprintln!("check-translations: unexpected argument: {other}");

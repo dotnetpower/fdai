@@ -64,7 +64,11 @@ def _slot_paths(base_state: Path, slots: int) -> tuple[Path, ...]:
 
 def receipt_directory(state: Path) -> Path:
     """Share content-addressed receipts across pooled slots under the same state root."""
-    if state.name.startswith("slot-") and state.parent.name == "fdai-local-validation":
+    if (
+        state.name.startswith("slot-")
+        and state.parent.name == "fdai-local-validation"
+        and not state.parent.is_symlink()
+    ):
         return state.parent / "receipts"
     return state / "receipts"
 

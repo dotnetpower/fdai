@@ -241,17 +241,41 @@ def _canonical_doc_path(path: str) -> str:
     return path
 
 
-def _has_inline_implementation_status(owner_path: str) -> bool:
+def _git_text(revision: str, path: str) -> str | None:
+    completed = subprocess.run(
+        ["git", "show", f"{revision}:{path}"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout if completed.returncode == 0 else None
+
+
+def _has_inline_implementation_status(
+    owner_path: str,
+    *,
+    diff_range: str | None = None,
+    cached: bool = False,
+) -> bool:
     """Return whether a roadmap owner still keeps an authoritative inline status section."""
-    file_path = REPO_ROOT / owner_path
-    if not file_path.is_file():
-        return False
+    text: str | None = None
+    if cached:
+        text = _git_text("", owner_path)
+    elif diff_range and ".." in diff_range:
+        after_ref = diff_range.rsplit("..", 1)[-1]
+        if after_ref:
+            text = _git_text(after_ref, owner_path)
+    if text is None:
+        file_path = REPO_ROOT / owner_path
+        if not file_path.is_file():
+            return False
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except OSError:
+            return True
     in_fence = False
-    try:
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return True
-    for line in lines:
+    for line in text.splitlines():
         if line.lstrip().startswith("```"):
             in_fence = not in_fence
         elif not in_fence and line.strip() == INLINE_STATUS_HEADING:
@@ -259,21 +283,34 @@ def _has_inline_implementation_status(owner_path: str) -> bool:
     return False
 
 
-def _satisfied_doc_paths(path: str) -> tuple[str, ...]:
+def _satisfied_doc_paths(
+    path: str,
+    *,
+    diff_range: str | None = None,
+    cached: bool = False,
+) -> tuple[str, ...]:
     """Map a changed doc or delegated implementation ledger to the owner docs it satisfies."""
     canonical = _canonical_doc_path(path)
     if canonical.startswith(LEDGER_PREFIX) and canonical.endswith(".md"):
         owner = f"{ROADMAP_PREFIX}{canonical.removeprefix(LEDGER_PREFIX)}"
-        if not _has_inline_implementation_status(owner):
+        if not _has_inline_implementation_status(owner, diff_range=diff_range, cached=cached):
             return (canonical, owner)
     return (canonical,)
 
 
 def missing_doc_updates(
-    paths: set[str], manifest: dict[str, Any]
+    paths: set[str],
+    manifest: dict[str, Any],
+    *,
+    diff_range: str | None = None,
+    cached: bool = False,
 ) -> list[tuple[str, tuple[str, ...], tuple[str, ...]]]:
     failures: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
-    canonical_paths = {satisfied for path in paths for satisfied in _satisfied_doc_paths(path)}
+    canonical_paths = {
+        satisfied
+        for path in paths
+        for satisfied in _satisfied_doc_paths(path, diff_range=diff_range, cached=cached)
+    }
     behavior_paths = paths - DERIVED_OUTPUT_PATHS
     routes = manifest["routes"]
     routes_by_id = {str(route["id"]): route for route in routes}
@@ -348,7 +385,12 @@ def main(argv: list[str]) -> int:
         )
     }
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    failures = missing_doc_updates(paths, manifest)
+    failures = missing_doc_updates(
+        paths,
+        manifest,
+        diff_range=argument if argument != "--cached" else None,
+        cached=argument == "--cached",
+    )
     if failures:
         for route_id, impacted, required_docs in failures:
             print(f"design-doc-impact: ERROR: route {route_id} changed:", file=sys.stderr)

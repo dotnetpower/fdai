@@ -18,6 +18,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 CRATE_DIR = REPO_ROOT / "tools" / "fdai-sdlc-rs"
 MAIN_RS = CRATE_DIR / "src" / "main.rs"
 LIB_RS = CRATE_DIR / "src" / "lib.rs"
+_MEMOIZED_DEFAULT_BIN_DIR: Path | None = None
+_MEMOIZED_SOURCE_DIGEST: tuple[tuple[int, int, int, int], str] | None = None
 
 
 def is_disabled() -> bool:
@@ -42,18 +44,47 @@ def _is_secure_owner_path(path: Path) -> bool:
         st = path.lstat()
     except OSError:
         return False
-    return not stat.S_ISLNK(st.st_mode) and st.st_uid == os.getuid() and (st.st_mode & 0o022) == 0
+    return (
+        not stat.S_ISLNK(st.st_mode)
+        and (stat.S_ISDIR(st.st_mode) or stat.S_ISREG(st.st_mode))
+        and st.st_uid == os.getuid()
+        and (st.st_mode & 0o022) == 0
+    )
+
+
+def _is_secure_owner_dir(path: Path) -> bool:
+    try:
+        st = path.lstat()
+    except OSError:
+        return False
+    return (
+        not stat.S_ISLNK(st.st_mode)
+        and stat.S_ISDIR(st.st_mode)
+        and st.st_uid == os.getuid()
+        and (st.st_mode & 0o022) == 0
+    )
 
 
 def source_digest() -> str | None:
-    """Compute the SHA-256 digest of the Rust accelerator sources."""
+    """Compute the SHA-256 digest of the Rust accelerator sources with stat memoization."""
+    global _MEMOIZED_SOURCE_DIGEST
     if not _is_secure_owner_path(MAIN_RS) or not _is_secure_owner_path(LIB_RS):
         return None
+    try:
+        lib_st = LIB_RS.lstat()
+        main_st = MAIN_RS.lstat()
+    except OSError:
+        return None
+    sig = (lib_st.st_mtime_ns, lib_st.st_size, main_st.st_mtime_ns, main_st.st_size)
+    if _MEMOIZED_SOURCE_DIGEST is not None and _MEMOIZED_SOURCE_DIGEST[0] == sig:
+        return _MEMOIZED_SOURCE_DIGEST[1]
     hasher = hashlib.sha256()
     for path in (LIB_RS, MAIN_RS):
         hasher.update(path.name.encode("utf-8") + b"\0")
         hasher.update(path.read_bytes() + b"\0")
-    return hasher.hexdigest()
+    digest = hasher.hexdigest()
+    _MEMOIZED_SOURCE_DIGEST = (sig, digest)
+    return digest
 
 
 def _run_subprocess(
@@ -81,6 +112,9 @@ def _run_subprocess(
 
 
 def _cache_bin_dir() -> Path:
+    global _MEMOIZED_DEFAULT_BIN_DIR
+    if _MEMOIZED_DEFAULT_BIN_DIR is not None and not _MEMOIZED_DEFAULT_BIN_DIR.is_symlink():
+        return _MEMOIZED_DEFAULT_BIN_DIR
     rc, out, _err = _run_subprocess(
         ["git", "rev-parse", "--git-common-dir"],
         cwd=REPO_ROOT,
@@ -93,6 +127,7 @@ def _cache_bin_dir() -> Path:
         )
         candidate = resolved_common / "fdai-local-validation" / "bin"
         if not candidate.is_symlink() and not candidate.parent.is_symlink():
+            _MEMOIZED_DEFAULT_BIN_DIR = candidate
             return candidate
     return Path(tempfile.gettempdir()) / f"fdai-sdlc-rs-{os.getuid()}"
 
@@ -112,7 +147,7 @@ def ensure_binary(_root: Path | None = None) -> Path | None:
     if not bin_dir.exists():
         bin_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         os.chmod(bin_dir, 0o700)
-    if not _is_secure_owner_path(bin_dir):
+    if not _is_secure_owner_dir(bin_dir):
         return None
     binary_path = bin_dir / f"fdai-sdlc-rs-{digest[:16]}"
     if _ready_binary(binary_path):
@@ -192,10 +227,38 @@ def rust_verify_snapshot(
     for entry in ls_tree_bytes.split(b"\0"):
         if not entry:
             continue
+        if b"\t" not in entry:
+            raise ValueError("malformed ls-tree entry")
         metadata, raw_path = entry.split(b"\t", 1)
-        _mode, _kind, expected = metadata.decode().split()
-        files[os.fsdecode(raw_path)] = expected
+        tokens = metadata.decode("utf-8", errors="replace").split()
+        if len(tokens) < 3:
+            raise ValueError("malformed ls-tree metadata")
+        files[os.fsdecode(raw_path)] = tokens[2]
     return files
+
+
+def rust_worktree_digests(
+    root: Path,
+    excluded: tuple[Path, ...],
+    listed_bytes: bytes,
+) -> tuple[str, str] | None:
+    """Compute `(content_hex, status_hex)` for `worktree_digests` in parallel via Rust."""
+    binary = ensure_binary(root)
+    if binary is None:
+        return None
+    cmd = [str(binary), "worktree-digests", "--root", str(root)]
+    for prefix in excluded:
+        cmd.extend(["--exclude", str(prefix)])
+    try:
+        rc, out, err = _run_subprocess(cmd, stdin_bytes=listed_bytes, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if rc != 0:
+        _raise_mapped_error(err.decode("utf-8", errors="replace"))
+    tokens = out.decode("ascii", errors="replace").strip().split()
+    if len(tokens) != 2:
+        return None
+    return tokens[0], tokens[1]
 
 
 def rust_installed_files(

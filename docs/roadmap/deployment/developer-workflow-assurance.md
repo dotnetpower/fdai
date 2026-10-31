@@ -411,17 +411,20 @@ section to `docs/roadmap-implementation/<area>/<name>.md`, updating that ledger 
 route's design-impact check without requiring an artificial edit to the paired normative design
 document. When `rustc` is available, `scripts/automation/sdlc_rust_accelerator.py` compiles the
 zero-dependency `tools/fdai-sdlc-rs` crate once into a digest-pinned owner-only binary under
-`fdai-local-validation/bin` to parallelize `tracked_snapshot`, `installed_digest`, and
-`check-translations.sh`, falling back transparently to the Python and shell implementations when
-`rustc` is absent or `FDAI_DISABLE_RUST_ACCELERATOR=1` is set. Read-only
-`developer-workflow.py worktrees` probes use `--no-optional-locks`, expand
-graduated service route aliases, and split rename/copy porcelain paths so diagnostics never contend
-on worktree `index.lock` files. Explicit `developer_workflow_worktrees.py sync` validates ref
-syntax before Git calls, synchronizes a clean topic worktree with its base, and reconciles only
-in-scope pre-merge `translation_source_sha` front-matter conflicts whose merged Markdown heading
-levels match, append-only implementation-ledger table data rows for delegated owners, and additive
-`service-suites.json` registrations, aborting fail-closed on any failed merge/commit or other
-conflict.
+`fdai-local-validation/bin` to parallelize `tracked_snapshot`, `installed_digest`,
+`worktree_digests`, and `check-translations.sh`, falling back transparently to the Python and shell
+implementations when `rustc` is absent or `FDAI_DISABLE_RUST_ACCELERATOR=1` is set. Read-only
+`developer-workflow.py worktrees` probes use `--no-optional-locks` and NUL-delimited `-z` output,
+filter internal validation scratch worktrees before applying the `MAX_WORKTREES` bound, exclude
+locked checkouts from `reclaimable_worktrees`, expand graduated service route aliases, and split
+rename/copy porcelain paths so diagnostics never contend on worktree `index.lock` files. Explicit
+`developer_workflow_worktrees.py prune` previews or removes only clean, unlocked, already-merged
+non-primary checkouts, while `developer_workflow_worktrees.py sync` validates ref syntax before Git
+calls, detects squash-merged tree-identical bases without creating an empty merge commit, and
+reconciles only in-scope pre-merge `translation_source_sha` front-matter conflicts whose merged
+Markdown heading levels match, append-only implementation-ledger table data rows for delegated
+owners, and additive `service-suites.json` registrations, aborting fail-closed on any failed
+merge/commit or other conflict.
 Fast-gate cache identities are computed once before and after the batch, not once per gate.
 Pure checks bind content; history checks also bind revisions and refs. Input drift rejects the
 batch. Integrity and external-evidence checks remain uncached; CI runs retain their own environment.
