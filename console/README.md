@@ -180,7 +180,7 @@ ready state. Version-skewed or malformed `200` responses become a uniform
 contract error instead of a render crash. Rule detail deep links also preserve
 their explicit `active` or `collected` origin; a missing rule in that origin
 returns `404` instead of falling back across catalog tiers. Architecture
-Inspector drill-downs into Blast Radius and cross-route evidence links also
+Inspector drill-downs into Impact scope and cross-route evidence links also
 preserve `data=sample` when inspecting Sample projections, and inspector source
 timestamps format through `formatConsoleTimestamp`.
 
