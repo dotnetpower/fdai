@@ -36,11 +36,11 @@ describe("conversation delivery dashboard", () => {
     expect(() => decodeConversationDelivery({
       ...payload(),
       delivery_latency_ms: { count: 2, average: 200, p95: 100 },
-    })).toThrow(/p95 MUST be >= average/);
+    })).toThrow(/p95 latency MUST be >= average/);
     expect(() => decodeConversationDelivery({
       ...payload(),
       attempt_count: 1,
       acknowledgement_count: 2,
-    })).toThrow(/acknowledgement_count MUST NOT exceed attempt_count/);
+    })).toThrow(/acknowledgements MUST NOT exceed attempts/);
   });
 });

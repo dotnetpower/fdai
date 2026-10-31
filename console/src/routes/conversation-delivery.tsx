@@ -80,13 +80,13 @@ export function decodeConversationDelivery(value: unknown): ConversationDelivery
   const latencyAverage = nullableMetric(latency, "average");
   const latencyP95 = nullableMetric(latency, "p95");
   if (latencyAverage !== null && latencyP95 !== null && latencyP95 < latencyAverage) {
-    throw new Error("invalid Operator API response: delivery_latency_ms.p95 MUST be >= average");
+    throw new Error("conversation delivery p95 latency MUST be >= average");
   }
   const deliveryCount = panelNonNegativeInteger(root, "delivery_count", "conversation delivery");
   const attemptCount = panelNonNegativeInteger(root, "attempt_count", "conversation delivery");
   const acknowledgementCount = panelNonNegativeInteger(root, "acknowledgement_count", "conversation delivery");
   if (acknowledgementCount > attemptCount) {
-    throw new Error("invalid Operator API response: acknowledgement_count MUST NOT exceed attempt_count");
+    throw new Error("conversation delivery acknowledgements MUST NOT exceed attempts");
   }
   return {
     source: panelNonEmptyString(root, "source", "conversation delivery"),
