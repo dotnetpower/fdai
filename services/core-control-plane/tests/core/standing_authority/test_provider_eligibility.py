@@ -272,7 +272,10 @@ def test_no_shipped_module_mutates_the_adapter_registry() -> None:
     owner = SOURCE_ROOT / "core" / "standing_authority" / "provider_eligibility.py"
     violations: list[str] = []
     for path in _shipped_python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        source = path.read_text(encoding="utf-8")
+        if REGISTRY_NAME not in source:
+            continue
+        tree = ast.parse(source)
         for node in ast.walk(tree):
             targets: list[ast.expr] = []
             if isinstance(node, ast.Assign):

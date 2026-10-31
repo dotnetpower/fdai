@@ -52,7 +52,7 @@ class DeliveryConfig:
     worktree: Path
     remote: str = "origin"
     merge_method: str = "squash"
-    interval_seconds: int = 60
+    interval_seconds: int = 30
     total_timeout_seconds: int = 3600
     no_progress_seconds: int = 1200
     command_timeout_seconds: int = 900

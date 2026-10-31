@@ -41,7 +41,13 @@ def _requires_live_db() -> str:
     return url.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 def _upgrade_head() -> None:
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     result = subprocess.run(  # noqa: S603 - controlled subprocess
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT,
@@ -50,6 +56,8 @@ def _upgrade_head() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 def _entry(uid: uuid.UUID, source_ref: str, *, scope_ref: str) -> OperatorMemoryEntry:

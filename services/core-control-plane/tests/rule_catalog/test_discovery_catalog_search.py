@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -144,14 +146,8 @@ class _ActiveCatalogRetriever:
         return tuple(item.rule_id for item in results)
 
 
-def _load_active_corpus(
-    *,
-    control_objectives: tuple[ControlObjective, ...] = (),
-    objective_bindings: tuple[RuleObjectiveBinding, ...] = (),
-) -> tuple[
-    tuple[CatalogSearchDocument, ...],
-    CatalogGenerationMetadata,
-]:
+@cache
+def _cached_active_catalog_inputs() -> tuple[Any, tuple[Any, ...], dict[str, Any], str]:
     registry = PackageResourceSchemaRegistry()
     ontology = load_ontology_catalog(
         RULE_CATALOG_ROOT,
@@ -175,6 +171,51 @@ def _load_active_corpus(
         rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
         for rule in rules
     }
+    return ontology, rules, policy_semantics, ontology.build_release().digest
+
+
+@cache
+def _cached_baseline_active_corpus() -> tuple[
+    tuple[CatalogSearchDocument, ...],
+    CatalogGenerationMetadata,
+]:
+    ontology, rules, policy_semantics, ontology_release_digest = _cached_active_catalog_inputs()
+    documents = build_catalog_search_documents(
+        rules=rules,
+        action_types=ontology.action_types,
+        policy_semantics=policy_semantics,
+    )
+    return documents, _generation_metadata(
+        corpus="active",
+        catalog_digest=rule_reference_catalog_digest(rules),
+        ontology_release_digest=ontology_release_digest,
+        documents=documents,
+    )
+
+
+@cache
+def _cached_discovery_rules_and_documents() -> tuple[
+    tuple[Any, ...],
+    tuple[CatalogSearchDocument, ...],
+]:
+    rules = load_discovery_rule_catalog(
+        DISCOVERY_ROOT,
+        schema_registry=PackageResourceSchemaRegistry(),
+    )
+    return rules, build_discovery_catalog_search_documents(rules)
+
+
+def _load_active_corpus(
+    *,
+    control_objectives: tuple[ControlObjective, ...] = (),
+    objective_bindings: tuple[RuleObjectiveBinding, ...] = (),
+) -> tuple[
+    tuple[CatalogSearchDocument, ...],
+    CatalogGenerationMetadata,
+]:
+    if not control_objectives and not objective_bindings:
+        return _cached_baseline_active_corpus()
+    ontology, rules, policy_semantics, ontology_release_digest = _cached_active_catalog_inputs()
     documents = build_catalog_search_documents(
         rules=rules,
         action_types=ontology.action_types,
@@ -185,7 +226,7 @@ def _load_active_corpus(
     return documents, _generation_metadata(
         corpus="active",
         catalog_digest=rule_reference_catalog_digest(rules),
-        ontology_release_digest=ontology.build_release().digest,
+        ontology_release_digest=ontology_release_digest,
         documents=documents,
     )
 
@@ -218,30 +259,7 @@ def test_candidate_policy_abstractions_do_not_change_active_rule_projection() ->
     binding = RuleObjectiveBinding.model_validate(
         yaml.safe_load(BINDING_PATH.read_text(encoding="utf-8"))
     )
-
-    registry = PackageResourceSchemaRegistry()
-    ontology = load_ontology_catalog(
-        RULE_CATALOG_ROOT,
-        schema_registry=registry,
-        probes_root=RULE_CATALOG_ROOT / "probes",
-    )
-    resource_types = load_resource_type_registry_from_mapping(
-        yaml.safe_load(
-            (RULE_CATALOG_ROOT / "vocabulary" / "resource-types.yaml").read_text(encoding="utf-8")
-        )
-    )
-    rules = load_rule_catalog(
-        RULE_CATALOG_ROOT / "catalog",
-        schema_registry=registry,
-        action_types=ontology.action_types,
-        resource_types=resource_types,
-        policies_root=REPO_ROOT / "policies",
-        remediation_root=RULE_CATALOG_ROOT / "remediation",
-    )
-    policy_semantics = {
-        rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
-        for rule in rules
-    }
+    ontology, rules, policy_semantics, _ = _cached_active_catalog_inputs()
 
     projected = build_catalog_search_documents(
         rules=rules,
@@ -290,11 +308,7 @@ def test_reviewed_binding_with_stale_rule_pin_fails_projection() -> None:
 
 
 def test_complete_discovery_corpus_materializes_with_replayable_identity() -> None:
-    rules = load_discovery_rule_catalog(
-        DISCOVERY_ROOT,
-        schema_registry=PackageResourceSchemaRegistry(),
-    )
-    documents = build_discovery_catalog_search_documents(rules)
+    rules, documents = _cached_discovery_rules_and_documents()
     document_digests = tuple(catalog_search_document_digest(item) for item in documents)
     manifest = build_document_digest_manifest(document_digests)
 
@@ -337,11 +351,7 @@ def test_discovery_loader_rejects_invalid_and_duplicate_records(tmp_path: Path) 
 
 async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> None:
     active_documents, active_metadata = _load_active_corpus()
-    discovery_rules = load_discovery_rule_catalog(
-        DISCOVERY_ROOT,
-        schema_registry=PackageResourceSchemaRegistry(),
-    )
-    discovery_documents = build_discovery_catalog_search_documents(discovery_rules)
+    discovery_rules, discovery_documents = _cached_discovery_rules_and_documents()
     discovery_first = _generation_metadata(
         corpus="discovery",
         catalog_digest=rule_reference_catalog_digest(discovery_rules),
@@ -486,30 +496,7 @@ async def test_real_active_rule_corpus_uses_validated_exact_generation() -> None
 
 
 async def test_korean_surface_candidate_passes_exact_inactive_generation_review() -> None:
-    registry = PackageResourceSchemaRegistry()
-    ontology = load_ontology_catalog(
-        RULE_CATALOG_ROOT,
-        schema_registry=registry,
-        probes_root=RULE_CATALOG_ROOT / "probes",
-    )
-    resource_types = load_resource_type_registry_from_mapping(
-        yaml.safe_load(
-            (RULE_CATALOG_ROOT / "vocabulary" / "resource-types.yaml").read_text(encoding="utf-8")
-        )
-    )
-    rules = load_rule_catalog(
-        RULE_CATALOG_ROOT / "catalog",
-        schema_registry=registry,
-        action_types=ontology.action_types,
-        resource_types=resource_types,
-        policies_root=REPO_ROOT / "policies",
-        remediation_root=RULE_CATALOG_ROOT / "remediation",
-    )
-    policy_semantics = {
-        rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
-        for rule in rules
-    }
-    ontology_release_digest = ontology.build_release().digest
+    ontology, rules, policy_semantics, ontology_release_digest = _cached_active_catalog_inputs()
     manifests = {
         rule.id: build_rego_semantic_manifest(
             rule,

@@ -61,7 +61,13 @@ def _dsn() -> str:
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 def _upgrade() -> None:
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     upgrade = subprocess.run(  # noqa: S603 - controlled module invocation
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=_ROOT,
@@ -70,6 +76,8 @@ def _upgrade() -> None:
         check=False,
     )
     assert upgrade.returncode == 0, upgrade.stderr
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 @pytest.fixture
