@@ -425,3 +425,22 @@ async def test_exact_document_context_and_cloud_target_never_widen_to_collection
         with pytest.raises(RuntimeError, match="exact cloud applicability"):
             await case.reader.search(**arguments)
     assert search.calls == []
+
+
+def test_citation_times_rejects_inverted_chronology_and_applicability_ignores_none_selectors() -> (
+    None
+):
+    from fdai.core.knowledge.cloud_applicability import cloud_target_from_arguments
+
+    with pytest.raises(ValueError, match="precede collection"):
+        citation_times(NOW, NOW - timedelta(minutes=1), status="fresh", korean=False)
+
+    assert cloud_target_from_arguments({"cloud_provider": None, "cloud_skus": None}) is None
+    with pytest.raises(ValueError, match="provider, resource type, and generation"):
+        cloud_target_from_arguments(
+            {
+                "cloud_provider": None,
+                "cloud_resource_type": "network",
+                "cloud_generation": "v1",
+            }
+        )

@@ -224,3 +224,7 @@ def test_epistemic_coverage_receipt_rejects_tampered_counts_and_digest() -> None
         replace(receipt, passed=False)
     with pytest.raises(ValueError, match="digest does not match"):
         replace(receipt, receipt_digest=DIGEST_B)
+    with pytest.raises(ValueError, match="MUST be finite"):
+        replace(_question("answer", universe), source_span_coverage=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="outside the bound"):
+        replace(receipt, expected_case_count=True)  # type: ignore[arg-type]

@@ -103,13 +103,20 @@ def _append_output_rows(
     rows = output.get("rows")
     if not isinstance(node_id, str) or not isinstance(rows, list):
         return
+    seen_row_ids = set(row_identities)
     for row in rows:
         if not isinstance(row, Mapping):
             continue
         row_id = row.get("row_id")
         values = row.get("values")
-        if not isinstance(row_id, str) or not isinstance(values, Mapping):
+        if (
+            not isinstance(row_id, str)
+            or not row_id.strip()
+            or row_id in seen_row_ids
+            or not isinstance(values, Mapping)
+        ):
             continue
+        seen_row_ids.add(row_id)
         key = TypedRowKey(
             row_type="semantic_query_row",
             row_digest=content_digest({"row_id": row_id}),

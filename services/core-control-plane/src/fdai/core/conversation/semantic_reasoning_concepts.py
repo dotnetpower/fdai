@@ -421,6 +421,8 @@ def plan_concept_selection(
 
     if admission.disposition is not AdmissionDisposition.ADMITTED:
         raise ValueError("concept selection requires an admitted form")
+    if isinstance(max_model_calls, bool) or max_model_calls < 0:
+        raise ValueError("concept selection max_model_calls MUST be non-negative")
     by_domain: dict[MentionDomain, list[dict[str, Any]]] = {}
     unavailable: list[ConceptBinding] = []
     for mention in admission.form.mentions:
@@ -602,7 +604,13 @@ def agree_concepts(
     bindings: list[ConceptBinding] = []
     for binding in primary.bindings:
         other = second.binding(binding.mention_id)
-        agreed = other is not None and other.outcome is binding.outcome
+        domain_presented = (
+            binding.domain.value not in primary.presented
+            or binding.domain.value not in second.presented
+            or primary.presented.get(binding.domain.value)
+            == second.presented.get(binding.domain.value)
+        )
+        agreed = domain_presented and other is not None and other.outcome is binding.outcome
         if agreed and binding.outcome is ConceptOutcome.ACCEPTED:
             agreed = other is not None and set(other.values) == set(binding.values)
         if agreed:

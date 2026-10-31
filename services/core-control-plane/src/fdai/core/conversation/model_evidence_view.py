@@ -27,6 +27,7 @@ _CELL_ALLOWLIST = frozenset(
         "inventory_read_at",
         "location",
         "name",
+        "operation",
         "property",
         "property_name",
         "property_value",
@@ -190,6 +191,10 @@ def _allowed_cells(values: dict[str, Any]) -> dict[str, object]:
     if _is_link_row(values):
         return _scalar_cells(values, _LINK_EVIDENCE_ALLOWLIST)
     cells = _scalar_cells(values, _CELL_ALLOWLIST)
+    group = values.get("group")
+    if isinstance(group, dict):
+        for key, value in _scalar_cells(group, _CELL_ALLOWLIST).items():
+            cells.setdefault(key, value)
     # An ObjectSet row nests its readable properties; allowlisted scalars are lifted, and
     # the provider bag inside them stays out because it is a provider body.
     nested = values.get("properties")

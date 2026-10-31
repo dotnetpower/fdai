@@ -232,3 +232,29 @@ def test_greeting_prefix_does_not_swallow_operational_intent(
     prompt: str, intent: AnswerIntent
 ) -> None:
     assert build_answer_plan(prompt, intent=intent, route_id="overview").intent is intent
+
+
+def test_greeting_keeps_brief_shape_under_deep_preferences_and_validates_profile() -> None:
+    preferences = ResponsePreferenceProfile(
+        locale="en",
+        default_detail=DetailLevel.DEEP,
+        default_format=AnswerFormat.TABLE,
+        intent_detail={},
+        intent_format={},
+        explicit_only=False,
+        updated_at=datetime(2026, 7, 17, tzinfo=UTC),
+    )
+    plan = build_answer_plan("hello", intent=AnswerIntent.GREETING, preferences=preferences)
+    assert plan.detail_level is DetailLevel.BRIEF
+    assert plan.preference_applied is False
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        ResponsePreferenceProfile(
+            locale="en",
+            default_detail=DetailLevel.BRIEF,
+            default_format=AnswerFormat.PROSE,
+            intent_detail={},
+            intent_format={},
+            explicit_only=False,
+            updated_at=datetime(2026, 7, 17),
+        )

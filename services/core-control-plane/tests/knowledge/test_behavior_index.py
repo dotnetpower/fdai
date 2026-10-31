@@ -329,3 +329,32 @@ async def test_comparison_signals_incompleteness_when_every_peer_is_stale() -> N
     compared = await index.compare("compare trust routing and quality gate")
 
     assert compared == ()
+
+
+async def test_compare_finds_fresh_contracts_beyond_stale_top_rank_and_guards_nan_cosine() -> None:
+    class _NanEmbedder:
+        async def embed(self, text: str) -> list[float]:
+            return [float("nan")] + [0.0] * (EMBEDDING_DIM - 1)
+
+    index = InMemoryBehaviorKnowledgeIndex(
+        TrackedSourceFreshnessValidator(tracked_blobs=dict(TRACKED)),
+        embedder=_NanEmbedder(),
+    )
+    await index.upsert(
+        _spec(
+            "behavior-0-stale",
+            subject_id="trust routing",
+            aliases=("compare trust routing and quality gate",),
+            sources=(_source(CODE_PATH, blob_sha="blob-code-outdated"),),
+        )
+    )
+    await index.upsert(_spec("behavior-1-fresh", subject_id="trust routing", aliases=("a alias",)))
+    await index.upsert(_spec("behavior-2-fresh", subject_id="quality gate", aliases=("b alias",)))
+
+    compared = await index.compare("compare trust routing and quality gate", k=2)
+
+    assert sorted(result.spec.behavior_id for result in compared) == [
+        "behavior-1-fresh",
+        "behavior-2-fresh",
+    ]
+    assert await index.search("???", k=1) == ()

@@ -78,3 +78,27 @@ async def test_a_population_beyond_its_read_budget_or_of_another_generation_stat
 def test_a_population_read_never_emits_lineage() -> None:
     with pytest.raises(ValueError, match="population reads endpoints"):
         _traversal(emit_lineage=True)
+
+
+async def test_population_count_normalizes_root_ids_and_returns_zero_when_empty() -> None:
+    gateway = await fixture_gateway()
+    assert (
+        await traversal_population_count(
+            gateway,
+            _traversal(),
+            root_ids=(),
+            request=_REQUEST,
+            expected_generation="fixture-generation",
+        )
+        == 0
+    )
+    assert (
+        await traversal_population_count(
+            gateway,
+            _traversal(),
+            root_ids=("  sub-1  ", ""),
+            request=_REQUEST,
+            expected_generation="fixture-generation",
+        )
+        == 2
+    )

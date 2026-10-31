@@ -183,7 +183,11 @@ class EpistemicQuestionRecord:
             ("source_span_coverage", self.source_span_coverage),
             ("semantic_atom_coverage", self.semantic_atom_coverage),
         ):
-            if not math.isfinite(coverage_value) or not 0.0 <= coverage_value <= 1.0:
+            if (
+                isinstance(coverage_value, bool)
+                or not math.isfinite(coverage_value)
+                or not 0.0 <= coverage_value <= 1.0
+            ):
                 raise ValueError(f"{coverage_name} MUST be finite and in [0, 1]")
         violation_counts = (
             self.ungrounded_claim_count,
@@ -192,7 +196,7 @@ class EpistemicQuestionRecord:
             self.unsafe_mutation_survivor_count,
             self.locale_divergence_count,
         )
-        if any(value < 0 for value in violation_counts):
+        if any(isinstance(value, bool) or value < 0 for value in violation_counts):
             raise ValueError("epistemic violation counts MUST be non-negative")
         if self.epistemic_status is not EpistemicStatus.CANCELLED:
             if self.understanding_receipt_digest is None:
@@ -248,11 +252,17 @@ class EpistemicCoverageReceipt:
         )
         _require_digest("question_universe_digest", self.question_universe_digest)
         _require_digest("receipt_digest", self.receipt_digest)
-        if not 0 <= self.expected_case_count <= _MAX_CASES:
+        if (
+            isinstance(self.expected_case_count, bool)
+            or not 0 <= self.expected_case_count <= _MAX_CASES
+        ):
             raise ValueError("epistemic expected case count is outside the bound")
-        if not 0 <= self.closed_case_count <= self.expected_case_count:
+        if (
+            isinstance(self.closed_case_count, bool)
+            or not 0 <= self.closed_case_count <= self.expected_case_count
+        ):
             raise ValueError("epistemic closed case count is outside the expected bound")
-        if self.violation_count < 0:
+        if isinstance(self.violation_count, bool) or self.violation_count < 0:
             raise ValueError("epistemic violation count MUST be non-negative")
         expected_passed = (
             self.closed_case_count == self.expected_case_count and self.violation_count == 0

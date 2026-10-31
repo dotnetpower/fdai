@@ -129,6 +129,11 @@ def _node_operands(kind: QueryNodeKind, value: Mapping[str, object]) -> tuple[st
                 found.extend(_predicate_operands(predicate))
     elif kind in {QueryNodeKind.METRIC_SERIES, QueryNodeKind.METRIC_SCOPE_SERIES}:
         found.extend(_identity_values(value.get("resource_id")))
+    elif kind is QueryNodeKind.TELEMETRY_RECIPE:
+        need = value.get("need")
+        if isinstance(need, Mapping):
+            found.extend(_identity_values(need.get("resource_ref")))
+            found.extend(_identity_values(need.get("incident_id")))
     elif kind is QueryNodeKind.FUNCTION:
         arguments = value.get("arguments")
         if isinstance(arguments, Mapping):
@@ -154,9 +159,9 @@ def _predicate_operands(value: Mapping[str, object]) -> tuple[str, ...]:
 
 def _identity_values(value: object) -> tuple[str, ...]:
     if isinstance(value, str):
-        return (value,)
-    if isinstance(value, list):
-        return tuple(item for item in value if isinstance(item, str))
+        return (value,) if value.strip() else ()
+    if isinstance(value, list | tuple):
+        return tuple(item for item in value if isinstance(item, str) and item.strip())
     return ()
 
 

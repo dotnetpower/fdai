@@ -247,3 +247,10 @@ def test_rendered_order_digest_matches_console_fixture_order() -> None:
     assert handle.rendered_order_digest != rendered_order_digest(
         tuple(sorted(console_rows, key=str))
     )
+
+
+def test_result_handle_key_and_binding_validate_machine_tokens_and_non_empty_fields() -> None:
+    with pytest.raises(ValueError, match="machine token"):
+        ResultHandleKey("INVALID KEY!", b"a" * 32)
+    with pytest.raises(ValueError, match="binding fields MUST be non-empty"):
+        _binding(purpose="   ")

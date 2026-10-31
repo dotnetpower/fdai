@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -53,7 +54,11 @@ class AnswerContribution:
             raise ValueError("AnswerContribution fact or caveat cap exceeded")
         if len(self.suggested_sections) > 12 or len(self.evidence_refs) > 32:
             raise ValueError("AnswerContribution section or evidence cap exceeded")
-        if not 0.0 <= self.confidence <= 1.0:
+        if (
+            isinstance(self.confidence, bool)
+            or not math.isfinite(self.confidence)
+            or not 0.0 <= self.confidence <= 1.0
+        ):
             raise ValueError("AnswerContribution.confidence MUST be in [0, 1]")
         if any(not item.strip() or len(item) > 1_000 for item in self.caveats):
             raise ValueError("AnswerContribution.caveats MUST contain 1-1000 characters")
@@ -324,7 +329,12 @@ def _select_candidates(
 ) -> tuple[PlanningCandidate, ...]:
     deduplicated: dict[str, PlanningCandidate] = {}
     for candidate in route.candidates:
-        if not candidate.agent.strip() or candidate.agent == route.primary_agent:
+        if (
+            not candidate.agent.strip()
+            or candidate.agent == route.primary_agent
+            or isinstance(candidate.score, bool)
+            or not math.isfinite(candidate.score)
+        ):
             continue
         current = deduplicated.get(candidate.agent)
         if current is None or candidate.score > current.score:

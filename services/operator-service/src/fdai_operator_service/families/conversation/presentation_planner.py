@@ -565,13 +565,22 @@ def _timestamps_are_ordered(
 
 def _limitations(output: Mapping[str, object]) -> tuple[str, ...]:
     raw = output.get("limitations", ())
-    if not isinstance(raw, list | tuple):
-        return ()
-    return tuple(item for item in raw if isinstance(item, str) and item)
+    items = [
+        item.strip()
+        for item in (raw if isinstance(raw, list | tuple) else ())
+        if isinstance(item, str) and item.strip()
+    ]
+    for key in ("source_truncation_reason", "truncation_reason"):
+        reason = output.get(key)
+        if isinstance(reason, str) and reason.strip():
+            items.append(reason.strip())
+    return tuple(dict.fromkeys(items))
 
 
 def _first_field(columns: list[str], candidates: tuple[str, ...]) -> str | None:
-    by_leaf = {field.rsplit(".", 1)[-1].casefold(): field for field in columns}
+    by_leaf: dict[str, str] = {}
+    for field in columns:
+        by_leaf.setdefault(field.rsplit(".", 1)[-1].casefold(), field)
     return next((by_leaf[candidate] for candidate in candidates if candidate in by_leaf), None)
 
 

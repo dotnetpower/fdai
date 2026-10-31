@@ -69,6 +69,14 @@ class ResultHandleBinding:
     now: datetime
 
     def __post_init__(self) -> None:
+        if (
+            not self.deployment_scope_digest.strip()
+            or not self.principal_digest.strip()
+            or not self.conversation_id.strip()
+            or not self.purpose.strip()
+            or not self.manifest_digest.strip()
+        ):
+            raise ValueError("result handle binding fields MUST be non-empty")
         if self.now.tzinfo is None or self.now.utcoffset() is None:
             raise ValueError("result handle binding time MUST be timezone-aware")
 
@@ -89,6 +97,8 @@ class ResultHandleKey:
     key: bytes
 
     def __post_init__(self) -> None:
+        if _MACHINE_TOKEN.fullmatch(self.key_version) is None:
+            raise ValueError("result handle key_version MUST be a machine token")
         if len(self.key) != 32:
             raise ValueError("result handle encryption keys MUST be 32 bytes")
 
