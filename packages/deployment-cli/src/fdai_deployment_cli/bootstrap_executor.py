@@ -17,8 +17,10 @@ from uuid import UUID
 from fdai_deployment_cli.bootstrap_approval import approval_source
 from fdai_deployment_cli.bootstrap_channel import _read, _write, prepare_directory
 from fdai_deployment_cli.bootstrap_support import (
+    check_unowned_existing_groups,
     configure_wsl_browser,
     default_profile_subscription_and_tenant,
+    reset_unapplied_installation,
     sync_local_azure_profile,
 )
 
@@ -233,6 +235,15 @@ class BootstrapExecutor:
                 "accounts": self.accounts(),
                 "message": "Available Azure subscriptions refreshed.",
             }
+        if action == "reset":
+            try:
+                reset_unapplied_installation(self.area)
+            except ValueError as exc:
+                raise BootstrapBlocked(str(exc)) from exc
+            return {
+                "accounts": self.accounts(),
+                "message": "Setup configuration reset. Choose a subscription and region to start again.",
+            }
         if action == "inspect":
             retained = _read(self.area, "configuration.json")
             receipt = _read(self.area, "acceptance.json")
@@ -266,6 +277,15 @@ class BootstrapExecutor:
                 )
             self._az("account", "set", "--subscription", subscription)
             config.update(self._target(subscription))
+            if self.run is subprocess.run and self.planner is None:
+                try:
+                    check_unowned_existing_groups(
+                        self.area,
+                        str(config["region"]),
+                        self._az("group", "list", "--query", "[].{name:name}"),
+                    )
+                except ValueError as exc:
+                    raise BootstrapBlocked(str(exc)) from exc
             _write(self.area, config, "configuration.json")
         if (self.area / "native-ownership.json").exists():
             raise BootstrapBlocked(
@@ -330,11 +350,16 @@ class BootstrapExecutor:
             self._target(str(config["subscription_id"]), str(config["tenant_id"]))
             return result
 
+        from fdai_deployment_cli.deployment_progress import DeploymentProgress
+
         original_environment = dict(os.environ)
         try:
             os.environ.clear()
             os.environ.update(self.environment)
-            with approval_source(exact_decision):
+            with (
+                DeploymentProgress(mode="plain", auto_refresh=False),
+                approval_source(exact_decision),
+            ):
                 result = (self.planner or plan_source_installation)(
                     source_root=source,
                     work_dir=self.area / "deployment",

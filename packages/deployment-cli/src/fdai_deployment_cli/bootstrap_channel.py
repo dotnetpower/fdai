@@ -182,7 +182,7 @@ def read_status(root: Path) -> dict[str, object]:
 def validate_request(action: str, payload: dict[str, object]) -> dict[str, object]:
     if (
         not isinstance(action, str)
-        or action not in {"login", "accounts", "install", "resume", "inspect"}
+        or action not in {"login", "accounts", "install", "resume", "inspect", "reset"}
         or not isinstance(payload, dict)
     ):
         raise ValueError("Unsupported Bootstrap action or payload")
@@ -271,6 +271,7 @@ def submit_request(root: Path, action: str, payload: dict[str, object]) -> dict[
             "resume",
             "login",
             "accounts",
+            "reset",
         }:
             raise ValueError(
                 "Inspect or resume the interrupted installation before starting other work"

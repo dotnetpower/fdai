@@ -396,3 +396,22 @@ def test_login_passes_optional_tenant_and_accounts_prioritize_default_real_subsc
     result = executor.execute("login", {"tenant_id": TENANT})
     assert seen_commands[0][:4] == ["az", "login", "--tenant", TENANT]
     assert [item["id"] for item in result["accounts"]] == [SUBSCRIPTION, other_sub]
+
+
+def test_reset_clears_unapplied_state_and_refuses_mutated_foundation(tmp_path):
+    executor = BootstrapExecutor(tmp_path, lambda _: {}, run=fake_az)
+    channel._write(
+        tmp_path, {"subscription_id": SUBSCRIPTION, "tenant_id": TENANT}, "configuration.json"
+    )
+    f_dir = tmp_path / "deployment/foundation"
+    f_dir.mkdir(parents=True)
+    (f_dir / "status.json").write_text(json.dumps({"mutation_performed": False}))
+    result = executor.execute("reset", {})
+    assert not (tmp_path / "configuration.json").exists()
+    assert not (tmp_path / "deployment").exists()
+    assert result["accounts"][0]["id"] == SUBSCRIPTION
+
+    f_dir.mkdir(parents=True)
+    (f_dir / "status.json").write_text(json.dumps({"mutation_performed": True}))
+    with pytest.raises(BootstrapBlocked, match="already modified"):
+        executor.execute("reset", {})

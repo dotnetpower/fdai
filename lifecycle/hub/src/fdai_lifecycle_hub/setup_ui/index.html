@@ -23,6 +23,12 @@
       <p class="lead" data-i18n="intro">Connect your Azure account, choose an installation target, and review each exact plan before applying it.</p>
       <p class="muted" data-i18n="standalone">This local Hub starts without an FDAI Runtime or PostgreSQL.</p>
     </div>
+    <ol id="stepper" class="stepper" aria-label="Setup steps">
+      <li id="step-1" class="step-item" data-state="active"><span class="step-badge">1</span><span data-i18n="stepConnect">Connect Azure</span></li>
+      <li id="step-2" class="step-item" data-state="pending"><span class="step-badge">2</span><span data-i18n="stepTarget">Choose target</span></li>
+      <li id="step-3" class="step-item" data-state="pending"><span class="step-badge">3</span><span data-i18n="stepReview">Review &amp; apply</span></li>
+      <li id="step-4" class="step-item" data-state="pending"><span class="step-badge">4</span><span data-i18n="stepReady">Ready</span></li>
+    </ol>
     <p id="notice" role="alert" hidden></p>
     <section class="status-section" aria-labelledby="status-heading">
       <div class="section-heading">
@@ -43,17 +49,19 @@
     </section>
     <div class="workspace">
       <div class="configuration">
-        <section aria-labelledby="account-heading">
+        <section id="account-section" aria-labelledby="account-heading">
           <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
-          <p data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
-          <div class="field">
-            <label for="tenant" data-i18n="tenant">Azure tenant ID or domain (optional)</label>
-            <input id="tenant" name="tenant" pattern="[A-Za-z0-9._-]{1,128}" maxlength="128" autocomplete="off" spellcheck="false" disabled aria-describedby="tenant-help">
-            <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.</p>
-          </div>
-          <div class="button-row">
-            <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
-            <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>
+          <p class="compact-help" data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
+          <div class="connect-grid">
+            <div class="field compact-field">
+              <label for="tenant" data-i18n="tenant">Azure tenant ID or domain (optional)</label>
+              <input id="tenant" name="tenant" pattern="[A-Za-z0-9._-]{1,128}" maxlength="128" autocomplete="off" spellcheck="false" disabled aria-describedby="tenant-help">
+              <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.</p>
+            </div>
+            <div class="button-row connect-actions">
+              <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
+              <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>
+            </div>
           </div>
         </section>
         <form id="install-form">
@@ -69,7 +77,17 @@
             <div class="field-grid">
               <div class="field">
                 <label for="region" data-i18n="region">Azure region</label>
-                <input id="region" name="region" required pattern="[a-z][a-z0-9]{1,31}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="region-help">
+                <input id="region" name="region" list="region-list" required pattern="[a-z][a-z0-9]{1,31}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="region-help">
+                <datalist id="region-list">
+                  <option value="koreacentral"></option>
+                  <option value="eastus2"></option>
+                  <option value="eastus"></option>
+                  <option value="westus3"></option>
+                  <option value="westus2"></option>
+                  <option value="japaneast"></option>
+                  <option value="southeastasia"></option>
+                  <option value="westeurope"></option>
+                </datalist>
                 <p id="region-help" class="hint" data-i18n="regionHelp">Enter the supported Azure location name for your target, using lowercase letters and digits.</p>
               </div>
               <div class="field">
@@ -111,14 +129,12 @@
           <h3 id="review-title"></h3>
           <p data-i18n="reviewHelp">Approval applies only to this request, review, and digest. Read every detail before continuing.</p>
           <ul id="review-details" class="review-details"></ul>
-          <dl class="metadata review-metadata">
-            <div><dt data-i18n="reviewId">Review</dt><dd id="review-id"></dd></div>
-            <div><dt data-i18n="digest">Plan digest</dt><dd id="review-digest"></dd></div>
-            <div><dt data-i18n="expires">Expires</dt><dd id="review-expires"></dd></div>
-          </dl>
           <form id="decision-form">
             <div id="confirmation-field" class="field" hidden>
-              <label for="confirmation" data-i18n="confirmation">Type this exact confirmation</label>
+              <div class="confirmation-header">
+                <label for="confirmation" data-i18n="confirmation">Type this exact confirmation</label>
+                <button id="fill-confirmation" type="button" class="secondary" data-i18n="fillConfirmation">Fill confirmation</button>
+              </div>
               <p id="confirmation-required" class="exact-value"></p>
               <input id="confirmation" autocomplete="off" spellcheck="false" aria-describedby="confirmation-required">
             </div>
@@ -128,6 +144,11 @@
               <button id="decline" type="button" class="secondary" disabled data-i18n="decline">Decline</button>
             </div>
           </form>
+          <dl class="metadata review-metadata">
+            <div><dt data-i18n="reviewId">Review</dt><dd id="review-id"></dd></div>
+            <div><dt data-i18n="digest">Plan digest</dt><dd id="review-digest"></dd></div>
+            <div><dt data-i18n="expires">Expires</dt><dd id="review-expires"></dd></div>
+          </dl>
         </section>
         <section id="recovery-section" aria-labelledby="recovery-heading" hidden>
           <h2 id="recovery-heading" data-i18n="recovery">Inspect before resuming</h2>
@@ -135,6 +156,7 @@
           <div class="button-row">
             <button id="inspect" type="button" class="secondary" disabled data-i18n="inspect">Inspect retained state</button>
             <button id="resume" type="button" disabled data-i18n="resume">Resume explicitly</button>
+            <button id="reset" type="button" class="secondary" disabled data-i18n="reset">Reset setup</button>
           </div>
         </section>
         <section id="ready-section" aria-labelledby="ready-heading" hidden>

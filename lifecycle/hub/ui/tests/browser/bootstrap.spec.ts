@@ -160,7 +160,8 @@ test("exact plan remains inert text and requires its exact confirmation", async 
   await expect(page.locator("#approve")).toBeDisabled();
   await page.locator("#confirmation").fill("apply exact plan");
   await expect(page.locator("#approve")).toBeDisabled();
-  await page.locator("#confirmation").fill(review.confirmation_required);
+  await page.locator("#fill-confirmation").click();
+  await expect(page.locator("#confirmation")).toHaveValue(review.confirmation_required);
   await expect(page.locator("#approve")).toBeEnabled();
   const firstDetail = await page.locator("#review-details li").first().elementHandle();
   await app.refresh();
@@ -214,8 +215,11 @@ for (const phase of ["blocked", "failed", "interrupted"]) {
     await expect(page.locator("#resume")).toBeEnabled();
     await page.locator("#resume").click();
     await expect.poll(() => app.posts.length).toBe(2);
+    await expect(page.locator("#reset")).toBeEnabled();
+    await page.locator("#reset").click();
+    await expect.poll(() => app.posts.length).toBe(3);
     expect(app.posts.map(item => item.body)).toEqual([
-      { action: "inspect", payload: {} }, { action: "resume", payload: {} },
+      { action: "inspect", payload: {} }, { action: "resume", payload: {} }, { action: "reset", payload: {} },
     ]);
   });
 }

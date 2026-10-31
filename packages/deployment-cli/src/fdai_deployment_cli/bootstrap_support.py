@@ -105,6 +105,102 @@ def sync_local_azure_profile(source_azure: Path, target_azure: Path) -> None:
             continue
 
 
+def check_unowned_existing_groups(area: Path, region: str, query_groups: object) -> None:
+    """Block a fresh install fast if rg-fdai-ops-* or rg-fdai-dev-* already exists in region."""
+    if (area / "deployment/foundation/foundation-variables.json").is_file():
+        return
+    from fdai_deployment_cli.azure_naming import azure_region_short_name
+
+    try:
+        short = azure_region_short_name(region)
+    except ValueError:
+        return
+    expected = {f"rg-fdai-ops-{short}", f"rg-fdai-dev-{short}"}
+    if not isinstance(query_groups, list):
+        return
+    found = sorted(
+        str(item.get("name"))
+        for item in query_groups
+        if isinstance(item, dict) and str(item.get("name", "")).lower() in expected
+    )
+    if found:
+        joined = ", ".join(found)
+        raise ValueError(
+            f"Existing FDAI resource groups ({joined}) already exist in region '{region}'. "
+            "Choose another Azure region (such as koreacentral or eastus2) or remove the existing groups first."
+        )
+
+
+def latest_progress_message(root: Path, current: str) -> str:
+    """Extract a safe, human-readable stage progress summary from engine-trace.log."""
+    trace = root / "executor/engine-trace.log"
+    try:
+        if not trace.is_file() or trace.is_symlink():
+            return current
+        raw = trace.read_bytes()[-8192:].decode("utf-8", errors="replace")
+    except OSError:
+        return current
+    stage_line = ""
+    elapsed = ""
+    detail_line = ""
+    for line in raw.splitlines():
+        clean = line.strip()
+        if clean.startswith("==> [") and "|" in clean:
+            parts = [part.strip() for part in clean.removeprefix("==>").split("|")]
+            stage_line = f"{parts[0]} ({parts[2]})" if len(parts) >= 3 else parts[0]
+            elapsed = ""
+        elif clean.startswith(".. still running | elapsed"):
+            elapsed = clean.split("elapsed", 1)[-1].strip()
+        elif line.startswith("      ") and len(clean) <= 120 and not stage_line:
+            detail_line = clean
+    if stage_line:
+        return f"{stage_line} - elapsed {elapsed}" if elapsed else stage_line
+    if detail_line:
+        return detail_line
+    return current
+
+
+def failure_diagnostic_message(root: Path) -> str:
+    """Return a safe stage and reason code summary when the executor stops."""
+    status_file = root / "executor/deployment/foundation/status.json"
+    try:
+        if status_file.is_file() and not status_file.is_symlink():
+            data = json.loads(status_file.read_bytes().decode("utf-8"))
+            stage = data.get("current_stage")
+            reason = data.get("reason_code")
+            if isinstance(stage, str) and isinstance(reason, str):
+                return (
+                    f"Stage '{stage}' stopped ({reason}). "
+                    "Inspect retained state or reset setup if no resources were created."
+                )
+    except (OSError, ValueError):
+        pass
+    return "Executor stopped. Inspect private traces and retained evidence before resuming."
+
+
+def reset_unapplied_installation(area: Path) -> None:
+    """Clear retained pre-apply setup state when no Azure resource mutation has occurred."""
+    if (area / "native-ownership.json").exists():
+        raise ValueError(
+            "Native lifecycle ownership was accepted; Bootstrap cannot reset this installation."
+        )
+    status_file = area / "deployment/foundation/status.json"
+    if status_file.is_file() and not status_file.is_symlink():
+        try:
+            data = json.loads(status_file.read_bytes().decode("utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError(
+                "Retained Foundation status cannot be verified; inspect before resetting."
+            ) from exc
+        if not isinstance(data, dict) or data.get("mutation_performed") is not False:
+            raise ValueError(
+                "Azure resources were already modified; inspect or resume the retained installation."
+            )
+    (area / "configuration.json").unlink(missing_ok=True)
+    (area / "acceptance.json").unlink(missing_ok=True)
+    shutil.rmtree(area / "deployment", ignore_errors=True)
+
+
 def resolve_hub_source(
     area: Path, pem: str, supplied: str | None
 ) -> tuple[Path, HubImageSelection]:

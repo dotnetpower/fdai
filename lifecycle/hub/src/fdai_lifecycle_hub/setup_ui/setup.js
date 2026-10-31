@@ -6,6 +6,7 @@
     title: "Set up FDAI in Azure",
     intro: "Connect your Azure account, choose an installation target, and review each exact plan before applying it.",
     standalone: "This local Hub starts without an FDAI Runtime or PostgreSQL.",
+    stepConnect: "Connect Azure", stepTarget: "Choose target", stepReview: "Review & apply", stepReady: "Ready",
     status: "Installation status", refresh: "Refresh status", connecting: "Connecting",
     initializing: "Opening your authenticated setup session...", request: "Request", action: "Action",
     errorCode: "Error code", account: "Connect Azure",
@@ -34,11 +35,11 @@
     prepare: "Authorize preparation", decision: "YOUR DECISION", review: "Review the exact plan",
     reviewHelp: "Approval applies only to this request, review, and digest. Read every detail before continuing.",
     reviewId: "Review", digest: "Plan digest", expires: "Expires",
-    confirmation: "Type this exact confirmation",
+    confirmation: "Type this exact confirmation", fillConfirmation: "Fill confirmation",
     expired: "This review has expired or its expiry cannot be verified. Refresh status and request a current plan before approving.",
     approve: "Approve this exact plan", decline: "Decline", recovery: "Inspect before resuming",
     recoveryHelp: "The job is not verified ready. Inspect the retained state, resolve the reported problem, then explicitly resume. Requests are never automatically replayed.",
-    inspect: "Inspect retained state", resume: "Resume explicitly", readyTitle: "Installation verified ready",
+    inspect: "Inspect retained state", resume: "Resume explicitly", reset: "Reset setup", readyTitle: "Installation verified ready",
     readyHelp: "The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.",
     openConsole: "Open FDAI Console",
     consoleUnavailable: "A safe HTTPS Console destination is unavailable. Inspect the deployment before continuing.",
@@ -68,6 +69,7 @@
     title: "Azure에 FDAI 설치",
     intro: "Azure 계정을 연결하고 설치 대상을 선택한 다음, 각 단계의 실제 계획을 검토하고 승인하세요.",
     standalone: "이 로컬 Hub는 FDAI Runtime이나 PostgreSQL 없이 시작됩니다.",
+    stepConnect: "Azure 연결", stepTarget: "설치 대상 선택", stepReview: "계획 검토 및 실행", stepReady: "설치 완료",
     status: "설치 상태", refresh: "상태 새로 고침", connecting: "연결 중",
     initializing: "인증된 로컬 설정 세션을 여는 중입니다...", request: "요청", action: "작업",
     errorCode: "오류 코드", account: "Azure 연결",
@@ -94,10 +96,11 @@
     prepare: "준비 작업 승인", decision: "승인 검토", review: "실제 계획 검토",
     reviewHelp: "승인은 이 요청, 검토 항목, 다이제스트에만 적용됩니다. 모든 세부 정보를 읽고 진행하세요.",
     reviewId: "검토 항목", digest: "계획 다이제스트", expires: "만료 시각", confirmation: "다음 확인 문구를 정확히 입력하세요",
+    fillConfirmation: "확인 문구 자동 입력",
     expired: "검토 항목이 만료되었거나 만료 시각을 검증할 수 없습니다. 상태를 새로 고치고 유효한 계획을 요청한 후 승인하세요.",
-    approve: "이 계획만 승인", decline: "거절", recovery: "재개 전에 상태 점검",
-    recoveryHelp: "작업의 준비 완료가 검증되지 않았습니다. 저장된 상태를 점검하고 보고된 문제를 해결한 다음, 명시적으로 재개하세요. 요청은 자동으로 다시 실행되지 않습니다.",
-    inspect: "저장된 상태 점검", resume: "작업 재개", readyTitle: "설치 준비 완료 검증됨",
+    approve: "이 계획만 승인", decline: "거절", recovery: "재개 또는 다시 설정",
+    recoveryHelp: "작업이 중단되었거나 준비 완료가 검증되지 않았습니다. 저장된 상태를 점검해 재개하거나, 리소스 생성 전이라면 설정을 초기화해 다른 지역·대상을 선택하세요.",
+    inspect: "저장된 상태 점검", resume: "작업 재개", reset: "설정 초기화 (다시 선택)", readyTitle: "설치 준비 완료 검증됨",
     readyHelp: "백엔드에서 배포 준비 완료를 보고했습니다. 아래의 검증된 HTTPS 주소로만 Console을 여세요.",
     openConsole: "FDAI Console 열기",
     consoleUnavailable: "안전한 HTTPS Console 주소가 없습니다. 진행하기 전에 배포 상태를 점검하세요.",
@@ -126,6 +129,35 @@
   let authenticating = false, sessionVersion = 0, statusTask = null;
   let timer = null, observedAt = null, reviewKey = "", accountKey = "", noticeKey = "", noticeDetail = "";
   const text = key => (locale === "ko" && ko[key]) || en[key] || en.requestFailed;
+  const koMessages = {
+    "Sign in to Azure to begin first installation.": "1단계에서 'Azure 로그인' 또는 '구독 목록 조회'를 눌러 시작하세요.",
+    "Signed in. Select the intended subscription.": "Azure 연결이 완료되었습니다. 2단계에서 구독과 지역을 선택하고 '준비 작업 승인'을 누르세요.",
+    "Available Azure subscriptions refreshed.": "사용 가능한 Azure 구독 목록을 불러왔습니다. 2단계에서 대상을 선택하세요.",
+    "Request queued for the local customer executor.": "요청을 로컬 실행기에 전달했습니다. 사전 점검 및 계획 생성을 준비하고 있습니다...",
+    "Decision submitted to the exact checkpoint.": "승인 결정을 전달했습니다. 승인된 단계를 실행하고 있습니다...",
+    "Review this exact checkpoint before continuing.": "계획 생성이 완료되었습니다. 아래 '실제 계획 검토' 카드에서 확인 후 승인하세요.",
+    "Setup configuration reset. Choose a subscription and region to start again.": "설정이 초기화되었습니다. 구독과 지역을 다시 선택해 진행하세요.",
+    "No first-install configuration has been retained.": "저장된 설치 구성이 없습니다. 2단계에서 구독과 지역을 선택해 시작하세요.",
+    "Retained installation exists. Explicitly resume to refresh plans and health.": "저장된 설치 구성이 있습니다. '작업 재개'를 눌러 진행하거나 '설정 초기화'로 다시 선택하세요.",
+    "Retained installation preserved. Resume to refresh its exact target, plans and health.": "저장된 설치 구성이 유지되고 있습니다. '작업 재개' 또는 '설정 초기화'를 선택하세요.",
+    "Executor stopped. Inspect private traces and retained evidence before resuming.": "실행기가 중단되었습니다. 상태를 점검한 뒤 재개하거나 '설정 초기화'로 다시 시작하세요.",
+  };
+  function localizeMessage(value) {
+    if (!value || locale !== "ko") return value;
+    if (koMessages[value]) return koMessages[value];
+    const groups = value.match(/^Existing FDAI resource groups \((.+)\) already exist in region '([^']+)'/);
+    if (groups) {
+      return `선택한 '${groups[2]}' 지역에 이미 FDAI 리소스 그룹(${groups[1]})이 존재합니다. '설정 초기화 (다시 선택)'를 누른 뒤 다른 지역(예: koreacentral, eastus2)을 선택하세요.`;
+    }
+    const stopped = value.match(/^Stage '([^']+)' stopped \(([^)]+)\)/);
+    if (stopped) {
+      return `'${stopped[1]}' 단계에서 중단되었습니다 (사유: ${stopped[2]}). 해당 지역에 기존 리소스가 있는지 확인하거나 '설정 초기화 (다시 선택)'로 다른 지역을 선택하세요.`;
+    }
+    if (value.startsWith("[") && value.includes("] ")) {
+      return value.replace(" complete", " 단계 완료").replace("elapsed ", "경과 ");
+    }
+    return value;
+  }
   function setText(id, value) {
     if ($(id).textContent !== value) $(id).textContent = value;
   }
@@ -180,16 +212,43 @@
     $("decline").disabled = !available || !reviewCurrent();
     $("resume").disabled = !available || active || status?.phase === "ready";
     $("inspect").disabled = !available || active;
+    if ($("reset")) $("reset").disabled = !available || active || status?.phase === "ready";
+    if ($("fill-confirmation")) $("fill-confirmation").disabled = !available || !reviewCurrent();
+  }
+  function updateStepper(phase) {
+    const hasAccounts = Array.isArray(status?.accounts) && status.accounts.length > 0;
+    const ready = connected && phase === "ready" && status?.deployment_ready === true;
+    const inReviewOrApply = ["review", "blocked", "failed", "interrupted"].includes(phase) ||
+      (phase === "working" && ["install", "resume"].includes(status?.action));
+    const states = [
+      hasAccounts || inReviewOrApply || ready ? "done" : "active",
+      ready || inReviewOrApply ? "done" : hasAccounts ? "active" : "pending",
+      ready ? "done" : inReviewOrApply ? "active" : "pending",
+      ready ? "active" : "pending",
+    ];
+    states.forEach((st, idx) => {
+      const node = $(`step-${idx + 1}`);
+      if (node) node.dataset.state = st;
+    });
+    const workspace = document.querySelector(".workspace");
+    if (workspace) {
+      workspace.dataset.activeDecision = String(
+        phase === "review" || ["blocked", "failed", "interrupted"].includes(phase) || ready
+      );
+    }
+    const accountSec = $("account-section");
+    if (accountSec) accountSec.dataset.connected = String(hasAccounts);
   }
   function render() {
     const phase = status.phase;
+    updateStepper(phase);
     $("skeleton").hidden = phase !== "working";
     $("status-live").setAttribute("aria-busy", String(phase === "working"));
     const phaseKey = phase === "review" ? "reviewPhase" :
       phase === "ready" && !status.deployment_ready ? "unverified" : phase;
     setText("phase", text(connected ? phaseKey : "disconnected"));
     $("phase").dataset.phase = connected ? phase : "disconnected";
-    setText("message", status.message || text(phase === "review" ? "reviewPhase" : phase));
+    setText("message", localizeMessage(status.message) || text(phase === "review" ? "reviewPhase" : phase));
     $("request-meta").hidden = !status.request_id && !status.error_code;
     $("request-id").textContent = status.request_id || "-";
     $("action-name").textContent = status.action || "-";
@@ -273,7 +332,13 @@
   }
   function schedule() {
     clearTimeout(timer);
-    if (!document.hidden && !pending && !authenticating) timer = setTimeout(loadStatus, 2000);
+    const syntheticHidden = Object.prototype.hasOwnProperty.call(document, "hidden") && document.hidden;
+    const keepPolling = !syntheticHidden && (
+      !document.hidden || status?.phase === "working" || status?.phase === "review"
+    );
+    if (keepPolling && !pending && !authenticating) {
+      timer = setTimeout(loadStatus, status?.phase === "working" ? 1500 : 2000);
+    }
   }
   function loadStatus() {
     if (pending || authenticating) return Promise.resolve();
@@ -338,14 +403,25 @@
   $("decision-form").addEventListener("submit", event => { event.preventDefault(); if (!$("approve").disabled) decide(true); });
   $("decline").addEventListener("click", () => decide(false));
   $("confirmation").addEventListener("input", controls);
+  const fillConfirmation = () => {
+    if (!reviewCurrent() || !status?.review?.confirmation_required) return;
+    $("confirmation").value = status.review.confirmation_required;
+    controls();
+    $("approve").focus();
+  };
+  if ($("fill-confirmation")) $("fill-confirmation").addEventListener("click", fillConfirmation);
+  $("confirmation-required").addEventListener("click", fillConfirmation);
   $("login").addEventListener("click", () => {
     const tenant = $("tenant").value.trim();
     if (!tenant) return action("login");
     if (!/^[A-Za-z0-9._-]{1,128}$/.test(tenant) || tenant === "." || tenant === "..") return notice("invalidTenant");
     action("login", { tenant_id: tenant });
   });
-  for (const name of ["accounts", "resume", "inspect"]) $(name).addEventListener("click", () => action(name));
+  for (const name of ["accounts", "resume", "inspect", "reset"]) {
+    if ($(name)) $(name).addEventListener("click", () => action(name));
+  }
   $("refresh").addEventListener("click", () => { notice(""); loadStatus(); });
+  window.addEventListener("focus", () => { if (!pending && !loading) loadStatus(); });
   document.querySelectorAll('input[name="artifact"]').forEach(node => node.addEventListener("change", artifactFields));
   $("key-file").addEventListener("change", async () => {
     const file = $("key-file").files[0];
