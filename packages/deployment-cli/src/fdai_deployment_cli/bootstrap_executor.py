@@ -424,7 +424,25 @@ class BootstrapExecutor:
         self._target(str(config["subscription_id"]), str(config["tenant_id"]))
         ready = result.get("deployment_ready") is True
         console = result.get("console_url") if ready else None
-        if ready and console is None and result.get("browser_access_verified") is True:
+        app_receipt = result
+        if (
+            ready
+            and console is None
+            and app_receipt.get("browser_access_verified") is not True
+            and isinstance(result.get("application_receipt_digest"), str)
+        ):
+            from fdai_deployment_cli.contracts import canonical_digest
+
+            candidate = _read(
+                self.area / "deployment/foundation", "standalone-application-receipt.json"
+            )
+            app_digest = candidate.pop("receipt_digest", None)
+            if (
+                app_digest == result.get("application_receipt_digest")
+                and canonical_digest(candidate) == app_digest
+            ):
+                app_receipt = candidate
+        if ready and console is None and app_receipt.get("browser_access_verified") is True:
             from fdai_deployment_cli.contracts import canonical_digest
 
             publication = _read(
@@ -432,7 +450,7 @@ class BootstrapExecutor:
             )
             digest = publication.pop("receipt_digest", None)
             if (
-                digest != result.get("console_publication_receipt_digest")
+                digest != app_receipt.get("console_publication_receipt_digest")
                 or canonical_digest(publication) != digest
             ):
                 raise BootstrapBlocked(

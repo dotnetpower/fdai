@@ -128,7 +128,11 @@
     keyRead: "공개 키 파일을 읽을 수 없습니다. 읽을 수 있는 공개 PEM 파일을 선택하세요.",
   };
   const $ = id => document.getElementById(id);
-  let locale = navigator.language.toLowerCase().startsWith("ko") ? "ko" : "en";
+  let savedLocale = "";
+  try { savedLocale = localStorage.getItem("fdai_setup_locale") || ""; } catch { savedLocale = ""; }
+  let locale = (savedLocale === "ko" || savedLocale === "en")
+    ? savedLocale
+    : (navigator.language.toLowerCase().startsWith("ko") ? "ko" : "en");
   let status = null, csrf = "", connected = false, pending = false, loading = false;
   let authenticating = false, sessionVersion = 0, statusTask = null;
   let timer = null, observedAt = null, reviewKey = "", accountKey = "", noticeKey = "", noticeDetail = "";
@@ -145,6 +149,7 @@
     "Retained installation exists. Explicitly resume to refresh plans and health.": "저장된 설치 구성이 있습니다. '작업 재개'를 눌러 진행하거나 '설정 초기화'로 다시 선택하세요.",
     "Retained installation preserved. Resume to refresh its exact target, plans and health.": "저장된 설치 구성이 유지되고 있습니다. '작업 재개' 또는 '설정 초기화'를 선택하세요.",
     "Executor stopped. Inspect private traces and retained evidence before resuming.": "실행기가 중단되었습니다. 상태를 점검한 뒤 재개하거나 '설정 초기화'로 다시 시작하세요.",
+    "Independent health and zero-change acceptance completed.": "독립 상태 점검 및 Terraform 무변경 검증이 모두 완료되었습니다. 아래 '콘솔 열기' 버튼을 눌러 배포된 FDAI 웹 콘솔에 접속하세요.",
     "Installation is not accepted. Inspect retained private evidence before resuming.": "사전 점검(해당 리전 VM SKU/쿼터 제한 등)에서 차단되었습니다. '설정 초기화 (다시 선택)'를 누른 뒤 가용한 리전(예: westus3)을 선택하세요.",
   };
   const koStageDetails = {
@@ -154,6 +159,25 @@
     "Checking the public compute estimate": "4/5 리전 컴퓨트 예상 비용 산정 중",
     "Preparing the checksum-pinned Terraform executable": "5/5 해시 검증된 Terraform 실행 파일 준비 중",
     "Preparing Foundation inputs and the retained execution context": "Foundation 입력 및 Terraform 계획 컨텍스트 준비 중",
+    "Verifying the handoff and preparing the source snapshot for Bastion transfer": "[13/15] 애플리케이션 및 Entra 계획 (12 단계 완료) · Bastion을 통한 배포 스냅샷 전송 준비 중",
+    "Verifying the handoff and preparing the signed kit for Bastion transfer": "[13/15] 애플리케이션 및 Entra 계획 (12 단계 완료) · Bastion을 통한 서명 키트 전송 준비 중",
+    "Converging the focused private data-plane access path": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 프라이빗 데이터 플레인 접근 경로 구성 중",
+    "Converging policy-forced private access before effect recovery": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 테넌트 정책에 따른 프라이빗 엔드포인트 연결 구성 중",
+    "Recovering the failed infrastructure apply without repeating its effect": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 프라이빗 엔드포인트 구성 후 인프라 상태 검증 중",
+    "Recovering by verification, or planning private infrastructure": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 프라이빗 인프라(PostgreSQL·ACR·Key Vault) 계획 수립 중",
+    "Applying the approved infrastructure plan and verifying its effects": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 프라이빗 인프라(PostgreSQL·ACR·Key Vault) 생성 및 검증 중",
+    "Preparing and planning the private AKS runtime": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 프라이빗 AKS 런타임 클러스터 계획 수립 중",
+    "Planning Container Insights association after AKS cluster creation": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · AKS 클러스터 생성 완료 후 Container Insights 연결 중",
+    "Importing runtime images and reading back their digests": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 컨테이너 런타임 이미지 빌드 및 ACR 가져오기 중",
+    "No capability token; the keyless Trial opens after the application deploys": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 30일 평가판(Trial) 라이선스 모드 준비 중",
+    "Running database migrations and materializing catalogs": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 데이터베이스 스키마 마이그레이션 및 카탈로그 적재 중",
+    "Recovering by verification, or planning the application": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · AKS 애플리케이션 워크로드 배포 계획 수립 중",
+    "Applying the approved application plan and verifying its effects": "[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · AKS 애플리케이션 및 콘솔 서비스 배포 및 검증 중",
+    "Opening the Trial window at the installation's anchored creation time": "[15/15] 최종 상태 및 무변경 검증 (14 단계 완료) · 30일 평가판(Trial) 활성화 중",
+    "Collecting and independently reading back the initial inventory": "[15/15] 최종 상태 및 무변경 검증 (14 단계 완료) · 초기 리소스 인벤토리 수집 및 검증 중",
+    "Publishing or explicitly skipping the frozen catalog review": "[15/15] 최종 상태 및 무변경 검증 (14 단계 완료) · 카탈로그 검토 체크포인트 확인 중",
+    "Checking service health and a second zero-change Terraform plan": "[15/15] 최종 상태 및 무변경 검증 (14 단계 완료) · 서비스 상태 응답 및 2차 Terraform 무변경 검증 중",
+    "Registering the Console redirect and publishing verified static files": "[15/15] 최종 상태 및 무변경 검증 (14 단계 완료) · 콘솔 Entra 리디렉션 등록 및 정적 웹 앱 게시 중",
   };
   function localizeMessage(value) {
     if (!value || locale !== "ko") return value;
@@ -168,7 +192,7 @@
     }
     const stopped = value.match(/^Stage '([^']+)' stopped \(([^)]+)\)/);
     if (stopped) {
-      return `'${stopped[1]}' 단계에서 중단되었습니다 (사유: ${stopped[2]}). '설정 초기화 (다시 선택)'로 다시 시도하거나 상태를 점검하세요.`;
+      return `'${stopped[1]}' 단계에서 일시 중단되었습니다 (사유: ${stopped[2]}). 아래 '보류된 작업 재개' 버튼을 눌러 완료된 단계 이후부터 이어서 진행하거나, 초기 상태라면 '설정 초기화 (다시 선택)'를 누르세요.`;
     }
     for (const [enPrefix, koPrefix] of Object.entries(koStageDetails)) {
       if (value === enPrefix) return `${koPrefix}...`;
@@ -176,12 +200,43 @@
         return `${koPrefix}... (경과 ${value.split(" - elapsed ")[1]})`;
       }
     }
+    const tfMatch = value.match(/^"[a-z0-9_]+":\s*\d+(?:\s*-\s*elapsed\s+([0-9:]+))?$/);
+    if (tfMatch) {
+      return `[14/15] 애플리케이션 및 런타임 배포 (13 단계 완료) · 승인된 Terraform 리소스 변경 적용 중...${tfMatch[1] ? ` (경과 ${tfMatch[1]})` : ""}`;
+    }
     const dcMatch = value.match(/^Device code sign-in: open (https:\/\/[^\s]+) and enter code ([A-Z0-9]+) to authenticate\.$/);
     if (dcMatch) {
       return `디바이스 코드 로그인: 브라우저에서 ${dcMatch[1]} 를 열고 코드 [${dcMatch[2]}] 를 입력해 인증을 완료하세요.`;
     }
     if (value.startsWith("[") && value.includes("] ")) {
-      return value.replace(" complete", " 단계 완료").replace("- elapsed ", "· 경과 ");
+      const koSubPhases = {
+        "Application identity": "애플리케이션 Entra ID 구성",
+        "Managed-host transfer": "관리형 실행기(Runner)로 배포 패키지 전송 중",
+        "Private infrastructure": "프라이빗 인프라(PostgreSQL·ACR·Key Vault) 계획 및 배포 중",
+        "AKS cluster and node pools": "AKS 클러스터 및 노드 풀 프로비저닝 중",
+        "Runtime images": "컨테이너 런타임 이미지 빌드 및 ACR 가져오기 중",
+        "Database placement": "데이터베이스 배치 구성 중",
+        "Capability mode": "런타임 기능 및 라이선스 모드 설정 중",
+        "Database and catalogs": "데이터베이스 마이그레이션 및 카탈로그 적재 중",
+        "Application deployment": "AKS 워크로드 및 콘솔 서비스 배포 중",
+        "Initial resource inventory": "초기 리소스 인벤토리 수집 및 검증 중",
+        "Frozen catalog review": "카탈로그 검토 체크포인트 확인 중",
+        "Health and zero-change plan": "서비스 상태 응답 및 Terraform 무변경 검증 중",
+        "Cleanup and final receipt": "임시 전송 파일 정리 및 최종 영수증 기록 중",
+      };
+      let out = value.replace(" complete", " 단계 완료").replace("- elapsed ", "· 경과 ");
+      const idxMatch = out.match(/^\[(\d{2})\/15\]\s+([^(]+)\((\d+\s*단계 완료)\)(.*)$/);
+      if (idxMatch) {
+        const stIdx = Number(idxMatch[1]) - 1;
+        const stMeta = STAGE_CATALOG[stIdx];
+        const koTitle = stMeta ? stMeta.koTitle : idxMatch[2].trim();
+        let rest = idxMatch[4] || "";
+        for (const [enSub, koSub] of Object.entries(koSubPhases)) {
+          if (rest.includes(`- ${enSub}`)) rest = rest.replace(`- ${enSub}`, `· ${koSub}`);
+        }
+        return `[${idxMatch[1]}/15] ${koTitle} (${idxMatch[3]})${rest}`;
+      }
+      return out;
     }
     return value;
   }
@@ -232,7 +287,10 @@
       const stName = msg.split("'")[1];
       currentIdx = STAGE_CATALOG.findIndex(s => s.id === stName);
     } else if (phase === "working" && ["install", "resume"].includes(status?.action)) {
-      if (msg.includes("source snapshot")) currentIdx = 2;
+      if (msg.includes("zero-change Terraform") || msg.includes("Console redirect") || msg.includes("initial inventory") || msg.includes("catalog review") || msg.includes("Trial window")) currentIdx = 14;
+      else if (msg.includes("infrastructure") || msg.includes("private access") || /^"[a-z0-9_]+":\s*\d+/.test(msg) || msg.includes("AKS runtime") || msg.includes("Container Insights") || msg.includes("runtime images") || msg.includes("database migrations") || msg.includes("application plan") || msg.includes("planning the application") || msg.includes("keyless Trial")) currentIdx = 13;
+      else if (msg.includes("Bastion transfer")) currentIdx = 12;
+      else if (msg.includes("source snapshot")) currentIdx = 2;
       else if (msg.includes("AKS SKU") || msg.includes("identity names") || msg.includes("compute estimate")) currentIdx = 1;
       else if (msg.includes("Terraform executable")) currentIdx = 0;
       else if (msg.includes("Foundation inputs")) currentIdx = 5;
@@ -279,7 +337,7 @@
           meter.setAttribute("aria-valuenow", String(pct));
         }
         const fill = $("stage-progress-fill");
-        if (fill) fill.style.width = `${Math.max(4, pct)}%`;
+        if (fill) fill.dataset.completed = String(prog.completedCount);
         $("fact-complete").replaceChildren();
         const cStrong = document.createElement("strong"); cStrong.textContent = String(prog.completedCount);
         $("fact-complete").append(cStrong, locale === "ko" ? " 완료" : " complete");
@@ -491,7 +549,16 @@
     let data;
     try { data = await response.json(); } catch { throw new Error(text("invalid")); }
     if (!response.ok) {
-      if (response.status === 401) throw new Error(text("auth"));
+      if (response.status === 401) {
+        if (path === "status" && !window.__fdaiLoopbackRetried) {
+          window.__fdaiLoopbackRetried = true;
+          try {
+            await request("session", { token: "local-loopback" });
+            return await request(path, body);
+          } catch { /* fall through */ }
+        }
+        throw new Error(text("auth"));
+      }
       throw new Error(typeof data.error === "string" ? data.error : text("requestFailed"));
     }
     return data;
@@ -617,7 +684,11 @@
     } catch { notice("keyRead"); }
     finally { $("key-file").value = ""; }
   });
-  $("locale").addEventListener("change", () => { locale = $("locale").value === "ko" ? "ko" : "en"; localize(); });
+  $("locale").addEventListener("change", () => {
+    locale = $("locale").value === "ko" ? "ko" : "en";
+    try { localStorage.setItem("fdai_setup_locale", locale); } catch { /* ignore */ }
+    localize();
+  });
   document.addEventListener("visibilitychange", () => { clearTimeout(timer); if (!document.hidden) loadStatus(); });
   async function initialize() {
     let token = new URLSearchParams(location.hash.slice(1)).get("session");

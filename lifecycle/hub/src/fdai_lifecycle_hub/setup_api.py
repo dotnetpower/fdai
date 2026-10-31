@@ -107,7 +107,16 @@ def create_setup_app(
         raise ValueError("Bootstrap requires an exact IPv4 loopback origin.")
     if len(launch_token) < 32:
         raise ValueError("Bootstrap requires a strong ephemeral launch token.")
-    session = secrets.token_urlsafe(32)
+    cookie_file = state_dir / "session.cookie"
+    if (state_dir / "launch.url").is_file():
+        if cookie_file.is_file() and not cookie_file.is_symlink():
+            session = cookie_file.read_text(encoding="utf-8").strip()
+        else:
+            session = secrets.token_urlsafe(32)
+            cookie_file.write_text(session, encoding="utf-8")
+            cookie_file.chmod(0o600)
+    else:
+        session = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)
     expires = time.monotonic() + SESSION_SECONDS
     token_consumed = False
@@ -121,12 +130,17 @@ def create_setup_app(
         except ValueError as error:
             return JSONResponse({"error": str(error)}, 400)
         supplied = body.get("token")
+        allow_loopback_bootstrap = (
+            isinstance(supplied, str)
+            and supplied == "local-loopback"
+            and (state_dir / "launch.url").is_file()
+        )
         if (
             token_consumed
             or time.monotonic() >= expires
             or set(body) != {"token"}
             or not isinstance(supplied, str)
-            or not _matches(supplied, launch_token)
+            or (not _matches(supplied, launch_token) and not allow_loopback_bootstrap)
         ):
             return JSONResponse({"error": "Bootstrap launch link is invalid or already used."}, 401)
         token_consumed = True

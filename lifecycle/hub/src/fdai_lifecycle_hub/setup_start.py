@@ -123,6 +123,15 @@ def start(args: argparse.Namespace) -> int:
             port = listener.getsockname()[1]
             origin = f"http://127.0.0.1:{port}"
             launch_token = secrets.token_urlsafe(32)
+            launch_url = f"{origin}/setup#session={launch_token}"
+            prepare_directory(state_dir)
+            launch_path = state_dir / "launch.url"
+            launch_path.unlink(missing_ok=True)
+            fd = os.open(launch_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            try:
+                os.write(fd, f"{launch_url}\n".encode())
+            finally:
+                os.close(fd)
             app = create_setup_app(state_dir, origin=origin, launch_token=launch_token)
             started_ns = time.time_ns()
             worker = subprocess.Popen(  # noqa: S603 - fixed package entrypoint, no shell
@@ -143,16 +152,19 @@ def start(args: argparse.Namespace) -> int:
                 print(f"Lifecycle Hub Bootstrap: {origin}/setup", flush=True)
                 print("Azure access stays in the customer executor. Keep this process running.")
                 if args.no_browser:
-                    print("Browser launch disabled; restart without --no-browser to sign in.")
+                    print(
+                        f"Browser launch disabled; private launch URL saved in {launch_path}",
+                        flush=True,
+                    )
                 else:
                     try:
-                        opened = _open_browser(f"{origin}/setup#session={launch_token}")
+                        opened = _open_browser(launch_url)
                     except Exception:  # noqa: BLE001 - headless/SSH hosts must not crash startup
                         opened = False
                     if not opened:
                         print(
                             "Could not open a local browser automatically. "
-                            "Forward this loopback port over SSH or VS Code if needed.",
+                            f"Use the private launch URL in {launch_path} over SSH forwarding.",
                             flush=True,
                         )
                 config = uvicorn.Config(

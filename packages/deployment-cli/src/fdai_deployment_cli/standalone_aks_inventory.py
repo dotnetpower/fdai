@@ -148,7 +148,7 @@ def run_initial_aks_inventory(
             ),
         )
     except ValueError as exc:
-        if str(exc) == "AKS inventory Job failed":
+        if re.fullmatch(r"AKS inventory(?:-retry-[12])? Job failed", str(exc)) is not None:
             _write_inventory_attempt(
                 work_dir,
                 source_revision=source_revision,

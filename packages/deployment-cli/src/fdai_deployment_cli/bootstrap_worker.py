@@ -161,7 +161,8 @@ def run_request(
             error_code="operation_timeout",
             message="Operation expired. Inspect retained state; do not repeat ambiguous effects.",
         )
-    except Exception:  # noqa: BLE001 - executor boundary must never publish raw provider errors
+    except Exception as exc:  # noqa: BLE001 - executor boundary must never publish raw provider errors
+        print(f"[ERROR] {type(exc).__name__}", file=os.sys.stderr, flush=True)
         _update(
             root,
             phase="failed",
@@ -408,6 +409,8 @@ def serve(root: Path, *, total_seconds: int = TOTAL_SECONDS) -> None:
                                 error_code="operation_interrupted",
                                 message="Executor stopped. Inspect retained evidence before explicit resume.",
                             )
+                        elif status["phase"] == "failed":
+                            status["message"] = failure_diagnostic_message(root)
                         record.update(status=status, active_request_id=None, progress=time.time())
                         _write(root, record)
                     process.close()

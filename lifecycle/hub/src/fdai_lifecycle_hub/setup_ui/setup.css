@@ -33,7 +33,22 @@ input[type="radio"], input[type="checkbox"] { width: 20px; min-height: 20px; fle
 .provision-progress-head, .provision-progress-facts { display: flex; align-items: center; gap: 16px; color: var(--setup-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .provision-progress-head { justify-content: space-between; margin-bottom: 8px; color: var(--setup-text); font-weight: 600; font-size: 13px; }
 .provision-meter { height: 8px; overflow: hidden; border-radius: 999px; background: var(--setup-shade); }
-.provision-meter-fill { height: 100%; width: 0%; border-radius: inherit; background: var(--setup-accent); transition: width 180ms ease; }
+.provision-meter-fill { height: 100%; width: 4%; border-radius: inherit; background: var(--setup-accent); transition: width 180ms ease; }
+.provision-meter-fill[data-completed="1"] { width: 6.7%; }
+.provision-meter-fill[data-completed="2"] { width: 13.3%; }
+.provision-meter-fill[data-completed="3"] { width: 20%; }
+.provision-meter-fill[data-completed="4"] { width: 26.7%; }
+.provision-meter-fill[data-completed="5"] { width: 33.3%; }
+.provision-meter-fill[data-completed="6"] { width: 40%; }
+.provision-meter-fill[data-completed="7"] { width: 46.7%; }
+.provision-meter-fill[data-completed="8"] { width: 53.3%; }
+.provision-meter-fill[data-completed="9"] { width: 60%; }
+.provision-meter-fill[data-completed="10"] { width: 66.7%; }
+.provision-meter-fill[data-completed="11"] { width: 73.3%; }
+.provision-meter-fill[data-completed="12"] { width: 80%; }
+.provision-meter-fill[data-completed="13"] { width: 86.7%; }
+.provision-meter-fill[data-completed="14"] { width: 93.3%; }
+.provision-meter-fill[data-completed="15"] { width: 100%; }
 .provision-meter.is-failed .provision-meter-fill { background: var(--setup-danger); }
 .provision-meter.is-done .provision-meter-fill { background: var(--setup-success); }
 .provision-progress-facts { flex-wrap: wrap; margin-top: 8px; }

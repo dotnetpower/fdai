@@ -74,19 +74,36 @@ def complete_application(
                 terminal_output("Identity configuration and any required approval"),
                 redirect_stdout(sys.stderr),
             ):
-                entra_bindings = supervisor._configure_entra(
-                    prepared=prepared,
-                    status=status,
-                    actor_digest=actor_digest,
-                    plan=entra.plan_entra(
-                        spa_display_name=entra.scoped_spa_display_name(str(prepared.target_binding))
-                    ),
-                    foundation_handoff_path=(
-                        foundation_recovery_directory / "recovery-private-handoff.json"
-                        if foundation_recovery_directory is not None
-                        else None
-                    ),
+                entra_plan = entra.plan_entra(
+                    spa_display_name=entra.scoped_spa_display_name(str(prepared.target_binding))
                 )
+                handoff_path = (
+                    foundation_recovery_directory / "recovery-private-handoff.json"
+                    if foundation_recovery_directory is not None
+                    else None
+                )
+                try:
+                    entra_bindings = supervisor._configure_entra(
+                        prepared=prepared,
+                        status=status,
+                        actor_digest=actor_digest,
+                        plan=entra_plan,
+                        foundation_handoff_path=handoff_path,
+                    )
+                except ValueError:
+                    claim_root = getattr(prepared, "root", None)
+                    if (
+                        not isinstance(claim_root, Path)
+                        or not (claim_root / "entra-config-claim.json").is_file()
+                    ):
+                        raise
+                    entra_bindings = supervisor._configure_entra(
+                        prepared=prepared,
+                        status=status,
+                        actor_digest=actor_digest,
+                        plan=entra_plan,
+                        foundation_handoff_path=handoff_path,
+                    )
             entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = current_operator_object_id()
         finally:
             sys.path.remove(str(scripts))

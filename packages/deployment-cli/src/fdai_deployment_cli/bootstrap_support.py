@@ -170,13 +170,30 @@ def can_open_interactive_browser(environment: dict[str, str]) -> bool:
     return False
 
 
+_APP_STAGE_MAP = {
+    "Application identity": (13, "Protected application exact plan", 12),
+    "Managed-host transfer": (13, "Protected application exact plan", 12),
+    "Private infrastructure": (14, "Protected application exact apply", 13),
+    "AKS cluster and node pools": (14, "Protected application exact apply", 13),
+    "Runtime images": (14, "Protected application exact apply", 13),
+    "Database placement": (14, "Protected application exact apply", 13),
+    "Capability mode": (14, "Protected application exact apply", 13),
+    "Database and catalogs": (14, "Protected application exact apply", 13),
+    "Application deployment": (14, "Protected application exact apply", 13),
+    "Initial resource inventory": (15, "Independent health and zero-change verification", 14),
+    "Frozen catalog review": (15, "Independent health and zero-change verification", 14),
+    "Health and zero-change plan": (15, "Independent health and zero-change verification", 14),
+    "Cleanup and final receipt": (15, "Independent health and zero-change verification", 14),
+}
+
+
 def latest_progress_message(root: Path, current: str) -> str:
     """Extract a safe, human-readable stage progress summary from engine-trace.log."""
     trace = root / "executor/engine-trace.log"
     try:
         if not trace.is_file() or trace.is_symlink():
             return current
-        raw = trace.read_bytes()[-8192:].decode("utf-8", errors="replace")
+        raw = trace.read_bytes()[-65536:].decode("utf-8", errors="replace")
     except OSError:
         return current
     device_match = re.search(
@@ -187,12 +204,16 @@ def latest_progress_message(root: Path, current: str) -> str:
             f"Device code sign-in: open {device_match.group(1)} "
             f"and enter code {device_match.group(2)} to authenticate."
         )
-    stage_line = ""
-    elapsed = ""
-    detail_line = ""
+    stage_line, elapsed, detail_line = "", "", ""
     for line in raw.splitlines():
         clean = line.strip()
-        if clean.startswith("==> [") and "|" in clean:
+        app_match = re.match(r"^\[\d{2}/17\]\s+RUN\s+(.+?)(?:\s+\(\d{2}:\d{2}\))?$", clean)
+        if app_match and app_match.group(1).strip() in _APP_STAGE_MAP:
+            label = app_match.group(1).strip()
+            num, title, done = _APP_STAGE_MAP[label]
+            stage_line = f"[{num:02d}/15] {title} ({done} complete) - {label}"
+            elapsed = ""
+        elif clean.startswith("==> [") and "|" in clean:
             parts = [part.strip() for part in clean.removeprefix("==>").split("|")]
             stage_line = f"{parts[0]} ({parts[2]})" if len(parts) >= 3 else parts[0]
             elapsed = ""
@@ -206,7 +227,12 @@ def latest_progress_message(root: Path, current: str) -> str:
             detail_line = parts[0]
             if len(parts) >= 2 and "elapsed" in parts[1]:
                 elapsed = parts[1].replace("elapsed", "").strip()
-        elif line.startswith("      ") and len(clean) <= 120 and not stage_line:
+        elif (
+            line.startswith("      ")
+            and len(clean) <= 120
+            and not stage_line
+            and not clean.startswith(('"', "{", "}", "["))
+        ):
             detail_line = clean
     if stage_line:
         return f"{stage_line} - elapsed {elapsed}" if elapsed else stage_line
@@ -217,6 +243,23 @@ def latest_progress_message(root: Path, current: str) -> str:
 
 def failure_diagnostic_message(root: Path) -> str:
     """Return a safe stage and reason code summary when the executor stops."""
+    trace = root / "executor/engine-trace.log"
+    try:
+        if trace.is_file() and not trace.is_symlink():
+            raw = trace.read_bytes()[-8192:].decode("utf-8", errors="replace")
+            failed_app = re.findall(
+                r"^\[\d{2}/17\]\s+FAIL\s+(.+?)(?:\s+\(\d{2}:\d{2}\))?$", raw, re.M
+            )
+            if failed_app:
+                label = failed_app[-1].strip()
+                stage_id = (
+                    "application-apply"
+                    if _APP_STAGE_MAP.get(label, (13,))[0] >= 14
+                    else "application-plan"
+                )
+                return f"Stage '{stage_id}' stopped ({label}). Click Resume to continue from the last verified checkpoint."
+    except OSError:
+        pass
     status_file = root / "executor/deployment/foundation/status.json"
     try:
         if status_file.is_file() and not status_file.is_symlink():
