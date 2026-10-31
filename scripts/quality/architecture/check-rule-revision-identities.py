@@ -73,6 +73,7 @@ _NORMALIZATION_SOURCES = (
     "services/core-control-plane/src/fdai/shared/contracts/models/enums.py",
 )
 _NORMALIZATION_PACKAGES = frozenset({"pydantic", "pydantic-core", "pyyaml"})
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
 
 def current_revisions(root: Path = ROOT) -> tuple[RuleRevisionIdentity, ...]:
@@ -92,7 +93,7 @@ def _current_materials(root: Path) -> dict[tuple[str, str], dict[str, Any]]:
     normalization_source_digest = _normalization_source_digest(root)
     materials: dict[tuple[str, str], dict[str, Any]] = {}
     for path in sorted((root / "rule-catalog/catalog").glob("*.yaml")):
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        raw = yaml.load(path.read_text(encoding="utf-8"), Loader=_YAML_LOADER)  # noqa: S506 - CSafeLoader/SafeLoader only
         try:
             rule = Rule.model_validate(raw)
             artifacts = repository_policy_artifacts(rule, repository_root=root)

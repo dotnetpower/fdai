@@ -71,6 +71,7 @@ RUNTIME_FILES = (
 )
 RUNTIME_PATHS = RUNTIME_ROOTS + RUNTIME_FILES
 TOKENS = ("FDAI_FORK", ".fdai-fork", "fdai.fork")
+RAW_TOKENS = tuple(token.encode("ascii") for token in TOKENS)
 TEXT_ENCODINGS = (
     "utf-8",
     "utf-16",
@@ -83,11 +84,22 @@ TEXT_ENCODINGS = (
 )
 
 
-def _has_symlink_component(repo_root: Path, relative_path: Path) -> bool:
+def _has_symlink_component(
+    repo_root: Path,
+    relative_path: Path,
+    cache: dict[Path, bool] | None = None,
+) -> bool:
     current = repo_root
     for part in relative_path.parts:
         current /= part
-        if current.is_symlink():
+        if cache is not None and current in cache:
+            if cache[current]:
+                return True
+            continue
+        is_link = current.is_symlink()
+        if cache is not None:
+            cache[current] = is_link
+        if is_link:
             return True
     return False
 
@@ -110,6 +122,7 @@ def _candidate_files(repo_root: Path) -> list[Path]:
         capture_output=True,
     )
     candidates: list[Path] = []
+    symlink_cache: dict[Path, bool] = {}
     for raw_path in completed.stdout.split(b"\0"):
         if not raw_path:
             continue
@@ -117,7 +130,7 @@ def _candidate_files(repo_root: Path) -> list[Path]:
         path = repo_root / relative_path
         if (
             relative_path == SELF_PATH
-            or _has_symlink_component(repo_root, relative_path)
+            or _has_symlink_component(repo_root, relative_path, symlink_cache)
             or not path.is_file()
         ):
             continue
@@ -129,6 +142,8 @@ def violations(repo_root: Path = REPO_ROOT) -> list[tuple[Path, int, str]]:
     found: list[tuple[Path, int, str]] = []
     for path in _candidate_files(repo_root):
         content = path.read_bytes()
+        if b"\x00" not in content and not any(raw_token in content for raw_token in RAW_TOKENS):
+            continue
         lines: list[str] = []
         for encoding in TEXT_ENCODINGS:
             try:

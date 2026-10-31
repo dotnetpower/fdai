@@ -136,6 +136,25 @@ TERMS = (
 )
 
 CRITICAL_PROSE_TERMS = frozenset({"hil", "verdict", "stewardship"})
+_TERM_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "hil": ("hil", "human-in-the-loop"),
+    "verdict": ("verdict",),
+    "stewardship": ("stewardship",),
+    "steward": ("steward",),
+    "maintainer": ("maintainer",),
+    "bus-factor": ("bus factor",),
+    "abstain": ("abstain",),
+    "shadow-mode": ("shadow",),
+    "enforce-mode": ("enforce",),
+    "blast-radius": ("blast",),
+    "grounding": ("grounding",),
+    "remediation": ("remediation",),
+    "risk-gate": ("risk", "리스크 게이트"),
+    "finding": ("finding",),
+    "handover": ("handover",),
+    "accountable": ("accountable",),
+    "informed": ("informed",),
+}
 READER_PREFIXES = (
     "docs/user-guide/",
     "docs/runbooks/",
@@ -281,6 +300,14 @@ def _frontmatter_key(line: str) -> str | None:
 
 
 def audit_document(path: str, text: str) -> tuple[list[Occurrence], list[Occurrence]]:
+    text_lower = text.lower()
+    active_terms = tuple(
+        (term, _TERM_KEYWORDS[term.name])
+        for term in TERMS
+        if any(kw in text_lower for kw in _TERM_KEYWORDS[term.name])
+    )
+    if not active_terms:
+        return [], []
     occurrences: list[Occurrence] = []
     violations: list[Occurrence] = []
     in_frontmatter = False
@@ -296,25 +323,32 @@ def audit_document(path: str, text: str) -> tuple[list[Occurrence], list[Occurre
         if in_frontmatter and stripped == "---":
             in_frontmatter = False
             continue
-        fence_match = re.match(r"^\s*(```+|~~~+)", line)
-        if fence_match:
-            marker = fence_match.group(1)[0]
-            if not in_fence:
-                in_fence = True
-                fence_marker = marker
-            elif marker == fence_marker:
-                in_fence = False
-                fence_marker = ""
-            continue
+        if stripped.startswith(("```", "~~~")):
+            fence_match = re.match(r"^\s*(```+|~~~+)", line)
+            if fence_match:
+                marker = fence_match.group(1)[0]
+                if not in_fence:
+                    in_fence = True
+                    fence_marker = marker
+                elif marker == fence_marker:
+                    in_fence = False
+                    fence_marker = ""
+                continue
 
+        line_lower = line.lower()
+        matching_terms = [term for term, kws in active_terms if any(kw in line_lower for kw in kws)]
+        if not matching_terms:
+            continue
         frontmatter_key = _frontmatter_key(line) if in_frontmatter else None
         display_frontmatter = frontmatter_key in FRONTMATTER_DISPLAY_KEYS
-        heading = bool(re.match(r"^#{1,6}\s+", line))
+        heading = line.startswith("#") and bool(re.match(r"^#{1,6}\s+", line))
         high_signal = display_frontmatter or heading
-        visible = visible_text(line)
+        visible: str | None = None
 
-        for term in TERMS:
+        for term in matching_terms:
             for match in term.pattern.finditer(line):
+                if visible is None:
+                    visible = visible_text(line)
                 protected = in_fence or not visible[match.start() : match.end()].strip()
                 if (
                     protected

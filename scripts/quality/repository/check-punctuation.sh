@@ -82,7 +82,7 @@ fi
 errors=0
 grandfathered=0
 hits=""
-batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-256}"
+batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-2048}"
 if ! [[ "$batch_size" =~ ^[1-9][0-9]*$ ]]; then
   echo "check-punctuation: FDAI_TEXT_GATE_BATCH_SIZE must be a positive integer" >&2
   exit 2
@@ -104,8 +104,10 @@ done
 
 if [[ -n "$hits" ]]; then
   mapfile -t violating_files < <(printf '%s\n' "$hits" | cut -d: -f1 | sort -u)
-  for file in "${violating_files[@]}"; do
-    current_sha="$(git hash-object "$file")"
+  mapfile -t violating_shas < <(git hash-object -- "${violating_files[@]}")
+  for idx in "${!violating_files[@]}"; do
+    file="${violating_files[$idx]}"
+    current_sha="${violating_shas[$idx]:-}"
     if [[ "${baseline_sha[$file]:-}" == "$current_sha" ]]; then
       grandfathered=$((grandfathered + 1))
       continue

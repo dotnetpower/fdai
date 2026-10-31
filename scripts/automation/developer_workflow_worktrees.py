@@ -6,6 +6,7 @@ import argparse
 import fnmatch
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -98,17 +99,18 @@ def _worktree_changed_paths(
     dirty_paths: list[str],
 ) -> list[str]:
     paths = {path for path in dirty_paths if path}
-    committed = git(
-        worktree,
-        "--no-optional-locks",
-        "diff",
-        "-z",
-        "--name-only",
-        "--diff-filter=ACMRTD",
-        f"{base_sha}...{head_sha}",
-    )
-    if committed.returncode == 0:
-        paths.update(item for item in committed.stdout.split("\0") if item)
+    if head_sha and head_sha != base_sha:
+        committed = git(
+            worktree,
+            "--no-optional-locks",
+            "diff",
+            "-z",
+            "--name-only",
+            "--diff-filter=ACMRTD",
+            f"{base_sha}...{head_sha}",
+        )
+        if committed.returncode == 0:
+            paths.update(item for item in committed.stdout.split("\0") if item)
     return sorted(paths)
 
 
@@ -230,7 +232,10 @@ def worktrees_diagnostic(
     behind_active_count = 0
     reclaimable_count = 0
 
-    for index, raw in enumerate(raw_entries):
+    def _inspect_one(
+        item: tuple[int, dict[str, str]],
+    ) -> tuple[dict[str, Any], list[str], list[str], str | None]:
+        index, raw = item
         wt_path = Path(raw["worktree"])
         is_primary = index == 0
         is_locked = raw.get("locked") == "true"
@@ -251,52 +256,71 @@ def worktrees_diagnostic(
         )
         dirty_paths = _parse_status_z(status_res.stdout) if status_res.returncode == 0 else []
         dirty = bool(dirty_paths)
-        counts = git(wt_path, "rev-list", "--left-right", "--count", f"{base_sha}...{head_sha}")
         behind_count = 0
         ahead_count = 0
-        if counts.returncode == 0:
-            parts = counts.stdout.strip().split()
-            if len(parts) == 2:
-                behind_count, ahead_count = int(parts[0]), int(parts[1])
-        head_tree_res = git(wt_path, "rev-parse", "HEAD^{tree}")
-        same_tree = bool(base_tree) and (head_tree_res.stdout.strip() == base_tree)
+        if head_sha and head_sha != base_sha:
+            counts = git(wt_path, "rev-list", "--left-right", "--count", f"{base_sha}...{head_sha}")
+            if counts.returncode == 0:
+                parts = counts.stdout.strip().split()
+                if len(parts) == 2:
+                    behind_count, ahead_count = int(parts[0]), int(parts[1])
+        if head_sha == base_sha:
+            same_tree = True
+        elif ahead_count > 0 and base_tree:
+            head_tree_res = git(wt_path, "rev-parse", "HEAD^{tree}")
+            same_tree = head_tree_res.stdout.strip() == base_tree
+        else:
+            same_tree = False
         reclaimable = (
             not is_primary and not is_locked and not dirty and (ahead_count == 0 or same_tree)
         )
         wt_label = str(wt_path.resolve())
-        if reclaimable:
-            reclaimable_count += 1
-            reclaimable_worktrees.append(wt_label)
         active = dirty or (ahead_count > 0 and not same_tree)
-        if active and behind_count > 0:
-            behind_active_count += 1
         changed = (
             _worktree_changed_paths(wt_path, base_sha, head_sha, dirty_paths) if active else []
         )
+        record = {
+            "active": active,
+            "ahead_count": ahead_count,
+            "behind_count": behind_count,
+            "branch": branch,
+            "changed_path_count": len(changed),
+            "changed_paths": changed[:MAX_PATHS],
+            "dirty": dirty,
+            "docs_update_targets": [],
+            "head": head_sha,
+            "is_primary": is_primary,
+            "locked": is_locked,
+            "reclaimable": reclaimable,
+            "worktree": wt_label,
+        }
+        return record, changed, [], (wt_label if reclaimable else None)
+
+    indexed_entries = list(enumerate(raw_entries))
+    if len(indexed_entries) > 1:
+        with ThreadPoolExecutor(max_workers=min(8, len(indexed_entries))) as pool:
+            inspected = list(pool.map(_inspect_one, indexed_entries))
+    else:
+        inspected = [_inspect_one(item) for item in indexed_entries]
+
+    for record, changed, _unused_docs, reclaim_label in inspected:
+        wt_label = str(record["worktree"])
         docs_targets = (
-            _docs_update_targets(repo_root, changed, manifest=cached_manifest) if active else []
+            _docs_update_targets(repo_root, changed, manifest=cached_manifest)
+            if record["active"]
+            else []
         )
+        record["docs_update_targets"] = docs_targets[:MAX_PATHS]
+        if reclaim_label is not None:
+            reclaimable_count += 1
+            reclaimable_worktrees.append(reclaim_label)
+        if record["active"] and int(record["behind_count"]) > 0:
+            behind_active_count += 1
         for changed_path in changed:
             path_owners.setdefault(changed_path, []).append(wt_label)
         for doc_path in docs_targets:
             doc_owners.setdefault(doc_path, []).append(wt_label)
-        worktrees.append(
-            {
-                "active": active,
-                "ahead_count": ahead_count,
-                "behind_count": behind_count,
-                "branch": branch,
-                "changed_path_count": len(changed),
-                "changed_paths": changed[:MAX_PATHS],
-                "dirty": dirty,
-                "docs_update_targets": docs_targets[:MAX_PATHS],
-                "head": head_sha,
-                "is_primary": is_primary,
-                "locked": is_locked,
-                "reclaimable": reclaimable,
-                "worktree": wt_label,
-            }
-        )
+        worktrees.append(record)
 
     path_collisions = [
         {"path": path, "worktrees": sorted(owners)}

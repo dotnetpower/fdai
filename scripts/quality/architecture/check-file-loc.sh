@@ -100,6 +100,9 @@ _allowlisted() {
     used_exact["$p"]=1
     return 0
   fi
+  if (( ${#allow_globs[@]} == 0 )); then
+    return 1
+  fi
   local pat
   for pat in "${allow_globs[@]}"; do
     # shellcheck disable=SC2053  # RHS deliberately unquoted for glob
@@ -194,9 +197,33 @@ allowlisted=0
 baselined=0
 declare -A observed_loc=()
 
+while IFS=$'\t' read -r loc path; do
+  [[ -n "$path" ]] && observed_loc["$path"]="$loc"
+done < <(
+  printf '%s\0' "${files[@]}" | python3 -c '
+import os, sys
+from pathlib import Path
+raw_paths = [p.decode("utf-8") for p in sys.stdin.buffer.read().split(b"\0") if p]
+counts = None
+if len(raw_paths) >= 128 and os.path.isfile("scripts/automation/sdlc_rust_accelerator.py"):
+    sys.path.insert(0, os.getcwd())
+    try:
+        from scripts.automation.sdlc_rust_accelerator import rust_count_lines
+        counts = rust_count_lines(Path.cwd(), raw_paths)
+    except Exception:
+        counts = None
+if counts is not None:
+    for p in raw_paths:
+        print(f"{counts[p]}\t{p}")
+else:
+    for p in raw_paths:
+        with open(p, "rb") as fh:
+            print(f"{fh.read().count(10)}\t{p}")
+'
+)
+
 for path in "${files[@]}"; do
-  loc=$(wc -l < "$path")
-  observed_loc["$path"]="$loc"
+  loc="${observed_loc[$path]:-0}"
   if _allowlisted "$path"; then
     allowlisted=$((allowlisted + 1))
     continue

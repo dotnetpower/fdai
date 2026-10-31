@@ -33,16 +33,30 @@ def main() -> int:
     return 0
 
 
+_BYTE_LITERAL_RE = re.compile(r"(?<![A-Za-z0-9_])[rR]?[bB][rR]?['\"]")
+
+
 def scan(root: Path) -> tuple[Violation, ...]:
     violations: list[Violation] = []
     for path, surface in _python_surfaces(root):
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            source = path.read_text(encoding="utf-8")
         except OSError:
             violations.append(Violation(path, 1, "Python source cannot be read"))
             continue
+        is_eval_surface = surface == "benchmarks" or "/fdai/evaluation/" in path.as_posix()
+        if not is_eval_surface:
+            needs_import_check = (
+                ("fdai_bench_" in source)
+                if surface == "fdai"
+                else ("fdai" in source or "fdai_bench_" in source)
+            )
+            if not needs_import_check and not _BYTE_LITERAL_RE.search(source):
+                continue
+        try:
+            tree = ast.parse(source, filename=str(path))
         except SyntaxError as exc:
-            if surface == "benchmarks" or "/fdai/evaluation/" in path.as_posix():
+            if is_eval_surface:
                 violations.append(
                     Violation(path, exc.lineno or 1, "evaluation Python source cannot be parsed")
                 )

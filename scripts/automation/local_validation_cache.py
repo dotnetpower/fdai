@@ -234,13 +234,14 @@ def prepare_environment(
     context = digest({"dependency": dependency, "tools": tools})
     receipt = read_record(state / "environment.json")
     current = None
-    try:
-        current = installed_digest(state / "venv")
-    except (OSError, ValueError):
-        print("local-validation: environment=missing-or-unreadable")
-    if receipt == {"context": context, "installed": current} and current is not None:
-        print("local-validation: dependency-sync=cached reason=verified-installed-inputs")
-        return current
+    if isinstance(receipt, dict) and receipt.get("context") == context:
+        try:
+            current = installed_digest(state / "venv")
+        except (OSError, ValueError):
+            print("local-validation: environment=missing-or-unreadable")
+        if receipt == {"context": context, "installed": current} and current is not None:
+            print("local-validation: dependency-sync=cached reason=verified-installed-inputs")
+            return current
     venv = state / "venv"
     if venv.is_symlink():
         raise ValueError("local validation environment cannot be a symlink")

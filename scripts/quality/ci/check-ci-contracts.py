@@ -84,6 +84,25 @@ CI_UV_VERSION = "0.12.11"
 CI_PYTHON_VERSION = "3.13"
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+_TEXT_CACHE: dict[Path, str] = {}
+_YAML_CACHE: dict[Path, Any] = {}
+
+
+def _cached_text(path: Path) -> str:
+    resolved = path.resolve()
+    text = _TEXT_CACHE.get(resolved)
+    if text is None:
+        text = resolved.read_text(encoding="utf-8")
+        _TEXT_CACHE[resolved] = text
+    return text
+
+
+def _cached_yaml(path: Path) -> Any:
+    resolved = path.resolve()
+    if resolved not in _YAML_CACHE:
+        _YAML_CACHE[resolved] = yaml.load(_cached_text(resolved), Loader=_YAML_LOADER)  # noqa: S506 - CSafeLoader/SafeLoader only
+    return _YAML_CACHE[resolved]
 
 
 def _workflow_paths() -> tuple[Path, ...]:
@@ -133,7 +152,7 @@ def _local_action_is_audited(reference: str, action_definitions: set[Path]) -> b
 
 def _uses_values_from_content(content: str, relative: Path) -> tuple[list[str], list[str]]:
     try:
-        document: Any = yaml.safe_load(content)
+        document: Any = yaml.load(content, Loader=_YAML_LOADER)  # noqa: S506 - CSafeLoader/SafeLoader only
     except yaml.YAMLError as exc:
         return [], [f"{relative} is not valid YAML: {exc}"]
     values: list[str] = []
@@ -593,7 +612,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
 
 
 def _validate_design_contract_environment() -> list[str]:
-    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    workflow = _cached_yaml(REPO_ROOT / ".github/workflows/ci.yml")
     steps = workflow["jobs"]["contracts"]["steps"]
     names = [step.get("name") for step in steps]
     design_index = names.index("Validate changed design contracts")
@@ -686,7 +705,7 @@ def _validate_live_db_guards() -> list[str]:
 
 
 def _validate_integration_database_isolation() -> list[str]:
-    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    workflow = _cached_yaml(REPO_ROOT / ".github/workflows/ci.yml")
     errors: list[str] = []
     for name, job in workflow["jobs"].items():
         postgres = job.get("services", {}).get("postgres")

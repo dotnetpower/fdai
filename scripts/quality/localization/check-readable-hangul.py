@@ -193,6 +193,8 @@ def main(argv: list[str] | None = None) -> int:
     for relative in files:
         path = root / relative
         text = path.read_text(encoding="utf-8")
+        if "\\u" not in text and "\\U" not in text:
+            continue
         literals = allowlist.get(relative, ())
         if args.fix:
             rewritten, count = _rewrite(text, literals)
