@@ -29,12 +29,22 @@ def compile_impact_envelope(
     uncertainty: float,
     expires_at: datetime,
 ) -> ImpactEnvelopeRecord:
-    if not decision_case_id.strip():
+    if not isinstance(decision_case_id, str) or not decision_case_id.strip():
         raise ValueError("decision_case_id MUST be non-empty")
     if not affected_set.complete:
         raise ValueError("impact envelope requires a complete affected set")
-    if action_type_cap < 1 or decision_cap < 1:
+    if (
+        isinstance(action_type_cap, bool)
+        or isinstance(decision_cap, bool)
+        or action_type_cap < 1
+        or decision_cap < 1
+    ):
         raise ValueError("impact caps MUST be positive")
+    if any(
+        not isinstance(sig, str) or not sig.strip()
+        for sig in (*required_signals, *forbidden_signals)
+    ):
+        raise ValueError("impact envelope signals MUST be non-empty")
     effective_cap = min(action_type_cap, decision_cap)
     affected = affected_set.all_resource_ids
     if len(affected) > effective_cap:

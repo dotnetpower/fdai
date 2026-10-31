@@ -37,3 +37,8 @@ def test_catalog_digest_detects_recipe_substitution() -> None:
 
     with pytest.raises(ValueError, match="digest does not match"):
         replace(DEFAULT_TELEMETRY_RECIPE_CATALOG, recipes=changed)
+
+
+def test_lookup_strips_whitespace_around_recipe_id_and_version() -> None:
+    recipe = DEFAULT_TELEMETRY_RECIPE_CATALOG.get("  requests.failed  ", " 1.0.0 ")
+    assert recipe.mechanism is TelemetryMechanism.FAILED_REQUESTS

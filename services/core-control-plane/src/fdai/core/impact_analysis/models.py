@@ -18,16 +18,20 @@ class ObjectiveBound:
     window_seconds: int = 300
 
     def __post_init__(self) -> None:
-        if not self.metric.strip():
+        if not isinstance(self.metric, str) or not self.metric.strip():
             raise ValueError("ObjectiveBound.metric MUST be non-empty")
         if self.lower is None and self.upper is None:
             raise ValueError("ObjectiveBound requires a lower or upper bound")
         for value in (self.lower, self.upper):
-            if value is not None and not math.isfinite(value):
+            if value is not None and (isinstance(value, bool) or not math.isfinite(value)):
                 raise ValueError("ObjectiveBound values MUST be finite")
         if self.lower is not None and self.upper is not None and self.lower > self.upper:
             raise ValueError("ObjectiveBound.lower MUST be <= upper")
-        if self.window_seconds < 1:
+        if (
+            isinstance(self.window_seconds, bool)
+            or not isinstance(self.window_seconds, int)
+            or self.window_seconds < 1
+        ):
             raise ValueError("ObjectiveBound.window_seconds MUST be positive")
 
     def to_dict(self) -> dict[str, object]:
@@ -46,9 +50,18 @@ class TelemetryRequirements:
     cadence_seconds: int
 
     def __post_init__(self) -> None:
-        if not self.required_sources or any(not item.strip() for item in self.required_sources):
+        if not self.required_sources or any(
+            not isinstance(item, str) or not item.strip() for item in self.required_sources
+        ):
             raise ValueError("TelemetryRequirements.required_sources MUST be non-empty")
-        if self.freshness_seconds < 1 or self.cadence_seconds < 1:
+        if (
+            isinstance(self.freshness_seconds, bool)
+            or isinstance(self.cadence_seconds, bool)
+            or not isinstance(self.freshness_seconds, int)
+            or not isinstance(self.cadence_seconds, int)
+            or self.freshness_seconds < 1
+            or self.cadence_seconds < 1
+        ):
             raise ValueError("telemetry freshness and cadence MUST be positive")
 
     def to_dict(self) -> dict[str, object]:
@@ -124,20 +137,39 @@ class ImpactEnvelopeRecord:
             raise ValueError("impact envelope target sets MUST be non-empty")
         if not set(self.direct_target_ids) <= set(self.affected_resource_ids):
             raise ValueError("direct targets MUST be included in affected resources")
-        if len(self.affected_resource_ids) > self.max_affected_resources:
+        if (
+            isinstance(self.max_affected_resources, bool)
+            or not isinstance(self.max_affected_resources, int)
+            or len(self.affected_resource_ids) > self.max_affected_resources
+        ):
             raise ValueError("affected resources exceed the envelope cap")
-        if not 1 <= self.max_dependency_depth <= 5:
+        if (
+            isinstance(self.max_dependency_depth, bool)
+            or not isinstance(self.max_dependency_depth, int)
+            or not 1 <= self.max_dependency_depth <= 5
+        ):
             raise ValueError("max_dependency_depth MUST be in [1, 5]")
-        if self.max_duration_seconds < 1:
+        if (
+            isinstance(self.max_duration_seconds, bool)
+            or not isinstance(self.max_duration_seconds, int)
+            or self.max_duration_seconds < 1
+        ):
             raise ValueError("max_duration_seconds MUST be positive")
-        if not math.isfinite(self.uncertainty) or not 0.0 <= self.uncertainty <= 1.0:
+        if (
+            isinstance(self.uncertainty, bool)
+            or not math.isfinite(self.uncertainty)
+            or not 0.0 <= self.uncertainty <= 1.0
+        ):
             raise ValueError("uncertainty MUST be finite and in [0, 1]")
-        if self.expires_at.tzinfo is None:
+        if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
             raise ValueError("expires_at MUST be timezone-aware")
         if self.observation_only is not True:
             raise ValueError("impact envelope authority MUST remain observation-only")
         if set(self.required_signals) & set(self.forbidden_signals):
             raise ValueError("a signal cannot be both required and forbidden")
+        bound_metrics = [item.metric for item in self.objective_bounds]
+        if len(bound_metrics) != len(set(bound_metrics)):
+            raise ValueError("objective_bounds metrics MUST be unique")
 
     def to_ontology_object(self) -> OntologyObjectRecord:
         objective_bounds: dict[str, Any] = {

@@ -61,8 +61,14 @@ class IncidentRcaContext:
     evidence_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.inventory_generation.strip():
+        if not isinstance(self.inventory_generation, str) or not self.inventory_generation.strip():
             raise ValueError("IncidentRcaContext.inventory_generation MUST be non-empty")
+        if self.graph_revision is not None and (
+            not isinstance(self.graph_revision, str) or not self.graph_revision.strip()
+        ):
+            raise ValueError("IncidentRcaContext.graph_revision MUST be non-empty when provided")
+        if any(not isinstance(ref, str) or not ref.strip() for ref in self.evidence_refs):
+            raise ValueError("IncidentRcaContext.evidence_refs MUST contain non-empty strings")
 
 
 @runtime_checkable

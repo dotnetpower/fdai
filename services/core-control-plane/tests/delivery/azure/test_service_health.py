@@ -321,3 +321,12 @@ async def test_reader_converts_event_query_failure_to_typed_unavailable() -> Non
     assert result.complete is False
     assert result.observations == ()
     assert result.limitation == "source_unavailable"
+
+
+def test_service_health_config_rejects_boolean_bounds() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureServiceHealthConfig(subscription_id=SUBSCRIPTION_ID, timeout_seconds=True)
+    with pytest.raises(ValueError, match="max_events"):
+        AzureServiceHealthConfig(subscription_id=SUBSCRIPTION_ID, max_events=True)

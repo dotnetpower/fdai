@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.detection.forecast import (
     ForecastDetectorDecision,
@@ -40,8 +41,9 @@ class ForecastTargetSpec:
     mode: Mode = Mode.SHADOW
 
     def __post_init__(self) -> None:
-        if not all(
-            (
+        if any(
+            not isinstance(val, str) or not val.strip()
+            for val in (
                 self.detector_id,
                 self.detector_version,
                 self.scorer_version,
@@ -50,11 +52,25 @@ class ForecastTargetSpec:
             )
         ):
             raise ValueError("forecast target identity MUST be non-empty")
-        if len(self.access_scope_digest) != 64:
+        if len(self.access_scope_digest) != 64 or any(
+            char not in "0123456789abcdef" for char in self.access_scope_digest
+        ):
             raise ValueError("forecast target access scope MUST be a SHA-256 digest")
-        if self.horizon_seconds < 1 or self.lookback_seconds < 1:
+        if (
+            isinstance(self.threshold, bool)
+            or not math.isfinite(self.threshold)
+            or isinstance(self.min_r_squared, bool)
+            or not math.isfinite(self.min_r_squared)
+        ):
+            raise ValueError("forecast target numeric bounds MUST be finite")
+        if (
+            isinstance(self.horizon_seconds, bool)
+            or isinstance(self.lookback_seconds, bool)
+            or self.horizon_seconds < 1
+            or self.lookback_seconds < 1
+        ):
             raise ValueError("forecast target horizon and lookback MUST be positive")
-        if self.telemetry_grace_seconds < 0:
+        if isinstance(self.telemetry_grace_seconds, bool) or self.telemetry_grace_seconds < 0:
             raise ValueError("forecast target telemetry grace MUST be non-negative")
 
 
@@ -67,7 +83,11 @@ class ForecastEpisodeEvaluator:
         targets: tuple[ForecastTargetSpec, ...],
         bucket_seconds: int = 60,
     ) -> None:
-        if bucket_seconds < 1:
+        if (
+            isinstance(bucket_seconds, bool)
+            or not isinstance(bucket_seconds, int)
+            or bucket_seconds < 1
+        ):
             raise ValueError("forecast evaluation bucket MUST be positive")
         self._source = source
         self._store = store
@@ -75,11 +95,11 @@ class ForecastEpisodeEvaluator:
         self._bucket_seconds = bucket_seconds
 
     async def evaluate(self, *, now: datetime) -> int:
-        if now.tzinfo is None:
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("forecast evaluation clock MUST be timezone-aware")
         bucket = datetime.fromtimestamp(
             int(now.timestamp()) // self._bucket_seconds * self._bucket_seconds,
-            tz=now.tzinfo,
+            tz=UTC,
         )
         created = 0
         for target in self._targets:
@@ -221,9 +241,15 @@ def _evidence_ref(
     bucket: datetime,
 ) -> str:
     material = ":".join(
-        (target.detector_id, target.resource_ref, target.metric, feature_cutoff.isoformat())
+        (
+            target.detector_id,
+            target.resource_ref,
+            target.metric,
+            feature_cutoff.astimezone(UTC).isoformat(),
+        )
     )
-    return f"metric-window:{bucket.isoformat()}:{hashlib.sha256(material.encode()).hexdigest()}"
+    digest = hashlib.sha256(material.encode()).hexdigest()
+    return f"metric-window:{bucket.astimezone(UTC).isoformat()}:{digest}"
 
 
 __all__ = ["ForecastEpisodeEvaluator", "ForecastTargetSpec"]

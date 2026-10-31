@@ -190,7 +190,11 @@ class ChangeAssessmentService:
         max_affected_resources: int = 10,
         traversal_bounds: ImpactTraversalBounds | None = None,
     ) -> None:
-        if max_affected_resources < 1:
+        if (
+            isinstance(max_affected_resources, bool)
+            or not isinstance(max_affected_resources, int)
+            or max_affected_resources < 1
+        ):
             raise ValueError("max_affected_resources MUST be positive")
         self._analyzer = analyzer
         self._max_affected_resources = max_affected_resources
@@ -265,7 +269,7 @@ def _required_datetime(value: Mapping[str, Any], name: str) -> datetime:
         resolved = datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"change {name} MUST be RFC 3339") from exc
-    if resolved.tzinfo is None:
+    if resolved.tzinfo is None or resolved.utcoffset() is None:
         raise ValueError(f"change {name} MUST be timezone-aware")
     return resolved
 

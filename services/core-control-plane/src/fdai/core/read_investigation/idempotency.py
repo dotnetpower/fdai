@@ -51,9 +51,16 @@ class ReadInvestigationRunUsage:
     measured_cost_microusd: int | None = None
 
     def __post_init__(self) -> None:
-        if min(self.tool_calls, self.execution_duration_ms, self.reserved_cost_microusd) < 0:
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in (self.tool_calls, self.execution_duration_ms, self.reserved_cost_microusd)
+        ):
             raise ValueError("run usage MUST be non-negative")
-        if self.measured_cost_microusd is not None and self.measured_cost_microusd < 0:
+        if self.measured_cost_microusd is not None and (
+            isinstance(self.measured_cost_microusd, bool)
+            or not isinstance(self.measured_cost_microusd, int)
+            or self.measured_cost_microusd < 0
+        ):
             raise ValueError("measured_cost_microusd MUST be non-negative")
 
 
@@ -106,9 +113,17 @@ class ReadInvestigationRunRecord:
         _aware("retention_until", self.retention_until)
         if self.terminal_at is not None:
             _aware("terminal_at", self.terminal_at)
-        if self.revision < 1:
+        if (
+            isinstance(self.revision, bool)
+            or not isinstance(self.revision, int)
+            or self.revision < 1
+        ):
             raise ValueError("revision MUST be >= 1")
-        if not 1 <= self.attempt_count <= MAX_READ_INVESTIGATION_ATTEMPTS:
+        if (
+            isinstance(self.attempt_count, bool)
+            or not isinstance(self.attempt_count, int)
+            or not 1 <= self.attempt_count <= MAX_READ_INVESTIGATION_ATTEMPTS
+        ):
             raise ValueError("attempt_count is outside the bounded retry range")
         if self.attempt_count > self.revision:
             raise ValueError("attempt_count cannot exceed revision")
@@ -305,9 +320,9 @@ class InMemoryReadInvestigationRunStore:
         _identifier("lease owner", lease_owner)
         _identifier("lease token", lease_token)
         _aware("claim now", now)
-        if lease_seconds < 1:
+        if isinstance(lease_seconds, bool) or lease_seconds < 1:
             raise ValueError("lease_seconds MUST be >= 1")
-        if retention_seconds < 1:
+        if isinstance(retention_seconds, bool) or retention_seconds < 1:
             raise ValueError("retention_seconds MUST be >= 1")
         digest = read_investigation_request_digest(request)
         key = (owner_principal_id, request.idempotency_key)
@@ -379,9 +394,9 @@ class InMemoryReadInvestigationRunStore:
         _identifier("lease owner", lease_owner)
         _identifier("lease token", lease_token)
         _aware("reclaim now", now)
-        if lease_seconds < 1:
+        if isinstance(lease_seconds, bool) or lease_seconds < 1:
             raise ValueError("lease_seconds MUST be >= 1")
-        if retention_seconds < 1:
+        if isinstance(retention_seconds, bool) or retention_seconds < 1:
             raise ValueError("retention_seconds MUST be >= 1")
         async with self._lock:
             key = (owner_principal_id, idempotency_key)
@@ -508,7 +523,7 @@ class InMemoryReadInvestigationRunStore:
     ) -> ReadInvestigationRunRecord:
         _aware("renew now", now)
         _aware("renew lease_ceiling_at", lease_ceiling_at)
-        if lease_seconds < 1:
+        if isinstance(lease_seconds, bool) or lease_seconds < 1:
             raise ValueError("lease_seconds MUST be >= 1")
         if lease_ceiling_at < now:
             raise ValueError("lease_ceiling_at MUST be >= now")
@@ -657,7 +672,7 @@ class InMemoryReadInvestigationRunStore:
         limit: int = 100,
     ) -> tuple[ReadInvestigationRunRecord, ...]:
         _aware("reconcile now", now)
-        if not 1 <= limit <= 10_000:
+        if isinstance(limit, bool) or not 1 <= limit <= 10_000:
             raise ValueError("reconcile limit MUST be in [1, 10000]")
         reconciled: list[ReadInvestigationRunRecord] = []
         async with self._lock:
@@ -704,7 +719,7 @@ class InMemoryReadInvestigationRunStore:
         limit: int = 100,
     ) -> tuple[tuple[str, str], ...]:
         _aware("purge now", now)
-        if not 1 <= limit <= 10_000:
+        if isinstance(limit, bool) or not 1 <= limit <= 10_000:
             raise ValueError("purge limit MUST be in [1, 10000]")
         purged: list[tuple[str, str]] = []
         async with self._lock:
@@ -770,7 +785,7 @@ def _request_digest(value: str) -> None:
 
 
 def _aware(name: str, value: datetime) -> None:
-    if value.tzinfo is None:
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{name} MUST be timezone-aware")
 
 

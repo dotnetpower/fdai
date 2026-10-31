@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -55,13 +56,30 @@ class AzureResourceEventHistoryConfig:
             raise ValueError("subscription_id MUST be a canonical UUID")
         if not self.endpoint.startswith("https://"):
             raise ValueError("Resource event endpoint MUST use https")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("Resource event timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.max_resources <= 1000:
+        if (
+            isinstance(self.max_resources, bool)
+            or not isinstance(self.max_resources, int)
+            or not 1 <= self.max_resources <= 1000
+        ):
             raise ValueError("Resource event max_resources MUST be in [1, 1000]")
-        if not 1 <= self.max_concurrent_queries <= 8:
+        if (
+            isinstance(self.max_concurrent_queries, bool)
+            or not isinstance(self.max_concurrent_queries, int)
+            or not 1 <= self.max_concurrent_queries <= 8
+        ):
             raise ValueError("Resource event max_concurrent_queries MUST be in [1, 8]")
-        if not 1_024 <= self.max_response_bytes <= 5_000_000:
+        if (
+            isinstance(self.max_response_bytes, bool)
+            or not isinstance(self.max_response_bytes, int)
+            or not 1_024 <= self.max_response_bytes <= 5_000_000
+        ):
             raise ValueError("Resource event max_response_bytes MUST be in [1024, 5000000]")
 
 
@@ -94,12 +112,17 @@ class AzureResourceEventHistoryReader:
 
         if event_families != (RESOURCE_HEALTH_EVENT_FAMILY,):
             raise ValueError("Azure Resource event reader received an unsupported family")
-        if not 60 <= lookback_seconds <= 86_400:
+        if (
+            isinstance(lookback_seconds, bool)
+            or not isinstance(lookback_seconds, int)
+            or not 60 <= lookback_seconds <= 86_400
+        ):
             raise ValueError("Resource event lookback_seconds MUST be in [60, 86400]")
         requested = tuple(sorted(set(resource_ids)))
         observed_at = self._now()
-        if observed_at.tzinfo is None:
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise ValueError("Resource event reader clock MUST be timezone-aware")
+        observed_at = observed_at.astimezone(UTC)
         if (
             requested != resource_ids
             or not requested
@@ -167,6 +190,7 @@ class AzureResourceEventHistoryReader:
         widened = False
         malformed = False
         events: list[ResourceEventObservation] = []
+        seen_refs: set[str] = set()
         for row in rows:
             target = row.get("targetResourceId")
             resource_id = (
@@ -180,6 +204,9 @@ class AzureResourceEventHistoryReader:
             if event is None:
                 malformed = True
                 continue
+            if event.evidence_ref in seen_refs:
+                continue
+            seen_refs.add(event.evidence_ref)
             events.append(event)
         events.sort(key=lambda item: (item.occurred_at, item.evidence_ref))
         truncated = len(events) > _MAX_EVENTS

@@ -129,3 +129,12 @@ def test_compiler_refuses_incomplete_or_over_cap_impact() -> None:
 def test_envelope_rejects_signal_that_is_required_and_forbidden() -> None:
     with pytest.raises(ValueError, match="both required and forbidden"):
         _compile(forbidden_signals=("pod_restart",))
+    with pytest.raises(ValueError, match="unique"):
+        _compile(
+            objective_bounds=(
+                ObjectiveBound(metric="availability", lower=99.0),
+                ObjectiveBound(metric="availability", lower=95.0),
+            )
+        )
+    with pytest.raises(ValueError, match="positive"):
+        _compile(action_type_cap=True)
