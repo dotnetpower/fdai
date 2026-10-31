@@ -17,10 +17,11 @@ from uuid import UUID
 from fdai_deployment_cli.bootstrap_approval import approval_source
 from fdai_deployment_cli.bootstrap_channel import _read, _write, prepare_directory
 from fdai_deployment_cli.bootstrap_support import (
-    check_unowned_existing_groups,
     configure_wsl_browser,
     default_profile_subscription_and_tenant,
+    format_nonready_message,
     reset_unapplied_installation,
+    select_available_workload,
     sync_local_azure_profile,
 )
 
@@ -71,6 +72,7 @@ class BootstrapExecutor:
             AZURE_CORE_COLLECT_TELEMETRY="false",
             AZURE_CORE_ONLY_SHOW_ERRORS="true",
             AZURE_CORE_LOGIN_EXPERIENCE_V2="off",
+            PYTHONUNBUFFERED="1",
         )
         if self.run is subprocess.run:
             configure_wsl_browser(self.area, self.environment)
@@ -279,7 +281,7 @@ class BootstrapExecutor:
             config.update(self._target(subscription))
             if self.run is subprocess.run and self.planner is None:
                 try:
-                    check_unowned_existing_groups(
+                    config["foundation_workload"] = select_available_workload(
                         self.area,
                         str(config["region"]),
                         self._az("group", "list", "--query", "[].{name:name}"),
@@ -352,6 +354,7 @@ class BootstrapExecutor:
 
         from fdai_deployment_cli.deployment_progress import DeploymentProgress
 
+        workload = str(config.get("foundation_workload", "fdai"))
         original_environment = dict(os.environ)
         try:
             os.environ.clear()
@@ -360,15 +363,27 @@ class BootstrapExecutor:
                 DeploymentProgress(mode="plain", auto_refresh=False),
                 approval_source(exact_decision),
             ):
-                result = (self.planner or plan_source_installation)(
-                    source_root=source,
-                    work_dir=self.area / "deployment",
-                    runtime_profile=profile,
-                    region=str(config["region"]),
-                    monthly_cost_ceiling=int(config["monthly_cost_ceiling"]),
-                    timeout_seconds=14400,
-                    hub_selection=selection,
-                )
+                if self.planner is not None:
+                    result = self.planner(
+                        source_root=source,
+                        work_dir=self.area / "deployment",
+                        runtime_profile=profile,
+                        region=str(config["region"]),
+                        monthly_cost_ceiling=int(config["monthly_cost_ceiling"]),
+                        timeout_seconds=14400,
+                        hub_selection=selection,
+                    )
+                else:
+                    result = plan_source_installation(
+                        source_root=source,
+                        work_dir=self.area / "deployment",
+                        runtime_profile=profile,
+                        region=str(config["region"]),
+                        monthly_cost_ceiling=int(config["monthly_cost_ceiling"]),
+                        timeout_seconds=14400,
+                        foundation_workload=workload,
+                        hub_selection=selection,
+                    )
         finally:
             os.environ.clear()
             os.environ.update(original_environment)
@@ -408,7 +423,7 @@ class BootstrapExecutor:
             "console_url": console,
             "message": "Independent health and zero-change acceptance completed."
             if ready
-            else "Installation is not accepted. Inspect retained private evidence before resuming.",
+            else format_nonready_message(result),
         }
         _write(self.area, safe, "acceptance.json")
         return safe

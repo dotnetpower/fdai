@@ -394,6 +394,7 @@ def serve(root: Path, *, total_seconds: int = TOTAL_SECONDS) -> None:
                     or not trace_within_bound
                 )
                 if timed_out or not process.is_alive():
+                    _drain(reader, trace_fd)
                     _stop(process)
                     with locked(root):
                         record = _read(root)

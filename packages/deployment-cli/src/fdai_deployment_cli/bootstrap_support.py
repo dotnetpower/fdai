@@ -105,30 +105,53 @@ def sync_local_azure_profile(source_azure: Path, target_azure: Path) -> None:
             continue
 
 
-def check_unowned_existing_groups(area: Path, region: str, query_groups: object) -> None:
-    """Block a fresh install fast if rg-fdai-ops-* or rg-fdai-dev-* already exists in region."""
-    if (area / "deployment/foundation/foundation-variables.json").is_file():
-        return
+def select_available_workload(area: Path, region: str, query_groups: object) -> str:
+    """Select 'fdai' or the first non-colliding workload token in the target region."""
+    variables = area / "deployment/foundation/foundation-variables.json"
+    if variables.is_file() and not variables.is_symlink():
+        try:
+            retained = json.loads(variables.read_bytes().decode("utf-8")).get("workload")
+            if isinstance(retained, str) and re.fullmatch(r"[a-z][a-z0-9]{1,11}", retained):
+                return retained
+        except (OSError, ValueError):
+            pass
     from fdai_deployment_cli.azure_naming import azure_region_short_name
 
     try:
         short = azure_region_short_name(region)
     except ValueError:
-        return
-    expected = {f"rg-fdai-ops-{short}", f"rg-fdai-dev-{short}"}
+        return "fdai"
     if not isinstance(query_groups, list):
-        return
-    found = sorted(
-        str(item.get("name"))
-        for item in query_groups
-        if isinstance(item, dict) and str(item.get("name", "")).lower() in expected
+        return "fdai"
+    existing = {
+        str(item.get("name", "")).lower() for item in query_groups if isinstance(item, dict)
+    }
+    for candidate in ("fdai", "fdaiboot", "fdaiboot2", "fdaiboot3", "fdaiboot4", "fdaiboot5"):
+        if (
+            f"rg-{candidate}-ops-{short}" not in existing
+            and f"rg-{candidate}-dev-{short}" not in existing
+        ):
+            return candidate
+    raise ValueError(
+        f"Existing FDAI resource groups already occupy region '{region}'. "
+        "Choose another Azure region or remove unused test resource groups first."
     )
-    if found:
-        joined = ", ".join(found)
-        raise ValueError(
-            f"Existing FDAI resource groups ({joined}) already exist in region '{region}'. "
-            "Choose another Azure region (such as koreacentral or eastus2) or remove the existing groups first."
-        )
+
+
+def format_nonready_message(result: dict[str, object]) -> str:
+    """Format an actionable blocker message when plan_source_installation stops before ready."""
+    if result.get("stage") == "aks-preflight":
+        blockers = result.get("blockers")
+        region = result.get("region", "")
+        if isinstance(blockers, list) and blockers:
+            joined = ", ".join(str(item) for item in blockers)
+            return (
+                f"Azure region '{region}' preflight blocked ({joined}). "
+                "Reset setup and choose a region with available VM SKU/quota (such as westus3)."
+            )
+    if result.get("state") == "blocked" and isinstance(result.get("reason"), str):
+        return f"Preparation blocked ({result['reason']}). Reset setup to adjust inputs."
+    return "Installation is not accepted. Inspect retained private evidence before resuming."
 
 
 def latest_progress_message(root: Path, current: str) -> str:
@@ -151,12 +174,20 @@ def latest_progress_message(root: Path, current: str) -> str:
             elapsed = ""
         elif clean.startswith(".. still running | elapsed"):
             elapsed = clean.split("elapsed", 1)[-1].strip()
+        elif clean.startswith("=> "):
+            detail_line = clean.removeprefix("=> ").strip()
+            elapsed = ""
+        elif clean.startswith("[..] ") and "|" in clean:
+            parts = [part.strip() for part in clean.removeprefix("[..]").split("|")]
+            detail_line = parts[0]
+            if len(parts) >= 2 and "elapsed" in parts[1]:
+                elapsed = parts[1].replace("elapsed", "").strip()
         elif line.startswith("      ") and len(clean) <= 120 and not stage_line:
             detail_line = clean
     if stage_line:
         return f"{stage_line} - elapsed {elapsed}" if elapsed else stage_line
     if detail_line:
-        return detail_line
+        return f"{detail_line} - elapsed {elapsed}" if elapsed else detail_line
     return current
 
 

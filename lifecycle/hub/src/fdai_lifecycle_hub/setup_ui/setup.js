@@ -141,20 +141,39 @@
     "Retained installation exists. Explicitly resume to refresh plans and health.": "저장된 설치 구성이 있습니다. '작업 재개'를 눌러 진행하거나 '설정 초기화'로 다시 선택하세요.",
     "Retained installation preserved. Resume to refresh its exact target, plans and health.": "저장된 설치 구성이 유지되고 있습니다. '작업 재개' 또는 '설정 초기화'를 선택하세요.",
     "Executor stopped. Inspect private traces and retained evidence before resuming.": "실행기가 중단되었습니다. 상태를 점검한 뒤 재개하거나 '설정 초기화'로 다시 시작하세요.",
+    "Installation is not accepted. Inspect retained private evidence before resuming.": "사전 점검(해당 리전 VM SKU/쿼터 제한 등)에서 차단되었습니다. '설정 초기화 (다시 선택)'를 누른 뒤 가용한 리전(예: westus3)을 선택하세요.",
+  };
+  const koStageDetails = {
+    "Preparing the clean source snapshot": "1/5 소스 체크아웃 스냅샷 검증 및 준비 중",
+    "Verifying source and tenant-local identity names": "2/5 테넌트 내 Entra ID 표시 이름 중복 검사 중",
+    "Checking AKS SKU, quota, and PostgreSQL availability": "3/5 선택한 리전의 AKS VM SKU, 쿼터 및 PostgreSQL 가용성 점검 중",
+    "Checking the public compute estimate": "4/5 리전 컴퓨트 예상 비용 산정 중",
+    "Preparing the checksum-pinned Terraform executable": "5/5 해시 검증된 Terraform 실행 파일 준비 중",
+    "Preparing Foundation inputs and the retained execution context": "Foundation 입력 및 Terraform 계획 컨텍스트 준비 중",
   };
   function localizeMessage(value) {
     if (!value || locale !== "ko") return value;
     if (koMessages[value]) return koMessages[value];
+    const pfBlocked = value.match(/^Azure region '([^']+)' preflight blocked \((.+)\)\./);
+    if (pfBlocked) {
+      return `선택한 '${pfBlocked[1]}' 리전에서 사전 점검이 차단되었습니다 (사유: ${pfBlocked[2]} - 이 구독에서 해당 리전의 VM SKU가 제한되어 있습니다). 우측 '설정 초기화 (다시 선택)'를 누른 뒤 가용한 리전(예: westus3)을 선택하세요.`;
+    }
     const groups = value.match(/^Existing FDAI resource groups \((.+)\) already exist in region '([^']+)'/);
     if (groups) {
-      return `선택한 '${groups[2]}' 지역에 이미 FDAI 리소스 그룹(${groups[1]})이 존재합니다. '설정 초기화 (다시 선택)'를 누른 뒤 다른 지역(예: koreacentral, eastus2)을 선택하세요.`;
+      return `선택한 '${groups[2]}' 지역에 이미 FDAI 리소스 그룹(${groups[1]})이 존재합니다. '설정 초기화 (다시 선택)'를 누른 뒤 다른 지역을 선택하세요.`;
     }
     const stopped = value.match(/^Stage '([^']+)' stopped \(([^)]+)\)/);
     if (stopped) {
-      return `'${stopped[1]}' 단계에서 중단되었습니다 (사유: ${stopped[2]}). 해당 지역에 기존 리소스가 있는지 확인하거나 '설정 초기화 (다시 선택)'로 다른 지역을 선택하세요.`;
+      return `'${stopped[1]}' 단계에서 중단되었습니다 (사유: ${stopped[2]}). '설정 초기화 (다시 선택)'로 다시 시도하거나 상태를 점검하세요.`;
+    }
+    for (const [enPrefix, koPrefix] of Object.entries(koStageDetails)) {
+      if (value === enPrefix) return `${koPrefix}...`;
+      if (value.startsWith(`${enPrefix} - elapsed `)) {
+        return `${koPrefix}... (경과 ${value.split(" - elapsed ")[1]})`;
+      }
     }
     if (value.startsWith("[") && value.includes("] ")) {
-      return value.replace(" complete", " 단계 완료").replace("elapsed ", "경과 ");
+      return value.replace(" complete", " 단계 완료").replace("- elapsed ", "· 경과 ");
     }
     return value;
   }
@@ -233,7 +252,7 @@
     const workspace = document.querySelector(".workspace");
     if (workspace) {
       workspace.dataset.activeDecision = String(
-        phase === "review" || ["blocked", "failed", "interrupted"].includes(phase) || ready
+        phase === "working" || phase === "review" || ["blocked", "failed", "interrupted"].includes(phase) || ready
       );
     }
     const accountSec = $("account-section");
@@ -368,6 +387,10 @@
   async function mutate(path, body) {
     if (pending || !connected) return;
     pending = true; clearTimeout(timer); notice(""); controls();
+    const statusSec = document.querySelector(".status-section");
+    if (statusSec && typeof statusSec.scrollIntoView === "function") {
+      statusSec.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     try { await request(path, body); }
     catch (error) { notice("uncertain", error instanceof TypeError || error.name === "TimeoutError" ? text("uncertain") : error.message); }
     finally { pending = false; await loadStatus(); controls(); }
@@ -421,7 +444,15 @@
     if ($(name)) $(name).addEventListener("click", () => action(name));
   }
   $("refresh").addEventListener("click", () => { notice(""); loadStatus(); });
-  window.addEventListener("focus", () => { if (!pending && !loading) loadStatus(); });
+  const refreshIfStale = () => {
+    const syntheticHidden = Object.prototype.hasOwnProperty.call(document, "hidden") && document.hidden;
+    if (!syntheticHidden && !pending && !loading && !authenticating && (!observedAt || Date.now() - observedAt.getTime() > 1500)) {
+      loadStatus();
+    }
+  };
+  window.addEventListener("focus", refreshIfStale);
+  document.addEventListener("pointerenter", refreshIfStale);
+  document.addEventListener("mousemove", refreshIfStale);
   document.querySelectorAll('input[name="artifact"]').forEach(node => node.addEventListener("change", artifactFields));
   $("key-file").addEventListener("change", async () => {
     const file = $("key-file").files[0];
