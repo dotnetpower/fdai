@@ -9,7 +9,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetSelect } from "./rule-catalog-components";
 import { RulesCatalogRail } from "./rule-catalog-rail";
@@ -268,6 +268,9 @@ export function RuleCatalogBody({
   const hasPrev = data.offset > 0;
   const hasNext = data.offset + data.limit < data.filtered_total;
   const tableFragment = "#rule-catalog-table";
+  const baseRulesHref = routeHref("rules", {
+    params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+  });
 
   return (
     <div class="stack">
@@ -276,11 +279,11 @@ export function RuleCatalogBody({
         <span>{t("governance.rules.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.total")} value={data.total} />
+        <KpiCard href={`${baseRulesHref}${tableFragment}`} label={t("governance.rules.kpi.total")} value={data.total} />
         <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.active")} value={catalogActive} hint={t("governance.rules.kpi.activeHint")} />
-        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.activated")} value={activeMembership ?? "-"} hint={t("governance.rules.kpi.activatedHint")} />
+        <KpiCard href={`${baseRulesHref}${tableFragment}`} label={t("governance.rules.kpi.activated")} value={activeMembership ?? "-"} hint={t("governance.rules.kpi.activatedHint")} />
         <KpiCard href={`${ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}${tableFragment}`} label={t("governance.rules.kpi.collected")} value={collected} hint={t("governance.rules.kpi.collectedHint")} />
-        <KpiCard href={`${routeHref("rules")}${tableFragment}`} label={t("governance.rules.kpi.resourceTypes")} value={data.resource_type_count} />
+        <KpiCard href={`${baseRulesHref}${tableFragment}`} label={t("governance.rules.kpi.resourceTypes")} value={data.resource_type_count} />
       </KpiGrid>
 
       <section class="stack-section">

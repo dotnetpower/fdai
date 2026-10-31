@@ -1,6 +1,7 @@
 import type { AutonomyPayload, DashboardKpi, MetricVsBaseline } from "../types";
 import { getLocale, t } from "../i18n";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { auditSampleParams, measurementEvidenceKind, type OverviewHealth } from "./dashboard.model";
 import { tDashboard } from "./i18n/dashboard-essential";
 import { EvidenceLoading, EvidenceSummary } from "./dashboard.evidence";
@@ -13,12 +14,7 @@ function fmtDuration(seconds: number): string {
 }
 
 function formatTimestamp(value: string): string {
-  const locale = getLocale() === "ko" ? "ko-KR" : "en-US";
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "UTC",
-  }).format(new Date(value));
+  return formatConsoleTimestamp(value);
 }
 
 function TrendSpark({
@@ -35,7 +31,7 @@ function TrendSpark({
   const range = maximum - minimum || 1;
   const points = series
     .map((value, index) => {
-      const x = (index / (series.length - 1)) * width;
+      const x = (index / Math.max(1, series.length - 1)) * width;
       const y = height - ((value - minimum) / range) * height;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     })

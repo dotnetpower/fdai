@@ -13,7 +13,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import "./settings-iam.css";
 import { settingsIamText } from "./settings-iam.i18n";
@@ -48,6 +48,18 @@ export function isCurrentIamLoad(currentGeneration: number, candidate: number): 
 }
 
 export function SettingsIamRoute({ client, auth }: Props) {
+  const [, setRouteRevision] = useState(0);
+  useEffect(() => {
+    const sync = () => setRouteRevision((revision) => revision + 1);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
   const requestedTab = iamTabFromSegment(currentRoute().segments[0]);
   const invalidTab = requestedTab === null;
   const [tab, setTab] = useState<IamTab>(requestedTab ?? "my-access");
@@ -125,6 +137,14 @@ export function SettingsIamRoute({ client, auth }: Props) {
   };
 
   useEffect(() => {
+    setOverview(null);
+    setRequests([]);
+    setRequestTotal(0);
+    setNextRequestCursor(null);
+    setRoster([]);
+    setRequestsError(null);
+    setRosterError(null);
+    setRosterAvailable(false);
     void load();
     return () => {
       loadGeneration.current += 1;
@@ -145,7 +165,10 @@ export function SettingsIamRoute({ client, auth }: Props) {
   const selectTab = (nextTab: IamTab) => {
     setTab(nextTab);
     const segment = nextTab === "my-access" ? [] : [nextTab];
-    navigate(routeHref("settings-iam", { segments: segment }));
+    navigate(routeHref("settings-iam", {
+      segments: segment,
+      params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+    }));
   };
 
   const loadMoreRequests = async () => {

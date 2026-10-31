@@ -219,8 +219,9 @@ function OutcomeKpis({
     : autonomy.confidence === null
       ? t("analytics.outcomes.provisionalHint")
       : undefined;
+  const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const auditHref = (outcome?: string) => routeHref("audit", {
-    params: { window: `${autonomy.window_days}d`, outcome },
+    params: { data: dataParam, window: `${autonomy.window_days}d`, outcome },
   });
   if (active === "auto-resolution") {
     const counts = autoResolutionCounts(autonomy.verticals);
@@ -250,27 +251,27 @@ function OutcomeKpis({
   }
   const hrefs: Readonly<Record<Exclude<OutcomeKey, "auto-resolution">, readonly [string, string, string, string]>> = {
     "human-touchpoints": [
-      routeHref("hil-queue"),
+      routeHref("hil-queue", { params: { data: dataParam } }),
       auditHref("hil"),
-      routeHref("hil-queue"),
+      routeHref("hil-queue", { params: { data: dataParam } }),
       auditHref("hil"),
     ],
     mttr: [
-      routeHref("incidents", { params: { status: "resolved" } }),
-      routeHref("reports"),
-      routeHref("incidents", { params: { status: "resolved" } }),
-      routeHref("reports"),
+      routeHref("incidents", { params: { data: dataParam, status: "resolved" } }),
+      routeHref("reports", { params: { data: dataParam } }),
+      routeHref("incidents", { params: { data: dataParam, status: "resolved" } }),
+      routeHref("reports", { params: { data: dataParam } }),
     ],
     "change-lead-time": [
       auditHref(),
       auditHref(),
-      routeHref("promotion-gates"),
+      routeHref("promotion-gates", { params: { data: dataParam } }),
       auditHref(),
     ],
     "cost-per-resolved-event": [
-      routeHref("llm-cost"),
+      routeHref("llm-cost", { params: { data: dataParam } }),
       auditHref(),
-      routeHref("llm-cost"),
+      routeHref("llm-cost", { params: { data: dataParam } }),
       auditHref(),
     ],
   };

@@ -93,6 +93,15 @@ export function OnboardingBody({
     }),
     [checkedAt, data, dataMode],
   );
+  const dataParam = dataMode === "sample" ? "sample" : null;
+  const deploymentHref = routeHref("settings-environment", {
+    segments: ["deployment"],
+    params: { data: dataParam },
+  });
+  const accessRequestsHref = routeHref("settings-iam", {
+    segments: ["requests"],
+    params: { data: dataParam },
+  });
   return (
     <div class="onboarding-content">
       {data.probe_mode === "not-configured" ? (
@@ -106,7 +115,7 @@ export function OnboardingBody({
       ) : null}
       <section class="onboarding-summary" aria-label={t("onboardingView.summaryLabel")}>
         <OnboardingSummaryItem
-          href={routeHref("settings-environment", { segments: ["deployment"] })}
+          href={deploymentHref}
           label={t("onboardingView.readiness")}
           value={observed
             ? (
@@ -125,7 +134,7 @@ export function OnboardingBody({
           evidenceState={summaryEvidenceState(dataMode, observed)}
         />
         <OnboardingSummaryItem
-          href={routeHref("architecture")}
+          href={routeHref("architecture", { params: { data: dataParam } })}
           label={t(observed
             ? "onboardingView.resourcesObserved"
             : "onboardingView.resourcesRequired")}
@@ -139,7 +148,7 @@ export function OnboardingBody({
           evidenceState={summaryEvidenceState(dataMode, observed)}
         />
         <OnboardingSummaryItem
-          href={routeHref("settings-iam", { segments: ["requests"] })}
+          href={accessRequestsHref}
           label={t(observed
             ? "onboardingView.rolesObserved"
             : "onboardingView.rolesRequired")}
@@ -153,7 +162,7 @@ export function OnboardingBody({
           evidenceState={summaryEvidenceState(dataMode, observed)}
         />
         <OnboardingSummaryItem
-          href={routeHref("settings-environment", { segments: ["deployment"] })}
+          href={deploymentHref}
           label={t("onboardingView.lastChecked")}
           value={!observed
             ? t("onboardingView.notChecked")
@@ -169,13 +178,13 @@ export function OnboardingBody({
         <div class="onboarding-action-links">
           <a
             class="btn secondary"
-            href={routeHref("settings-environment", { segments: ["deployment"] })}
+            href={deploymentHref}
           >
             {t("onboardingView.openProvisioning")}
           </a>
           <a
             class="btn secondary"
-            href={routeHref("settings-iam", { segments: ["requests"] })}
+            href={accessRequestsHref}
           >
             {t("onboardingView.reviewAccess")}
           </a>
