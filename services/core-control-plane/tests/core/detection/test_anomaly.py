@@ -197,3 +197,28 @@ def test_finding_event_re_enters_event_ingest() -> None:
     assert ingested.event_type == "anomaly.finding"
     # Re-delivery of the same finding dedupes on the stable idempotency key.
     assert ingest.ingest(detector.to_event(finding)) is None
+
+
+def test_different_resources_have_distinct_anomaly_idempotency_keys() -> None:
+    detector = _detector()
+    first = detector.evaluate(
+        metric="cpu_pct",
+        resource_ref="resource:example/rg/vm-a",
+        history=_history(_BASE),
+        observed=MetricSample(timestamp=_T, value=10.0 + 4.5 * _STD),
+        window_bucket="2026-07-08T09:00",
+    )
+    second = detector.evaluate(
+        metric="cpu_pct",
+        resource_ref="resource:example/rg/vm-b",
+        history=_history(_BASE),
+        observed=MetricSample(timestamp=_T, value=10.0 + 4.5 * _STD),
+        window_bucket="2026-07-08T09:00",
+    )
+    assert first is not None and second is not None
+    assert first.idempotency_key != second.idempotency_key
+
+    with pytest.raises(ValueError, match="min_samples"):
+        _detector(min_samples=True)
+    with pytest.raises(ValueError, match="z_threshold"):
+        _detector(z_threshold=float("nan"))

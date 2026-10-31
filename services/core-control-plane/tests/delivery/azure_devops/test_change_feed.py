@@ -263,7 +263,15 @@ async def test_null_build_id_falls_back_to_sha() -> None:
 def test_config_validation() -> None:
     with pytest.raises(ValueError, match="organization"):
         _config(organization="")
+    with pytest.raises(ValueError, match="organization"):
+        _config(organization="   ")
     with pytest.raises(ValueError, match="auth_scheme"):
         _config(auth_scheme="oauth")
     with pytest.raises(ValueError, match="https://"):
         _config(api_base="http://dev.azure.com")
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        _config(timeout_seconds=True)
+    with pytest.raises(ValueError, match="definition_ids"):
+        _config(definition_ids=(True,))
+    with pytest.raises(ValueError, match="page_size"):
+        _config(page_size=True)

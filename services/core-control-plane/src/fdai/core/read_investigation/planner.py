@@ -13,19 +13,23 @@ from fdai.shared.providers.read_investigation import ReadInvestigationIntent, Re
 
 
 def plan_read_investigation(request: ReadInvestigationRequest) -> ReadInvestigationPlan:
-    requested = (
+    raw_requested = (
         request.requested_evidence or read_investigation_intent_spec(request.intent).default_tools
     )
     if request.explicit_deep and request.intent not in {
         ReadInvestigationIntent.NETWORK_SECURITY,
         ReadInvestigationIntent.NETWORK_PEERING,
     }:
-        requested = (
+        raw_requested = (
             ReadToolId.GET_RESOURCE_STATE,
             ReadToolId.QUERY_RESOURCE_ACTIVITY,
             ReadToolId.QUERY_RESOURCE_HEALTH,
             ReadToolId.QUERY_GUEST_SHUTDOWN_EVENTS,
         )
+    requested: list[ReadToolId] = []
+    for tool_id in raw_requested:
+        if tool_id is not ReadToolId.RESOLVE_RESOURCE and tool_id not in requested:
+            requested.append(tool_id)
     tool_ids = (ReadToolId.RESOLVE_RESOURCE, *requested)
     steps = tuple(
         _step(tool_id, request=request, fallback_rank=index if len(requested) > 1 else 0)

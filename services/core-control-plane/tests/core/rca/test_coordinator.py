@@ -310,3 +310,28 @@ def test_analyze_t1_validates_reuse_factor() -> None:
             current_citations=_CANDIDATES,
             reuse_confidence_factor=1.5,
         )
+
+
+@pytest.mark.asyncio
+async def test_analyze_t2_rejects_empty_incident_summary_before_reasoner() -> None:
+    called = False
+
+    class _TrackingReasoner:
+        async def reason(
+            self,
+            *,
+            incident_summary: str,
+            candidate_citations: Sequence[Citation],
+        ) -> RootCauseHypothesis | None:
+            nonlocal called
+            called = True
+            return _t2((Citation(kind=CitationKind.RULE, ref=_RULE_ID),))
+
+    coordinator = RcaCoordinator(reasoner=_TrackingReasoner())
+    result = await coordinator.analyze_t2(
+        incident_summary="   ",
+        candidate_citations=_CANDIDATES,
+    )
+    assert result.outcome is RcaOutcome.ABSTAINED
+    assert result.reason == "invalid_incident_summary"
+    assert called is False

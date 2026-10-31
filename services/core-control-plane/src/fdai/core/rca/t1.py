@@ -97,7 +97,18 @@ def _freeze_graph(
     the analyzer config expects (empty when ``None``)."""
     if not depends_on:
         return {}
-    return {resource: frozenset(deps) for resource, deps in depends_on.items()}
+    frozen: dict[str, frozenset[str]] = {}
+    for resource, deps in depends_on.items():
+        if not isinstance(resource, str) or not resource.strip():
+            continue
+        cleaned_resource = resource.strip()
+        cleaned_deps = frozenset(
+            dep.strip()
+            for dep in deps
+            if isinstance(dep, str) and dep.strip() and dep.strip() != cleaned_resource
+        )
+        frozen[cleaned_resource] = cleaned_deps
+    return frozen
 
 
 __all__ = ["CorrelatedEvent", "Relationship", "t1_causal_chain"]

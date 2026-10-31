@@ -191,7 +191,7 @@ async def test_slow_log_source_does_not_block_trace_evidence() -> None:
     assert [citation.ref for citation in citations] == ["trace:trace-abc:s1"]
 
 
-@pytest.mark.parametrize("timeout", [0.0, -1.0, float("inf"), float("nan")])
+@pytest.mark.parametrize("timeout", [True, False, 0.0, -1.0, float("inf"), float("nan")])
 def test_source_timeout_must_be_finite_and_positive(timeout: float) -> None:
     with pytest.raises(ValueError, match="source_timeout_seconds"):
         TelemetryEvidenceGatherer(source_timeout_seconds=timeout)
@@ -278,3 +278,47 @@ async def test_analyze_t2_from_telemetry_refuses_fabricated_citation() -> None:
     # A citation the gatherer never produced is treated as fabricated.
     assert result.is_grounded is False
     assert "ungrounded_citation" in result.reason
+
+
+async def test_log_markers_sources_and_span_validation_for_expanded_faults() -> None:
+    logs = StaticLogQueryProvider(
+        [
+            LogRecord(
+                at=_NOW - timedelta(minutes=1),
+                body="Pod entered CrashLoopBackOff after OOMKilled and deadlock HTTP 503",
+                severity="  ERROR  ",
+                labels={"resource_id": _RES, "source": "KubeEvents"},
+            )
+        ]
+    )
+    traces = StaticTraceQueryProvider(
+        [
+            Span(
+                trace_id="   ",
+                span_id="s-empty",
+                parent_span_id=None,
+                service="checkout",
+                operation="GET /",
+                start=_NOW - timedelta(minutes=1),
+                duration=timedelta(milliseconds=50),
+                status="error",
+                labels={"resource_id": _RES},
+            ),
+            _span("s-valid", "  ERROR  "),
+        ]
+    )
+    gatherer = TelemetryEvidenceGatherer(log_provider=logs, trace_provider=traces)
+    citations = await gatherer.gather(resource_ref=_RES, since=_SINCE, until=_NOW, limit=2)
+    assert len(citations) == 2
+    assert "marker:crash" in citations[0].facts
+    assert "marker:deadlock" in citations[0].facts
+    assert "marker:http_5xx" in citations[0].facts
+    assert "marker:memory" in citations[0].facts
+    assert "severity:error" in citations[0].facts
+    assert "source:kube_events" in citations[0].facts
+    assert citations[1].ref == "trace:trace-abc:s-valid"
+
+    with pytest.raises(ValueError, match="limit MUST be >= 1"):
+        await gatherer.gather(resource_ref=_RES, since=_SINCE, until=_NOW, limit=0)
+    with pytest.raises(ValueError, match="limit MUST be >= 1"):
+        await gatherer.gather(resource_ref=_RES, since=_SINCE, until=_NOW, limit=True)

@@ -66,8 +66,14 @@ def _provider(
     "overrides",
     [
         {"workspace_id": ""},
+        {"workspace_id": "   "},
+        {"endpoint": "http://api.loganalytics.azure.com"},
+        {"api_path": "v1"},
         {"timeout_seconds": 0},
+        {"timeout_seconds": True},
+        {"timeout_seconds": float("nan")},
         {"max_rows_cap": 0},
+        {"max_rows_cap": True},
         {"max_query_chars": 0},
         {"max_response_bytes": 0},
     ],
@@ -177,6 +183,8 @@ async def test_empty_query_or_window_fails_closed(query: str, window: str) -> No
         ("X; Y", "PT1H", "one tabular"),
         ('workspace("other").X', "PT1H", "cross-workspace"),
         ('app("other").requests', "PT1H", "cross-workspace"),
+        ("adx('cluster').db", "PT1H", "cross-workspace"),
+        ("arg('').Resources", "PT1H", "cross-workspace"),
         ("X", "P32D", "at most P31D"),
         ("X", "PT0S", "greater than zero"),
         ("X", "yesterday", "ISO 8601"),
@@ -204,6 +212,8 @@ async def test_query_length_and_non_positive_row_limit_fail_closed() -> None:
         await provider.query_log(query="Usage", window="PT1H")
     with pytest.raises(LogQueryError, match="max_rows"):
         await provider.query_log(query="X", window="PT1H", max_rows=0)
+    with pytest.raises(LogQueryError, match="max_rows"):
+        await provider.query_log(query="X", window="PT1H", max_rows=True)
 
 
 # ---------------------------------------------------------------------------

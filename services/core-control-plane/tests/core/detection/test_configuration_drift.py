@@ -200,3 +200,27 @@ def test_baseline_unknowns_block_and_allowed_exceptions_remain_visible() -> None
     by_field = {finding.field: finding for finding in report.findings}
     assert by_field["allowed_exception"].verdict is DriftVerdict.NOT_APPLICABLE
     assert by_field["unknown_item"].drift_type is DriftType.UNKNOWN
+
+
+def test_drift_detects_boolean_vs_integer_and_extra_observed_attributes() -> None:
+    baseline = _baseline(
+        ConfigurationResource(
+            local_name="service-a",
+            resource_type="example/service",
+            region="Korea Central",
+            attributes={"replicas": 1},
+        )
+    )
+    observed = _observation(
+        ConfigurationResource(
+            local_name="service-a",
+            resource_type="example/service",
+            region="Korea Central",
+            attributes={"replicas": True, "unexpected_port": 8080},
+        ),
+        links=(),
+    )
+    report = compare_configuration(baseline, observed)
+    by_field = {finding.field: finding for finding in report.findings}
+    assert by_field["replicas"].drift_type is DriftType.CHANGED
+    assert by_field["unexpected_port"].drift_type is DriftType.ADDED

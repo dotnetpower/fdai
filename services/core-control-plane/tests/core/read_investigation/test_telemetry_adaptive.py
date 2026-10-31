@@ -106,12 +106,42 @@ class _SequencedProvider:
 
 def test_event_router_selects_bounded_relevant_recipes_and_unknown_falls_back() -> None:
     throttling = telemetry_mechanisms_for_event("http.429.detected")
+    errors = telemetry_mechanisms_for_event("http.503.service_failure")
+    saturation = telemetry_mechanisms_for_event("host.cpu.oom_pressure")
     unknown = telemetry_mechanisms_for_event("novel.signal")
 
     assert TelemetryMechanism.THROTTLING in throttling
     assert TelemetryMechanism.FAILED_REQUESTS in throttling
     assert len(throttling) == 3
+    assert TelemetryMechanism.FAILED_REQUESTS in errors
+    assert TelemetryMechanism.ERROR_TIMELINE in errors
+    assert len(errors) == 3
+    assert TelemetryMechanism.RESOURCE_SATURATION in saturation
+    assert TelemetryMechanism.CONTAINER_RESTARTS in saturation
+    assert len(saturation) == 3
     assert set(unknown) == set(TelemetryMechanism)
+
+
+def test_build_initial_telemetry_frame_validates_cutoff_and_dedupes_mechanisms() -> None:
+    frame = build_initial_telemetry_frame(
+        incident_id="incident:one",
+        graph_revision="graph:one",
+        evidence_cutoff=_NOW,
+        mechanisms=(
+            TelemetryMechanism.FAILED_REQUESTS,
+            TelemetryMechanism.FAILED_REQUESTS,
+            TelemetryMechanism.THROTTLING,
+        ),
+    )
+    assert len(frame.active_hypothesis_ids) == 2
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        build_initial_telemetry_frame(
+            incident_id="incident:one",
+            graph_revision="graph:one",
+            evidence_cutoff=datetime(2026, 9, 16, 12),  # noqa: DTZ001
+            mechanisms=(TelemetryMechanism.FAILED_REQUESTS, TelemetryMechanism.THROTTLING),
+        )
 
 
 @pytest.mark.asyncio

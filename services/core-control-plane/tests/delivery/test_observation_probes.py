@@ -149,3 +149,33 @@ async def test_metric_probe_enforces_serialized_byte_budget() -> None:
     assert result.coverage is ObservationCoverage.PARTIAL
     assert result.evidence_count == 1
     assert result.reason_codes == ("byte_limit",)
+
+
+async def test_log_probe_reports_result_limit_and_validates_aware_clock() -> None:
+    from fdai.delivery.observation_campaign import ObservationProbeContractError
+
+    now = datetime(2026, 8, 14, tzinfo=UTC)
+    provider = StaticLogQueryProvider(
+        tuple(LogRecord(at=now, body=f"err-{index}", severity="error") for index in range(3))
+    )
+    limited = await LogQueryObservationProbe(
+        provider,
+        expression="err",
+        clock=lambda: now,
+    ).collect(
+        _spec(ObservationDomain.LOGS, max_results=2),
+        cursor=None,
+    )
+    assert limited.coverage is ObservationCoverage.PARTIAL
+    assert limited.evidence_count == 2
+    assert limited.reason_codes == ("result_limit",)
+
+    with pytest.raises(ObservationProbeContractError, match="timezone-aware"):
+        await LogQueryObservationProbe(
+            provider,
+            expression="err",
+            clock=lambda: datetime(2026, 8, 14),  # noqa: DTZ001
+        ).collect(
+            _spec(ObservationDomain.LOGS),
+            cursor=None,
+        )

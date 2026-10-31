@@ -41,7 +41,9 @@ def normalize_resource_change_events(
 
     records = _records(envelope)
     arm_to_neutral = build_arm_to_neutral_map(resource_types)
-    received = ingested_at or datetime.now(tz=UTC)
+    if ingested_at is not None and (ingested_at.tzinfo is None or ingested_at.utcoffset() is None):
+        raise ValueError("ingested_at MUST be timezone-aware")
+    received = ingested_at.astimezone(UTC) if ingested_at is not None else datetime.now(tz=UTC)
     events: list[Event] = []
     for index, record in enumerate(records):
         try:
@@ -93,6 +95,8 @@ def _normalize_one(
     resource_type = arm_to_neutral.get(arm_type.lower(), UNCLASSIFIED_RESOURCE_TYPE)
 
     observed_at = _parse_timestamp(record.get("eventTime"))
+    if observed_at > ingested_at:
+        raise ValueError("eventTime MUST NOT exceed ingested_at")
     resource_id = to_neutral_id(provider_ref)
     resource = ResourceRecord(
         resource_id=resource_id,
@@ -116,9 +120,9 @@ def _normalize_one(
         "properties_complete": False,
         "property_mask": sorted(resource.props),
         "tombstone_confirmed": False,
-        "operation": data.get("operationName"),
-        "operation_status": data.get("status"),
-        "operation_provider": data.get("resourceProvider"),
+        "operation": _optional_data_text(data, "operationName"),
+        "operation_status": _optional_data_text(data, "status"),
+        "operation_provider": _optional_data_text(data, "resourceProvider"),
         "scope_ref": _subscription_scope(provider_ref),
         "resource": {
             "resource_id": resource.resource_id,
@@ -159,23 +163,39 @@ def _resource_arm_type(provider_ref: str) -> str | None:
     return None
 
 
+def _optional_data_text(data: Mapping[str, Any], key: str) -> str | None:
+    value = data.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"data.{key} MUST be a non-empty string or null")
+    return value.strip()
+
+
 def _subscription_scope(provider_ref: str) -> str | None:
     parts = provider_ref.strip("/").split("/")
     for index, part in enumerate(parts[:-1]):
-        if part.lower() == "subscriptions" and parts[index + 1]:
-            return parts[index + 1]
+        if part.lower() == "subscriptions":
+            candidate = parts[index + 1].strip()
+            if not candidate:
+                return None
+            try:
+                return str(UUID(candidate))
+            except ValueError:
+                return candidate.casefold()
     return None
 
 
 def _parse_timestamp(value: object) -> datetime:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError("eventTime MUST be a non-empty RFC 3339 string")
-    text = value[:-1] + "+00:00" if value.endswith("Z") else value
+    trimmed = value.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError as exc:
         raise ValueError("eventTime MUST be a valid RFC 3339 timestamp") from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("eventTime MUST include a timezone")
     return parsed.astimezone(UTC)
 

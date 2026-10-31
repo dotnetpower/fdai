@@ -205,14 +205,14 @@ class FrozenConfigurationBaseline:
             "allowed_exceptions",
             tuple(
                 sorted(
-                    _required_text("allowed exception", item) for item in self.allowed_exceptions
+                    {_required_text("allowed exception", item) for item in self.allowed_exceptions}
                 )
             ),
         )
         object.__setattr__(
             self,
             "unknown_items",
-            tuple(sorted(_required_text("unknown item", item) for item in self.unknown_items)),
+            tuple(sorted({_required_text("unknown item", item) for item in self.unknown_items})),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -324,13 +324,20 @@ class ConfigurationDriftPerformance:
             self.knowledge_ms,
             self.total_ms,
         )
-        if any(not math.isfinite(value) or value < 0 for value in latencies):
+        if any(
+            isinstance(value, bool) or not math.isfinite(value) or value < 0 for value in latencies
+        ):
             raise ValueError("configuration drift latencies MUST be finite and non-negative")
         stage_total = sum(latencies[:4])
         tolerance = max(1e-6, self.total_ms * 1e-9)
         if stage_total > self.total_ms + tolerance:
             raise ValueError("configuration drift stage latencies MUST NOT exceed total latency")
-        if self.resource_count < 0 or self.finding_count < 0:
+        if (
+            isinstance(self.resource_count, bool)
+            or isinstance(self.finding_count, bool)
+            or self.resource_count < 0
+            or self.finding_count < 0
+        ):
             raise ValueError("configuration drift counts MUST be non-negative")
 
     def to_dict(self) -> dict[str, object]:

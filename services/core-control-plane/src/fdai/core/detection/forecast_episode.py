@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from math import isfinite
 from typing import Protocol
@@ -135,8 +135,9 @@ class ForecastEpisode:
     revision: int = 1
 
     def __post_init__(self) -> None:
-        if not all(
-            (
+        if any(
+            not isinstance(value, str) or not value.strip()
+            for value in (
                 self.correlation_id,
                 self.detector_id,
                 self.detector_version,
@@ -151,20 +152,25 @@ class ForecastEpisode:
         ):
             raise ValueError("forecast episode access scope MUST be a SHA-256 digest")
         timestamps = (self.feature_cutoff, self.horizon_started_at, self.horizon_ended_at)
-        if any(value.tzinfo is None for value in timestamps):
+        if any(value.tzinfo is None or value.utcoffset() is None for value in timestamps):
             raise ValueError("forecast episode timestamps MUST be timezone-aware")
         if not self.feature_cutoff <= self.horizon_started_at <= self.horizon_ended_at:
             raise ValueError("forecast episode timestamps MUST be ordered")
-        if self.telemetry_grace_seconds < 0:
+        if isinstance(self.telemetry_grace_seconds, bool) or self.telemetry_grace_seconds < 0:
             raise ValueError("forecast episode telemetry grace MUST be non-negative")
         if self.direction not in {"rising", "falling"}:
             raise ValueError("forecast episode direction MUST be rising or falling")
         numeric = (self.threshold, self.predicted_value, self.interval_lower, self.interval_upper)
-        if any(value is not None and not isfinite(value) for value in numeric):
+        if any(
+            value is not None and (isinstance(value, bool) or not isfinite(value))
+            for value in numeric
+        ):
             raise ValueError("forecast episode numeric evidence MUST be finite")
-        if not self.evidence_refs or any(not value for value in self.evidence_refs):
+        if not self.evidence_refs or any(
+            not isinstance(value, str) or not value.strip() for value in self.evidence_refs
+        ):
             raise ValueError("forecast episode MUST carry evidence references")
-        if self.revision < 1:
+        if isinstance(self.revision, bool) or self.revision < 1:
             raise ValueError("forecast episode revision MUST be positive")
         prediction = (self.predicted_value, self.interval_lower, self.interval_upper)
         if self.evaluation_kind is ForecastEvaluationKind.PREDICTED_BREACH:
@@ -175,7 +181,7 @@ class ForecastEpisode:
         elif any(value is not None for value in prediction):
             raise ValueError("non-breach evaluation MUST NOT carry prediction evidence")
         if self.evaluation_kind is ForecastEvaluationKind.ABSTAINED:
-            if not self.abstain_reason:
+            if not isinstance(self.abstain_reason, str) or not self.abstain_reason.strip():
                 raise ValueError("abstained evaluation MUST carry a reason")
         elif self.abstain_reason is not None:
             raise ValueError("non-abstained evaluation MUST NOT carry an abstain reason")
@@ -212,8 +218,8 @@ def forecast_episode_id(
             detector_version,
             target_ref,
             metric,
-            feature_cutoff.isoformat(),
-            horizon_ended_at.isoformat(),
+            feature_cutoff.astimezone(UTC).isoformat(),
+            horizon_ended_at.astimezone(UTC).isoformat(),
         )
     )
     return uuid5(NAMESPACE_URL, f"fdai-forecast-episode:{material}")

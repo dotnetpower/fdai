@@ -69,6 +69,7 @@ Safety / cost invariants
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -222,27 +223,41 @@ class AzureResourceChangeFeedConfig:
             or parsed_endpoint.fragment
         ):
             raise ValueError("AzureResourceChangeFeedConfig.arg_endpoint MUST be an origin URL")
-        if self.timeout_seconds <= 0:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("timeout_seconds MUST be > 0")
-        if self.max_props_bytes < 1024:
+        if isinstance(self.max_props_bytes, bool) or self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
-        if self.initial_lookback_seconds < 0:
+        if isinstance(self.initial_lookback_seconds, bool) or self.initial_lookback_seconds < 0:
             raise ValueError("initial_lookback_seconds MUST be >= 0")
-        if not 1 <= self.page_size <= 1000:
+        if isinstance(self.page_size, bool) or not 1 <= self.page_size <= 1000:
             raise ValueError("page_size MUST be in [1, 1000]")
-        if self.max_pages < 1:
+        if isinstance(self.max_pages, bool) or self.max_pages < 1:
             raise ValueError("max_pages MUST be >= 1")
         if self.page_size * self.max_pages > 1_000:
             raise ValueError("page_size * max_pages MUST be <= 1000")
-        if not 1 <= self.max_hydration_batch <= _MAX_HYDRATION_BATCH_CAP:
+        if (
+            isinstance(self.max_hydration_batch, bool)
+            or not 1 <= self.max_hydration_batch <= _MAX_HYDRATION_BATCH_CAP
+        ):
             raise ValueError(f"max_hydration_batch MUST be in [1, {_MAX_HYDRATION_BATCH_CAP}]")
-        if not 1 <= self.max_hydration_retries <= 10:
+        if (
+            isinstance(self.max_hydration_retries, bool)
+            or not 1 <= self.max_hydration_retries <= 10
+        ):
             raise ValueError("max_hydration_retries MUST be in [1, 10]")
-        if self.max_response_bytes < 1:
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be >= 1")
-        if self.max_total_response_bytes < 1:
+        if isinstance(self.max_total_response_bytes, bool) or self.max_total_response_bytes < 1:
             raise ValueError("max_total_response_bytes MUST be >= 1")
-        if not 0 < self.requests_per_second <= 100:
+        if (
+            isinstance(self.requests_per_second, bool)
+            or not math.isfinite(self.requests_per_second)
+            or not 0 < self.requests_per_second <= 100
+        ):
             raise ValueError("requests_per_second MUST be in (0, 100]")
 
 

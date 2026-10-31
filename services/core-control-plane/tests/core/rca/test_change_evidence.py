@@ -184,4 +184,33 @@ def test_config_validation() -> None:
     with pytest.raises(ValueError):
         ChangeEvidenceGatherer(min_score=1.5)
     with pytest.raises(ValueError):
+        ChangeEvidenceGatherer(min_score=True)
+    with pytest.raises(ValueError):
+        ChangeEvidenceGatherer(min_score=float("nan"))
+    with pytest.raises(ValueError):
         ChangeEvidenceGatherer(max_citations=0)
+    with pytest.raises(ValueError):
+        ChangeEvidenceGatherer(max_citations=True)
+
+
+@pytest.mark.asyncio
+async def test_correlate_changes_normalizes_case_whitespace_and_dedupes() -> None:
+    from fdai.shared.providers.change_feed import correlate_changes
+
+    naive_change = _deploy(
+        "  gh-case  ",
+        datetime(2026, 7, 10, 11, 55, 0),  # noqa: DTZ001
+        hints=("  VM-A  ",),
+    )
+    older_dup = _deploy("gh-case", _INCIDENT_AT - timedelta(minutes=25), hints=("vm-a",))
+    blank_id = _deploy("   ", _INCIDENT_AT - timedelta(minutes=1), hints=("vm-a",))
+
+    ranked = correlate_changes(
+        [older_dup, naive_change, blank_id],
+        incident_at=datetime(2026, 7, 10, 12, 0, 0),  # noqa: DTZ001
+        incident_resources=("  vm-a  ",),
+        window=timedelta(hours=1),
+    )
+    assert len(ranked) == 1
+    assert ranked[0].resource_overlap == ("vm-a",)
+    assert ranked[0].lead_seconds == 300.0

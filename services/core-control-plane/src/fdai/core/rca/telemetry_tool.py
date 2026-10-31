@@ -28,13 +28,17 @@ class TelemetryEvidenceRecipeTool:
         catalog: ReviewedTelemetryRecipeCatalog = DEFAULT_TELEMETRY_RECIPE_CATALOG,
         maximum_retained_receipts: int = _MAX_RETAINED_RECEIPTS,
     ) -> None:
-        if not 1 <= maximum_retained_receipts <= _MAX_RETAINED_RECEIPTS:
+        if (
+            isinstance(maximum_retained_receipts, bool)
+            or not 1 <= maximum_retained_receipts <= _MAX_RETAINED_RECEIPTS
+        ):
             raise ValueError("maximum_retained_receipts is outside the supported bound")
         self._provider = provider
         self._catalog = catalog
         self._maximum_retained = maximum_retained_receipts
         self._receipts: OrderedDict[str, TelemetryEvidenceReceipt] = OrderedDict()
         self._in_flight: dict[str, asyncio.Task[TelemetryEvidenceReceipt]] = {}
+        self._waiter_counts: dict[str, int] = {}
         self._lock = asyncio.Lock()
 
     async def run(self, need: TelemetryEvidenceNeed) -> TelemetryEvidenceReceipt:
@@ -52,15 +56,24 @@ class TelemetryEvidenceRecipeTool:
             if task is None:
                 task = asyncio.create_task(self._provider.gather(need))
                 self._in_flight[need.need_id] = task
+            self._waiter_counts[need.need_id] = self._waiter_counts.get(need.need_id, 0) + 1
         try:
-            receipt = await task
+            receipt = await asyncio.shield(task)
         except asyncio.CancelledError:
-            task.cancel()
+            async with self._lock:
+                remaining = self._waiter_counts.get(need.need_id, 1) - 1
+                if remaining <= 0:
+                    self._waiter_counts.pop(need.need_id, None)
+                    self._in_flight.pop(need.need_id, None)
+                    task.cancel()
+                else:
+                    self._waiter_counts[need.need_id] = remaining
             raise
         finally:
             if task.done():
                 async with self._lock:
                     self._in_flight.pop(need.need_id, None)
+                    self._waiter_counts.pop(need.need_id, None)
         self._validate_receipt(need, receipt)
         async with self._lock:
             prior = self._receipts.get(need.need_id)

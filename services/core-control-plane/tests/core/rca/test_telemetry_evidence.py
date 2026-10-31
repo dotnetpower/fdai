@@ -140,3 +140,22 @@ def test_need_identity_detects_recipe_or_budget_substitution() -> None:
         replace(need, recipe_version="2.0.0")
     with pytest.raises(ValueError, match="need id does not match"):
         replace(need, max_cost_units=21)
+
+
+def test_telemetry_validation_rejects_whitespace_uppercase_digest_and_non_datetime() -> None:
+    from fdai.core.rca._telemetry_validation import (
+        aware_datetime,
+        bounded_text,
+        sha256_digest,
+    )
+
+    with pytest.raises(ValueError, match="non-empty string"):
+        bounded_text("field", "   ")
+    with pytest.raises(ValueError, match="non-empty string"):
+        bounded_text("field", " padded ")
+    with pytest.raises(ValueError, match="sha256 digest"):
+        sha256_digest("digest", f"sha256:{'A' * 64}")
+    with pytest.raises(ValueError, match="sha256 digest"):
+        sha256_digest("digest", f"sha256:0_{'a' * 62}")
+    with pytest.raises(ValueError, match="timezone-aware"):
+        aware_datetime("cutoff", "not-a-datetime")  # type: ignore[arg-type]

@@ -123,7 +123,7 @@ class AzureMonitorLogsConfig:
     cannot full-scan its table."""
 
     def __post_init__(self) -> None:
-        if not self.workspace_id:
+        if not self.workspace_id or not self.workspace_id.strip():
             raise ValueError("AzureMonitorLogsConfig.workspace_id MUST be non-empty")
         # The bearer token is attached to every request; a plaintext endpoint
         # would leak it on the wire. Real Log Analytics endpoints (public +
@@ -137,32 +137,48 @@ class AzureMonitorLogsConfig:
             raise ValueError(
                 f"AzureMonitorLogsConfig.api_path MUST start with '/' (got {self.api_path!r})"
             )
-        if self.timeout_seconds <= 0:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("AzureMonitorLogsConfig.timeout_seconds MUST be positive")
-        if self.max_rows <= 0:
+        if isinstance(self.max_rows, bool) or self.max_rows <= 0:
             raise ValueError("AzureMonitorLogsConfig.max_rows MUST be positive")
-        if self.max_response_bytes < 1:
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes < 1:
             raise ValueError("AzureMonitorLogsConfig.max_response_bytes MUST be >= 1")
-        if self.default_lookback_seconds <= 0:
+        if isinstance(self.default_lookback_seconds, bool) or self.default_lookback_seconds <= 0:
             raise ValueError("AzureMonitorLogsConfig.default_lookback_seconds MUST be positive")
 
 
 def _parse_timestamp(raw: Any) -> datetime:
     """Parse a Log Analytics ISO-8601 timestamp into an aware datetime."""
     if isinstance(raw, datetime):
-        return raw
-    if not isinstance(raw, str) or not raw:
+        if raw.tzinfo is None or raw.utcoffset() is None:
+            raise MetricProviderError(
+                "timezone-naive timestamp in Log Analytics row",
+                reason=MetricFailureReason.INVALID_RESPONSE,
+            )
+        return raw.astimezone(UTC)
+    if not isinstance(raw, str) or not raw.strip():
         raise MetricProviderError(
             "non-string timestamp in Log Analytics row",
             reason=MetricFailureReason.INVALID_RESPONSE,
         )
-    text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
-        return datetime.fromisoformat(text)
+        parsed = datetime.fromisoformat(text)
     except ValueError as exc:
         raise MetricProviderError(
             "unparseable Log Analytics timestamp", reason=MetricFailureReason.INVALID_RESPONSE
         ) from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise MetricProviderError(
+            "timezone-naive timestamp in Log Analytics row",
+            reason=MetricFailureReason.INVALID_RESPONSE,
+        )
+    return parsed.astimezone(UTC)
 
 
 def _coerce_value(raw: Any) -> float:

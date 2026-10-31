@@ -412,3 +412,27 @@ async def test_kql_filter_limit_applies_after_quote_escaping() -> None:
                 )
             )
         ]
+
+
+def test_telemetry_row_mapping_handles_zero_severity_lowercase_z_and_nan_duration() -> None:
+    from fdai.delivery.azure.telemetry_query import (
+        _bounds,
+        _log_record,
+        _non_negative_float,
+    )
+
+    rec = _log_record(
+        {
+            "at": "  2026-07-20T11:59:00z  ",
+            "body": "verbose trace",
+            "severity": 0,
+            "resource_id": "res-1",
+        }
+    )
+    assert rec.severity == "verbose"
+    assert rec.at == datetime(2026, 7, 20, 11, 59, tzinfo=UTC)
+
+    with pytest.raises(ValueError, match="limit MUST be in"):
+        _bounds(_NOW - timedelta(hours=1), _NOW, True)
+    with pytest.raises(ValueError, match="MUST be non-negative"):
+        _non_negative_float(float("nan"))
