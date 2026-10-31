@@ -382,3 +382,20 @@ def test_a_read_from_an_unproven_anchor_states_its_uniqueness_limitation() -> No
     assert all(
         "anchor.uniqueness_unproven" in batch.frame.evidence_requirements for batch in goal.batches
     )
+
+
+async def test_surface_extensions_out_of_bounds_and_blank_anchor_text() -> None:
+    assert surface_extensions("hello", -1, 2) == ()
+    assert surface_extensions("hello", 3, 3) == ()
+    request = ProjectionRequest(
+        caller_role=CeilingRole.READER, declared_purposes=frozenset({PURPOSE})
+    )
+    resolver = GatewayAnchorResolver(
+        _Spy(()),  # type: ignore[arg-type]
+        projection_request=request,
+        purpose=PURPOSE,
+        as_of=NOW,
+    )
+    binding = await resolver.resolve("m1", "   ")
+    assert binding.outcome is AnchorOutcome.ABSENT
+    assert binding.reason == "empty_anchor_text"

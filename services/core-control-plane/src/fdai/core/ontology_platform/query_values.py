@@ -141,7 +141,15 @@ def relationship_endpoint_table(
             break
     if not reached:
         reached = {row.row_id for row in table.rows if row.row_id not in roots}
-    return replace(table, rows=tuple(row for row in table.rows if row.row_id in reached))
+    filtered_rows = tuple(row for row in table.rows if row.row_id in reached)
+    total_rows = (
+        len(filtered_rows)
+        if table.complete and table.total_rows is not None
+        else None
+        if len(filtered_rows) != len(table.rows)
+        else table.total_rows
+    )
+    return replace(table, rows=filtered_rows, total_rows=total_rows)
 
 
 def combine_incompleteness(tables: tuple[QueryTable, ...]) -> str | None:

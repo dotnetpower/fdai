@@ -396,7 +396,10 @@ def _list_predicates(predicates: Any) -> bool:
 
 
 def _grouped(node: OntologyQueryNode) -> bool:
-    return node.kind is QueryNodeKind.AGGREGATE and bool(node.arguments.get("group_by"))
+    return node.kind is QueryNodeKind.AGGREGATE and (
+        bool(node.arguments.get("group_by"))
+        or node.arguments.get("operation") == "count_by_nearest_container"
+    )
 
 
 def _relational(node: OntologyQueryNode) -> bool:
@@ -406,7 +409,10 @@ def _relational(node: OntologyQueryNode) -> bool:
         return True
     arguments = node.arguments
     if node.kind is QueryNodeKind.AGGREGATE:
-        return _CONTAINER in (arguments.get("group_by") or ())
+        return (
+            _CONTAINER in (arguments.get("group_by") or ())
+            or arguments.get("operation") == "count_by_nearest_container"
+        )
     if node.kind is QueryNodeKind.OBJECT_SET:
         definition = arguments.get("definition")
         return isinstance(definition, Mapping) and (

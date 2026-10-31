@@ -345,8 +345,14 @@ class AuthorizedGovernedDocumentReader:
                 )
                 if cloud_status == Freshness.UNKNOWN.value:
                     continue
-            if hit.score < self._minimum_score:
+            if not math.isfinite(hit.score) or hit.score < self._minimum_score:
                 continue
+            if (
+                not isinstance(hit.text, str)
+                or not hit.text.strip()
+                or len(hit.text.encode("utf-8")) > 8_192
+            ):
+                raise RuntimeError("governed document search result text is invalid")
             locator = hit.metadata.get("locator")
             if not isinstance(locator, str) or not locator.strip() or len(locator) > 512:
                 raise RuntimeError("governed document search result locator is invalid")

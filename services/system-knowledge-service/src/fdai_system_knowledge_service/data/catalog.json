@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:9e7e6e37a2da7fb5bc9492958e738be92b0c003d72d97d2d7f04ea599c1d9641",
+  "catalog_digest": "sha256:971344d3a85b87a59d01081ecb1d6e6ba73a36b8fc065f0695cf3223941120ab",
   "execution_authority": false,
-  "generated_at": "2026-10-30T21:17:47.325748Z",
+  "generated_at": "2026-10-31T16:11:19.788247Z",
   "records": [
     {
       "designed_behavior": [
@@ -64,7 +64,7 @@
         "How does FDAI explain its own behavior?",
         "FDAI는 자신의 동작을 어떻게 설명하나요?"
       ],
-      "record_digest": "sha256:c6974a78985f18c57fe133663d90594c7a186468d2fc02d94ee3f3963ffe895e",
+      "record_digest": "sha256:a07823c44c1ee8c6ba1c206511800ff8add93d184bdb3f2996defb8a571c9f84",
       "sources": [
         {
           "authority_role": "design",
@@ -77,7 +77,7 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "cd689447e5a14b8e2549401cd2ee681533b98a70",
+          "blob_sha": "e29f641c02f2716fdc8be8deed46b83a2333f3e4",
           "line_end": 84,
           "line_start": 84,
           "path": "services/core-control-plane/src/fdai/core/knowledge/behavior_index.py",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "9d737cbf416ab1928b4a1ab3e69c0c3549f34083"
+  "source_revision": "6a9110d34f66da264f55157a1d8fad96782f586a"
 }

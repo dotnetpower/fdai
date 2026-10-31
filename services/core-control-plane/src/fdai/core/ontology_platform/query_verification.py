@@ -219,8 +219,14 @@ class OntologyQueryPlanVerifier:
             operation = arguments["operation"]
             if operation == "count_by_nearest_container":
                 container = arguments.get("container_kind")
-                if not isinstance(container, str) or not container:
+                if (
+                    "field" in arguments
+                    or "group_by" in arguments
+                    or not isinstance(container, str)
+                    or not container.strip()
+                ):
                     raise ValueError("lineage aggregate requires a container_kind")
+                _optional_limit(arguments)
                 return
             if operation not in {"count", "sum", "minimum", "maximum", "average"}:
                 raise ValueError("aggregate operation is unsupported")
@@ -689,12 +695,7 @@ def _metric_interval(arguments: Mapping[str, Any]) -> None:
         raise ValueError("metric interval MUST be positive and at most 31 days")
 
 
-def _verify_keys(
-    arguments: Mapping[str, Any],
-    *,
-    allowed: set[str],
-    required: set[str],
-) -> None:
+def _verify_keys(arguments: Mapping[str, Any], *, allowed: set[str], required: set[str]) -> None:
     if not required <= set(arguments) or not set(arguments) <= allowed:
         raise ValueError("query node arguments do not match the closed schema")
 
@@ -755,10 +756,7 @@ def _typed_path_entity_source_type(
 
 
 def _verify_predicates(
-    predicates: Sequence[ObjectPredicate],
-    *,
-    properties: Mapping[str, object],
-    subject: str,
+    predicates: Sequence[ObjectPredicate], *, properties: Mapping[str, object], subject: str
 ) -> None:
     for predicate in predicates:
         if predicate.property not in properties:
@@ -771,7 +769,12 @@ def _verify_predicates(
                 raise ValueError(
                     f"{subject} predicate operand is absent from the declared value domain"
                 )
-        fragment = _fragment_operand(predicate)
+        fragment = (
+            predicate.equals
+            if predicate.operator is ObjectPredicateOperator.CONTAINS
+            and isinstance(predicate.equals, str)
+            else None
+        )
         if fragment is not None and not any(fragment in value for value in declared):
             raise ValueError(
                 f"{subject} predicate fragment matches no value in the declared domain"
@@ -787,12 +790,6 @@ def _exact_operands(predicate: ObjectPredicate) -> tuple[str, ...]:
         else (predicate.equals,)
     )
     return tuple(item for item in operands if isinstance(item, str))
-
-
-def _fragment_operand(predicate: ObjectPredicate) -> str | None:
-    if predicate.operator is not ObjectPredicateOperator.CONTAINS:
-        return None
-    return predicate.equals if isinstance(predicate.equals, str) else None
 
 
 __all__ = ["OntologyQueryPlanVerifier"]

@@ -240,12 +240,16 @@ def _directional_relationship_lines(
 def _relationship_line(item: object) -> str:
     if not isinstance(item, Mapping):  # pragma: no cover - projection invariant
         raise RuntimeError("ontology relationship row is invalid")
-    link = str(item["link_type"])
-    source = str(item["from_type"])
-    target = str(item["to_type"])
-    cardinality = str(item["cardinality"])
-    description = str(item["description"])
+    link = _inline_span(str(item["link_type"]))
+    source = _inline_span(str(item["from_type"]))
+    target = _inline_span(str(item["to_type"]))
+    cardinality = _inline_span(str(item["cardinality"]))
+    description = str(item["description"]).replace("\r", " ").replace("\n", " ").strip()
     return f"- `{source}` --`{link}`--> `{target}` (`{cardinality}`): {description}"
+
+
+def _inline_span(value: str) -> str:
+    return value.replace("`", "'").replace("\r", " ").replace("\n", " ").strip()
 
 
 __all__ = ["project_ontology_relationships", "render_ontology_relationship_answer"]

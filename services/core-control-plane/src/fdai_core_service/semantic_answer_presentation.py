@@ -49,10 +49,10 @@ def readable_timestamp(value: str) -> str:
     """Render a timezone-aware ISO-8601 instant as UTC seconds; other text is unchanged."""
 
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError:
         return value
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         return value
     return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 

@@ -146,10 +146,10 @@ class InMemoryBehaviorKnowledgeIndex:
         presenting a one-sided answer as a verified comparison.
         """
 
-        if k < 2:
+        if k < 2 or k > _MAX_RESULTS:
             raise ValueError("behavior comparison MUST request at least two contracts")
-        results = await self.search(query, k=k)
-        return tuple(result for result in results if not result.stale)
+        results = await self.search(query, k=_MAX_RESULTS)
+        return tuple(result for result in results if not result.stale)[:k]
 
     async def _stale_sources(self, spec: BehaviorSpec) -> tuple[BehaviorSource, ...]:
         stale: list[BehaviorSource] = []
@@ -166,6 +166,8 @@ class InMemoryBehaviorKnowledgeIndex:
         query_tokens: set[str],
     ) -> tuple[str, int]:
         normalized_query = " ".join(normalize_tokens(query))
+        if not normalized_query:
+            return "hybrid", 2
         for alias in spec.question_aliases:
             if " ".join(normalize_tokens(alias)) == normalized_query:
                 return "exact_alias", 0
@@ -232,14 +234,18 @@ def _fuse(lexical_rank: int | None, semantic_rank: int | None) -> float:
 def _cosine(left: Iterable[float], right: Iterable[float]) -> float:
     left_values = tuple(left)
     right_values = tuple(right)
-    if len(left_values) != len(right_values):
+    if len(left_values) != len(right_values) or not left_values:
+        return 0.0
+    if any(not math.isfinite(value) for value in left_values) or any(
+        not math.isfinite(value) for value in right_values
+    ):
         return 0.0
     dot = sum(a * b for a, b in zip(left_values, right_values, strict=True))
     left_norm = math.sqrt(sum(value * value for value in left_values))
     right_norm = math.sqrt(sum(value * value for value in right_values))
     if left_norm == 0.0 or right_norm == 0.0:
         return 0.0
-    return dot / (left_norm * right_norm)
+    return max(-1.0, min(1.0, dot / (left_norm * right_norm)))
 
 
 __all__ = [

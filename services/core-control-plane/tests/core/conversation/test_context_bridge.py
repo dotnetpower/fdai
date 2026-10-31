@@ -119,6 +119,7 @@ def test_empty_content_turns_skipped() -> None:
         channel_id="cli",
     )
     session.append(Turn(turn_id="t0", direction="inbound", content=""))
+    session.append(Turn(turn_id="t0b", direction="inbound", content="   "))
     session.append(Turn(turn_id="t1", direction="inbound", content="real"))
     ctx = session_to_working_context(
         session=session, budget=_budget(1000), token_estimator=_fixed_tokens

@@ -198,6 +198,19 @@ def test_unknown_scope_kind_returns_error_result() -> None:
     assert result.status == "error"
     assert "scope_kind" in (result.preview or "")
     assert "resource" in (result.preview or "")
+
+
+def test_case_insensitive_scope_kind_and_truncated_flag() -> None:
+    store = _store_with(*(_entry(scope_ref="rg/example") for _ in range(3)))
+    tool = QueryOperatorMemoryTool(store=store)
+    result = tool.call(
+        arguments={"scope_kind": "Resource-Group", "scope_ref": "rg/example", "limit": 2},
+        principal=_principal(),
+    )
+    assert result.status == "ok"
+    data = result.data or {}
+    assert data["scope_kind"] == "resource-group"
+    assert data["truncated"] is True
     assert "resource-group" in (result.preview or "")
 
 

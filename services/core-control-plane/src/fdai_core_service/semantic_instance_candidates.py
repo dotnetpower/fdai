@@ -138,7 +138,13 @@ def render_instance_candidates(locale: str, output: Mapping[str, object]) -> str
     )
     lines.append("")
     for candidate in candidates:
-        if not isinstance(candidate, dict):
+        if (
+            not isinstance(candidate, Mapping)
+            or not isinstance(candidate.get("object_type"), str)
+            or not str(candidate["object_type"]).strip()
+            or not isinstance(candidate.get("id"), str)
+            or not str(candidate["id"]).strip()
+        ):
             raise ValueError("instance candidate identity is malformed")
         label = (
             f"{candidate['object_type']}: {candidate['id']}".replace("`", "'")

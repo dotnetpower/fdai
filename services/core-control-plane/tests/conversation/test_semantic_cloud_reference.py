@@ -114,6 +114,7 @@ def test_unspanned_target_or_fabricated_alias_never_becomes_a_filter() -> None:
     judgment = _judgment(utterance, "cloud_as_of")
     for replacement in (
         {"source_start": 1},
+        {"source_start": -5},
         {"canonical_value": "other"},
         {"value": "invented"},
     ):
@@ -127,6 +128,17 @@ def test_unspanned_target_or_fabricated_alias_never_becomes_a_filter() -> None:
         )
         with pytest.raises(ValueError, match="current-turn"):
             cloud_reference_constraints(altered, utterance=utterance)
+
+    proposal = PLANNING._proposal()
+    frame = PLANNING.build_semantic_frame(proposal, utterance="bad\x00query", context=())
+    with pytest.raises(ValueError, match="governed document search query"):
+        compile_governed_document_plan(
+            frame=frame,
+            utterance="bad\x00query",
+            manifest=PLANNING._manifest(),
+            verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
+            purpose="operations-review",
+        )
 
 
 def test_applicability_object_literals_cannot_impersonate_secured_evidence() -> None:

@@ -110,11 +110,19 @@ class OrderNodeHandler:
         limit = _limit(node.arguments)
         limited = len(rows) > limit
         reason = "result_limit" if limited else table.truncation_reason
+        total_rows = (
+            table.total_rows
+            if table.total_rows is not None
+            else len(rows)
+            if table.complete and limited
+            else None
+        )
         result = QueryTable(
             rows=tuple(rows[:limit]),
             complete=table.complete and not limited,
             truncation_reason=reason,
             numeric_fields=table.numeric_fields,
+            total_rows=total_rows,
         )
         return _table_result(result, dependencies)
 
@@ -146,6 +154,7 @@ class ProjectNodeHandler:
             complete=table.complete,
             truncation_reason=table.truncation_reason,
             numeric_fields=tuple(field for field in table.numeric_fields if field in fields),
+            total_rows=table.total_rows,
         )
         return _table_result(result, dependencies)
 

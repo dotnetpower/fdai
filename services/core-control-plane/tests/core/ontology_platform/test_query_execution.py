@@ -692,3 +692,73 @@ async def test_metric_evidence_is_scoped_only_by_a_matching_inventory_input(
     )
 
     assert execution.receipts[-1].reason == reason
+
+
+async def test_derived_table_node_preserves_scoped_authority_inputs() -> None:
+    from fdai.core.ontology_platform.query_handler_values import argument_name, evidence_refs
+
+    async def scope(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        return QueryNodeResult(
+            value={"rows": []},
+            evidence_refs=("inventory:scope",),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    async def health(node, dependencies):  # type: ignore[no-untyped-def]
+        del node, dependencies
+        return QueryNodeResult(
+            value={"rows": []},
+            evidence_refs=("health:1",),
+            authority=EvidenceAuthority.SERVER_RESOURCE_HEALTH,
+            authority_inputs=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+        )
+
+    async def project(node, dependencies):  # type: ignore[no-untyped-def]
+        del node
+        return QueryNodeResult(
+            value={"rows": []},
+            evidence_refs=evidence_refs(dependencies),
+        )
+
+    nodes = (
+        OntologyQueryNode(
+            node_id="scope",
+            kind=QueryNodeKind.OBJECT_SET,
+            output_kind="query.table",
+        ),
+        OntologyQueryNode(
+            node_id="health",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=("scope",),
+            output_kind="query.table",
+        ),
+        OntologyQueryNode(
+            node_id="project",
+            kind=QueryNodeKind.PROJECT,
+            depends_on=("health",),
+            output_kind="query.table",
+        ),
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={
+            QueryNodeKind.OBJECT_SET: scope,
+            QueryNodeKind.FUNCTION: health,
+            QueryNodeKind.PROJECT: project,
+        },
+        now=lambda: NOW,
+    ).execute(
+        _plan(nodes, ("project",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    assert execution.status == "completed"
+    assert execution.receipts[-1].authority is EvidenceAuthority.SERVER_RESOURCE_HEALTH
+    assert execution.receipts[-1].authority_inputs == (EvidenceAuthority.SERVER_INVENTORY_GRAPH,)
+
+    for bad_arg in ("가나다", "-bad", "1bad"):
+        with pytest.raises(ValueError):
+            argument_name(bad_arg)

@@ -106,6 +106,8 @@ class ResolvedDocumentAuthorization:
             raise ValueError("resolved document citations are outside the bounded count")
         if len(self.citations) != len(set(self.citations)):
             raise ValueError("resolved document citations MUST be unique")
+        if any(not item.startswith("doc:") or len(item.split(":")) != 3 for item in self.citations):
+            raise ValueError("resolved document citations MUST use canonical doc:uuid:uuid format")
         if _DIGEST.fullmatch(self.authorization_digest) is None:
             raise ValueError("resolved document authorization digest is invalid")
 
@@ -196,7 +198,11 @@ async def resolve_web_document_context(
 
     if not refs:
         return None
-    if not conversation_ref.strip() or len(conversation_ref) > 256:
+    if (
+        not conversation_ref.strip()
+        or len(conversation_ref) > 256
+        or any(ord(char) < 32 for char in conversation_ref)
+    ):
         raise DocumentRefSyntaxError(
             "session_id MUST be a bounded non-empty string when document_refs are present"
         )
@@ -215,6 +221,8 @@ async def resolve_web_document_context(
     except Exception as exc:  # noqa: BLE001 - never disclose provider internals
         raise DocumentRefResolutionFailedError() from exc
     expected = tuple(ref.citation for ref in refs)
+    if len(resolved.citations) != len(expected):
+        raise DocumentRefAccessDeniedError()
     if resolved.citations != expected:
         raise DocumentRefIntegrityError(
             "resolver returned substituted, reordered, or malformed citations"

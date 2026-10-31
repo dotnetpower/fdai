@@ -701,3 +701,10 @@ def test_an_accepted_verdict_still_requires_the_entailment_review() -> None:
 
     assert verdict.accepted is True
     assert verdict.entailment_review_required is True
+
+
+def test_code_parts_splits_dotted_and_plus_joined_limitation_codes() -> None:
+    from fdai.core.conversation.semantic_reasoning_claim_text import code_parts
+
+    parts = code_parts("window.default.900+source_incomplete")
+    assert {"900", "window", "default", "source_incomplete"} <= parts
