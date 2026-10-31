@@ -18,7 +18,7 @@ import { getLocale } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/llm-cost";
 import "./llm-cost-alignment.css";
-import { currentRoute, replaceRouteState, routeHref } from "../router";
+import { currentRoute, replaceRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { LlmCostRangeControl } from "./llm-cost-range-control";
 import {
   llmUsageRangeApiParams,
@@ -170,6 +170,28 @@ export function LlmCostRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<LlmCostResponse>>({ status: "loading" });
 
   useEffect(() => {
+    const syncRange = () => {
+      const next = llmUsageRangeFromSearch(
+        currentRoute().search,
+        dataMode === "sample" ? new Date("2026-09-01T00:00:00Z") : new Date(),
+      );
+      setRange((prev) =>
+        prev.from === next.from && prev.to === next.to && prev.preset === next.preset
+          ? prev
+          : next
+      );
+    };
+    window.addEventListener("popstate", syncRange);
+    window.addEventListener("fdai:route-changed", syncRange);
+    window.addEventListener(ROUTE_STATE_EVENT, syncRange);
+    return () => {
+      window.removeEventListener("popstate", syncRange);
+      window.removeEventListener("fdai:route-changed", syncRange);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncRange);
+    };
+  }, [dataMode]);
+
+  useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
     if (dataMode === "sample") {
@@ -233,16 +255,47 @@ export function decodeLlmCost(value: unknown): LlmCostResponse {
   const root = panelRecord(value, "LLM cost");
   const decodeSummary = (value: unknown, label: string): Summary => {
     const summary = panelRecord(value, label);
+    const promptTokens = panelNonNegativeInteger(summary, "prompt_tokens", label);
+    const completionTokens = panelNonNegativeInteger(summary, "completion_tokens", label);
+    const totalTokens = panelNonNegativeInteger(summary, "total_tokens", label);
+    if (totalTokens < promptTokens + completionTokens) {
+      throw new Error("LLM cost summary total tokens MUST be >= prompt plus completion tokens");
+    }
     return {
       key: panelString(summary, "key", label),
       invocations: panelNonNegativeInteger(summary, "invocations", label),
-      prompt_tokens: panelNonNegativeInteger(summary, "prompt_tokens", label),
-      completion_tokens: panelNonNegativeInteger(summary, "completion_tokens", label),
-      total_tokens: panelNonNegativeInteger(summary, "total_tokens", label),
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: totalTokens,
     };
   };
   const summaries = (key: string) => panelArray(root[key], `LLM cost.${key}`)
     .map((item, index) => decodeSummary(item, `LLM cost.${key}[${index}]`));
+  const records = panelArray(root["records"], "LLM cost.records").map((item, index) => {
+    const record = panelRecord(item, `LLM cost.records[${index}]`);
+    const promptTokens = panelNonNegativeInteger(record, "prompt_tokens", `LLM cost.records[${index}]`);
+    const completionTokens = panelNonNegativeInteger(record, "completion_tokens", `LLM cost.records[${index}]`);
+    const totalTokens = panelNonNegativeInteger(record, "total_tokens", `LLM cost.records[${index}]`);
+    if (totalTokens < promptTokens + completionTokens) {
+      throw new Error("LLM cost record total tokens MUST be >= prompt plus completion tokens");
+    }
+    return {
+      occurred_at: panelString(record, "occurred_at", `LLM cost.records[${index}]`),
+      correlation_id: panelString(record, "correlation_id", `LLM cost.records[${index}]`),
+      capability_id: panelString(record, "capability_id", `LLM cost.records[${index}]`),
+      model_key: panelString(record, "model_key", `LLM cost.records[${index}]`),
+      tier: panelString(record, "tier", `LLM cost.records[${index}]`),
+      mode: panelString(record, "mode", `LLM cost.records[${index}]`),
+      usage_scope: panelString(record, "usage_scope", `LLM cost.records[${index}]`),
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: totalTokens,
+    };
+  });
+  const recordCount = panelNonNegativeInteger(root, "record_count", "LLM cost");
+  if (recordCount < records.length) {
+    throw new Error("LLM cost record count MUST be >= returned records");
+  }
   return {
     source: panelString(root, "source", "LLM cost"),
     range_start: panelNullableString(root, "range_start", "LLM cost"),
@@ -261,23 +314,9 @@ export function decodeLlmCost(value: unknown): LlmCostResponse {
     by_hour: summaries("by_hour"),
     by_day: summaries("by_day"),
     by_month: summaries("by_month"),
-    records: panelArray(root["records"], "LLM cost.records").map((item, index) => {
-      const record = panelRecord(item, `LLM cost.records[${index}]`);
-      return {
-        occurred_at: panelString(record, "occurred_at", `LLM cost.records[${index}]`),
-        correlation_id: panelString(record, "correlation_id", `LLM cost.records[${index}]`),
-        capability_id: panelString(record, "capability_id", `LLM cost.records[${index}]`),
-        model_key: panelString(record, "model_key", `LLM cost.records[${index}]`),
-        tier: panelString(record, "tier", `LLM cost.records[${index}]`),
-        mode: panelString(record, "mode", `LLM cost.records[${index}]`),
-        usage_scope: panelString(record, "usage_scope", `LLM cost.records[${index}]`),
-        prompt_tokens: panelNonNegativeInteger(record, "prompt_tokens", `LLM cost.records[${index}]`),
-        completion_tokens: panelNonNegativeInteger(record, "completion_tokens", `LLM cost.records[${index}]`),
-        total_tokens: panelNonNegativeInteger(record, "total_tokens", `LLM cost.records[${index}]`),
-      };
-    }),
+    records,
     records_truncated: panelBoolean(root, "records_truncated", "LLM cost"),
-    record_count: panelNonNegativeInteger(root, "record_count", "LLM cost"),
+    record_count: recordCount,
   };
 }
 

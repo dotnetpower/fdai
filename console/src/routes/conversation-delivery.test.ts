@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { decodeConversationDelivery } from "./conversation-delivery";
+import {
+  conversationDeliveryEvidenceHref,
+  decodeConversationDelivery,
+} from "./conversation-delivery";
 
 function payload() {
   return {
@@ -42,5 +45,7 @@ describe("conversation delivery dashboard", () => {
       attempt_count: 1,
       acknowledgement_count: 2,
     })).toThrow(/acknowledgements MUST NOT exceed attempts/);
+    expect(conversationDeliveryEvidenceHref(new URLSearchParams("data=sample")))
+      .toBe("/conversation-delivery?data=sample#conversation-delivery-evidence");
   });
 });

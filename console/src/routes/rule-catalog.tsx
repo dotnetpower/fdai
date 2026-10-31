@@ -91,9 +91,11 @@ export function RuleCatalogRoute({ client }: Props) {
     const onRouteChange = () => setView(rulesCatalogViewFromSearch(currentRoute().search));
     window.addEventListener("popstate", onRouteChange);
     window.addEventListener("fdai:route-changed", onRouteChange);
+    window.addEventListener(ROUTE_STATE_EVENT, onRouteChange);
     return () => {
       window.removeEventListener("popstate", onRouteChange);
       window.removeEventListener("fdai:route-changed", onRouteChange);
+      window.removeEventListener(ROUTE_STATE_EVENT, onRouteChange);
     };
   }, []);
   return (

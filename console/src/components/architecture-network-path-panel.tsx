@@ -59,14 +59,14 @@ export function ArchitectureNetworkPathPanel({
           <span>{t("network.source")}</span>
           <select value={sourceId ?? ""} onChange={(event) => onSourceChange(event.currentTarget.value || null)}>
             <option value="">{t("network.selectSource")}</option>
-            {selectable.map((resource) => <option value={resource.id}>{resource.name}</option>)}
+            {selectable.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
           </select>
         </label>
         <label>
           <span>{t("network.destination")}</span>
           <select value={targetId ?? ""} onChange={(event) => onTargetChange(event.currentTarget.value || null)}>
             <option value="">{t("network.selectDestination")}</option>
-            {selectable.map((resource) => <option value={resource.id}>{resource.name}</option>)}
+            {selectable.map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
           </select>
         </label>
         <output
@@ -91,7 +91,7 @@ export function ArchitectureNetworkPathPanel({
       <fieldset class="architecture-network-filters">
         <legend>{t("network.filters")}</legend>
         {(Object.keys(FILTER_LABELS) as Array<keyof ArchitectureNetworkFilters>).map((key) => (
-          <label>
+          <label key={key}>
             <input type="checkbox" checked={filters[key]} onChange={() => onToggleFilter(key)} />
             {t(FILTER_LABELS[key])}
           </label>

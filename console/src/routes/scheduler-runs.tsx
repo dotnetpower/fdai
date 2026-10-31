@@ -118,7 +118,12 @@ export function SchedulerRunsRoute({
       setTaskInput(next.taskId);
       setStatusInput(next.status);
       setActiveQuery(next.taskId ? next : null);
-      if (!next.taskId) setState({ status: "idle" });
+      if (!next.taskId) {
+        generation.current += 1;
+        setLoadingMore(false);
+        setPageError(null);
+        setState({ status: "idle" });
+      }
     };
     sync();
     window.addEventListener("popstate", sync);

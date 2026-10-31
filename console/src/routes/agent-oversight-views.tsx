@@ -14,6 +14,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { currentRoute, navigate, routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { PANTHEON } from "./agents.model";
 import { HandoverProposalEditor } from "./handover-editor";
 import { ownershipText } from "./ownership-copy";
@@ -236,7 +237,7 @@ function Overview({ data }: { readonly data: StewardshipResponse }) {
           <dt>{t("handover.identityHealth")}</dt>
           <dd>{t(`handover.identityHealthStatus.${data.identity_health.status}`)}</dd>
           <dt>{t("handover.checkedAt")}</dt>
-          <dd>{data.identity_health.checked_at ?? t("handover.notObserved")}</dd>
+          <dd>{data.identity_health.checked_at ? formatConsoleTimestamp(data.identity_health.checked_at) : t("handover.notObserved")}</dd>
         </dl>
       </section>
       {maintainerBanner ? <div class={`callout callout--${maintainerBanner.level}`}>{maintainerBanner.text}</div> : null}
@@ -301,7 +302,7 @@ function HumanDependencies({ data }: { readonly data: StewardshipResponse }) {
           <dt>{ownershipText("directorySource")}</dt>
           <dd>{ownershipText(`directoryAvailability.${ownership.directory.availability}`)}</dd>
           <dt>{ownershipText("observedAt")}</dt>
-          <dd>{ownership.directory.observed_at ?? t("handover.notObserved")}</dd>
+          <dd>{ownership.directory.observed_at ? formatConsoleTimestamp(ownership.directory.observed_at) : t("handover.notObserved")}</dd>
           <dt>{ownershipText("assignmentSource")}</dt>
           <dd>{ownershipText(ownership.assignment_projection.truncated
             ? "assignmentAvailability.truncated"

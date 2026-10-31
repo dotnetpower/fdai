@@ -275,6 +275,11 @@ export function processHref(processId: string): string {
   return `${panelPath("processes")}/${encodeURIComponent(processId)}`;
 }
 
+export function processRouteHref(processId: string, dataMode?: "live" | "sample"): string {
+  const base = processHref(processId);
+  return dataMode === "sample" ? `${base}?data=sample` : base;
+}
+
 export function processEventHref(processId: string, eventId: string): string {
   const search = new URLSearchParams({ event: eventId });
   return `${processHref(processId)}?${search.toString()}`;
