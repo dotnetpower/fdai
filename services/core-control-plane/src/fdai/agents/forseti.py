@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -174,11 +175,24 @@ class Forseti(
         state_store: StateStore | None = None,
         historical_replay_source: ForsetiHistoricalReplaySource | None = None,
     ) -> None:
-        if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
+        if (
+            isinstance(cross_vertical_timeout_seconds, bool)
+            or not math.isfinite(cross_vertical_timeout_seconds)
+            or cross_vertical_timeout_seconds <= 0.0
+            or cross_vertical_timeout_seconds > 300.0
+        ):
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
-        if architecture_review_timeout_seconds <= 0.0:
+        if (
+            isinstance(architecture_review_timeout_seconds, bool)
+            or not math.isfinite(architecture_review_timeout_seconds)
+            or architecture_review_timeout_seconds <= 0.0
+        ):
             raise ValueError("architecture_review_timeout_seconds MUST be positive")
-        if change_assessment_timeout_seconds <= 0.0:
+        if (
+            isinstance(change_assessment_timeout_seconds, bool)
+            or not math.isfinite(change_assessment_timeout_seconds)
+            or change_assessment_timeout_seconds <= 0.0
+        ):
             raise ValueError("change_assessment_timeout_seconds MUST be positive")
         if rule_staleness_window <= timedelta(0):
             raise ValueError("rule_staleness_window MUST be positive")
@@ -323,6 +337,21 @@ class Forseti(
     ) -> None:
         """Bind the observation-only architecture review loop at composition."""
         self._architecture_review_loop = loop
+
+    def bind_rbac(self, rbac: dict[str, frozenset[str]]) -> None:
+        """Bind or replace the operator RBAC table."""
+        self._rbac = dict(rbac)
+
+    def bind_judgment_table(self, judgment_table: JudgmentTable) -> None:
+        """Bind or replace the digest-stamped deterministic judgment table."""
+        self._judgment_table = judgment_table
+
+    def bind_kinetic_proposal_source(
+        self,
+        source: KineticActionProposalSource | None,
+    ) -> None:
+        """Bind or replace the kinetic action proposal source."""
+        self._kinetic_proposal_source = source
 
     # ---- typed port ----------------------------------------------------
 

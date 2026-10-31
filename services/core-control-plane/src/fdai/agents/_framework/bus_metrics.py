@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 _HANDLER_WINDOW = 32
+_MAX_HANDLER_AGENTS = 64
 _RECENT_REJECTION_LIMIT = 32
 
 
@@ -52,8 +53,16 @@ class BridgeMetrics:
     )
 
     def record_handler_result(self, agent: str, *, failed: bool) -> None:
-        window = self._handler_windows.setdefault(agent, deque(maxlen=_HANDLER_WINDOW))
-        window.append(failed)
+        clean_agent = agent.strip() if isinstance(agent, str) else ""
+        if not clean_agent:
+            return
+        if (
+            clean_agent not in self._handler_windows
+            and len(self._handler_windows) >= _MAX_HANDLER_AGENTS
+        ):
+            return
+        window = self._handler_windows.setdefault(clean_agent, deque(maxlen=_HANDLER_WINDOW))
+        window.append(bool(failed))
 
     def degraded_handler_agents(self) -> tuple[str, ...]:
         return tuple(

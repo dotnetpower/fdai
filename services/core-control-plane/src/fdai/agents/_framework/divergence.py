@@ -30,6 +30,7 @@ from typing import Any
 
 _PANTHEON = "pantheon"
 _AUTHORITATIVE = "authoritative"
+_MAX_BREAKDOWN_KEYS = 256
 
 
 @dataclass
@@ -51,6 +52,14 @@ class ShadowDivergenceLedger:
     authoritative_total: int = 0
     breakdown: Counter[str] = field(default_factory=Counter)
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.max_pending, bool)
+            or not isinstance(self.max_pending, int)
+            or self.max_pending < 1
+        ):
+            raise ValueError("max_pending MUST be >= 1")
+
     def record_pantheon(self, correlation_id: str, decision: str) -> None:
         self.pantheon_total += 1
         self._record(_PANTHEON, correlation_id, decision)
@@ -60,12 +69,14 @@ class ShadowDivergenceLedger:
         self._record(_AUTHORITATIVE, correlation_id, decision)
 
     def _record(self, side: str, correlation_id: str, decision: str) -> None:
-        if not correlation_id:
+        clean_id = correlation_id.strip() if isinstance(correlation_id, str) else ""
+        clean_decision = decision.strip() if isinstance(decision, str) else ""
+        if not clean_id or not clean_decision:
             return
-        other = self._pending.get(correlation_id)
+        other = self._pending.get(clean_id)
         if other is None:
-            self._pending[correlation_id] = (side, decision)
-            self._pending.move_to_end(correlation_id)
+            self._pending[clean_id] = (side, clean_decision)
+            self._pending.move_to_end(clean_id)
             if len(self._pending) > self.max_pending:
                 self._pending.popitem(last=False)
                 self.evicted += 1
@@ -74,18 +85,22 @@ class ShadowDivergenceLedger:
         if other_side == side:
             # Same side reported twice (re-delivery); keep the latest and
             # stay pending for the opposite side.
-            self._pending[correlation_id] = (side, decision)
+            self._pending[clean_id] = (side, clean_decision)
+            self._pending.move_to_end(clean_id)
             return
-        del self._pending[correlation_id]
-        pantheon = decision if side == _PANTHEON else other_decision
-        authoritative = decision if side == _AUTHORITATIVE else other_decision
+        del self._pending[clean_id]
+        pantheon = clean_decision if side == _PANTHEON else other_decision
+        authoritative = clean_decision if side == _AUTHORITATIVE else other_decision
         if pantheon == authoritative:
             self.matched += 1
         else:
             self.diverged += 1
             # authoritative -> pantheon, so the pair reads "what P1 did ->
             # what the shadow would have done".
-            self.breakdown[f"{authoritative}->{pantheon}"] += 1
+            pair_key = f"{authoritative}->{pantheon}"
+            if pair_key not in self.breakdown and len(self.breakdown) >= _MAX_BREAKDOWN_KEYS:
+                pair_key = "overflow->overflow"
+            self.breakdown[pair_key] += 1
 
     def report(self) -> dict[str, Any]:
         resolved = self.matched + self.diverged

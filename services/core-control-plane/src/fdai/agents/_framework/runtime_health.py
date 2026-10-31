@@ -194,10 +194,10 @@ def _available_kpi_values(
     behavior = health.get("behavior")
     if not isinstance(behavior, Mapping):
         return {}, {}
+    measured: dict[str, float] = {}
+    metric_tags: dict[str, dict[str, str]] = {}
     kpis = health.get("kpis")
     if isinstance(kpis, Mapping):
-        measured: dict[str, float] = {}
-        metric_tags: dict[str, dict[str, str]] = {}
         for metric, evidence in kpis.items():
             if not isinstance(metric, str) or not isinstance(evidence, Mapping):
                 continue
@@ -210,80 +210,92 @@ def _available_kpi_values(
             tags = _metric_tags_from_evidence(metric, evidence)
             if tags:
                 metric_tags[metric] = tags
-        if measured:
-            return measured, metric_tags
-    if agent == "Saga":
+    if agent == "Saga" and "audit_chain_integrity_rate" not in measured:
         verified = behavior.get("maintenance_tick:audit_chain_verified")
         failed = behavior.get("maintenance_tick:failed")
-        if isinstance(verified, int) and verified > 0 and not failed:
-            return {"audit_chain_integrity_rate": 1.0}, {
-                "audit_chain_integrity_rate": {"denominator": str(verified)}
-            }
-    if agent == "Mimir":
+        if (
+            not isinstance(verified, bool)
+            and isinstance(verified, int)
+            and verified > 0
+            and not failed
+        ):
+            measured["audit_chain_integrity_rate"] = 1.0
+            metric_tags["audit_chain_integrity_rate"] = {"denominator": str(verified)}
+    if agent == "Mimir" and "promotion_pass_rate" not in measured:
         passed = behavior.get("promotion:passed")
         reviewed_required = behavior.get("promotion:reviewed_change_required")
         failed_operational = behavior.get("promotion:failed_operational_candidate")
         failed_dwell = behavior.get("promotion:failed_shadow_dwell")
-        if isinstance(passed, int):
+        if not isinstance(passed, bool) and isinstance(passed, int):
             total = passed + sum(
                 value
                 for value in (reviewed_required, failed_operational, failed_dwell)
-                if isinstance(value, int)
+                if not isinstance(value, bool) and isinstance(value, int)
             )
             if total:
-                return {"promotion_pass_rate": passed / total}, {
-                    "promotion_pass_rate": {"denominator": str(total)}
-                }
-    if agent == "Muninn":
+                measured["promotion_pass_rate"] = passed / total
+                metric_tags["promotion_pass_rate"] = {"denominator": str(total)}
+    if agent == "Muninn" and "cache_hit_rate" not in measured:
         hits = behavior.get("context_fetch:hit")
         misses = behavior.get("context_fetch:miss")
-        if isinstance(hits, int) and isinstance(misses, int):
+        if (
+            not isinstance(hits, bool)
+            and isinstance(hits, int)
+            and not isinstance(misses, bool)
+            and isinstance(misses, int)
+        ):
             total = hits + misses
             if total:
-                return {"cache_hit_rate": hits / total}, {
-                    "cache_hit_rate": {"denominator": str(total)}
-                }
-    if agent == "Norns":
+                measured["cache_hit_rate"] = hits / total
+                metric_tags["cache_hit_rate"] = {"denominator": str(total)}
+    if agent == "Norns" and "rule_candidate_adoption_rate" not in measured:
         published = behavior.get("rule_candidate_published")
         held = behavior.get("rule_candidate_consensus_held")
         disabled = behavior.get("rule_candidate_publication_disabled")
         invalidated = behavior.get("operational_case_candidate_source_invalidated")
         rate_limited = behavior.get("rate_limit_exceeded")
-        if isinstance(published, int) and published >= 0:
+        if not isinstance(published, bool) and isinstance(published, int) and published >= 0:
             total = published + sum(
                 value
                 for value in (held, disabled, invalidated, rate_limited)
-                if isinstance(value, int)
+                if not isinstance(value, bool) and isinstance(value, int)
             )
             if total:
-                return {"rule_candidate_adoption_rate": published / total}, {
-                    "rule_candidate_adoption_rate": {"denominator": str(total)}
-                }
-    if agent == "Bragi":
+                measured["rule_candidate_adoption_rate"] = published / total
+                metric_tags["rule_candidate_adoption_rate"] = {"denominator": str(total)}
+    if agent == "Bragi" and "handoff_rate" not in measured:
         materialized = behavior.get("handoff:materialized")
         unavailable = behavior.get("handoff:transport_unavailable")
-        if isinstance(materialized, int) and isinstance(unavailable, int):
+        if (
+            not isinstance(materialized, bool)
+            and isinstance(materialized, int)
+            and not isinstance(unavailable, bool)
+            and isinstance(unavailable, int)
+        ):
             total = materialized + unavailable
             if total:
-                return {"handoff_rate": materialized / total}, {
-                    "handoff_rate": {"denominator": str(total)}
-                }
-    return {}, {}
+                measured["handoff_rate"] = materialized / total
+                metric_tags["handoff_rate"] = {"denominator": str(total)}
+    return measured, metric_tags
 
 
 def _metric_tags_from_evidence(metric: str, evidence: Mapping[str, Any]) -> dict[str, str]:
     tags: dict[str, str] = {}
     denominator = evidence.get("denominator")
-    if isinstance(denominator, int) and denominator > 0:
+    if not isinstance(denominator, bool) and isinstance(denominator, int) and denominator > 0:
         tags["denominator"] = str(denominator)
     sample_count = evidence.get("sample_count")
-    if isinstance(sample_count, int) and sample_count > 0:
+    if not isinstance(sample_count, bool) and isinstance(sample_count, int) and sample_count > 0:
         tags["sample_count"] = str(sample_count)
     if metric.endswith("_seconds"):
         tags["unit"] = "seconds"
         if "sample_count" not in tags:
             denominator = evidence.get("denominator")
-            if isinstance(denominator, int) and denominator > 0:
+            if (
+                not isinstance(denominator, bool)
+                and isinstance(denominator, int)
+                and denominator > 0
+            ):
                 tags["sample_count"] = str(denominator)
     observed_at = evidence.get("observed_at")
     if isinstance(observed_at, str) and observed_at:
