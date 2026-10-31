@@ -85,6 +85,8 @@ async def propose_with_repair(
 ) -> FormProposal:
     """Resolve and admit one proposal, repairing a contract fault at most once."""
 
+    if isinstance(repairs, bool) or repairs < 0:
+        raise ValueError("repairs MUST be a non-negative integer")
     raw = await propose()
     if raw is None:
         return FormProposal(None, None)

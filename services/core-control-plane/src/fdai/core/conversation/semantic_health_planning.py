@@ -64,6 +64,8 @@ def compile_target_health_plan(
 
     if (
         frame.output_shape != SemanticOutputShape.TARGET_HEALTH_ASSESSMENT
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_required_functions(manifest.descriptors)
     ):
         return None
@@ -172,7 +174,8 @@ def _exact_target(
     utterance: str,
     descriptors: tuple[dict[str, Any], ...],
 ) -> str | None:
-    runtime_targets = tuple(match.group(0) for match in _RUNTIME_TARGET.finditer(utterance))
+    scanned = utterance.rstrip(".!?")
+    runtime_targets = tuple(match.group(0) for match in _RUNTIME_TARGET.finditer(scanned))
     has_resource = any(
         item.get("kind") == "object" and item.get("name") == "Resource" for item in descriptors
     )

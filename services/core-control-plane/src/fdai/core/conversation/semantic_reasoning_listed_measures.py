@@ -38,4 +38,8 @@ def allow_listed_measure(
         allowed.state_concepts.add(RESOURCE_STATE_OBSERVED_CONCEPT)
         allowed.list_state_members = True
     elif measure.kind is MeasureKind.HEALTH and not allowed.health_concepts:
-        allowed.health_concepts.update(health_concepts)
+        allowed.health_concepts.update(
+            concept.strip()
+            for concept in health_concepts
+            if isinstance(concept, str) and concept.strip()
+        )

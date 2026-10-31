@@ -37,7 +37,7 @@ class LifecycleValue:
 def parse_lifecycle(concept: str) -> LifecycleValue | None:
     """Return the lifecycle value a grounded state concept names, or ``None``."""
 
-    match = _VALUE.fullmatch(concept)
+    match = _VALUE.fullmatch(concept.strip())
     if match is None:
         return None
     return LifecycleValue(match["object_type"], match["property_name"], match["value"])
@@ -55,7 +55,7 @@ def lifecycle_values(descriptors: Sequence[Mapping[str, Any]]) -> tuple[Lifecycl
             if not isinstance(facet, Mapping) or facet.get("lifecycle_state") is not True:
                 continue
             values = facet.get("values")
-            if not isinstance(values, list):
+            if not isinstance(values, (list, tuple)):
                 continue
             for value in values:
                 parsed = parse_lifecycle(f"{_PREFIX}{item.get('name')}.{name}={value}")

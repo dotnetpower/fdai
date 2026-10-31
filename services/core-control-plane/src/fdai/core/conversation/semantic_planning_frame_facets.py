@@ -6,10 +6,20 @@ _FACET_NEGATIONS = frozenset({"no", "non", "not", "without"})
 
 
 def _facet_affirms_concept(facet: str, concept: str) -> bool:
-    parts = tuple(part for part in facet.replace(".", "_").split("_") if part)
-    if any(part in _FACET_NEGATIONS for part in parts):
+    parts = tuple(
+        part
+        for part in facet.strip().casefold().replace(".", "_").replace("-", "_").split("_")
+        if part
+    )
+    if not parts or any(part in _FACET_NEGATIONS for part in parts):
         return False
-    concept_parts = tuple(concept.split("_"))
+    concept_parts = tuple(
+        part
+        for part in concept.strip().casefold().replace(".", "_").replace("-", "_").split("_")
+        if part
+    )
+    if not concept_parts:
+        return False
     for index in range(len(parts) - len(concept_parts) + 1):
         if parts[index : index + len(concept_parts)] == concept_parts:
             return True

@@ -99,16 +99,22 @@ def window_matches(
 ) -> bool:
     """Return whether an absolute window ends at the trusted clock and spans the lookback."""
 
-    if set(arguments) != {"start_at", "end_at", "known_at", "limit"} or arguments["limit"] != limit:
+    if (
+        evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
+        or set(arguments) != {"start_at", "end_at", "known_at", "limit"}
+        or isinstance(arguments["limit"], bool)
+        or arguments["limit"] != limit
+    ):
         return False
     try:
         start, end, known = (
-            datetime.fromisoformat(str(arguments[key]))
+            datetime.fromisoformat(str(arguments[key]).strip().replace("Z", "+00:00"))
             for key in ("start_at", "end_at", "known_at")
         )
     except ValueError:
         return False
-    if any(item.tzinfo is None for item in (start, end, known)):
+    if any(item.tzinfo is None or item.utcoffset() is None for item in (start, end, known)):
         return False
     return end == known == evaluation_time and (end - start).total_seconds() == lookback
 

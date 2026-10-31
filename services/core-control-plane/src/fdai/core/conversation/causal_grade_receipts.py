@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai_service_contracts.ontology_query import content_digest
@@ -87,14 +88,14 @@ def causal_grade_receipt(
     left unaccounted keeps the grade at association.
     """
 
-    support = tuple(sorted(set(mechanism_evidence_refs)))
-    refutations = tuple(sorted(set(refutation_refs)))
-    missing = tuple(sorted(set(missing_refutation_reads)))
-    refuted = tuple(sorted(set(refuted_reads)))
-    accounted = set(refutation_reads_run) | set(missing)
+    support = tuple(sorted({item.strip() for item in mechanism_evidence_refs if item.strip()}))
+    refutations = tuple(sorted({item.strip() for item in refutation_refs if item.strip()}))
+    missing = tuple(sorted({item.strip() for item in missing_refutation_reads if item.strip()}))
+    refuted = tuple(sorted({item.strip() for item in refuted_reads if item.strip()}))
+    accounted = {item.strip() for item in refutation_reads_run if item.strip()} | set(missing)
     unaccounted = tuple(sorted(set(mechanism.refutation_reads) - accounted))
     unproven = set(mechanism.required_evidence) - _CHECKED_EVIDENCE - set(present_evidence)
-    if repeated_sample_count < 1:
+    if isinstance(repeated_sample_count, bool) or repeated_sample_count < 1:
         raise ValueError("causal grade repeated_sample_count MUST be positive")
     grade = (
         CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
@@ -142,14 +143,14 @@ def causal_grade_receipt(
 def load_causal_mechanism_catalog(raw: object) -> tuple[CausalMechanismSpec, ...]:
     """Load reviewed mechanism specs from rule-catalog data."""
 
-    if not isinstance(raw, dict) or raw.get("schema_version") != "1.0":
+    if not isinstance(raw, Mapping) or raw.get("schema_version") != "1.0":
         raise ValueError("causal mechanism catalog schema_version MUST be 1.0")
     mechanisms = raw.get("mechanisms")
-    if not isinstance(mechanisms, list):
+    if not isinstance(mechanisms, (list, tuple)):
         raise ValueError("causal mechanism catalog mechanisms MUST be a list")
     loaded: list[CausalMechanismSpec] = []
     for item in mechanisms:
-        if not isinstance(item, dict):
+        if not isinstance(item, Mapping):
             raise ValueError("causal mechanism entries MUST be objects")
         loaded.append(
             CausalMechanismSpec(
@@ -170,22 +171,22 @@ def supports_causal_hypothesis(receipt: CausalGradeReceipt) -> bool:
     return _GRADE_RANK[receipt.grade] >= _GRADE_RANK[CausalEvidenceGrade.PREDICTIVE_PRECEDENCE]
 
 
-def _text(item: dict[str, object], key: str) -> str:
+def _text(item: Mapping[str, object], key: str) -> str:
     value = item.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"causal mechanism {key} MUST be non-empty text")
-    return value
+    return value.strip()
 
 
-def _string_list(item: dict[str, object], key: str) -> list[str]:
+def _string_list(item: Mapping[str, object], key: str) -> list[str]:
     value = item.get(key)
     if (
-        not isinstance(value, list)
+        not isinstance(value, (list, tuple))
         or not value
         or any(not isinstance(entry, str) or not entry.strip() for entry in value)
     ):
         raise ValueError(f"causal mechanism {key} MUST be non-empty text list")
-    return value
+    return [entry.strip() for entry in value]
 
 
 __all__ = [

@@ -8,7 +8,7 @@ where the value came from and how fresh it must be.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -232,7 +232,7 @@ def property_read_violations(
         and all(item in predicates for item in expected)
         and len(predicates) == len(expected)
         and all(
-            isinstance(item, dict)
+            isinstance(item, Mapping)
             and item.get("property") in {"id", "type"}
             and item.get("operator") == "equals"
             for item in predicates
@@ -245,7 +245,7 @@ def _readable_properties(ctx: CompileContext) -> frozenset[str]:
     return readable_resource_properties(ctx.manifest.descriptors)
 
 
-def readable_resource_properties(descriptors: tuple[dict[str, object], ...]) -> frozenset[str]:
+def readable_resource_properties(descriptors: Sequence[Mapping[str, object]]) -> frozenset[str]:
     resource = next(
         (
             item
@@ -255,7 +255,7 @@ def readable_resource_properties(descriptors: tuple[dict[str, object], ...]) -> 
         None,
     )
     properties = resource.get("properties") if resource is not None else None
-    return frozenset(properties) if isinstance(properties, dict) else frozenset()
+    return frozenset(properties) if isinstance(properties, Mapping) else frozenset()
 
 
 __all__ = [

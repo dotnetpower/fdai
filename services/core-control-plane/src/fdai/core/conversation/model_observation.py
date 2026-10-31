@@ -17,6 +17,15 @@ class ConversationModelObservation:
     trace_call: Mapping[str, object]
     prompt_replay_manifest: PromptReplayManifest | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.model, str) or not self.model.strip():
+            raise ValueError("conversation model observation requires a non-empty model name")
+        if self.usage is not None and any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in self.usage.values()
+        ):
+            raise ValueError("conversation model usage values MUST be non-negative integers")
+
 
 @dataclass(frozen=True, slots=True)
 class ConversationModelResponse:

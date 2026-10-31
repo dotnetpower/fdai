@@ -40,6 +40,18 @@ class PostgresAuthenticationReceiptWriter:
     connect_timeout_s: int = 10
     statement_timeout_ms: int = 20_000
 
+    def __post_init__(self) -> None:
+        if (
+            not self.dsn.strip()
+            or isinstance(self.connect_timeout_s, bool)
+            or self.connect_timeout_s <= 0
+            or isinstance(self.statement_timeout_ms, bool)
+            or self.statement_timeout_ms <= 0
+        ):
+            raise ValueError(
+                "authentication receipt writer requires a non-empty DSN and positive timeouts"
+            )
+
     async def retain(
         self,
         *,
@@ -114,7 +126,7 @@ class AuthenticationReceiptRetainingOutbox:
                     "semantic authentication receipt is invalid",
                 )
             request_id = envelope.get("request_id")
-            if not isinstance(request_id, str):
+            if not isinstance(request_id, str) or not request_id.strip():
                 raise ConversationBoundaryError(
                     400,
                     "semantic_request_invalid",
