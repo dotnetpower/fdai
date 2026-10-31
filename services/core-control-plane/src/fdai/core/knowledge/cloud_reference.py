@@ -62,6 +62,8 @@ def citation_times(
     """Render only validated time values and server-owned freshness labels."""
     if collected_at.utcoffset() is None or checked_at.utcoffset() is None:
         raise ValueError("citation timestamps MUST be timezone-aware")
+    if checked_at < collected_at:
+        raise ValueError("citation check timestamp MUST NOT precede collection timestamp")
     collected = collected_at.isoformat()
     checked = checked_at.isoformat()
     labels = {

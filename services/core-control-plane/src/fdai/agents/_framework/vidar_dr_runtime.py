@@ -278,8 +278,19 @@ class VidarDrRuntimeMixin:
                 recorded_at=now,
                 rehearsal_version="1.0.0",
             )
+        if not isinstance(result, Mapping):
+            self.record_behavior("rollback_rehearsal:failed")
+            return vidar_rehearsal.build_receipt(
+                action_type=action_type,
+                contract=contract,
+                outcome="failed",
+                reason="rehearsal_port_invalid_response",
+                recorded_at=now,
+                rehearsal_version="1.0.0",
+            )
+        raw_outcome = result.get("outcome")
         outcome: vidar_rehearsal.RehearsalOutcome = (
-            "passed" if result.get("outcome") == "passed" else "failed"
+            "passed" if raw_outcome == "passed" else ("held" if raw_outcome == "held" else "failed")
         )
         self.record_behavior(f"rollback_rehearsal:{outcome}")
         return vidar_rehearsal.build_receipt(

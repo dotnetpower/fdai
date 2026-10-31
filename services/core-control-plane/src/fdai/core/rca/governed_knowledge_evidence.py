@@ -137,7 +137,7 @@ class GovernedKnowledgeEvidenceGatherer:
         reader: GovernedDocumentEvidenceReader,
         top_k: int = 5,
     ) -> None:
-        if not 1 <= top_k <= 20:
+        if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= 20:
             raise ValueError("governed knowledge top_k MUST be in [1, 20]")
         self._reader = reader
         self._top_k = top_k
@@ -151,6 +151,8 @@ class GovernedKnowledgeEvidenceGatherer:
     ) -> GovernedKnowledgeEvidenceResult:
         """Gather exact authorized revisions without any unscoped fallback."""
 
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int)):
+            return _held("invalid_limit")
         selected_limit = self._top_k if limit is None else min(max(limit, 1), self._top_k)
         try:
             result = await self._reader.read(

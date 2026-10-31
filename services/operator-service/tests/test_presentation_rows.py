@@ -101,3 +101,39 @@ def test_an_ungrouped_aggregate_has_no_group_column() -> None:
 
     assert row == {"operation": "count", "value": 25}
     assert ordered_columns(list(row)) == ["operation", "value"]
+
+
+async def test_password_and_api_key_suffixes_are_redacted_and_handle_refs_deduplicate() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    import pytest
+    from fdai_operator_service.families.conversation.result_handles import latest_result_handle_refs
+    from fdai_service_contracts import ResultHandleRef
+
+    row = readable_row(
+        {"name": "vm-1", "admin_password": "secret-password", "service_api_key": "k"}
+    )
+    assert row["admin_password"] == "<redacted>"
+    assert row["service_api_key"] == "<redacted>"
+
+    now = datetime(2026, 9, 27, tzinfo=UTC)
+    ref = ResultHandleRef(
+        handle_ref="OpaqueHandleRef0123456789abcdefABCDEF",
+        key_version="v1",
+        issued_at=now,
+        expires_at=now + timedelta(minutes=15),
+    )
+
+    class _Store:
+        async def latest_result_handle_refs(
+            self, *, principal_id: str, session_id: str, limit: int = 4
+        ) -> tuple[ResultHandleRef, ...]:
+            del principal_id, session_id, limit
+            return (ref, ref)
+
+    assert await latest_result_handle_refs(
+        _Store(), principal_id="p1", session_id="s1", limit=2
+    ) == (ref,)
+    assert await latest_result_handle_refs(_Store(), principal_id="  ", session_id="s1") == ()
+    with pytest.raises(ValueError, match="limit MUST be"):
+        await latest_result_handle_refs(_Store(), principal_id="p1", session_id="s1", limit=0)

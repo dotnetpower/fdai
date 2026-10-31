@@ -34,3 +34,11 @@ def test_nested_argument_absent_from_context_is_rejected() -> None:
 
 def test_empty_argument_mapping_is_grounded_without_invention() -> None:
     assert contextual_arguments_grounded({}, utterance="show status", prior_turns=())
+
+
+def test_boolean_and_set_arguments_do_not_require_literal_true_in_utterance() -> None:
+    assert contextual_arguments_grounded(
+        {"dry_run": True, "targets": {"storage"}},
+        utterance="check storage",
+        prior_turns=(),
+    )

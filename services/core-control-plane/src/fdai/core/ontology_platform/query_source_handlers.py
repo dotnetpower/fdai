@@ -649,7 +649,11 @@ class FunctionNodeHandler:
             if bound_name in arguments or bound_name == "pending_state_coverage":
                 raise ValueError("function dependency argument collides with a reserved argument")
             dependency = dependencies[dependency_id]
-            if bound_name.endswith("query_result") and self._receipt_authority is not None:
+            if bound_name.endswith("query_result"):
+                if self._receipt_authority is None:
+                    raise PermissionError(
+                        "secured query result argument requires a receipt authority"
+                    )
                 if (
                     self._allow_presentation_read_dependencies
                     and declaration.kind is OntologyFunctionKind.QUERY
@@ -679,9 +683,7 @@ class FunctionNodeHandler:
                 update={"evidence_refs": tuple(sorted(secured_digests))}
             )
         result, receipt = await self._registry.invoke_with_receipt(
-            function_name,
-            arguments,
-            context=invocation_context,
+            function_name, arguments, context=invocation_context
         )
         value = (
             _query_table(result)
@@ -694,9 +696,7 @@ class FunctionNodeHandler:
             "query.resource_state_transitions": (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
         }.get(function_name, ())
         exact_document_refs = _exact_document_evidence(
-            function_name=function_name,
-            value=value,
-            expected=invocation_context.document_refs,
+            function_name=function_name, value=value, expected=invocation_context.document_refs
         )
         return QueryNodeResult(
             value=value,
@@ -741,11 +741,7 @@ def _function_value(value: object) -> object:
 
 
 def _query_table(value: object) -> QueryTable:
-    required = {
-        "rows",
-        "complete",
-        "truncation_reason",
-    }
+    required = {"rows", "complete", "truncation_reason"}
     if (
         not isinstance(value, Mapping)
         or not required <= set(value)

@@ -32,8 +32,10 @@ class DiagnosticEventIngestBridge:
             ("target_topic", self.target_topic),
             ("consumer_group", self.consumer_group),
         ):
-            if not value.strip():
+            if not isinstance(value, str) or not value.strip() or value != value.strip():
                 raise ValueError(f"{field_name} MUST be non-empty")
+        if self.source_topic == self.target_topic:
+            raise ValueError("source_topic and target_topic MUST be distinct")
 
     async def process(self, envelope: EventEnvelope) -> int:
         """Publish normalized Events or dead-letter one malformed source record."""
@@ -46,21 +48,27 @@ class DiagnosticEventIngestBridge:
                 options=self.options,
                 ingested_at=self.clock(),
             )
-        except AzureMonitorNormalizationError as exc:
+        except (AzureMonitorNormalizationError, TypeError, ValueError) as exc:
             await self.source_bus.dead_letter(
                 self.source_topic,
-                envelope.key,
+                envelope.key or "diagnostic-unknown",
                 envelope.payload,
                 type(exc).__name__,
             )
             return 0
+        published = 0
+        seen_ids: set[object] = set()
         for event in events:
+            if event.event_id in seen_ids:
+                continue
+            seen_ids.add(event.event_id)
             await self.target_bus.publish(
                 self.target_topic,
                 event.resource_ref or event.idempotency_key,
                 event.model_dump(mode="json"),
             )
-        return len(events)
+            published += 1
+        return published
 
     async def run(self) -> None:
         """Consume until cancelled while preserving broker-managed replay."""

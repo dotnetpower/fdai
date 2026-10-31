@@ -760,6 +760,23 @@ def test_blob_state_coalesces_concurrent_transactions_and_isolates_failures() ->
     assert set(state.read()["workers"]) == {"w1", "w2", "w3"}
 
 
+def test_timed_out_uncreated_worker_is_retired_and_unblocks_pool() -> None:
+    controller, state, github, workers = _controller()
+    object.__setattr__(controller.settings, "vm_image_id", "/synthetic/versioned-image")
+    object.__setattr__(controller.settings, "vm_subnet_id", "/synthetic/subnet")
+    workers.recover_reference = lambda _w: None
+    uncreated = _worker(identity="orphan-docker", pool="docker", state="starting")
+    uncreated["provider_ref"] = None
+    uncreated["since"] = (NOW - timedelta(seconds=605)).isoformat()
+    state.data["workers"]["orphan-docker"] = uncreated
+
+    receipt = controller.reconcile(NOW)
+
+    assert "orphan-docker" not in state.read()["workers"]
+    assert receipt["plans"]["docker"]["blocked_reason"] is None
+    assert receipt["plans"]["docker"]["start_count"] == 2
+
+
 def test_assigned_jobs_and_concurrent_callback_timestamps_do_not_overprovision() -> None:
     engine, state, github, workers = _controller()
     labels = [{"name": value} for value in engine.metadata["pools"]["general"]["labels"]]

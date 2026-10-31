@@ -158,6 +158,10 @@ class KnowledgeRegistry:
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[KnowledgeChunk]:
         """Delegate retrieval to the bound knowledge source."""
+        if isinstance(k, bool) or k < 1:
+            raise ValueError("knowledge search k MUST be positive")
+        if not query.strip():
+            return ()
         return await self._source.search(query, k=k)
 
 

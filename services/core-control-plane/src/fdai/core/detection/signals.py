@@ -459,7 +459,9 @@ def known_signals() -> Mapping[str, SignalSpec]:
 
 def is_known_signal(signal: str) -> bool:
     """True iff ``signal`` is a registered canonical detection signal."""
-    return signal in _KNOWN_SIGNALS
+    if not isinstance(signal, str):
+        return False
+    return signal.strip() in _KNOWN_SIGNALS
 
 
 def signals_with_role(role: SignalRole) -> frozenset[str]:

@@ -73,10 +73,16 @@ def high_risk(run: ActionRun, catalog: action_semantics.ActionSemanticsCatalog |
 
     return (
         (catalog is not None and catalog.irreversible(run.action_type))
-        or run.original_quorum_required is not None
-        and run.original_quorum_required >= action_semantics.IRREVERSIBLE_QUORUM
-        or run.effective_quorum_required is not None
-        and run.effective_quorum_required >= action_semantics.IRREVERSIBLE_QUORUM
+        or (
+            run.original_quorum_required is not None
+            and not isinstance(run.original_quorum_required, bool)
+            and run.original_quorum_required >= action_semantics.IRREVERSIBLE_QUORUM
+        )
+        or (
+            run.effective_quorum_required is not None
+            and not isinstance(run.effective_quorum_required, bool)
+            and run.effective_quorum_required >= action_semantics.IRREVERSIBLE_QUORUM
+        )
         or run.verdict == "hil"
     )
 
@@ -96,7 +102,13 @@ def receipt_is_fresh(
 ) -> bool:
     """Return whether a stored passing receipt still binds this exact run."""
 
-    if receipt is None or ttl_seconds < 1:
+    if (
+        receipt is None
+        or isinstance(ttl_seconds, bool)
+        or ttl_seconds < 1
+        or now.tzinfo is None
+        or now.utcoffset() is None
+    ):
         return False
     completed_at = _parse_timestamp(receipt.get("completed_at"))
     started_at = _parse_timestamp(receipt.get("started_at"))
@@ -129,6 +141,15 @@ def build_receipt(
 ) -> dict[str, Any]:
     """Build a bounded, digest-addressable pre-flight simulation receipt."""
 
+    if (
+        started_at.tzinfo is None
+        or started_at.utcoffset() is None
+        or completed_at.tzinfo is None
+        or completed_at.utcoffset() is None
+    ):
+        raise ValueError("pre-flight receipt timestamps MUST be timezone-aware")
+    if completed_at < started_at:
+        raise ValueError("pre-flight receipt completed_at MUST NOT precede started_at")
     receipt = {
         "schema_version": "1.0.0",
         "action_run_identity": run.action_run_identity(),

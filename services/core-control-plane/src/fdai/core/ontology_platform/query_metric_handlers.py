@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
@@ -379,13 +380,20 @@ class EvidenceJoinNodeHandler:
         lags = node.arguments.get("lag_seconds", [0])
         if not isinstance(lags, list) or not lags or len(lags) > 16:
             raise ValueError("evidence_join lag_seconds MUST be a bounded array")
-        if any(isinstance(item, bool) or not isinstance(item, int) for item in lags):
+        if any(
+            isinstance(item, bool) or not isinstance(item, int) or item < 0 for item in lags
+        ) or len(lags) != len(set(lags)):
             raise ValueError("evidence_join lag_seconds MUST contain integers")
         min_samples = node.arguments.get("min_samples", 12)
         min_correlation = node.arguments.get("min_abs_correlation", 0.5)
-        if isinstance(min_samples, bool) or not isinstance(min_samples, int):
+        if isinstance(min_samples, bool) or not isinstance(min_samples, int) or min_samples < 4:
             raise ValueError("evidence_join min_samples MUST be an integer")
-        if isinstance(min_correlation, bool) or not isinstance(min_correlation, int | float):
+        if (
+            isinstance(min_correlation, bool)
+            or not isinstance(min_correlation, int | float)
+            or not math.isfinite(float(min_correlation))
+            or not 0.0 <= float(min_correlation) <= 1.0
+        ):
             raise ValueError("evidence_join min_abs_correlation MUST be numeric")
         cutoff = _timestamp(node.arguments["feature_cutoff"], "feature_cutoff")
         config = TemporalCausalityConfig(

@@ -230,10 +230,15 @@ def build_telemetry_evidence_need(
 ) -> TelemetryEvidenceNeed:
     """Build one recipe-bound evidence need without accepting query text."""
 
+    if not isinstance(recipe, TelemetryEvidenceRecipe):
+        raise ValueError("recipe MUST be a TelemetryEvidenceRecipe")
+    normalized_incident_id = incident_id.strip() if isinstance(incident_id, str) else ""
+    normalized_resource_ref = resource_ref.strip() if isinstance(resource_ref, str) else ""
+    normalized_key = idempotency_key.strip() if isinstance(idempotency_key, str) else ""
     material = {
         "schema_version": TELEMETRY_EVIDENCE_SCHEMA_VERSION,
-        "incident_id": incident_id,
-        "resource_ref": resource_ref,
+        "incident_id": normalized_incident_id,
+        "resource_ref": normalized_resource_ref,
         "evidence_cutoff": _timestamp(evidence_cutoff),
         "recipe_id": recipe.recipe_id,
         "recipe_version": recipe.version,
@@ -241,13 +246,13 @@ def build_telemetry_evidence_need(
         "expected_output_schema_digest": recipe.output_schema_digest,
         "max_query_count": max_query_count,
         "max_cost_units": max_cost_units,
-        "idempotency_key": idempotency_key,
+        "idempotency_key": normalized_key,
     }
     need_id = _need_id(material)
     return TelemetryEvidenceNeed(
         need_id=need_id,
-        incident_id=incident_id,
-        resource_ref=resource_ref,
+        incident_id=normalized_incident_id,
+        resource_ref=normalized_resource_ref,
         evidence_cutoff=evidence_cutoff,
         recipe_id=recipe.recipe_id,
         recipe_version=recipe.version,
@@ -255,7 +260,7 @@ def build_telemetry_evidence_need(
         expected_output_schema_digest=recipe.output_schema_digest,
         max_query_count=max_query_count,
         max_cost_units=max_cost_units,
-        idempotency_key=idempotency_key,
+        idempotency_key=normalized_key,
     )
 
 

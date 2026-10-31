@@ -150,7 +150,7 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
 def known_source_limitation(code: str) -> bool:
     """Return whether every part of a limitation code has a reviewed explanation."""
 
-    parts = tuple(part for part in code.split("+") if part)
+    parts = tuple(part.strip() for part in code.split("+") if part.strip())
     return bool(parts) and all(part in _DESCRIPTIONS for part in parts)
 
 
@@ -160,9 +160,9 @@ def source_limitation_text(code: str, *, korean: bool) -> str:
     safe_code = code.replace("`", "'").replace("\r", " ").replace("\n", " ")[:256]
     descriptions = tuple(
         dict.fromkeys(
-            _DESCRIPTIONS[part][0 if korean else 1]
+            _DESCRIPTIONS[part.strip()][0 if korean else 1]
             for part in safe_code.split("+")
-            if part in _DESCRIPTIONS
+            if part.strip() in _DESCRIPTIONS
         )
     )
     if not descriptions:

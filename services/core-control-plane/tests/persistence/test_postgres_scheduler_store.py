@@ -216,7 +216,13 @@ def _requires_live_db() -> str:
     return url
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 def _upgrade_head() -> None:
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     result = subprocess.run(  # noqa: S603 - controlled subprocess
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT,
@@ -227,6 +233,8 @@ def _upgrade_head() -> None:
     assert result.returncode == 0, (
         f"alembic upgrade head failed:\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 def _plain_dsn(url: str) -> str:

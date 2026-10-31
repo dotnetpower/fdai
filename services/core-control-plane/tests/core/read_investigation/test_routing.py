@@ -25,3 +25,5 @@ def test_collection_evidence_qualifier_is_not_a_resource_name(question: str) -> 
 
 def test_hyphenated_resource_name_remains_selectable() -> None:
     assert resource_name_from_question("What is the current state of vm-app?") == "vm-app"
+    assert resource_name_from_question("Please check vm-01.") == "vm-01"
+    assert resource_name_from_question("Check vm-01 and VM-01 status") == "vm-01"

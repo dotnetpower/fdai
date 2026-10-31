@@ -70,6 +70,14 @@ def handler_activity_context(
         "idempotency_key",
         "event_id",
         "correlation_id",
+        "action_id",
+        "approval_id",
+        "experiment_id",
+        "rule_id",
+        "candidate_id",
+        "schedule_id",
+        "recommendation_id",
+        "session_ref",
     )
     if identity is None:
         return None
@@ -83,6 +91,10 @@ def handler_activity_context(
         "resource_ref",
         "target_resource_ref",
         "resource_id",
+        "target_ref",
+        "scope",
+        "scope_id",
+        "document_id",
     )
     return HandlerActivityContext(
         activity_id=f"handler:{digest[:32]}",
@@ -114,7 +126,12 @@ def first_bounded_identifier(
 
 def bounded_identifier(value: object) -> str | None:
     """Return one non-empty identifier within the shared runtime bound."""
-    if not isinstance(value, str) or not value or len(value) > MAX_IDENTIFIER_CHARS:
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > MAX_IDENTIFIER_CHARS
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+    ):
         return None
     return value
 
@@ -124,7 +141,13 @@ def bounded_text(value: object, maximum: int) -> str | None:
     if not isinstance(value, str):
         return None
     candidate = value.strip()
-    return candidate if candidate and len(candidate) <= maximum else None
+    if (
+        not candidate
+        or len(candidate) > maximum
+        or any(ord(ch) < 32 or ord(ch) == 127 for ch in candidate)
+    ):
+        return None
+    return candidate
 
 
 def _resource_name(value: object, resource_ref: str | None) -> str | None:
@@ -143,6 +166,13 @@ def _duration_ms(started_at: str, completed_at: str | None) -> int | None:
         started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
         completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
     except ValueError:
+        return None
+    if (
+        started.tzinfo is None
+        or started.utcoffset() is None
+        or completed.tzinfo is None
+        or completed.utcoffset() is None
+    ):
         return None
     return max(0, int((completed - started).total_seconds() * 1000))
 

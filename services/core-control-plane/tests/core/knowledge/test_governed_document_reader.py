@@ -962,3 +962,42 @@ async def test_reader_rejects_ineligible_revision_metadata(defect: str) -> None:
             purpose="operations-review",
             limit=1,
         )
+
+
+async def test_reader_skips_non_finite_scores_and_rejects_invalid_text() -> None:
+    nan_hit = _hit(chunk_id="chunk-nan", score=float("nan"))
+    valid_hit = _hit(chunk_id="chunk-valid", score=0.8)
+    reader, _, _ = _reader((nan_hit, valid_hit), (_version(),))
+
+    result = await reader.search(
+        query="recovery",
+        principal_ref="operator-a",
+        principal_role=CeilingRole.READER,
+        principal_groups=frozenset({"group:responders"}),
+        purpose="operations-review",
+        limit=2,
+    )
+    assert [excerpt.chunk_id for excerpt in result.excerpts] == ["chunk-valid"]
+
+    blank_hit = KnowledgeChunk(
+        doc_id=valid_hit.doc_id,
+        chunk_id="chunk-blank",
+        text="   ",
+        source_ref="document://"
+        + str(DOCUMENT_ID)
+        + "/versions/"
+        + str(VERSION_ID)
+        + "#chunk-blank",
+        score=0.9,
+        metadata=valid_hit.metadata,
+    )
+    bad_reader, _, _ = _reader((blank_hit,), (_version(),))
+    with pytest.raises(RuntimeError, match="text is invalid"):
+        await bad_reader.search(
+            query="recovery",
+            principal_ref="operator-a",
+            principal_role=CeilingRole.READER,
+            principal_groups=frozenset({"group:responders"}),
+            purpose="operations-review",
+            limit=1,
+        )

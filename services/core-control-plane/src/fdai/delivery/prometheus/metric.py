@@ -64,13 +64,32 @@ class PrometheusMetricConfig:
     case_insensitive_labels: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
-        if not self.base_url:
+        if not isinstance(self.base_url, str) or not self.base_url.strip():
             raise ValueError("PrometheusMetricConfig.base_url MUST be non-empty")
-        if self.step_seconds <= 0:
+        if (
+            isinstance(self.step_seconds, bool)
+            or not isinstance(self.step_seconds, (int, float))
+            or not isfinite(self.step_seconds)
+            or self.step_seconds <= 0
+        ):
             raise ValueError("PrometheusMetricConfig.step_seconds MUST be positive")
-        if self.max_points <= 0:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError("PrometheusMetricConfig.timeout_seconds MUST be positive")
+        if (
+            isinstance(self.max_points, bool)
+            or not isinstance(self.max_points, int)
+            or self.max_points <= 0
+        ):
             raise ValueError("PrometheusMetricConfig.max_points MUST be positive")
-        if any(not label for label in self.case_insensitive_labels):
+        if any(
+            not isinstance(label, str) or not label.strip()
+            for label in self.case_insensitive_labels
+        ):
             raise ValueError("case-insensitive Prometheus label names MUST be non-empty")
 
 
@@ -106,7 +125,9 @@ class PrometheusMetricProvider:
     async def _run(self, *, query: MetricQuery, promql: str) -> list[MetricPoint]:
         ranged = query.since is not None and query.until is not None
         if ranged:
-            url = f"{self._config.base_url.rstrip('/')}/api/v1/query_range"
+            if query.since > query.until:  # type: ignore[operator]
+                return []
+            url = f"{self._config.base_url.strip().rstrip('/')}/api/v1/query_range"
             params: dict[str, str] = {
                 "query": promql,
                 "start": str(query.since.timestamp()),  # type: ignore[union-attr]
@@ -114,7 +135,7 @@ class PrometheusMetricProvider:
                 "step": str(self._config.step_seconds),
             }
         else:
-            url = f"{self._config.base_url.rstrip('/')}/api/v1/query"
+            url = f"{self._config.base_url.strip().rstrip('/')}/api/v1/query"
             params = {"query": promql}
             if query.until is not None:
                 params["time"] = str(query.until.timestamp())
@@ -122,6 +143,10 @@ class PrometheusMetricProvider:
         headers = {"Accept": "application/json"}
         if self._config.audience and self._identity is not None:
             token = await self._identity.get_token(self._config.audience)
+            if not isinstance(token.token, str) or not token.token.strip():
+                raise MetricProviderError(
+                    f"Prometheus token provider returned an empty token for {query.metric_name!r}"
+                )
             headers["Authorization"] = f"Bearer {token.token}"
 
         try:
@@ -212,10 +237,15 @@ def _samples(series: Mapping[str, Any], result_type: Any) -> list[tuple[datetime
         if not isinstance(pair, (list, tuple)) or len(pair) != 2:
             raise MetricProviderError(f"malformed Prometheus sample: {pair!r}")
         ts_raw, val_raw = pair
+        if isinstance(ts_raw, bool) or isinstance(val_raw, bool):
+            raise MetricProviderError(f"non-numeric Prometheus sample: {pair!r}")
         try:
-            at = datetime.fromtimestamp(float(ts_raw), tz=UTC)
+            ts_float = float(ts_raw)
+            if not isfinite(ts_float):
+                raise ValueError("non-finite timestamp")
+            at = datetime.fromtimestamp(ts_float, tz=UTC)
             value = float(val_raw)
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, OverflowError) as exc:
             raise MetricProviderError(f"non-numeric Prometheus sample: {pair!r}") from exc
         # Prometheus returns NaN / +-Inf for stale or gapped series. Those are
         # "no data", not real observations - skip them rather than let a NaN

@@ -59,9 +59,9 @@ class ReadInvestigationRunProgress:
     recorded_at: datetime
 
     def __post_init__(self) -> None:
-        if self.sequence < 1:
+        if isinstance(self.sequence, bool) or self.sequence < 1:
             raise ValueError("progress sequence MUST be positive")
-        if self.recorded_at.tzinfo is None:
+        if self.recorded_at.tzinfo is None or self.recorded_at.utcoffset() is None:
             raise ValueError("progress recorded_at MUST be timezone-aware")
 
 
@@ -104,7 +104,7 @@ class InMemoryReadInvestigationRunProgressStore:
         recorded_at: datetime,
         limit: int,
     ) -> ReadInvestigationRunProgress:
-        if not 1 <= limit <= 256:
+        if isinstance(limit, bool) or not 1 <= limit <= 256:
             raise ValueError("progress limit MUST be in [1, 256]")
         async with self._lock:
             records = self._records.setdefault(task_id, [])
@@ -130,9 +130,9 @@ class InMemoryReadInvestigationRunProgressStore:
         after_sequence: int,
         limit: int,
     ) -> tuple[ReadInvestigationRunProgress, ...]:
-        if after_sequence < 0:
+        if isinstance(after_sequence, bool) or after_sequence < 0:
             raise ValueError("after_sequence MUST be non-negative")
-        if not 1 <= limit <= 256:
+        if isinstance(limit, bool) or not 1 <= limit <= 256:
             raise ValueError("progress replay limit MUST be in [1, 256]")
         records = self._records.get(task_id, [])
         if records and records[0].owner_principal_id != owner_principal_id:
@@ -174,15 +174,22 @@ class InteractiveReadInvestigationConfig:
     max_concurrency: int = 16
 
     def __post_init__(self) -> None:
-        if not self.coordinator_id or len(self.coordinator_id) > 256:
+        if (
+            not isinstance(self.coordinator_id, str)
+            or not self.coordinator_id.strip()
+            or len(self.coordinator_id) > 256
+        ):
             raise ValueError("coordinator_id MUST be a bounded identifier")
-        if self.retention_seconds < 60:
+        if isinstance(self.retention_seconds, bool) or self.retention_seconds < 60:
             raise ValueError("retention_seconds MUST be >= 60")
-        if not 1 <= self.terminal_grace_seconds <= 60:
+        if (
+            isinstance(self.terminal_grace_seconds, bool)
+            or not 1 <= self.terminal_grace_seconds <= 60
+        ):
             raise ValueError("terminal_grace_seconds MUST be in [1, 60]")
-        if not 1 <= self.max_progress_events <= 256:
+        if isinstance(self.max_progress_events, bool) or not 1 <= self.max_progress_events <= 256:
             raise ValueError("max_progress_events MUST be in [1, 256]")
-        if not 1 <= self.max_concurrency <= 256:
+        if isinstance(self.max_concurrency, bool) or not 1 <= self.max_concurrency <= 256:
             raise ValueError("max_concurrency MUST be in [1, 256]")
 
 

@@ -174,3 +174,20 @@ def test_diagnostic_identity_is_stable_across_timestamp_offsets() -> None:
     assert offset_event.detected_at.tzinfo is UTC
     assert offset_event.event_id == utc_event.event_id
     assert offset_event.idempotency_key == utc_event.idempotency_key
+
+
+def test_diagnostic_records_deduplicate_identical_entries_and_reject_bool_max_records() -> None:
+    with pytest.raises(ValueError, match="max_records"):
+        DiagnosticNormalizerOptions(metric_whitelist=("node_cpu_percent",), max_records=True)
+    with pytest.raises(ValueError, match="invalid metric name"):
+        DiagnosticNormalizerOptions(metric_whitelist=(" node_cpu_percent ",))
+
+    options = DiagnosticNormalizerOptions(metric_whitelist=("node_cpu_percent",))
+    rec = _diagnostic_record()
+    events = normalize_diagnostic_records(
+        {"records": (rec, dict(rec))},
+        options=options,
+        ingested_at=_NOW.astimezone(timezone(timedelta(hours=9))),
+    )
+    assert len(events) == 1
+    assert events[0].ingested_at.tzinfo is UTC

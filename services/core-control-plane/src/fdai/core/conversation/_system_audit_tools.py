@@ -107,6 +107,14 @@ class QueryAuditTool:
                     status="error",
                     preview=f"query_audit 'since' MUST be RFC 3339; got {filters['since']!r}",
                 )
+            if since_dt.tzinfo is None or since_dt.utcoffset() is None:
+                return ToolResult(
+                    status="error",
+                    preview=(
+                        "query_audit 'since' MUST be timezone-aware RFC 3339; "
+                        f"got {filters['since']!r}"
+                    ),
+                )
         entries = _select_audit(
             self._audit,
             event_id=filters["event_id"] or None,
@@ -165,6 +173,8 @@ def _select_audit(
         if isinstance(recorded_raw, str):
             try:
                 recorded_dt = datetime.fromisoformat(recorded_raw.replace("Z", "+00:00"))
+                if recorded_dt.tzinfo is None or recorded_dt.utcoffset() is None:
+                    recorded_dt = None
             except ValueError:
                 recorded_dt = None
         if since is not None and recorded_dt is not None and recorded_dt < since:

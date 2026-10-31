@@ -138,7 +138,7 @@ class QueryMetricTool:
                     status="error",
                     preview=f"query_metric requires a non-empty {name!r}",
                 )
-            started_at, started = _start_observation()
+        started_at, started = _start_observation()
         try:
             result = asyncio.run(
                 self._provider.query_metric(

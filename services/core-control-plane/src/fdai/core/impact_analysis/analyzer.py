@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 
 from fdai.core.impact_analysis.models import AffectedSet
@@ -31,11 +32,27 @@ class ImpactTraversalBounds:
     timeout_seconds: float = 5.0
 
     def __post_init__(self) -> None:
-        if not 1 <= self.max_depth <= 5:
+        if (
+            isinstance(self.max_depth, bool)
+            or not isinstance(self.max_depth, int)
+            or not 1 <= self.max_depth <= 5
+        ):
             raise ValueError("max_depth MUST be in [1, 5]")
-        if not 1 <= self.max_nodes <= 1000:
+        if (
+            isinstance(self.max_nodes, bool)
+            or not isinstance(self.max_nodes, int)
+            or not 1 <= self.max_nodes <= 1000
+        ):
             raise ValueError("max_nodes MUST be in [1, 1000]")
-        if self.max_edges < 1 or self.max_bytes < 1 or self.timeout_seconds <= 0:
+        if (
+            isinstance(self.max_edges, bool)
+            or isinstance(self.max_bytes, bool)
+            or isinstance(self.timeout_seconds, bool)
+            or self.max_edges < 1
+            or self.max_bytes < 1
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("edge, byte, and timeout bounds MUST be positive")
 
 
@@ -51,13 +68,16 @@ class ImpactAnalyzer:
         graph_fresh: bool = True,
         unresolved_conflicts: tuple[str, ...] = (),
     ) -> AffectedSet:
-        if not direct_target_ids or any(not item.strip() for item in direct_target_ids):
+        if not direct_target_ids or any(
+            not isinstance(item, str) or not item.strip() for item in direct_target_ids
+        ):
             raise ValueError("direct_target_ids MUST be non-empty")
+        normalized_targets = tuple(dict.fromkeys(item.strip() for item in direct_target_ids))
         active = bounds or ImpactTraversalBounds()
         try:
             graph = await asyncio.wait_for(
                 self._store.traverse(
-                    root_ids=direct_target_ids,
+                    root_ids=normalized_targets,
                     link_types=IMPACT_LINKS,
                     direction="both",
                     max_depth=active.max_depth,
@@ -74,25 +94,29 @@ class ImpactAnalyzer:
             by_type.setdefault(item.object_type, []).append(item.id)
             if item.object_type == "Resource" and item.properties.get("control_dependency") is True:
                 control_dependencies.append(item.id)
-        direct = tuple(dict.fromkeys(direct_target_ids))
+        direct = normalized_targets
         direct_set = set(direct)
         dependents = tuple(
             sorted(
-                item.id
-                for item in graph.objects
-                if item.object_type in {"Resource", "Workload"} and item.id not in direct_set
+                {
+                    item.id
+                    for item in graph.objects
+                    if item.object_type in {"Resource", "Workload"} and item.id not in direct_set
+                }
             )
         )
-        services = tuple(sorted(by_type.get("BusinessService", ())))
+        services = tuple(sorted(set(by_type.get("BusinessService", ()))))
         objectives = tuple(
             sorted(
-                (
-                    *by_type.get("ServiceObjective", ()),
-                    *by_type.get("RecoveryObjective", ()),
+                set(
+                    (
+                        *by_type.get("ServiceObjective", ()),
+                        *by_type.get("RecoveryObjective", ()),
+                    )
                 )
             )
         )
-        reasons = list(unresolved_conflicts)
+        reasons = [r.strip() for r in unresolved_conflicts if isinstance(r, str) and r.strip()]
         if not graph_fresh:
             reasons.append("graph_stale")
         if not direct_set <= {item.id for item in graph.objects}:

@@ -431,3 +431,10 @@ async def test_reader_marks_batch_unusable_when_duplicate_headroom_is_exhausted(
     assert result.limitation == "response_truncated"
     assert result.coverage[0].status is ResourceHealthCoverageStatus.RESPONSE_TRUNCATED
     assert result.observations == ()
+
+
+def test_resource_health_config_rejects_boolean_bounds() -> None:
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureResourceHealthCollectionConfig(subscription_id=SUBSCRIPTION_ID, timeout_seconds=True)
+    with pytest.raises(ValueError, match="max_resources"):
+        AzureResourceHealthCollectionConfig(subscription_id=SUBSCRIPTION_ID, max_resources=True)

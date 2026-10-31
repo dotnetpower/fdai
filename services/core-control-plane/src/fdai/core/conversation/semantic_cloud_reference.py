@@ -31,7 +31,9 @@ def cloud_reference_constraints(
         if field is None:
             continue
         if (
-            utterance[target.source_start : target.source_end] != target.value
+            not 0 <= target.source_start < target.source_end <= len(utterance)
+            or utterance[target.source_start : target.source_end] != target.value
+            or not target.value.strip()
             or target.canonical_value not in {None, target.value}
             or len(_PREFIX + field + "=" + target.value) > 128
         ):

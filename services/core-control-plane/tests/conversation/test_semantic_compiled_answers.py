@@ -1100,3 +1100,14 @@ def test_a_compiled_lifecycle_filtered_list_answers_over_its_object_type(
     assert outcome is not None and outcome.frame is not None
     assert "Incident" in outcome.frame.subject_constraints
     assert _completions(caplog) == ["selected"]
+
+
+def test_single_compiled_batch_rejects_boolean_or_out_of_range_confidence() -> None:
+    from fdai.core.conversation.semantic_compiled_selection import single_compiled_batch
+
+    compilation = _compilation()
+    goal = compilation.goals[0]
+    for bad_conf in (True, 1.5, float("nan")):
+        bad_goal = replace(goal, confidence=bad_conf)  # type: ignore[arg-type]
+        obs = _observation(compilations=(replace(compilation, goals=(bad_goal,)),))
+        assert single_compiled_batch(obs) == "goal_unbatched"

@@ -52,8 +52,10 @@ class ReviewedTelemetryRecipeCatalog:
     def get(self, recipe_id: str, version: str) -> TelemetryEvidenceRecipe:
         """Return one exact recipe or fail without selecting a fallback version."""
 
+        if not isinstance(recipe_id, str) or not isinstance(version, str):
+            raise ValueError("telemetry evidence recipe is not in the reviewed catalog")
         try:
-            return _recipe_index(self.recipes)[(recipe_id, version)]
+            return _recipe_index(self.recipes)[(recipe_id.strip(), version.strip())]
         except KeyError as exc:
             raise ValueError("telemetry evidence recipe is not in the reviewed catalog") from exc
 

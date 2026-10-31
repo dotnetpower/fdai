@@ -33,7 +33,11 @@ async def traversal_population_count(
 ) -> int | None:
     """Return how many reached endpoints match the traversal, or ``None`` if not exact."""
 
-    roots = sorted(set(root_ids))
+    roots = sorted(
+        {root_id.strip() for root_id in root_ids if isinstance(root_id, str) and root_id.strip()}
+    )
+    if not roots:
+        return 0
     visited = set(roots)
     frontier = list(roots)
     matched: set[str] = set()
@@ -107,9 +111,9 @@ async def _hop(
     records = {record.id: record for record in graph.objects}
     sources = set(batch)
     endpoints: dict[str, bool] = {}
-    link_type = traversal.link_types[0]
+    allowed_link_types = frozenset(traversal.link_types)
     for link in graph.links:
-        if link.link_type != link_type:
+        if link.link_type not in allowed_link_types:
             continue
         candidates = []
         if traversal.direction in {"outgoing", "both"} and link.from_id in sources:

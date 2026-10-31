@@ -199,12 +199,20 @@ async def traversal_endpoints(
 
     if not traversal.endpoint_predicates:
         return table, (f"ontology-object-set-output:{secured.receipt.projected_result_digest}",)
+    filtered_rows = tuple(
+        row
+        for row in table.rows
+        if object_matches_predicates(_row_properties(row), traversal.endpoint_predicates)
+    )
     filtered = replace(
         table,
-        rows=tuple(
-            row
-            for row in table.rows
-            if object_matches_predicates(_row_properties(row), traversal.endpoint_predicates)
+        rows=filtered_rows,
+        total_rows=(
+            len(filtered_rows)
+            if table.complete and table.total_rows is not None
+            else None
+            if len(filtered_rows) != len(table.rows)
+            else table.total_rows
         ),
     )
     if issue is None or not filtered.complete:

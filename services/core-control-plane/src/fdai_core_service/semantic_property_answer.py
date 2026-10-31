@@ -8,6 +8,7 @@ stated as unknown and never guessed or filled from another field.
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable, Mapping, Sequence
 
 _SHAPE = "target_property_value"
@@ -20,7 +21,16 @@ _PROVIDER_PREFIX = "properties.properties."
 _MAX_STRUCTURED_CHARS = 4_000
 _REDACTED = "<redacted>"
 # Nested keys whose values are secrets or connection material, matched inside the key name.
-_SENSITIVE_KEY_PARTS = ("password", "secret", "token", "credential", "cookie", "key", "sas")
+_SENSITIVE_KEY_PARTS = (
+    "password",
+    "secret",
+    "token",
+    "credential",
+    "cookie",
+    "key",
+    "sas",
+    "connstr",
+)
 _CONNECTION_MATERIAL_KEYS = {
     "connection",
     "connectionconfig",
@@ -150,6 +160,8 @@ def _text(value: object) -> str | None:
 def _display(value: object, *, korean: bool) -> str:
     if isinstance(value, bool):
         text = "true" if value else "false"
+    elif isinstance(value, float) and not math.isfinite(value):
+        return "(기술 상세 참조)" if korean else "(see technical details)"
     elif isinstance(value, str):
         text = value
     else:

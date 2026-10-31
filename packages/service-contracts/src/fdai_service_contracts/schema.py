@@ -200,6 +200,11 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
 }
 
 
+_SHARED_SCHEMA_CACHE: dict[tuple[str, str, str], Mapping[str, object]] = {}
+_SHARED_VALIDATOR_CACHE: dict[tuple[str, str, str | None], Draft202012Validator] = {}
+_SHARED_FORMAT_CHECKER = FormatChecker()
+
+
 class PackageResourceSchemaRegistry:
     """Load immutable JSON Schemas shipped in ``fdai_service_contracts``."""
 
@@ -214,6 +219,11 @@ class PackageResourceSchemaRegistry:
         cached = self._cache.get((name, target_version))
         if cached is not None:
             return cached
+        shared_key = (self._package, name, target_version)
+        shared = _SHARED_SCHEMA_CACHE.get(shared_key)
+        if shared is not None:
+            self._cache[(name, target_version)] = shared
+            return shared
         relative_path = _PACKAGE_SCHEMAS.get((name, target_version))
         if relative_path is None:
             raise SchemaNotFoundError(f"unknown schema: name={name!r} version={target_version!r}")
@@ -222,6 +232,7 @@ class PackageResourceSchemaRegistry:
         if not isinstance(loaded, dict):
             raise SchemaNotFoundError(f"schema {name!r} is not a JSON object")
         self._cache[(name, target_version)] = loaded
+        _SHARED_SCHEMA_CACHE[shared_key] = loaded
         return loaded
 
     def names(self) -> list[str]:
@@ -284,9 +295,21 @@ class JsonSchemaContractValidator:
     ) -> None:
         validator = self._cache.get((schema_name, version))
         if validator is None:
-            schema = self._registry.get(schema_name, version)
-            Draft202012Validator.check_schema(schema)
-            validator = Draft202012Validator(schema, format_checker=FormatChecker())
+            registry = self._registry
+            shared_key = (
+                (registry._package, schema_name, version)
+                if isinstance(registry, PackageResourceSchemaRegistry)
+                and type(registry) is PackageResourceSchemaRegistry
+                else None
+            )
+            if shared_key is not None:
+                validator = _SHARED_VALIDATOR_CACHE.get(shared_key)
+            if validator is None:
+                schema = self._registry.get(schema_name, version)
+                Draft202012Validator.check_schema(schema)
+                validator = Draft202012Validator(schema, format_checker=_SHARED_FORMAT_CHECKER)
+                if shared_key is not None:
+                    _SHARED_VALIDATOR_CACHE[shared_key] = validator
             self._cache[(schema_name, version)] = validator
         errors = sorted(validator.iter_errors(dict(instance)), key=lambda error: list(error.path))
         if errors:

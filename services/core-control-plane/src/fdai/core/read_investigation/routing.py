@@ -27,14 +27,22 @@ _RESOURCE_WORDS = frozenset(
 
 def resource_name_from_question(question: str) -> str | None:
     """Return one identifier-like resource name or abstain on ambiguity."""
-    candidates = [
-        token
-        for token in _RESOURCE_TOKEN.findall(question)
-        if token.casefold() not in _RESOURCE_WORDS
-        and ("-" in token or any(character.isdigit() for character in token))
-    ]
-    unique = tuple(dict.fromkeys(candidates))
-    return unique[0] if len(unique) == 1 else None
+    if not isinstance(question, str) or not question.strip():
+        return None
+    candidates: list[str] = []
+    seen_folded: set[str] = set()
+    for raw_token in _RESOURCE_TOKEN.findall(question):
+        token = raw_token.rstrip(".()")
+        if len(token) < 2:
+            continue
+        folded = token.casefold()
+        if folded in _RESOURCE_WORDS:
+            continue
+        if "-" in token or any(character.isdigit() for character in token):
+            if folded not in seen_folded:
+                seen_folded.add(folded)
+                candidates.append(token)
+    return candidates[0] if len(candidates) == 1 else None
 
 
 __all__ = ["resource_name_from_question"]
