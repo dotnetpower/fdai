@@ -80,7 +80,10 @@ class _Inventory:
             yield InventoryBatch(final=True, cursor="cursor-next")
 
 
-@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), float("-inf"), 0.0, -1.0])
+@pytest.mark.parametrize(
+    "deadline",
+    [True, False, float("nan"), float("inf"), float("-inf"), 0.0, -1.0],
+)
 async def test_delta_rejects_unbounded_deadlines_before_reading_state(
     deadline: float, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -457,6 +460,71 @@ def test_delta_event_identity_includes_relationship_payload() -> None:
     )
     assert partial.idempotency_key != first_scope_without_links.idempotency_key
     assert partial.event_id != first_scope_without_links.event_id
+
+
+@pytest.mark.asyncio
+async def test_delta_validates_topic_scope_and_whitespace_timestamps() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryEventBus()
+    with pytest.raises(ValueError, match="topic MUST be non-empty"):
+        await forward_inventory_delta(
+            inventory=_Inventory(),
+            state_store=state,
+            event_bus=bus,
+            topic="   ",
+            scope="subscription-1",
+            properties_complete=False,
+        )
+    with pytest.raises(ValueError, match="scope MUST be non-empty"):
+        await forward_inventory_delta(
+            inventory=_Inventory(),
+            state_store=state,
+            event_bus=bus,
+            topic="events",
+            scope="   ",
+            properties_complete=False,
+        )
+
+    lowercase_z_resource = ResourceRecord(
+        resource_id="resource:example/vm-z",
+        type="compute.vm",
+        props={"operation": "  Microsoft.Compute/virtualMachines/write  "},
+        last_seen="2026-07-15T00:00:00Z",
+    )
+    ev = _resource_event(
+        scope="subscription-1",
+        resource=lowercase_z_resource,
+        links=(),
+        properties_complete=False,
+    )
+    assert ev.payload["inventory_change"]["operation"] == (
+        "Microsoft.Compute/virtualMachines/write"
+    )
+    published_z = await forward_inventory_delta(
+        inventory=_FinalBatchInventory(
+            relationship_reconciliation_after="  2026-07-15T00:00:00z  "
+        ),
+        state_store=state,
+        event_bus=bus,
+        topic="events",
+        scope="subscription-z",
+        properties_complete=False,
+    )
+    assert published_z == 1
+
+    whitespace_op_resource = ResourceRecord(
+        resource_id="resource:example/vm-bad-op",
+        type="compute.vm",
+        props={"operation": "   "},
+        last_seen="2026-07-15T00:00:00Z",
+    )
+    with pytest.raises(ValueError, match="operation MUST be non-empty"):
+        _resource_event(
+            scope="subscription-1",
+            resource=whitespace_op_resource,
+            links=(),
+            properties_complete=False,
+        )
 
 
 def test_sparse_delta_records_operation_outcome_without_reserved_status() -> None:

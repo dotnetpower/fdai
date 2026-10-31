@@ -130,6 +130,33 @@ def test_deterministic_across_correlators() -> None:
 def test_window_seconds_validation() -> None:
     with pytest.raises(ValueError, match="window_seconds"):
         EventCorrelator(window_seconds=0)
+    with pytest.raises(ValueError, match="window_seconds"):
+        EventCorrelator(window_seconds=True)
+    with pytest.raises(ValueError, match="window_seconds"):
+        EventCorrelator(window_seconds=float("nan"))
+
+
+def test_whitespace_padded_resource_and_correlation_keys_group_cleanly() -> None:
+    correlator = EventCorrelator(window_seconds=60)
+    first = correlator.correlate(
+        _event(
+            event_id="00000000-0000-0000-0000-000000000001",
+            resource_ref="  rg/a  ",
+            correlation_id="  corr-1  ",
+            detected_at=_T0,
+        )
+    )
+    second = correlator.correlate(
+        _event(
+            event_id="00000000-0000-0000-0000-000000000002",
+            resource_ref="rg/a",
+            correlation_id="corr-1",
+            detected_at=_T0 + timedelta(seconds=5),
+        )
+    )
+    assert first.incident_id == second.incident_id
+    assert "corr:corr-1" in first.correlation_keys
+    assert "res:rg/a" in first.correlation_keys
 
 
 def test_result_is_immutable() -> None:

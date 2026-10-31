@@ -29,6 +29,7 @@ correlation keys that ``IncidentRegistry.open`` consumes.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -61,7 +62,11 @@ class EventCorrelator:
     """
 
     def __init__(self, *, window_seconds: float = _DEFAULT_WINDOW_SECONDS) -> None:
-        if window_seconds <= 0:
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
             raise ValueError("window_seconds MUST be > 0")
         self._window = float(window_seconds)
 
@@ -105,9 +110,13 @@ class EventCorrelator:
         set - not merely one key in common.
         """
         keys: list[str] = []
-        if event.correlation_id:
-            keys.append(f"corr:{event.correlation_id}")
-        resource = event.resource_ref or _resource_ref_from_payload(event.payload)
+        if event.correlation_id and event.correlation_id.strip():
+            keys.append(f"corr:{event.correlation_id.strip()}")
+        resource = (
+            event.resource_ref.strip()
+            if event.resource_ref and event.resource_ref.strip()
+            else _resource_ref_from_payload(event.payload)
+        )
         if resource:
             keys.append(f"res:{resource}")
         return tuple(keys)
@@ -117,8 +126,8 @@ def _resource_ref_from_payload(payload: Mapping[str, Any]) -> str | None:
     resource = payload.get("resource")
     if isinstance(resource, Mapping):
         ref = resource.get("resource_id") or resource.get("resource_ref")
-        if isinstance(ref, str) and ref:
-            return ref
+        if isinstance(ref, str) and ref.strip():
+            return ref.strip()
     return None
 
 

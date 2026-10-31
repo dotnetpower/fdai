@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Protocol, runtime_checkable
 
 _DEFAULT_WINDOW = timedelta(hours=1)
@@ -112,6 +112,10 @@ class EmptyChangeFeed:
         return ()
 
 
+def _as_utc(dt: datetime) -> datetime:
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 def correlate_changes(
     changes: Sequence[ChangeRecord],
     *,
@@ -137,31 +141,52 @@ def correlate_changes(
     if window <= timedelta(0):
         raise ValueError("window MUST be positive")
 
-    incident_set = {r for r in incident_resources if r}
+    incident_utc = _as_utc(incident_at)
+    incident_by_key: dict[str, str] = {}
+    for resource in incident_resources:
+        if isinstance(resource, str) and resource.strip():
+            trimmed = resource.strip()
+            incident_by_key.setdefault(trimmed.casefold(), trimmed)
     window_seconds = window.total_seconds()
-    out: list[ChangeCorrelation] = []
+    best_by_id: dict[str, ChangeCorrelation] = {}
 
     for change in changes:
-        lead = (incident_at - change.at).total_seconds()
+        change_id = change.change_id.strip() if isinstance(change.change_id, str) else ""
+        if not change_id:
+            continue
+        change_utc = _as_utc(change.at)
+        lead = (incident_utc - change_utc).total_seconds()
         # Must precede the incident and fall inside the window.
         if lead < 0 or lead > window_seconds:
             continue
         # Closer in time -> higher temporal score (1.0 at t=0, 0.0 at edge).
         temporal = 1.0 - (lead / window_seconds)
-        overlap = tuple(sorted(incident_set.intersection(change.resource_hints)))
+        hint_keys = {
+            hint.strip().casefold()
+            for hint in change.resource_hints
+            if isinstance(hint, str) and hint.strip()
+        }
+        overlap = tuple(
+            sorted(canonical for key, canonical in incident_by_key.items() if key in hint_keys)
+        )
         overlap_score = 1.0 if overlap else 0.0
         # Temporal dominates; overlap is a bounded boost.
         score = 0.7 * temporal + 0.3 * overlap_score
-        out.append(
-            ChangeCorrelation(
-                change=change,
-                score=round(score, 6),
-                lead_seconds=lead,
-                resource_overlap=overlap,
-            )
+        candidate = ChangeCorrelation(
+            change=change,
+            score=round(score, 6),
+            lead_seconds=lead,
+            resource_overlap=overlap,
         )
+        prior = best_by_id.get(change_id)
+        if prior is None or (candidate.score, -candidate.lead_seconds) > (
+            prior.score,
+            -prior.lead_seconds,
+        ):
+            best_by_id[change_id] = candidate
 
-    out.sort(key=lambda c: (c.score, -c.lead_seconds), reverse=True)
+    out = list(best_by_id.values())
+    out.sort(key=lambda c: (-c.score, c.lead_seconds, c.change.change_id.strip()))
     return out
 
 

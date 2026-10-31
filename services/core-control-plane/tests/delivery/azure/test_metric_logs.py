@@ -328,3 +328,15 @@ async def test_response_over_byte_cap_fails_closed() -> None:
 def test_config_rejects_nonpositive_max_response_bytes() -> None:
     with pytest.raises(ValueError, match="max_response_bytes"):
         AzureMonitorLogsConfig(workspace_id="w", queries={}, max_response_bytes=0)
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureMonitorLogsConfig(workspace_id="w", queries={}, timeout_seconds=True)
+
+
+def test_parse_timestamp_requires_timezone_and_accepts_lowercase_z() -> None:
+    from fdai.delivery.azure.metric_logs import _parse_timestamp
+
+    assert _parse_timestamp("  2026-07-10T00:01:00z  ") == datetime(2026, 7, 10, 0, 1, tzinfo=UTC)
+    with pytest.raises(MetricProviderError, match="timezone-naive"):
+        _parse_timestamp("2026-07-10T00:01:00")
+    with pytest.raises(MetricProviderError, match="timezone-naive"):
+        _parse_timestamp(datetime(2026, 7, 10, 0, 1))  # noqa: DTZ001

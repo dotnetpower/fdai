@@ -211,3 +211,27 @@ def test_finding_event_re_enters_event_ingest() -> None:
     assert ingested.event_type == "forecast.finding"
     # Re-delivery of the same forecast dedupes on the stable key.
     assert ingest.ingest(detector.to_event(finding)) is None
+
+
+def test_forecast_resource_scoped_idempotency_and_out_of_order_history() -> None:
+    detector = _detector()
+    first = detector.evaluate(
+        metric="disk_used_pct",
+        resource_ref="resource:example/rg/vol-a",
+        history=list(reversed(_series(list(range(10))))),
+        window_bucket="2026-07-08T09:00",
+    )
+    second = detector.evaluate(
+        metric="disk_used_pct",
+        resource_ref="resource:example/rg/vol-b",
+        history=_series(list(range(10))),
+        window_bucket="2026-07-08T09:00",
+    )
+    assert first is not None and second is not None
+    assert first.lead_time_seconds == pytest.approx(11.0, abs=1e-6)
+    assert first.idempotency_key != second.idempotency_key
+
+    with pytest.raises(ValueError, match="threshold"):
+        _detector(threshold=float("nan"))
+    with pytest.raises(ValueError, match="horizon_seconds"):
+        _detector(horizon_seconds=True)

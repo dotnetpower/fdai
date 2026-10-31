@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
 
@@ -68,24 +68,35 @@ class NoopLogQueryProvider:
             yield _  # pragma: no cover - unreachable
 
 
+def _as_utc(dt: datetime) -> datetime:
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 class StaticLogQueryProvider:
     """Deterministic in-memory provider for tests.
 
-    Matching semantics: substring match on ``body`` for ``expression``,
-    exact match for every label in ``labels``.
+    Matching semantics: case-insensitive substring match on ``body`` for
+    ``expression``, exact match for every label in ``labels``, ordered
+    chronologically by ``at``.
     """
 
     def __init__(self, records: Sequence[LogRecord]) -> None:
-        self._records: tuple[LogRecord, ...] = tuple(records)
+        self._records: tuple[LogRecord, ...] = tuple(sorted(records, key=lambda r: _as_utc(r.at)))
 
     async def query(self, query: LogQuery) -> AsyncIterator[LogRecord]:
+        if query.limit is not None and query.limit <= 0:
+            return
+        needle = query.expression.strip().casefold() if query.expression else ""
+        since_utc = _as_utc(query.since) if query.since is not None else None
+        until_utc = _as_utc(query.until) if query.until is not None else None
         matched = 0
         for record in self._records:
-            if query.expression and query.expression not in record.body:
+            if needle and needle not in record.body.casefold():
                 continue
-            if query.since is not None and record.at < query.since:
+            record_at = _as_utc(record.at)
+            if since_utc is not None and record_at < since_utc:
                 continue
-            if query.until is not None and record.at > query.until:
+            if until_utc is not None and record_at > until_utc:
                 continue
             if any(record.labels.get(k) != v for k, v in query.labels.items()):
                 continue
