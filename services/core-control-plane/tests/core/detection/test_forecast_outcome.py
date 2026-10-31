@@ -124,3 +124,34 @@ def test_close_missed_breach_is_stable_false_negative() -> None:
         first.outcome_id
         != close_missed_breach(**{**kwargs, "access_scope_digest": "b" * 64}).outcome_id
     )
+
+
+def test_close_missed_breach_normalizes_timezone_offsets_for_outcome_id() -> None:
+    from datetime import timezone
+
+    kst = timezone(timedelta(hours=9))
+    base_kwargs = dict(
+        correlation_id="corr-2",
+        detector_id="capacity-linear",
+        detector_version="1.0.0",
+        access_scope_digest="a" * 64,
+        target_ref="resource-2",
+        metric="capacity_percent",
+        feature_cutoff=T0,
+        horizon_started_at=T0,
+        horizon_ended_at=T0 + timedelta(hours=1),
+        direction="rising",
+        threshold=90.0,
+        observed_value=96.0,
+        actual_breach_at=T0 + timedelta(minutes=30),
+        evidence_refs=("breach:1",),
+        closed_at=T0 + timedelta(hours=2),
+    )
+    first = close_missed_breach(**base_kwargs)
+    second = close_missed_breach(
+        **{
+            **base_kwargs,
+            "actual_breach_at": (T0 + timedelta(minutes=30)).astimezone(kst),
+        }
+    )
+    assert first.outcome_id == second.outcome_id

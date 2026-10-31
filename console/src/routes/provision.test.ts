@@ -299,6 +299,14 @@ describe("reducer", () => {
     expect(state.inventory?.resources_observed).toBe(120);
   });
 
+  test("snapshot rejects negative or out-of-range stage counters", () => {
+    const base = readySnapshot("run.valid", 2);
+    expect(reducer(INITIAL, { ...base, stages_completed: -1 })).toBe(INITIAL);
+    expect(reducer(INITIAL, { ...base, stages_total: -1 })).toBe(INITIAL);
+    expect(reducer(INITIAL, { ...base, stages_completed: 6, stages_total: 5 })).toBe(INITIAL);
+    expect(reducer(INITIAL, { ...base, sequence: -1 })).toBe(INITIAL);
+  });
+
   test("snapshot accepts a new run whose sequence restarts", () => {
     const oldRun = reducer(INITIAL, ev({
       phase: "snapshot",

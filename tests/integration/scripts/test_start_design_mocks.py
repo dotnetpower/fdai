@@ -104,7 +104,7 @@ def test_repeated_start_reuses_the_same_checkout_server(
     assert "service=design-mocks event=reused" in result.stdout
     assert "Serving HTTP" not in result.stdout
     assert owner.poll() is None
-    with urlopen(f"http://127.0.0.1:{port}/probe.txt", timeout=1) as response:
+    with urlopen(f"http://127.0.0.1:{port}/probe.txt", timeout=5) as response:
         assert response.read() == b"design-mocks-checkout"
 
 

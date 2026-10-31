@@ -54,6 +54,20 @@ interface LoadedProcessList {
   readonly generation: number;
 }
 
+export function processViewAriaControls(
+  view: "workspace" | "provenance",
+  activeView: "workspace" | "provenance",
+  listReady: boolean,
+): string | undefined {
+  return listReady && activeView === view ? `process-${view}-panel` : undefined;
+}
+
+export function processSchedulerRunsHref(dataMode: ConsoleDataMode): string {
+  return routeHref("scheduler-runs", {
+    params: { data: dataMode === "sample" ? "sample" : null },
+  });
+}
+
 export function ProcessesRoute({ client, dataMode }: Props) {
   if (currentRoute().segments[0] === "scheduler-runs") {
     return <SchedulerRunsRoute client={client} dataMode={dataMode} />;
@@ -171,7 +185,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
               type="button"
               class="btn btn-small"
               aria-pressed={activeView === view}
-              aria-controls={`process-${view}-panel`}
+              aria-controls={processViewAriaControls(view, activeView, listState.status === "ready")}
               onClick={() => setActiveView(view)}
             >
               {t(`processesView.${view}`)}
@@ -179,7 +193,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
           ))}
         </div>
         <div class="process-toolbar-actions">
-          <a class="btn btn-small" href={routeHref("scheduler-runs")}>
+          <a class="btn btn-small" href={processSchedulerRunsHref(dataMode)}>
             {schedulerRunsText("title")}
           </a>
           <button

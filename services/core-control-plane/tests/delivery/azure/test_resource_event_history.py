@@ -218,3 +218,12 @@ async def test_history_reader_batches_exact_scope_and_demotes_partial_failure() 
     assert result.events == ()
     assert result.complete is False
     assert result.limitation == "source_coverage_incomplete"
+
+
+def test_history_config_rejects_boolean_bounds() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureResourceEventHistoryConfig(subscription_id=SUBSCRIPTION_ID, timeout_seconds=True)
+    with pytest.raises(ValueError, match="max_resources"):
+        AzureResourceEventHistoryConfig(subscription_id=SUBSCRIPTION_ID, max_resources=True)

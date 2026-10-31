@@ -19,7 +19,13 @@ import {
   usePublishViewContext,
 } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { OntologyActionsView, requestedOntologyAction } from "./ontology-actions";
 import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
 import { OntologyNavigation } from "./ontology-navigation";
@@ -157,6 +163,10 @@ export function selectedOntologyExplanations(
   };
 }
 
+export function ontologyIncludePropertiesFromSearch(search: URLSearchParams): boolean {
+  return search.get("properties") !== "false";
+}
+
 export function OntologyRoute({ client }: Props) {
   const segments = currentRoute().segments;
   if (segments.length === 2 && segments[0] === "object-types") {
@@ -170,7 +180,7 @@ export function OntologyRoute({ client }: Props) {
   );
   const [state, setState] = useState<AsyncState<OntologyGraphResponse>>({ status: "loading" });
   const [includeProperties, setIncludeProperties] = useState(
-    () => currentRoute().search.get("properties") !== "false",
+    () => ontologyIncludePropertiesFromSearch(currentRoute().search),
   );
   const catalogVisible = view !== "instances";
 
@@ -178,12 +188,15 @@ export function OntologyRoute({ client }: Props) {
     const sync = (): void => {
       const route = currentRoute();
       setView(ontologyRouteView(route.segments, route.search.get("view")));
+      setIncludeProperties(ontologyIncludePropertiesFromSearch(route.search));
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
@@ -308,11 +321,14 @@ function OntologyCatalogView({
         ? pathSelection.name
         : requestedOntologyAction(route.search));
     };
+    sync();
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, [actionTypes, data.link_types, data.nodes]);
   const selectType = (name: string | null): void => {

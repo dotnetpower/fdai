@@ -8,6 +8,8 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
 import {
   decodeOperatorMemory,
@@ -75,11 +77,14 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
           <span>{t("settings.operatorMemory.scopeRef")}</span>
           <input
             class="form-input"
+            maxLength={256}
             value={scopeRef}
             onInput={(event) => setScopeRef(event.currentTarget.value)}
           />
         </label>
-        <button type="submit" class="btn">{t("settings.operatorMemory.filter")}</button>
+        <button type="submit" class="btn" disabled={state.status === "loading"}>
+          {t("settings.operatorMemory.filter")}
+        </button>
       </form>
       <AsyncBoundary state={state} resourceLabel={t("settings.operatorMemory.resourceLabel")}>
         {(view) => <OperatorMemoryBody view={view} />}
@@ -90,6 +95,30 @@ export function OperatorMemoryRoute({ client }: { readonly client: OperatorApiCl
 
 function OperatorMemoryBody({ view }: { readonly view: OperatorMemoryReviewView }) {
   const [now, setNow] = useState(Date.now);
+  usePublishViewContext(
+    () => ({
+      routeId: "settings-memory",
+      routeLabel: t("route.operatorMemory"),
+      purpose: t("settings.operatorMemory.subtitle"),
+      glossary: composeGlossary([TERMS.userPreference]),
+      headline: `${view.items.length} memory entries - ${view.compactions.length} compaction candidates`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "entry_count", value: view.items.length, group: "memory" },
+        { key: "compaction_count", value: view.compactions.length, group: "memory" },
+      ],
+      records: {
+        entries: view.items.slice(0, 25).map((item) => ({
+          id: item.id,
+          category: item.category,
+          scope_kind: item.scopeKind,
+          scope_ref: item.scopeRef,
+          state: operatorMemoryDisplayState(item, now),
+        })),
+      },
+    }),
+    [now, view],
+  );
   useEffect(() => {
     const delay = nextOperatorMemoryExpiryDelay(view.items, now);
     if (delay === null) return undefined;

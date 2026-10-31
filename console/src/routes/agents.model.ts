@@ -463,14 +463,17 @@ function applyTicket(
 ): AgentsState {
   const existing = state.incidents[msg.correlation_id];
   const rca = msg.rca ?? existing?.rca ?? null;
+  const involved = [...(existing?.involved ?? []), ...msg.involved_agents].filter(
+    (name, index, names) => state.agents[name] !== undefined && names.indexOf(name) === index,
+  );
   if (
     existing !== undefined &&
     existing.ticketId === msg.ticket_id &&
     existing.title === msg.title &&
     existing.severity === msg.severity &&
     existing.status === msg.status &&
-    existing.involved.length === msg.involved_agents.length &&
-    existing.involved.every((agent, index) => agent === msg.involved_agents[index]) &&
+    existing.involved.length === involved.length &&
+    existing.involved.every((agent, index) => agent === involved[index]) &&
     existing.rca === rca &&
     existing.updatedAt === msg.ts
   ) return state;
@@ -480,7 +483,7 @@ function applyTicket(
     title: msg.title,
     severity: msg.severity,
     status: msg.status,
-    involved: msg.involved_agents,
+    involved,
     rca,
     turns: existing?.turns ?? [],
     updatedAt: msg.ts,

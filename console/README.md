@@ -317,7 +317,9 @@ adjacent inspection.
 - **Impact scope** renders the actual simulation response as concentric depth
   rings and an impact tree by default. The existing Architecture map and raw
   table remain alternate views. No resource, personnel, or connection cap is
-  shown unless the response records it.
+  shown unless the response records it. The Architecture workbench bounds its
+  cache-refresh polling to `refreshPending` transitions and synchronizes route
+  state across `popstate`, `fdai:route-changed`, and `ROUTE_STATE_EVENT`.
 - **Promotion gates** filters measured ActionTypes by ready/blocked state and
   search text, and renders accuracy, reviewed/agreed progress, policy escapes,
   and recorded gaps. Promotion remains a separate reviewed catalog PR.

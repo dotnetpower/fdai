@@ -87,11 +87,15 @@ class TelemetryAdaptiveRoundSource(AdaptiveRoundSource):
         catalog: ReviewedTelemetryRecipeCatalog = DEFAULT_TELEMETRY_RECIPE_CATALOG,
         maximum_workspace_routes: int = 4,
     ) -> None:
-        if not 1 <= maximum_workspace_routes <= 4:
+        if isinstance(maximum_workspace_routes, bool) or not 1 <= maximum_workspace_routes <= 4:
             raise ValueError("maximum_workspace_routes MUST be in [1, 4]")
+        if not isinstance(resource_ref, str) or not resource_ref.strip():
+            raise ValueError("resource_ref MUST be non-empty")
+        if not isinstance(principal_scope_digest, str) or not principal_scope_digest.strip():
+            raise ValueError("principal_scope_digest MUST be non-empty")
         self._manifest = manifest
-        self._scope_digest = principal_scope_digest
-        self._resource_ref = resource_ref
+        self._scope_digest = principal_scope_digest.strip()
+        self._resource_ref = resource_ref.strip()
         self._catalog = catalog
         self._maximum_workspace_routes = maximum_workspace_routes
         self._recipes_by_hypothesis = {

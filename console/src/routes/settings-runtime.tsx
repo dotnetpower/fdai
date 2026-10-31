@@ -315,6 +315,20 @@ function RuntimeSettingRow({
   );
 }
 
+export function parseRuntimeNumericInput(
+  raw: string,
+  setting: Pick<RuntimeSettingView, "valueType" | "minimum" | "maximum">,
+): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  if (setting.valueType === "integer" && !Number.isSafeInteger(parsed)) return null;
+  if (setting.minimum !== null && parsed < setting.minimum) return null;
+  if (setting.maximum !== null && parsed > setting.maximum) return null;
+  return parsed;
+}
+
 function SettingControl({
   setting,
   value,
@@ -373,7 +387,10 @@ function SettingControl({
       max={setting.maximum ?? undefined}
       step={setting.valueType === "integer" ? 1 : "any"}
       disabled={disabled}
-      onInput={(event) => onChange(Number(event.currentTarget.value))}
+      onInput={(event) => {
+        const parsed = parseRuntimeNumericInput(event.currentTarget.value, setting);
+        if (parsed !== null) onChange(parsed);
+      }}
     />
   );
 }

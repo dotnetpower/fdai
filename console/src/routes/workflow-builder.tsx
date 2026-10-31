@@ -203,11 +203,15 @@ function WorkflowShell({
   const [seedName, setSeedName] = useState<string | null>(
     () => currentRoute().search.get("from"),
   );
+  const [seedGroup, setSeedGroup] = useState(
+    () => workflowGroup(currentRoute().search.get("group")),
+  );
   useEffect(() => {
     const sync = () => {
       const search = currentRoute().search;
       setMode(workflowBuilderMode(search.get("mode")));
       setSeedName(search.get("from"));
+      setSeedGroup(workflowGroup(search.get("group")));
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
@@ -228,14 +232,13 @@ function WorkflowShell({
   }, []);
   const seed = useMemo<WorkflowChatSeed | null>(() => {
     if (mode !== "new" || seedName === null) return null;
-    const group = workflowGroup(currentRoute().search.get("group"));
-    const source = group === "built_in"
+    const source = seedGroup === "built_in"
       ? data.workflows.find((workflow) => workflow.name === seedName)
-      : data.definitions.groups[group]
+      : data.definitions.groups[seedGroup]
         .map(workflowFromDefinition)
         .find((workflow) => workflow.name === seedName);
     return source ? { form: catalogToForm(source), source: source.name } : null;
-  }, [data.definitions.groups, data.workflows, mode, seedName]);
+  }, [data.definitions.groups, data.workflows, mode, seedGroup, seedName]);
   const gateRefs = useMemo(() => workflowGateRefs([
     ...data.workflows,
     ...Object.values(data.definitions.groups).flatMap((group) =>

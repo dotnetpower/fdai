@@ -25,11 +25,27 @@ describe("Dashboard data mode", () => {
     expect(supportsSampleData("rca")).toBe(true);
   });
 
-  test("preserves unrelated Dashboard query state", () => {
+  test("preserves unrelated Dashboard query state and section fragment", () => {
     expect(consoleDataModeHref("sample", "/overview", "?window=30d"))
       .toBe("/overview?window=30d&data=sample");
     expect(consoleDataModeHref("live", "/overview", "?window=30d&data=sample"))
       .toBe("/overview?window=30d");
+    expect(
+      consoleDataModeHref(
+        "sample",
+        "/detection-coverage",
+        "?data=live",
+        "#console-inbox",
+      ),
+    ).toBe("/detection-coverage?data=sample#console-inbox");
+    expect(
+      consoleDataModeHref(
+        "live",
+        "/detection-coverage",
+        "?data=sample",
+        "#console-inbox",
+      ),
+    ).toBe("/detection-coverage#console-inbox");
   });
 
   test("does not restore Sample mode over an authentication callback hash", () => {

@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
-import { loadCapabilitiesState } from "./capabilities";
+import { getLocale, setLocale } from "../i18n";
+import { capabilityColumns, loadCapabilitiesState } from "./capabilities";
 import {
   capabilityDestination,
   capabilityRequestPath,
@@ -110,6 +111,21 @@ describe("capability catalog provenance", () => {
     expect(capabilityRoleMatch("approver", ["Contributor"])).toBe("does-not-meet");
     expect(capabilityRoleMatch("reader", ["BreakGlass"])).toBe("does-not-meet");
     expect(capabilityRoleMatch("reader", null)).toBe("unavailable");
+  });
+
+  test("localizes capability table headers dynamically when locale changes", () => {
+    const previous = getLocale();
+    try {
+      setLocale("en");
+      const enHeader = capabilityColumns()[1]?.header;
+      setLocale("ko");
+      const koHeader = capabilityColumns()[1]?.header;
+      expect(enHeader).toBeTruthy();
+      expect(koHeader).toBeTruthy();
+      expect(koHeader).not.toBe(enHeader);
+    } finally {
+      setLocale(previous);
+    }
   });
 
   test("places selected capability details beside the directory on desktop", () => {

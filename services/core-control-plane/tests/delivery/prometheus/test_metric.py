@@ -303,3 +303,7 @@ def test_config_validation() -> None:
             config=PrometheusMetricConfig(base_url="u", queries={}, audience="api://x"),
             http_client=httpx.AsyncClient(),
         )
+    with pytest.raises(ValueError, match="step_seconds"):
+        PrometheusMetricConfig(base_url="u", queries={}, step_seconds=True)
+    with pytest.raises(ValueError, match="max_points"):
+        PrometheusMetricConfig(base_url="u", queries={}, max_points=True)

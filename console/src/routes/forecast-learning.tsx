@@ -172,25 +172,51 @@ export function decodeForecastLearning(value: unknown): ForecastLearningResponse
     abstained: integer(episodes["abstained"], "episodes.abstained"),
     closure_completeness: nullableRatio(episodes["closure_completeness"]),
   };
-  if (decodedEpisodes.closed + decodedEpisodes.open !== decodedEpisodes.total) {
+  if (
+    decodedEpisodes.closed + decodedEpisodes.open !== decodedEpisodes.total ||
+    decodedEpisodes.overdue > decodedEpisodes.open ||
+    decodedEpisodes.abstained > decodedEpisodes.total
+  ) {
     throw new OperatorApiError(
       502,
       "invalid Operator API response: forecast episode totals do not reconcile",
+    );
+  }
+  const outcomes = panelArray(root["outcomes"], "forecast outcomes").map((item, index) => {
+    const row = panelRecord(item, `forecast outcomes[${index}]`);
+    return {
+      label: text(row["label"], "outcome label"),
+      miss_origin:
+        row["miss_origin"] === null ? null : text(row["miss_origin"], "miss origin"),
+      count: integer(row["count"], "outcome count"),
+    };
+  });
+  const outcomeKeys = new Set<string>();
+  for (const row of outcomes) {
+    const key = `${row.label}:${row.miss_origin ?? "none"}`;
+    if (outcomeKeys.has(key)) {
+      throw new OperatorApiError(
+        502,
+        "invalid Operator API response: forecast outcome keys MUST be unique",
+      );
+    }
+    outcomeKeys.add(key);
+  }
+  const decodedRetention = {
+    pending: integer(retention["pending"], "retention.pending"),
+    overdue: integer(retention["overdue"], "retention.overdue"),
+  };
+  if (decodedRetention.overdue > decodedRetention.pending) {
+    throw new OperatorApiError(
+      502,
+      "invalid Operator API response: forecast retention overdue MUST NOT exceed pending",
     );
   }
   return {
     source: text(root["source"], "source"),
     durable: root["durable"] === true,
     episodes: decodedEpisodes,
-    outcomes: panelArray(root["outcomes"], "forecast outcomes").map((item, index) => {
-      const row = panelRecord(item, `forecast outcomes[${index}]`);
-      return {
-        label: text(row["label"], "outcome label"),
-        miss_origin:
-          row["miss_origin"] === null ? null : text(row["miss_origin"], "miss origin"),
-        count: integer(row["count"], "outcome count"),
-      };
-    }),
+    outcomes,
     publication: {
       pending: integer(publication["pending"], "publication.pending"),
       dead_lettered: integer(publication["dead_lettered"], "publication.dead_lettered"),
@@ -199,10 +225,7 @@ export function decodeForecastLearning(value: unknown): ForecastLearningResponse
           ? null
           : text(publication["oldest_pending_at"], "oldest pending"),
     },
-    retention: {
-      pending: integer(retention["pending"], "retention.pending"),
-      overdue: integer(retention["overdue"], "retention.overdue"),
-    },
+    retention: decodedRetention,
   };
 }
 

@@ -14,7 +14,13 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { displayValue, t } from "./i18n/governance";
 import {
   panelArray,
@@ -135,14 +141,17 @@ export function PromotionGatesRoute({ client }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = decodePromotionGates(await client.panel<unknown>("/kpi/promotion-gates"));
@@ -238,11 +247,15 @@ export function decodePromotionGates(value: unknown): Response {
       }
       const operatorOverride = decodeOperatorOverride(row["operator_override"], promotionKind);
       const capabilityRecall = decodeCapabilityRecall(row["capability_recall"]);
+      const actionTypeName = panelNonEmptyString(row, "action_type_name", "promotion gate row");
+      if (capabilityRecall !== null && capabilityRecall.action_type !== actionTypeName) {
+        throw new OperatorApiError(502, "invalid Operator API response: capability_recall.action_type MUST match action_type_name");
+      }
       if (capabilityRecall?.active === true && mode !== "shadow") {
         throw new OperatorApiError(502, t("governance.promotion.error.recallMode"));
       }
       return {
-        action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
+        action_type_name: actionTypeName,
         mode,
         mode_source: modeSource,
         promotion_kind: promotionKind,
@@ -258,6 +271,9 @@ export function decodePromotionGates(value: unknown): Response {
         gaps: [...new Set(panelStringArray(row["gaps"], "promotion gate row.gaps"))].sort(),
       };
     });
+  if (new Set(rows.map((row) => row.action_type_name)).size !== rows.length) {
+    throw new OperatorApiError(502, "invalid Operator API response: promotion gate action_type_name MUST be unique");
+  }
   const readyCount = panelNonNegativeInteger(root, "ready_count", "promotion gates");
   const blockedCount = panelNonNegativeInteger(root, "blocked_count", "promotion gates");
   if (readyCount !== rows.filter((row) => row.ready).length || blockedCount !== rows.filter((row) => !row.ready).length) {

@@ -365,6 +365,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
           setPageError("Incident exact lookup snapshot changed");
           return;
         }
+        if (page.items.length === 0) return;
         setState((current) => current.status === "ready"
           ? {
               status: "ready",
