@@ -154,7 +154,7 @@ class SagaVerdictAggregator:
         raise AuditAppendDeferredError("verdict aggregate staging contention budget exhausted")
 
     async def seal_subject(self, resource_id: str) -> None:
-        if not resource_id:
+        if not isinstance(resource_id, str) or not resource_id.strip():
             return
         subject_digest = hashlib.sha256(resource_id.encode("utf-8")).hexdigest()
         await self.refresh()

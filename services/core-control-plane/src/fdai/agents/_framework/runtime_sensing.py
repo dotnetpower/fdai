@@ -7,12 +7,15 @@ from typing import Any
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents.heimdall import (
     ActionObservationHook,
+    AlerterHook,
     Heimdall,
     OperationalEvidenceHook,
 )
 from fdai.core.detection.forecast_closure import ForecastClosureCoordinator
 from fdai.core.detection.forecast_episode import ForecastEpisodeStore
 from fdai.core.detection.forecast_evaluation import ForecastEpisodeEvaluator
+from fdai.shared.providers.code_security import CodeSecurityDriftProjector
+from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
 from fdai.shared.providers.state_store import StateStore
 
 
@@ -31,6 +34,9 @@ def configure_heimdall(
     operational_evidence_hook: OperationalEvidenceHook | None,
     action_observation_hook: ActionObservationHook | None,
     state_store: StateStore | None,
+    alerter_hook: AlerterHook | None = None,
+    provider_schema_drift_projector: ProviderSchemaDriftProjector | None = None,
+    code_security_drift_projector: CodeSecurityDriftProjector | None = None,
 ) -> None:
     if (forecast_evaluator is None) != (forecast_closer is None) or (
         forecast_evaluator is None
@@ -49,6 +55,9 @@ def configure_heimdall(
         operational_evidence_hook=operational_evidence_hook,
         action_observation_hook=action_observation_hook,
         state_store=state_store,
+        alerter_hook=alerter_hook,
+        provider_schema_drift_projector=provider_schema_drift_projector,
+        code_security_drift_projector=code_security_drift_projector,
     )
 
 

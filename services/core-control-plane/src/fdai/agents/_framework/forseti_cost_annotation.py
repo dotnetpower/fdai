@@ -56,11 +56,14 @@ def cost_annotation_for_arbitration(
 
 
 def _annotation_from_njord_signal(signal: Mapping[str, Any]) -> dict[str, Any]:
-    observed_at = str(signal.get("observed_at") or signal.get("detected_at") or "")
+    observed_at = str(
+        signal.get("observed_at") or signal.get("detected_at") or signal.get("occurred_at") or ""
+    )
     estimate_value = _finite_float(
         signal.get("monthly_delta_usd", signal.get("variance", signal.get("amount_usd")))
     )
-    if estimate_value is None or not observed_at:
+    clean_observed = _bounded_text(observed_at, default="")
+    if estimate_value is None or not clean_observed:
         return unavailable_cost_annotation("cost_estimate_incomplete")
     evidence_ref = _bounded_text(signal.get("evidence_ref"), default="")
     evidence_digest = _bounded_text(
@@ -73,7 +76,7 @@ def _annotation_from_njord_signal(signal: Mapping[str, Any]) -> dict[str, Any]:
         "reason": "",
         "source_principal": "Njord",
         "freshness_state": "fresh",
-        "observed_at": _bounded_text(observed_at, default=""),
+        "observed_at": clean_observed,
         "estimate": {"monthly_delta": estimate_value, "currency": _USD},
         "currency": _USD,
         "evidence_refs": [evidence_ref] if evidence_ref else [],
@@ -98,12 +101,16 @@ def _normalize_raw_cost_annotation(raw: Mapping[str, Any]) -> dict[str, Any] | N
     observed_at = _bounded_text(raw.get("observed_at"), default="")
     if monthly_delta is None or not observed_at:
         return None
+    raw_freshness = raw.get("freshness_state")
+    freshness = "fresh" if raw_freshness is None else _bounded_text(raw_freshness, default="")
+    if freshness not in {"fresh", "stale", "unavailable", "unknown"}:
+        return None
     return {
         "schema_version": "1.0.0",
         "state": state,
         "reason": "",
         "source_principal": "Njord",
-        "freshness_state": _bounded_text(raw.get("freshness_state"), default="fresh"),
+        "freshness_state": freshness,
         "observed_at": observed_at,
         "estimate": {"monthly_delta": monthly_delta, "currency": _USD},
         "currency": _USD,
@@ -113,13 +120,17 @@ def _normalize_raw_cost_annotation(raw: Mapping[str, Any]) -> dict[str, Any] | N
 
 
 def _bounded_text_list(raw: object) -> list[str]:
-    if not isinstance(raw, list):
+    if not isinstance(raw, list | tuple):
         return []
     values: list[str] = []
-    for item in raw[:_MAX_EVIDENCE_ITEMS]:
+    seen: set[str] = set()
+    for item in raw:
         text = _bounded_text(item, default="")
-        if text:
+        if text and text not in seen:
+            seen.add(text)
             values.append(text)
+            if len(values) >= _MAX_EVIDENCE_ITEMS:
+                break
     return values
 
 
@@ -127,7 +138,7 @@ def _bounded_text(raw: object, *, default: str) -> str:
     if not isinstance(raw, str):
         return default
     text = raw.strip()
-    if not text:
+    if not text or any(ord(ch) < 32 or ord(ch) == 127 for ch in text):
         return default
     return text[:_MAX_TEXT]
 

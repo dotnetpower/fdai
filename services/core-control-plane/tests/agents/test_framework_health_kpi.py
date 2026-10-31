@@ -184,3 +184,221 @@ def test_behavior_counter_distinct_key_count_never_exceeds_cap() -> None:
     behavior = thor.behavior_snapshot()
     assert len(behavior) <= _MAX_BEHAVIOR_KEYS
     assert behavior["behavior:overflow"] >= 1
+
+
+async def test_odin_conflict_resolution_kpi_and_history_lookup_without_temporal_policy() -> None:
+    from fdai.agents.odin import Odin, RecentDecision
+
+    class _History:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def recent(self, resource_id: str, *, limit: int) -> tuple[RecentDecision, ...]:
+            del resource_id, limit
+            self.calls += 1
+            return (
+                RecentDecision(winner="resilience", losers=("cost",), resource_id="vm-1", at=1.0),
+            )
+
+    history = _History()
+    odin = Odin(history=history)
+    decision = await odin.arbitrate(
+        {
+            "correlation_id": "corr-arb-1",
+            "resource_id": "vm-1",
+            "domains_in_conflict": ["resilience", "cost"],
+            "impacts": {"resilience": 0.9, "cost": 0.2},
+        }
+    )
+    assert decision.winning_domain == "resilience"
+    assert history.calls == 1
+    assert odin._last_history_considered == 1
+
+    odin._observe_verdict({"risk_verdict": "hil"})
+    odin._observe_verdict({"risk_verdict": "deny"})
+    await odin.maintenance_tick()
+    assert odin._last_portfolio_review is not None
+    assert odin.behavior_snapshot()["maintenance_tick:portfolio_review_attention"] == 1
+
+    health = odin.health()
+    assert health["kpis"]["conflict_resolution_time_seconds"]["evidence_state"] == "measured"
+    assert health["kpis"]["conflict_resolution_time_seconds"]["sample_count"] == 1
+
+
+def test_kpi_snapshot_promotion_gate_and_merged_behavior_kpis() -> None:
+    from fdai.agents._framework.kpi import PromotionGateThreshold
+    from fdai.agents._framework.runtime_health import _available_kpi_values
+    from fdai.agents.muninn import Muninn
+
+    collector = KpiCollector()
+    snap = collector.snapshot()
+    assert set(snap) == set(DECLARED_AGENT_KPIS)
+    assert snap["Odin"]["conflict_resolution_time_seconds"]["evidence_state"] == "not_observed"
+
+    collector.record(agent="Forseti", metric="verdict_accuracy", value=0.98)
+    collector.report_declared(agent="Forseti")
+    stale_sample = collector.latest(agent="Forseti", metric="verdict_accuracy")
+    threshold = PromotionGateThreshold(metric="Forseti.verdict_accuracy", min=0.90)
+    assert threshold.evaluate(stale_sample) is False
+
+    muninn = Muninn()
+    muninn.record_cache_miss_recomputation(0.025)
+    m_health = muninn.health()
+    assert m_health["kpis"]["cache_miss_recomputation_seconds"]["evidence_state"] == "measured"
+    assert m_health["kpis"]["cache_miss_recomputation_seconds"]["value"] == 0.025
+
+    values, tags = _available_kpi_values(
+        "Saga",
+        {
+            "behavior": {"maintenance_tick:audit_chain_verified": 3},
+            "kpis": {
+                "replay_success_rate": {
+                    "value": 1.0,
+                    "evidence_state": "measured",
+                    "denominator": 4,
+                }
+            },
+        },
+    )
+    assert values["replay_success_rate"] == 1.0
+    assert values["audit_chain_integrity_rate"] == 1.0
+    assert tags["audit_chain_integrity_rate"]["denominator"] == "3"
+
+
+async def test_round_2_through_10_agent_and_framework_hardening() -> None:
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from fdai.agents._framework.bragi_progress import append_submitted, record_progress
+    from fdai.agents._framework.cross_vertical_candidates import (
+        CrossVerticalCandidateAccumulator,
+        CrossVerticalCandidateBatch,
+    )
+    from fdai.agents._framework.divergence import ShadowDivergenceLedger
+    from fdai.agents._framework.execution_safety import maintain_agents
+    from fdai.agents._framework.forseti_cost_annotation import (
+        cost_annotation_from_event,
+    )
+    from fdai.agents._framework.norns_consensus import NornsConsensus
+    from fdai.agents._framework.rate_limiter import RateLimiter
+    from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
+    from fdai.agents._framework.vidar_dr import build_outcome, decision_allows_executor_io
+    from fdai.agents.bragi import Bragi
+    from fdai.agents.forseti import Forseti
+    from fdai.agents.mimir import Mimir
+    from fdai.agents.saga import Saga
+    from fdai.agents.vidar import Vidar
+
+    with pytest.raises(ValueError, match="interval"):
+        await maintain_agents({}, 0.0)
+    with pytest.raises(ValueError, match="cross_vertical_timeout_seconds"):
+        Forseti(cross_vertical_timeout_seconds=True)
+    with pytest.raises(ValueError, match="responder timeout"):
+        Bragi(responder_timeout_seconds=False)
+    with pytest.raises(ValueError, match="issue timeout"):
+        Saga(issue_timeout_seconds=True)
+    with pytest.raises(ValueError, match="Mimir review capacities"):
+        Mimir(max_pending_candidates=False)
+    with pytest.raises(ValueError, match="max_rehearsals_per_tick"):
+        Vidar(max_rehearsals_per_tick=True)
+
+    ann = cost_annotation_from_event(
+        {
+            "producer_principal": "Njord",
+            "occurred_at": "2026-01-01T00:00:00Z",
+            "monthly_delta_usd": 15.0,
+            "evidence_ref": "ref-1",
+        }
+    )
+    assert ann["state"] == "measured"
+    assert ann["observed_at"] == "2026-01-01T00:00:00Z"
+
+    consensus = NornsConsensus()
+    empty_evidence_decision = consensus.evaluate(
+        {
+            "proposed_by": "Norns",
+            "source_signal": "sig-1",
+            "proposal_kind": "new",
+            "evidence": {"empty": ""},
+        }
+    )
+    assert empty_evidence_decision.unanimous is False
+    assert "Urd" in empty_evidence_decision.holding_perspectives()
+
+    autonomy_decision = consensus.evaluate(
+        {
+            "proposed_by": "Norns",
+            "source_signal": "sig-1",
+            "proposal_kind": "new",
+            "evidence": {"key": "val"},
+            "execution_authority": True,
+        }
+    )
+    assert autonomy_decision.unanimous is False
+    assert "Skuld" in autonomy_decision.holding_perspectives()
+
+    progress: dict[str, list[dict[str, object]]] = {}
+    append_submitted(progress, " corr-1 ", "ops.restart-service", max_keys=4)
+    append_submitted(progress, "corr-1", "ops.restart-service", max_keys=4)
+    assert len(progress["corr-1"]) == 1
+    with pytest.raises(ValueError, match="max_keys"):
+        record_progress(
+            progress, "object.verdict", {"correlation_id": "c"}, max_keys=0, max_steps=1
+        )
+
+    precedence = InitialVerticalPrecedence()
+    assert precedence.winner([" COST ", "Resilience"]) == "Resilience"
+
+    batch = CrossVerticalCandidateBatch(
+        correlation_id="corr-1",
+        resource_id="res-1",
+        observed_at="2026-01-01T00:00:00Z",
+        evidence_by_domain={
+            "cost": SimpleNamespace(action_type="ops.scale-down", effects=()),  # type: ignore[dict-item]
+        },
+        principals_by_domain={"cost": "Njord"},
+        source_freshness=(),
+    )
+    assert batch.impacts == {"cost": 0.0}
+    with pytest.raises(ValueError, match="max_pending"):
+        CrossVerticalCandidateAccumulator(max_pending=False)
+
+    with pytest.raises(ValueError, match="scope"):
+        RateLimiter(per_minute=5, per_hour=10, scope="   ")
+
+    ledger = ShadowDivergenceLedger(max_pending=2)
+    ledger.record_pantheon("  ", "auto")
+    assert (
+        ledger.pending_count
+        if hasattr(ledger, "pending_count")
+        else ledger.report()["pending"] == 0
+    )
+    with pytest.raises(ValueError, match="max_pending"):
+        ShadowDivergenceLedger(max_pending=0)
+
+    short_digest_decision = {
+        "kind": "dr_failover_contract",
+        "decision": "accepted",
+        "action_run_identity": "sha256:" + "a" * 64,
+        "failback_contract": "scripted",
+        "expected_effect_digest": "sha256:short",
+    }
+    assert decision_allows_executor_io(short_digest_decision) is False
+    valid_decision = {
+        **short_digest_decision,
+        "expected_effect_digest": "sha256:" + "b" * 64,
+        "resource_id": "vm-1",
+    }
+    assert decision_allows_executor_io(valid_decision) is True
+    assert (
+        build_outcome(
+            {
+                "action_type": "ops.failover-primary",
+                "action_run_identity": "sha256:" + "a" * 64,
+                "resource_id": "vm-other",
+            },
+            accepted_decision=valid_decision,
+            now=datetime.now(tz=UTC),
+        )
+        is None
+    )

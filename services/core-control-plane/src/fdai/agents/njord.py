@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections import OrderedDict
 from collections.abc import AsyncIterator, Sequence
 from contextlib import asynccontextmanager
@@ -262,6 +263,12 @@ class Njord(OptimizationCandidateOutboxMixin, CostAnomalyOutboxMixin):
             sample_key = str(record.get("sample_key") or "")
             if sample_key and record.get("state", "completed") == "completed":
                 self._accepted_sample_keys.add(sample_key)
+                sample_digest = record.get("sample_digest")
+                if isinstance(sample_digest, str) and sample_digest:
+                    self._accepted_sample_digests[sample_key] = sample_digest
+                    self._accepted_sample_digests.move_to_end(sample_key)
+                    while len(self._accepted_sample_digests) > self._accepted_sample_retain_limit:
+                        self._accepted_sample_digests.popitem(last=False)
         return restored
 
     async def _analyze(
@@ -464,14 +471,29 @@ class Njord(OptimizationCandidateOutboxMixin, CostAnomalyOutboxMixin):
         )
 
     def record_cost_forecast_outcome(self, *, forecast_usd: float, actual_usd: float) -> None:
-        if forecast_usd <= 0 or actual_usd < 0:
+        if (
+            isinstance(forecast_usd, bool)
+            or isinstance(actual_usd, bool)
+            or not math.isfinite(forecast_usd)
+            or not math.isfinite(actual_usd)
+            or forecast_usd <= 0
+            or actual_usd < 0
+        ):
             raise ValueError("cost forecast observations require positive forecast and actual >= 0")
+        if len(self._cost_forecast_errors) >= _MAX_TRACKED_SCOPES:
+            self._cost_forecast_errors.pop(0)
         self._cost_forecast_errors.append(abs(actual_usd - forecast_usd) / forecast_usd)
 
     def record_savings_realized(self, *, savings_usd: float) -> None:
+        if isinstance(savings_usd, bool) or not math.isfinite(savings_usd) or savings_usd < 0:
+            raise ValueError("savings_usd MUST be finite and non-negative")
+        if len(self._realized_savings_usd) >= _MAX_TRACKED_SCOPES:
+            self._realized_savings_usd.pop(0)
         self._realized_savings_usd.append(float(savings_usd))
 
     def record_budget_breach_outcome(self, *, missed: bool) -> None:
+        if not isinstance(missed, bool):
+            raise ValueError("missed MUST be a boolean")
         if missed:
             self._budget_breach_misses += 1
         else:

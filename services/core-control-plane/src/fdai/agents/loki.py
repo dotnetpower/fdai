@@ -118,6 +118,12 @@ class Loki(
         scenario_corpus: tuple[ChaosScheduleConfig, ...] = (),
     ) -> None:
         super().__init__(spec=_LOKI)
+        if (
+            isinstance(blast_radius_cap, bool)
+            or not isinstance(blast_radius_cap, int)
+            or blast_radius_cap < 1
+        ):
+            raise ValueError("blast_radius_cap MUST be a positive integer")
         if reservation_ttl <= timedelta(0):
             raise ValueError("reservation_ttl MUST be positive")
         self.bus = bus
@@ -180,6 +186,8 @@ class Loki(
                 return
             if await self._publish_proposal("object.resilience-score", candidate):
                 self.record_behavior("resilience_score:published")
+            else:
+                self.record_behavior("resilience_score:publication_unavailable")
             return
         if payload.get("event_type") != CHAOS_SCHEDULE_EVENT:
             self.record_behavior("chaos_schedule:ignored_event")
@@ -207,6 +215,9 @@ class Loki(
     async def run_adversarial_generation(self, *, design_ref: str) -> int:
         """Run the explicitly invoked off-path generator and retain inert candidates."""
 
+        if not isinstance(design_ref, str) or not design_ref.strip():
+            self.record_behavior("adversarial_scenario:invalid_design_ref")
+            return 0
         if self._scenario_generator is None:
             self.record_behavior("adversarial_scenario:generator_unbound")
             return 0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -52,8 +53,12 @@ class HeimdallForecastMixin:
             return False
         if self._forecast_history_ingress is None:
             raise RuntimeError("forecast history ingress is unavailable")
-        async with asyncio.timeout(5):
-            await self._forecast_history_ingress(payload)
+        try:
+            async with asyncio.timeout(5):
+                await self._forecast_history_ingress(payload)
+        except TimeoutError:
+            self.record_behavior("forecast_history:timeout")
+            raise
         self.record_behavior("forecast_history:retained")
         return True
 
@@ -64,6 +69,7 @@ class HeimdallForecastMixin:
             raise TypeError("Heimdall forecast outcome MUST be a ForecastOutcome")
         self.record_behavior(f"forecast_outcome:{outcome.label.value}")
         if self.bus is None:
+            self.record_behavior("forecast_publication:transport_unavailable")
             return False
         if self._forecast_store is not None:
             episode_id = outcome.prediction_id or outcome.outcome_id
@@ -111,7 +117,7 @@ class HeimdallForecastMixin:
             self.record_behavior("forecast_tick:unavailable")
             return
         now = self._forecast_clock()
-        if now.tzinfo is None:
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("Heimdall forecast clock MUST be timezone-aware")
         evaluated = 0
         closed = 0
@@ -119,19 +125,37 @@ class HeimdallForecastMixin:
         closure_timed_out = False
         try:
             async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
-                evaluated = await self._forecast_evaluator.evaluate(now=now)
+                raw_evaluated = await self._forecast_evaluator.evaluate(now=now)
+                evaluated = (
+                    raw_evaluated
+                    if not isinstance(raw_evaluated, bool)
+                    and isinstance(raw_evaluated, int)
+                    and raw_evaluated > 0
+                    else 0
+                )
                 errors = getattr(self._forecast_evaluator, "absolute_percentage_errors", None)
                 recorder = getattr(self, "record_forecast_absolute_percentage_error", None)
                 if callable(recorder) and isinstance(errors, tuple | list):
                     for error in errors:
-                        if isinstance(error, int | float) and not isinstance(error, bool):
+                        if (
+                            isinstance(error, int | float)
+                            and not isinstance(error, bool)
+                            and math.isfinite(float(error))
+                        ):
                             recorder(float(error))
         except TimeoutError:
             evaluation_timed_out = True
             self.record_behavior("forecast_episode:evaluation_timeout")
         try:
             async with asyncio.timeout(_FORECAST_PROVIDER_TIMEOUT_SECONDS):
-                closed = await self._forecast_closer.close_due(now=now)
+                raw_closed = await self._forecast_closer.close_due(now=now)
+                closed = (
+                    raw_closed
+                    if not isinstance(raw_closed, bool)
+                    and isinstance(raw_closed, int)
+                    and raw_closed > 0
+                    else 0
+                )
         except TimeoutError:
             closure_timed_out = True
             self.record_behavior("forecast_episode:closure_timeout")
