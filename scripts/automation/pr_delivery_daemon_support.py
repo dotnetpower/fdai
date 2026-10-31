@@ -52,7 +52,7 @@ class DeliveryConfig:
     worktree: Path
     remote: str = "origin"
     merge_method: str = "squash"
-    interval_seconds: int = 60
+    interval_seconds: int = 30
     total_timeout_seconds: int = 3600
     no_progress_seconds: int = 1200
     command_timeout_seconds: int = 900
@@ -111,6 +111,7 @@ class PullRequestSnapshot:
     auto_merge_enabled: bool
     checks_state: str
     merge_commit: str | None
+    checks_progress: tuple[int, int] = (0, 0)
 
     @property
     def fingerprint(self) -> tuple[object, ...]:
@@ -271,6 +272,24 @@ def checks_state(checks: object) -> str:
     return "pending" if pending else "success"
 
 
+def _checks_progress(rollup: object) -> tuple[int, int]:
+    """Count completed and in-progress checks so individual check transitions reset no-progress."""
+    if not isinstance(rollup, list):
+        return (0, 0)
+    completed = 0
+    in_progress = 0
+    for check in rollup:
+        if not isinstance(check, dict):
+            continue
+        state = str(check.get("state", "")).upper()
+        status = str(check.get("status", "")).upper()
+        if state in {"SUCCESS", "FAILURE", "ERROR"} or status == "COMPLETED":
+            completed += 1
+        elif status == "IN_PROGRESS":
+            in_progress += 1
+    return (completed, in_progress)
+
+
 def snapshot(payload: object) -> PullRequestSnapshot:
     """Validate the minimum GitHub PR response used by the coordinator."""
     if not isinstance(payload, dict):
@@ -293,10 +312,12 @@ def snapshot(payload: object) -> PullRequestSnapshot:
         raise DeliveryError("pull request base SHA is unavailable")
     if merge_oid is not None and not _SHA_RE.fullmatch(str(merge_oid)):
         raise DeliveryError("pull request merge SHA is invalid")
+    rollup = payload.get("statusCheckRollup")
     return PullRequestSnapshot(
         **values,
         is_draft=payload.get("isDraft") is True,
         auto_merge_enabled=isinstance(payload.get("autoMergeRequest"), dict),
-        checks_state=checks_state(payload.get("statusCheckRollup")),
+        checks_state=checks_state(rollup),
         merge_commit=str(merge_oid) if merge_oid is not None else None,
+        checks_progress=_checks_progress(rollup),
     )

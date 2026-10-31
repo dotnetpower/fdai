@@ -54,14 +54,27 @@ class ServiceRoleStore(PostgresStateStore):
     writes = 0
     fail_manifest = False
 
+    def __init__(self, *, config: PostgresStateStoreConfig) -> None:
+        super().__init__(config=config)
+        self._configured_connections: set[int] = set()
+
     @asynccontextmanager
     async def _connection(self) -> AsyncIterator[psycopg.AsyncConnection[dict[str, Any]]]:
         async with super()._connection() as connection:
-            await connection.execute("SET ROLE fdai_core")
-            try:
-                yield connection
-            finally:
-                await connection.execute("RESET ROLE")
+            conn_id = id(connection)
+            if conn_id not in self._configured_connections:
+                ms = int(self._config.statement_timeout_ms)
+                await connection.execute(
+                    f"SET statement_timeout = {ms}; "
+                    "SET synchronous_commit = off; "
+                    "SET ROLE fdai_core"
+                )
+                await connection.commit()
+                self._configured_connections.add(conn_id)
+            yield connection
+
+    async def _set_statement_timeout(self, conn: psycopg.AsyncConnection[Any]) -> None:
+        del conn
 
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
         if self.fail_manifest and key == STATE:

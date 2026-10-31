@@ -62,7 +62,7 @@ def _add_config_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--worktree", required=True)
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--merge-method", choices=("merge", "rebase", "squash"), default="squash")
-    parser.add_argument("--interval-seconds", type=int, default=60)
+    parser.add_argument("--interval-seconds", type=int, default=30)
     parser.add_argument("--total-timeout-seconds", type=int, default=3600)
     parser.add_argument("--no-progress-seconds", type=int, default=1200)
     parser.add_argument("--command-timeout-seconds", type=int, default=900)
@@ -195,7 +195,7 @@ def _wait(
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise DeliveryError("delivery wait timed out")
-        event.wait(min(1.0, remaining))
+        event.wait(min(0.25, remaining))
     return 130
 
 
