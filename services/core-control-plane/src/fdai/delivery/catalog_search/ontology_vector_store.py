@@ -300,7 +300,7 @@ class OntologyVectorSnapshotStore:
 
 
 def _check_deadline(deadline: float) -> None:
-    if not math.isfinite(deadline) or asyncio.get_running_loop().time() >= deadline:
+    if math.isnan(deadline) or asyncio.get_running_loop().time() >= deadline:
         raise TimeoutError("ontology retrieval deadline exceeded")
 
 
