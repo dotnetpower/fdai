@@ -1115,3 +1115,21 @@ async def test_valid_resume_cursor_is_canonicalized() -> None:
     url = str(captured[0].url)
     assert "2026-07-10T05:00:00Z" in url
     assert "05:00:00+00:00" not in url
+
+
+@pytest.mark.asyncio
+async def test_activity_log_config_and_lowercase_z_cursor_validation() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.delivery.azure.activity_log import _parse_ts, _reports_no_state_change
+
+    assert _parse_ts("  2026-07-10T05:00:00z  ") == datetime(2026, 7, 10, 5, 0, tzinfo=UTC)
+    assert _reports_no_state_change("  /Microsoft.Compute/virtualMachines/read/  ") is True
+    assert _reports_no_state_change("   ") is False
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        _config(timeout_seconds=True)
+    with pytest.raises(ValueError, match="max_events_per_page"):
+        _config(max_events_per_page=True)
+    with pytest.raises(ValueError, match="only_succeeded"):
+        _config(only_succeeded="yes")  # type: ignore[arg-type]

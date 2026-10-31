@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -53,8 +54,15 @@ class AzureTelemetryWorkspaceResolution:
     workspace_ids: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.provider_resource_id or not self.inventory_generation:
+        if (
+            not self.provider_resource_id
+            or not self.provider_resource_id.strip()
+            or not self.inventory_generation
+            or not self.inventory_generation.strip()
+        ):
             raise ValueError("telemetry workspace resolution identity MUST be non-empty")
+        if any(not isinstance(wid, str) or not wid.strip() for wid in self.workspace_ids):
+            raise ValueError("telemetry workspace resolution workspace_ids MUST be non-empty")
         if len(set(self.workspace_ids)) != len(self.workspace_ids):
             raise ValueError("telemetry workspace resolution contains duplicate workspaces")
         if self.workspace_ids != tuple(sorted(self.workspace_ids)):
@@ -107,11 +115,18 @@ class AzureMonitorTelemetryWorkspaceConfig:
         )
         if any(_API_VERSION.fullmatch(version) is None for version in versions):
             raise ValueError("telemetry workspace API versions MUST be dated Azure versions")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("telemetry workspace timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.maximum_workspaces <= 3:
+        if isinstance(self.maximum_workspaces, bool) or not 1 <= self.maximum_workspaces <= 3:
             raise ValueError("telemetry workspace maximum_workspaces MUST be in [1, 3]")
-        if not 1 <= self.maximum_response_bytes <= 4 * 1024 * 1024:
+        if (
+            isinstance(self.maximum_response_bytes, bool)
+            or not 1 <= self.maximum_response_bytes <= 4 * 1024 * 1024
+        ):
             raise ValueError("telemetry workspace response byte bound is invalid")
 
 
@@ -139,8 +154,12 @@ class AzureMonitorTelemetryWorkspaceResolver:
     ) -> AzureTelemetryWorkspaceResolution:
         """Return exact workspace customer IDs or fail without widening scope."""
 
+        if not isinstance(resource_ref, str) or not resource_ref.strip():
+            raise AzureTelemetryWorkspaceError("telemetry resource_ref MUST be non-empty")
+        if not isinstance(at, datetime) or at.tzinfo is None or at.utcoffset() is None:
+            raise AzureTelemetryWorkspaceError("telemetry workspace cutoff MUST be timezone-aware")
         try:
-            identity = await self._resource_identities.resolve(resource_ref, at=at)
+            identity = await self._resource_identities.resolve(resource_ref.strip(), at=at)
         except Exception as exc:  # noqa: BLE001 - normalize persistence at the provider boundary
             raise AzureTelemetryWorkspaceError(
                 "telemetry resource identity resolution failed"
@@ -152,6 +171,8 @@ class AzureMonitorTelemetryWorkspaceResolver:
             token = await self._identity.get_token(self._config.audience)
         except Exception as exc:  # noqa: BLE001 - normalize identity adapters
             raise AzureTelemetryWorkspaceError("telemetry workspace identity failed") from exc
+        if not getattr(token, "token", None):
+            raise AzureTelemetryWorkspaceError("telemetry workspace identity returned empty token")
         headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
 
         workspace_resources = list(await self._diagnostic_workspaces(provider_id, headers))

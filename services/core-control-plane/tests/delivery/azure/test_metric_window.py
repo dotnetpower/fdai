@@ -111,3 +111,33 @@ async def test_metric_window_rejects_unbound_or_cross_subscription_identity(
         )
 
     assert provider.resource_ids == []
+
+
+async def test_metric_window_validates_time_bounds_and_strips_resource_id() -> None:
+    provider = _Provider()
+    wrapper = AzureMetricWindowProvider(
+        provider=provider,
+        config=AzureMetricWindowConfig(subscription_id=SUBSCRIPTION_ID),
+    )
+    result = await wrapper.read(
+        definition=_definition(),
+        resource_id=f"  {LOGICAL_ID}  ",
+        start=NOW,
+        end=NOW + timedelta(minutes=5),
+    )
+    assert result.resource_id == LOGICAL_ID
+
+    with pytest.raises(ValueError, match="start MUST NOT exceed end"):
+        await wrapper.read(
+            definition=_definition(),
+            resource_id=LOGICAL_ID,
+            start=NOW + timedelta(minutes=5),
+            end=NOW,
+        )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await wrapper.read(
+            definition=_definition(),
+            resource_id=LOGICAL_ID,
+            start=datetime(2026, 8, 20),  # noqa: DTZ001
+            end=NOW,
+        )

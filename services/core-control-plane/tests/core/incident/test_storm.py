@@ -125,10 +125,33 @@ def test_sequence_is_deterministic() -> None:
 def test_invalid_config_rejected() -> None:
     with pytest.raises(ValueError, match="storm_threshold"):
         StormCoordinator(storm_threshold=0)
+    with pytest.raises(ValueError, match="storm_threshold"):
+        StormCoordinator(storm_threshold=True)
     with pytest.raises(ValueError, match="window"):
         StormCoordinator(window=timedelta(0))
     with pytest.raises(ValueError, match="concurrency"):
         StormCoordinator(base_concurrency=0)
+    with pytest.raises(ValueError, match="concurrency"):
+        StormCoordinator(base_concurrency=True)
     coord = StormCoordinator()
     with pytest.raises(ValueError, match="concurrency_cap"):
         coord.sequence([], concurrency_cap=0)
+    with pytest.raises(ValueError, match="concurrency_cap"):
+        coord.sequence([], concurrency_cap=True)
+
+
+def test_storm_deduplicates_duplicate_signal_ids_and_handles_naive_timestamps() -> None:
+    coord = StormCoordinator(storm_threshold=2)
+    dup_low = _sig("dup", IncidentSeverity.SEV4, blast=1)
+    dup_high = _sig("dup", IncidentSeverity.SEV1, blast=5)
+    naive = StormSignal(
+        signal_id="naive",
+        severity=IncidentSeverity.SEV2,
+        resource_ref="r",
+        arrived_at=datetime(2026, 7, 8, 11, 59),  # noqa: DTZ001
+    )
+    steps = coord.sequence([dup_low, dup_high, naive], concurrency_cap=1)
+    assert [s.signal_id for s in steps] == ["dup", "naive"]
+    assert steps[0].severity is IncidentSeverity.SEV1
+    policy = coord.assess([dup_high, naive], now=datetime(2026, 7, 8, 12, 0))  # noqa: DTZ001
+    assert policy.active is True

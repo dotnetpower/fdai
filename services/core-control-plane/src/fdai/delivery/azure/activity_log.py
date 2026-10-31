@@ -60,6 +60,7 @@ Safety / cost invariants
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -168,14 +169,20 @@ class AzureActivityLogFactoryConfig:
             or parsed_endpoint.fragment
         ):
             raise ValueError("AzureActivityLogFactoryConfig.arg_endpoint MUST be an origin URL")
-        if self.timeout_seconds <= 0:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("timeout_seconds MUST be > 0")
-        if self.max_props_bytes < 1024:
+        if isinstance(self.max_props_bytes, bool) or self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
-        if self.initial_lookback_seconds < 0:
+        if isinstance(self.initial_lookback_seconds, bool) or self.initial_lookback_seconds < 0:
             raise ValueError("initial_lookback_seconds MUST be >= 0")
-        if self.max_events_per_page < 1:
+        if isinstance(self.max_events_per_page, bool) or self.max_events_per_page < 1:
             raise ValueError("max_events_per_page MUST be >= 1")
+        if not isinstance(self.only_succeeded, bool):
+            raise ValueError("only_succeeded MUST be a boolean")
 
 
 class AzureActivityLogFactory:
@@ -445,9 +452,11 @@ def _reports_no_state_change(operation: str | None) -> bool:
     ``deployIfNotExists`` records, may change state and stays a change hint.
     """
 
-    if not operation:
+    if not operation or not operation.strip():
         return False
-    segments = operation.casefold().split("/")
+    segments = [part for part in operation.strip().strip("/").casefold().split("/") if part]
+    if not segments:
+        return False
     if segments[-1] == "read":
         return True
     if len(segments) < 3 or segments[-1] != "action":
@@ -513,14 +522,19 @@ def _max_dt(a: datetime | None, b: datetime | None) -> datetime | None:
 
 
 def _parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    text = raw.strip().replace("Z", "+00:00") if raw.endswith("Z") else raw.strip()
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return parsed.astimezone(UTC) if parsed.tzinfo else None
+    return (
+        parsed.astimezone(UTC)
+        if parsed.tzinfo is not None and parsed.utcoffset() is not None
+        else None
+    )
 
 
 def _nested_value(event: Mapping[str, Any], key: str) -> str | None:

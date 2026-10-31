@@ -310,3 +310,9 @@ def test_configuration_rejects_unapproved_endpoint_and_unbounded_responses() -> 
             maximum_response_bytes=100,
             maximum_total_response_bytes=16 * 1024 * 1024 + 1,
         )
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureDeploymentHistoryConfig(timeout_seconds=True)
+    with pytest.raises(ValueError, match="maximum_pages"):
+        AzureDeploymentHistoryConfig(maximum_pages=True)
+    with pytest.raises(ValueError, match="maximum_records"):
+        AzureDeploymentHistoryConfig(maximum_records=True)

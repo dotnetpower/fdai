@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Protocol, runtime_checkable
 
 
@@ -70,13 +70,21 @@ class NoopTraceQueryProvider:
             yield _  # pragma: no cover - unreachable
 
 
+def _as_utc(dt: datetime) -> datetime:
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 class StaticTraceQueryProvider:
     """Deterministic in-memory provider for tests."""
 
     def __init__(self, spans: Sequence[Span]) -> None:
-        self._spans: tuple[Span, ...] = tuple(spans)
+        self._spans: tuple[Span, ...] = tuple(sorted(spans, key=lambda s: _as_utc(s.start)))
 
     async def query(self, query: TraceQuery) -> AsyncIterator[Span]:
+        if query.limit is not None and query.limit <= 0:
+            return
+        since_utc = _as_utc(query.since) if query.since is not None else None
+        until_utc = _as_utc(query.until) if query.until is not None else None
         matched = 0
         for span in self._spans:
             if query.trace_id is not None and span.trace_id != query.trace_id:
@@ -85,9 +93,10 @@ class StaticTraceQueryProvider:
                 continue
             if query.operation is not None and span.operation != query.operation:
                 continue
-            if query.since is not None and span.start < query.since:
+            span_start = _as_utc(span.start)
+            if since_utc is not None and span_start < since_utc:
                 continue
-            if query.until is not None and span.start > query.until:
+            if until_utc is not None and span_start > until_utc:
                 continue
             if query.min_duration is not None and span.duration < query.min_duration:
                 continue

@@ -61,18 +61,30 @@ def candidate_scenarios(
     being able to inject it - but a caller that only wants
     directly-actionable candidates can set this False.
     """
-    if not signal:
+    if not isinstance(signal, str) or not signal.strip():
         raise ValueError("signal MUST be non-empty")
-    if max_candidates <= 0:
+    if not isinstance(target_type, str) or not target_type.strip():
+        raise ValueError("target_type MUST be non-empty")
+    if not isinstance(severity, str) or not severity.strip():
+        raise ValueError("severity MUST be non-empty")
+    if isinstance(max_candidates, bool) or max_candidates <= 0:
         raise ValueError("max_candidates MUST be positive")
+    normalized_signal = signal.strip()
+    normalized_target = target_type.strip()
+    normalized_severity = severity.strip()
     refs: Iterable[ScenarioRef] = index.lookup_widening(
-        signal=signal, target_type=target_type, severity=severity
+        signal=normalized_signal, target_type=normalized_target, severity=normalized_severity
     )
     if not include_needs_injector:
         refs = (r for r in refs if r.injector != "needs-injector")
     picked: list[Citation] = []
+    seen_ids: set[str] = set()
     for ref in refs:
-        picked.append(Citation(kind=CitationKind.SCENARIO, ref=ref.id))
+        ref_id = str(ref.id).strip()
+        if not ref_id or ref_id in seen_ids:
+            continue
+        seen_ids.add(ref_id)
+        picked.append(Citation(kind=CitationKind.SCENARIO, ref=ref_id))
         if len(picked) >= max_candidates:
             break
     return tuple(picked)
@@ -95,13 +107,28 @@ def scenario_summary(
     is leaked - only ``(id, category, injector-family, gpu?)`` per
     line so the reasoner cannot cite anything invented.
     """
-    refs = index.lookup_widening(signal=signal, target_type=target_type, severity=severity)
+    if not isinstance(signal, str) or not signal.strip():
+        raise ValueError("signal MUST be non-empty")
+    if not isinstance(target_type, str) or not target_type.strip():
+        raise ValueError("target_type MUST be non-empty")
+    if not isinstance(severity, str) or not severity.strip():
+        raise ValueError("severity MUST be non-empty")
+    if isinstance(max_candidates, bool) or max_candidates <= 0:
+        raise ValueError("max_candidates MUST be positive")
+    normalized_signal = signal.strip()
+    normalized_target = target_type.strip()
+    normalized_severity = severity.strip()
+    refs = index.lookup_widening(
+        signal=normalized_signal, target_type=normalized_target, severity=normalized_severity
+    )
     if not refs:
         return (
-            f"no catalog scenario matches signal={signal} target={target_type} severity={severity}"
+            f"no catalog scenario matches signal={normalized_signal} "
+            f"target={normalized_target} severity={normalized_severity}"
         )
     lines: list[str] = [
-        f"candidate scenarios for signal={signal} target={target_type} severity={severity}:"
+        f"candidate scenarios for signal={normalized_signal} "
+        f"target={normalized_target} severity={normalized_severity}:"
     ]
     for ref in refs[:max_candidates]:
         family = (

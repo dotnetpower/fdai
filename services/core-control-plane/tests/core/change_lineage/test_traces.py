@@ -89,3 +89,7 @@ def test_decision_trace_rejects_duplicate_score_identity() -> None:
                 ("option:scale", 0.7),
             ),
         )
+    with pytest.raises(ValueError, match="collections MUST be sorted and unique"):
+        replace(trace, assumptions=(" ",))
+    with pytest.raises(ValueError, match="positive"):
+        replace(_resilience_trace(), blast_radius_count=True)

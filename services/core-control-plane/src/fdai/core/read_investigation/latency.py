@@ -57,8 +57,12 @@ def latency_profile(samples: Sequence[ReadLatencySample]) -> ReadLatencyProfile:
     count = len(samples)
     if count == 0:
         return ReadLatencyProfile(sample_count=0, failure_rate=0.0, p50_ms=None, p95_ms=None)
-    successful = sorted(sample.total_duration_ms for sample in samples if sample.succeeded)
-    failures = count - len(successful)
+    successful = sorted(
+        max(0, sample.total_duration_ms)
+        for sample in samples
+        if sample.succeeded and sample.total_duration_ms >= 0
+    )
+    failures = sum(1 for sample in samples if not sample.succeeded)
     return ReadLatencyProfile(
         sample_count=count,
         failure_rate=failures / count,

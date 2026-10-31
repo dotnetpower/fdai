@@ -165,3 +165,41 @@ async def test_trace_static_filters_by_service_and_operation() -> None:
     provider = StaticTraceQueryProvider(spans)
     got = [s async for s in provider.query(TraceQuery(service="api", operation="GET /users"))]
     assert [s.span_id for s in got] == ["s1"]
+
+
+async def test_log_and_trace_static_chronological_sort_case_insensitive_and_zero_limit() -> None:
+    records = [
+        LogRecord(T0 + timedelta(seconds=10), "Connection Timed Out", "error", {"service": "api"}),
+        LogRecord(T0 + timedelta(seconds=2), "connection timed out", "error", {"service": "api"}),
+    ]
+    log_provider = StaticLogQueryProvider(records)
+    ordered = [r async for r in log_provider.query(LogQuery(expression="TIMED OUT"))]
+    assert [r.at for r in ordered] == [T0 + timedelta(seconds=2), T0 + timedelta(seconds=10)]
+    assert [r async for r in log_provider.query(LogQuery(expression="TIMED OUT", limit=0))] == []
+
+    spans = [
+        Span(
+            "t1",
+            "s2",
+            None,
+            "api",
+            "GET /late",
+            T0 + timedelta(seconds=5),
+            timedelta(milliseconds=10),
+            "ok",
+        ),
+        Span(
+            "t1",
+            "s1",
+            None,
+            "api",
+            "GET /early",
+            T0 + timedelta(seconds=1),
+            timedelta(milliseconds=10),
+            "ok",
+        ),
+    ]
+    trace_provider = StaticTraceQueryProvider(spans)
+    ordered_spans = [s async for s in trace_provider.query(TraceQuery(trace_id="t1"))]
+    assert [s.span_id for s in ordered_spans] == ["s1", "s2"]
+    assert [s async for s in trace_provider.query(TraceQuery(trace_id="t1", limit=0))] == []

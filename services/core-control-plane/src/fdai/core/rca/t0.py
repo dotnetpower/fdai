@@ -35,13 +35,28 @@ def t0_root_cause(
     via ``remediates`` so the normal pipeline can act on it under the
     risk gate.
     """
-    citations = (Citation(kind=CitationKind.RULE, ref=rule.id),)
-    evidence: tuple[str, ...] = (rule.check_logic.reference,)
-    if event_id:
-        evidence = (*evidence, event_id)
+    rule_id = rule.id.strip() if isinstance(rule.id, str) else ""
+    if not rule_id:
+        raise ValueError("t0_root_cause requires a non-empty rule.id")
+    normalized_resource_type = resource_type.strip() if isinstance(resource_type, str) else ""
+    if not normalized_resource_type:
+        raise ValueError("t0_root_cause requires a non-empty resource_type")
+    check_ref = (
+        rule.check_logic.reference.strip() if isinstance(rule.check_logic.reference, str) else ""
+    )
+    citations = (Citation(kind=CitationKind.RULE, ref=rule_id),)
+    evidence_list: list[str] = [check_ref] if check_ref else []
+    normalized_event_id = event_id.strip() if isinstance(event_id, str) else ""
+    if normalized_event_id and normalized_event_id not in evidence_list:
+        evidence_list.append(normalized_event_id)
+    remediation_ref = (
+        rule.remediates.strip()
+        if isinstance(rule.remediates, str) and rule.remediates.strip()
+        else None
+    )
     cause = (
-        f"{rule.category.value} control violated: rule '{rule.id}' matched on "
-        f"resource-type '{resource_type}' via {rule.check_logic.reference}"
+        f"{rule.category.value} control violated: rule '{rule_id}' matched on "
+        f"resource-type '{normalized_resource_type}' via {check_ref}"
     )
     return RootCauseHypothesis(
         tier=RcaTier.T0,
@@ -49,8 +64,8 @@ def t0_root_cause(
         confidence=1.0,
         citations=citations,
         cause_domain=cause_domain,
-        evidence_refs=evidence,
-        remediation_ref=rule.remediates,
+        evidence_refs=tuple(evidence_list),
+        remediation_ref=remediation_ref,
     )
 
 

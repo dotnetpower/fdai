@@ -26,6 +26,7 @@ and the standard library, so it stays under the ``core/`` import rule.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 
@@ -61,7 +62,7 @@ def _change_ref(correlation: ChangeCorrelation) -> str:
     identifier, never a secret or raw payload - so it is safe to surface
     in a citation, audit entry, or model prompt.
     """
-    return f"change:{correlation.change.change_id}"
+    return f"change:{correlation.change.change_id.strip()}"
 
 
 class ChangeEvidenceGatherer:
@@ -79,9 +80,13 @@ class ChangeEvidenceGatherer:
     ) -> None:
         if window <= timedelta(0):
             raise ValueError("window MUST be positive")
-        if not 0.0 <= min_score <= 1.0:
+        if (
+            isinstance(min_score, bool)
+            or not math.isfinite(min_score)
+            or not 0.0 <= min_score <= 1.0
+        ):
             raise ValueError("min_score MUST be in [0, 1]")
-        if max_citations < 1:
+        if isinstance(max_citations, bool) or max_citations < 1:
             raise ValueError("max_citations MUST be >= 1")
         self._feed = feed
         self._window = window
@@ -111,6 +116,8 @@ class ChangeEvidenceGatherer:
         citations: list[Citation] = []
         seen: set[str] = set()
         for correlation in correlations:
+            if not correlation.change.change_id.strip():
+                continue
             if correlation.score < self._min_score:
                 continue
             ref = _change_ref(correlation)
@@ -155,14 +162,19 @@ class ChangeEvidenceGatherer:
             return ()
         incident_at = _as_utc(incident_at)
         since = incident_at - self._window
+        normalized_hint = (
+            resource_hint.strip()
+            if isinstance(resource_hint, str) and resource_hint.strip()
+            else None
+        )
         try:
             changes = await self._feed.recent(
-                since=since, until=incident_at, resource_hint=resource_hint
+                since=since, until=incident_at, resource_hint=normalized_hint
             )
-        except ChangeFeedError:
+        except (ChangeFeedError, TimeoutError):
             _LOGGER.warning(
                 "rca_change_evidence_unavailable",
-                extra={"resource_hint": resource_hint or ""},
+                extra={"resource_hint": normalized_hint or ""},
             )
             return ()
         return tuple(

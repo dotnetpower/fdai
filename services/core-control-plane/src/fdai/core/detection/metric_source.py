@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fdai.core.detection.anomaly import AnomalyFinding, MetricAnomalyDetector
 from fdai.core.detection.series import MetricSample
@@ -37,6 +37,10 @@ from fdai.shared.providers.metric import MetricProvider, MetricProviderError, Me
 
 _LOGGER = logging.getLogger(__name__)
 _RESOURCE_LABEL = "resource_id"
+
+
+def _as_utc(dt: datetime) -> datetime:
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,8 +62,10 @@ class MetricSeriesSource:
         *,
         resource_label: str = _RESOURCE_LABEL,
     ) -> None:
+        if not isinstance(resource_label, str) or not resource_label.strip():
+            raise ValueError("resource_label MUST be non-empty")
         self._provider = metric_provider
-        self._resource_label = resource_label
+        self._resource_label = resource_label.strip()
 
     async def fetch(
         self,
@@ -76,11 +82,13 @@ class MetricSeriesSource:
         samples are sorted chronologically; the latest is ``observed`` and the
         rest are ``history``.
         """
+        since_utc = _as_utc(since)
+        until_utc = _as_utc(until)
         query = MetricQuery(
             metric_name=metric_name,
             labels={self._resource_label: resource_ref},
-            since=since,
-            until=until,
+            since=since_utc,
+            until=until_utc,
         )
         samples: list[MetricSample] = []
         dropped = 0
@@ -91,14 +99,15 @@ class MetricSeriesSource:
                 # detectors. A non-finite value (NaN / +-Inf) poisons every
                 # downstream baseline / fit and serializes to invalid JSON, so
                 # drop it here rather than carry garbage into detection.
-                if not math.isfinite(point.value):
+                if isinstance(point.value, bool) or not math.isfinite(point.value):
                     dropped += 1
                     continue
-                if point.at < since or point.at > until:
+                point_at = _as_utc(point.at)
+                if point_at < since_utc or point_at > until_utc:
                     dropped += 1
                     continue
-                samples.append(MetricSample(timestamp=point.at, value=point.value))
-        except MetricProviderError:
+                samples.append(MetricSample(timestamp=point_at, value=point.value))
+        except (MetricProviderError, TimeoutError):
             _LOGGER.warning(
                 "detection_metric_series_unavailable",
                 extra={"metric": metric_name, "resource_ref": resource_ref},

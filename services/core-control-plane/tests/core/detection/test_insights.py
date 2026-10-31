@@ -128,3 +128,16 @@ def test_catalog_rejects_duplicate_ids() -> None:
     recipe = _recipe(InsightOperator.ABOVE)
     with pytest.raises(ValueError, match="unique"):
         OperationalInsightEngine([recipe, recipe])
+
+
+def test_insight_recipe_and_observation_reject_bool_and_future_stale_timestamp() -> None:
+    with pytest.raises(ValueError, match="threshold"):
+        _recipe(InsightOperator.ABOVE, threshold=True)
+    with pytest.raises(ValueError, match="min_samples"):
+        _recipe(InsightOperator.ABOVE, min_samples=True)
+    with pytest.raises(ValueError, match="resource_ref"):
+        _observation(resource_ref="   ")
+
+    stale_recipe = _recipe(InsightOperator.STALE, threshold=10.0)
+    future_obs = _observation(last_seen_at={"primary": _NOW + timedelta(seconds=30)})
+    assert OperationalInsightEngine([stale_recipe]).evaluate(future_obs) == ()

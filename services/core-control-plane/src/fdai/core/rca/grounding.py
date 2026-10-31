@@ -27,7 +27,7 @@ MAX_RCA_CAUSE_BYTES = 4 * 1024
 
 def valid_confidence(value: float) -> bool:
     """Accept numeric uncertainty only; booleans are not confidence values."""
-    return not isinstance(value, bool) and 0.0 <= value <= 1.0
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and 0.0 <= value <= 1.0
 
 
 def valid_cause(cause: str) -> bool:

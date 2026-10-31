@@ -44,9 +44,19 @@ async def forward_inventory_delta(
     only their property mask and leaves relationships to full reconciliation.
     One deadline bounds cursor reads, provider iteration, publication, and final persistence.
     """
-    if not math.isfinite(deadline_seconds) or deadline_seconds <= 0:
+    if (
+        isinstance(deadline_seconds, bool)
+        or not math.isfinite(deadline_seconds)
+        or deadline_seconds <= 0
+    ):
         raise ValueError("inventory delta deadline_seconds MUST be finite and > 0")
-    if initial_replay_after is not None and initial_replay_after.tzinfo is None:
+    if not isinstance(topic, str) or not topic.strip():
+        raise ValueError("inventory delta topic MUST be non-empty")
+    if not isinstance(scope, str) or not scope.strip():
+        raise ValueError("inventory delta scope MUST be non-empty")
+    if initial_replay_after is not None and (
+        initial_replay_after.tzinfo is None or initial_replay_after.utcoffset() is None
+    ):
         raise ValueError("inventory delta initial_replay_after MUST be timezone-aware")
     try:
         async with asyncio.timeout(deadline_seconds):
@@ -263,9 +273,9 @@ def _optional_resource_text(resource: ResourceRecord, key: str) -> str | None:
     value = resource.props.get(key)
     if value is None:
         return None
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"inventory delta resource.props.{key} MUST be non-empty text or null")
-    return value
+    return value.strip()
 
 
 def _links_by_owner(
@@ -284,15 +294,17 @@ def _links_by_owner(
 
 
 def _parse_timestamp(value: object) -> datetime:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError("inventory delta resource.last_seen MUST be an RFC 3339 string")
+    trimmed = value.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError as exc:
         raise ValueError(
             "inventory delta resource.last_seen MUST be a valid RFC 3339 timestamp"
         ) from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("inventory delta resource.last_seen MUST include a timezone")
     return parsed.astimezone(UTC)
 

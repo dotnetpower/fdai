@@ -108,6 +108,23 @@ def test_explicit_deep_plan_is_still_bounded_to_the_vm_tools() -> None:
     )
 
 
+def test_planner_deduplicates_requested_evidence_tools() -> None:
+    req = _request(
+        ReadInvestigationIntent.RESOURCE_STATE,
+        requested_evidence=(ReadToolId.GET_RESOURCE_STATE,),
+    )
+    object.__setattr__(
+        req,
+        "requested_evidence",
+        (ReadToolId.GET_RESOURCE_STATE, ReadToolId.GET_RESOURCE_STATE),
+    )
+    plan = plan_read_investigation(req)
+    assert tuple(step.tool_id for step in plan.steps) == (
+        ReadToolId.RESOLVE_RESOURCE,
+        ReadToolId.GET_RESOURCE_STATE,
+    )
+
+
 @pytest.mark.parametrize(
     ("intent", "tool_id"),
     [

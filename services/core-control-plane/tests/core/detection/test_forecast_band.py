@@ -160,3 +160,10 @@ def test_nan_residual_std_is_never_confident() -> None:
 def test_invalid_direction_is_rejected() -> None:
     with pytest.raises(ValueError, match="direction MUST be"):
         prediction_band(_finding(direction="sideways"), confidence_level="0.90")
+
+
+def test_prediction_band_strips_confidence_level_and_guards_non_finite_center() -> None:
+    band = prediction_band(_finding(), confidence_level="  0.90  ")
+    assert band.confidence_level == "0.90"
+    non_finite = prediction_band(_finding(projected=float("nan")), confidence_level="0.90")
+    assert non_finite.confident_breach is False

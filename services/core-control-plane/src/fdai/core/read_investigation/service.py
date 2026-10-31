@@ -85,7 +85,17 @@ class ReadInvestigationService:
         async def emit(kind: ReadInvestigationProgressKind) -> None:
             progress.append(kind.value)
             if progress_observer is not None:
-                await progress_observer(kind)
+                try:
+                    await progress_observer(kind)
+                except Exception as exc:  # noqa: BLE001 - observer failure must not abort read
+                    _LOG.warning(
+                        "read_investigation_progress_observer_failed",
+                        extra={
+                            "correlation_id": plan.request.correlation_ref,
+                            "progress_kind": kind.value,
+                            "error_kind": type(exc).__name__,
+                        },
+                    )
 
         await emit(ReadInvestigationProgressKind.PLANNED)
         await emit(ReadInvestigationProgressKind.RESOURCE_RESOLVING)
@@ -184,6 +194,18 @@ class ReadInvestigationService:
     ) -> ResourceResolutionAttempt:
         step = plan.steps[0]
         remaining = plan.request.budget.max_wall_seconds - (self._monotonic() - started_tick)
+        if remaining <= 0:
+            return ResourceResolutionAttempt(
+                resolution=ResourceResolution(
+                    status=ResourceResolutionStatus.UNAVAILABLE,
+                    detail="resource resolution budget exhausted",
+                ),
+                receipt=self._failed_receipt(
+                    step.tool_id,
+                    plan,
+                    elapsed_ms=0,
+                ),
+            )
         timeout = max(0.001, min(step.timeout_seconds, remaining))
         tick = self._monotonic()
         try:

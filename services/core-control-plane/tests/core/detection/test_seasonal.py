@@ -162,3 +162,25 @@ def test_unknown_phase_rejected() -> None:
 def test_min_samples_per_phase_below_two_is_rejected() -> None:
     with pytest.raises(ValueError, match="min_samples_per_phase MUST be >= 2"):
         SeasonalAnomalyDetector(detector_id="d", min_samples_per_phase=1)
+    with pytest.raises(ValueError, match="min_samples_per_phase MUST be >= 2"):
+        SeasonalAnomalyDetector(detector_id="d", min_samples_per_phase=True)
+
+
+def test_seasonal_phase_normalizes_timezone_offsets_to_utc() -> None:
+    from datetime import timezone
+
+    det = _detector(phase="hour_of_day", min_samples_per_phase=5)
+    history = _hourly({9: [98, 100, 102, 99, 101]})  # 09:00 UTC
+    kst = timezone(timedelta(hours=9))
+    # 18:00+09:00 is 09:00 UTC -> must match hour-9 baseline and NOT fire.
+    observed = MetricSample(timestamp=datetime(2026, 1, 10, 18, tzinfo=kst), value=100.0)
+    assert (
+        det.evaluate(
+            metric="rps",
+            resource_ref="svc-1",
+            history=history,
+            observed=observed,
+            window_bucket="w",
+        )
+        is None
+    )

@@ -159,8 +159,12 @@ class RootCauseHypothesis:
 
     @property
     def grounded(self) -> bool:
-        """True iff at least one citation backs the hypothesis."""
-        return len(self.citations) > 0
+        """True iff at least one non-blank citation and a non-blank cause back the hypothesis."""
+        if not isinstance(self.cause, str) or not self.cause.strip():
+            return False
+        return len(self.citations) > 0 and all(
+            isinstance(c.ref, str) and bool(c.ref.strip()) for c in self.citations
+        )
 
 
 class RcaOutcome(StrEnum):

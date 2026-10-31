@@ -24,11 +24,15 @@ class ChangeObjectiveTrace:
         if not self.objective_id.strip() or not self.metric.strip():
             raise ValueError("change objective trace identities MUST be non-empty")
         numeric = (self.utility, self.confidence, self.expected_min, self.expected_max)
-        if not all(isfinite(value) for value in numeric):
+        if any(isinstance(value, bool) or not isfinite(value) for value in numeric):
             raise ValueError("change objective trace numeric values MUST be finite")
         if not -1.0 <= self.utility <= 1.0 or not 0.0 <= self.confidence <= 1.0:
             raise ValueError("change objective trace utility/confidence MUST be normalized")
-        if self.expected_min > self.expected_max or self.observation_window_seconds < 1:
+        if (
+            isinstance(self.observation_window_seconds, bool)
+            or self.expected_min > self.expected_max
+            or self.observation_window_seconds < 1
+        ):
             raise ValueError("change objective trace range/window is invalid")
 
     def to_mapping(self) -> dict[str, Any]:
@@ -71,9 +75,13 @@ class ChangeDecisionTrace:
         text_values = (self.context_snapshot_id, self.selected_option_id, self.reason)
         if any(not value.strip() for value in text_values):
             raise ValueError("change decision trace identities and reason MUST be non-empty")
-        if not isfinite(self.margin):
+        if isinstance(self.margin, bool) or not isfinite(self.margin):
             raise ValueError("change decision trace margin MUST be finite")
-        score_ids = [option_id for option_id, score in self.option_scores if isfinite(score)]
+        score_ids = [
+            option_id
+            for option_id, score in self.option_scores
+            if not isinstance(score, bool) and isfinite(score)
+        ]
         if (
             len(score_ids) != len(self.option_scores)
             or len(score_ids) != len(set(score_ids))
@@ -98,7 +106,11 @@ class ChangeDecisionTrace:
             self.constraint_evaluation_refs,
             self.assumptions,
         )
-        if any(values != tuple(sorted(set(values))) for values in canonical_sets):
+        if any(
+            values != tuple(sorted(set(values)))
+            or any(not isinstance(item, str) or not item.strip() for item in values)
+            for values in canonical_sets
+        ):
             raise ValueError("change decision trace collections MUST be sorted and unique")
         if any(
             value is not None and not value.strip()
@@ -155,10 +167,15 @@ class ChangeResilienceTrace:
         )
         if any(not value.strip() for value in text_values):
             raise ValueError("change resilience trace values MUST be non-empty")
-        if self.blast_radius_count is not None and self.blast_radius_count < 1:
+        if self.blast_radius_count is not None and (
+            isinstance(self.blast_radius_count, bool) or self.blast_radius_count < 1
+        ):
             raise ValueError("change resilience blast radius count MUST be positive")
         timestamps = (self.predicted_at, self.observation_deadline, self.observed_at)
-        if any(value is not None and value.tzinfo is None for value in timestamps):
+        if any(
+            value is not None and (value.tzinfo is None or value.utcoffset() is None)
+            for value in timestamps
+        ):
             raise ValueError("change resilience timestamps MUST be timezone-aware")
         if (self.predicted_at is None) != (self.observation_deadline is None):
             raise ValueError("change resilience prediction window MUST be supplied together")

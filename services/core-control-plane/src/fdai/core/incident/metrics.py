@@ -91,6 +91,8 @@ def project_incident_metrics(
         if timeline.state is not from_state:
             raise ValueError(f"incident metric state mismatch: {incident_id}")
         changed_at = _aware_datetime(entry, "at")
+        if changed_at < timeline.opened_at:
+            raise ValueError(f"incident metric transition precedes opened_at: {incident_id}")
         if timeline.acknowledged_at is None and from_state is IncidentState.OPEN:
             timeline.acknowledged_at = changed_at
         if to_state is IncidentState.RESOLVED:
@@ -108,12 +110,12 @@ def project_incident_metrics(
     acknowledgement_durations = [
         (timeline.acknowledged_at - timeline.opened_at).total_seconds()
         for timeline in timelines.values()
-        if timeline.acknowledged_at is not None
+        if timeline.acknowledged_at is not None and timeline.acknowledged_at >= timeline.opened_at
     ]
     resolution_durations = [
         (timeline.resolved_at - timeline.opened_at).total_seconds()
         for timeline in timelines.values()
-        if timeline.resolved_at is not None
+        if timeline.resolved_at is not None and timeline.resolved_at >= timeline.opened_at
     ]
     return IncidentLifecycleMetrics(
         created_total=len(timelines),
@@ -134,10 +136,10 @@ def _mean(values: list[float]) -> float | None:
 
 
 def _required_string(entry: Mapping[str, Any], key: str) -> str:
-    value = entry[key]
-    if not isinstance(value, str) or not value:
+    value = entry.get(key)
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} MUST be a non-empty string")
-    return value
+    return value.strip()
 
 
 def _optional_string(entry: Mapping[str, Any], key: str) -> str | None:
@@ -146,12 +148,12 @@ def _optional_string(entry: Mapping[str, Any], key: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise ValueError(f"{key} MUST be a string or null")
-    return value or None
+    return value.strip() or None
 
 
 def _aware_datetime(entry: Mapping[str, Any], key: str) -> datetime:
     value = datetime.fromisoformat(_required_string(entry, key))
-    if value.tzinfo is None:
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{key} MUST be timezone-aware")
     return value
 
