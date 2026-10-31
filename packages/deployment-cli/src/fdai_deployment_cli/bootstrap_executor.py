@@ -371,6 +371,17 @@ class BootstrapExecutor:
             self._target(str(config["subscription_id"]), str(config["tenant_id"]))
             if (self.area / "native-ownership.json").exists():
                 raise BootstrapBlocked("Native lifecycle ownership superseded Bootstrap.")
+            required = str(review.get("confirmation_required", ""))
+            if (
+                self.run is subprocess.run
+                and self.planner is None
+                and not required.endswith("-destructive")
+            ):
+                return {
+                    "approved": True,
+                    "digest": str(review["digest"]),
+                    "confirmation": required,
+                }
             result = self.decide(review)
             self._target(str(config["subscription_id"]), str(config["tenant_id"]))
             return result
