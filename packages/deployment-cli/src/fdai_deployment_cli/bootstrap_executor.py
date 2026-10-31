@@ -16,6 +16,27 @@ from uuid import UUID
 
 from fdai_deployment_cli.bootstrap_approval import approval_source
 from fdai_deployment_cli.bootstrap_channel import _read, _write, prepare_directory
+from fdai_deployment_cli.bootstrap_support import (
+    configure_wsl_browser,
+    default_profile_subscription_and_tenant,
+    sync_local_azure_profile,
+)
+
+_ENV_KEYS = {
+    "HOME",
+    "PATH",
+    "LANG",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "XDG_RUNTIME_DIR",
+    "DBUS_SESSION_BUS_ADDRESS",
+    "BROWSER",
+    "WSL_DISTRO_NAME",
+    "WSL_INTEROP",
+    "WSLENV",
+}
 
 
 class BootstrapBlocked(ValueError):
@@ -36,31 +57,69 @@ class BootstrapExecutor:
     ):
         self.area, self.decide, self.run = area, decide, run
         self.planner, self.hub_source = planner, hub_source
+        self._source_azure = Path(
+            os.environ.get("AZURE_CONFIG_DIR", Path.home() / ".azure")
+        ).expanduser()
         prepare_directory(area)
         self.azure = area / "azure"
         prepare_directory(self.azure)
-        self.environment = {
-            key: value
-            for key, value in os.environ.items()
-            if key
-            in {
-                "HOME",
-                "PATH",
-                "LANG",
-                "SSL_CERT_FILE",
-                "REQUESTS_CA_BUNDLE",
-                "DISPLAY",
-                "WAYLAND_DISPLAY",
-                "XDG_RUNTIME_DIR",
-                "DBUS_SESSION_BUS_ADDRESS",
-            }
-        }
+        self.environment = {k: v for k, v in os.environ.items() if k in _ENV_KEYS}
         self.environment.update(
             AZURE_CONFIG_DIR=str(self.azure),
             AZURE_CORE_COLLECT_TELEMETRY="false",
             AZURE_CORE_ONLY_SHOW_ERRORS="true",
             AZURE_CORE_LOGIN_EXPERIENCE_V2="off",
         )
+        if self.run is subprocess.run:
+            configure_wsl_browser(self.area, self.environment)
+            sync_local_azure_profile(self._source_azure, self.azure)
+
+    def _sync_local_azure_profile(self) -> None:
+        if self.run is subprocess.run:
+            sync_local_azure_profile(self._source_azure, self.azure)
+
+    def _default_profile_subscription_and_tenant(self) -> tuple[str | None, str | None]:
+        return default_profile_subscription_and_tenant(self.azure)
+
+    def _has_active_human_session(self, requested_tenant: str | None) -> bool:
+        if self.run is not subprocess.run:
+            return False
+        try:
+            available = self.accounts()
+        except BootstrapBlocked:
+            return False
+        if not available:
+            return False
+        if requested_tenant is not None:
+            matching = [
+                item for item in available if item["tenant_id"].lower() == requested_tenant.lower()
+            ]
+            if not matching:
+                return False
+            chosen, expected_tenant = matching[0]["id"], matching[0]["tenant_id"]
+        else:
+            default_sub, _ = self._default_profile_subscription_and_tenant()
+            chosen = (
+                default_sub
+                if default_sub and any(item["id"] == default_sub for item in available)
+                else available[0]["id"]
+            )
+            expected_tenant = None
+        try:
+            self._az("account", "set", "--subscription", chosen)
+            self._target(chosen, expected_tenant)
+            self._az(
+                "account",
+                "get-access-token",
+                "--subscription",
+                chosen,
+                "--query",
+                "{tokenType:tokenType}",
+                timeout=20,
+            )
+        except BootstrapBlocked:
+            return False
+        return True
 
     def _az(self, *args: str, timeout: int = 60) -> object:
         if self.run is subprocess.run and shutil.which("az") is None:
@@ -81,7 +140,6 @@ class BootstrapExecutor:
                 "Azure CLI operation failed. Sign in locally and inspect private diagnostics."
             )
         if args[0] == "login":
-            # Login output can contain identity and authorization data; never retain it.
             return None
         try:
             return json.loads(result.stdout or "null")
@@ -91,6 +149,7 @@ class BootstrapExecutor:
             ) from exc
 
     def accounts(self) -> list[dict[str, str]]:
+        self._sync_local_azure_profile()
         result = self._az(
             "account",
             "list",
@@ -115,14 +174,21 @@ class BootstrapExecutor:
                     "Azure subscription listing contains an invalid display name."
                 )
             accounts.append({"id": account_id, "name": name, "tenant_id": tenant})
+        real = [
+            item
+            for item in accounts
+            if not (item["name"] == "N/A(tenant level account)" and item["id"] == item["tenant_id"])
+        ]
+        if real:
+            accounts = real
+        default_sub, _ = self._default_profile_subscription_and_tenant()
+        if default_sub is not None:
+            accounts.sort(key=lambda item: 0 if item["id"] == default_sub else 1)
         return accounts
 
     def _target(self, subscription: str, tenant: str | None = None) -> dict[str, str]:
         value = self._az(
-            "account",
-            "show",
-            "--query",
-            "{id:id,tenantId:tenantId,user:{type:user.type}}",
+            "account", "show", "--query", "{id:id,tenantId:tenantId,user:{type:user.type}}"
         )
         if (
             not isinstance(value, dict)
@@ -142,7 +208,22 @@ class BootstrapExecutor:
 
     def execute(self, action: str, payload: dict[str, object]) -> dict[str, object]:
         if action == "login":
-            self._az("login", timeout=600)
+            tenant_raw = payload.get("tenant_id")
+            requested = tenant_raw if isinstance(tenant_raw, str) and tenant_raw else None
+            if not self._has_active_human_session(requested):
+                if self.run is subprocess.run:
+                    _, default_tenant = self._default_profile_subscription_and_tenant()
+                    effective = requested or default_tenant
+                    args = (
+                        ("login", "--tenant", effective, "--allow-no-subscriptions")
+                        if effective
+                        else ("login", "--allow-no-subscriptions")
+                    )
+                    self._az(*args, timeout=600)
+                elif requested:
+                    self._az("login", "--tenant", requested, timeout=600)
+                else:
+                    self._az("login", timeout=600)
             return {
                 "accounts": self.accounts(),
                 "message": "Signed in. Select the intended subscription.",
@@ -157,7 +238,6 @@ class BootstrapExecutor:
             receipt = _read(self.area, "acceptance.json")
             if retained:
                 self._target(str(retained["subscription_id"]), str(retained["tenant_id"]))
-            # A saved success is historical, not an independent current health observation.
             return {
                 "message": "Retained installation exists. Explicitly resume to refresh plans and health."
                 if retained
@@ -180,8 +260,7 @@ class BootstrapExecutor:
                 )
             config = dict(payload)
             subscription = str(config["subscription_id"])
-            accounts = self.accounts()
-            if not any(item["id"] == subscription.lower() for item in accounts):
+            if not any(item["id"] == subscription.lower() for item in self.accounts()):
                 raise BootstrapBlocked(
                     "Selected subscription is not available to the signed-in user."
                 )
@@ -192,8 +271,7 @@ class BootstrapExecutor:
             raise BootstrapBlocked(
                 "Native lifecycle ownership was accepted; Bootstrap cannot mutate this installation."
             )
-        mode = config["artifact_source"]
-        selection = None
+        mode, selection = config["artifact_source"], None
         if mode == "hub":
             from fdai_deployment_cli.bootstrap_support import resolve_hub_source
 

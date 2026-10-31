@@ -10,6 +10,9 @@
     initializing: "Opening your authenticated setup session...", request: "Request", action: "Action",
     errorCode: "Error code", account: "Connect Azure",
     loginHelp: "Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.",
+    tenant: "Azure tenant ID or domain (optional)",
+    tenantHelp: "Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.",
+    invalidTenant: "Enter a valid Azure tenant ID or domain.",
     login: "Sign in to Azure", accounts: "List subscriptions", configure: "Choose your installation",
     subscription: "Azure subscription", noAccounts: "List subscriptions to choose a target",
     subscriptionHelp: "Only subscriptions returned by your authenticated Azure session appear here.",
@@ -69,6 +72,9 @@
     initializing: "인증된 로컬 설정 세션을 여는 중입니다...", request: "요청", action: "작업",
     errorCode: "오류 코드", account: "Azure 연결",
     loginHelp: "이 Hub를 실행하는 컴퓨터에서 Microsoft 로그인 창이 열립니다. 로그인을 완료한 다음 이 화면으로 돌아와 구독 목록을 조회하세요. 이 설정 화면에는 자격 증명을 입력하지 마세요.",
+    tenant: "Azure 테넌트 ID 또는 도메인 (선택 사항)",
+    tenantHelp: "비워 두면 현재 활성화된 Azure CLI 테넌트를 사용하며, 다른 테넌트로 로그인하려면 테넌트 ID 또는 도메인을 입력하세요.",
+    invalidTenant: "유효한 Azure 테넌트 ID 또는 도메인을 입력하세요.",
     login: "Azure 로그인", accounts: "구독 목록 조회", configure: "설치 대상 선택",
     subscription: "Azure 구독", noAccounts: "구독 목록을 조회한 후 대상을 선택하세요",
     subscriptionHelp: "인증된 Azure 세션에서 조회한 구독만 표시됩니다.",
@@ -165,6 +171,7 @@
     const fresh = available && !active && !status?.request_id;
     const recovery = ["failed", "blocked", "interrupted"].includes(status?.phase);
     $("login").disabled = !fresh && !(available && recovery);
+    $("tenant").disabled = $("login").disabled;
     $("accounts").disabled = !fresh;
     $("configuration-fields").disabled = !fresh;
     $("refresh").disabled = loading;
@@ -196,7 +203,11 @@
       for (const account of status.accounts) {
         $("subscription").add(new Option(`${account.name} (${account.id})`, account.id));
       }
-      $("subscription").value = selected;
+      if (selected && status.accounts.some(account => account.id === selected)) {
+        $("subscription").value = selected;
+      } else if (status.accounts.length > 0) {
+        $("subscription").value = status.accounts[0].id;
+      }
       accountKey = accounts;
     }
     const review = phase === "review" ? status.review : null;
@@ -327,7 +338,13 @@
   $("decision-form").addEventListener("submit", event => { event.preventDefault(); if (!$("approve").disabled) decide(true); });
   $("decline").addEventListener("click", () => decide(false));
   $("confirmation").addEventListener("input", controls);
-  for (const name of ["login", "accounts", "resume", "inspect"]) $(name).addEventListener("click", () => action(name));
+  $("login").addEventListener("click", () => {
+    const tenant = $("tenant").value.trim();
+    if (!tenant) return action("login");
+    if (!/^[A-Za-z0-9._-]{1,128}$/.test(tenant) || tenant === "." || tenant === "..") return notice("invalidTenant");
+    action("login", { tenant_id: tenant });
+  });
+  for (const name of ["accounts", "resume", "inspect"]) $(name).addEventListener("click", () => action(name));
   $("refresh").addEventListener("click", () => { notice(""); loadStatus(); });
   document.querySelectorAll('input[name="artifact"]').forEach(node => node.addEventListener("change", artifactFields));
   $("key-file").addEventListener("change", async () => {

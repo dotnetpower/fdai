@@ -75,8 +75,12 @@ test("fragment session is exchanged once, removed before exchange, and never per
   expect(app.posts[1].body).toEqual({ action: "accounts", payload: {} });
   expect(app.posts[1].headers["x-fdai-csrf"]).toBe("fixture-csrf");
   expect(app.posts[1].headers["content-type"]).toBe("application/json");
+  await page.locator("#tenant").fill("contoso.onmicrosoft.com");
+  await page.locator("#login").click();
+  await expect.poll(() => app.posts.length).toBe(3);
+  expect(app.posts[2].body).toEqual({ action: "login", payload: { tenant_id: "contoso.onmicrosoft.com" } });
   await app.refresh();
-  expect(app.posts).toHaveLength(2);
+  expect(app.posts).toHaveLength(3);
 });
 
 test("same-document launcher navigation exchanges a new fragment and strips denied tokens", async ({ page }) => {

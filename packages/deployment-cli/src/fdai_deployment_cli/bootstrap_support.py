@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
+from uuid import UUID
 
 from fdai_deployment_cli.hub_image_deploy import DEFAULT_HUB_URL, hub_request
 from fdai_deployment_cli.hub_image_trust import (
@@ -19,6 +23,86 @@ from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.source_input import inspect_source
 
 OFFICIAL_SOURCE = "https://github.com/dotnetpower/fdai.git"
+_SYNC_FILES = (
+    "azureProfile.json",
+    "msal_token_cache.json",
+    "msal_token_cache.bin",
+    "clouds.config",
+    "config",
+    "msal_http_cache.bin",
+)
+
+
+def configure_wsl_browser(area: Path, environment: dict[str, str]) -> None:
+    """Provide a PowerShell browser helper on WSL when wslview is not installed."""
+    configured = environment.get("BROWSER", "").split(":", 1)[0].strip()
+    if (
+        (not configured or shutil.which(configured) is None)
+        and ("WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ)
+        and shutil.which("wslview") is None
+        and shutil.which("powershell.exe") is not None
+    ):
+        helper = area / "open-browser.sh"
+        if helper.is_symlink():
+            raise ValueError("Bootstrap browser helper must not be a symlink.")
+        fd = os.open(helper, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o700)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(
+                "#!/bin/sh\n"
+                "exec powershell.exe -NoProfile -NonInteractive "
+                "-Command \"Start-Process '$1'\" >/dev/null 2>&1\n"
+            )
+        environment["BROWSER"] = str(helper)
+
+
+def default_profile_subscription_and_tenant(azure_dir: Path) -> tuple[str | None, str | None]:
+    """Read the default enabled subscription and tenant from azureProfile.json."""
+    profile = azure_dir / "azureProfile.json"
+    try:
+        raw = (
+            json.loads(profile.read_bytes().decode("utf-8-sig"))
+            if profile.is_file() and not profile.is_symlink()
+            else None
+        )
+    except (OSError, ValueError):
+        return None, None
+    for item in raw.get("subscriptions", []) if isinstance(raw, dict) else []:
+        if isinstance(item, dict) and item.get("isDefault") and item.get("state") == "Enabled":
+            try:
+                return str(UUID(str(item["id"]))), str(UUID(str(item["tenantId"])))
+            except (ValueError, KeyError, TypeError):
+                continue
+    return None, None
+
+
+def sync_local_azure_profile(source_azure: Path, target_azure: Path) -> None:
+    """Seed or refresh the executor's private Azure CLI cache from the operator's local profile."""
+    try:
+        if (
+            not source_azure.is_dir()
+            or source_azure.is_symlink()
+            or source_azure.resolve() == target_azure.resolve()
+        ):
+            return
+    except OSError:
+        return
+    uid = os.getuid()
+    dst_empty = default_profile_subscription_and_tenant(target_azure) == (None, None)
+    for name in _SYNC_FILES:
+        src, dst = source_azure / name, target_azure / name
+        try:
+            if not src.is_file() or src.is_symlink() or dst.is_symlink():
+                continue
+            info = src.stat()
+            if info.st_uid != uid or not (0 < info.st_size <= 4 * 1024 * 1024):
+                continue
+            if dst.exists() and not dst_empty and info.st_mtime_ns <= dst.stat().st_mtime_ns:
+                continue
+            fd = os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(src.read_bytes())
+        except OSError:
+            continue
 
 
 def resolve_hub_source(

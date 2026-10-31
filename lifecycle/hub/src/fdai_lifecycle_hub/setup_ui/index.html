@@ -46,6 +46,11 @@
         <section aria-labelledby="account-heading">
           <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
           <p data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
+          <div class="field">
+            <label for="tenant" data-i18n="tenant">Azure tenant ID or domain (optional)</label>
+            <input id="tenant" name="tenant" pattern="[A-Za-z0-9._-]{1,128}" maxlength="128" autocomplete="off" spellcheck="false" disabled aria-describedby="tenant-help">
+            <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.</p>
+          </div>
           <div class="button-row">
             <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
             <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>

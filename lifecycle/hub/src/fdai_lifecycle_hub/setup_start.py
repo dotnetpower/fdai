@@ -7,6 +7,7 @@ import fcntl
 import json
 import os
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -74,6 +75,37 @@ def _worker_ready(
     raise ValueError("Bootstrap executor did not become ready before its startup deadline.")
 
 
+def _open_browser(url: str) -> bool:
+    """Open the local browser, using PowerShell Start-Process on WSL when wslview is absent."""
+    configured = os.environ.get("BROWSER", "").split(":", 1)[0].strip()
+    if configured and shutil.which(configured) is not None:
+        return webbrowser.open(url)
+    powershell = shutil.which("powershell.exe")
+    if (
+        ("WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ)
+        and shutil.which("wslview") is None
+        and powershell is not None
+    ):
+        safe_url = url.replace("'", "''")
+        result = subprocess.run(  # noqa: S603 - fixed local loopback setup URL on WSL
+            [
+                powershell,
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                f"Start-Process '{safe_url}'",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+    return webbrowser.open(url)
+
+
 def start(args: argparse.Namespace) -> int:
     """Start one loopback Hub surface and its independently running local executor."""
     if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
@@ -85,6 +117,7 @@ def start(args: argparse.Namespace) -> int:
     with launcher_lock(state_dir), _shutdown_signals(stop):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             listener.bind(("127.0.0.1", args.port))
             listener.listen(128)
             port = listener.getsockname()[1]
@@ -111,7 +144,7 @@ def start(args: argparse.Namespace) -> int:
                 print("Azure access stays in the customer executor. Keep this process running.")
                 if args.no_browser:
                     print("Browser launch disabled; restart without --no-browser to sign in.")
-                elif not webbrowser.open(f"{origin}/setup#session={launch_token}"):
+                elif not _open_browser(f"{origin}/setup#session={launch_token}"):
                     raise ValueError(
                         "Could not open a browser. Start Bootstrap on a browser-equipped host."
                     )

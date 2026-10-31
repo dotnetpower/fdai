@@ -62,11 +62,23 @@ def test_private_atomic_single_request_and_safe_projection(tmp_path):
         ("unknown", {}),
         ("resume", {"region": "eastus"}),
         ("inspect", {"source_root": "replacement"}),
+        ("login", {"tenant_id": "../bad"}),
+        ("login", {"tenant_id": ".."}),
+        ("login", {"tenant_id": ""}),
+        ("login", {"tenant_id": 123}),
+        ("login", {"tenant_id": "contoso.onmicrosoft.com", "extra": True}),
     ],
 )
 def test_noninstall_actions_never_replace_configuration(tmp_path, action, payload):
     with pytest.raises(ValueError):
         channel.submit_request(tmp_path, action, payload)
+
+
+def test_login_accepts_optional_tenant_id(tmp_path):
+    assert channel.validate_request("login", {}) == {}
+    assert channel.validate_request("login", {"tenant_id": "contoso.onmicrosoft.com"}) == {
+        "tenant_id": "contoso.onmicrosoft.com"
+    }
 
 
 def review_record(root, *, expired=False):

@@ -192,6 +192,19 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
         raise ValueError("Bootstrap payload must be a bounded JSON object") from exc
     if len(encoded) > 16384:
         raise ValueError("Bootstrap payload exceeds its size bound")
+    if action == "login":
+        if not payload:
+            return {}
+        if set(payload) != {"tenant_id"}:
+            raise ValueError("Login accepts only an optional tenant_id")
+        tenant = payload.get("tenant_id")
+        if (
+            not isinstance(tenant, str)
+            or re.fullmatch(r"[A-Za-z0-9._-]{1,128}", tenant) is None
+            or tenant in {".", ".."}
+        ):
+            raise ValueError("Choose a valid Azure tenant ID or domain")
+        return {"tenant_id": tenant}
     if action != "install":
         if payload:
             raise ValueError("This action accepts no replacement inputs")
