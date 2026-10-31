@@ -15,7 +15,7 @@ dependencies = [
 	"pillow>=13.0,<14",
 	"psycopg[binary]>=3.2,<4",
 	"pydantic>=2.9,<3",
-	"pypdf>=6.19.0,<7",
+	"pypdf>=6.21.4,<7",
 	"pypdfium2>=5.0,<6",
 	"pytesseract>=0.3.13,<1",
 ]
