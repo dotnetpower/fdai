@@ -14,7 +14,7 @@ import { agentStreamDescriptor, useAgentStream, type AgentStreamStatus } from ".
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t } from "../i18n";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import {
   activeAgentCount,
   makeInitialState,
@@ -87,9 +87,18 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
-export function pantheonAgentHref(agent: string, correlation?: string | null): string {
+export function pantheonAgentHref(
+  agent: string,
+  correlation?: string | null,
+  search?: URLSearchParams,
+): string {
   return routeHref("agents", {
-    params: { view: "org", agent, correlation: correlation || null },
+    params: {
+      view: "org",
+      agent,
+      correlation: correlation || null,
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
   });
 }
 
@@ -322,15 +331,22 @@ function PantheonBody({
     const syncView = () => setView(pantheonViewFromRoute());
     window.addEventListener("popstate", syncView);
     window.addEventListener("fdai:route-changed", syncView);
+    window.addEventListener(ROUTE_STATE_EVENT, syncView);
     return () => {
       window.removeEventListener("popstate", syncView);
       window.removeEventListener("fdai:route-changed", syncView);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncView);
     };
   }, []);
 
   const openView = (next: PantheonView): void => {
     setView(next);
-    navigate(routeHref("pantheon", { params: { view: next === "directory" ? null : next } }));
+    navigate(routeHref("pantheon", {
+      params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+        view: next === "directory" ? null : next,
+      },
+    }));
   };
   usePublishViewContext(
     () => ({
@@ -494,7 +510,7 @@ function PantheonBody({
                   <td class="mono">{w.id}</td>
                   <td>{w.name}</td>
                   <td class="mono">
-                    <a href={pantheonAgentHref(w.primary_agent, runtime.agents[w.primary_agent]?.correlationId)}>
+                    <a href={pantheonAgentHref(w.primary_agent, runtime.agents[w.primary_agent]?.correlationId, currentRoute().search)}>
                       {w.primary_agent}
                     </a>
                   </td>
@@ -540,7 +556,7 @@ function PantheonAgentCard({
       <header class="pt-card-head">
         <span class={`pt-avatar is-${agent.layer}`}>{agent.name.slice(0, 2)}</span>
         <div>
-          <h4><a href={pantheonAgentHref(agent.name, runtime?.correlationId)}>{agent.name}</a></h4>
+          <h4><a href={pantheonAgentHref(agent.name, runtime?.correlationId, currentRoute().search)}>{agent.name}</a></h4>
           <p>{agentRoleTitle(agent.name) ?? titleCase(agent.layer)}</p>
         </div>
         <span class={`pt-runtime state-${state}`}>
@@ -576,7 +592,7 @@ function ReportingTree({ agents }: { readonly agents: readonly AgentDto[] }) {
   }
   const branch = (agent: AgentDto) => (
     <li key={agent.name}>
-      <a class="pt-tree-name" href={pantheonAgentHref(agent.name)}>{agent.name}</a>{" "}
+      <a class="pt-tree-name" href={pantheonAgentHref(agent.name, null, currentRoute().search)}>{agent.name}</a>{" "}
       <span class="pt-tree-role">- {agentRoleTitle(agent.name) ?? titleCase(agent.layer)}</span>
       {(byParent.get(agent.name)?.length ?? 0) > 0 ? (
         <ul>{byParent.get(agent.name)!.map(branch)}</ul>
@@ -604,7 +620,7 @@ function ChipList({
     <ul class="type-chip-list">
       {items.map((name) => (
         <li key={name} class="type-chip mono">
-          <a href={pantheonAgentHref(name, runtime?.agents[name]?.correlationId)}>{name}</a>
+          <a href={pantheonAgentHref(name, runtime?.agents[name]?.correlationId, currentRoute().search)}>{name}</a>
         </li>
       ))}
     </ul>

@@ -190,6 +190,7 @@ export function PromotionGatesRoute({ client }: Props) {
           invalidReason={reasonState.invalid}
           onStatus={(status) => navigate(routeHref("promotion-gates", {
             params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
               status: status === "all" ? null : status,
               q: query || null,
               reason: reasonState.invalid ?? reasonState.reason,
@@ -199,6 +200,7 @@ export function PromotionGatesRoute({ client }: Props) {
             setQuery(nextQuery);
             replaceRouteState(routeHref("promotion-gates", {
               params: {
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
                 status: statusFilter === "all" ? null : statusFilter,
                 q: nextQuery || null,
                 reason: reasonState.invalid ?? reasonState.reason,
@@ -207,6 +209,7 @@ export function PromotionGatesRoute({ client }: Props) {
           }}
           onClearReason={() => navigate(routeHref("promotion-gates", {
             params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
               status: statusFilter === "all" ? null : statusFilter,
               q: query || null,
             },
@@ -418,12 +421,13 @@ function PromotionBody({
     [data],
   );
 
+  const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const columns: readonly Column<Row>[] = [
     {
       key: "at",
       header: t("governance.promotion.column.actionType"),
       render: (r) => (
-        <a href={routeHref("workflow-builder", { params: { action: r.action_type_name } })}>
+        <a href={routeHref("workflow-builder", { params: { data: dataParam, action: r.action_type_name } })}>
           {r.action_type_name}
         </a>
       ),
@@ -544,16 +548,16 @@ function PromotionBody({
         <span>{t("governance.promotion.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard href={`${routeHref("promotion-gates")}${candidatesFragment}`} label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
+        <KpiCard href={`${routeHref("promotion-gates", { params: { data: dataParam } })}${candidatesFragment}`} label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
         <KpiCard
-          href={`${routeHref("promotion-gates", { params: { status: "ready" } })}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam, status: "ready" } })}${candidatesFragment}`}
           label={t("governance.promotion.kpi.ready")}
           value={data.ready_count}
           tone={data.ready_count > 0 ? "positive" : "default"}
           hint={t("governance.promotion.kpi.readyHint")}
         />
         <KpiCard
-          href={`${routeHref("promotion-gates", { params: { status: "blocked" } })}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam, status: "blocked" } })}${candidatesFragment}`}
           label={t("governance.common.blocked")}
           value={data.blocked_count}
           tone={data.blocked_count > 0 ? "warning" : "positive"}
@@ -561,7 +565,7 @@ function PromotionBody({
         />
         <KpiCard
           evidenceState={data.window_days === null ? "not-measured" : "measured"}
-          href={`${routeHref("promotion-gates")}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam } })}${candidatesFragment}`}
           label={t("governance.promotion.kpi.window")}
           value={data.window_days !== null
             ? t("governance.promotion.kpi.windowValue", { days: data.window_days })

@@ -92,7 +92,12 @@ export function ConversationAssuranceRoute({
   }, [state]);
   const selectAssessment = (assessmentId: string) => {
     setSelectedId(assessmentId);
-    replaceRouteState(routeHref("conversation-assurance", { params: { turn: assessmentId } }));
+    replaceRouteState(routeHref("conversation-assurance", {
+      params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+        turn: assessmentId,
+      },
+    }));
   };
   return (
     <div class="stack">
@@ -174,7 +179,13 @@ function AssuranceBody({
   readonly onRefresh: () => Promise<void>;
 }) {
   const evidenceState = data.summary.total === 0 ? "insufficient-sample" : "measured";
-  const href = `${routeHref("conversation-assurance")}#assessments`;
+  const baseHref = routeHref("conversation-assurance", {
+    params: {
+      data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+      turn: selectedId,
+    },
+  });
+  const href = `${baseHref}#assessments`;
   usePublishViewContext(
     () => ({
       routeId: "conversation-assurance",
@@ -212,7 +223,7 @@ function AssuranceBody({
         <KpiCard evidenceState={evidenceState} href={href} label={t("assurance.failing")} value={data.summary.total ? data.summary.fail : kpiEvidenceLabel("insufficient-sample")} tone={data.summary.fail ? "warning" : "default"} />
         <KpiCard evidenceState={evidenceState} href={href} label={t("assurance.inconclusive")} value={data.summary.total ? data.summary.inconclusive : kpiEvidenceLabel("insufficient-sample")} />
         <KpiCard evidenceState={evidenceState} href={href} label={t("assurance.average")} value={data.summary.average_content_score === null ? kpiEvidenceLabel("insufficient-sample") : `${data.summary.average_content_score.toFixed(1)}/100`} />
-        <KpiCard evidenceState={evidenceState} href={`${routeHref("conversation-assurance")}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
+        <KpiCard evidenceState={evidenceState} href={`${baseHref}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
       </KpiGrid>
       <PantheonSummary summary={data.pantheon} />
       <AssessmentTable assessments={data.assessments} selectedId={selectedId} onSelect={onSelect} />

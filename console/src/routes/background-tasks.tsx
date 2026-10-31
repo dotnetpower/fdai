@@ -12,7 +12,7 @@ import {
 import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import "./background-tasks.css";
 import { backgroundTasksText } from "./background-tasks.i18n";
 import {
@@ -65,7 +65,9 @@ export function BackgroundTasksRoute({
   readonly client: OperatorApiClient;
   readonly dataMode?: ConsoleDataMode;
 }) {
-  const selectedTaskId = currentRoute().segments[0] ?? null;
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+    () => currentRoute().segments[0] ?? null,
+  );
   const [pageState, setPageState] = useState<AsyncState<BackgroundTaskPage>>({ status: "loading" });
   const [detailState, setDetailState] = useState<AsyncState<TaskDetail>>(
     selectedTaskId === null ? { status: "idle" } : { status: "loading" },
@@ -83,6 +85,18 @@ export function BackgroundTasksRoute({
   const createIdempotencyKey = useRef<string | null>(null);
   const cancelIdempotency = useRef<{ readonly taskId: string; readonly key: string } | null>(null);
   const sampleMode = dataMode === "sample" || currentRoute().search.get("data") === "sample";
+
+  useEffect(() => {
+    const sync = () => setSelectedTaskId(currentRoute().segments[0] ?? null);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
 
   const loadPage = async (cursor: BackgroundTaskCursor | null): Promise<void> => {
     const request = cursor === null ? ++generation.current : generation.current;
@@ -147,6 +161,9 @@ export function BackgroundTasksRoute({
   };
 
   useEffect(() => {
+    setLoadingMore(false);
+    setMutationNotice(null);
+    setMutationError(null);
     void loadPage(null);
     return () => { generation.current += 1; };
   }, [client]);
@@ -526,7 +543,9 @@ function Fact({ label, value }: { readonly label: string; readonly value: string
 }
 
 function displayNumber(value: unknown): string {
-  return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString() : "-";
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value.toLocaleString()
+    : "-";
 }
 
 function outcomeText(task: BackgroundTaskItem, detailed = false): string {

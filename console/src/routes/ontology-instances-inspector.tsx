@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { StatusPill } from "../components/ui";
 import { RecordedStateFacts } from "../components/recorded-state-facts";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import type {
   OntologyInstanceAksDiagnosticReceipt,
@@ -48,6 +48,7 @@ export function OntologyInstanceInspector({
       <nav aria-label={t("ontology.instances.inspectorViews") }>
         {(["overview", "relationships", "events", "sources"] as const).map((item) => (
           <button
+            key={item}
             type="button"
             class={view === item ? "is-active" : undefined}
             aria-pressed={view === item}
@@ -158,7 +159,7 @@ function InstanceOverview({
           <summary>{t("ontology.instances.kubernetesDiagnostics")}</summary>
           <dl class="ontology-instance-facts">
             {Object.entries(root.kubernetes_diagnostics).map(([key, value]) => (
-              <div><dt><code>{key}</code></dt><dd><code>{formatDiagnosticValue(value)}</code></dd></div>
+              <div key={key}><dt><code>{key}</code></dt><dd><code>{formatDiagnosticValue(value)}</code></dd></div>
             ))}
           </dl>
         </details>
@@ -168,7 +169,12 @@ function InstanceOverview({
         <code>{root.id}</code>
         <code>{data.ontology_release_digest}</code>
       </details>
-      <a class="btn" href={routeHref("blast-radius", { params: { target: root.id } })}>
+      <a class="btn" href={routeHref("blast-radius", {
+        params: {
+          target: root.id,
+          data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+        },
+      })}>
         {t("ontology.instances.openImpact")}
       </a>
     </section>
@@ -224,7 +230,7 @@ function AksDiagnosticEvidence({
       <h5>{t("ontology.instances.diagnosticSources")}</h5>
       <dl class="ontology-instance-facts">
         {sources.map((source) => (
-          <div>
+          <div key={source}>
             <dt><code>{source}</code></dt>
             <dd>
               {formatDateTime(receipt.source_cutoffs[source]!)}

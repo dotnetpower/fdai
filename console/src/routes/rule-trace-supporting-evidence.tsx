@@ -6,7 +6,7 @@ import {
 } from "../components/ui";
 import { Tooltip } from "../components/tooltip";
 import { presentationActor } from "../deck/presentation-value";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
 import type {
@@ -78,13 +78,14 @@ export function TraceTimeline({
   readonly correlationId: string;
   readonly steps: readonly TraceStep[];
 }) {
+  const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const columns: readonly Column<TraceStep>[] = [
     {
       key: "n",
       header: "#",
       render: (step) => (
         <a href={routeHref("audit", {
-          params: { correlation: correlationId, entry: step.seq },
+          params: { data: dataParam, correlation: correlationId, entry: step.seq },
         })}>
           {step.seq}
         </a>

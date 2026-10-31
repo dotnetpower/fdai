@@ -4,7 +4,7 @@ import { AsyncBoundary, UnavailableState, type AsyncState } from "../components/
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { Tooltip } from "../components/tooltip";
-import { currentRoute, replaceRouteState, routeHref } from "../router";
+import { currentRoute, replaceRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatDateTime, formatNumber, t } from "./i18n/ontology";
 import {
   ONTOLOGY_INSTANCE_DIRECTORY_REFRESH_INTERVAL_MS,
@@ -114,9 +114,11 @@ export function OntologyInstancesView({ client }: Props) {
     const sync = () => setSelectedId(currentRoute().search.get("instance"));
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
@@ -158,7 +160,12 @@ export function OntologyInstancesView({ client }: Props) {
           setDetailRefreshStatus("idle");
           setDetailCheckedAt(null);
           setDetailNextPeriodicAt(null);
-          replaceRouteState(routeHref("ontology", { params: { view: "instances" } }));
+          replaceRouteState(routeHref("ontology", {
+            params: {
+              view: "instances",
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+            },
+          }));
           return;
         }
         setDetail({ status: "ready", data });
@@ -188,7 +195,11 @@ export function OntologyInstancesView({ client }: Props) {
   const selectResource = (resourceId: string | null): void => {
     setSelectedId(resourceId);
     replaceRouteState(routeHref("ontology", {
-      params: { view: "instances", instance: resourceId },
+      params: {
+        view: "instances",
+        instance: resourceId,
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+      },
     }));
   };
 

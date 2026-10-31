@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import {
   ORG_CHART,
   isEngaged,
@@ -73,7 +73,13 @@ export function AgentOrgChart({ state }: { readonly state: AgentsState }) {
           if (element) nodeRefs.current.set(name, element);
           else nodeRefs.current.delete(name);
         }}
-        href={routeHref("agents", { params: { view: "org", agent: name } })}
+        href={routeHref("agents", {
+          params: {
+            view: "org",
+            agent: name,
+            data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+          },
+        })}
         class={`agent-node layer-${node.layer} state-${node.state}${
           isEngaged(node) ? " is-engaged" : ""
         }${focused ? " is-hovered" : ""}`}
@@ -135,7 +141,7 @@ function AgentOrgTooltip({
         <strong>{node.name}</strong>
         <span class={`agent-tooltip-state state-${node.state}`}>{agentStateLabel(node)}</span>
       </span>
-      <span class="agent-tooltip-task">{node.detail ?? stateTaskLabel(node.state)}</span>
+      <span class="agent-tooltip-task">{stateTaskLabel(node.state)}</span>
       {node.detail ? <span class="agent-tooltip-detail">{node.detail}</span> : null}
       {incident ? (
         <span class="agent-tooltip-incident">
