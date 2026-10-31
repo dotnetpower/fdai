@@ -72,7 +72,13 @@ def literal_shaped(token: str, identities: set[str]) -> bool:
 def code_parts(code: str) -> frozenset[str]:
     """Return the exact segments of one Core-issued limitation code, split at ``:``."""
 
-    return frozenset(token for segment in code.split(":") for _start, token in tokens(segment))
+    return frozenset(
+        part
+        for segment in code.replace("+", ":").split(":")
+        for _start, token in tokens(segment)
+        for part in (token, *token.split("."))
+        if part
+    )
 
 
 def _disguises_ascii(character: str) -> bool:

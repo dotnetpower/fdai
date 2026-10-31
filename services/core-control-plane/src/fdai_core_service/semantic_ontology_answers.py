@@ -266,14 +266,17 @@ def _declaration_label(declaration_kind: OntologyDeclarationKind) -> str:
 
 
 def _declaration_kind(subject: str) -> OntologyDeclarationKind | None:
+    normalized = subject.strip()
     try:
-        return OntologyDeclarationKind(subject)
+        return OntologyDeclarationKind(normalized.casefold())
     except ValueError:
-        if not subject.endswith("Type"):
-            return None
-    try:
-        return OntologyDeclarationKind(subject.removesuffix("Type").casefold())
-    except ValueError:
+        for suffix in ("Types", "Type", "_types", "_type"):
+            if normalized.casefold().endswith(suffix.casefold()):
+                stem = normalized[: len(normalized) - len(suffix)].strip("_- ").casefold()
+                try:
+                    return OntologyDeclarationKind(stem)
+                except ValueError:
+                    pass
         return None
 
 

@@ -451,6 +451,14 @@ def test_duplicate_matrix_coordinates_fall_back_to_an_exact_table() -> None:
     assert decision.visualization is VisualizationKind.NONE
 
 
+def test_source_truncation_reason_is_limitation_and_first_field_keeps_primary_column() -> None:
+    output = _output([{"status": "running", "nested.status": "old", "value": 1}])
+    output["source_truncation_reason"] = "result_limit"
+    shape = analyze_evidence_shape(output, verified=True)
+    assert shape.limitations == ("result_limit",)
+    assert shape.status_field == "status"
+
+
 def test_missing_timeline_label_falls_back_to_exact_records() -> None:
     shape = analyze_evidence_shape(
         _output(

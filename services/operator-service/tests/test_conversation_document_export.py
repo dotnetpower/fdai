@@ -274,3 +274,50 @@ async def test_document_retains_a_finite_row_limit() -> None:
         )
 
     assert raised.value.code == "document_row_limit_exceeded"
+
+
+async def test_document_export_rejects_whitespace_evidence_refs_and_cleans_done_state() -> None:
+    from fdai_operator_service.families.conversation.semantic_document_presentation import (
+        apply_document_answer,
+        document_ready_answer,
+    )
+
+    bad = _result()
+    semantic = bad.data["semantic_result"]
+    assert isinstance(semantic, dict)
+    semantic["evidence_refs"] = ["   "]
+    with pytest.raises(ConversationBoundaryError) as unverified:
+        await ConversationDocumentExporter(store=_Store(bad)).materialize(
+            principal_id="operator-1",
+            source_request_id=_SOURCE_REQUEST_ID,
+        )
+    assert unverified.value.code == "document_source_unverified"
+
+    with pytest.raises(ValueError, match="non-negative"):
+        document_ready_answer("en", included_rows=-1, pdf_available=False)
+
+    projection = {
+        "semantic_result": {"disposition": "answered"},
+        "payload": {
+            "technical_details": {
+                "presentation_context": {
+                    "operation": "select",
+                    "output_shape": "resource_list",
+                    "document_kind": "inventory",
+                }
+            }
+        },
+    }
+    done: dict[str, object] = {"document_artifact": {"stale": True}}
+    replaced = await apply_document_answer(
+        done,
+        projection=projection,
+        result_request_id=_SOURCE_REQUEST_ID,
+        source_request_id=None,
+        principal_id="operator-1",
+        locale="en",
+        exporter=None,
+    )
+    assert replaced is True
+    assert "document_artifact" not in done
+    assert done["document_unavailable_reason"] == "document_export_unavailable"

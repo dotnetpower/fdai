@@ -29,9 +29,9 @@ def contextual_arguments_grounded(
 def _leaf_values(value: object) -> tuple[object, ...]:
     if isinstance(value, Mapping):
         return tuple(leaf for nested in value.values() for leaf in _leaf_values(nested))
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, (list, tuple, set, frozenset)):
         return tuple(leaf for nested in value for leaf in _leaf_values(nested))
-    if value is None:
+    if value is None or isinstance(value, bool):
         return ()
     return (value,)
 

@@ -50,9 +50,13 @@ class SearchConversationsTool:
                     minimum=1,
                     maximum=50,
                 ),
-                conversation_id=(_optional_str(arguments, "conversation_id", default="") or None),
-                incident_id=_optional_str(arguments, "incident_id", default="") or None,
-                correlation_id=(_optional_str(arguments, "correlation_id", default="") or None),
+                conversation_id=(
+                    _optional_str(arguments, "conversation_id", default="").strip() or None
+                ),
+                incident_id=_optional_str(arguments, "incident_id", default="").strip() or None,
+                correlation_id=(
+                    _optional_str(arguments, "correlation_id", default="").strip() or None
+                ),
             )
             page = await self._search.search(
                 scope=ConversationSearchScope(principal_id=principal.id),
@@ -60,7 +64,14 @@ class SearchConversationsTool:
             )
         except (TypeError, ValueError) as exc:
             return ToolResult(status="error", preview=str(exc))
-        evidence_refs = tuple(dict.fromkeys(ref for hit in page.hits for ref in hit.evidence_refs))
+        evidence_refs = tuple(
+            dict.fromkeys(
+                ref.strip()
+                for hit in page.hits
+                for ref in hit.evidence_refs
+                if isinstance(ref, str) and ref.strip()
+            )
+        )
         return ToolResult(
             status="ok",
             data={

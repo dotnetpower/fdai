@@ -119,6 +119,8 @@ def surface_extensions(utterance: str, start: int, end: int) -> tuple[str, ...]:
     meaning to them. The resolver reads each form as an exact name.
     """
 
+    if not 0 <= start < end <= len(utterance):
+        return ()
     token_start = start
     while (
         token_start > 0
@@ -213,6 +215,8 @@ class GatewayAnchorResolver:
     async def resolve(
         self, mention_id: str, text: str, extensions: tuple[str, ...] = ()
     ) -> AnchorBinding:
+        if not text or not text.strip():
+            return AnchorBinding(mention_id, AnchorOutcome.ABSENT, reason="empty_anchor_text")
         found: dict[str, str | None] = {}
         longer: set[str] = set()
         source_complete = True

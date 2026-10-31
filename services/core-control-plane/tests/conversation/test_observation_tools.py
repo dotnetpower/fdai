@@ -351,6 +351,25 @@ def test_correlate_incident_unknown_id_abstains() -> None:
     assert "INC-missing" in (result.preview or "")
 
 
+def test_inventory_parent_id_resource_group_and_audit_timezone_since_validation() -> None:
+    from fdai.core.conversation._system_audit_tools import QueryAuditTool
+    from fdai.core.conversation._system_inventory_tool import _record_in_resource_group
+
+    assert _record_in_resource_group(
+        "vm-1",
+        {"parent_id": "/subscriptions/sub-1/resourceGroups/rg-app"},
+        "rg-app",
+    )
+
+    class _Audit:
+        audit_entries = ({"audit_id": "a1", "recorded_at": "2026-07-07T00:00:00Z"},)
+
+    tool = QueryAuditTool(audit_reader=_Audit())
+    naive = tool.call(arguments={"since": "2026-07-07T00:00:00"}, principal=_p())
+    assert naive.status == "error"
+    assert "timezone-aware" in (naive.preview or "")
+
+
 def test_correlate_incident_error_abstains() -> None:
     corr = InMemoryIncidentCorrelator()
     corr.next_error(IncidentCorrelationError("boom"))

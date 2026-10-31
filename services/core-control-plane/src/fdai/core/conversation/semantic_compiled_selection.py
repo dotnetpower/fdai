@@ -9,6 +9,7 @@ and the closed codes that say why, and only a failed form is read once more.
 from __future__ import annotations
 
 import json
+import math
 
 from fdai_service_contracts.ontology_query import (
     MAX_INTENT_GRAPH_GOALS,
@@ -82,7 +83,13 @@ def single_compiled_batch(
         return "goal_not_compiled"
     if not _limitations_stated(goal.limitations, goal.batches):
         return "goal_limited"
-    if not goal.batches or goal.confidence is None:
+    if (
+        not goal.batches
+        or goal.confidence is None
+        or isinstance(goal.confidence, bool)
+        or not math.isfinite(goal.confidence)
+        or not 0.0 <= goal.confidence <= 1.0
+    ):
         return "goal_unbatched"
     if [(batch.index, batch.total) for batch in goal.batches] != [
         (index, len(goal.batches)) for index in range(len(goal.batches))
@@ -291,11 +298,18 @@ def _united_outputs(nodes: dict[str, OntologyQueryNode], outputs: list[str]) -> 
 
     groups: dict[str, list[str]] = {}
     for node_id in outputs:
-        node = nodes[node_id]
-        if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+        node = nodes.get(node_id)
+        if node is None or node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
             return None
-        selector = json.loads(node.arguments_json).get("selector")
-        if not isinstance(selector, dict) or not isinstance(selector.get("name"), str):
+        try:
+            selector = json.loads(node.arguments_json).get("selector")
+        except (ValueError, TypeError):
+            return None
+        if (
+            not isinstance(selector, dict)
+            or not isinstance(selector.get("name"), str)
+            or not selector["name"].strip()
+        ):
             return None
         groups.setdefault(selector["name"], []).append(node_id)
     united: list[str] = []

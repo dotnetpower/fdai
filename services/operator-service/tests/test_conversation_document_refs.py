@@ -199,3 +199,49 @@ async def test_unexpected_resolver_failure_fails_closed_without_internals() -> N
 
     assert failure.value.status_code == 502
     assert "internal-host" not in str(failure.value)
+
+
+async def test_web_document_context_rejects_control_chars_and_short_citations() -> None:
+    from fdai_operator_service.families.conversation.document_refs import (
+        ResolvedDocumentAuthorization,
+        resolve_web_document_context,
+    )
+
+    refs = parse_document_refs(_body((DOCUMENT_ID, VERSION_ID)))
+    with pytest.raises(ValueError, match="canonical doc:uuid:uuid"):
+        ResolvedDocumentAuthorization(
+            citations=("not-doc-prefix",),
+            authorization_digest="sha256:" + "a" * 64,
+        )
+
+    class _ShortContextResolver:
+        async def resolve_context(
+            self,
+            *,
+            principal_id: str,
+            principal_groups: frozenset[str],
+            refs: Sequence[DocumentRef],
+        ) -> ResolvedDocumentAuthorization:
+            del principal_id, principal_groups, refs
+            return ResolvedDocumentAuthorization(
+                citations=(
+                    f"doc:{DOCUMENT_ID}:{VERSION_ID}",
+                    f"doc:{DOCUMENT_ID}:{OTHER_VERSION_ID}",
+                ),
+                authorization_digest="sha256:" + "a" * 64,
+            )
+
+    with pytest.raises(DocumentRefSyntaxError):
+        await resolve_web_document_context(
+            scope=SCOPE,
+            refs=refs,
+            conversation_ref="conv\x00bad",
+            resolver=_ShortContextResolver(),
+        )
+    with pytest.raises(DocumentRefAccessDeniedError):
+        await resolve_web_document_context(
+            scope=SCOPE,
+            refs=refs,
+            conversation_ref="conv-1",
+            resolver=_ShortContextResolver(),
+        )

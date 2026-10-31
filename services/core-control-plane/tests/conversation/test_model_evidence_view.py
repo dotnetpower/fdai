@@ -100,3 +100,33 @@ def test_an_object_set_row_lifts_reviewed_properties_but_never_the_provider_bag(
     encoded = view.canonical_json()
     assert "do-not-send" not in encoded
     assert "/subscriptions/hidden" not in encoded
+
+
+def test_grouped_aggregate_row_lifts_allowlisted_group_and_operation_fields() -> None:
+    view = model_evidence_view_from_tables(
+        (
+            QueryTable(
+                rows=(
+                    QueryRow.from_values(
+                        "agg-1",
+                        {
+                            "group": {"type": "compute.vm", "location": "koreacentral"},
+                            "operation": "count",
+                            "value": 5,
+                        },
+                    ),
+                ),
+                complete=True,
+            ),
+        ),
+        authorities=(EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+        release_digest=RELEASE_DIGEST,
+    )
+
+    (row,) = view.as_payload()["rows"]  # type: ignore[misc]
+    assert row["cells"] == {  # type: ignore[index]
+        "location": "koreacentral",
+        "operation": "count",
+        "type": "compute.vm",
+        "value": 5,
+    }

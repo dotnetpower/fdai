@@ -49,13 +49,20 @@ class ResultSetHandle:
     source_generation: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.handle_id or not self.conversation_id or not self.principal_id:
+        if (
+            not self.handle_id.strip()
+            or not self.conversation_id.strip()
+            or not self.principal_id.strip()
+            or not self.purpose.strip()
+            or not self.manifest_digest.strip()
+            or not self.object_type.strip()
+        ):
             raise ValueError("result handle MUST name its handle, conversation, and principal")
-        if self.expires_at.tzinfo is None:
+        if self.expires_at.tzinfo is None or self.expires_at.utcoffset() is None:
             raise ValueError("result handle expiry MUST be timezone-aware")
         if len(self.row_ids) > MAX_HANDLE_ROWS or len(set(self.row_ids)) != len(self.row_ids):
             raise ValueError("result handle rows MUST be unique and bounded")
-        if any(not isinstance(item, str) or not item for item in self.row_ids):
+        if any(not isinstance(item, str) or not item.strip() for item in self.row_ids):
             raise ValueError("result handle rows MUST be non-empty identifiers")
 
 
@@ -70,7 +77,16 @@ class HandleScope:
     now: datetime
 
     def __post_init__(self) -> None:
-        if self.now.tzinfo is None:
+        if (
+            not self.conversation_id.strip()
+            or not self.principal_id.strip()
+            or not self.purpose.strip()
+            or not self.manifest_digest.strip()
+        ):
+            raise ValueError(
+                "handle scope MUST name conversation, principal, purpose, and manifest"
+            )
+        if self.now.tzinfo is None or self.now.utcoffset() is None:
             raise ValueError("handle scope time MUST be timezone-aware")
 
 

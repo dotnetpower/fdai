@@ -45,7 +45,9 @@ def cloud_target_from_arguments(arguments: Mapping[str, object]) -> Applicabilit
     if "applicability" in arguments:
         raise ValueError("cloud applicability requires scalar selectors, not an object literal")
     values = {
-        field: arguments[argument] for argument, field in _FIELDS.items() if argument in arguments
+        field: arguments[argument]
+        for argument, field in _FIELDS.items()
+        if argument in arguments and arguments[argument] is not None
     }
     if not values:
         return None

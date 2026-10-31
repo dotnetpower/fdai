@@ -175,3 +175,42 @@ async def test_duplicate_repo_rejected() -> None:
             repository="org/project",
             registered_by="op@example.com",
         )
+
+
+@pytest.mark.asyncio
+async def test_registry_search_bounds_and_registration_model_validation() -> None:
+    from fdai.core.knowledge.models import RegisteredDocument
+
+    source = EmbeddingKnowledgeSource(embedder=_HashEmbedder())
+    registry = KnowledgeRegistry(source=source, clock=_clock)
+    await registry.register(
+        doc_id="d1",
+        title="Runbook",
+        text="mysql mitigation",
+        source_ref="wiki://d1",
+        kind=KnowledgeSourceKind.RUNBOOK,
+        registered_by="op@example.com",
+    )
+
+    assert await registry.search("   ", k=2) == ()
+    with pytest.raises(ValueError, match="positive"):
+        await registry.search("mysql", k=0)
+    with pytest.raises(ValueError, match="non-negative"):
+        RegisteredDocument(
+            doc_id="d2",
+            source_ref="wiki://d2",
+            kind=KnowledgeSourceKind.RUNBOOK,
+            title="t",
+            chunk_count=-1,
+            registered_by="op@example.com",
+            registered_at=_NOW,
+        )
+    code_registry = CodeRepoRegistry(clock=_clock)
+    for bad_repo in ("/", "owner/", "/name", "a/b/c"):
+        with pytest.raises(ValueError, match="owner/name"):
+            await code_registry.register(
+                repo_id="r-bad",
+                provider=CodeRepoProvider.GITHUB,
+                repository=bad_repo,
+                registered_by="op@example.com",
+            )

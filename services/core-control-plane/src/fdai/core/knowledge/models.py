@@ -58,10 +58,12 @@ class RegisteredDocument:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.doc_id:
+        if not self.doc_id or not self.doc_id.strip():
             raise ValueError("RegisteredDocument.doc_id MUST be non-empty")
-        if not self.registered_by:
+        if not self.registered_by or not self.registered_by.strip():
             raise ValueError("RegisteredDocument.registered_by MUST be non-empty")
+        if isinstance(self.chunk_count, bool) or self.chunk_count < 0:
+            raise ValueError("RegisteredDocument.chunk_count MUST be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,11 +86,14 @@ class CodeRepoRegistration:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.repo_id:
+        if not self.repo_id or not self.repo_id.strip():
             raise ValueError("CodeRepoRegistration.repo_id MUST be non-empty")
-        if "/" not in self.repository:
+        owner, sep, name = self.repository.strip().partition("/")
+        if not sep or not owner.strip() or not name.strip() or "/" in name.strip():
             raise ValueError("CodeRepoRegistration.repository MUST be 'owner/name' shaped")
-        if not self.registered_by:
+        if not self.default_branch or not self.default_branch.strip():
+            raise ValueError("CodeRepoRegistration.default_branch MUST be non-empty")
+        if not self.registered_by or not self.registered_by.strip():
             raise ValueError("CodeRepoRegistration.registered_by MUST be non-empty")
 
 

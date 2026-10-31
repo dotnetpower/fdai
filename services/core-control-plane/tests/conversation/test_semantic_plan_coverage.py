@@ -408,6 +408,38 @@ def test_part_of_a_longer_identifier_is_still_invented(operand: str, utterance: 
     assert outcome is not None and outcome.reason == "semantic_operand_without_source"
 
 
+def test_nearest_container_aggregate_and_telemetry_recipe_provenance() -> None:
+    from fdai.core.conversation.semantic_operand_provenance import unproven_identity_operands
+
+    nearest = _plan(
+        _objects(_TYPE),
+        _node(
+            "grouped",
+            QueryNodeKind.AGGREGATE,
+            {"operation": "count_by_nearest_container", "container_kind": "resource-group"},
+        ),
+    )
+    both = ConstraintExtraction(
+        constraints=(
+            ExtractedConstraint(quote=SourceSpan(start=0, end=1), role=ConstraintRole.GROUPS),
+            ExtractedConstraint(quote=SourceSpan(start=2, end=3), role=ConstraintRole.RELATES),
+        )
+    )
+    assert plan_uncovered_roles(both, nearest) == ()
+
+    recipe_plan = _plan(
+        _node(
+            "recipe",
+            QueryNodeKind.TELEMETRY_RECIPE,
+            {"need": {"resource_ref": "invented-vm", "incident_id": "inc-99"}},
+        )
+    )
+    assert unproven_identity_operands(recipe_plan, utterance="Check telemetry for vm-a") == (
+        "inc-99",
+        "invented-vm",
+    )
+
+
 def test_a_bound_console_resource_grounds_its_own_identities() -> None:
     plan = _plan(_objects({"property": "id", "operator": "equals", "equals": "/sub/vm-1"}))
     bound = SimpleNamespace(resource_ids=("/sub/vm-1",), resource_group_id=None)

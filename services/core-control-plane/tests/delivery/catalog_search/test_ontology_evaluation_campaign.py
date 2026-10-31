@@ -317,7 +317,7 @@ async def test_timeout_stops_campaign_and_parent_cancellation_propagates() -> No
     harness = await _harness(extra_cases=_calibration())
     harness.embedder.stall = True
     with pytest.raises(OntologyRetrievalCampaignAbortedError) as failure:
-        await _run(harness, timeout=0.01)
+        await _run(harness, timeout=0.1)
     assert failure.value.stage == "calibration"
     assert failure.value.completed == ()
     assert harness.embedder.calls == 1

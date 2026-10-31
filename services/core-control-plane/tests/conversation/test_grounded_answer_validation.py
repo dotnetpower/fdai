@@ -184,3 +184,18 @@ def test_ordinary_resource_alias_is_outside_canonical_identifier_check() -> None
     validation = validate_grounded_answer("vm-example was found.", result)
 
     assert validation.valid is True
+
+
+def test_equivalent_utc_timestamp_offset_and_z_suffix_is_accepted() -> None:
+    result = ToolResult(
+        status="ok",
+        data={"observed_at": "2026-07-23T08:00:00+00:00"},
+        preview="state healthy",
+    )
+
+    validation = validate_grounded_answer(
+        "The current state is healthy as of 2026-07-23T08:00:00Z.",
+        result,
+    )
+
+    assert validation.valid is True
