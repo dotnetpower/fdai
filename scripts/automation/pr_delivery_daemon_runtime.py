@@ -276,7 +276,17 @@ class DeliveryDaemon:
         )
         if merge.returncode != 0:
             self.runner(("git", "merge", "--abort"), self.config.worktree, 60)
-            raise DeliveryError("base merge conflicted or failed")
+            if self.runner is not default_runner:
+                raise DeliveryError("base merge conflicted or failed")
+            from scripts.automation.parallel_worktree_reconcile import sync_worktree_base
+
+            reconciled = sync_worktree_base(
+                self.config.worktree,
+                base_ref=base_ref,
+                fetch=False,
+            )
+            if reconciled.get("status") != "synchronized":
+                raise DeliveryError("base merge conflicted or failed")
         local_head = git(self.runner, self.config, "rev-parse", "HEAD")
         base_head = git(self.runner, self.config, "rev-parse", base_ref)
         push = self.runner(

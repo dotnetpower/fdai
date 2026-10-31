@@ -65,7 +65,12 @@ def source_digests(root: Path) -> dict[str, str]:
         if path.is_symlink() or not path.is_file():
             raise ValueError(f"tracked Python source is missing or not regular: {relative}")
         data = path.read_bytes()
-        actual = hashlib.new(algorithm, b"blob " + str(len(data)).encode() + b"\0" + data)
+        header = b"blob " + str(len(data)).encode() + b"\0" + data
+        actual = (
+            hashlib.sha1(header, usedforsecurity=False)
+            if algorithm == "sha1"
+            else hashlib.new(algorithm, header)
+        )
         if actual.hexdigest() != expected:
             raise ValueError(f"Python source differs from the index: {relative}")
         result[relative] = expected
