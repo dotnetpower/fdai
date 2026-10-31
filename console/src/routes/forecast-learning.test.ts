@@ -47,23 +47,51 @@ describe("decodeForecastLearning", () => {
     });
   });
 
-  it("rejects unreconciled episode totals", () => {
+  it("rejects unreconciled episode totals, impossible debt counts, and duplicate outcomes", () => {
+    const base = {
+      source: "postgres",
+      durable: true,
+      episodes: {
+        total: 10,
+        closed: 4,
+        open: 6,
+        overdue: 1,
+        abstained: 2,
+        closure_completeness: 0.9,
+      },
+      outcomes: [{ label: "false_negative", miss_origin: "pipeline", count: 1 }],
+      publication: { pending: 0, dead_lettered: 0, oldest_pending_at: null },
+      retention: { pending: 2, overdue: 1 },
+    };
     expect(() =>
       decodeForecastLearning({
-        source: "postgres",
-        durable: true,
-        episodes: {
-          total: 10,
-          closed: 9,
-          open: 2,
-          overdue: 1,
-          abstained: 2,
-          closure_completeness: 0.9,
-        },
-        outcomes: [],
-        publication: { pending: 0, dead_lettered: 0, oldest_pending_at: null },
-        retention: { pending: 0, overdue: 0 },
+        ...base,
+        episodes: { ...base.episodes, closed: 9, open: 2 },
       }),
     ).toThrow(/totals do not reconcile/);
+    expect(() =>
+      decodeForecastLearning({
+        ...base,
+        episodes: { ...base.episodes, overdue: 7 },
+      }),
+    ).toThrow(/totals do not reconcile/);
+    expect(() =>
+      decodeForecastLearning({
+        ...base,
+        episodes: { ...base.episodes, abstained: 11 },
+      }),
+    ).toThrow(/totals do not reconcile/);
+    expect(() =>
+      decodeForecastLearning({
+        ...base,
+        retention: { pending: 1, overdue: 2 },
+      }),
+    ).toThrow(/retention overdue MUST NOT exceed pending/);
+    expect(() =>
+      decodeForecastLearning({
+        ...base,
+        outcomes: [base.outcomes[0]!, base.outcomes[0]!],
+      }),
+    ).toThrow(/outcome keys MUST be unique/);
   });
 });

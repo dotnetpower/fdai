@@ -209,6 +209,34 @@ export function decodePantheonGraph(value: unknown): PantheonGraphResponse {
       throw panelContractError(`pantheon graph reporting chain for ${agent.name} MUST terminate at Odin`);
     }
   }
+  const hardDependencyAgents = panelStringArray(
+    root["hard_dependency_agents"],
+    "pantheon graph.hard_dependency_agents",
+  );
+  const hotPathLlmAgents = panelStringArray(
+    root["hot_path_llm_agents"],
+    "pantheon graph.hot_path_llm_agents",
+  );
+  const expectedHard = agents.filter((agent) => agent.hard_dependency).map((agent) => agent.name);
+  const expectedHotPath = agents.filter((agent) => agent.hot_path_llm).map((agent) => agent.name);
+  if (
+    hardDependencyAgents.length !== expectedHard.length ||
+    new Set(hardDependencyAgents).size !== hardDependencyAgents.length ||
+    expectedHard.some((name) => !hardDependencyAgents.includes(name))
+  ) {
+    throw panelContractError(
+      "pantheon graph.hard_dependency_agents MUST match agents where hard_dependency is true",
+    );
+  }
+  if (
+    hotPathLlmAgents.length !== expectedHotPath.length ||
+    new Set(hotPathLlmAgents).size !== hotPathLlmAgents.length ||
+    expectedHotPath.some((name) => !hotPathLlmAgents.includes(name))
+  ) {
+    throw panelContractError(
+      "pantheon graph.hot_path_llm_agents MUST match agents where hot_path_llm is true",
+    );
+  }
   return {
     agents,
     org_edges: panelArray(root["org_edges"], "pantheon graph.org_edges").map((value, index) => {
@@ -219,8 +247,8 @@ export function decodePantheonGraph(value: unknown): PantheonGraphResponse {
       };
     }),
     agent_count: agentCount,
-    hard_dependency_agents: panelStringArray(root["hard_dependency_agents"], "pantheon graph.hard_dependency_agents"),
-    hot_path_llm_agents: panelStringArray(root["hot_path_llm_agents"], "pantheon graph.hot_path_llm_agents"),
+    hard_dependency_agents: hardDependencyAgents,
+    hot_path_llm_agents: hotPathLlmAgents,
     mermaid: panelString(root, "mermaid", "pantheon graph"),
   };
 }
@@ -257,6 +285,9 @@ export function decodePantheonWorkflows(value: unknown): PantheonWorkflowsRespon
     ) {
       throw panelContractError(`pantheon workflow ${workflow.id} participants MUST be fixed agents and include primary_agent`);
     }
+    if (workflow.default_mode !== "shadow" && workflow.default_mode !== "enforce") {
+      throw panelContractError(`pantheon workflow ${workflow.id} default_mode MUST be shadow or enforce`);
+    }
   }
   return { workflows, count };
 }
@@ -286,6 +317,16 @@ function PantheonBody({
   const { graph, workflows } = data;
   const active = activeAgentCount(runtime);
   const [view, setView] = useState<PantheonView>(pantheonViewFromRoute);
+
+  useEffect(() => {
+    const syncView = () => setView(pantheonViewFromRoute());
+    window.addEventListener("popstate", syncView);
+    window.addEventListener("fdai:route-changed", syncView);
+    return () => {
+      window.removeEventListener("popstate", syncView);
+      window.removeEventListener("fdai:route-changed", syncView);
+    };
+  }, []);
 
   const openView = (next: PantheonView): void => {
     setView(next);

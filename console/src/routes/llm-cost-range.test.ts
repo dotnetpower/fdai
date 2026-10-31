@@ -37,6 +37,8 @@ describe("LLM usage date ranges", () => {
     });
     expect(customLlmUsageRange("2026-01-01", "2026-07-29")).toBeNull();
     expect(customLlmUsageRange("2026-07-30", "2026-07-29")).toBeNull();
+    expect(customLlmUsageRange("2026-02-31", "2026-03-05")).toBeNull();
+    expect(customLlmUsageRange("2026-02-01", "2026-04-31")).toBeNull();
   });
 
   test("restores exact URL cutoffs and separates API params", () => {
@@ -44,6 +46,10 @@ describe("LLM usage date ranges", () => {
       "range=30d&from=2026-07-06T00%3A00%3A00.000Z&to=2026-08-05T00%3A00%3A00.000Z",
     ), now);
     expect(range.preset).toBe("30d");
+    const mismatched = llmUsageRangeFromSearch(new URLSearchParams(
+      "range=24h&from=2026-07-20T00%3A00%3A00.000Z&to=2026-07-30T00%3A00%3A00.000Z",
+    ), now);
+    expect(mismatched.preset).toBe("custom");
     expect(llmUsageRangeSearchParams(range)).toEqual({
       range: "30d",
       from: "2026-07-06T00:00:00.000Z",

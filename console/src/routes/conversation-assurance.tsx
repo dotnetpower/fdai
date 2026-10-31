@@ -10,8 +10,11 @@ import {
   kpiEvidenceLabel,
   type AsyncState,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
 import { putGovernedJson } from "../governed-command";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, replaceRouteState, ROUTE_STATE_EVENT, routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   decodeAssuranceDetail,
   decodeConversationAssurance,
@@ -42,6 +45,9 @@ export function ConversationAssuranceRoute({
 }) {
   const [state, setState] = useState<AsyncState<ConversationAssurancePayload>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [requestedTurn, setRequestedTurn] = useState<string | null>(
+    () => currentRoute().search.get("turn"),
+  );
   const loadTracker = useRef(createLatestRequestTracker());
   const load = async () => {
     const request = loadTracker.current.begin();
@@ -49,8 +55,9 @@ export function ConversationAssuranceRoute({
       const data = decodeConversationAssurance(await client.panel<unknown>("/conversation-assurance"));
       if (!loadTracker.current.isCurrent(request)) return;
       setState({ status: "ready", data });
-      const requestedTurn = currentRoute().search.get("turn");
-      setSelectedId((current) => selectedAssessmentId(data, requestedTurn, current));
+      const turn = currentRoute().search.get("turn");
+      setRequestedTurn(turn);
+      setSelectedId((current) => selectedAssessmentId(data, turn, current));
     } catch (error) {
       if (!loadTracker.current.isCurrent(request)) return;
       const unavailable = isOptionalOperatorApiUnavailable(error);
@@ -62,8 +69,31 @@ export function ConversationAssuranceRoute({
       });
     }
   };
-  useEffect(() => { void load(); }, [client]);
-  const requestedAssessment = currentRoute().search.get("turn");
+  useEffect(() => {
+    setState({ status: "loading" });
+    void load();
+  }, [client]);
+  useEffect(() => {
+    const sync = () => {
+      const turn = currentRoute().search.get("turn");
+      setRequestedTurn(turn);
+      if (state.status === "ready") {
+        setSelectedId((current) => selectedAssessmentId(state.data, turn, current));
+      }
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, [state]);
+  const selectAssessment = (assessmentId: string) => {
+    setSelectedId(assessmentId);
+    replaceRouteState(routeHref("conversation-assurance", { params: { turn: assessmentId } }));
+  };
   return (
     <div class="stack">
       <PageHeader title={t("assurance.title")} subtitle={t("assurance.subtitle")} />
@@ -73,9 +103,9 @@ export function ConversationAssuranceRoute({
             auth={auth}
             client={client}
             data={data}
-            requestedAssessment={requestedAssessment}
+            requestedAssessment={requestedTurn}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={selectAssessment}
             onRefresh={load}
           />
         )}
@@ -145,6 +175,32 @@ function AssuranceBody({
 }) {
   const evidenceState = data.summary.total === 0 ? "insufficient-sample" : "measured";
   const href = `${routeHref("conversation-assurance")}#assessments`;
+  usePublishViewContext(
+    () => ({
+      routeId: "conversation-assurance",
+      routeLabel: t("assurance.title"),
+      purpose: t("assurance.subtitle"),
+      glossary: composeGlossary([TERMS.shadowMode]),
+      headline: `${data.summary.total} assessments (${data.summary.pass} pass, ${data.summary.fail} fail)`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "total", value: data.summary.total, group: "assurance" },
+        { key: "pass", value: data.summary.pass, group: "assurance" },
+        { key: "fail", value: data.summary.fail, group: "assurance" },
+        { key: "disputes", value: data.summary.disputes, group: "assurance" },
+        { key: "selected_assessment", value: selectedId ?? "-", group: "assurance" },
+      ],
+      records: {
+        assessments: data.assessments.slice(0, 25).map((item) => ({
+          assessment_id: item.assessment_id,
+          turn_id: item.turn_id,
+          verdict: item.verdict,
+          content_score: item.content_score,
+        })),
+      },
+    }),
+    [data, selectedId],
+  );
   return (
     <div class="stack">
       <div class="governance-readonly-banner">
@@ -172,7 +228,7 @@ function AssuranceBody({
         {data.disputes.length === 0 ? <p>{t("shared.noRows")}</p> : data.disputes.map((item) => (
           <div class="assurance-dispute" key={item.dispute_id}>
             <strong>{t(`assurance.reasonOptions.${item.reason}`)}</strong>
-            <span>{item.detail}</span><small>{new Date(item.reported_at).toLocaleString()}</small>
+            <span>{item.detail}</span><small>{formatConsoleTimestamp(item.reported_at)}</small>
           </div>
         ))}
       </section>

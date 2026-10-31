@@ -144,10 +144,17 @@ export function reducer(state: ProvisionState, ev: ProvisionEvent): ProvisionSta
     case "snapshot":
       if (
         ev.sequence === undefined ||
+        !Number.isSafeInteger(ev.sequence) ||
+        ev.sequence < 0 ||
         ev.run_id === undefined ||
         ev.ready === undefined ||
         ev.stages_completed === undefined ||
         ev.stages_total === undefined ||
+        !Number.isSafeInteger(ev.stages_completed) ||
+        !Number.isSafeInteger(ev.stages_total) ||
+        ev.stages_completed < 0 ||
+        ev.stages_total < 0 ||
+        ev.stages_completed > ev.stages_total ||
         ev.current_stage === undefined ||
         ev.state === undefined ||
         ev.attempt === undefined ||
@@ -328,7 +335,7 @@ function ProvisionRouteSession({ client, dataMode, embedded = false }: Props) {
   const lastError = dataMode === "sample" ? null : stream.lastError;
 
   const stageFraction =
-    state.stagesCompleted !== null && state.stagesTotal
+    state.stagesCompleted !== null && state.stagesTotal !== null && state.stagesTotal > 0
       ? state.stagesCompleted / state.stagesTotal
       : state.fraction;
   const pct = state.ready

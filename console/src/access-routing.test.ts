@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AuthContext } from "./auth";
 import {
+  recoverConsoleAccess,
   shouldAllowLocalDevBypass,
   shouldLoadIamSelf,
   shouldShowAccessRequired,
@@ -68,5 +69,28 @@ describe("access routing", () => {
       principal: { ...unassigned.principal, roles: ["Reader"] },
       canAccessConsole: true,
     })).toBe(false);
+  });
+
+  it("recovers access via iamSelf for signed-in accounts and dashboardMetrics for anonymous dev mode", async () => {
+    const iamSelf = vi.fn().mockResolvedValue(unassigned);
+    const dashboardMetrics = vi.fn().mockResolvedValue({});
+
+    const signedIn = auth(false, {
+      homeAccountId: "home-1",
+      localAccountId: "user-1",
+      username: "user@example.com",
+    });
+    await expect(recoverConsoleAccess(signedIn, { iamSelf, dashboardMetrics }))
+      .resolves
+      .toEqual(unassigned);
+    expect(iamSelf).toHaveBeenCalledTimes(1);
+    expect(dashboardMetrics).not.toHaveBeenCalled();
+
+    const anonymousDev = auth(true, null);
+    await expect(recoverConsoleAccess(anonymousDev, { iamSelf, dashboardMetrics }))
+      .resolves
+      .toBeUndefined();
+    expect(iamSelf).toHaveBeenCalledTimes(1);
+    expect(dashboardMetrics).toHaveBeenCalledTimes(1);
   });
 });

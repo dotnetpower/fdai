@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { backgroundTasksHref } from "./background-tasks";
 import {
   appendBackgroundTaskPage,
   backgroundTaskTone,
@@ -156,5 +157,12 @@ describe("background task model", () => {
     expect(backgroundTaskTone("running")).toBe("warning");
     expect(backgroundTaskTone("failed")).toBe("danger");
     expect(backgroundTaskTone("cancelled")).toBe("neutral");
+  });
+
+  it("preserves sample data mode across background task detail links", () => {
+    expect(backgroundTasksHref("task-one", false)).toBe("/background-tasks/task-one");
+    expect(backgroundTasksHref("task-one", true)).toBe("/background-tasks/task-one?data=sample");
+    expect(backgroundTasksHref(null, false)).toBe("/background-tasks");
+    expect(backgroundTasksHref(null, true)).toBe("/background-tasks?data=sample");
   });
 });

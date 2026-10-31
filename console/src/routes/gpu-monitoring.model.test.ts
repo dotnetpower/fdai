@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { LiveStageEvent } from "../hooks/use-live-stream";
+import { gpuLiveStreamHref } from "./gpu-monitoring";
 import {
   decodeGpuObservation,
   gpuDeviceViews,
@@ -112,5 +113,7 @@ describe("GPU monitoring model", () => {
       rollbackTested: true,
       powerState: "deallocated",
     });
+    expect(gpuLiveStreamHref("live")).toBe("/live");
+    expect(gpuLiveStreamHref("sample")).toBe("/live?data=sample");
   });
 });
