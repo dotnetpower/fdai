@@ -103,6 +103,30 @@ class Controller:
                             data["workers"][identity].update(provider_ref=ref)
 
                         self.state.transaction(recovered)
+            for worker in self.state.read()["workers"].values():
+                if worker["status"] == "starting" and worker.get("registration_id") is None:
+                    pool_policy = self.policies.get(worker["pool"])
+                    timeout_s = (
+                        pool_policy.startup_timeout_seconds if pool_policy is not None else 300
+                    )
+                    age_s = (now - datetime.fromisoformat(worker["since"])).total_seconds()
+                    if age_s >= timeout_s:
+
+                        def abort_timed_out_start(
+                            data: dict[str, Any],
+                            identity: str = worker["id"],
+                        ) -> None:
+                            data["workers"][identity].update(
+                                cleanup_requested=True,
+                                status="draining",
+                                cleanup_checked_at=now.isoformat(),
+                                terminal_observed_at=now.isoformat(),
+                            )
+
+                        self.state.transaction(abort_timed_out_start)
+                        if worker["pool"] == "docker" and worker.get("provider_ref"):
+                            updated_worker = self.state.read()["workers"][worker["id"]]
+                            self.workers.cleanup(updated_worker)
 
         def observe(data: dict[str, Any]) -> None:
             for worker in data["workers"].values():
@@ -362,7 +386,10 @@ class Controller:
                 ):
                     self.github.remove_idle(registration["id"], worker["name"])
                 continue
-            if worker["registration_id"] in active or not self.workers.terminal(worker):
+            is_terminal = bool(
+                worker.get("cleanup_requested") and worker.get("terminal_observed_at")
+            ) or self.workers.terminal(worker)
+            if worker["registration_id"] in active or not is_terminal:
                 continue
             if worker["pool"] == "docker":
                 if worker.get("cleanup_requested"):
