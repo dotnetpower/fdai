@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Annotated, Literal
 
@@ -25,6 +26,12 @@ class AdaptiveGoal(_Candidate):
     kind: GoalKind
     question: Annotated[str, Field(min_length=1, max_length=2000)]
     required: StrictBool
+
+    @model_validator(mode="after")
+    def _non_blank_question(self) -> AdaptiveGoal:
+        if not self.question.strip():
+            raise ValueError("adaptive goal question must be non-empty")
+        return self
 
 
 class AdaptivePlan(_Candidate):
@@ -75,6 +82,12 @@ class AdaptiveSection(_Candidate):
     goal_id: GoalId
     text: Annotated[str, Field(min_length=1, max_length=6000)]
 
+    @model_validator(mode="after")
+    def _non_blank_text(self) -> AdaptiveSection:
+        if not self.text.strip():
+            raise ValueError("adaptive section text must be non-empty")
+        return self
+
 
 class AdaptiveDraft(_Candidate):
     """Bounded authored sections, validated against the server's selected goal set."""
@@ -101,6 +114,14 @@ class AdaptiveReview(_Candidate):
         Field(max_length=8),
     ]
 
+    @model_validator(mode="after")
+    def _unique_supported_goals(self) -> AdaptiveReview:
+        if len(set(self.supported_goal_ids)) != len(self.supported_goal_ids):
+            raise ValueError("adaptive review supported_goal_ids must be unique")
+        if any(not issue.strip() for issue in self.issues):
+            raise ValueError("adaptive review issues must be non-empty")
+        return self
+
 
 @dataclass(frozen=True, slots=True)
 class AdaptiveEvidence:
@@ -115,13 +136,15 @@ class AdaptiveEvidence:
     def __post_init__(self) -> None:
         if len(self.content) > 12000 or len(self.evidence_refs) > 12:
             raise ValueError("adaptive evidence exceeds its bound")
-        if self.status == "answered" and (not self.evidence_refs or not self.content):
+        if self.status == "answered" and (not self.evidence_refs or not self.content.strip()):
             raise ValueError("answered environment evidence requires content and references")
         if any(not ref.strip() or len(ref) > 256 for ref in self.evidence_refs):
             raise ValueError("adaptive evidence references must be bounded")
         if self.status != "answered" and (self.content or self.evidence_refs):
             raise ValueError("unavailable evidence must not carry answer content")
-        if self.status != "answered" and (not self.limitation or len(self.limitation) > 2000):
+        if self.status != "answered" and (
+            not self.limitation or not self.limitation.strip() or len(self.limitation) > 2000
+        ):
             raise ValueError("unavailable evidence requires a bounded explicit limitation")
         if any(not isinstance(authority, EvidenceAuthority) for authority in self.authorities):
             raise ValueError("adaptive evidence requires canonical authority values")
@@ -140,13 +163,27 @@ class AdaptivePolicy:
     refinement_enabled: bool = True
 
     def __post_init__(self) -> None:
-        if not 0 < self.per_stage_seconds <= self.total_seconds <= 120:
+        if (
+            isinstance(self.total_seconds, bool)
+            or isinstance(self.per_stage_seconds, bool)
+            or not math.isfinite(self.total_seconds)
+            or not math.isfinite(self.per_stage_seconds)
+            or not 0 < self.per_stage_seconds <= self.total_seconds <= 120
+        ):
             raise ValueError("adaptive deadlines must be positive and bounded")
-        if not 3 <= self.max_calls <= 5 or not 4096 <= self.max_tokens <= 96000:
+        if (
+            isinstance(self.max_calls, bool)
+            or isinstance(self.max_tokens, bool)
+            or not 3 <= self.max_calls <= 5
+            or not 4096 <= self.max_tokens <= 96000
+        ):
             raise ValueError("adaptive model budgets are invalid")
-        if not 4096 <= self.max_input_bytes <= 128000:
+        if isinstance(self.max_input_bytes, bool) or not 4096 <= self.max_input_bytes <= 128000:
             raise ValueError("adaptive input budget is invalid")
-        if not 256 <= self.reserved_output_tokens <= 4096:
+        if (
+            isinstance(self.reserved_output_tokens, bool)
+            or not 256 <= self.reserved_output_tokens <= 4096
+        ):
             raise ValueError("adaptive output reservation is invalid")
 
 

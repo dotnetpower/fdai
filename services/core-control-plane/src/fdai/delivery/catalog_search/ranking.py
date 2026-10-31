@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+import unicodedata
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
@@ -42,8 +43,9 @@ class CatalogRankingPolicy:
 
 
 def lexical_tokens(value: str) -> frozenset[str]:
+    normalized = unicodedata.normalize("NFKC", value)
     tokens: set[str] = set()
-    for raw in _TOKEN.findall(value.casefold()):
+    for raw in _TOKEN.findall(normalized.casefold()):
         if raw.isdecimal() or raw in _STOPWORDS:
             continue
         tokens.add(raw)
@@ -71,19 +73,23 @@ def rank_documents(
     candidate_rule_ids: frozenset[str] | None = None,
 ) -> tuple[tuple[float, CatalogSearchDocument, dict[str, float]], ...]:
     """Use identical exact, lexical, semantic, and tie semantics in both adapters."""
+    normalized_query = unicodedata.normalize("NFKC", query).casefold().strip()
     tokens = lexical_tokens(query)
     ranked: list[tuple[float, CatalogSearchDocument, dict[str, float]]] = []
     for document in documents:
         if candidate_rule_ids is not None and document.rule_id not in candidate_rule_ids:
             continue
-        exact = float(query.casefold().strip() == document.rule_id.casefold())
+        exact = float(
+            bool(normalized_query)
+            and normalized_query == unicodedata.normalize("NFKC", document.rule_id).casefold()
+        )
         lexical = lexical_score(document, tokens)
         semantic = (
             semantic_scores.get(document.rule_id, 0.0)
             if semantic_scores is not None
             else cosine_similarity(query_vector, document.embedding)
         )
-        if not math.isfinite(semantic):
+        if isinstance(semantic, bool) or not math.isfinite(semantic):
             raise ValueError("catalog semantic score MUST be finite")
         semantic = max(0.0, min(1.0, semantic))
         score = (

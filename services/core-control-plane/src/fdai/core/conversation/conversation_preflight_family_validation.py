@@ -176,7 +176,14 @@ def preflight_operational_judgment(
                     )
                 }
             )
-        normalized_targets.append(target)
+        if not any(
+            existing.kind == target.kind
+            and existing.source_start == target.source_start
+            and existing.source_end == target.source_end
+            and existing.value == target.value
+            for existing in normalized_targets
+        ):
+            normalized_targets.append(target)
     if (
         proposal.operational_family is OperationalPreflightFamily.GATEWAY_DIAGNOSTIC_EVIDENCE
         and not any(target.kind == "resource" for target in normalized_targets)

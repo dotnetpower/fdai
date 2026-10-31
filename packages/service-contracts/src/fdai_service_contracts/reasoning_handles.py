@@ -177,8 +177,13 @@ class ResultHandle(QueryContract):
         if self.row_identities:
             if len(self.row_identities) != len(self.row_keys):
                 raise ValueError("result handle row_identities MUST match row_keys")
-            if len(self.row_identities) != len(set(self.row_identities)):
+            if len(self.row_identities) != len(set(self.row_identities)) or any(
+                not item.strip() for item in self.row_identities
+            ):
                 raise ValueError("result handle row_identities MUST be unique")
+        sort_fields = tuple(term.field_name for term in self.sort)
+        if len(sort_fields) != len(set(sort_fields)):
+            raise ValueError("result handle sort field names MUST be unique")
 
         snapshot_row_identities = tuple(
             canonical_json(row.row_key.model_dump(mode="json")) for row in self.snapshot_cells
@@ -331,6 +336,9 @@ class QueryContinuation(QueryContract):
             raise ValueError("window_end MUST be after window_start")
         if self.expires_at <= self.cutoff:
             raise ValueError("expires_at MUST be after cutoff")
+        ordering_fields = tuple(term.field_name for term in self.ordering)
+        if len(ordering_fields) != len(set(ordering_fields)):
+            raise ValueError("query continuation ordering field names MUST be unique")
 
         has_row_account = self.remaining_rows is not None
         has_batch_account = (

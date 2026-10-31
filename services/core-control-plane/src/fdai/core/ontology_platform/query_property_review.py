@@ -15,13 +15,11 @@ def reviewed_property_paths(
 ) -> dict[str, frozenset[str]]:
     """Index each provider path by the Resource types that reviewed it."""
 
-    return {
-        f"properties.properties.{path}": frozenset(
-            kind for kind, path_value in read.paths if path_value == path
-        )
-        for read in reads
-        for _kind, path in read.paths
-    }
+    by_path: dict[str, set[str]] = {}
+    for read in reads:
+        for kind, path in read.paths:
+            by_path.setdefault(f"properties.properties.{path}", set()).add(kind)
+    return {field: frozenset(kinds) for field, kinds in by_path.items()}
 
 
 def reviewed_fields_for_resource_set(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any
 
@@ -73,8 +74,16 @@ def proposals_match(
 ) -> bool:
     """Compare every meaning axis after both proposals pass ordinary grounding."""
 
+    if (
+        isinstance(confidence_threshold, bool)
+        or not math.isfinite(confidence_threshold)
+        or not 0.0 <= confidence_threshold <= 1.0
+    ):
+        raise ValueError("semantic review confidence threshold MUST be in [0, 1]")
     return (
-        not reviewer.ambiguous
+        not primary.ambiguous
+        and not reviewer.ambiguous
+        and primary.confidence >= confidence_threshold
         and reviewer.confidence >= confidence_threshold
         and _signature(reviewer) == _signature(primary)
     )

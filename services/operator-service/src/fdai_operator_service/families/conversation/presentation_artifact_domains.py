@@ -69,8 +69,8 @@ def _resource_condition_artifact(
     if (
         not isinstance(state_output, Mapping)
         or not isinstance(health_output, Mapping)
-        or not isinstance(measures, list)
-        or any(not isinstance(item, str) for item in measures)
+        or not isinstance(measures, (list, tuple))
+        or any(not isinstance(item, str) or not item.strip() for item in measures)
     ):
         return None
     specs = (
@@ -100,8 +100,8 @@ def _resource_condition_artifact(
     for slot, ko_title, en_title, output, concept_field, columns, prefix in specs:
         shape = analyze_evidence_shape(output, verified=verified)
         source_refs = output.get("evidence_refs")
-        if not isinstance(source_refs, list) or any(
-            not isinstance(item, str) for item in source_refs
+        if not isinstance(source_refs, (list, tuple)) or any(
+            not isinstance(item, str) or not item.strip() for item in source_refs
         ):
             return None
         decision = plan_presentation(intent=PresentationIntent.EXACT, shape=shape)
@@ -130,7 +130,7 @@ def _resource_condition_artifact(
                     concept_field == "health_concept"
                     and isinstance(
                         (matching_concepts := row.get("matching_health_concepts")),
-                        list,
+                        (list, tuple),
                     )
                     and concept in matching_concepts
                 )
@@ -209,7 +209,7 @@ def _service_health_artifact(
     if not verified:
         return None
     rows = output.get("rows")
-    if not isinstance(rows, list) or not rows or not isinstance(rows[0], Mapping):
+    if not isinstance(rows, (list, tuple)) or not rows or not isinstance(rows[0], Mapping):
         return None
     summary = rows[0].get("values")
     if (

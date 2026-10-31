@@ -76,15 +76,18 @@ def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
     bound keeps its leading characters; every older turn is left out and counted.
     """
 
-    items = tuple(context)
-    if any(not isinstance(item, str) for item in items):
+    if isinstance(context, (str, bytes)):
+        raise TypeError("conversation preflight context MUST be a sequence of strings")
+    raw_items = tuple(context)
+    if any(not isinstance(item, str) for item in raw_items):
         raise TypeError("conversation preflight context MUST contain strings")
+    items = tuple(item for item in raw_items if item.strip())
     selected: list[str] = []
     remaining = _MAX_CONTEXT_CHARS
     for item in reversed(items[-_MAX_CONTEXT_ITEMS:]):
-        kept = item[:remaining]
-        if not kept:
+        if remaining <= 0:
             break
+        kept = item[:remaining]
         selected.append(kept)
         remaining -= len(kept)
     dropped = len(items) - len(selected)

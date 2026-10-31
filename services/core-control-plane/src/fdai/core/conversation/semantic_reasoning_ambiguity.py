@@ -46,7 +46,10 @@ def ambiguity_verdict(answer: Mapping[str, Any] | None) -> str:
     if not isinstance(answer, Mapping):
         return "unavailable"
     readings = answer.get("readings")
-    return readings if isinstance(readings, str) and readings in AMBIGUITY_READINGS else "invalid"
+    if not isinstance(readings, str):
+        return "invalid"
+    normalized = readings.strip().lower()
+    return normalized if normalized in AMBIGUITY_READINGS else "invalid"
 
 
 __all__ = ["AMBIGUITY_READINGS", "AmbiguityReader", "ambiguity_schema", "ambiguity_verdict"]

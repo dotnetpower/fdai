@@ -41,15 +41,15 @@ class SemanticModelCallProgress(QueryContract):
     request_id: BoundedId
     session_id: BoundedId
     turn_id: BoundedId
-    turn_sequence: Annotated[int, Field(ge=0)]
-    progress_sequence: Annotated[int, Field(ge=1, le=256)]
-    call_index: Annotated[int, Field(ge=1, le=MAX_MODEL_CALLS_PER_TURN)]
+    turn_sequence: Annotated[int, Field(ge=0, strict=True)]
+    progress_sequence: Annotated[int, Field(ge=1, le=256, strict=True)]
+    call_index: Annotated[int, Field(ge=1, le=MAX_MODEL_CALLS_PER_TURN, strict=True)]
     stage: ModelCallStage
     status: ModelCallStatus
     model: Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")] | None = None
     started_at: datetime
     completed_at: datetime | None = None
-    duration_ms: Annotated[int, Field(ge=0, le=86_400_000)] | None = None
+    duration_ms: Annotated[int, Field(ge=0, le=86_400_000, strict=True)] | None = None
     prompt_tokens: _TokenCount | None = None
     completion_tokens: _TokenCount | None = None
     execution_authority: Literal[False] = False

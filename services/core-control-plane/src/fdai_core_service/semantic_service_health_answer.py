@@ -40,7 +40,7 @@ def render_service_health_answer(
         return invalid_answer(korean)
     output = outputs[0]
     rows = output.get("rows")
-    if not isinstance(rows, list):
+    if not isinstance(rows, (list, tuple)):
         return invalid_answer(korean)
     if not rows:
         return invalid_answer(korean)
@@ -107,8 +107,11 @@ def render_service_health_answer(
         if existing is not None and _event_identity(existing) != _event_identity(values):
             return invalid_answer(korean)
         events_by_id.setdefault(event_id, values)
-        if isinstance((impacted_ref := values.get("impacted_resource_ref")), str):
-            impacted_refs.add(impacted_ref)
+        if (
+            isinstance((impacted_ref := values.get("impacted_resource_ref")), str)
+            and impacted_ref.strip()
+        ):
+            impacted_refs.add(impacted_ref.strip())
 
     complete = output.get("source_complete") is True
     events = list(events_by_id.values())
@@ -295,13 +298,13 @@ def _valid_impacted_count(
 
 
 def _parse_timestamp(value: object) -> datetime | None:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         return None
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else None
+    return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
 
 
 def _event_conclusion(complete: bool, count: int) -> str:

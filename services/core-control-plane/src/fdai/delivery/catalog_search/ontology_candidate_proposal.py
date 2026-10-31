@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Annotated, Literal, Protocol
 
@@ -48,7 +49,7 @@ class OntologyCandidateProposal(BaseModel):
         return self
 
     def validate_source_quotes(self, query: str) -> None:
-        if any(query.count(quote) != 1 for quote in self.clause_quotes):
+        if any(not quote.strip() or query.count(quote) != 1 for quote in self.clause_quotes):
             raise ValueError("candidate proposal quote must identify one exact source span")
 
 
@@ -149,7 +150,7 @@ def filter_candidate_proposal_quotes(
     quotes = []
     invalid = 0
     for clause, quote in zip(proposal.clauses, proposal.clause_quotes, strict=True):
-        if query.count(quote) == 1:
+        if quote.strip() and query.count(quote) == 1:
             clauses.append(clause)
             quotes.append(quote)
         else:
@@ -181,7 +182,7 @@ def candidate_predicate_property_catalog(manifest: QueryManifest) -> tuple[dict[
         if descriptor.get("kind") != "object":
             continue
         properties = descriptor.get("properties")
-        if not isinstance(properties, dict):
+        if not isinstance(properties, Mapping):
             continue
         rows.append(
             {

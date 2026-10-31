@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 from fdai_service_contracts.semantic_judgment import SemanticJudgmentProposal
@@ -75,7 +76,7 @@ def normalize_identity_ambiguity(
 def names_schema_family(raw: object) -> bool:
     """Return whether one raw primary reading proposed a schema-family intent."""
 
-    return isinstance(raw, dict) and raw.get("primary_intent") in _SCHEMA_INTENTS
+    return isinstance(raw, Mapping) and raw.get("primary_intent") in _SCHEMA_INTENTS
 
 
 def repair_required(proposal: SemanticJudgmentProposal) -> bool:

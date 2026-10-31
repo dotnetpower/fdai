@@ -137,3 +137,87 @@ async def test_password_and_api_key_suffixes_are_redacted_and_handle_refs_dedupl
     assert await latest_result_handle_refs(_Store(), principal_id="  ", session_id="s1") == ()
     with pytest.raises(ValueError, match="limit MUST be"):
         await latest_result_handle_refs(_Store(), principal_id="p1", session_id="s1", limit=0)
+
+
+def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
+    from datetime import UTC, datetime
+
+    import pytest
+    from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
+    from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
+        compile_presentation_artifact_v2,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+        assemble_presentation_artifact_v3,
+        verify_presentation_artifact_v3,
+    )
+    from fdai_operator_service.families.conversation.semantic_progress_relay import (
+        SemanticProgressRelay,
+    )
+    from fdai_operator_service.families.conversation.subscription_scope_presentation import (
+        subscription_scope_artifact,
+    )
+    from fdai_operator_service.families.conversation.user_context import _moment, _text
+
+    # D49 & D50: compile_presentation_artifact_v2 rejects whitespace-only evidence_refs
+    assert (
+        compile_presentation_artifact_v2(
+            semantic={"evidence_refs": ["   "]},
+            technical_details={
+                "presentation_context": {"operation": "select", "output_shape": "resource_list"},
+                "outputs": [{"rows": []}],
+            },
+            locale="en",
+        )
+        is None
+    )
+
+    # D51: boolean progress_sequence rejected in SemanticProgressRelay
+    relay = SemanticProgressRelay()
+    with pytest.raises(ValueError, match="non-negative integer"):
+        relay.after("req-1", True)  # type: ignore[arg-type]
+
+    # D53: assemble_presentation_artifact_v3 normalizes and validates evidence_refs
+    artifact = assemble_presentation_artifact_v3(
+        layout="operational_brief",
+        blocks=[{"slot_id": "overview", "kind": "summary", "title": "T", "data": {}}],
+        evidence_refs=[" ref-1 ", "ref-1", "   "],
+        locale="en",
+        input_kinds=("verified_semantic_result",),
+    )
+    assert artifact["evidence_refs"] == ["ref-1"]
+    verify_presentation_artifact_v3(artifact)
+    with pytest.raises(ValueError, match="missing"):
+        verify_presentation_artifact_v3({**artifact, "evidence_refs": ["   "]})
+
+    # D58: subscription_scope_artifact rejects non-ISO observed_at
+    assert (
+        subscription_scope_artifact(
+            output={
+                "source_complete": True,
+                "rows": (
+                    {
+                        "values": {
+                            "execution_authority": False,
+                            "display_name": "Sub",
+                            "state": "Enabled",
+                            "masked_subscription_id": "0000...1111",
+                            "observed_at": "not-a-timestamp",
+                            "evidence_digest": "sha256:" + "a" * 64,
+                        }
+                    },
+                ),
+            },
+            evidence_refs=["ref-1"],
+            locale="en",
+            verified=True,
+        )
+        is None
+    )
+
+    # D60: user_context _text rejects whitespace-only and _moment rejects naive datetime
+    with pytest.raises(ConversationBoundaryError):
+        _text({"field": "   "}, "field")
+    with pytest.raises(ConversationBoundaryError):
+        _moment({"ts": datetime(2026, 9, 27)}, "ts")
+    assert _moment({"ts": datetime(2026, 9, 27, tzinfo=UTC)}, "ts").startswith("2026-09-27")

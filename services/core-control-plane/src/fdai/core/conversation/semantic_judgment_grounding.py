@@ -226,7 +226,7 @@ def normalize_required_identity_clarification(
         return proposal
     clarification = (
         "어떤 리소스의 정확한 이름이나 ID를 사용할까요?"
-        if locale == "ko"
+        if locale.strip().casefold().startswith("ko")
         else "Which exact resource name or ID should I use?"
     )
     return proposal.model_copy(
@@ -258,7 +258,7 @@ def normalize_incident_mitigation_identity_clarification(
         return proposal
     clarification = (
         "완화 초안에 사용할 정확한 장애 ID는 무엇인가요?"
-        if locale == "ko"
+        if locale.strip().casefold().startswith("ko")
         else "Which exact incident ID should the mitigation draft use?"
     )
     return proposal.model_copy(
