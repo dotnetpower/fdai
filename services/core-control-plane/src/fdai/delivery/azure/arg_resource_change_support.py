@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -119,6 +120,15 @@ def coverage_gap_at(value: object) -> datetime | None:
 
 
 def encode_cursor(change_time: datetime, change_id: str) -> str:
+    if change_time.tzinfo is None or change_time.utcoffset() is None:
+        raise ArgResourceChangeError("resourcechanges cursor change_time MUST be timezone-aware")
+    if (
+        not isinstance(change_id, str)
+        or not change_id.strip()
+        or change_id != change_id.strip()
+        or _CURSOR_SEP in change_id
+    ):
+        raise ArgResourceChangeError("resourcechanges cursor change_id is malformed")
     return f"{change_time.astimezone(UTC).isoformat()}{_CURSOR_SEP}{change_id}"
 
 
@@ -130,20 +140,25 @@ def decode_cursor(cursor: str) -> tuple[datetime | None, str | None]:
         raise ArgResourceChangeError("resourcechanges cursor is malformed")
     ts_part, _, id_part = trimmed.partition(_CURSOR_SEP)
     parsed = parse_ts(ts_part)
-    if parsed is None or not id_part:
+    if parsed is None or not id_part.strip() or _CURSOR_SEP in id_part:
         raise ArgResourceChangeError("resourcechanges cursor is malformed")
     return parsed, id_part
 
 
 def parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    text = raw.strip().replace("Z", "+00:00") if raw.strip().endswith("Z") else raw.strip()
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return parsed.astimezone(UTC) if parsed.tzinfo else None
+    return (
+        parsed.astimezone(UTC)
+        if parsed.tzinfo is not None and parsed.utcoffset() is not None
+        else None
+    )
 
 
 def operational_status_change(
@@ -154,7 +169,12 @@ def operational_status_change(
         if not isinstance(raw_change, Mapping):
             continue
         raw_value = raw_change.get("newValue")
-        candidate = raw_value.get("code") if isinstance(raw_value, Mapping) else raw_value
+        candidate: Any = raw_value
+        if isinstance(raw_value, Mapping):
+            for key in ("code", "status", "state"):
+                if isinstance(raw_value.get(key), str) and raw_value[key].strip():
+                    candidate = raw_value[key]
+                    break
         if isinstance(candidate, str) and candidate.strip():
             return target_path, candidate.strip()
     return None
@@ -189,8 +209,16 @@ async def forward_arg_resource_changes(
 ) -> int:
     """Publish one bounded poll and advance its cursor after every event succeeds."""
 
-    if deadline_seconds <= 0:
+    if (
+        isinstance(deadline_seconds, bool)
+        or not math.isfinite(deadline_seconds)
+        or deadline_seconds <= 0
+    ):
         raise ValueError("resource change feed deadline_seconds MUST be > 0")
+    if not isinstance(topic, str) or not topic.strip():
+        raise ValueError("resource change feed topic MUST be non-empty")
+    if not isinstance(scope, str) or not scope.strip():
+        raise ValueError("resource change feed scope MUST be non-empty")
     cursor_key = f"{_CURSOR_PREFIX}{scope}"
     saved = await state_store.read_state(cursor_key) or {}
     pending_ids = pending_event_ids(saved.get("pending_event_ids"))
@@ -283,11 +311,7 @@ def _pending_redrive(
 
     if not fenced:
         return None
-    raw = saved.get("last_polled_at")
-    try:
-        polled_at = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-    except ValueError:
-        polled_at = None
+    polled_at = parse_ts(saved.get("last_polled_at"))
     if (
         polled_at is not None
         and polled_at.tzinfo is not None

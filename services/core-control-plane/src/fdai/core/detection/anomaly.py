@@ -103,12 +103,14 @@ class MetricAnomalyDetector:
         source: str = _DEFAULT_SOURCE,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not detector_id:
+        if not isinstance(detector_id, str) or not detector_id.strip():
             raise ValueError("detector_id MUST be non-empty")
-        if min_samples < 2:
+        if isinstance(min_samples, bool) or min_samples < 2:
             raise ValueError("min_samples MUST be >= 2 (a baseline needs variance)")
-        if z_threshold <= 0:
+        if isinstance(z_threshold, bool) or not math.isfinite(z_threshold) or z_threshold <= 0:
             raise ValueError("z_threshold MUST be > 0")
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source MUST be non-empty")
         self._detector_id = detector_id
         self._category = category
         self._min_samples = min_samples
@@ -141,7 +143,11 @@ class MetricAnomalyDetector:
         # invalid JSON (``Infinity``) in the emitted Event payload. Abstain
         # (fail-closed), exactly like a cold-start, rather than judge on
         # corrupt telemetry.
-        if not math.isfinite(observed.value) or not all(math.isfinite(v) for v in values):
+        if (
+            isinstance(observed.value, bool)
+            or not math.isfinite(observed.value)
+            or any(isinstance(v, bool) or not math.isfinite(v) for v in values)
+        ):
             return None
         mean = statistics.fmean(values)
         std = statistics.pstdev(values)
@@ -172,7 +178,9 @@ class MetricAnomalyDetector:
             direction=direction,
             category=self._category,
             severity=_severity_from_z(z),
-            idempotency_key=self._idempotency_key(metric=metric, window_bucket=window_bucket),
+            idempotency_key=self._idempotency_key(
+                resource_ref=resource_ref, metric=metric, window_bucket=window_bucket
+            ),
             reason=reason,
         )
 
@@ -212,9 +220,12 @@ class MetricAnomalyDetector:
             mode=mode,
         )
 
-    def _idempotency_key(self, *, metric: str, window_bucket: str) -> str:
+    def _idempotency_key(self, *, resource_ref: str, metric: str, window_bucket: str) -> str:
         return str(
-            uuid5(NAMESPACE_URL, f"fdai-anomaly:{self._detector_id}:{metric}:{window_bucket}")
+            uuid5(
+                NAMESPACE_URL,
+                f"fdai-anomaly:{self._detector_id}:{resource_ref}:{metric}:{window_bucket}",
+            )
         )
 
 

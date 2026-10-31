@@ -286,3 +286,43 @@ async def test_shared_deployment_dedup_is_order_independent() -> None:
     assert len(forward) == 1
     assert forward[0].event_id == backward[0].event_id == "shared"
     assert forward[0].resource_ref == backward[0].resource_ref
+
+
+@pytest.mark.asyncio
+async def test_legacy_provider_filters_future_deployments_and_matches_resource_ref() -> None:
+    class _LegacyMultiProvider:
+        async def query_deployments(
+            self,
+            *,
+            window: str,
+            resource_ref: str | None = None,
+        ) -> DeploymentHistoryResult:
+            return DeploymentHistoryResult(
+                records=(
+                    _record(
+                        deployment_ref="  d-valid  ",
+                        timestamp="  2026-07-07T11:58:00z  ",
+                        resource_refs=("other-svc", "app"),
+                    ),
+                    _record(
+                        deployment_ref="d-future",
+                        timestamp="2026-07-07T12:05:00Z",
+                        resource_refs=("app",),
+                    ),
+                    _record(
+                        deployment_ref="   ",
+                        timestamp="2026-07-07T11:59:00Z",
+                        resource_refs=("app",),
+                    ),
+                ),
+                window=window,
+            )
+
+    source = DeploymentHistoryMemberSource(
+        lookup=lambda _iid: _incident(correlation_keys=("res:  app  ", "res:   ")),
+        deployment_history=_LegacyMultiProvider(),
+    )
+    members = await source.members(incident_id=_INCIDENT_ID)
+    assert len(members) == 1
+    assert members[0].event_id == "d-valid"
+    assert members[0].resource_ref == "app"

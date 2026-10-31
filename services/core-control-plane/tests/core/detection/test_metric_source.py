@@ -189,3 +189,25 @@ async def test_detect_anomaly_cold_start_abstains() -> None:
         window_bucket="b",
     )
     assert finding is None
+
+
+async def test_metric_source_validates_label_drops_bool_and_handles_timeout() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="resource_label"):
+        MetricSeriesSource(NoopMetricProvider(), resource_label="   ")
+
+    class _TimeoutMetricProvider:
+        async def query(self, query: MetricQuery):
+            raise TimeoutError("deadline")
+            yield  # pragma: no cover
+
+    assert (
+        await MetricSeriesSource(_TimeoutMetricProvider()).fetch(
+            metric_name=_METRIC,
+            resource_ref=_RES,
+            since=_SINCE,
+            until=_NOW,
+        )
+        is None
+    )

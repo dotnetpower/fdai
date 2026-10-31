@@ -70,7 +70,7 @@ def history_material(history: tuple[HypothesisObservation, ...]) -> list[dict[st
 
 
 def history_from_mapping(value: object) -> tuple[HypothesisObservation, ...]:
-    if not isinstance(value, list) or len(value) > 32:
+    if not isinstance(value, (list, tuple)) or len(value) > 32:
         raise ValueError("persisted hypothesis observations MUST be a bounded array")
     items: list[HypothesisObservation] = []
     for raw in value:
@@ -96,7 +96,7 @@ def history_from_mapping(value: object) -> tuple[HypothesisObservation, ...]:
 
 
 def _text(raw: Mapping[str, object], name: str) -> str:
-    field = raw[name]
+    field = raw.get(name)
     if not isinstance(field, str):
         raise ValueError("persisted hypothesis observation fields MUST be text")
     return field
@@ -112,6 +112,8 @@ def validate_transition(
 ) -> HypothesisObservation | None:
     """A revision may add one current observation; it cannot erase or rewrite prior evidence."""
 
+    validate_history(prior)
+    validate_history(current)
     before = {item.hypothesis_id: item for item in prior}
     after = {item.hypothesis_id: item for item in current}
     if any(after.get(key) != item for key, item in before.items()):

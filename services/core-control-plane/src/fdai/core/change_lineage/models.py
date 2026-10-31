@@ -91,13 +91,17 @@ class ChangeLineageRecord:
         if self.selected_option_id != self.decision.selected_option_id:
             raise ValueError("change lineage selected option identities MUST match")
         if any(
-            value.tzinfo is None
+            value.tzinfo is None or value.utcoffset() is None
             for value in (self.change_at, self.decision_at, self.action_at, self.outcome_at)
         ):
             raise ValueError("change lineage timestamps MUST be timezone-aware")
         if not self.change_at <= self.decision_at <= self.action_at <= self.outcome_at:
             raise ValueError("change lineage timestamps MUST preserve causal order")
-        if not self.evidence_refs or self.evidence_refs != tuple(sorted(set(self.evidence_refs))):
+        if (
+            not self.evidence_refs
+            or self.evidence_refs != tuple(sorted(set(self.evidence_refs)))
+            or any(not isinstance(ref, str) or not ref.strip() for ref in self.evidence_refs)
+        ):
             raise ValueError("change lineage evidence refs MUST be sorted and unique")
         assessment_evidence_ref = f"change-assessment:{self.assessment_digest}"
         if assessment_evidence_ref not in self.evidence_refs:
@@ -106,7 +110,7 @@ class ChangeLineageRecord:
             self.resilience.predicted_at is not None
             and self.resilience.observation_deadline is not None
         ):
-            observation_window_seconds = int(
+            observation_window_seconds = round(
                 (
                     self.resilience.observation_deadline - self.resilience.predicted_at
                 ).total_seconds()
@@ -318,7 +322,7 @@ def _matches_selected_effect(
 ) -> bool:
     if outcome.predicted_at is None or outcome.observation_deadline is None:
         return False
-    observation_window_seconds = int(
+    observation_window_seconds = round(
         (outcome.observation_deadline - outcome.predicted_at).total_seconds()
     )
     return any(

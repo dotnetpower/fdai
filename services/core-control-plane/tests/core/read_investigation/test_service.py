@@ -325,3 +325,18 @@ async def test_provider_failure_emits_bounded_failed_receipt() -> None:
     assert result.evidence[0].limitations == (EvidenceLimitationKind.SOURCE_UNAVAILABLE,)
     assert result.receipts[-1].outcome is ToolCallOutcome.FAILED
     assert result.receipts[-1].detail == "provider attempt unavailable"
+
+
+async def test_progress_observer_exception_does_not_abort_investigation() -> None:
+    provider = _Provider(ResourceResolution(ResourceResolutionStatus.MATCHED, resource=_resource()))
+    provider.statuses[ReadToolId.QUERY_RESOURCE_ACTIVITY] = EvidenceStatus.MATCHED
+
+    async def broken_observer(_kind: object) -> None:
+        raise RuntimeError("observer failed")
+
+    result = await ReadInvestigationService(provider, clock=lambda: NOW).execute(
+        plan_read_investigation(_request(ReadInvestigationIntent.RESOURCE_CHANGE_HISTORY)),
+        progress_observer=broken_observer,
+    )
+    assert result.outcome is ReadInvestigationOutcome.MATCHED
+    assert result.progress_kinds[-1] == "investigation.completed"

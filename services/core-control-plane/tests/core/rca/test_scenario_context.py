@@ -108,7 +108,11 @@ def test_unknown_signal_returns_empty() -> None:
 def test_empty_signal_is_rejected() -> None:
     idx = build_from_entries([_entry("chaos.a.p", "pod_restart", "pod", "mild")])
     with pytest.raises(ValueError, match="signal MUST be non-empty"):
-        candidate_scenarios(idx, signal="", target_type="pod", severity="low")
+        candidate_scenarios(idx, signal="   ", target_type="pod", severity="low")
+    with pytest.raises(ValueError, match="target_type MUST be non-empty"):
+        candidate_scenarios(idx, signal="pod_restart", target_type=" ", severity="low")
+    with pytest.raises(ValueError, match="severity MUST be non-empty"):
+        candidate_scenarios(idx, signal="pod_restart", target_type="pod", severity=" ")
 
 
 def test_zero_max_candidates_is_rejected() -> None:

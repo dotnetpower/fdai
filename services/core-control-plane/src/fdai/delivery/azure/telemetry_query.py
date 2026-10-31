@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final
@@ -170,6 +171,8 @@ def _bounds(
     window = normalized_until - normalized_since
     if window <= timedelta(0) or window > _MAX_WINDOW:
         raise ValueError("Azure Monitor telemetry window MUST be in (0, 31 days]")
+    if isinstance(requested_limit, bool):
+        raise ValueError(f"Azure Monitor telemetry limit MUST be in [1, {_MAX_LIMIT}]")
     limit = requested_limit if requested_limit is not None else _DEFAULT_LIMIT
     if not 1 <= limit <= _MAX_LIMIT:
         raise ValueError(f"Azure Monitor telemetry limit MUST be in [1, {_MAX_LIMIT}]")
@@ -338,7 +341,13 @@ def _common_filters(*, since: datetime, until: datetime, resource_ref: str | Non
 
 
 def _log_record(row: Mapping[str, Any]) -> LogRecord:
-    severity_raw = str(row.get("severity") or "information")
+    raw_sev = row.get("severity")
+    if isinstance(raw_sev, bool):
+        severity_raw = "information"
+    elif raw_sev is None or (isinstance(raw_sev, str) and not raw_sev.strip()):
+        severity_raw = "information"
+    else:
+        severity_raw = str(raw_sev).strip()
     try:
         severity_index = int(severity_raw)
     except ValueError:
@@ -385,8 +394,10 @@ def _labels(row: Mapping[str, Any]) -> dict[str, str]:
 def _timestamp(value: Any) -> datetime:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("Azure Monitor telemetry row is missing a timestamp")
-    parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
-    if parsed.tzinfo is None:
+    trimmed = value.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
+    parsed = datetime.fromisoformat(text)
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("Azure Monitor telemetry timestamp MUST include timezone")
     return parsed.astimezone(UTC)
 
@@ -402,7 +413,7 @@ def _non_negative_float(value: Any) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("Azure Monitor telemetry duration is malformed")
     numeric = float(value)
-    if numeric < 0:
+    if not math.isfinite(numeric) or numeric < 0:
         raise ValueError("Azure Monitor telemetry duration MUST be non-negative")
     return numeric
 

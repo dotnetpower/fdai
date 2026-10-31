@@ -104,3 +104,28 @@ def test_metrics_reject_transition_before_open() -> None:
                 },
             )
         )
+
+
+def test_metrics_reject_transition_timestamp_before_opened_at() -> None:
+    with pytest.raises(ValueError, match="precedes opened_at"):
+        project_incident_metrics(
+            (
+                {
+                    "kind": "incident.open",
+                    "idempotency_key": "k-open",
+                    "incident_id": "00000000-0000-0000-0000-000000000001",
+                    "actor_oid": "Heimdall",
+                    "opened_at": "2026-07-15T00:05:00+00:00",
+                    "state": "open",
+                    "severity": "sev1",
+                },
+                {
+                    "kind": "incident.transition",
+                    "idempotency_key": "k-trans",
+                    "incident_id": "00000000-0000-0000-0000-000000000001",
+                    "from_state": "open",
+                    "to_state": "triaging",
+                    "at": "2026-07-15T00:01:00+00:00",
+                },
+            )
+        )

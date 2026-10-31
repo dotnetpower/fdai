@@ -135,16 +135,28 @@ class LinearForecastDetector:
         source: str = _DEFAULT_SOURCE,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not detector_id:
+        if not isinstance(detector_id, str) or not detector_id.strip():
             raise ValueError("detector_id MUST be non-empty")
         if direction not in _DIRECTIONS:
             raise ValueError(f"direction MUST be one of {_DIRECTIONS}")
-        if horizon_seconds <= 0:
+        if isinstance(threshold, bool) or not math.isfinite(threshold):
+            raise ValueError("threshold MUST be finite")
+        if (
+            isinstance(horizon_seconds, bool)
+            or not math.isfinite(horizon_seconds)
+            or horizon_seconds <= 0
+        ):
             raise ValueError("horizon_seconds MUST be > 0")
-        if min_samples < 2:
+        if isinstance(min_samples, bool) or min_samples < 2:
             raise ValueError("min_samples MUST be >= 2 (a trend needs at least two points)")
-        if not 0.0 <= min_r_squared <= 1.0:
+        if (
+            isinstance(min_r_squared, bool)
+            or not math.isfinite(min_r_squared)
+            or not 0.0 <= min_r_squared <= 1.0
+        ):
             raise ValueError("min_r_squared MUST be in [0, 1]")
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source MUST be non-empty")
         self._detector_id = detector_id
         self._threshold = float(threshold)
         self._horizon = float(horizon_seconds)
@@ -184,9 +196,31 @@ class LinearForecastDetector:
             return ForecastDetectorEvaluation(
                 ForecastDetectorDecision.ABSTAINED, None, "insufficient_samples"
             )
-        t0 = history[0].timestamp
-        xs = [(s.timestamp - t0).total_seconds() for s in history]
-        ys = [s.value for s in history]
+        ordered = sorted(
+            history,
+            key=lambda s: (
+                s.timestamp.astimezone(UTC)
+                if s.timestamp.tzinfo is not None
+                else s.timestamp.replace(tzinfo=UTC)
+            ),
+        )
+        t0 = (
+            ordered[0].timestamp.astimezone(UTC)
+            if ordered[0].timestamp.tzinfo is not None
+            else ordered[0].timestamp.replace(tzinfo=UTC)
+        )
+        xs = [
+            (
+                (
+                    s.timestamp.astimezone(UTC)
+                    if s.timestamp.tzinfo is not None
+                    else s.timestamp.replace(tzinfo=UTC)
+                )
+                - t0
+            ).total_seconds()
+            for s in ordered
+        ]
+        ys = [s.value for s in ordered]
         if xs[-1] == xs[0]:
             return ForecastDetectorEvaluation(
                 ForecastDetectorDecision.ABSTAINED, None, "zero_time_span"
@@ -197,7 +231,7 @@ class LinearForecastDetector:
         # (``r_squared < min``, ``lead <= 0``, ``lead > horizon``) is a NaN
         # comparison that is always False - so the detector would emit a
         # ForecastFinding full of NaN. Abstain (fail-closed) on corrupt input.
-        if not all(math.isfinite(y) for y in ys):
+        if any(isinstance(y, bool) or not math.isfinite(y) for y in ys):
             return ForecastDetectorEvaluation(
                 ForecastDetectorDecision.ABSTAINED, None, "non_finite_sample"
             )
@@ -261,7 +295,9 @@ class LinearForecastDetector:
             lead_time_seconds=lead,
             category=self._category,
             severity=_severity_from_lead(lead, self._horizon),
-            idempotency_key=self._idempotency_key(metric=metric, window_bucket=window_bucket),
+            idempotency_key=self._idempotency_key(
+                resource_ref=resource_ref, metric=metric, window_bucket=window_bucket
+            ),
             reason=(
                 f"projected {self._direction} crossing of {self._threshold:g} "
                 f"in {lead:.0f}s (r2={r_squared:.2f})"
@@ -313,9 +349,12 @@ class LinearForecastDetector:
             mode=mode,
         )
 
-    def _idempotency_key(self, *, metric: str, window_bucket: str) -> str:
+    def _idempotency_key(self, *, resource_ref: str, metric: str, window_bucket: str) -> str:
         return str(
-            uuid5(NAMESPACE_URL, f"fdai-forecast:{self._detector_id}:{metric}:{window_bucket}")
+            uuid5(
+                NAMESPACE_URL,
+                f"fdai-forecast:{self._detector_id}:{resource_ref}:{metric}:{window_bucket}",
+            )
         )
 
 

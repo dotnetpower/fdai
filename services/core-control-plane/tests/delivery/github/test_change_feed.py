@@ -185,5 +185,58 @@ async def test_github_feed_warns_when_invalid_timestamp_is_skipped(
 def test_github_config_validation() -> None:
     with pytest.raises(ValueError, match="owner/name"):
         GitHubChangeFeedConfig(repository="noslash")
+    with pytest.raises(ValueError, match="owner/name"):
+        GitHubChangeFeedConfig(repository="owner/")
+    with pytest.raises(ValueError, match="https://"):
+        GitHubChangeFeedConfig(repository="a/b", api_base="http://api.github.com")
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        GitHubChangeFeedConfig(repository="a/b", timeout_seconds=True)
     with pytest.raises(ValueError, match="max_records"):
         GitHubChangeFeedConfig(repository="a/b", max_records=0)
+    with pytest.raises(ValueError, match="max_records"):
+        GitHubChangeFeedConfig(repository="a/b", max_records=True)
+
+
+@pytest.mark.asyncio
+async def test_github_feed_handles_null_id_lowercase_z_and_token_failure() -> None:
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "id": None,
+                    "sha": "deadbeef12345678",
+                    "environment": "production",
+                    "created_at": "  2026-07-10T17:50:00z  ",
+                }
+            ],
+        )
+
+    feed, client = _feed(handler)
+    try:
+        records = await feed.recent(
+            since=_INCIDENT_AT - timedelta(hours=1),
+            until=_INCIDENT_AT,
+            resource_hint="  app-svc  ",
+        )
+    finally:
+        await client.aclose()
+
+    assert len(records) == 1
+    assert records[0].change_id == "gh-deploy-deadbeef1234"
+    assert records[0].resource_hints == ("app-svc",)
+
+    async def bad_token() -> str:
+        raise RuntimeError("vault error")
+
+    bad_client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    bad_feed = GitHubChangeFeed(
+        config=GitHubChangeFeedConfig(repository="acme/app"),
+        http_client=bad_client,
+        token_provider=bad_token,
+    )
+    try:
+        with pytest.raises(ChangeFeedError, match="token acquisition failed"):
+            await bad_feed.recent(since=_INCIDENT_AT - timedelta(hours=1), until=_INCIDENT_AT)
+    finally:
+        await bad_client.aclose()

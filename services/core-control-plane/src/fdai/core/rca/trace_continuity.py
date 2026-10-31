@@ -51,6 +51,8 @@ class TraceCauseEvidence:
     evidence_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        if not isinstance(self.cause, TraceRcaCause):
+            raise ValueError("trace cause MUST be a TraceRcaCause")
         for name, value in (
             ("topology_ref", self.topology_ref),
             ("scenario_id", self.scenario_id),
@@ -58,9 +60,13 @@ class TraceCauseEvidence:
         ):
             if not value or value != value.strip() or len(value) > 512:
                 raise ValueError(f"trace cause {name} MUST be bounded non-empty text")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("trace cause observed_at MUST be timezone-aware")
-        if not math.isfinite(self.confidence) or not 0.0 <= self.confidence <= 1.0:
+        if (
+            isinstance(self.confidence, bool)
+            or not math.isfinite(self.confidence)
+            or not 0.0 <= self.confidence <= 1.0
+        ):
             raise ValueError("trace cause confidence MUST be finite and in [0, 1]")
         if not 1 <= len(self.affected_items) <= _MAX_AFFECTED_ITEMS:
             raise ValueError(
@@ -96,7 +102,11 @@ def analyze_trace_continuity_cause(
 ) -> RcaResult:
     """Return one cited T1 cause or hold when evidence is absent or conflicting."""
 
-    if not 0.0 <= min_confidence <= 1.0:
+    if (
+        isinstance(min_confidence, bool)
+        or not math.isfinite(min_confidence)
+        or not 0.0 <= min_confidence <= 1.0
+    ):
         raise ValueError("min_confidence MUST be in [0, 1]")
     if not timedelta(0) < max_evidence_age <= _MAX_EVIDENCE_AGE:
         raise ValueError("max_evidence_age MUST be positive and at most 24 hours")

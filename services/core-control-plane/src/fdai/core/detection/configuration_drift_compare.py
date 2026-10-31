@@ -193,7 +193,31 @@ def _compare_resource(
                     source=source,
                 )
             )
+    for extra_field in sorted(set(actual.attributes) - set(baseline.attributes)):
+        findings.append(
+            DriftFinding(
+                target=target,
+                field=extra_field,
+                baseline_value="absent",
+                actual_value=plain_json_value(actual.attributes[extra_field]),
+                verdict=DriftVerdict.FAILED,
+                drift_type=DriftType.ADDED,
+                source=source,
+            )
+        )
     return findings
+
+
+def _strict_json_equal(left: object, right: object) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, dict) and isinstance(right, dict):
+        return set(left) == set(right) and all(_strict_json_equal(left[k], right[k]) for k in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(
+            _strict_json_equal(a, b) for a, b in zip(left, right, strict=True)
+        )
+    return left == right
 
 
 def _value_finding(
@@ -204,7 +228,7 @@ def _value_finding(
     *,
     source: str,
 ) -> DriftFinding:
-    unchanged = baseline_value == actual_value
+    unchanged = _strict_json_equal(baseline_value, actual_value)
     return DriftFinding(
         target=target,
         field=field_name,

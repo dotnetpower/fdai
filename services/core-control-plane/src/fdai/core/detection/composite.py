@@ -80,10 +80,12 @@ class CompositeAnomalyDetector:
         source: str = _DEFAULT_SOURCE,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not detector_id:
+        if not isinstance(detector_id, str) or not detector_id.strip():
             raise ValueError("detector_id MUST be non-empty")
-        if quorum < 2:
+        if isinstance(quorum, bool) or quorum < 2:
             raise ValueError("quorum MUST be >= 2 (a composite needs multiple signals)")
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source MUST be non-empty")
         self._detector_id = detector_id
         self._quorum = quorum
         self._category = category
@@ -208,7 +210,11 @@ def _has_valid_magnitude(finding: AnomalyFinding) -> bool:
     magnitude and is excluded before the quorum is counted, so garbage
     input cannot manufacture (or inflate) a composite finding.
     """
-    return finding.z_score is None or math.isfinite(finding.z_score)
+    if finding.direction not in {"over", "under"}:
+        return False
+    return finding.z_score is None or (
+        not isinstance(finding.z_score, bool) and math.isfinite(finding.z_score)
+    )
 
 
 def _dedupe_strongest(findings: Sequence[AnomalyFinding]) -> list[AnomalyFinding]:

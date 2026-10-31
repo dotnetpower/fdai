@@ -430,6 +430,23 @@ def test_format_lead_renders_hours_for_wide_window() -> None:
     assert "1h30m" in hyp.cause  # hours branch of the lead formatter
 
 
+def test_competing_roots_through_shared_intermediate_preserve_ambiguity() -> None:
+    events = [
+        _ev("chg-a", before=timedelta(minutes=3), resource="db", is_change=True),
+        _ev("chg-b", before=timedelta(minutes=3), resource="db", is_change=True),
+        _ev("dbslow", before=timedelta(minutes=1), resource="db", is_change=False),
+    ]
+    chain = _reconstruct(events, depends_on={"app": frozenset({"db"})})
+    assert chain is not None
+    assert len(chain.hops) == 2
+    assert chain.ambiguity == 2
+
+    with pytest.raises(ValueError, match="max_hops"):
+        CausalChainConfig(window=WINDOW, max_hops=True)
+    with pytest.raises(ValueError, match="ambiguity_epsilon"):
+        CausalChainConfig(window=WINDOW, ambiguity_epsilon=float("nan"))
+
+
 def test_empty_chain_resource_path_is_empty() -> None:
     from fdai.core.rca.causal_chain import CausalChain
 
