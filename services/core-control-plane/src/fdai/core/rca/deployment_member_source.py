@@ -99,8 +99,9 @@ class DeploymentHistoryMemberSource:
         """Return deployment changes for an already resolved lifecycle Incident."""
 
         evidence_cutoff = cutoff or incident.opened_at
-        if evidence_cutoff.tzinfo is None:
+        if evidence_cutoff.tzinfo is None or evidence_cutoff.utcoffset() is None:
             raise ValueError("deployment member cutoff MUST be timezone-aware")
+        cutoff_utc = evidence_cutoff.astimezone(UTC)
         resource_refs = tuple(
             reference
             for key in incident.correlation_keys
@@ -130,7 +131,7 @@ class DeploymentHistoryMemberSource:
                         window=self._lookback,
                         resource_ref=ref,
                     )
-            except DeploymentHistoryError:
+            except (DeploymentHistoryError, TimeoutError):
                 # Best-effort: a failing leg contributes no changes but
                 # never blocks the control decision.
                 _LOGGER.warning(
@@ -143,13 +144,26 @@ class DeploymentHistoryMemberSource:
                 )
                 continue
             for record in result.records:
-                at = _parse_timestamp(record.timestamp)
-                if at is None:
+                deployment_ref = (
+                    record.deployment_ref.strip() if isinstance(record.deployment_ref, str) else ""
+                )
+                if not deployment_ref:
                     continue
+                at = _parse_timestamp(record.timestamp)
+                if at is None or at > cutoff_utc:
+                    continue
+                cleaned_refs = tuple(
+                    r.strip() for r in record.resource_refs if isinstance(r, str) and r.strip()
+                )
+                selected_ref = (
+                    ref
+                    if any(r.casefold() == ref.casefold() for r in cleaned_refs)
+                    else (cleaned_refs[0] if cleaned_refs else ref)
+                )
                 event = CorrelatedEvent(
-                    event_id=record.deployment_ref,
+                    event_id=deployment_ref,
                     at=at,
-                    resource_ref=record.resource_refs[0] if record.resource_refs else ref,
+                    resource_ref=selected_ref,
                     is_change=True,
                     change_kind="deploy",
                     cause_domain=_cause_domain(record.metadata),
@@ -187,20 +201,23 @@ def _parse_timestamp(raw: str) -> datetime | None:
     never compares it against the aware failure time (which would raise a
     ``TypeError`` and silently sink the whole chain).
     """
-    if not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         parsed = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC) if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 def _resource_reference_from_correlation_key(key: str) -> str | None:
     for prefix in (_RES_PREFIX, _CANONICAL_RESOURCE_PREFIX):
-        if key.startswith(prefix) and len(key) > len(prefix):
-            return key[len(prefix) :]
+        if key.startswith(prefix):
+            candidate = key[len(prefix) :].strip()
+            if candidate:
+                return candidate
     return None
 
 

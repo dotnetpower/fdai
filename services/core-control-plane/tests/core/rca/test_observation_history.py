@@ -85,3 +85,13 @@ def test_observed_non_refuted_hypotheses_cannot_be_removed_from_frame(outcome):
 def test_refuted_hypothesis_cannot_remain_in_active_frame():
     with pytest.raises(ValueError, match="active hypothesis set disagrees"):
         frame((observation(outcome=ObservationOutcome.REFUTED),))
+
+
+def test_history_from_mapping_accepts_tuple_and_resolve_citation_dedupes() -> None:
+    from fdai.core.rca.citations import resolve_citation
+    from fdai.core.rca.contract import Citation, CitationKind
+
+    known = (observation(),)
+    assert history_from_mapping(tuple(history_material(known))) == known
+    c = Citation(kind=CitationKind.TELEMETRY, ref="log:1")
+    assert resolve_citation("  telemetry:log:1  ", (c, c)) == c

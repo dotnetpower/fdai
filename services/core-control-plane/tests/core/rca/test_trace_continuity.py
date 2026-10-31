@@ -328,6 +328,24 @@ def test_stale_trace_cause_evidence_holds_with_a_bounded_age() -> None:
             cause_evidence=(cause,),
             max_evidence_age=timedelta(0),
         )
+    with pytest.raises(ValueError, match="min_confidence"):
+        analyze_trace_continuity_cause(
+            _result(missing_hop="agent"),
+            cause_evidence=(cause,),
+            min_confidence=True,
+        )
+    with pytest.raises(ValueError, match="confidence MUST be finite"):
+        TraceCauseEvidence(
+            cause=TraceRcaCause.COLLECTOR,
+            topology_ref="synthetic-agent-request",
+            scenario_id="scenario-trace-1",
+            window_bucket="2026-09-09T00:00Z",
+            observed_at=_NOW,
+            confidence=True,
+            affected_items=("agent",),
+            evidence_refs=("telemetry:cause:collector",),
+        )
+
     with pytest.raises(ValueError, match="at most 24 hours"):
         analyze_trace_continuity_cause(
             _result(missing_hop="agent"),

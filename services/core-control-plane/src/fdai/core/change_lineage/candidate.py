@@ -63,7 +63,11 @@ class ChangeLearningCandidate:
             self.violated_constraint_ids,
             self.evidence_refs,
         )
-        if any(values != tuple(sorted(set(values))) for values in canonical_sets):
+        if any(
+            values != tuple(sorted(set(values)))
+            or any(not isinstance(item, str) or not item.strip() for item in values)
+            for values in canonical_sets
+        ):
             raise ValueError("change learning candidate collections MUST be sorted and unique")
         if not self.selected_objective_ids or not self.evidence_refs:
             raise ValueError("change learning candidate MUST cite objectives and evidence")

@@ -24,6 +24,7 @@ Design boundaries mirror the other ``delivery`` adapters:
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -56,21 +57,35 @@ class GitHubChangeFeedConfig:
     max_records: int = _DEFAULT_MAX_RECORDS
 
     def __post_init__(self) -> None:
-        if "/" not in self.repository:
+        parts = self.repository.strip().split("/") if isinstance(self.repository, str) else []
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
             raise ValueError("GitHubChangeFeedConfig.repository MUST be 'owner/name'")
-        if self.max_records <= 0:
+        if self.environment is not None and not self.environment.strip():
+            raise ValueError("GitHubChangeFeedConfig.environment MUST be non-empty when set")
+        if not isinstance(self.api_base, str) or not self.api_base.lower().startswith("https://"):
+            raise ValueError(
+                f"GitHubChangeFeedConfig.api_base MUST use https:// (got {self.api_base!r})"
+            )
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError("GitHubChangeFeedConfig.timeout_seconds MUST be positive")
+        if isinstance(self.max_records, bool) or self.max_records <= 0:
             raise ValueError("GitHubChangeFeedConfig.max_records MUST be positive")
 
 
 def _parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         dt = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -100,8 +115,20 @@ class GitHubChangeFeed:
     ) -> list[ChangeRecord]:
         since = _as_utc(since)
         until = _as_utc(until)
-        token = await self._token_provider()
-        url = f"{self._config.api_base.rstrip('/')}/repos/{self._config.repository}/deployments"
+        if since > until:
+            raise ChangeFeedError("GitHub change feed since MUST NOT exceed until")
+        try:
+            token = await self._token_provider()
+        except Exception as exc:  # noqa: BLE001 - normalize token failures at provider boundary
+            raise ChangeFeedError(
+                f"GitHub token acquisition failed for {self._config.repository!r}"
+            ) from exc
+        if not isinstance(token, str) or not token.strip():
+            raise ChangeFeedError(
+                f"GitHub token provider returned an empty token for {self._config.repository!r}"
+            )
+        repo_slug = self._config.repository.strip()
+        url = f"{self._config.api_base.rstrip('/')}/repos/{repo_slug}/deployments"
         params: dict[str, str] = {"per_page": str(min(self._config.max_records, 100))}
         if self._config.environment:
             params["environment"] = self._config.environment
@@ -166,17 +193,25 @@ class GitHubChangeFeed:
                 },
             )
             return None
-        sha = str(row.get("sha", ""))[:12]
-        env = str(row.get("environment", ""))
+        sha = str(row.get("sha") or "").strip()[:12]
+        env = str(row.get("environment") or "").strip()
         creator = row.get("creator")
-        author = str(creator.get("login", "")) if isinstance(creator, Mapping) else ""
-        hints = (resource_hint,) if resource_hint else ()
+        author = str(creator.get("login") or "").strip() if isinstance(creator, Mapping) else ""
+        cleaned_hint = resource_hint.strip() if isinstance(resource_hint, str) else ""
+        hints = (cleaned_hint,) if cleaned_hint else ()
+        raw_id = row.get("id")
+        deploy_key = str(raw_id).strip() if raw_id is not None else ""
+        if not deploy_key:
+            deploy_key = sha
+        if not deploy_key:
+            return None
+        desc = row.get("description") or sha or deploy_key
         return ChangeRecord(
-            change_id=f"gh-deploy-{row.get('id', sha)}",
+            change_id=f"gh-deploy-{deploy_key}",
             at=at,
             source="github",
-            ref=sha or str(row.get("id", "")),
-            summary=f"deployment to {env or 'unknown'}: {row.get('description') or sha}",
+            ref=sha or deploy_key,
+            summary=f"deployment to {env or 'unknown'}: {desc}",
             author=author,
             resource_hints=hints,
             metadata={"environment": env} if env else {},

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -106,15 +107,22 @@ class AzureDeploymentHistoryConfig:
             raise ValueError("deployment history audience MUST match the Azure endpoint cloud")
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:-preview)?", self.api_version):
             raise ValueError("deployment history api_version MUST be a dated Azure API version")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("deployment history timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.maximum_pages <= 16:
+        if isinstance(self.maximum_pages, bool) or not 1 <= self.maximum_pages <= 16:
             raise ValueError("deployment history maximum_pages MUST be in [1, 16]")
-        if not 1 <= self.maximum_records <= 1_000:
+        if isinstance(self.maximum_records, bool) or not 1 <= self.maximum_records <= 1_000:
             raise ValueError("deployment history maximum_records MUST be in [1, 1000]")
-        if not 1 <= self.maximum_response_bytes <= _MAX_PAGE_BYTES:
+        if (
+            isinstance(self.maximum_response_bytes, bool)
+            or not 1 <= self.maximum_response_bytes <= _MAX_PAGE_BYTES
+        ):
             raise ValueError("deployment history per-page byte bound is invalid")
-        if not (
+        if isinstance(self.maximum_total_response_bytes, bool) or not (
             self.maximum_response_bytes <= self.maximum_total_response_bytes <= _MAX_TOTAL_BYTES
         ):
             raise ValueError("deployment history total byte bound is invalid")
@@ -174,20 +182,21 @@ class AzureActivityDeploymentHistoryProvider:
     ) -> DeploymentHistoryResult:
         """Return bounded successful mutations or raise on incomplete evidence."""
 
-        if resource_ref is None or not resource_ref.strip() or len(resource_ref) > 1_024:
+        if resource_ref is None or not resource_ref.strip() or len(resource_ref.strip()) > 1_024:
             raise DeploymentHistoryError("deployment history requires one exact resource ref")
+        normalized_ref = resource_ref.strip()
         duration = _parse_window(window)
         current_time = self._clock()
-        if current_time.tzinfo is None:
+        if current_time.tzinfo is None or current_time.utcoffset() is None:
             raise DeploymentHistoryError("deployment history clock MUST be timezone-aware")
         observed_at = current_time if until is None else until
-        if observed_at.tzinfo is None:
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise DeploymentHistoryError("deployment history cutoff MUST be timezone-aware")
         if observed_at > current_time:
             raise DeploymentHistoryError("deployment history cutoff MUST NOT be in the future")
         try:
             resolved = await self._resource_identities.resolve(
-                resource_ref,
+                normalized_ref,
                 at=observed_at if until is not None else None,
             )
         except AzureResourceIdentityError as exc:
@@ -206,7 +215,7 @@ class AzureActivityDeploymentHistoryProvider:
         records = _deployment_records(
             rows,
             provider_id=provider_id,
-            resource_ref=resource_ref,
+            resource_ref=normalized_ref,
             inventory_generation=resolved.inventory_generation,
             lower=lower,
             upper=observed_at,
@@ -467,11 +476,12 @@ def _timestamp(value: object) -> datetime:
     text = _text(value, maximum=64)
     if text is None:
         raise DeploymentHistoryError("deployment history record has no timestamp")
+    normalized = text[:-1] + "+00:00" if text.endswith(("Z", "z")) else text
     try:
-        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(normalized)
     except ValueError as exc:
         raise DeploymentHistoryError("deployment history timestamp is invalid") from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise DeploymentHistoryError("deployment history timestamp MUST be timezone-aware")
     return parsed
 

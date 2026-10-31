@@ -39,6 +39,8 @@ class ReadInvestigationModeSelector:
 
         profiles: dict[ReadToolId, ReadLatencyProfile] = {}
         for step in plan.steps:
+            if step.tool_id in profiles:
+                continue
             spec = read_tool_spec(step.tool_id)
             try:
                 samples = await self._latency_store.recent(

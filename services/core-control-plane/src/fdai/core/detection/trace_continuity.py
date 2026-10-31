@@ -60,11 +60,16 @@ class TraceSpanObservation:
             ("hop", self.hop),
             ("evidence_ref", self.evidence_ref),
         ):
-            if not value or len(value) > 512:
+            if (
+                not isinstance(value, str)
+                or not value.strip()
+                or value != value.strip()
+                or len(value) > 512
+            ):
                 raise ValueError(f"TraceSpanObservation.{name} MUST be bounded non-empty text")
-        if self.sequence < 0:
+        if isinstance(self.sequence, bool) or self.sequence < 0:
             raise ValueError("TraceSpanObservation.sequence MUST be non-negative")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("TraceSpanObservation.observed_at MUST be timezone-aware")
 
 
@@ -87,8 +92,15 @@ class TraceTopologyObservation:
             ("resource_ref", self.resource_ref),
             ("window_bucket", self.window_bucket),
         ):
-            if not value or len(value) > 512:
+            if (
+                not isinstance(value, str)
+                or not value.strip()
+                or value != value.strip()
+                or len(value) > 512
+            ):
                 raise ValueError(f"TraceTopologyObservation.{name} MUST be bounded non-empty text")
+        if not isinstance(self.completed, bool):
+            raise ValueError("TraceTopologyObservation.completed MUST be a boolean")
         if not 2 <= len(self.expected_hops) <= _MAX_EXPECTED_HOPS:
             raise ValueError(
                 "TraceTopologyObservation.expected_hops MUST contain 2 to "
@@ -96,7 +108,10 @@ class TraceTopologyObservation:
             )
         if len(set(self.expected_hops)) != len(self.expected_hops):
             raise ValueError("TraceTopologyObservation.expected_hops MUST be unique")
-        if any(not hop or len(hop) > 128 for hop in self.expected_hops):
+        if any(
+            not isinstance(hop, str) or not hop.strip() or hop != hop.strip() or len(hop) > 128
+            for hop in self.expected_hops
+        ):
             raise ValueError("TraceTopologyObservation.expected_hops MUST be bounded text")
         if len(self.spans) > _MAX_SPANS:
             raise ValueError(
@@ -296,14 +311,14 @@ def _disconnected_boundaries(
     spans: tuple[TraceSpanObservation, ...],
     expected_hops: tuple[str, ...],
 ) -> tuple[str, ...]:
-    first_by_hop: dict[str, TraceSpanObservation] = {}
+    traces_by_hop: dict[str, set[str]] = {}
     for span in spans:
-        first_by_hop.setdefault(span.hop, span)
+        traces_by_hop.setdefault(span.hop, set()).add(span.trace_id)
     boundaries: list[str] = []
     for upstream, downstream in zip(expected_hops, expected_hops[1:], strict=False):
-        left = first_by_hop.get(upstream)
-        right = first_by_hop.get(downstream)
-        if left is not None and right is not None and left.trace_id != right.trace_id:
+        left = traces_by_hop.get(upstream)
+        right = traces_by_hop.get(downstream)
+        if left and right and not left.intersection(right):
             boundaries.append(f"{upstream}->{downstream}")
     return tuple(boundaries)
 

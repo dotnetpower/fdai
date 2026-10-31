@@ -217,3 +217,26 @@ def test_relaxed_thresholds_cannot_turn_zero_lag_or_constant_series_into_precede
     assert claim is not None
     assert claim.evidence_grade is CausalEvidenceGrade.ASSOCIATION
     assert "temporal_precedence_unproven" in claim.falsifiers
+
+
+def test_temporal_causality_rejects_bool_bounds_and_canonicalizes_evidence_refs() -> None:
+    cause = _series("cause", tuple(float(value) for value in _VALUES))
+    effect = _series("effect", (0.0, *(float(value) for value in _VALUES[:-1])))
+    analyzer = TemporalCausalityAnalyzer(
+        TemporalCausalityConfig(lag_seconds=(3600,), min_samples=12)
+    )
+    claim = analyzer.analyze(
+        cause=cause,
+        effect=effect,
+        feature_cutoff=effect.samples[-1].timestamp,
+        evidence_refs=("ref:b", "ref:a", "ref:b"),
+    )
+    assert claim is not None
+    assert claim.evidence_refs == ("ref:a", "ref:b")
+
+    with pytest.raises(ValueError, match="lags MUST be non-empty"):
+        TemporalCausalityConfig(lag_seconds=(True,))
+    with pytest.raises(ValueError, match="sample and correction bounds"):
+        TemporalCausalityConfig(lag_seconds=(0,), min_samples=True)
+    with pytest.raises(ValueError, match="min_abs_correlation"):
+        TemporalCausalityConfig(lag_seconds=(0,), min_abs_correlation=float("nan"))

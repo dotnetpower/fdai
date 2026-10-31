@@ -129,6 +129,22 @@ def test_t0_hypothesis_passes_grounding() -> None:
 def test_grounded_property() -> None:
     assert _grounded().grounded is True
     assert _ungrounded().grounded is False
+    blank_ref = RootCauseHypothesis(
+        tier=RcaTier.T2,
+        cause="valid cause",
+        confidence=0.9,
+        citations=(Citation(kind=CitationKind.RULE, ref="   "),),
+    )
+    assert blank_ref.grounded is False
+    blank_cause = RootCauseHypothesis(
+        tier=RcaTier.T2,
+        cause="   ",
+        confidence=0.9,
+        citations=(Citation(kind=CitationKind.RULE, ref=_RULE_ID),),
+    )
+    assert blank_cause.grounded is False
+    with pytest.raises(ValueError, match="non-empty resource_type"):
+        t0_root_cause(rule=_rule(), resource_type="   ")
 
 
 def test_ungrounded_abstains_to_hil() -> None:

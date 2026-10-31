@@ -124,3 +124,51 @@ def test_malformed_resource_change_fails_closed() -> None:
     malformed["subject"] = ""
     with pytest.raises(ValueError, match="ARM resource id"):
         normalize_resource_change_events([malformed], resource_types=_registry())
+
+
+def test_resource_change_validates_ingested_at_future_time_and_data_fields() -> None:
+    record = _event("Microsoft.Resources.ResourceWriteSuccess")
+    record["eventTime"] = "  2026-07-18T01:02:03z  "
+    record["subject"] = _ARM_ID.replace(
+        "00000000-0000-0000-0000-000000000001",
+        "00000000-0000-0000-0000-00000000000A",
+    )
+    record["data"] = {
+        "resourceUri": record["subject"],
+        "operationName": "  Microsoft.Storage/storageAccounts/write  ",
+        "status": "  Succeeded  ",
+        "resourceProvider": "  Microsoft.Storage  ",
+    }
+    (normalized,) = normalize_resource_change_events(
+        [record],
+        resource_types=_registry(),
+        ingested_at=datetime(2026, 7, 18, 1, 2, 4, tzinfo=UTC),
+    )
+    change = normalized.payload["inventory_change"]
+    assert change["scope_ref"] == "00000000-0000-0000-0000-00000000000a"
+    assert change["operation"] == "Microsoft.Storage/storageAccounts/write"
+    assert change["operation_status"] == "Succeeded"
+    assert change["operation_provider"] == "Microsoft.Storage"
+
+    with pytest.raises(ValueError, match="ingested_at MUST be timezone-aware"):
+        normalize_resource_change_events(
+            [_event("Microsoft.Resources.ResourceWriteSuccess")],
+            resource_types=_registry(),
+            ingested_at=datetime(2026, 7, 18, 1, 2, 4),  # noqa: DTZ001
+        )
+
+    with pytest.raises(ValueError, match="eventTime MUST NOT exceed ingested_at"):
+        normalize_resource_change_events(
+            [_event("Microsoft.Resources.ResourceWriteSuccess")],
+            resource_types=_registry(),
+            ingested_at=datetime(2026, 7, 18, 1, 2, 2, tzinfo=UTC),
+        )
+
+    bad_status = _event("Microsoft.Resources.ResourceWriteSuccess")
+    bad_status["data"] = {"resourceUri": _ARM_ID, "status": "   "}
+    with pytest.raises(ValueError, match="data.status MUST be a non-empty string"):
+        normalize_resource_change_events(
+            [bad_status],
+            resource_types=_registry(),
+            ingested_at=datetime(2026, 7, 18, 1, 2, 4, tzinfo=UTC),
+        )

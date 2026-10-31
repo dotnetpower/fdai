@@ -141,8 +141,10 @@ class MetricsApiTemplate:
     deployment_scope: bool = False
 
     def __post_init__(self) -> None:
-        if not self.azure_metric_name:
+        if not isinstance(self.azure_metric_name, str) or not self.azure_metric_name.strip():
             raise ValueError("MetricsApiTemplate.azure_metric_name MUST be non-empty")
+        if not isinstance(self.deployment_scope, bool):
+            raise ValueError("MetricsApiTemplate.deployment_scope MUST be a boolean")
         if self.aggregation not in _VALID_AGGREGATIONS:
             raise ValueError(
                 f"MetricsApiTemplate.aggregation MUST be one of "
@@ -196,13 +198,19 @@ class AzureMonitorMetricsConfig:
                 "AzureMonitorMetricsConfig.endpoint MUST use https:// - the "
                 f"bearer token is sent on every request (got {self.endpoint!r})"
             )
-        if self.timeout_seconds <= 0:
+        if not isinstance(self.api_version, str) or not self.api_version.strip():
+            raise ValueError("AzureMonitorMetricsConfig.api_version MUST be non-empty")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("AzureMonitorMetricsConfig.timeout_seconds MUST be positive")
-        if self.default_lookback_seconds <= 0:
+        if isinstance(self.default_lookback_seconds, bool) or self.default_lookback_seconds <= 0:
             raise ValueError("AzureMonitorMetricsConfig.default_lookback_seconds MUST be positive")
-        if self.max_points <= 0:
+        if isinstance(self.max_points, bool) or self.max_points <= 0:
             raise ValueError("AzureMonitorMetricsConfig.max_points MUST be positive")
-        if self.max_response_bytes < 1:
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes < 1:
             raise ValueError("AzureMonitorMetricsConfig.max_response_bytes MUST be >= 1")
 
 
@@ -467,15 +475,16 @@ class AzureMonitorMetricsProvider:
                         reason=MetricFailureReason.INVALID_RESPONSE,
                     )
                 ts_raw = datum.get("timeStamp")
-                if not isinstance(ts_raw, str):
+                if not isinstance(ts_raw, str) or not ts_raw.strip():
                     raise MetricProviderError(
                         "Azure Monitor Metrics point missing 'timeStamp' for "
                         f"{query.metric_name!r}",
                         reason=MetricFailureReason.INVALID_RESPONSE,
                     )
-                text = ts_raw.replace("Z", "+00:00") if ts_raw.endswith("Z") else ts_raw
+                trimmed_ts = ts_raw.strip()
+                text = trimmed_ts[:-1] + "+00:00" if trimmed_ts.endswith(("Z", "z")) else trimmed_ts
                 try:
-                    at = datetime.fromisoformat(text)
+                    at = _as_utc(datetime.fromisoformat(text))
                 except ValueError as exc:
                     raise MetricProviderError(
                         f"Azure Monitor Metrics unparseable timestamp for {query.metric_name!r}",

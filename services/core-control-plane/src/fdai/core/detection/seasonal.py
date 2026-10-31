@@ -48,16 +48,20 @@ _PHASE_RESOLVERS: dict[str, PhaseFn] = {
 }
 
 
+def _as_utc(ts: datetime) -> datetime:
+    return ts.astimezone(UTC) if ts.tzinfo is not None else ts.replace(tzinfo=UTC)
+
+
 def _resolve_phase(phase: str | PhaseFn) -> tuple[str, PhaseFn]:
     if callable(phase):
-        return ("custom", phase)
+        return ("custom", lambda ts: phase(_as_utc(ts)))
     resolver = _PHASE_RESOLVERS.get(phase)
     if resolver is None:
         raise ValueError(
             f"unknown seasonal phase {phase!r}; "
             f"choose one of {sorted(_PHASE_RESOLVERS)} or pass a callable"
         )
-    return (phase, resolver)
+    return (phase, lambda ts: resolver(_as_utc(ts)))
 
 
 class SeasonalAnomalyDetector:
@@ -83,7 +87,7 @@ class SeasonalAnomalyDetector:
         # A per-phase baseline needs variance to compute a z-score; the
         # inner detector enforces >= 2, but validate here too so the error
         # names the seasonal parameter the caller actually passed.
-        if min_samples_per_phase < 2:
+        if isinstance(min_samples_per_phase, bool) or min_samples_per_phase < 2:
             raise ValueError("min_samples_per_phase MUST be >= 2 (a baseline needs variance)")
         # The inner detector owns the statistics; per-phase samples are its
         # "history", so min_samples maps to min_samples_per_phase.

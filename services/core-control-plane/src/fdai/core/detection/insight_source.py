@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.detection.insights import (
     InsightObservation,
@@ -17,6 +17,10 @@ from fdai.shared.providers.metric import MetricProvider, MetricProviderError, Me
 _RESOURCE_LABEL = "resource_id"
 
 
+def _as_utc(dt: datetime) -> datetime:
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 class OperationalInsightSource:
     """Fetch each required metric once and evaluate an insight catalog."""
 
@@ -26,8 +30,10 @@ class OperationalInsightSource:
         *,
         resource_label: str = _RESOURCE_LABEL,
     ) -> None:
+        if not isinstance(resource_label, str) or not resource_label.strip():
+            raise ValueError("resource_label MUST be non-empty")
         self._provider = metric_provider
-        self._resource_label = resource_label
+        self._resource_label = resource_label.strip()
 
     async def evaluate(
         self,
@@ -39,6 +45,8 @@ class OperationalInsightSource:
         window_bucket: str,
     ) -> tuple[OperationalInsightFinding, ...]:
         """Fetch normalized telemetry and return every fired recipe."""
+        since_utc = _as_utc(since)
+        until_utc = _as_utc(until)
         metric_names = {
             metric_name
             for recipe in engine.recipes
@@ -53,7 +61,9 @@ class OperationalInsightSource:
         unavailable_metrics: set[str] = set()
 
         for metric_name in sorted(metric_names):
-            query_since = _query_since(engine, metric_name=metric_name, since=since, until=until)
+            query_since = _query_since(
+                engine, metric_name=metric_name, since=since_utc, until=until_utc
+            )
             try:
                 points = [
                     point
@@ -62,21 +72,23 @@ class OperationalInsightSource:
                             metric_name=metric_name,
                             labels={self._resource_label: resource_ref},
                             since=query_since,
-                            until=until,
+                            until=until_utc,
                         )
                     )
-                    if math.isfinite(point.value)
+                    if not isinstance(point.value, bool)
+                    and math.isfinite(point.value)
+                    and query_since <= _as_utc(point.at) <= until_utc
                 ]
-            except MetricProviderError:
+            except (MetricProviderError, TimeoutError):
                 unavailable_metrics.add(metric_name)
                 continue
-            points.sort(key=lambda point: point.at)
+            points.sort(key=lambda point: _as_utc(point.at))
             sample_counts[metric_name] = len(points)
             if not points:
                 continue
             current = points[-1]
             values[metric_name] = current.value
-            last_seen_at[metric_name] = current.at
+            last_seen_at[metric_name] = _as_utc(current.at)
             if len(points) >= 2:
                 previous_values[metric_name] = points[-2].value
                 baseline_values[metric_name] = statistics.fmean(
@@ -93,7 +105,7 @@ class OperationalInsightSource:
                 sample_counts=sample_counts,
                 last_seen_at=last_seen_at,
                 unavailable_metrics=frozenset(unavailable_metrics),
-                evaluated_at=until,
+                evaluated_at=until_utc,
             )
         )
 
@@ -108,7 +120,9 @@ def _query_since(
     stale_thresholds = [
         recipe.threshold
         for recipe in engine.recipes
-        if recipe.metric == metric_name and recipe.operator is InsightOperator.STALE
+        if recipe.metric == metric_name
+        and recipe.operator is InsightOperator.STALE
+        and recipe.threshold > 0
     ]
     if not stale_thresholds:
         return since

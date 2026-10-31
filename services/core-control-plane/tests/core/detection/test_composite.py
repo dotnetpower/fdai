@@ -227,3 +227,25 @@ def test_inf_z_member_does_not_inflate_magnitude() -> None:
 
     assert math.isfinite(result.combined_magnitude)
     assert "cpu" not in result.member_metrics
+
+
+def test_composite_rejects_bool_quorum_and_invalid_member_direction() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="quorum"):
+        CompositeAnomalyDetector(detector_id="comp-1", quorum=True)
+    with pytest.raises(ValueError, match="detector_id"):
+        CompositeAnomalyDetector(detector_id="   ", quorum=2)
+
+    det = CompositeAnomalyDetector(detector_id="comp-1", quorum=2)
+    assert (
+        det.fuse(
+            resource_ref="res-a",
+            window_bucket="2026-07-07T12",
+            findings=[
+                _finding("latency"),
+                _finding("error_rate", direction="sideways"),
+            ],
+        )
+        is None
+    )

@@ -411,3 +411,20 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert node_cpu.aggregation == "Maximum"
     assert node_cpu.resource_type == "Microsoft.ContainerService/managedClusters"
     assert len(shipped) == 37
+
+
+def test_metrics_api_config_and_template_reject_bool_and_whitespace() -> None:
+    from fdai.delivery.azure.metrics_api import MetricsApiTemplate
+
+    with pytest.raises(ValueError, match="azure_metric_name"):
+        MetricsApiTemplate(azure_metric_name="   ", aggregation="Average")
+    with pytest.raises(ValueError, match="deployment_scope"):
+        MetricsApiTemplate(
+            azure_metric_name="Percentage CPU",
+            aggregation="Average",
+            deployment_scope="yes",  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        _config(timeout_seconds=True)
+    with pytest.raises(ValueError, match="max_points"):
+        _config(max_points=True)

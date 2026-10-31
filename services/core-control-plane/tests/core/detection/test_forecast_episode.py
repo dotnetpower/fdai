@@ -75,3 +75,33 @@ def test_abstain_is_distinct_from_negative_prediction() -> None:
 def test_non_positive_evaluation_rejects_prediction_evidence() -> None:
     with pytest.raises(ValueError, match="MUST NOT carry prediction evidence"):
         _episode(evaluation_kind=ForecastEvaluationKind.PREDICTED_NO_BREACH)
+
+
+def test_episode_rejects_blank_identity_boolean_numeric_and_normalizes_tz_offset() -> None:
+    from datetime import timezone
+
+    with pytest.raises(ValueError, match="identity MUST be non-empty"):
+        _episode(correlation_id="   ")
+    with pytest.raises(ValueError, match="numeric evidence MUST be finite"):
+        _episode(threshold=True)
+
+    kst = timezone(timedelta(hours=9))
+    first = forecast_episode_id(
+        access_scope_digest="a" * 64,
+        detector_id="det-1",
+        detector_version="1.0.0",
+        target_ref="res-1",
+        metric="cpu",
+        feature_cutoff=T0,
+        horizon_ended_at=T0 + timedelta(hours=1),
+    )
+    second = forecast_episode_id(
+        access_scope_digest="a" * 64,
+        detector_id="det-1",
+        detector_version="1.0.0",
+        target_ref="res-1",
+        metric="cpu",
+        feature_cutoff=T0.astimezone(kst),
+        horizon_ended_at=(T0 + timedelta(hours=1)).astimezone(kst),
+    )
+    assert first == second

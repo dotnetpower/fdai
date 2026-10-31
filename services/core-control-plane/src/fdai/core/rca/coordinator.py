@@ -224,6 +224,12 @@ class RcaCoordinator:
                 hypothesis=None,
                 reason="no_t2_reasoner_configured",
             )
+        if not isinstance(incident_summary, str) or not incident_summary.strip():
+            return RcaResult(
+                outcome=RcaOutcome.ABSTAINED,
+                hypothesis=None,
+                reason="invalid_incident_summary",
+            )
         candidates = admitted_citations(candidate_citations)
         if candidates is None:
             return RcaResult(

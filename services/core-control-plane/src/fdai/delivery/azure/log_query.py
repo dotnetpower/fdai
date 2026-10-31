@@ -50,6 +50,7 @@ structurally rather than trusting it:
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
@@ -73,7 +74,7 @@ _DURATION: Final = re.compile(
     r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?)?$",
     re.IGNORECASE,
 )
-_CROSS_SCOPE: Final = re.compile(r"\b(?:workspace|app|resource)\s*\(", re.IGNORECASE)
+_CROSS_SCOPE: Final = re.compile(r"\b(?:workspace|app|resource|adx|arg)\s*\(", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,15 +107,28 @@ class AzureLogAnalyticsQueryConfig:
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
-        if not self.workspace_id:
+        if not self.workspace_id or not self.workspace_id.strip():
             raise ValueError("AzureLogAnalyticsQueryConfig.workspace_id MUST be non-empty")
-        if self.timeout_seconds <= 0:
+        if not self.endpoint.lower().startswith("https://"):
+            raise ValueError(
+                "AzureLogAnalyticsQueryConfig.endpoint MUST use https:// - the bearer "
+                f"token is sent on every request (got {self.endpoint!r})"
+            )
+        if not self.api_path.startswith("/"):
+            raise ValueError(
+                f"AzureLogAnalyticsQueryConfig.api_path MUST start with '/' (got {self.api_path!r})"
+            )
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("AzureLogAnalyticsQueryConfig.timeout_seconds MUST be > 0")
-        if self.max_rows_cap < 1:
+        if isinstance(self.max_rows_cap, bool) or self.max_rows_cap < 1:
             raise ValueError("AzureLogAnalyticsQueryConfig.max_rows_cap MUST be >= 1")
-        if self.max_query_chars < 1:
+        if isinstance(self.max_query_chars, bool) or self.max_query_chars < 1:
             raise ValueError("AzureLogAnalyticsQueryConfig.max_query_chars MUST be >= 1")
-        if self.max_response_bytes < 1:
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes < 1:
             raise ValueError("AzureLogAnalyticsQueryConfig.max_response_bytes MUST be >= 1")
 
 
@@ -162,7 +176,7 @@ class AzureLogAnalyticsQueryProvider:
         """
         normalized_query = _validate_query(query, max_chars=self._config.max_query_chars)
         normalized_window = _validate_window(window)
-        if max_rows < 1:
+        if isinstance(max_rows, bool) or max_rows < 1:
             raise LogQueryError("query_log max_rows MUST be >= 1")
         limit = max(1, min(max_rows, self._config.max_rows_cap))
 

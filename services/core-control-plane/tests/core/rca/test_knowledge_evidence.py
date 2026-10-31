@@ -166,3 +166,18 @@ async def test_coordinator_without_knowledge_is_backward_compatible() -> None:
         until=now,
     )
     assert result.is_grounded is False
+
+
+@pytest.mark.asyncio
+async def test_knowledge_gatherer_skips_low_score_then_fills_and_dedupes() -> None:
+    src = _StubSource(
+        [
+            _chunk("low", 0, source_ref="wiki/low", score=0.10),
+            _chunk("dup", 1, source_ref="wiki/dup", score=0.90),
+            _chunk("dup", 1, source_ref="wiki/dup", score=0.88),
+            _chunk("second", 0, source_ref="wiki/second", score=0.85),
+        ]
+    )
+    gatherer = KnowledgeEvidenceGatherer(source=src, top_k=4, min_score=0.5)
+    got = await gatherer.gather(query="latency spike")
+    assert [c.ref for c in got] == ["knowledge:wiki/dup#dup#1", "knowledge:wiki/second#second#0"]
