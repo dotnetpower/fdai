@@ -154,6 +154,22 @@ def format_nonready_message(result: dict[str, object]) -> str:
     return "Installation is not accepted. Inspect retained private evidence before resuming."
 
 
+def can_open_interactive_browser(environment: dict[str, str]) -> bool:
+    """Return True if this host environment can open an interactive local or WSL browser."""
+    configured = environment.get("BROWSER", "").split(":", 1)[0].strip()
+    if configured and shutil.which(configured) is not None:
+        return True
+    if ("WSL_DISTRO_NAME" in environment or "WSL_INTEROP" in environment) and (
+        shutil.which("wslview") is not None or shutil.which("powershell.exe") is not None
+    ):
+        return True
+    if environment.get("DISPLAY") or environment.get("WAYLAND_DISPLAY"):
+        for binary in ("x-www-browser", "firefox", "google-chrome", "chromium", "chromium-browser"):
+            if shutil.which(binary) is not None:
+                return True
+    return False
+
+
 def latest_progress_message(root: Path, current: str) -> str:
     """Extract a safe, human-readable stage progress summary from engine-trace.log."""
     trace = root / "executor/engine-trace.log"
@@ -163,6 +179,14 @@ def latest_progress_message(root: Path, current: str) -> str:
         raw = trace.read_bytes()[-8192:].decode("utf-8", errors="replace")
     except OSError:
         return current
+    device_match = re.search(
+        r"(https://microsoft\.com/devicelogin)[^\n]*?\b([A-Z0-9]{8,12})\b", raw
+    )
+    if device_match:
+        return (
+            f"Device code sign-in: open {device_match.group(1)} "
+            f"and enter code {device_match.group(2)} to authenticate."
+        )
     stage_line = ""
     elapsed = ""
     detail_line = ""
@@ -230,6 +254,50 @@ def reset_unapplied_installation(area: Path) -> None:
     (area / "configuration.json").unlink(missing_ok=True)
     (area / "acceptance.json").unlink(missing_ok=True)
     shutil.rmtree(area / "deployment", ignore_errors=True)
+    shutil.rmtree(area / "pinned-source", ignore_errors=True)
+
+
+def prepare_pinned_source_checkout(area: Path, source: Path, commit: str) -> Path:
+    """Create or verify an isolated detached checkout so working-tree changes cannot interrupt a run."""
+    pinned = area / "pinned-source"
+    if pinned.resolve() == source.resolve():
+        return pinned
+    if not pinned.exists():
+        origin_proc = subprocess.run(
+            ["git", "-C", str(source), "remote", "get-url", "origin"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        origin_url = origin_proc.stdout.strip() or OFFICIAL_SOURCE
+        for cmd in (
+            ("git", "clone", "--quiet", "--local", "--no-checkout", str(source), str(pinned)),
+            ("git", "-C", str(pinned), "remote", "set-url", "origin", origin_url),
+            (
+                "git",
+                "-C",
+                str(pinned),
+                "-c",
+                "core.hooksPath=/dev/null",
+                "checkout",
+                "--quiet",
+                "--detach",
+                commit,
+            ),
+        ):
+            res = subprocess.run(
+                cmd, stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=False
+            )
+            if res.returncode:
+                shutil.rmtree(pinned, ignore_errors=True)
+                return source
+    try:
+        inspect_source(pinned, expected_commit=commit)
+    except (ValueError, OSError):
+        return source
+    return pinned
 
 
 def resolve_hub_source(

@@ -144,10 +144,17 @@ def start(args: argparse.Namespace) -> int:
                 print("Azure access stays in the customer executor. Keep this process running.")
                 if args.no_browser:
                     print("Browser launch disabled; restart without --no-browser to sign in.")
-                elif not _open_browser(f"{origin}/setup#session={launch_token}"):
-                    raise ValueError(
-                        "Could not open a browser. Start Bootstrap on a browser-equipped host."
-                    )
+                else:
+                    try:
+                        opened = _open_browser(f"{origin}/setup#session={launch_token}")
+                    except Exception:  # noqa: BLE001 - headless/SSH hosts must not crash startup
+                        opened = False
+                    if not opened:
+                        print(
+                            "Could not open a local browser automatically. "
+                            "Forward this loopback port over SSH or VS Code if needed.",
+                            flush=True,
+                        )
                 config = uvicorn.Config(
                     app, host="127.0.0.1", port=port, access_log=False, log_level="warning"
                 )

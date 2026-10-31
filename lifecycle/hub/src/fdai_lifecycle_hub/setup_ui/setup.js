@@ -13,7 +13,9 @@
     loginHelp: "Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.",
     tenant: "Azure tenant ID or domain (optional)",
     tenantHelp: "Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.",
+    deviceCode: "Use device code sign-in (for SSH or headless terminals without a local browser)",
     invalidTenant: "Enter a valid Azure tenant ID or domain.",
+    orderedLifecycle: "ORDERED LIFECYCLE", stagesTitle: "Setup stages",
     login: "Sign in to Azure", accounts: "List subscriptions", configure: "Choose your installation",
     subscription: "Azure subscription", noAccounts: "List subscriptions to choose a target",
     subscriptionHelp: "Only subscriptions returned by your authenticated Azure session appear here.",
@@ -76,7 +78,9 @@
     loginHelp: "이 Hub를 실행하는 컴퓨터에서 Microsoft 로그인 창이 열립니다. 로그인을 완료한 다음 이 화면으로 돌아와 구독 목록을 조회하세요. 이 설정 화면에는 자격 증명을 입력하지 마세요.",
     tenant: "Azure 테넌트 ID 또는 도메인 (선택 사항)",
     tenantHelp: "비워 두면 현재 활성화된 Azure CLI 테넌트를 사용하며, 다른 테넌트로 로그인하려면 테넌트 ID 또는 도메인을 입력하세요.",
+    deviceCode: "브라우저 없는 터미널/SSH 환경: 디바이스 코드로 로그인 (https://microsoft.com/devicelogin)",
     invalidTenant: "유효한 Azure 테넌트 ID 또는 도메인을 입력하세요.",
+    orderedLifecycle: "순서가 지정된 수명 주기", stagesTitle: "구성 단계",
     login: "Azure 로그인", accounts: "구독 목록 조회", configure: "설치 대상 선택",
     subscription: "Azure 구독", noAccounts: "구독 목록을 조회한 후 대상을 선택하세요",
     subscriptionHelp: "인증된 Azure 세션에서 조회한 구독만 표시됩니다.",
@@ -172,10 +176,151 @@
         return `${koPrefix}... (경과 ${value.split(" - elapsed ")[1]})`;
       }
     }
+    const dcMatch = value.match(/^Device code sign-in: open (https:\/\/[^\s]+) and enter code ([A-Z0-9]+) to authenticate\.$/);
+    if (dcMatch) {
+      return `디바이스 코드 로그인: 브라우저에서 ${dcMatch[1]} 를 열고 코드 [${dcMatch[2]}] 를 입력해 인증을 완료하세요.`;
+    }
     if (value.startsWith("[") && value.includes("] ")) {
       return value.replace(" complete", " 단계 완료").replace("- elapsed ", "· 경과 ");
     }
     return value;
+  }
+  const STAGE_CATALOG = [
+    { id: "toolchain", enTitle: "Toolchain prerequisites", enDesc: "Verify Terraform and CLI binaries", koTitle: "도구 체인 사전 점검", koDesc: "Terraform 및 실행 도구 해시 검증" },
+    { id: "target", enTitle: "Azure target & quota check", enDesc: "Verify subscription, tenant, and VM/DB SKU quota", koTitle: "Azure 대상 및 쿼터 검증", koDesc: "구독·테넌트 권한 및 VM/DB SKU 가용성 확인" },
+    { id: "source", enTitle: "Source snapshot verification", enDesc: "Verify clean committed source checkout", koTitle: "소스 스냅샷 무결성 검증", koDesc: "커밋된 소스 체크아웃 및 스냅샷 검증" },
+    { id: "providers", enTitle: "Azure resource providers", enDesc: "Reconcile required Azure resource providers", koTitle: "Azure 리소스 공급자 확인", koDesc: "필수 Azure 리소스 공급자 등록 상태 확인" },
+    { id: "policy", enTitle: "Tenant policy inspection", enDesc: "Inspect Azure Policy assignments in scope", koTitle: "테넌트 정책 경로 확인", koDesc: "구독 내 Azure Policy 할당 및 제약 확인" },
+    { id: "route", enTitle: "Deployment route selection", enDesc: "Select private-runner foundation route", koTitle: "배포 경로 결정", koDesc: "프라이빗 실행기(Runner) 기반 배포 경로 설정" },
+    { id: "runner-image-plan", enTitle: "Runner image plan", enDesc: "Online marketplace image selected (skipped)", koTitle: "실행기 이미지 계획", koDesc: "온라인 마켓플레이스 이미지 사용 (건너뜀)" },
+    { id: "runner-image-apply", enTitle: "Runner image apply", enDesc: "Online bootstrap mode (skipped)", koTitle: "실행기 이미지 생성", koDesc: "온라인 부트스트랩 모드 사용 (건너뜀)" },
+    { id: "foundation-plan", enTitle: "Foundation exact plan", enDesc: "Generate VNet, Storage, Bastion & Runner VM plan", koTitle: "Foundation 계획 생성", koDesc: "VNet·상태 저장소·Bastion·VM Terraform 계획 수립" },
+    { id: "foundation-apply", enTitle: "Foundation exact apply", enDesc: "Provision ops RG, VNet, Storage, Bastion & Runner VM", koTitle: "Foundation 인프라 배포", koDesc: "운영 리소스 그룹·VNet·저장소·Bastion·실행기 VM 생성" },
+    { id: "runner-enrollment", enTitle: "Runner enrollment", enDesc: "Attest and enroll private deployment runner VM", koTitle: "프라이빗 실행기 등록 및 검증", koDesc: "배포 실행기 VM 상태 확인 및 등록 승인" },
+    { id: "foundation-state", enTitle: "Foundation state handoff", enDesc: "Migrate Terraform state to private Azure Blob", koTitle: "Foundation 상태 저장소 이관", koTitleDesc: "", koDesc: "로컬 Terraform 상태를 프라이빗 Blob으로 이관" },
+    { id: "application-plan", enTitle: "Application & Entra plan", enDesc: "Plan Entra ID roles, AKS, PostgreSQL & services", koTitle: "애플리케이션 및 Entra 계획", koDesc: "Entra ID·AKS·PostgreSQL·서비스 배포 계획 수립" },
+    { id: "application-apply", enTitle: "Application exact apply", enDesc: "Deploy AKS, PostgreSQL, migrations & workloads", koTitle: "애플리케이션 및 런타임 배포", koDesc: "AKS·PostgreSQL·마이그레이션·컨테이너 배포" },
+    { id: "verification", enTitle: "Health & zero-change verification", enDesc: "Verify service health and second zero-change plan", koTitle: "최종 상태 및 무변경 검증", koDesc: "서비스 정상 응답 및 Terraform 무변경 검증" },
+  ];
+  const stageStateLabels = {
+    en: { completed: "Completed", skipped: "Skipped", active: "In progress", waiting: "Approval required", failed: "Failed", blocked: "Blocked", pending: "Pending" },
+    ko: { completed: "완료", skipped: "건너뜀", active: "진행 중", waiting: "승인 필요", failed: "실패", blocked: "차단됨", pending: "대기 중" },
+  };
+  function resolveStageProgress() {
+    const phase = status?.phase || "idle";
+    const msg = status?.message || "";
+    const total = STAGE_CATALOG.length;
+    if (phase === "ready" && status?.deployment_ready) {
+      return { currentIdx: 14, completedCount: 15, activeCount: 0, queuedCount: 0, elapsed: "", states: STAGE_CATALOG.map((_, i) => (i === 6 || i === 7 ? "skipped" : "completed")) };
+    }
+    let currentIdx = -1;
+    let elapsed = "";
+    const elapsedMatch = msg.match(/elapsed\s+([0-9:]+)/);
+    if (elapsedMatch) elapsed = elapsedMatch[1];
+    const bracketMatch = msg.match(/^\[(\d{2})\/15\]/);
+    if (bracketMatch) {
+      currentIdx = Math.max(0, Math.min(14, Number(bracketMatch[1]) - 1));
+    } else if (phase === "review" && status?.review) {
+      const details = (status.review.details || []).join(" ") + " " + (status.review.title || "");
+      if (details.includes("foundation-apply")) currentIdx = 9;
+      else if (details.includes("runner-enrollment")) currentIdx = 10;
+      else if (details.includes("foundation-state")) currentIdx = 11;
+      else if (details.includes("entra-config") || details.includes("application-plan")) currentIdx = 12;
+      else if (details.includes("application")) currentIdx = 13;
+      else currentIdx = 9;
+    } else if (msg.startsWith("Stage '")) {
+      const stName = msg.split("'")[1];
+      currentIdx = STAGE_CATALOG.findIndex(s => s.id === stName);
+    } else if (phase === "working" && ["install", "resume"].includes(status?.action)) {
+      if (msg.includes("source snapshot")) currentIdx = 2;
+      else if (msg.includes("AKS SKU") || msg.includes("identity names") || msg.includes("compute estimate")) currentIdx = 1;
+      else if (msg.includes("Terraform executable")) currentIdx = 0;
+      else if (msg.includes("Foundation inputs")) currentIdx = 5;
+      else if (msg.includes("Decision submitted")) currentIdx = 9;
+      else currentIdx = 0;
+    } else if (["blocked", "failed", "interrupted"].includes(phase) && status?.request_id) {
+      currentIdx = msg.includes("preflight") ? 1 : 9;
+    }
+    const states = STAGE_CATALOG.map((item, idx) => {
+      if (currentIdx < 0) return "pending";
+      if (idx < currentIdx) return (idx === 6 || idx === 7) ? "skipped" : "completed";
+      if (idx === currentIdx) {
+        if (phase === "review") return "waiting";
+        if (phase === "failed") return "failed";
+        if (phase === "blocked" || phase === "interrupted") return "blocked";
+        return "active";
+      }
+      return "pending";
+    });
+    const completedCount = states.filter(s => s === "completed" || s === "skipped").length;
+    const activeCount = states.filter(s => s === "active" || s === "waiting" || s === "failed" || s === "blocked").length;
+    const queuedCount = total - completedCount - activeCount;
+    return { currentIdx, completedCount, activeCount, queuedCount, elapsed, states };
+  }
+  function renderProvisionStages() {
+    const prog = resolveStageProgress();
+    const total = STAGE_CATALOG.length;
+    const hasRun = prog.currentIdx >= 0 || (status?.phase === "ready" && status?.deployment_ready);
+    const bar = $("provision-progress");
+    if (bar) {
+      bar.hidden = !hasRun;
+      if (hasRun) {
+        const curNum = Math.min(total, prog.currentIdx + 1);
+        const curStage = STAGE_CATALOG[prog.currentIdx] || STAGE_CATALOG[0];
+        const curTitle = locale === "ko" ? curStage.koTitle : curStage.enTitle;
+        const pct = Math.min(100, Math.round((prog.completedCount / total) * 1000) / 10);
+        setText("stage-progress-label", locale === "ko"
+          ? `전체 ${total}단계 중 ${curNum}단계 (${curTitle})`
+          : `Stage ${curNum} of ${total} (${curTitle})`);
+        setText("stage-progress-percent", `${pct.toFixed(1)}%`);
+        const meter = $("provision-meter");
+        if (meter) {
+          meter.className = `provision-meter${["failed", "blocked"].includes(status?.phase) ? " is-failed" : ""}${status?.phase === "ready" && status?.deployment_ready ? " is-done" : ""}`;
+          meter.setAttribute("aria-valuenow", String(pct));
+        }
+        const fill = $("stage-progress-fill");
+        if (fill) fill.style.width = `${Math.max(4, pct)}%`;
+        $("fact-complete").replaceChildren();
+        const cStrong = document.createElement("strong"); cStrong.textContent = String(prog.completedCount);
+        $("fact-complete").append(cStrong, locale === "ko" ? " 완료" : " complete");
+        $("fact-active").replaceChildren();
+        const aStrong = document.createElement("strong"); aStrong.textContent = String(prog.activeCount);
+        $("fact-active").append(aStrong, locale === "ko" ? (status?.phase === "review" ? " 승인 대기" : " 진행 중") : " active");
+        $("fact-queued").replaceChildren();
+        const qStrong = document.createElement("strong"); qStrong.textContent = String(prog.queuedCount);
+        $("fact-queued").append(qStrong, locale === "ko" ? " 남은 단계" : " remaining");
+        setText("fact-elapsed", prog.elapsed ? (locale === "ko" ? `경과 ${prog.elapsed}` : `elapsed ${prog.elapsed}`) : "");
+      }
+    }
+    setText("stages-summary", locale === "ko"
+      ? `전체 ${total}단계 중 ${prog.completedCount}단계 완료 · ${prog.queuedCount}단계 남음`
+      : `${prog.completedCount} of ${total} stages completed · ${prog.queuedCount} remaining`);
+    const list = $("provision-stages");
+    if (!list) return;
+    const labels = stageStateLabels[locale === "ko" ? "ko" : "en"];
+    list.replaceChildren(...STAGE_CATALOG.map((stage, idx) => {
+      const st = prog.states[idx];
+      const li = document.createElement("li");
+      li.className = `provision-stage provision-stage--${st}`;
+      if (idx === prog.currentIdx) li.setAttribute("aria-current", "step");
+      const num = document.createElement("span");
+      num.className = "provision-stage-index";
+      num.textContent = String(idx + 1).padStart(2, "0");
+      const body = document.createElement("div");
+      body.className = "provision-stage-body";
+      const title = document.createElement("strong");
+      title.className = "provision-stage-title";
+      title.textContent = locale === "ko" ? stage.koTitle : stage.enTitle;
+      const desc = document.createElement("span");
+      desc.className = "provision-stage-desc";
+      desc.textContent = locale === "ko" ? stage.koDesc : stage.enDesc;
+      body.append(title, desc);
+      const pill = document.createElement("span");
+      pill.className = "provision-stage-state";
+      pill.textContent = labels[st] || st;
+      li.append(num, body, pill);
+      return li;
+    }));
   }
   function setText(id, value) {
     if ($(id).textContent !== value) $(id).textContent = value;
@@ -223,6 +368,7 @@
     const recovery = ["failed", "blocked", "interrupted"].includes(status?.phase);
     $("login").disabled = !fresh && !(available && recovery);
     $("tenant").disabled = $("login").disabled;
+    if ($("device-code")) $("device-code").disabled = $("login").disabled;
     $("accounts").disabled = !fresh;
     $("configuration-fields").disabled = !fresh;
     $("refresh").disabled = loading;
@@ -261,6 +407,7 @@
   function render() {
     const phase = status.phase;
     updateStepper(phase);
+    renderProvisionStages();
     $("skeleton").hidden = phase !== "working";
     $("status-live").setAttribute("aria-busy", String(phase === "working"));
     const phaseKey = phase === "review" ? "reviewPhase" :
@@ -436,9 +583,14 @@
   $("confirmation-required").addEventListener("click", fillConfirmation);
   $("login").addEventListener("click", () => {
     const tenant = $("tenant").value.trim();
-    if (!tenant) return action("login");
-    if (!/^[A-Za-z0-9._-]{1,128}$/.test(tenant) || tenant === "." || tenant === "..") return notice("invalidTenant");
-    action("login", { tenant_id: tenant });
+    const useDeviceCode = Boolean($("device-code")?.checked);
+    const payload = {};
+    if (tenant) {
+      if (!/^[A-Za-z0-9._-]{1,128}$/.test(tenant) || tenant === "." || tenant === "..") return notice("invalidTenant");
+      payload.tenant_id = tenant;
+    }
+    if (useDeviceCode) payload.use_device_code = true;
+    action("login", payload);
   });
   for (const name of ["accounts", "resume", "inspect", "reset"]) {
     if ($(name)) $(name).addEventListener("click", () => action(name));

@@ -27,7 +27,34 @@ button.quiet { font-weight: 400; }
 button:disabled, fieldset:disabled button { cursor: not-allowed; opacity: .55; }
 input, select, textarea { width: 100%; min-width: 0; min-height: 44px; padding: 9px 12px; color: var(--setup-text); background: var(--setup-surface); border: 1px solid #82878c; border-radius: 6px; }
 input:disabled, select:disabled, textarea:disabled { background: var(--setup-shade); color: var(--setup-muted); }
-input[type="radio"] { width: 20px; min-height: 20px; flex: 0 0 20px; margin: 4px 0 0; accent-color: var(--setup-accent); }
+input[type="radio"], input[type="checkbox"] { width: 20px; min-height: 20px; flex: 0 0 20px; margin: 4px 0 0; accent-color: var(--setup-accent); }
+.checkbox-option { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; font-weight: 400; font-size: 13px; color: var(--setup-muted); cursor: pointer; min-height: 32px; }
+.provision-progress { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--setup-rule); }
+.provision-progress-head, .provision-progress-facts { display: flex; align-items: center; gap: 16px; color: var(--setup-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.provision-progress-head { justify-content: space-between; margin-bottom: 8px; color: var(--setup-text); font-weight: 600; font-size: 13px; }
+.provision-meter { height: 8px; overflow: hidden; border-radius: 999px; background: var(--setup-shade); }
+.provision-meter-fill { height: 100%; width: 0%; border-radius: inherit; background: var(--setup-accent); transition: width 180ms ease; }
+.provision-meter.is-failed .provision-meter-fill { background: var(--setup-danger); }
+.provision-meter.is-done .provision-meter-fill { background: var(--setup-success); }
+.provision-progress-facts { flex-wrap: wrap; margin-top: 8px; }
+.provision-progress-facts strong { color: var(--setup-text); font-weight: 650; }
+.provision-progress-facts span:last-child:not(:first-child) { margin-left: auto; }
+.provision-stages { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid var(--setup-rule); display: grid; grid-template-columns: 1fr; }
+.provision-stage { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 8px 6px; border-bottom: 1px solid var(--setup-rule); }
+.provision-stage[aria-current="step"] { border-radius: 6px; background: #f3f6f9; padding-inline: 10px; border-color: #c7d5e4; }
+.provision-stage-index { font-family: var(--setup-mono); font-size: 12px; color: var(--setup-muted); font-variant-numeric: tabular-nums; }
+.provision-stage-body { min-width: 0; display: grid; gap: 2px; }
+.provision-stage-title { font-size: 13px; font-weight: 600; color: var(--setup-text); overflow-wrap: anywhere; }
+.provision-stage-desc { font-size: 12px; color: var(--setup-muted); overflow-wrap: anywhere; }
+.provision-stage-state { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--setup-shade); color: var(--setup-muted); white-space: nowrap; }
+.provision-stage--completed .provision-stage-index, .provision-stage--completed .provision-stage-state { color: var(--setup-success); }
+.provision-stage--completed .provision-stage-state { background: #edf4ec; }
+.provision-stage--active .provision-stage-index, .provision-stage--active .provision-stage-state { color: var(--setup-accent); }
+.provision-stage--active .provision-stage-state { background: #eef3f8; }
+.provision-stage--waiting .provision-stage-index, .provision-stage--waiting .provision-stage-state { color: var(--setup-warning); }
+.provision-stage--waiting .provision-stage-state { background: #faf1eb; }
+.provision-stage--failed .provision-stage-index, .provision-stage--failed .provision-stage-state, .provision-stage--blocked .provision-stage-index, .provision-stage--blocked .provision-stage-state { color: var(--setup-danger); }
+.provision-stage--failed .provision-stage-state, .provision-stage--blocked .provision-stage-state { background: #f9eded; }
 textarea { resize: vertical; font: 13px/1.6 var(--setup-mono); }
 :focus-visible { outline: 3px solid var(--setup-accent); outline-offset: 3px; }
 h1, h2, h3, p { margin: 0; }

@@ -195,16 +195,24 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
     if action == "login":
         if not payload:
             return {}
-        if set(payload) != {"tenant_id"}:
-            raise ValueError("Login accepts only an optional tenant_id")
-        tenant = payload.get("tenant_id")
-        if (
-            not isinstance(tenant, str)
-            or re.fullmatch(r"[A-Za-z0-9._-]{1,128}", tenant) is None
-            or tenant in {".", ".."}
-        ):
-            raise ValueError("Choose a valid Azure tenant ID or domain")
-        return {"tenant_id": tenant}
+        if set(payload) - {"tenant_id", "use_device_code"}:
+            raise ValueError("Login accepts only optional tenant_id and use_device_code")
+        validated: dict[str, object] = {}
+        if "tenant_id" in payload:
+            tenant = payload.get("tenant_id")
+            if (
+                not isinstance(tenant, str)
+                or re.fullmatch(r"[A-Za-z0-9._-]{1,128}", tenant) is None
+                or tenant in {".", ".."}
+            ):
+                raise ValueError("Choose a valid Azure tenant ID or domain")
+            validated["tenant_id"] = tenant
+        if "use_device_code" in payload:
+            if type(payload.get("use_device_code")) is not bool:
+                raise ValueError("use_device_code must be a boolean")
+            if payload["use_device_code"]:
+                validated["use_device_code"] = True
+        return validated
     if action != "install":
         if payload:
             raise ValueError("This action accepts no replacement inputs")

@@ -17,9 +17,11 @@ from uuid import UUID
 from fdai_deployment_cli.bootstrap_approval import approval_source
 from fdai_deployment_cli.bootstrap_channel import _read, _write, prepare_directory
 from fdai_deployment_cli.bootstrap_support import (
+    can_open_interactive_browser,
     configure_wsl_browser,
     default_profile_subscription_and_tenant,
     format_nonready_message,
+    prepare_pinned_source_checkout,
     reset_unapplied_installation,
     select_available_workload,
     sync_local_azure_profile,
@@ -130,15 +132,27 @@ class BootstrapExecutor:
             raise BootstrapBlocked(
                 "Install Azure CLI on this customer machine, then retry sign-in."
             )
-        result = self.run(
-            ["az", *args, "--output", "json", "--only-show-errors"],
-            env=self.environment,
-            stdin=subprocess.DEVNULL,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
+        if self.run is subprocess.run and args[0] == "login" and "--use-device-code" in args:
+            result = subprocess.run(
+                ["az", *args, "--output", "json"],
+                env=self.environment,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=sys.stderr,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+        else:
+            result = self.run(
+                ["az", *args, "--output", "json", "--only-show-errors"],
+                env=self.environment,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
         if result.returncode:
             raise BootstrapBlocked(
                 "Azure CLI operation failed. Sign in locally and inspect private diagnostics."
@@ -214,16 +228,23 @@ class BootstrapExecutor:
         if action == "login":
             tenant_raw = payload.get("tenant_id")
             requested = tenant_raw if isinstance(tenant_raw, str) and tenant_raw else None
-            if not self._has_active_human_session(requested):
+            device_code = payload.get("use_device_code") is True
+            if device_code or not self._has_active_human_session(requested):
                 if self.run is subprocess.run:
                     _, default_tenant = self._default_profile_subscription_and_tenant()
                     effective = requested or default_tenant
-                    args = (
-                        ("login", "--tenant", effective, "--allow-no-subscriptions")
-                        if effective
-                        else ("login", "--allow-no-subscriptions")
-                    )
+                    use_dc = device_code or not can_open_interactive_browser(self.environment)
+                    args: list[str] = ["login"]
+                    if effective:
+                        args.extend(["--tenant", effective])
+                    if use_dc:
+                        args.append("--use-device-code")
+                    args.append("--allow-no-subscriptions")
                     self._az(*args, timeout=600)
+                elif requested and device_code:
+                    self._az("login", "--tenant", requested, "--use-device-code", timeout=600)
+                elif device_code:
+                    self._az("login", "--use-device-code", timeout=600)
                 elif requested:
                     self._az("login", "--tenant", requested, timeout=600)
                 else:
@@ -319,6 +340,8 @@ class BootstrapExecutor:
                 "Provide the same clean committed FDAI checkout at the retained source root. "
                 "Source revision changes cannot resume this installation."
             ) from exc
+        if mode == "source" and self.run is subprocess.run and self.planner is None:
+            source = prepare_pinned_source_checkout(self.area, source, snapshot.commit)
         scripts = source / "scripts/deployment/azure"
         sys.path.insert(0, str(scripts))
         try:

@@ -378,7 +378,7 @@ def serve(root: Path, *, total_seconds: int = TOTAL_SECONDS) -> None:
                 progress = (record.get("progress"), trace_size)
                 if progress != last_progress:
                     last_progress, progress_time = progress, time.monotonic()
-                    if action in {"install", "resume"}:
+                    if action in {"install", "resume", "login"}:
                         with locked(root):
                             record = _read(root)
                             if record.get("status", {}).get("phase") == "working":
