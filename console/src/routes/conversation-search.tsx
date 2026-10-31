@@ -4,6 +4,7 @@ import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import type { PanelProps } from "../panels";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
   fetchConversationSearchContext,
@@ -197,7 +198,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
               <div class="conversation-search-meta">
                 <span>{hit.channel_id}</span>
                 <span>{t(`conversationSearch.roles.${hit.role}`)}</span>
-                <time dateTime={hit.recorded_at}>{new Date(hit.recorded_at).toLocaleString()}</time>
+                <time dateTime={hit.recorded_at}>{formatConsoleTimestamp(hit.recorded_at)}</time>
                 <span class="mono">{hit.conversation_id}</span>
                 {hit.incident_id ? <span class="mono">{hit.incident_id}</span> : null}
               </div>

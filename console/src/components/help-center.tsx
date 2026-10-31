@@ -75,6 +75,12 @@ function isManualLevel(value: unknown): value is ManualLevel {
   return value === "L100" || value === "L200" || value === "L300" || value === "L400";
 }
 
+function isValidIsoCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function parseMinimumSlidesByLevel(value: unknown): Readonly<Record<ManualLevel, number>> {
   const record = asRecord(value);
   if (record === null) {
@@ -211,14 +217,14 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
     if (status !== "complete" && status !== "wip") {
       throw new Error(`Manual catalog entry ${id} has an invalid status.`);
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
+    if (!isValidIsoCalendarDate(createdAt)) {
       throw new Error(`Manual catalog entry ${id} has an invalid createdAt date.`);
     }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(lastEditedAt) || lastEditedAt < createdAt) {
+    if (!isValidIsoCalendarDate(lastEditedAt) || lastEditedAt < createdAt) {
       throw new Error(`Manual catalog entry ${id} has an invalid lastEditedAt date.`);
     }
     if (reviewedAt !== null &&
-        (typeof reviewedAt !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(reviewedAt))) {
+        (typeof reviewedAt !== "string" || !isValidIsoCalendarDate(reviewedAt))) {
       throw new Error(`Manual catalog entry ${id} has an invalid reviewedAt date.`);
     }
     if (!Number.isSafeInteger(manual.slideCount) || Number(manual.slideCount) <= 0) {
@@ -252,6 +258,9 @@ export function parseManualCatalog(value: unknown, baseUrl: string): ManualCatal
       featured: manual.featured,
     };
   });
+  if (new Set(manuals.map((manual) => manual.id)).size !== manuals.length) {
+    throw new Error("Manual catalog entries must have unique ids.");
+  }
 
   return {
     schemaVersion: 3,

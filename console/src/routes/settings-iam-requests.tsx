@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, StatusPill, type PillKind } from "../components/ui";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { settingsIamText } from "./settings-iam.i18n";
 import { reviewIamAccessRequest } from "./settings-iam.command";
 import type { IamAccessRequest, IdentityRosterItem } from "./settings-iam.model";
@@ -129,7 +130,7 @@ export function AccessRequestsView({
           {
             key: "requested",
             header: t("settings.iam.requestedAt"),
-            render: (item: IamAccessRequest) => new Date(item.requestedAt).toLocaleString(),
+            render: (item: IamAccessRequest) => formatConsoleTimestamp(item.requestedAt),
           },
           {
             key: "review",

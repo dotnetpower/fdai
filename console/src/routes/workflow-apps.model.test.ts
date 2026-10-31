@@ -25,9 +25,11 @@ describe("workflow app manifest decoder", () => {
       "architecture-review",
     );
     expect(workflowAppHref("architecture-review")).toBe("/workflow-apps/architecture-review");
+    expect(workflowAppHref("architecture-review", new URLSearchParams("data=sample")))
+      .toBe("/workflow-apps/architecture-review?data=sample");
   });
 
-  it("rejects route spoofing and duplicate workflow exposure", () => {
+  it("rejects route spoofing, duplicate workflow exposure, and duplicate orders", () => {
     expect(() => decodeWorkflowApps({
       items: [{ ...APP, route: "/workflow-apps/other" }],
       count: 1,
@@ -36,6 +38,10 @@ describe("workflow app manifest decoder", () => {
       items: [APP, { ...APP, id: "second", route: "/workflow-apps/second" }],
       count: 2,
     })).toThrow(/workflow refs MUST be unique/);
+    expect(() => decodeWorkflowApps({
+      items: [APP, { ...APP, id: "second", workflow_ref: "second", route: "/workflow-apps/second" }],
+      count: 2,
+    })).toThrow(/orders MUST be unique/);
   });
 
   it("rejects non-published or privileged-looking manifests", () => {

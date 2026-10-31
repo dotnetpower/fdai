@@ -56,6 +56,8 @@ describe("LLM usage provenance", () => {
 
   test("links conversation rollups to correlation-scoped audit evidence", () => {
     expect(llmUsageCorrelationHref("corr-1")).toBe("/audit?correlation=corr-1");
+    expect(llmUsageCorrelationHref("corr-1", new URLSearchParams("data=sample")))
+      .toBe("/audit?data=sample&correlation=corr-1");
   });
 
   test("decodes measured usage without exposing cost", () => {

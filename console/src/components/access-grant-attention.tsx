@@ -12,6 +12,7 @@ import {
   type AccessGrantRequestProjection,
 } from "../hooks/use-access-grant-stream";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   reviewAccessGrant,
   type AccessGrantDecisionReceipt,
@@ -78,6 +79,17 @@ export function AccessGrantAttention({ auth, client, principalId }: Props) {
     }
   }, [first, requests, selected, selectedId]);
 
+  useEffect(() => {
+    if (!reviewOpen) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setReviewOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reviewOpen]);
+
   if (!first) return null;
   return (
     <div class="access-grant-attention-wrap">
@@ -123,7 +135,7 @@ export function AccessGrantAttention({ auth, client, principalId }: Props) {
           <dl>
             <div><dt>{t("accessGrants.capability")}</dt><dd>{selected.capability_id}</dd></div>
             <div><dt>{t("accessGrants.scope")}</dt><dd>{selected.scope_ref}</dd></div>
-            <div><dt>{t("accessGrants.expires")}</dt><dd>{selected.expires_at}</dd></div>
+            <div><dt>{t("accessGrants.expires")}</dt><dd>{formatConsoleTimestamp(selected.expires_at)}</dd></div>
             <div><dt>{t("accessGrants.quorum")}</dt><dd>{selected.quorum}</dd></div>
           </dl>
           <label>

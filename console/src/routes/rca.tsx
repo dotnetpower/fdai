@@ -279,10 +279,12 @@ function consumeLookupFocusState(): boolean {
   }
   const nextState = { ...state };
   delete nextState.fdaiRcaLookupFocus;
+  const route = currentRoute();
+  const query = route.search.toString();
   window.history.replaceState(
     nextState,
     "",
-    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    `${route.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
   );
   return true;
 }

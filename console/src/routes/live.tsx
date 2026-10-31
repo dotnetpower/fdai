@@ -5,7 +5,12 @@ import type { ConsoleDataMode } from "../console-data-mode";
 import type { AgentOperationalActivityMessage } from "../agent-operational-activity";
 import type { LiveStageEvent } from "../hooks/use-live-stream";
 import { useLiveStream } from "../hooks/use-live-stream";
-import { currentRoute, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import {
   liveSelectionState,
   makeInitialState,
@@ -198,9 +203,11 @@ export function LiveRoute({ client, dataMode }: Props) {
     sync();
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, [dataMode]);
 
@@ -293,12 +300,23 @@ export function LiveRoute({ client, dataMode }: Props) {
   useEffect(() => {
     if (dataMode !== "sample") return undefined;
     const sampleNow = Date.now();
-    const lastSampleAt = Math.max(...OPERATIONS_SAMPLE_LIVE_EVENTS.map(event => Date.parse(event.ts)));
-    OPERATIONS_SAMPLE_LIVE_EVENTS.forEach((event) => observeLiveControl(
-      metricsRef.current,
-      { ...event, ts: new Date(sampleNow - (lastSampleAt - Date.parse(event.ts)) / 100).toISOString() },
-      sampleNow,
-    ));
+    const parsedTimestamps = OPERATIONS_SAMPLE_LIVE_EVENTS
+      .map((event) => Date.parse(event.ts))
+      .filter(Number.isFinite);
+    const lastSampleAt = parsedTimestamps.length > 0
+      ? Math.max(...parsedTimestamps)
+      : sampleNow;
+    OPERATIONS_SAMPLE_LIVE_EVENTS.forEach((event) => {
+      const parsed = Date.parse(event.ts);
+      const shifted = Number.isFinite(parsed)
+        ? sampleNow - (lastSampleAt - parsed) / 100
+        : sampleNow;
+      observeLiveControl(
+        metricsRef.current,
+        { ...event, ts: new Date(shifted).toISOString() },
+        sampleNow,
+      );
+    });
     dispatch({ kind: "batch", events: sampleLivePreviewEvents() });
     dispatch({ kind: "seed-rate", now: Date.now(), per_tier_per_second: 1 });
     return undefined;

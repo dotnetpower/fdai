@@ -6,7 +6,7 @@ import {
 import { useCurrentFindings } from "../hooks/use-current-findings";
 import { getLocale } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
-import { routeHref, ROUTE_STATE_EVENT } from "../router";
+import { currentRoute, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { Tooltip } from "./tooltip";
 import { LoadingState } from "./ui";
 import "./finding-attention.css";
@@ -78,7 +78,7 @@ export function FindingAttention({
         <div class="finding-toast" role="status" aria-live="polite">
           <a href={noticeCount > 1 ? allFindingsHref() : findingHref(notice)}
             onClick={() => setNotice(null)}>
-            {words.new} ({noticeCount}): {notice.severity}
+            {words.new} ({noticeCount}): {words.severity[notice.severity]}
           </a>
           <button type="button" onClick={() => setNotice(null)} aria-label={words.close}>X</button>
         </div>
@@ -94,12 +94,17 @@ export function CurrentFindings({ client, enabled = true }: {
   const { findings, error, loading } = useCurrentFindings(client, enabled);
   const [page, setPage] = useState(0);
   const words = text();
-  const [selected, setSelected] = useState(() => new URLSearchParams(window.location.search).get("finding"));
+  const [selected, setSelected] = useState(() => currentRoute().search.get("finding"));
   useEffect(() => {
-    const sync = () => { setSelected(new URLSearchParams(window.location.search).get("finding")); setPage(0); };
+    const sync = () => {
+      setSelected(currentRoute().search.get("finding"));
+      setPage(0);
+    };
+    window.addEventListener("fdai:route-changed", sync);
     window.addEventListener(ROUTE_STATE_EVENT, sync);
     window.addEventListener("popstate", sync);
     return () => {
+      window.removeEventListener("fdai:route-changed", sync);
       window.removeEventListener(ROUTE_STATE_EVENT, sync);
       window.removeEventListener("popstate", sync);
     };

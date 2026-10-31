@@ -319,7 +319,8 @@ adjacent inspection.
   table remain alternate views. No resource, personnel, or connection cap is
   shown unless the response records it. The Architecture workbench bounds its
   cache-refresh polling to `refreshPending` transitions and synchronizes route
-  state across `popstate`, `fdai:route-changed`, and `ROUTE_STATE_EVENT`.
+  state from `currentRoute().search` across `popstate`, `fdai:route-changed`,
+  and `ROUTE_STATE_EVENT`.
 - **Promotion gates** filters measured ActionTypes by ready/blocked state and
   search text, and renders accuracy, reviewed/agreed progress, policy escapes,
   and recorded gaps. Promotion remains a separate reviewed catalog PR.

@@ -17,7 +17,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
-import { isRfc3339Timestamp } from "../time-format";
+import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import {
   BlastImpact,
   BlastTraversalContract,
@@ -96,8 +96,13 @@ export function missingImpactResourceIds(
     .filter((resourceId) => !available.has(resourceId));
 }
 
+function currentBlastRadiusSearch(): string {
+  const query = currentRoute().search.toString();
+  return query ? `?${query}` : "";
+}
+
 export function BlastRadiusRoute({ client }: Props) {
-  const initialQuery = blastRadiusQueryFromSearch(window.location.search);
+  const initialQuery = blastRadiusQueryFromSearch(currentBlastRadiusSearch());
   const [target, setTarget] = useState(() => initialQuery.target ?? "");
   const [architectureView, setArchitectureView] = useState(initialQuery.architectureView);
   const [depth, setDepth] = useState(initialQuery.depth);
@@ -108,7 +113,7 @@ export function BlastRadiusRoute({ client }: Props) {
 
   useEffect(() => {
     if (initialSimulationStarted.current) return;
-    const query = blastRadiusQueryFromSearch(window.location.search);
+    const query = blastRadiusQueryFromSearch(currentBlastRadiusSearch());
     if (query.target === null) return;
     initialSimulationStarted.current = true;
     void runSimulation({
@@ -122,7 +127,7 @@ export function BlastRadiusRoute({ client }: Props) {
   useEffect(() => {
     const sync = () => {
       requestGeneration.current += 1;
-      const query = blastRadiusQueryFromSearch(window.location.search);
+      const query = blastRadiusQueryFromSearch(currentBlastRadiusSearch());
       setTarget(query.target ?? "");
       setDepth(query.depth);
       setLinkSet(new Set(query.links));
@@ -212,7 +217,7 @@ export function BlastRadiusRoute({ client }: Props) {
           <div class="blast-projection-meta">
             <span>{t("ontology.blast.projectionCutoff")}</span>
             <time dateTime={reportData.source_cutoff}>
-              {reportData.source_cutoff}
+              {formatConsoleTimestamp(reportData.source_cutoff)}
             </time>
           </div>
         ) : undefined}

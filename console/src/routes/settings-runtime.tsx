@@ -5,6 +5,7 @@ import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   RuntimeSettingsCommandError,
   saveRuntimeSettings,
@@ -176,7 +177,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
               {view.updatedAt && view.updatedBy
                 ? t("settings.runtimePolicies.lastUpdated", {
                     actor: view.updatedBy,
-                    time: new Date(view.updatedAt).toLocaleString(),
+                    time: formatConsoleTimestamp(view.updatedAt),
                   })
                 : t("settings.runtimePolicies.neverUpdated")}
             </small>

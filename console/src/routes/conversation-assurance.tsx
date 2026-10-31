@@ -215,7 +215,7 @@ function AssuranceBody({
         <KpiCard evidenceState={evidenceState} href={`${routeHref("conversation-assurance")}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
       </KpiGrid>
       <PantheonSummary summary={data.pantheon} />
-      <AssessmentTable assessments={data.assessments} onSelect={onSelect} />
+      <AssessmentTable assessments={data.assessments} selectedId={selectedId} onSelect={onSelect} />
       <AssessmentDetail
         auth={auth}
         client={client}
@@ -281,8 +281,16 @@ export function pantheonSafetyTone(hardZeroCount: number): "danger" | "positive"
   return hardZeroCount > 0 ? "danger" : "positive";
 }
 
-function AssessmentTable({ assessments, onSelect }: { readonly assessments: readonly AssuranceAssessment[]; readonly onSelect: (value: string) => void }) {
-  return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.state")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td><StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{new Date(item.assessed_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</section>;
+function AssessmentTable({
+  assessments,
+  selectedId,
+  onSelect,
+}: {
+  readonly assessments: readonly AssuranceAssessment[];
+  readonly selectedId: string | null;
+  readonly onSelect: (value: string) => void;
+}) {
+  return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.state")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" aria-pressed={item.assessment_id === selectedId} onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td><StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{formatConsoleTimestamp(item.assessed_at)}</td></tr>)}</tbody></table></div>}</section>;
 }
 
 function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessmentId: string | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {

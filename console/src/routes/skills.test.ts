@@ -98,6 +98,14 @@ describe("runtime Skills panel contract", () => {
     });
     expect(decode(observed).diagnostics[0]?.observed_at).toBe(observed);
     expect(decode(null).diagnostics[0]?.observed_at).toBeNull();
+    expect(() => decodeRuntimeSkills({ ...value, execution_eligibility: true }))
+      .toThrow(/MUST be read-only/);
+    expect(() => decodeRuntimeSkills({ ...value, mutation_controls: true }))
+      .toThrow(/MUST be read-only/);
+    expect(() => decodeRuntimeSkills({
+      ...value,
+      skills: [{ ...ITEM, references: [ITEM.references[0]!, ITEM.references[0]!] }],
+    })).toThrow(/references paths MUST be unique/);
     expect(() => decode(42)).toThrow();
     expect(() => decode("yesterday")).toThrow();
     expect(() => decode("2026-02-30T00:00:00Z")).toThrow();

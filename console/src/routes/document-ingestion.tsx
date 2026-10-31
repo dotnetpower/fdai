@@ -12,6 +12,7 @@ import {
   type IngestionCapabilities,
 } from "../ingestion-api";
 import { t } from "../i18n";
+import { currentRoute, ROUTE_STATE_EVENT } from "../router";
 import { buildDocumentViewSnapshot } from "./document-ingestion.view";
 import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
 import { openDeckWithContext } from "../deck/open-deck";
@@ -143,9 +144,23 @@ export function DocumentIngestionRoute({ client }: Props) {
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [documentsRevision, setDocumentsRevision] = useState(0);
   const [handoverSlot, setHandoverSlot] = useState<HandoverSlot | "">("");
-  const handover = handoverUploadContext(
-    typeof window === "undefined" ? "" : window.location.search,
-  );
+  const currentSearchString = () => {
+    const query = currentRoute().search.toString();
+    return query ? `?${query}` : "";
+  };
+  const [handover, setHandover] = useState(() => handoverUploadContext(currentSearchString()));
+
+  useEffect(() => {
+    const sync = () => setHandover(handoverUploadContext(currentSearchString()));
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
 
   useEffect(() => () => {
     mounted.current = false;
