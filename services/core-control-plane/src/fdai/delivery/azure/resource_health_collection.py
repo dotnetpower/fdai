@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -58,13 +59,30 @@ class AzureResourceHealthCollectionConfig:
             raise ValueError("subscription_id MUST be a canonical UUID")
         if not self.endpoint.startswith("https://"):
             raise ValueError("Resource Health endpoint MUST use https")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("Resource Health timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.max_resources <= 1000:
+        if (
+            isinstance(self.max_resources, bool)
+            or not isinstance(self.max_resources, int)
+            or not 1 <= self.max_resources <= 1000
+        ):
             raise ValueError("Resource Health max_resources MUST be in [1, 1000]")
-        if not 1 <= self.max_concurrent_queries <= 8:
+        if (
+            isinstance(self.max_concurrent_queries, bool)
+            or not isinstance(self.max_concurrent_queries, int)
+            or not 1 <= self.max_concurrent_queries <= 8
+        ):
             raise ValueError("Resource Health max_concurrent_queries MUST be in [1, 8]")
-        if not 1_024 <= self.max_response_bytes <= 5_000_000:
+        if (
+            isinstance(self.max_response_bytes, bool)
+            or not isinstance(self.max_response_bytes, int)
+            or not 1_024 <= self.max_response_bytes <= 5_000_000
+        ):
             raise ValueError("Resource Health max_response_bytes MUST be in [1024, 5000000]")
 
 
@@ -95,8 +113,9 @@ class AzureResourceHealthCollectionReader:
 
         requested = tuple(sorted(set(resource_ids)))
         started_at = self._now()
-        if started_at.tzinfo is None:
+        if started_at.tzinfo is None or started_at.utcoffset() is None:
             raise ValueError("Resource Health reader clock MUST be timezone-aware")
+        started_at = started_at.astimezone(UTC)
         if (
             requested != resource_ids
             or not requested
@@ -232,6 +251,9 @@ class AzureResourceHealthCollectionReader:
         issues: tuple[str, ...],
     ) -> ResourceHealthCollection:
         completed_at = self._now()
+        if completed_at.tzinfo is None or completed_at.utcoffset() is None:
+            raise ValueError("Resource Health reader clock MUST be timezone-aware")
+        completed_at = max(started_at, completed_at.astimezone(UTC))
         material = "|".join(
             (
                 *resource_ids,
@@ -336,7 +358,11 @@ def _timestamp(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed.astimezone(UTC) if parsed.tzinfo is not None else None
+    return (
+        parsed.astimezone(UTC)
+        if parsed.tzinfo is not None and parsed.utcoffset() is not None
+        else None
+    )
 
 
 def _machine_token(value: object, *, fallback: str) -> str:

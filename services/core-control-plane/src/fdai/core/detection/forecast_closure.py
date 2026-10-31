@@ -37,7 +37,11 @@ class ForecastClosureCoordinator:
         observations: ForecastObservationProvider,
         lease_seconds: int = 60,
     ) -> None:
-        if lease_seconds < 1:
+        if (
+            isinstance(lease_seconds, bool)
+            or not isinstance(lease_seconds, int)
+            or lease_seconds < 1
+        ):
             raise ValueError("forecast closure lease MUST be positive")
         self._store = store
         self._observations = observations
@@ -52,9 +56,9 @@ class ForecastClosureCoordinator:
         until its lease expired again. Every claimed episode is attempted, then
         the first failure is re-raised so the tick still reports the outage.
         """
-        if now.tzinfo is None:
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("forecast closure clock MUST be timezone-aware")
-        if not 1 <= limit <= 1_000:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1_000:
             raise ValueError("forecast closure limit MUST be in [1, 1000]")
         episodes = await self._store.claim_due(
             now=now,

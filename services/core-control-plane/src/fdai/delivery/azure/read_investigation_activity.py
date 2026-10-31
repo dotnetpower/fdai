@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -51,7 +52,12 @@ class AzureActivityReadConfig:
             raise ValueError("subscription_id MUST be a canonical UUID") from exc
         if canonical != self.subscription_id.casefold():
             raise ValueError("subscription_id MUST be a canonical UUID")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("timeout_seconds MUST be in [0.1, 30]")
 
 
@@ -98,7 +104,7 @@ class AzureActivityReadInvestigationProvider:
     ) -> ReadEvidenceAttempt:
         started = time.monotonic()
         observed_at = datetime.now(UTC)
-        if resource.resource_group is None:
+        if resource.resource_group is None or not resource.resource_group.strip():
             return self._unavailable(
                 resource,
                 observed_at=observed_at,
@@ -114,10 +120,18 @@ class AzureActivityReadInvestigationProvider:
         filter_value = (
             f"eventTimestamp ge '{_azure_time(lower)}' and "
             f"eventTimestamp le '{_azure_time(observed_at)}' and "
-            f"resourceGroupName eq '{_odata_literal(resource.resource_group)}'"
+            f"resourceGroupName eq '{_odata_literal(resource.resource_group.strip())}'"
         )
         try:
             token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+            if not isinstance(token.token, str) or not token.token.strip():
+                return self._unavailable(
+                    resource,
+                    observed_at=observed_at,
+                    started=started,
+                    limitation=EvidenceLimitationKind.UNAUTHORIZED,
+                    detail="Activity Log authorization unavailable",
+                )
             response = await self._http.get(
                 endpoint,
                 params={"api-version": _ACTIVITY_API_VERSION, "$filter": filter_value},
@@ -168,19 +182,23 @@ class AzureActivityReadInvestigationProvider:
                 limitation=EvidenceLimitationKind.SOURCE_UNAVAILABLE,
                 detail="Activity Log response shape unavailable",
             )
-        matched = [
-            record
-            for item in payload["value"]
-            if isinstance(item, dict)
-            and (
-                record := _activity_record(
-                    item,
-                    resource=resource,
-                    subscription_id=self._config.subscription_id,
-                )
+        matched: list[ReadEvidenceRecord] = []
+        seen_refs: set[str] = set()
+        for item in payload["value"]:
+            if not isinstance(item, dict):
+                continue
+            record = _activity_record(
+                item,
+                resource=resource,
+                subscription_id=self._config.subscription_id,
             )
-            is not None
-        ]
+            if record is None:
+                continue
+            ref = _activity_evidence_ref(record, resource_ref=resource.resource_ref)
+            if ref in seen_refs:
+                continue
+            seen_refs.add(ref)
+            matched.append(record)
         matched.sort(key=lambda item: item.occurred_at)
         truncated = len(matched) > limits.max_results or isinstance(payload.get("nextLink"), str)
         records = tuple(matched[-limits.max_results :])
@@ -246,6 +264,16 @@ class AzureActivityReadInvestigationProvider:
         )
         try:
             token = await self._identity.get_token(_MANAGEMENT_AUDIENCE)
+            if not isinstance(token.token, str) or not token.token.strip():
+                return self._unavailable(
+                    resource,
+                    observed_at=observed_at,
+                    started=started,
+                    limitation=EvidenceLimitationKind.UNAUTHORIZED,
+                    detail="Resource Health authorization unavailable",
+                    tool_id=ReadToolId.QUERY_RESOURCE_HEALTH,
+                    authority="azure.resource_health",
+                )
             response = await self._http.get(
                 endpoint,
                 params={"api-version": _RESOURCE_HEALTH_API_VERSION},

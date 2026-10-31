@@ -137,12 +137,22 @@ class ShadowResourceStateComparisonService:
                 cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.IDENTITY_CONFLICT,
             )
-        evidence_conflict_revision = await self._publish_evidence_conflict(
-            receipt=receipt,
-            existing=existing,
-            semantic=semantic,
-            generation_ref=query_result.receipt.source_generation,
-        )
+        try:
+            evidence_conflict_revision = await self._publish_evidence_conflict(
+                receipt=receipt,
+                existing=existing,
+                semantic=semantic,
+                generation_ref=query_result.receipt.source_generation,
+            )
+        except Exception as exc:  # noqa: BLE001 - conflict publication cannot abort shadow compare
+            _LOG.warning(
+                "shadow_resource_state_conflict_publish_failed",
+                extra={
+                    "correlation_id": correlation_ref,
+                    "error_kind": type(exc).__name__,
+                },
+            )
+            evidence_conflict_revision = None
         return ShadowComparisonAttempt(
             authoritative_result=existing_result,
             receipt=append_result.receipt,

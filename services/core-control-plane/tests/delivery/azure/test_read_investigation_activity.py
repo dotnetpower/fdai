@@ -306,3 +306,10 @@ async def test_activity_read_rejects_response_over_byte_budget_before_parsing() 
     assert result.evidence.status is EvidenceStatus.UNAVAILABLE
     assert result.evidence.limitations == (EvidenceLimitationKind.BYTE_LIMIT,)
     assert result.evidence.records == ()
+
+
+def test_activity_read_config_rejects_boolean_timeout() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureActivityReadConfig(subscription_id=SUBSCRIPTION_ID, timeout_seconds=True)

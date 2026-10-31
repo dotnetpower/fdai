@@ -498,6 +498,19 @@ async def test_reconcile_expired_is_deterministic() -> None:
     assert first[0].failure_reason == "lease_expired"
     assert first[0].terminal_at == _NOW + timedelta(seconds=1)
     assert second == ()
+    with pytest.raises(ValueError, match="non-negative"):
+        ReadInvestigationRunUsage(tool_calls=True, execution_duration_ms=10)
+    with pytest.raises(ValueError, match="lease_seconds"):
+        await store.claim(
+            owner_principal_id="principal:one",
+            request=request,
+            mode=ReadInvestigationRunMode.STREAMED,
+            lease_owner="coordinator:one",
+            lease_token="lease:one",
+            now=_NOW,
+            lease_seconds=True,
+            retention_seconds=300,
+        )
 
 
 async def test_renew_running_extends_lease_with_cas_and_ceiling() -> None:
