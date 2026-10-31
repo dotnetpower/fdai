@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RcaView } from "../types";
-import { buildRcaPendingViewSnapshot } from "./rca";
+import {
+  buildRcaPendingViewSnapshot,
+  MAX_RCA_CORRELATION_ID_LENGTH,
+  normalizeRcaCorrelationId,
+  rcaCorrelationHref,
+} from "./rca";
 import { hasRecordedRca, linkedRcaResponse } from "./rca.presentation";
 
 function view(hypotheses: RcaView["hypotheses"]): RcaView {
@@ -46,6 +51,14 @@ describe("RCA availability", () => {
       mode: "shadow",
       recorded_at: "2026-07-28T07:11:38Z",
     }]))).toBe(true);
+  });
+
+  it("normalizes and bounds RCA correlation IDs", () => {
+    expect(normalizeRcaCorrelationId("  corr-123  ")).toBe("corr-123");
+    expect(normalizeRcaCorrelationId("x".repeat(MAX_RCA_CORRELATION_ID_LENGTH + 1))).toBe("");
+    expect(normalizeRcaCorrelationId("bad\nid")).toBe("");
+    expect(rcaCorrelationHref("  corr-123  ")).toBe("/root-cause-analysis?correlation=corr-123");
+    expect(rcaCorrelationHref("   ")).toBe("/root-cause-analysis");
   });
 });
 

@@ -11,7 +11,7 @@ import {
   PageHeader,
   type AsyncState,
 } from "../components/ui";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, navigate, routeHref } from "../router";
 import { CostGovernanceWorkspace } from "./cost-governance-workspace";
 import { t } from "./i18n/cost-governance";
 import {
@@ -21,21 +21,38 @@ import {
 import type { ConsoleDataMode } from "../console-data-mode";
 import { sampleCostGovernance } from "./cost-governance.sample";
 
-const TABS: readonly {
-  readonly surface: CostGovernanceSurface;
-  readonly label: string;
-}[] = [
-  { surface: "overview", label: t("costGovernance.tabs.overview") },
-  { surface: "resource-efficiency", label: t("costGovernance.tabs.resourceEfficiency") },
-  { surface: "optimization-cases", label: t("costGovernance.tabs.optimizationCases") },
-  { surface: "outcomes", label: t("costGovernance.tabs.outcomes") },
+const SURFACES: readonly CostGovernanceSurface[] = [
+  "overview",
+  "resource-efficiency",
+  "optimization-cases",
+  "outcomes",
 ];
 
-function activeSurface(): CostGovernanceSurface {
-  const candidate = currentRoute().segments[0] ?? "overview";
-  return TABS.some((tab) => tab.surface === candidate)
-    ? candidate as CostGovernanceSurface
-    : "overview";
+export function costGovernanceTabs(): readonly {
+  readonly surface: CostGovernanceSurface;
+  readonly label: string;
+}[] {
+  return [
+    { surface: "overview", label: t("costGovernance.tabs.overview") },
+    { surface: "resource-efficiency", label: t("costGovernance.tabs.resourceEfficiency") },
+    { surface: "optimization-cases", label: t("costGovernance.tabs.optimizationCases") },
+    { surface: "outcomes", label: t("costGovernance.tabs.outcomes") },
+  ];
+}
+
+export function resolveCostGovernanceSurface(
+  segments: readonly string[],
+): { readonly surface: CostGovernanceSurface; readonly canonical: boolean } {
+  if (segments.length === 0) return { surface: "overview", canonical: true };
+  const candidate = segments[0];
+  if (
+    segments.length === 1 &&
+    candidate !== undefined &&
+    SURFACES.includes(candidate as CostGovernanceSurface)
+  ) {
+    return { surface: candidate as CostGovernanceSurface, canonical: true };
+  }
+  return { surface: "overview", canonical: false };
 }
 
 export function CostGovernanceRoute({
@@ -45,10 +62,23 @@ export function CostGovernanceRoute({
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
 }) {
-  const surface = activeSurface();
+  const { surface, canonical } = resolveCostGovernanceSurface(currentRoute().segments);
+  const tabs = costGovernanceTabs();
   const [state, setState] = useState<AsyncState<CostGovernanceProjection>>({
     status: "loading",
   });
+
+  useEffect(() => {
+    if (!canonical) {
+      navigate(
+        routeHref("cost-governance", {
+          segments: ["overview"],
+          params: Object.fromEntries(currentRoute().search.entries()),
+        }),
+        true,
+      );
+    }
+  }, [canonical]);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,8 +121,9 @@ export function CostGovernanceRoute({
     <div class="stack cost-governance-route">
       <PageHeader title={t("costGovernance.title")} subtitle={t("costGovernance.subtitle")} />
       <nav class="cost-governance-tabs" aria-label={t("costGovernance.title")}>
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <a
+            key={tab.surface}
             href={routeHref("cost-governance", {
               segments: [tab.surface],
               params: Object.fromEntries(currentRoute().search.entries()),

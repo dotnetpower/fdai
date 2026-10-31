@@ -55,6 +55,12 @@ interface Props {
  * `policy_escapes` sum > 0 blocks release per goals-and-metrics (escapes
  * MUST be exactly 0), so it also fails the health axis.
  */
+export function resourceDashboardHref(dataMode: ConsoleDataMode): string {
+  return routeHref("dashboard-v2", {
+    params: { data: dataMode === "sample" ? "sample" : null },
+  });
+}
+
 export function DashboardRoute({ client, dataMode }: Props) {
   const [state, setState] = useState<AsyncState<DashboardOverviewData>>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -93,7 +99,10 @@ export function DashboardRoute({ client, dataMode }: Props) {
         title={t("route.dashboard")}
         subtitle={tDashboard("subtitle")}
         actions={
-          <a class="cs-control-button overview-resource-dashboard-link" href={routeHref("dashboard-v2")}>
+          <a
+            class="cs-control-button overview-resource-dashboard-link"
+            href={resourceDashboardHref(dataMode)}
+          >
             <ResourceDashboardIcon />
             <span>{tDashboard("resources")}</span>
           </a>

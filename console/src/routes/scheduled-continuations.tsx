@@ -11,7 +11,8 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { t } from "./i18n/evidence";
+import { formatConsoleTimestamp } from "../time-format";
+import { presentationLabel, t } from "./i18n/evidence";
 import {
   decodeUserContext,
   fetchUserContext,
@@ -44,6 +45,7 @@ export function ScheduledContinuationsRoute({
         cancelled = true;
       };
     }
+    setState({ status: "loading" });
     fetchUserContext()
       .then((context) => {
         if (!cancelled) setState({
@@ -68,18 +70,21 @@ export function decodeScheduledContinuations(value: unknown): ContinuationRespon
   return { continuations: decodeUserContext(value).scheduled_continuations };
 }
 
-const columns: readonly Column<ScheduledContinuationPayload>[] = [
-  { key: "result", header: t("evidence.continuations.column.result"), render: (item) => <div><strong>{item.result_summary.split("\n", 1)[0]}</strong><small>{item.run_id}</small></div> },
-  { key: "state", header: t("evidence.continuations.column.state"), render: (item) => <StatusPill kind={item.state === "active" ? "success" : "neutral"} label={item.state} /> },
-  { key: "scope", header: t("evidence.continuations.column.scope"), render: (item) => <code>{item.scope_ref}</code> },
-  { key: "window", header: t("evidence.continuations.column.window"), render: (item) => `${item.observation_started_at} - ${item.observation_ended_at}` },
-  { key: "origin", header: t("evidence.continuations.column.origin"), render: (item) => `${item.origin.channel_kind}:${item.origin.conversation_ref}${item.origin.thread_ref ? `:${item.origin.thread_ref}` : ""}` },
-  { key: "evidence", header: t("evidence.continuations.column.evidence"), render: (item) => item.evidence_refs.length },
-  { key: "digest", header: t("evidence.continuations.column.digest"), render: (item) => <code>{item.result_digest.slice(0, 12)}</code> },
-  { key: "expiry", header: t("evidence.continuations.column.expiry"), render: (item) => item.expires_at },
-];
+export function scheduledContinuationColumns(): readonly Column<ScheduledContinuationPayload>[] {
+  return [
+    { key: "result", header: t("evidence.continuations.column.result"), render: (item) => <div><strong>{item.result_summary.split("\n", 1)[0]}</strong><small>{item.run_id}</small></div> },
+    { key: "state", header: t("evidence.continuations.column.state"), render: (item) => <StatusPill kind={item.state === "active" ? "success" : "neutral"} label={presentationLabel("status", item.state)} /> },
+    { key: "scope", header: t("evidence.continuations.column.scope"), render: (item) => <code>{item.scope_ref}</code> },
+    { key: "window", header: t("evidence.continuations.column.window"), render: (item) => `${formatConsoleTimestamp(item.observation_started_at)} - ${formatConsoleTimestamp(item.observation_ended_at)}` },
+    { key: "origin", header: t("evidence.continuations.column.origin"), render: (item) => `${item.origin.channel_kind}:${item.origin.conversation_ref}${item.origin.thread_ref ? `:${item.origin.thread_ref}` : ""}` },
+    { key: "evidence", header: t("evidence.continuations.column.evidence"), render: (item) => item.evidence_refs.length },
+    { key: "digest", header: t("evidence.continuations.column.digest"), render: (item) => <code>{item.result_digest.slice(0, 12)}</code> },
+    { key: "expiry", header: t("evidence.continuations.column.expiry"), render: (item) => formatConsoleTimestamp(item.expires_at) },
+  ];
+}
 
 function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
+  const columns = scheduledContinuationColumns();
   usePublishViewContext(
     () => ({
       routeId: "scheduled-continuations",

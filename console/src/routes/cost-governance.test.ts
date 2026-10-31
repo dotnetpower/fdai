@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { getLocale, setLocale } from "../i18n";
 import type {
   CostGovernanceAvailability,
   CostGovernanceProjection,
   CostGovernanceSurface,
 } from "../api-cost-governance";
+import {
+  costGovernanceTabs,
+  resolveCostGovernanceSurface,
+} from "./cost-governance";
 import {
   isCostGovernanceNavigationVisible,
   loadCostGovernance,
@@ -103,6 +108,38 @@ describe("Cost Governance source preflight", () => {
       const result = await loadCostGovernance(client, surface);
       expect(client.calls).toEqual(["availability", surface]);
       expect("surface" in result && result.surface).toBe(surface);
+    }
+  });
+
+  it("marks unknown route segments non-canonical and localizes tabs dynamically", () => {
+    expect(resolveCostGovernanceSurface([])).toEqual({
+      surface: "overview",
+      canonical: true,
+    });
+    expect(resolveCostGovernanceSurface(["outcomes"])).toEqual({
+      surface: "outcomes",
+      canonical: true,
+    });
+    expect(resolveCostGovernanceSurface(["bogus"])).toEqual({
+      surface: "overview",
+      canonical: false,
+    });
+    expect(resolveCostGovernanceSurface(["overview", "extra"])).toEqual({
+      surface: "overview",
+      canonical: false,
+    });
+
+    const previous = getLocale();
+    try {
+      setLocale("en");
+      const enOverview = costGovernanceTabs()[0]?.label;
+      setLocale("ko");
+      const koOverview = costGovernanceTabs()[0]?.label;
+      expect(enOverview).toBeTruthy();
+      expect(koOverview).toBeTruthy();
+      expect(koOverview).not.toBe(enOverview);
+    } finally {
+      setLocale(previous);
     }
   });
 });

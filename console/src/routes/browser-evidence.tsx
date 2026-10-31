@@ -9,7 +9,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { currentRoute } from "../router";
+import { currentRoute, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/browser-evidence";
 import {
@@ -148,9 +148,11 @@ export function BrowserEvidenceRoute({ client }: { readonly client: OperatorApiC
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 

@@ -36,12 +36,33 @@ export function presetLlmUsageRange(
   return { preset, from: from.toISOString(), to: to.toISOString() };
 }
 
+function isStrictUtcCalendarDate(dateText: string, parsed: Date): boolean {
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === dateText;
+}
+
+function presetMatchesSpan(
+  preset: Exclude<LlmUsageRangePreset, "custom">,
+  from: Date,
+  to: Date,
+): boolean {
+  const duration = to.getTime() - from.getTime();
+  if (preset === "24h") return duration === DAY_MS;
+  const days = preset === "7d" ? 7 : 30;
+  return duration === days * DAY_MS;
+}
+
 export function customLlmUsageRange(fromDate: string, toDate: string): LlmUsageRange | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fromDate) || !/^\d{4}-\d{2}-\d{2}$/.test(toDate)) {
     return null;
   }
   const from = new Date(`${fromDate}T00:00:00.000Z`);
   const inclusiveEnd = new Date(`${toDate}T00:00:00.000Z`);
+  if (
+    !isStrictUtcCalendarDate(fromDate, from) ||
+    !isStrictUtcCalendarDate(toDate, inclusiveEnd)
+  ) {
+    return null;
+  }
   const to = new Date(inclusiveEnd.getTime() + DAY_MS);
   if (!validRange(from, to)) return null;
   return { preset: "custom", from: from.toISOString(), to: to.toISOString() };
@@ -55,9 +76,11 @@ export function llmUsageRangeFromSearch(search: URLSearchParams, now: Date): Llm
     const to = new Date(rawTo);
     if (validRange(from, to)) {
       const rawPreset = search.get("range");
-      const preset: LlmUsageRangePreset = rawPreset === "24h" || rawPreset === "7d" || rawPreset === "30d"
-        ? rawPreset
-        : "custom";
+      const preset: LlmUsageRangePreset =
+        (rawPreset === "24h" || rawPreset === "7d" || rawPreset === "30d") &&
+        presetMatchesSpan(rawPreset, from, to)
+          ? rawPreset
+          : "custom";
       return { preset, from: from.toISOString(), to: to.toISOString() };
     }
   }

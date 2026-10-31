@@ -21,9 +21,11 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   "workflow-apps": "/workflow-apps",
   "scheduler-runs": "/scheduler-runs",
   "background-tasks": "/background-tasks",
+  "automation-blueprints": "/automation-blueprints",
   "scheduled-continuations": "/scheduled-continuations",
   "conversation-delivery": "/conversation-delivery",
   "conversation-assurance": "/conversation-assurance",
+  "conversation-search": "/conversation-search",
   reports: "/reports",
   "agent-activity": "/agent-activity",
   audit: "/audit",
@@ -39,9 +41,15 @@ export const PANEL_PATHS: Readonly<Record<string, string>> = {
   handover: "/agent-oversight",
   rules: "/rules",
   "workflow-builder": "/workflow-builder",
+  skills: "/skills",
+  knowledge: "/knowledge",
   documents: "/documents",
+  github: "/github",
+  gitlab: "/gitlab",
+  "azure-devops": "/azure-devops",
   "blast-radius": "/blast-radius",
   "promotion-gates": "/promotion-gates",
+  "context-selection-comparisons": "/context-selection-comparisons",
   scope: "/scope",
   "llm-cost": "/llm-cost",
   "cost-governance": "/cost-governance",
@@ -195,7 +203,10 @@ export function legacyHashHref(hash: string): string | null {
   if (!raw) return PANEL_PATHS.dashboard!;
   const [legacyId = "", query = ""] = raw.split("?", 2);
   const panelId = LEGACY_ALIASES[legacyId] ?? legacyId;
-  if (!(panelId in PANEL_PATHS)) return null;
+  if (
+    !(panelId in PANEL_PATHS) &&
+    !resolvePanels().some((panel) => panel.id === panelId)
+  ) return null;
   const path = panelPath(panelId);
   return query ? `${path}?${query}` : path;
 }
@@ -306,9 +317,13 @@ export function installNavigationListener(onRoute: () => void): () => void {
     const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
     if (!anchor || anchor.target || anchor.hasAttribute("download")) return;
     const url = new URL(anchor.href, window.location.origin);
-    if (url.origin !== window.location.origin || url.hash) return;
+    const sameDocumentFragment =
+      url.hash !== "" &&
+      normalizePathname(url.pathname) === normalizePathname(window.location.pathname) &&
+      url.search === window.location.search;
+    if (url.origin !== window.location.origin || sameDocumentFragment) return;
     event.preventDefault();
-    navigate(`${url.pathname}${url.search}`);
+    navigate(`${url.pathname}${url.search}${url.hash}`);
   };
   window.addEventListener("popstate", onHistoryRoute);
   window.addEventListener(ROUTE_EVENT, onRoute);

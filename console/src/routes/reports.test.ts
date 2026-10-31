@@ -7,6 +7,7 @@ import {
   pdfDownloadAvailable,
   registrySourceReadiness,
   reportVariableErrors,
+  reportVariablesHref,
   reportDownloadCanComplete,
   reportHeadlineState,
   reportSourceAvailability,
@@ -29,6 +30,13 @@ describe("reports source availability", () => {
       status: "error",
       message: "reporting failed",
     });
+    expect(
+      reportVariablesHref(
+        "executive-summary",
+        { window: "7d" },
+        new URLSearchParams("locale=ko&window=30d"),
+      ),
+    ).toBe("/reports/executive-summary?locale=ko&window=7d");
   });
 });
 

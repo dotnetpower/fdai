@@ -3,7 +3,7 @@ import type { OperatorApiClient } from "../api";
 import { triggerBlobDownload } from "../blob-download";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { t } from "../i18n";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, replaceRouteState, routeHref } from "../router";
 import type { RenderedReportView } from "./reporting.model";
 import {
   defaultReport,
@@ -35,6 +35,21 @@ export {
   updateReportVariable,
 } from "./reports.model";
 
+export function reportVariablesHref(
+  reportId: string,
+  variables: Readonly<Record<string, string>>,
+  search: URLSearchParams,
+): string {
+  const preserved: Record<string, string | null> = {};
+  for (const [key, value] of search.entries()) {
+    preserved[key] = value;
+  }
+  return routeHref("reports", {
+    segments: [reportId],
+    params: { ...preserved, ...variables },
+  });
+}
+
 export function ReportsRoute({ client }: Props) {
   const requestedId = currentRoute().segments[0] ?? null;
   const [state, setState] = useState<AsyncState<ReportsData>>({ status: "loading" });
@@ -64,7 +79,7 @@ export function ReportsRoute({ client }: Props) {
         const selected = requestedId
           ? catalog.items.find((report) => report.id === requestedId) ?? null
           : defaultReport(catalog.items, registry);
-        const queryVariables = new URLSearchParams(window.location.search);
+        const queryVariables = currentRoute().search;
         const variables = Object.fromEntries(
           (selected?.variables ?? []).map((variable) => [
             variable.name,
@@ -108,13 +123,12 @@ export function ReportsRoute({ client }: Props) {
       if (current.status !== "ready") return current;
       const data = updateReportVariable(current.data, name, value);
       if (current.data.selected) {
-        window.history.replaceState(
-          window.history.state,
-          "",
-          routeHref("reports", {
-            segments: [current.data.selected.id],
-            params: data.variables,
-          }),
+        replaceRouteState(
+          reportVariablesHref(
+            current.data.selected.id,
+            data.variables,
+            currentRoute().search,
+          ),
         );
       }
       return {

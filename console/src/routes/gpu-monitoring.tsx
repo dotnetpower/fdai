@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import type { OperatorApiClient } from "../api";
 import {
@@ -40,16 +40,27 @@ interface Props {
   readonly dataMode: ConsoleDataMode;
 }
 
+export function gpuLiveStreamHref(dataMode: ConsoleDataMode): string {
+  return routeHref("live", {
+    params: { data: dataMode === "sample" ? "sample" : null },
+  });
+}
+
 export function GpuMonitoringRoute({ client, dataMode }: Props) {
   const [now, setNow] = useState(Date.now());
   const [observations, setObservations] = useState<readonly GpuObservation[]>(
     () => dataMode === "sample" ? gpuSampleObservations(Date.now()) : [],
   );
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const modeRef = useRef<ConsoleDataMode>(dataMode);
+  modeRef.current = dataMode;
   const ingest = useCallback((event: Parameters<typeof decodeGpuObservation>[0]) => {
+    if (modeRef.current !== "live") return;
     const observation = decodeGpuObservation(event);
     if (observation !== null) {
-      setObservations((current) => mergeGpuObservation(current, observation));
+      setObservations((current) =>
+        modeRef.current === "live" ? mergeGpuObservation(current, observation) : current
+      );
     }
   }, []);
   const url = useMemo(() => {
@@ -100,7 +111,7 @@ export function GpuMonitoringRoute({ client, dataMode }: Props) {
               kind={dataMode === "sample" ? "info" : streamTone(stream.status)}
               label={modeLabel}
             />
-            <a class="btn btn-secondary" href={routeHref("live")}>{gpuMonitoringText("openLive")}</a>
+            <a class="btn btn-secondary" href={gpuLiveStreamHref(dataMode)}>{gpuMonitoringText("openLive")}</a>
           </div>
         )}
       />
@@ -147,7 +158,7 @@ export function GpuMonitoringRoute({ client, dataMode }: Props) {
               selectedKey={selected.key}
               onSelect={setSelectedKey}
             />
-            <main class="stack gpu-monitoring-detail">
+            <section class="stack gpu-monitoring-detail" aria-label={gpuMonitoringText("title")}>
               <GpuSelectedHeader device={selected} dataMode={dataMode} />
               <GpuCharts device={selected} />
               <GpuMetrics observation={latest} />
@@ -159,7 +170,7 @@ export function GpuMonitoringRoute({ client, dataMode }: Props) {
                 correlationId={latest.correlationId}
                 dataMode={dataMode}
               />
-            </main>
+            </section>
           </div>
         </>
       ) : (

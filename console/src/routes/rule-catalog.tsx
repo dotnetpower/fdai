@@ -9,7 +9,13 @@ import {
   PageHeader,
   UnavailableState,
 } from "../components/ui";
-import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
+import {
+  currentRoute,
+  navigate,
+  pushRouteState,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+} from "../router";
 import { t } from "./i18n/governance";
 import { RuleCatalogBody } from "./rule-catalog-body";
 import {
@@ -66,7 +72,6 @@ export {
 const PAGE_SIZE = 100;
 
 const EMPTY_FILTERS: Filters = { origin: "", category: "", severity: "", source: "", q: "" };
-let pendingRuleFocus: Selection | null = null;
 
 function ruleListStateFromRoute(): { readonly filters: Filters; readonly offset: number } {
   return ruleListStateFromSearch(currentRoute().search);
@@ -126,6 +131,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   const [errorMsg, setErrorMsg] = useState("");
   const [activationRefresh, setActivationRefresh] = useState(0);
   const [activation, setActivation] = useState<ActivationState>({ status: "loading" });
+  const pendingRuleFocusRef = useRef<Selection | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -238,13 +244,13 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   // row origin so an id shared across tiers resolves unambiguously.
   // Selection is mirrored into the URL query (deep-link / shareable).
   function selectRule(sel: Selection | null): void {
-    if (sel !== null) pendingRuleFocus = sel;
+    if (sel !== null) pendingRuleFocusRef.current = sel;
     setSelected(sel);
     pushRouteState(ruleCatalogHref(filters, offset, sel));
   }
 
   function closeRuleDetail(): void {
-    pendingRuleFocus = selected;
+    pendingRuleFocusRef.current = selected;
     selectRule(null);
   }
 
@@ -266,9 +272,11 @@ function AtomicRuleCatalogRoute({ client }: Props) {
     };
     window.addEventListener("popstate", onRouteChange);
     window.addEventListener("fdai:route-changed", onRouteChange);
+    window.addEventListener(ROUTE_STATE_EVENT, onRouteChange);
     return () => {
       window.removeEventListener("popstate", onRouteChange);
       window.removeEventListener("fdai:route-changed", onRouteChange);
+      window.removeEventListener(ROUTE_STATE_EVENT, onRouteChange);
     };
   }, []);
   const [detail, setDetail] = useState<DetailState>({ status: "loading" });
@@ -418,23 +426,24 @@ function AtomicRuleCatalogRoute({ client }: Props) {
   }, [selected]);
 
   useEffect(() => {
-    if (data === null || selected !== null || pendingRuleFocus === null) return;
+    const pendingFocus = pendingRuleFocusRef.current;
+    if (data === null || selected !== null || pendingFocus === null) return;
     let frame = 0;
     let attempts = 0;
-    const expectedKey = `${pendingRuleFocus.origin}:${pendingRuleFocus.id}`;
+    const expectedKey = `${pendingFocus.origin}:${pendingFocus.id}`;
     const restoreFocus = () => {
       const marker = Array.from(document.querySelectorAll<HTMLElement>("[data-rule-key]"))
         .find((element) => element.dataset.ruleKey === expectedKey);
       const focusTarget = marker?.closest<HTMLButtonElement>("button")
         ?? marker?.closest<HTMLTableRowElement>("tr");
       if (focusTarget !== null && focusTarget !== undefined) {
-        pendingRuleFocus = null;
+        pendingRuleFocusRef.current = null;
         focusTarget.focus();
         return;
       }
       attempts += 1;
       if (attempts >= 60) {
-        pendingRuleFocus = null;
+        pendingRuleFocusRef.current = null;
         document.querySelector<HTMLInputElement>(".rule-facet-search input")?.focus();
         return;
       }

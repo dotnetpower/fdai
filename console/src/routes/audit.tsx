@@ -6,7 +6,7 @@ import {
   PageHeader,
   type AsyncState,
 } from "../components/ui";
-import { currentRoute } from "../router";
+import { currentRoute, ROUTE_STATE_EVENT } from "../router";
 import { appendAuditPage, resolveAuditEntry, type AuditData as Data } from "./audit.model";
 import { AuditQueryControls } from "./audit.filters";
 import { AuditWorkspace } from "./audit.workspace";
@@ -20,7 +20,7 @@ interface Props {
 const PAGE_SIZE = 25;
 
 function correlationFromHash(): string | null {
-  return new URLSearchParams(window.location.search).get("correlation");
+  return currentRoute().search.get("correlation");
 }
 
 interface AuditFilters {
@@ -80,7 +80,7 @@ export function auditFiltersFromSearch(search: URLSearchParams): AuditFilters {
 }
 
 function filtersFromSearch(): AuditFilters {
-  return auditFiltersFromSearch(new URLSearchParams(window.location.search));
+  return auditFiltersFromSearch(currentRoute().search);
 }
 
 export function AuditRoute({ client }: Props) {
@@ -103,9 +103,11 @@ export function AuditRoute({ client }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 

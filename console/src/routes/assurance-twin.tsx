@@ -14,7 +14,7 @@ import {
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { t } from "./i18n/assurance-twin";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, ROUTE_STATE_EVENT, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   panelArray,
@@ -211,12 +211,29 @@ const FINDING_KEYS = new Set([
 ]);
 
 export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiClient }) {
-  const reviewId = assuranceTwinReviewIdFromSearch(currentRoute().search);
+  const [reviewId, setReviewId] = useState<string | null>(
+    () => assuranceTwinReviewIdFromSearch(currentRoute().search),
+  );
   const [state, setState] = useState<AsyncState<AssuranceTwinResponse>>({ status: "loading" });
   const [detailState, setDetailState] = useState<AsyncState<AssuranceTwinReviewDetailState> | null>(null);
 
   useEffect(() => {
+    const sync = () => {
+      setReviewId(assuranceTwinReviewIdFromSearch(currentRoute().search));
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     void loadAssuranceTwinState(client).then((next) => {
       if (!cancelled) setState(next);
     });

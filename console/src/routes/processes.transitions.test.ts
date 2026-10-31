@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { setWorkflowAuth } from "../workflow/validate";
+import { processSchedulerRunsHref, processViewAriaControls } from "./processes";
 import type { ProcessTransition } from "./processes.model";
 import { requestProcessTransition } from "./processes.transitions";
 
@@ -81,5 +82,13 @@ describe("Process transition request client", () => {
     await expect(requestProcessTransition("process-1", transition)).rejects.toThrow(
       "does not match the request",
     );
+  });
+
+  it("exposes aria-controls only for the rendered view panel and preserves sample mode on scheduler link", () => {
+    expect(processViewAriaControls("workspace", "workspace", false)).toBeUndefined();
+    expect(processViewAriaControls("provenance", "workspace", true)).toBeUndefined();
+    expect(processViewAriaControls("workspace", "workspace", true)).toBe("process-workspace-panel");
+    expect(processSchedulerRunsHref("live")).toBe("/scheduler-runs");
+    expect(processSchedulerRunsHref("sample")).toBe("/scheduler-runs?data=sample");
   });
 });
