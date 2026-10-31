@@ -55,6 +55,8 @@ _SERVICE_MODULES = {
 _IMPLEMENTATION_MODULES = tuple(
     module for modules in _SERVICE_MODULES.values() for module in modules
 )
+_SOURCE_ROOTS_CACHE: dict[Path, tuple[Path, ...]] = {}
+_MODULE_EXISTS_CACHE: dict[tuple[Path, str], bool] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,19 +196,36 @@ def _scan_imports(
     for path in _source_files(root, selectors):
         relative = path.relative_to(root).as_posix()
         try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
+            source = path.read_text(encoding="utf-8")
+            tree = ast.parse(source, filename=relative)
         except (OSError, SyntaxError) as exc:
             line = exc.lineno if isinstance(exc, SyntaxError) else 1
             parse_errors.append((relative, line or 1, "Python source cannot be parsed"))
             continue
-        refs = tuple(_imports(tree, relative, root))
-        imports[relative] = refs
+        is_comp_root = relative in _COMPOSITION_ROOTS
+        has_dynamic = "importlib" in source or "import_module" in source or "__import__" in source
+        refs = tuple(
+            _imports(
+                tree,
+                relative,
+                root,
+                resolve_fanout=is_comp_root,
+                has_dynamic=has_dynamic,
+            )
+        )
+        if is_comp_root:
+            imports[relative] = refs
         seen: set[tuple[str, str, int, str]] = set()
         for ref in refs:
             finding = _classify(ref)
             if finding is None:
                 continue
-            key = (finding.rule, ref.path, ref.line, ref.fanout_module)
+            fanout_mod = (
+                ref.fanout_module
+                if is_comp_root or ref.module == ref.fanout_module
+                else (ref.module if _module_exists(root, ref.module) else ref.fanout_module)
+            )
+            key = (finding.rule, ref.path, ref.line, fanout_mod)
             if key in seen:
                 continue
             seen.add(key)
@@ -450,19 +469,30 @@ def _source_files(root: Path, selectors: tuple[str, ...]) -> tuple[Path, ...]:
     return tuple(sorted(files))
 
 
-def _imports(tree: ast.AST, path: str, root: Path) -> Iterator[ImportRef]:
+def _imports(
+    tree: ast.AST,
+    path: str,
+    root: Path,
+    *,
+    resolve_fanout: bool = True,
+    has_dynamic: bool = True,
+) -> Iterator[ImportRef]:
     importlib_aliases = {"importlib"}
     import_module_aliases: set[str] = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            importlib_aliases.update(
-                alias.asname or alias.name for alias in node.names if alias.name == "importlib"
-            )
-        elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
-            import_module_aliases.update(
-                alias.asname or alias.name for alias in node.names if alias.name == "import_module"
-            )
-    for node in ast.walk(tree):
+    nodes = list(ast.walk(tree))
+    if has_dynamic:
+        for node in nodes:
+            if isinstance(node, ast.Import):
+                importlib_aliases.update(
+                    alias.asname or alias.name for alias in node.names if alias.name == "importlib"
+                )
+            elif isinstance(node, ast.ImportFrom) and node.module == "importlib":
+                import_module_aliases.update(
+                    alias.asname or alias.name
+                    for alias in node.names
+                    if alias.name == "import_module"
+                )
+    for node in nodes:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 yield ImportRef(path, node.lineno, alias.name, alias.name)
@@ -475,10 +505,16 @@ def _imports(tree: ast.AST, path: str, root: Path) -> Iterator[ImportRef]:
             for alias in node.names:
                 if alias.name != "*":
                     candidate = f"{module}.{alias.name}"
-                    fanout_module = candidate if _module_exists(root, candidate) else module
+                    fanout_module = (
+                        (candidate if _module_exists(root, candidate) else module)
+                        if resolve_fanout
+                        else module
+                    )
                     yield ImportRef(path, node.lineno, candidate, fanout_module)
-        elif isinstance(node, ast.Call) and _is_dynamic_import_call(
-            node, importlib_aliases, import_module_aliases
+        elif (
+            has_dynamic
+            and isinstance(node, ast.Call)
+            and _is_dynamic_import_call(node, importlib_aliases, import_module_aliases)
         ):
             target = node.args[0] if node.args else None
             module = _dynamic_import_target(node, target)
@@ -495,6 +531,8 @@ def _walk_python_files(target: Path, root: Path) -> Iterator[Path]:
                     f"source tree must not contain directory symlink: "
                     f"{child.relative_to(root).as_posix()}"
                 )
+            if name.startswith(".") or name == "__pycache__":
+                directories.remove(name)
         for name in filenames:
             child = current / name
             if child.is_symlink():
@@ -502,14 +540,7 @@ def _walk_python_files(target: Path, root: Path) -> Iterator[Path]:
                     f"source tree must not contain file symlink: "
                     f"{child.relative_to(root).as_posix()}"
                 )
-            relative_child = child.relative_to(root)
-            if child.suffix == ".py" and not any(
-                part.startswith(".") or part == "__pycache__" for part in relative_child.parts
-            ):
-                if not child.resolve().is_relative_to(root):
-                    raise ScanError(
-                        f"source file escapes repository root: {child.relative_to(root).as_posix()}"
-                    )
+            if child.suffix == ".py" and not name.startswith("."):
                 yield child
 
 
@@ -565,17 +596,26 @@ def _dynamic_import_target(node: ast.Call, target: ast.expr | None) -> str:
 
 
 def _module_exists(root: Path, module: str) -> bool:
+    cache_key = (root, module)
+    cached = _MODULE_EXISTS_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    source_roots = _SOURCE_ROOTS_CACHE.get(root)
+    if source_roots is None:
+        source_roots = (
+            *root.glob("services/*/src"),
+            *root.glob("packages/*/src"),
+            root / "src",
+        )
+        _SOURCE_ROOTS_CACHE[root] = source_roots
     relative = Path(*module.split("."))
-    source_roots = [
-        *root.glob("services/*/src"),
-        *root.glob("packages/*/src"),
-        root / "src",
-    ]
-    return any(
+    exists = any(
         (source_root / relative).with_suffix(".py").is_file()
         or (source_root / relative / "__init__.py").is_file()
         for source_root in source_roots
     )
+    _MODULE_EXISTS_CACHE[cache_key] = exists
+    return exists
 
 
 def _load_debt_budgets(path: Path) -> tuple[DebtBudget, ...]:

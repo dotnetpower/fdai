@@ -49,6 +49,7 @@ documents = subprocess.check_output(
 link_re = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 broken: list[tuple[str, str]] = []
 scanned = 0
+checked_targets: dict[tuple[Path, str], bool] = {}
 
 
 def is_git_ignored(path: Path) -> bool:
@@ -93,8 +94,17 @@ for md in documents:
         rel = first_segment.split("?", 1)[0]
         if not rel:
             continue
-        target_p = (canonical_dir / rel).resolve()
-        if not target_p.exists() and not is_git_ignored(target_p):
+        cache_key = (canonical_dir, rel)
+        valid = checked_targets.get(cache_key)
+        if valid is None:
+            candidate = canonical_dir / rel
+            if candidate.exists():
+                valid = True
+            else:
+                target_p = candidate.resolve()
+                valid = target_p.exists() or is_git_ignored(target_p)
+            checked_targets[cache_key] = valid
+        if not valid:
             broken.append((md, rel))
 
 if broken:

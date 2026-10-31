@@ -18,6 +18,7 @@ SKILLS_ROOT = REPO_ROOT / ".github/skills"
 PROMPTS_ROOT = REPO_ROOT / ".github/prompts"
 FRONTMATTER = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
 NAVIGATION_ONLY_DOCS = frozenset({"docs/roadmap/architecture/code-map.md"})
+_DOC_LINE_COUNT_CACHE: dict[Path, int] = {}
 
 
 def _tracked_paths() -> tuple[str, ...]:
@@ -94,8 +95,11 @@ def _roadmap_context_line_count(must_read: list[object]) -> int:
         ):
             continue
         path = REPO_ROOT / relative_text
-        if path.is_file():
-            total += len(path.read_text(encoding="utf-8").splitlines())
+        cached = _DOC_LINE_COUNT_CACHE.get(path)
+        if cached is None:
+            cached = len(path.read_text(encoding="utf-8").splitlines()) if path.is_file() else 0
+            _DOC_LINE_COUNT_CACHE[path] = cached
+        total += cached
     return total
 
 
@@ -116,6 +120,11 @@ def _roadmap_budget_error(
 def _matches(pattern: str, paths: tuple[str, ...]) -> bool:
     if pattern == "**":
         return bool(paths)
+    if "*" not in pattern and "?" not in pattern and "[" not in pattern:
+        return pattern in paths
+    prefix = pattern.split("*", 1)[0].split("?", 1)[0].split("[", 1)[0]
+    if prefix:
+        return any(path.startswith(prefix) and fnmatch.fnmatchcase(path, pattern) for path in paths)
     return any(fnmatch.fnmatchcase(path, pattern) for path in paths)
 
 

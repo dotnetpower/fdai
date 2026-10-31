@@ -50,6 +50,19 @@ SERVICE_IDS = {
     "document-processing-worker",
     "isolated-executor",
 }
+_FORMAT_CHECKER = FormatChecker()
+_SCHEMA_OBJECT_CACHE: dict[Path, Mapping[str, Any]] = {}
+_VALIDATOR_CACHE: dict[int, Draft202012Validator] = {}
+_SYMBOL_CACHE: dict[str, object] = {}
+
+
+def _cached_schema(path: Path) -> Mapping[str, Any]:
+    resolved = path.resolve()
+    cached = _SCHEMA_OBJECT_CACHE.get(resolved)
+    if cached is None:
+        cached = load_json_object(resolved)
+        _SCHEMA_OBJECT_CACHE[resolved] = cached
+    return cached
 
 
 class ReceiptSummary:
@@ -79,10 +92,11 @@ def validate(
     contracts = _contract_map(manifest)
     _validate_wire_payloads(contracts)
     unsupported_major_rejection = _validate_codec_artifacts(manifest, contracts)
-    _validate_delivery_traces()
+    cached_delivery_checks = _validate_delivery_traces()
     receipt_summary = _validate_upgrade_receipts(
         manifest,
         unsupported_major_rejection=unsupported_major_rejection,
+        cached_delivery_checks=cached_delivery_checks,
         required_proof_kind=mode,
         receipts_path=receipts_path,
         evidence_manifest_path=evidence_manifest_path,
@@ -112,11 +126,11 @@ def _validate_wire_payloads(contracts: Mapping[str, Mapping[str, Any]]) -> None:
         contract = contracts[contract_id]
         schemas = _mapping(contract.get("producer_schemas"), f"{contract_id}.producer_schemas")
         schema_ref = _mapping(schemas[str(release)], f"{contract_id}.{release}")
-        schema = load_json_object(REPO_ROOT / str(schema_ref["path"]))
+        schema = _cached_schema(REPO_ROOT / str(schema_ref["path"]))
         _validator(schema).validate(payload)
         if contract.get("compatibility_policy") == "additive-ignore-unknown" and release == "N":
             previous_ref = _mapping(schemas["N-1"], f"{contract_id}.N-1")
-            previous_schema = load_json_object(REPO_ROOT / str(previous_ref["path"]))
+            previous_schema = _cached_schema(REPO_ROOT / str(previous_ref["path"]))
             _validator(previous_schema).validate(project_additive_fields(previous_schema, payload))
         seen.add(contract_id)
     if seen != set(contracts):
@@ -243,14 +257,18 @@ def _payload_for_release(
 
 
 def _load_symbol(reference: str) -> object:
+    if reference in _SYMBOL_CACHE:
+        return _SYMBOL_CACHE[reference]
     module_name, separator, symbol_name = reference.partition(":")
     if not separator or not module_name or not symbol_name:
         raise CompatibilityError(f"invalid artifact reference: {reference}")
     try:
         module = importlib.import_module(module_name)
-        return getattr(module, symbol_name)
+        symbol = getattr(module, symbol_name)
     except (ImportError, AttributeError) as exc:
         raise CompatibilityError(f"cannot import artifact: {reference}") from exc
+    _SYMBOL_CACHE[reference] = symbol
+    return symbol
 
 
 def _load_translator(reference: str) -> Callable[[Mapping[str, Any]], object]:
@@ -260,11 +278,13 @@ def _load_translator(reference: str) -> Callable[[Mapping[str, Any]], object]:
     return symbol
 
 
-def _validate_delivery_traces() -> None:
+def _validate_delivery_traces() -> dict[str, bool]:
     persisted = _load_json_array(FIXTURE_ROOT / "delivery-traces.json")
     expected: list[dict[str, object]] = []
-    for service_id in SERVICE_IDS:
+    all_receipts = []
+    for service_id in sorted(SERVICE_IDS):
         receipts = run_delivery_transition_harness(service_id)
+        all_receipts.extend(receipts)
         checks = delivery_checks(receipts)
         if set(receipt.scenario for receipt in receipts) != {
             "commit_failure_redelivery",
@@ -291,6 +311,7 @@ def _validate_delivery_traces() -> None:
         raise CompatibilityError(
             "persisted delivery evidence does not match executable transition observations"
         )
+    return delivery_checks(tuple(all_receipts))
 
 
 def _delivery_evidence_key(item: Mapping[str, Any]) -> tuple[str, str]:
@@ -301,25 +322,27 @@ def _validate_upgrade_receipts(
     manifest: Mapping[str, Any],
     *,
     unsupported_major_rejection: bool,
+    cached_delivery_checks: dict[str, bool] | None = None,
     required_proof_kind: str,
     evidence_manifest: Mapping[str, Any] | None = None,
     receipts_path: Path | None = None,
     evidence_manifest_path: Path | None = None,
 ) -> ReceiptSummary:
     receipt_contract = _mapping(manifest.get("upgrade_receipt"), "upgrade_receipt")
-    schema = load_json_object(REPO_ROOT / str(receipt_contract["schema_path"]))
+    schema = _cached_schema(REPO_ROOT / str(receipt_contract["schema_path"]))
     if evidence_manifest is not None and evidence_manifest_path is not None:
         raise CompatibilityError("live evidence manifest must have one source")
     if evidence_manifest_path is not None:
         evidence_manifest = load_json_object(evidence_manifest_path)
     if evidence_manifest is not None:
-        evidence_schema = load_json_object(
+        evidence_schema = _cached_schema(
             REPO_ROOT / str(receipt_contract["evidence_manifest_schema_path"])
         )
         _validator(evidence_schema).validate(evidence_manifest)
     checks = _upgrade_checks(
         manifest,
         unsupported_major_rejection=unsupported_major_rejection,
+        cached_delivery_checks=cached_delivery_checks,
     )
     fixtures = _load_json_array(receipts_path or FIXTURE_ROOT / "upgrade-receipts.json")
     live_services = {
@@ -333,8 +356,9 @@ def _validate_upgrade_receipts(
         )
     expected_checks = {name: value for name, value in checks.items() if name != "offsets_preserved"}
     seen: set[tuple[str, str]] = set()
+    receipt_validator = _validator(schema)
     for receipt in fixtures:
-        _validator(schema).validate(receipt)
+        receipt_validator.validate(receipt)
         validate_peer_upgrade_receipt(
             manifest,
             receipt,
@@ -376,13 +400,17 @@ def _upgrade_checks(
     manifest: Mapping[str, Any],
     *,
     unsupported_major_rejection: bool | None = None,
+    cached_delivery_checks: dict[str, bool] | None = None,
 ) -> dict[str, bool]:
-    receipts = tuple(
-        receipt
-        for service_id in sorted(SERVICE_IDS)
-        for receipt in run_delivery_transition_harness(service_id)
-    )
-    checks = delivery_checks(receipts)
+    if cached_delivery_checks is not None:
+        checks = dict(cached_delivery_checks)
+    else:
+        receipts = tuple(
+            receipt
+            for service_id in sorted(SERVICE_IDS)
+            for receipt in run_delivery_transition_harness(service_id)
+        )
+        checks = delivery_checks(receipts)
     checks.update(
         {
             "additive_fields": _additive_contracts_pass(manifest),
@@ -405,8 +433,8 @@ def _additive_contracts_pass(manifest: Mapping[str, Any]) -> bool:
         previous = _mapping(schemas["N-1"], "N-1 schema")
         current = _mapping(schemas["N"], "N schema")
         assert_additive_schema(
-            load_json_object(REPO_ROOT / str(previous["path"])),
-            load_json_object(REPO_ROOT / str(current["path"])),
+            _cached_schema(REPO_ROOT / str(previous["path"])),
+            _cached_schema(REPO_ROOT / str(current["path"])),
             version_field="schema_version",
         )
     return True
@@ -443,8 +471,13 @@ def _contract_map(manifest: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
 
 
 def _validator(schema: Mapping[str, Any]) -> Draft202012Validator:
-    Draft202012Validator.check_schema(schema)
-    return Draft202012Validator(schema, format_checker=FormatChecker())
+    key = id(schema)
+    validator = _VALIDATOR_CACHE.get(key)
+    if validator is None:
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema, format_checker=_FORMAT_CHECKER)
+        _VALIDATOR_CACHE[key] = validator
+    return validator
 
 
 def _load_json_array(path: Path) -> list[Mapping[str, Any]]:

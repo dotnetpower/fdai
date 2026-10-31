@@ -52,8 +52,8 @@ def _load_script_module(name: str, relative_path: str) -> ModuleType:
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load module {relative_path}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
     spec.loader.exec_module(module)
+    sys.modules[name] = module
     return module
 
 
@@ -482,6 +482,16 @@ def sync_worktree_base(
         return {"reason_code": "base_ref_unavailable", "schema_version": 1, "status": "blocked"}
     canonical_base_ref, base_sha = resolved_base
     head_sha = git(repo_root, "rev-parse", "--verify", "HEAD^{commit}").stdout.strip()
+    if head_sha == base_sha:
+        return {
+            "base_ref": canonical_base_ref,
+            "base_sha": base_sha,
+            "head": head_sha,
+            "outcome": "up_to_date",
+            "reconciled_paths": [],
+            "schema_version": 1,
+            "status": "ok",
+        }
     counts = git(repo_root, "rev-list", "--left-right", "--count", f"{base_sha}...{head_sha}")
     behind_str, ahead_str = counts.stdout.strip().split()
     behind, ahead = int(behind_str), int(ahead_str)

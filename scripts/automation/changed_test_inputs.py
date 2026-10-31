@@ -57,8 +57,9 @@ def worktree_digests(root: Path, excluded: tuple[Path, ...]) -> tuple[str, str]:
     content = hashlib.sha256()
     status = hashlib.sha256()
     for raw_path in sorted(set(listed.split(b"\0")) - {b""}):
-        path = root / os.fsdecode(raw_path)
-        if any(path.is_relative_to(prefix) for prefix in excluded):
+        rel_str = os.fsdecode(raw_path)
+        path = root / rel_str
+        if excluded and any(path.is_relative_to(prefix) for prefix in excluded):
             continue
         content.update(raw_path + b"\0")
         status.update(raw_path + b"\0")
