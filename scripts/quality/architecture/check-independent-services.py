@@ -94,10 +94,27 @@ def _canonical_digest(value: object) -> str:
 
 
 def _imports_prefix(path: Path, prefix: str) -> bool:
-    def matches(module: str) -> bool:
-        return module == prefix.removesuffix(".") or module.startswith(prefix)
+    return _imports_any_prefix(path, (prefix,))
 
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+def _imports_any_prefix(path: Path, prefixes: tuple[str, ...]) -> bool:
+    source = path.read_text(encoding="utf-8")
+    needles = tuple(prefix.removesuffix(".") for prefix in prefixes)
+    if not any(
+        (prefix in source or f"from {needle}" in source or f"import {needle}" in source)
+        if prefix.endswith(".")
+        else (prefix in source)
+        for needle, prefix in zip(needles, prefixes, strict=True)
+    ):
+        return False
+
+    def matches(module: str) -> bool:
+        return any(
+            module == needle or module.startswith(prefix)
+            for needle, prefix in zip(needles, prefixes, strict=True)
+        )
+
+    tree = ast.parse(source, filename=str(path))
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and matches(node.module or ""):
             return True
@@ -107,7 +124,11 @@ def _imports_prefix(path: Path, prefix: str) -> bool:
 
 
 def _count_files_importing(root: Path, prefix: str, pattern: str = "*.py") -> int:
-    return sum(1 for path in root.rglob(pattern) if _imports_prefix(path, prefix))
+    return sum(
+        1
+        for path in root.rglob(pattern)
+        if "__pycache__" not in path.parts and _imports_prefix(path, prefix)
+    )
 
 
 def _count_service_forbidden_imports() -> int:
@@ -131,7 +152,7 @@ def _count_service_forbidden_imports() -> int:
         count += sum(
             1
             for path in set(source.rglob("*.py"))
-            if any(_imports_prefix(path, prefix) for prefix in prefixes)
+            if "__pycache__" not in path.parts and _imports_any_prefix(path, prefixes)
         )
     return count
 

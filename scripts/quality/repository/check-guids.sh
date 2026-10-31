@@ -96,7 +96,7 @@ errors=0
 hits=""
 declare -A public_wara_guids=()
 public_wara_loaded=false
-batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-256}"
+batch_size="${FDAI_TEXT_GATE_BATCH_SIZE:-2048}"
 if ! [[ "$batch_size" =~ ^[1-9][0-9]*$ ]]; then
   echo "check-guids: FDAI_TEXT_GATE_BATCH_SIZE must be a positive integer" >&2
   exit 2

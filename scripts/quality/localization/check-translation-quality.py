@@ -64,6 +64,10 @@ LINK_FILENAME_RE = re.compile(
 )
 
 CODE_FENCE_RE = re.compile(r"^\s*```")
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+PRODUCT_WORD_RES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (word, re.compile(rf"\b{word}\s+([{HANGUL}]+)")) for word in PRODUCT_FIRST_WORDS
+)
 MIN_EN_INDENT_LINES = 5
 INDENT_RATIO = 3
 
@@ -95,7 +99,7 @@ def _indented_lines(text: str) -> int:
     total = 0
     in_fence = False
     for line in text.split("\n"):
-        if CODE_FENCE_RE.match(line):
+        if line.lstrip().startswith("```"):
             in_fence = not in_fence
             continue
         if not in_fence and line.startswith("  ") and line[2:3].strip():
@@ -107,7 +111,7 @@ def _outside_code(text: str) -> Iterable[tuple[int, str]]:
     """Yield (line number, line) for prose lines only."""
     in_fence = False
     for number, line in enumerate(text.split("\n"), start=1):
-        if CODE_FENCE_RE.match(line):
+        if line.lstrip().startswith("```"):
             in_fence = not in_fence
             continue
         if not in_fence:
@@ -125,7 +129,7 @@ def _check(path: Path, root: Path, allowlist: set[str]) -> list[str]:
         problems.append(f"{rel}:{number}: [{rule}] {detail}")
 
     for number, line in _outside_code(text):
-        stripped = re.sub(r"`[^`\n]*`", "", line)
+        stripped = INLINE_CODE_RE.sub("", line) if "`" in line else line
 
         for english, korean in BANNED_RENDERINGS:
             if korean in stripped:
@@ -135,22 +139,25 @@ def _check(path: Path, root: Path, allowlist: set[str]) -> list[str]:
                     f"'{english}' must stay English, found '{korean}'",
                 )
 
-        for word in PRODUCT_FIRST_WORDS:
-            match = re.search(rf"\b{word}\s+([{HANGUL}]+)", stripped)
-            if match:
-                report(
-                    "product-name",
-                    number,
-                    f"'{word} {match.group(1)}' splits a product name",
-                )
+        for word, word_re in PRODUCT_WORD_RES:
+            if word in stripped:
+                match = word_re.search(stripped)
+                if match:
+                    report(
+                        "product-name",
+                        number,
+                        f"'{word} {match.group(1)}' splits a product name",
+                    )
 
-        for match in SPLICE_RE.finditer(stripped):
-            if match.group(0) in SPLICE_ALLOWED:
-                continue
-            report("grammar-splice", number, f"'{match.group(0)}' reads as a non-sentence")
+        if any(s in stripped for s in ("합니다", "하고", "하며", "하지", "했습니다")):
+            for match in SPLICE_RE.finditer(stripped):
+                if match.group(0) in SPLICE_ALLOWED:
+                    continue
+                report("grammar-splice", number, f"'{match.group(0)}' reads as a non-sentence")
 
-        for match in LINK_FILENAME_RE.finditer(line):
-            report("link-filename", number, f"{match.group(0)} translates a filename")
+        if "]" in line and "." in line:
+            for match in LINK_FILENAME_RE.finditer(line):
+                report("link-filename", number, f"{match.group(0)} translates a filename")
 
     english = path.with_name(path.name.replace("-ko.md", ".md"))
     if english.exists():

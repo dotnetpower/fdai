@@ -38,72 +38,69 @@ else
     exit 2
 fi
 
-# ---- 1. load_all() must succeed ------------------------------------------
-
-if ! output="$("${python_cmd[@]}" -c '
-import sys
-from fdai.core.chaos.scenario_catalog import ScenarioCatalogError, load_all
-try:
-    entries = load_all()
-except ScenarioCatalogError as exc:
-    print(f"chaos-catalog validation failed: {exc}", file=sys.stderr)
-    sys.exit(1)
-print(f"loaded {len(entries)} entries")
-' 2>&1)"; then
-    printf 'check-chaos-scenarios: %s\n' "$output" >&2
-    exit 1
-fi
-printf 'check-chaos-scenarios: %s\n' "$output"
-
-# ---- 2. compiled symptom-index artifact matches load_all() ---------------
-
 index_path="rule-catalog/chaos-scenarios/chaos-scenarios.index.json"
-
 if [[ ! -f "$index_path" ]]; then
     echo "check-chaos-scenarios: missing $index_path (run scripts/catalog/build-symptom-index.py)" >&2
     exit 1
 fi
 
-# Regenerate to a temp file and diff. This catches "author added / removed
-# a scenario but forgot to rebuild the index".
+summary_path="rule-catalog/chaos-scenarios/evidence/catalog-validation-summary.json"
+if [[ ! -f "$summary_path" ]]; then
+    echo "check-chaos-scenarios: missing $summary_path" >&2
+    echo "  fix: python3 scripts/catalog/run-catalog-scenario.py --dry-run --evidence-summary $summary_path" >&2
+    exit 1
+fi
+
 tmp_index="$(mktemp)"
 trap 'rm -f "$tmp_index"' EXIT
 
-if ! PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "${python_cmd[@]}" scripts/catalog/build-symptom-index.py --out "$tmp_index" >/dev/null 2>&1; then
-    echo "check-chaos-scenarios: scripts/catalog/build-symptom-index.py failed" >&2
-    exit 1
-fi
-
-if ! diff -q "$index_path" "$tmp_index" >/dev/null; then
-    echo "check-chaos-scenarios: compiled symptom index is stale" >&2
-    echo "  fix: python3 scripts/catalog/build-symptom-index.py" >&2
-    diff -u "$index_path" "$tmp_index" | head -40 >&2 || true
-    exit 1
-fi
-
-# ---- 3. user-facing scenario inventories match load_all() ----------------
-
-if ! PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "${python_cmd[@]}" - <<'PY'
+PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
+    "${python_cmd[@]}" - "$index_path" "$tmp_index" "$summary_path" <<'PY'
+import json
 import re
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
 
-from fdai.core.chaos.scenario_catalog import load_all
+from fdai.core.chaos.catalog_evidence import assert_catalog_summary_current
+from fdai.core.chaos.scenario_catalog import ScenarioCatalogError, load_all
+from fdai.core.chaos.symptom_index import build_from_entries, write_snapshot
 
-expected = {entry.id for entry in load_all()}
+index_path = Path(sys.argv[1])
+tmp_index = Path(sys.argv[2])
+summary_path = Path(sys.argv[3])
+
+try:
+    entries = load_all()
+except ScenarioCatalogError as exc:
+    print(f"check-chaos-scenarios: chaos-catalog validation failed: {exc}", file=sys.stderr)
+    sys.exit(1)
+print(f"check-chaos-scenarios: loaded {len(entries)} entries")
+
+try:
+    write_snapshot(build_from_entries(entries), tmp_index)
+except Exception:
+    print("check-chaos-scenarios: scripts/catalog/build-symptom-index.py failed", file=sys.stderr)
+    sys.exit(1)
+
+if index_path.read_bytes() != tmp_index.read_bytes():
+    print("check-chaos-scenarios: compiled symptom index is stale", file=sys.stderr)
+    print("  fix: python3 scripts/catalog/build-symptom-index.py", file=sys.stderr)
+    subprocess.run(["diff", "-u", str(index_path), str(tmp_index)], check=False)
+    sys.exit(1)
+
+expected = {entry.id for entry in entries}
 inventory_paths = (
     Path("docs/user-guide/sre/scenario-validation-inventory.md"),
     Path("docs/user-guide/sre/scenario-validation-inventory-ko.md"),
 )
 pattern = re.compile(r"`(chaos\.[a-zA-Z0-9_.-]+)`")
-
 for path in inventory_paths:
     if not path.is_file():
         print(f"missing SRE scenario inventory: {path}", file=sys.stderr)
-        raise SystemExit(1)
+        print("check-chaos-scenarios: scenario inventory freshness failed", file=sys.stderr)
+        sys.exit(1)
     counts = Counter(pattern.findall(path.read_text(encoding="utf-8")))
     actual = set(counts)
     missing = sorted(expected - actual)
@@ -117,41 +114,22 @@ for path in inventory_paths:
             print(f"  extra: {extra}", file=sys.stderr)
         if duplicated:
             print(f"  duplicated: {duplicated}", file=sys.stderr)
-        raise SystemExit(1)
-
+        print("check-chaos-scenarios: scenario inventory freshness failed", file=sys.stderr)
+        sys.exit(1)
 print(f"scenario inventories list {len(expected)} catalog ids each")
+
+try:
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert_catalog_summary_current(payload, entries)
+except Exception as exc:
+    print(f"{exc}", file=sys.stderr)
+    print("check-chaos-scenarios: tracked validation summary is stale", file=sys.stderr)
+    sys.exit(1)
+print(f"catalog validation summary is current: {summary_path}")
 PY
-then
-    echo "check-chaos-scenarios: scenario inventory freshness failed" >&2
-    exit 1
-fi
-
-# ---- 4. tracked validation summary matches the current catalog -----------
-
-summary_path="rule-catalog/chaos-scenarios/evidence/catalog-validation-summary.json"
-if [[ ! -f "$summary_path" ]]; then
-    echo "check-chaos-scenarios: missing $summary_path" >&2
-    echo "  fix: python3 scripts/catalog/run-catalog-scenario.py --dry-run --evidence-summary $summary_path" >&2
-    exit 1
-fi
-
-if ! PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}" \
-    "${python_cmd[@]}" - "$summary_path" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-from fdai.core.chaos.catalog_evidence import assert_catalog_summary_current
-from fdai.core.chaos.scenario_catalog import load_all
-
-path = Path(sys.argv[1])
-payload = json.loads(path.read_text(encoding="utf-8"))
-assert_catalog_summary_current(payload, load_all())
-print(f"catalog validation summary is current: {path}")
-PY
-then
-    echo "check-chaos-scenarios: tracked validation summary is stale" >&2
-    exit 1
+rc=$?
+if [[ "$rc" -ne 0 ]]; then
+    exit "$rc"
 fi
 
 echo "check-chaos-scenarios: OK (catalog, symptom index, inventories match)"

@@ -88,6 +88,7 @@ def tracked_snapshot(root: Path) -> tuple[str, dict[str, str]]:
     if accelerated is not None:
         return tree, accelerated
     files: dict[str, str] = {}
+    root_resolved = root.resolve()
     for entry in ls_tree_bytes.split(b"\0"):
         if not entry:
             continue
@@ -95,7 +96,7 @@ def tracked_snapshot(root: Path) -> tuple[str, dict[str, str]]:
         mode, kind, expected = metadata.decode().split()
         relative = os.fsdecode(raw_path)
         path = root / relative
-        if kind != "blob" or not path.resolve().is_relative_to(root.resolve()):
+        if kind != "blob" or not path.resolve().is_relative_to(root_resolved):
             raise ValueError("snapshot contains an unsupported external input")
         attributes = path.lstat()
         if mode == "120000" and stat.S_ISLNK(attributes.st_mode):
@@ -149,9 +150,10 @@ def installed_digest(root: Path, *, skip_bytecode: bool = False) -> str:
     if accelerated is not None:
         return digest(accelerated)
     files = {}
+    root_resolved = root.resolve()
     for path in sorted(root.rglob("*")):
         if path.is_dir():
-            if path.is_symlink() and not path.resolve().is_relative_to(root.resolve()):
+            if path.is_symlink() and not path.resolve().is_relative_to(root_resolved):
                 raise ValueError("installed directory escapes the verified environment")
             continue
         if skip_bytecode and "__pycache__" in path.relative_to(root).parts:
@@ -231,10 +233,11 @@ def execution_environment(state: Path) -> tuple[dict[str, str], str]:
         certificate_path = Path(certificate_file).resolve()
         environment["SSL_CERT_FILE"] = str(certificate_path)
         certificate_digest = hashlib.sha256(certificate_path.read_bytes()).hexdigest()
-    tool_identity = {
-        name: (path, hashlib.sha256(Path(path).read_bytes()).hexdigest())
-        for name, path in tool_paths.items()
+    unique_digests = {
+        path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        for path in set(tool_paths.values())
     }
+    tool_identity = {name: (path, unique_digests[path]) for name, path in tool_paths.items()}
     return environment, digest(
         {
             "tools": tool_identity,

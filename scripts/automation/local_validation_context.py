@@ -94,13 +94,20 @@ def validation_context(
     venv = _checked_environment(root, environment)
     _no_untracked_inputs(root, venv)
     tree, files = tracked_snapshot(root)
-    tool_inputs = {}
+    tool_resolved: dict[str, Path] = {}
     for name in tools:
         executable = shutil.which(name, path=environment.get("PATH", os.defpath))
         if executable is None:
             raise ValueError(f"required tool is missing: {name}")
-        resolved = Path(executable).resolve()
-        tool_inputs[name] = (str(resolved), hashlib.sha256(resolved.read_bytes()).hexdigest())
+        tool_resolved[name] = Path(executable).resolve()
+    unique_tool_digests = {
+        resolved: hashlib.sha256(resolved.read_bytes()).hexdigest()
+        for resolved in set(tool_resolved.values())
+    }
+    tool_inputs = {
+        name: (str(resolved), unique_tool_digests[resolved])
+        for name, resolved in tool_resolved.items()
+    }
     common = Path(git(root, "rev-parse", "--git-common-dir").decode().strip())
     if not common.is_absolute():
         common = root / common

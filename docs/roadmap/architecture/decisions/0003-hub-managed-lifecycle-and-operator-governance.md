@@ -11,8 +11,10 @@ that one person usually operates. It amends the [FDAI Constitution](../fdai-cons
 
 ## Status
 
-**Accepted:** 2026-10-02. This is design authority only. No part of the decision is implemented.
-Each owner document links to the ledger that tracks delivery.
+**Accepted:** 2026-10-02. This is design authority only. The repository contracts, hubs, agents,
+plans, configuration packages, release/recall/bundle pipelines, and single-operator governance
+profiles are implemented across #1822, #1823, #1824, and #1825; each owner document links to the
+ledger that tracks delivery and remaining live operational qualification.
 
 **Terminology clarification (2026-10-15):** FDAI Release Hub names the planned vendor application
 for release publication, signing, channel promotion, and recall. Release Catalog names its release

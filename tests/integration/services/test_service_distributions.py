@@ -294,6 +294,38 @@ def test_opentelemetry_dependencies_hold_the_image_scan_fixed_floor() -> None:
     assert Version(match.group(1)) >= fixed
 
 
+def test_pypdf_dependencies_hold_the_image_scan_fixed_floor() -> None:
+    fixed = Version("6.21.4")
+    manifests = (
+        tomllib.loads((REPO_ROOT / "pyproject.toml").read_text())["project"][
+            "optional-dependencies"
+        ]["dev"],
+        tomllib.loads((SERVICE_ROOT / "core-control-plane" / "pyproject.toml").read_text())[
+            "project"
+        ]["dependencies"],
+        tomllib.loads((SERVICE_ROOT / "document-processing-worker" / "pyproject.toml").read_text())[
+            "project"
+        ]["dependencies"],
+    )
+    for dependencies in manifests:
+        requirements = {
+            requirement.name: requirement
+            for value in dependencies
+            if (requirement := Requirement(value)).name == "pypdf"
+        }
+        assert set(requirements) == {"pypdf"}
+        assert fixed in requirements["pypdf"].specifier
+        assert Version("6.21.2") not in requirements["pypdf"].specifier
+
+    lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
+    match = re.search(
+        r'\[\[package\]\]\nname = "pypdf"\nversion = "([^"]+)"',
+        lock,
+    )
+    assert match is not None
+    assert Version(match.group(1)) >= fixed
+
+
 def test_service_distributions_declare_owned_optional_dependencies() -> None:
     for service_id in EXPECTED:
         project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())

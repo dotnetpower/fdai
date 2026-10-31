@@ -169,9 +169,12 @@ out = subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, 
 tracked = [p for p in out.stdout.split("\0") if p]
 added = sorted(p for p in tracked if matches(p) and p not in recorded)
 
-for label, items in (("MODIFIED", mismatched), ("MISSING", missing), ("ADDED", added)):
-    for it in items:
-        print(f"{label}\t{it}")
+if not mismatched and not missing and not added:
+    print(f"OK\t{manifest['file_count']}")
+else:
+    for label, items in (("MODIFIED", mismatched), ("MISSING", missing), ("ADDED", added)):
+        for it in items:
+            print(f"{label}\t{it}")
 PY
 )"
 py_rc=$?
@@ -193,8 +196,8 @@ if [ "$py_rc" -ne 0 ]; then
   exit 2
 fi
 
-if [ -z "$content_report" ]; then
-  file_count="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["file_count"])' "$MANIFEST" 2>/dev/null || echo "?")"
+if [[ "$content_report" == $'OK\t'* ]]; then
+  file_count="${content_report#$'OK\t'}"
   echo "check-integrity: content OK - all $file_count framework-surface files match the signed manifest (mode=$mode)."
   exit 0
 fi

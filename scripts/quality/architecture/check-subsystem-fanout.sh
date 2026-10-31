@@ -94,6 +94,9 @@ _allowlisted() {
     used_exact["$p"]=1
     return 0
   fi
+  if (( ${#allow_globs[@]} == 0 )); then
+    return 1
+  fi
   local pat
   for pat in "${allow_globs[@]}"; do
     # shellcheck disable=SC2053  # RHS deliberately unquoted for glob
@@ -107,6 +110,11 @@ _allowlisted() {
 
 declare -A used_exact=()
 declare -A used_globs=()
+
+if [[ ! -d services/core-control-plane/src/fdai/core ]]; then
+  echo "check-subsystem-fanout: no core/ Python files - skipping."
+  exit 0
+fi
 
 mapfile -t files < <(
   find services/core-control-plane/src/fdai/core -type f -name '*.py' \
@@ -130,60 +138,66 @@ warned=0
 failed=0
 scanned=0
 allowlisted=0
+scan_files=()
 
 for path in "${files[@]}"; do
   if _allowlisted "$path"; then
     allowlisted=$((allowlisted + 1))
     continue
   fi
-
-  # Derive this file's own subsystem so self-imports don't inflate the fan-out.
-  # 'services/core-control-plane/src/fdai/core/<subsystem>/...' or a sibling module.
-  own=""
-  rel="${path#services/core-control-plane/src/fdai/core/}"
-  case "$rel" in
-    */*) own="${rel%%/*}" ;;
-    *.py) own="${rel%.py}" ;;
-  esac
-
-  # Match `from fdai.core.X` and `import fdai.core.X`; capture X.
-  # -h suppresses filenames, -o prints only the match. Every grep in
-  # this pipe returns 1 on zero hits; wrap with `|| true` under
-  # `set -o pipefail` or a no-match kills the whole script.
-  subs=$(
-    { grep -hEo '(from|import)[[:space:]]+fdai\.core\.[A-Za-z_][A-Za-z0-9_]*' \
-             "$path" 2>/dev/null \
-        | sed -E 's/(from|import)[[:space:]]+fdai\.core\.//' \
-        | { grep -v -x "$own" || true; } \
-        | LC_ALL=C sort -u ; } || true
-  )
-  if [[ -z "$subs" ]]; then
-    count=0
-  else
-    count=$(printf '%s\n' "$subs" | wc -l)
-  fi
-
-  scanned=$((scanned + 1))
-
-  if (( count >= fail_thresh )); then
-    printf '::warning file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= fail %d)\n' \
-      "$path" "$count" "$fail_thresh"
-    if [[ "$quiet" != "1" ]]; then
-      printf 'check-subsystem-fanout: FAIL  %3d subs  %s (>= %d)\n' \
-        "$count" "$path" "$fail_thresh"
-      printf '%s\n' "$subs" | sed 's/^/                                  - /'
-    fi
-    failed=$((failed + 1))
-  elif (( count >= warn_thresh )); then
-    printf '::notice file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= warn %d)\n' \
-      "$path" "$count" "$warn_thresh"
-    if [[ "$quiet" != "1" ]]; then
-      printf 'check-subsystem-fanout: warn  %3d subs  %s (>= %d)\n' \
-        "$count" "$path" "$warn_thresh"
-    fi
-    warned=$((warned + 1))
-  fi
+  scan_files+=("$path")
 done
+
+if (( ${#scan_files[@]} > 0 )); then
+  while IFS=$'\t' read -r path count subs_csv; do
+    [[ -n "$path" ]] || continue
+    scanned=$((scanned + 1))
+    if (( count >= fail_thresh )); then
+      printf '::warning file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= fail %d)\n' \
+        "$path" "$count" "$fail_thresh"
+      if [[ "$quiet" != "1" ]]; then
+        printf 'check-subsystem-fanout: FAIL  %3d subs  %s (>= %d)\n' \
+          "$count" "$path" "$fail_thresh"
+        printf '%s\n' "${subs_csv//,/$'\n'}" | sed 's/^/                                  - /'
+      fi
+      failed=$((failed + 1))
+    elif (( count >= warn_thresh )); then
+      printf '::notice file=%s,line=1::check-subsystem-fanout: %d sibling subsystems (>= warn %d)\n' \
+        "$path" "$count" "$warn_thresh"
+      if [[ "$quiet" != "1" ]]; then
+        printf 'check-subsystem-fanout: warn  %3d subs  %s (>= %d)\n' \
+          "$count" "$path" "$warn_thresh"
+      fi
+      warned=$((warned + 1))
+    fi
+  done < <(
+    printf '%s\0' "${scan_files[@]}" | python3 -c '
+import os, re, sys
+from pathlib import Path
+raw_paths = [p.decode("utf-8") for p in sys.stdin.buffer.read().split(b"\0") if p]
+rows = None
+if len(raw_paths) >= 64 and os.path.isfile("scripts/automation/sdlc_rust_accelerator.py"):
+    sys.path.insert(0, os.getcwd())
+    try:
+        from scripts.automation.sdlc_rust_accelerator import rust_scan_core_fanout
+        rows = rust_scan_core_fanout(Path.cwd(), raw_paths)
+    except Exception:
+        rows = None
+if rows is not None:
+    for rel, count, subs in rows:
+        print(f"{rel}\t{count}\t{chr(44).join(subs)}")
+else:
+    pat = re.compile(r"(?:from|import)\s+fdai\.core\.([A-Za-z_][A-Za-z0-9_]*)")
+    prefix = "services/core-control-plane/src/fdai/core/"
+    for rel in raw_paths:
+        trimmed = rel[len(prefix):] if rel.startswith(prefix) else rel
+        own = trimmed.split("/", 1)[0] if "/" in trimmed else trimmed.removesuffix(".py")
+        with open(rel, encoding="utf-8", errors="replace") as fh:
+            subs = sorted({m for m in pat.findall(fh.read()) if m != own})
+        print(f"{rel}\t{len(subs)}\t{chr(44).join(subs)}")
+'
+  )
+fi
 
 printf 'check-subsystem-fanout: scanned=%d warned=%d failed=%d allowlisted=%d mode=%s\n' \
   "$scanned" "$warned" "$failed" "$allowlisted" "$mode"
