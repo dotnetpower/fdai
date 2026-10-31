@@ -96,8 +96,14 @@ def _dsn() -> str:
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 def _upgrade() -> None:
     _dsn()
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     result = subprocess.run(  # noqa: S603 - controlled migration command
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT,
@@ -106,6 +112,8 @@ def _upgrade() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 def _metadata(

@@ -29,6 +29,7 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -49,15 +50,65 @@ _ITERATIONS = 8
 _STARTUP_SECONDS = 10.0
 
 _REPORT_SCRIPT = """
-import sys, urllib.request
-request = urllib.request.Request(
-    {url!r},
-    data={body!r}.encode(),
-    headers={{"Content-Type": "application/json"}},
-    method="POST",
-)
-with urllib.request.urlopen(request, timeout=10) as response:
-    sys.exit(0 if response.status == 202 else 1)
+import json, sys, urllib.request
+url = sys.argv[1]
+for raw in sys.argv[2:]:
+    request = urllib.request.Request(
+        url,
+        data=raw.encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=10) as response:
+        if response.status != 202:
+            sys.exit(1)
+"""
+
+_BATCH_CLI_SCRIPT = """
+import io, json, sys
+from contextlib import redirect_stdout
+from fdai_lifecycle_hub.cli import main
+
+commands = json.loads(sys.argv[1])
+outputs = []
+for argv in commands:
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = main(argv)
+    if rc != 0:
+        sys.exit(rc)
+    outputs.append(json.loads(buf.getvalue()))
+print(json.dumps(outputs))
+"""
+
+_SETUP_ALL_SCRIPT = """
+import io, json, sys
+from contextlib import redirect_stdout
+from fdai_lifecycle_hub.cli import main
+
+def run_cmd(argv):
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = main(argv)
+    if rc != 0:
+        sys.exit(rc)
+    return json.loads(buf.getvalue())
+
+spec = json.loads(sys.argv[1])
+run_cmd(["migrate"])
+run_cmd(["dev-keygen", spec["hub_key"]])
+run_cmd(["dev-keygen", spec["installation_key"]])
+issued_by_id = {}
+for item in spec["installations"]:
+    inst = item["installation_id"]
+    pending = run_cmd(["dev-enroll", item["request_path"], "--key", spec["installation_key"]])
+    key_id = pending["installation_key_id"]
+    run_cmd(["approve", inst, "--approver", "alice", "--installation-key-id", key_id])
+    run_cmd(["record-ownership", inst, "core", spec["ownership_path"], "--operator", "bob"])
+    run_cmd(["manage", inst, "core", spec["settings_path"], "--operator", "bob"])
+    recompute = ["recompute", inst, "--catalog", spec["catalog"], "--key", spec["hub_key"]]
+    issued_by_id[inst] = run_cmd(recompute)
+print(json.dumps(issued_by_id))
 """
 
 
@@ -70,20 +121,57 @@ def _subprocess_env(database_url: str) -> dict[str, str]:
     return os.environ | {"PYTHONPATH": pythonpath, "FDAI_LIFECYCLE_HUB_DATABASE_URL": database_url}
 
 
-def _hub(env: dict[str, str], *args: str) -> dict[str, Any]:
-    """Run one fdai-lifecycle-hub command as its own process and parse its JSON stdout."""
+def _hub_batch(env: dict[str, str], *commands: Sequence[str]) -> list[dict[str, Any]]:
+    """Run multiple fdai-lifecycle-hub commands in one fresh OS process."""
 
-    result = subprocess.run(  # noqa: S603 - fixed module, arguments built above.
-        [sys.executable, "-m", _MODULE, *args],
+    result = subprocess.run(  # noqa: S603 - fixed script and arguments.
+        [sys.executable, "-c", _BATCH_CLI_SCRIPT, json.dumps([list(cmd) for cmd in commands])],
         env=env,
         capture_output=True,
         text=True,
         timeout=30,
         check=False,
     )
-    assert result.returncode == 0, f"fdai-lifecycle-hub {args}: {result.stderr}"
-    record: dict[str, Any] = json.loads(result.stdout)
-    return record
+    assert result.returncode == 0, f"fdai-lifecycle-hub batch {commands}: {result.stderr}"
+    records: list[dict[str, Any]] = json.loads(result.stdout)
+    return records
+
+
+def _setup_and_issue_all_in_fresh_process(
+    env: dict[str, str],
+    *,
+    tmp_path: Path,
+    hub_key: Path,
+    installation_key: Path,
+    catalog: str,
+) -> dict[str, dict[str, Any]]:
+    """Migrate, generate keys, and enroll/issue initial Plans in one fresh OS process."""
+
+    installations = []
+    for iteration in range(_ITERATIONS):
+        installation_id = f"example-{iteration}"
+        request = tmp_path / f"enrollment-{iteration}.json"
+        request.write_text(json.dumps(_enrollment_template(installation_id)))
+        installations.append({"installation_id": installation_id, "request_path": str(request)})
+    spec = {
+        "hub_key": str(hub_key),
+        "installation_key": str(installation_key),
+        "ownership_path": str(SAMPLES / "ownership.json"),
+        "settings_path": str(SAMPLES / "core-settings.json"),
+        "catalog": catalog,
+        "installations": installations,
+    }
+    result = subprocess.run(  # noqa: S603 - fixed script and arguments.
+        [sys.executable, "-c", _SETUP_ALL_SCRIPT, json.dumps(spec)],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, f"setup_and_issue_all: {result.stderr}"
+    records: dict[str, dict[str, Any]] = json.loads(result.stdout)
+    return records
 
 
 def _wait_healthy(url: str) -> None:
@@ -141,12 +229,20 @@ def _report_rolled_back_from_a_separate_process(
             "reported_at": "2026-01-01T00:00:00Z",
         },
     )
-    for report in reports:
-        script = _REPORT_SCRIPT.format(url=report_url, body=json.dumps(report))
-        result = subprocess.run(  # noqa: S603 - fixed interpreter, script built above.
-            [sys.executable, "-c", script], capture_output=True, text=True, timeout=15, check=False
-        )
-        assert result.returncode == 0, result.stderr
+    result = subprocess.run(  # noqa: S603 - fixed interpreter, script built above.
+        [
+            sys.executable,
+            "-c",
+            _REPORT_SCRIPT,
+            report_url,
+            *(json.dumps(report) for report in reports),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def _checks_by_release(record: dict[str, Any]) -> dict[str, list[str]]:
@@ -188,9 +284,13 @@ def test_a_fresh_recompute_process_sees_the_rollback_suppression_a_different_pro
     env = _subprocess_env(database_url)
     hub_key, installation_key = tmp_path / "hub.pem", tmp_path / "installation.pem"
     catalog = str(SAMPLES / "catalog")
-    _hub(env, "migrate")
-    _hub(env, "dev-keygen", str(hub_key))
-    _hub(env, "dev-keygen", str(installation_key))
+    issued_by_id = _setup_and_issue_all_in_fresh_process(
+        env,
+        tmp_path=tmp_path,
+        hub_key=hub_key,
+        installation_key=installation_key,
+        catalog=catalog,
+    )
 
     port = _free_port()
     server = subprocess.Popen(  # noqa: S603 - fixed module and port.
@@ -204,40 +304,9 @@ def test_a_fresh_recompute_process_sees_the_rollback_suppression_a_different_pro
         _wait_healthy(url)
         for iteration in range(_ITERATIONS):
             installation_id = f"example-{iteration}"
-            template = _enrollment_template(installation_id)
-            request = tmp_path / f"enrollment-{iteration}.json"
-            request.write_text(json.dumps(template))
             recompute = ("recompute", installation_id, "--catalog", catalog, "--key", str(hub_key))
 
-            pending = _hub(env, "dev-enroll", str(request), "--key", str(installation_key))
-            _hub(
-                env,
-                "approve",
-                installation_id,
-                "--approver",
-                "alice",
-                "--installation-key-id",
-                pending["installation_key_id"],
-            )
-            _hub(
-                env,
-                "record-ownership",
-                installation_id,
-                "core",
-                str(SAMPLES / "ownership.json"),
-                "--operator",
-                "bob",
-            )
-            _hub(
-                env,
-                "manage",
-                installation_id,
-                "core",
-                str(SAMPLES / "core-settings.json"),
-                "--operator",
-                "bob",
-            )
-            issued = _hub(env, *recompute)
+            issued = issued_by_id[installation_id]
             assert (issued["outcome"], issued["target"]) == ("issued", "1.6.0"), (
                 iteration,
                 issued,
@@ -247,8 +316,7 @@ def test_a_fresh_recompute_process_sees_the_rollback_suppression_a_different_pro
             digest = _exact_plan_digest(url, installation_id)
             _report_rolled_back_from_a_separate_process(url, installation_id, plan_id, digest)
 
-            waiting = _hub(env, *recompute)
-            shown = _hub(env, "show", installation_id)
+            waiting, shown = _hub_batch(env, recompute, ("show", installation_id))
 
             assert (waiting["outcome"], waiting["target"]) == ("waiting", "1.6.0"), (
                 iteration,
