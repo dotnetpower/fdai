@@ -7,9 +7,11 @@ cd "$repo_root"
 # repository's own `tests/` namespace wins and `tests.core.*` helpers stop resolving.
 export PYTHONPATH="$repo_root/services/core-control-plane:$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
+mode="${FDAI_PYTEST_MODE:-all}"
 coverage_args=(--cov-branch)
-mapfile -t coverage_sources < <(
-  python3 - <<'PY'
+if [[ "$mode" == "all" || "$mode" == "coverage" ]]; then
+  mapfile -t coverage_sources < <(
+    python3 - <<'PY'
 import tomllib
 from pathlib import Path
 
@@ -17,14 +19,15 @@ config = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
 for source in config["tool"]["coverage"]["run"]["source"]:
     print(source)
 PY
-)
-if ((${#coverage_sources[@]} == 0)); then
-  printf '%s\n' "python-tests: coverage source list is empty" >&2
-  exit 2
+  )
+  if ((${#coverage_sources[@]} == 0)); then
+    printf '%s\n' "python-tests: coverage source list is empty" >&2
+    exit 2
+  fi
+  for source in "${coverage_sources[@]}"; do
+    coverage_args+=(--cov="$source")
+  done
 fi
-for source in "${coverage_sources[@]}"; do
-  coverage_args+=(--cov="$source")
-done
 
 coverage_paths=(
   services/core-control-plane/tests/core

@@ -6,7 +6,11 @@ import json
 from pathlib import Path
 
 import pytest
-from scripts.quality.ci.pytest_shard import _assign_shards, _load_duration_weights
+from scripts.quality.ci.pytest_shard import (
+    _assign_shards,
+    _load_duration_weights,
+    pytest_ignore_collect,
+)
 from scripts.quality.ci.resolve_test_scope import ChangeScope, classify_paths
 
 
@@ -156,6 +160,30 @@ def test_change_scope_classification_selects_owning_ci_surface(
 
 def test_ci_workflow_change_runs_every_scoped_surface() -> None:
     assert all(classify_paths([".github/workflows/ci.yml"]))
+
+
+def test_integration_mode_skips_collecting_unmarked_test_files(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    unit_file = tmp_path / "test_unit_only.py"
+    unit_file.write_text("def test_unit() -> None:\n    assert True\n", encoding="utf-8")
+    integration_file = tmp_path / "test_db_integration.py"
+    integration_file.write_text(
+        "import pytest\npytestmark = pytest.mark.integration\ndef test_db() -> None:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    class _FakeConfig:
+        rootpath = tmp_path
+
+        @staticmethod
+        def getoption(name: str, default: str = "") -> str:
+            return "integration" if name == "-m" else default
+
+    monkeypatch.setenv("FDAI_PYTEST_MODE", "integration")
+    assert pytest_ignore_collect(unit_file, _FakeConfig()) is True  # type: ignore[arg-type]
+    assert pytest_ignore_collect(integration_file, _FakeConfig()) is None  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
