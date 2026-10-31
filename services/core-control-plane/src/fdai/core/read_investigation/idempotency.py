@@ -51,15 +51,11 @@ class ReadInvestigationRunUsage:
     measured_cost_microusd: int | None = None
 
     def __post_init__(self) -> None:
-        if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in (self.tool_calls, self.execution_duration_ms, self.reserved_cost_microusd)
-        ):
+        counts = (self.tool_calls, self.execution_duration_ms, self.reserved_cost_microusd)
+        if any(type(v) is not int or v < 0 for v in counts):
             raise ValueError("run usage MUST be non-negative")
         if self.measured_cost_microusd is not None and (
-            isinstance(self.measured_cost_microusd, bool)
-            or not isinstance(self.measured_cost_microusd, int)
-            or self.measured_cost_microusd < 0
+            type(self.measured_cost_microusd) is not int or self.measured_cost_microusd < 0
         ):
             raise ValueError("measured_cost_microusd MUST be non-negative")
 
@@ -113,15 +109,10 @@ class ReadInvestigationRunRecord:
         _aware("retention_until", self.retention_until)
         if self.terminal_at is not None:
             _aware("terminal_at", self.terminal_at)
-        if (
-            isinstance(self.revision, bool)
-            or not isinstance(self.revision, int)
-            or self.revision < 1
-        ):
+        if type(self.revision) is not int or self.revision < 1:
             raise ValueError("revision MUST be >= 1")
         if (
-            isinstance(self.attempt_count, bool)
-            or not isinstance(self.attempt_count, int)
+            type(self.attempt_count) is not int
             or not 1 <= self.attempt_count <= MAX_READ_INVESTIGATION_ATTEMPTS
         ):
             raise ValueError("attempt_count is outside the bounded retry range")
