@@ -32,6 +32,7 @@ Design boundaries
 from __future__ import annotations
 
 import base64
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -73,40 +74,49 @@ class AzureDevOpsChangeFeedConfig:
     max_response_bytes: int = _DEFAULT_MAX_RESPONSE_BYTES
 
     def __post_init__(self) -> None:
-        if not self.organization:
+        if not isinstance(self.organization, str) or not self.organization.strip():
             raise ValueError("AzureDevOpsChangeFeedConfig.organization MUST be non-empty")
-        if not self.project:
+        if not isinstance(self.project, str) or not self.project.strip():
             raise ValueError("AzureDevOpsChangeFeedConfig.project MUST be non-empty")
         if self.auth_scheme not in ("basic", "bearer"):
             raise ValueError("auth_scheme MUST be 'basic' or 'bearer'")
-        if not self.api_base.lower().startswith("https://"):
+        if not isinstance(self.api_base, str) or not self.api_base.lower().startswith("https://"):
             raise ValueError(
                 f"AzureDevOpsChangeFeedConfig.api_base MUST use https:// (got {self.api_base!r})"
             )
-        if self.max_records <= 0:
+        if any(isinstance(d, bool) or d < 1 for d in self.definition_ids):
+            raise ValueError("definition_ids MUST contain positive integers")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
+            raise ValueError("timeout_seconds MUST be positive")
+        if isinstance(self.max_records, bool) or self.max_records <= 0:
             raise ValueError("max_records MUST be positive")
-        if self.max_pages <= 0:
+        if isinstance(self.max_pages, bool) or self.max_pages <= 0:
             raise ValueError("max_pages MUST be positive")
-        if not 1 <= self.page_size <= 5000:
+        if isinstance(self.page_size, bool) or not 1 <= self.page_size <= 5000:
             raise ValueError("page_size MUST be in [1, 5000]")
-        if self.max_response_bytes < 1:
+        if isinstance(self.max_response_bytes, bool) or self.max_response_bytes < 1:
             raise ValueError("max_response_bytes MUST be >= 1")
 
 
 def _as_utc(dt: datetime) -> datetime:
     """Return ``dt`` as UTC-aware; a naive value is assumed to be UTC."""
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _parse_ts(raw: Any) -> datetime | None:
-    if not isinstance(raw, str) or not raw:
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    text = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    trimmed = raw.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
         dt = datetime.fromisoformat(text)
     except ValueError:
         return None
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC) if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 class AzureDevOpsChangeFeed:
@@ -230,7 +240,18 @@ class AzureDevOpsChangeFeed:
         return value, (token or None)
 
     async def _auth_headers(self) -> dict[str, str]:
-        token = await self._token_provider()
+        try:
+            token = await self._token_provider()
+        except Exception as exc:  # noqa: BLE001 - normalize token failures at provider boundary
+            raise ChangeFeedError(
+                f"Azure DevOps token acquisition failed for "
+                f"{self._config.organization}/{self._config.project}"
+            ) from exc
+        if not isinstance(token, str) or not token.strip():
+            raise ChangeFeedError(
+                f"Azure DevOps token provider returned an empty token for "
+                f"{self._config.organization}/{self._config.project}"
+            )
         headers = {"Accept": "application/json"}
         if self._config.auth_scheme == "bearer":
             headers["Authorization"] = f"Bearer {token}"

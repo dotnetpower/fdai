@@ -371,7 +371,12 @@ def _timestamp(value: datetime) -> str:
 
 
 def _bounded_text(name: str, value: str) -> None:
-    if not value.strip() or len(value) > MAX_TEXT_LENGTH:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or value != value.strip()
+        or len(value) > MAX_TEXT_LENGTH
+    ):
         raise ValueError(f"{name} MUST be non-empty and at most {MAX_TEXT_LENGTH} characters")
 
 
@@ -393,7 +398,8 @@ def _canonical_ids(
 
 def _sha256_digest(name: str, value: str) -> None:
     if (
-        not value.startswith(_DIGEST_PREFIX)
+        not isinstance(value, str)
+        or not value.startswith(_DIGEST_PREFIX)
         or len(value) != len(_DIGEST_PREFIX) + 64
         or any(character not in "0123456789abcdef" for character in value[len(_DIGEST_PREFIX) :])
     ):
