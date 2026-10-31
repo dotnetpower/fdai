@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from typing import Any, cast
@@ -281,7 +282,7 @@ def _exact_id_values(predicates: Sequence[ObjectPredicate]) -> tuple[str, ...] |
         if predicate.operator is ObjectPredicateOperator.IN:
             values = tuple(value for value in predicate.values if isinstance(value, str))
             if len(values) == len(predicate.values):
-                return values
+                return tuple(dict.fromkeys(values))
     return None
 
 
@@ -449,7 +450,8 @@ def _matches_predicate(properties: Mapping[str, Any], predicate: ObjectPredicate
         return (
             isinstance(value, str)
             and isinstance(predicate.equals, str)
-            and value.casefold() == predicate.equals.casefold()
+            and unicodedata.normalize("NFKC", value).casefold()
+            == unicodedata.normalize("NFKC", predicate.equals).casefold()
         )
     return _contains(value, predicate.equals)
 

@@ -69,10 +69,10 @@ class SemanticRollupPolicy:
     statistics: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.semantic_id or not self.revision:
+        if not self.semantic_id.strip() or not self.revision.strip():
             raise ValueError("rollup policy identity and revision MUST be non-empty")
         _digest(self.ontology_release_digest, "ontology_release_digest")
-        if self.expected_interval_seconds < 1:
+        if isinstance(self.expected_interval_seconds, bool) or self.expected_interval_seconds < 1:
             raise ValueError("rollup expected interval MUST be positive")
         if not self.statistics or len(set(self.statistics)) != len(self.statistics):
             raise ValueError("rollup statistics MUST be non-empty and unique")
@@ -112,7 +112,7 @@ class RollupObservation:
             "source_revision",
             "generation_ref",
         ):
-            if not getattr(self, name):
+            if not getattr(self, name).strip():
                 raise ValueError(f"rollup observation {name} MUST be non-empty")
         _digest(self.source_partition_digest, "source_partition_digest")
         _digest(self.ontology_release_digest, "ontology_release_digest")
@@ -122,10 +122,10 @@ class RollupObservation:
             _aware(self.event_at, "event_at")
         if self.interval_end <= self.interval_start:
             raise ValueError("rollup observation interval MUST be positive")
-        if self.conflict_count < 0:
+        if isinstance(self.conflict_count, bool) or self.conflict_count < 0:
             raise ValueError("rollup observation conflict_count MUST NOT be negative")
         if self.fact_kind in {RollupFactKind.GAUGE, RollupFactKind.COUNTER}:
-            if not isinstance(self.value, Decimal):
+            if not isinstance(self.value, Decimal) or not self.value.is_finite():
                 raise ValueError("numeric rollup observation value MUST be Decimal")
         elif self.fact_kind is RollupFactKind.RELATIONSHIP_CHANGE:
             if not isinstance(self.value, RelationshipChange):
@@ -423,7 +423,7 @@ def _digest(value: str, name: str) -> None:
 
 
 def _aware(value: datetime, name: str) -> None:
-    if value.tzinfo is None:
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"rollup {name} MUST be timezone-aware")
 
 

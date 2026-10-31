@@ -64,12 +64,15 @@ def assemble_presentation_artifact_v3(
         if layout == "operational_brief"
         else "Dynamically assembled Markdown"
     )
+    normalized_refs = list(
+        dict.fromkeys(ref.strip() for ref in evidence_refs if isinstance(ref, str) and ref.strip())
+    )
     artifact = cast(
         JsonObject,
         {
             "schema_version": 3,
             "layout": layout,
-            "evidence_refs": list(evidence_refs),
+            "evidence_refs": normalized_refs,
             "blocks": list(blocks),
             "assembly": {
                 "mode": "dynamic",
@@ -90,8 +93,14 @@ def verify_presentation_artifact_v3(artifact: Mapping[str, object]) -> None:
     if artifact.get("schema_version") != 3 or artifact.get("layout") not in _LAYOUTS:
         raise ValueError("presentation artifact v3 identity is invalid")
     blocks = artifact.get("blocks")
+    evidence_refs = artifact.get("evidence_refs")
     assembly = artifact.get("assembly")
-    if not isinstance(blocks, list) or not isinstance(assembly, Mapping):
+    if (
+        not isinstance(blocks, list)
+        or not isinstance(evidence_refs, list)
+        or any(not isinstance(ref, str) or not ref.strip() for ref in evidence_refs)
+        or not isinstance(assembly, Mapping)
+    ):
         raise ValueError("presentation artifact v3 assembly is missing")
     if set(assembly) != {"mode", "label", "section_count", "input_kinds", "digest"}:
         raise ValueError("presentation artifact v3 assembly shape is invalid")

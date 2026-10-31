@@ -45,6 +45,16 @@ class ObjectSelector(ContractBase):
     kind: ObjectSelectorKind
     name: Annotated[str, Field(min_length=1)]
 
+    @model_validator(mode="after")
+    def _non_blank_name(self) -> ObjectSelector:
+        if (
+            not self.name.strip()
+            or self.name != self.name.strip()
+            or any(ord(ch) < 32 for ch in self.name)
+        ):
+            raise ValueError("object selector name MUST be non-empty and trimmed")
+        return self
+
 
 class ObjectPredicateOperator(StrEnum):
     EQUALS = "equals"
@@ -76,6 +86,12 @@ class ObjectPredicate(ContractBase):
 
     @model_validator(mode="after")
     def _operands_match_operator(self) -> ObjectPredicate:
+        if (
+            not self.property.strip()
+            or self.property != self.property.strip()
+            or any(ord(ch) < 32 for ch in self.property)
+        ):
+            raise ValueError("object predicate property MUST be non-empty and trimmed")
         has_equals = "equals" in self.model_fields_set
         single_operand = {
             ObjectPredicateOperator.EQUALS,
@@ -127,6 +143,14 @@ class ObjectTraversal(ContractBase):
     direction: OntologyDirection = "outgoing"
     max_depth: int = Field(default=1, ge=1, le=5)
 
+    @model_validator(mode="after")
+    def _unique_link_types(self) -> ObjectTraversal:
+        if len(self.link_types) != len(set(self.link_types)) or any(
+            not item.strip() for item in self.link_types
+        ):
+            raise ValueError("object traversal link types MUST be non-empty and unique")
+        return self
+
 
 class RelationshipTraversalDefinition(ContractBase):
     """Single-LinkType traversal whose exact roots arrive from one verified dependency.
@@ -172,7 +196,7 @@ class RelationshipTraversalDefinition(ContractBase):
             raise ValueError("relationship traversal coverage rows require lineage rows")
         if self.read_population and self.emit_lineage:
             raise ValueError("relationship traversal population reads endpoints, not lineage")
-        if self.as_of.tzinfo is None:
+        if self.as_of.tzinfo is None or self.as_of.utcoffset() is None:
             raise ValueError("relationship traversal as_of MUST be timezone-aware")
         return self
 
@@ -199,7 +223,7 @@ class TypedPathDefinition(ContractBase):
 
     @model_validator(mode="after")
     def _bounded_path(self) -> TypedPathDefinition:
-        if self.as_of.tzinfo is None:
+        if self.as_of.tzinfo is None or self.as_of.utcoffset() is None:
             raise ValueError("typed path as_of MUST be timezone-aware")
         return self
 
@@ -217,7 +241,7 @@ class OntologyInstancePathDefinition(ContractBase):
     def _bounded_path(self) -> OntologyInstancePathDefinition:
         if self.root_selector.kind is not ObjectSelectorKind.OBJECT_TYPE:
             raise ValueError("ontology instance path root MUST select one ObjectType")
-        if self.as_of.tzinfo is None:
+        if self.as_of.tzinfo is None or self.as_of.utcoffset() is None:
             raise ValueError("ontology instance path as_of MUST be timezone-aware")
         if any(step.max_hops != 1 for step in self.steps):
             raise ValueError("ontology instance path steps MUST use one exact hop")
@@ -259,7 +283,7 @@ class ObjectSetDefinition(ContractBase):
             raise ValueError("object-set root_ids require traversal")
         if self.traversal is not None and not self.include_relationships:
             raise ValueError("object-set traversal requires relationship inclusion")
-        if self.as_of.tzinfo is None:
+        if self.as_of.tzinfo is None or self.as_of.utcoffset() is None:
             raise ValueError("object-set as_of MUST be timezone-aware")
         return self
 

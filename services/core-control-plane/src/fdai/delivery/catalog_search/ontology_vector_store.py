@@ -61,7 +61,10 @@ class OntologyVectorSnapshotStore:
         build_timeout_seconds: float = 120.0,
     ) -> None:
         if (
-            not embedding_space_id.strip()
+            isinstance(embedding_dimension, bool)
+            or isinstance(call_timeout_seconds, bool)
+            or isinstance(build_timeout_seconds, bool)
+            or not embedding_space_id.strip()
             or not embedding_model_version.strip()
             or len(embedding_space_id) > 256
             or len(embedding_model_version) > 256
@@ -297,7 +300,7 @@ class OntologyVectorSnapshotStore:
 
 
 def _check_deadline(deadline: float) -> None:
-    if asyncio.get_running_loop().time() >= deadline:
+    if not math.isfinite(deadline) or asyncio.get_running_loop().time() >= deadline:
         raise TimeoutError("ontology retrieval deadline exceeded")
 
 

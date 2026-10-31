@@ -44,6 +44,11 @@ def cloud_target_from_arguments(arguments: Mapping[str, object]) -> Applicabilit
     """Reconstruct bounded selectors; reject incomplete or object-shaped targets."""
     if "applicability" in arguments:
         raise ValueError("cloud applicability requires scalar selectors, not an object literal")
+    if any(
+        isinstance(key, str) and key.startswith("cloud_") and key not in _FIELDS
+        for key in arguments
+    ):
+        raise ValueError("unsupported cloud applicability selector")
     values = {
         field: arguments[argument]
         for argument, field in _FIELDS.items()

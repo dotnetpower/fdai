@@ -85,7 +85,7 @@ def render_resource_condition_answer(
                     concept_field == "health_concept"
                     and isinstance(
                         (matching_concepts := row.get("matching_health_concepts")),
-                        list,
+                        (list, tuple),
                     )
                     and concept in matching_concepts
                 )
@@ -94,7 +94,22 @@ def render_resource_condition_answer(
                 "matched" if matches else "verified_empty" if display_complete else "unresolved"
             )
             names = tuple(
-                str(name) for row in matches if isinstance((name := row.get("name")), str) and name
+                dict.fromkeys(
+                    name.strip()
+                    for row in matches
+                    if isinstance(
+                        (
+                            name := row.get("name")
+                            or (
+                                props.get("name")
+                                if isinstance((props := row.get("properties")), Mapping)
+                                else None
+                            )
+                        ),
+                        str,
+                    )
+                    and name.strip()
+                )
             )
             label = concept.rsplit(".", 1)[-1].replace("_", " ")
             lines.append(

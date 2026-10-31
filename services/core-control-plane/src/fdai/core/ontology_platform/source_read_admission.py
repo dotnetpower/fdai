@@ -36,7 +36,11 @@ class SourceReadAdmission:
             for value in (self.principal_scope_digest, self.source_state_digest)
         ):
             raise ValueError("source read admission requires canonical SHA-256 digests")
-        if not self.purpose or len(self.purpose) > 128:
+        if (
+            not self.purpose.strip()
+            or self.purpose != self.purpose.strip()
+            or len(self.purpose) > 128
+        ):
             raise ValueError("source read admission requires a bounded purpose")
 
 
@@ -66,7 +70,12 @@ async def admitted_source_read(
         yield
         return
     scope = request.principal_scope_digest
-    if scope is None or purpose not in request.declared_purposes:
+    if (
+        scope is None
+        or _DIGEST.fullmatch(scope) is None
+        or not purpose.strip()
+        or purpose not in request.declared_purposes
+    ):
         raise PermissionError("source read admission requires authenticated scope and purpose")
 
     async def current() -> SourceReadAdmission:

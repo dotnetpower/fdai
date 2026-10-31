@@ -216,3 +216,63 @@ async def test_failed_graph_read_does_not_retry_source_or_release_partial_data()
 def test_source_admission_requires_exact_canonical_commitments(field):
     with pytest.raises(ValueError, match="canonical SHA-256"):
         admission(**{field: "unobserved:review-only"})
+
+
+def test_source_admission_and_property_review_and_preflight_hardening() -> None:
+    from fdai.core.conversation.conversation_preflight_validation import bounded_context
+    from fdai.core.ontology_platform.models import (
+        ObjectPredicate,
+        ObjectSelector,
+        ObjectSelectorKind,
+        ObjectTraversal,
+    )
+    from fdai.core.ontology_platform.query_instance_paths import instance_path_row
+    from fdai.core.ontology_platform.query_manifest import ReviewedPropertyRead
+    from fdai.core.ontology_platform.query_property_review import reviewed_property_paths
+
+    # D13: whitespace purpose rejected in SourceReadAdmission
+    with pytest.raises(ValueError, match="bounded purpose"):
+        admission(purpose="   ")
+
+    # D16: control-char selector/predicate and duplicate link_types rejected
+    with pytest.raises(ValueError, match="non-empty and trimmed"):
+        ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource\x00")
+    with pytest.raises(ValueError, match="non-empty and trimmed"):
+        ObjectPredicate(property="status\nname", equals="ready")
+    with pytest.raises(ValueError, match="unique"):
+        ObjectTraversal(link_types=("CONTAINS", "CONTAINS"))
+
+    # D19: reviewed_property_paths unions resource types across multiple ReviewedPropertyRead items
+    paths = reviewed_property_paths(
+        (
+            ReviewedPropertyRead(
+                semantic_id="s1",
+                value_type="string",
+                unit=None,
+                max_age_seconds=60,
+                paths=(("Microsoft.Compute/virtualMachines", "provisioningState"),),
+            ),
+            ReviewedPropertyRead(
+                semantic_id="s2",
+                value_type="string",
+                unit=None,
+                max_age_seconds=60,
+                paths=(("Microsoft.Storage/storageAccounts", "provisioningState"),),
+            ),
+        )
+    )
+    assert paths["properties.properties.provisioningState"] == frozenset(
+        {
+            "Microsoft.Compute/virtualMachines",
+            "Microsoft.Storage/storageAccounts",
+        }
+    )
+
+    # D20: empty instance_path_row raises ValueError
+    with pytest.raises(ValueError, match="at least one object"):
+        instance_path_row(())
+
+    # D23: bounded_context skips empty/whitespace turns without dropping earlier turns
+    assert bounded_context(("turn-1", "   ", "")) == ("turn-1",)
+    with pytest.raises(TypeError, match="sequence of strings"):
+        bounded_context("raw-string")

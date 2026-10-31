@@ -256,3 +256,93 @@ def test_transport_proof_requires_server_wrapper_and_never_enters_prompt() -> No
     assert facts["relationship_status"] == "verified"
     assert proof.principal_id not in prompt
     assert proof.source_revision not in prompt
+
+
+def test_rounds_9_to_12_semantic_judgment_reasoning_and_adaptive_hardening() -> None:
+    from types import MappingProxyType
+
+    from fdai.core.conversation.adaptive_models import (
+        AdaptiveEvidence,
+        AdaptiveGoal,
+        AdaptivePolicy,
+        AdaptiveReview,
+        AdaptiveSection,
+    )
+    from fdai.core.conversation.semantic_catalog_value_mentions import StatedCatalogValue
+    from fdai.core.conversation.semantic_direction_receipt import DirectionCostReceipt
+    from fdai.core.conversation.semantic_judgment_bounds import bounded_context
+    from fdai.core.conversation.semantic_judgment_capabilities import property_canonical_values
+    from fdai.core.conversation.semantic_judgment_schema_repair import names_schema_family
+    from fdai.core.conversation.semantic_reasoning_ambiguity import ambiguity_verdict
+    from fdai.core.conversation.semantic_reasoning_comparison_checks import _metric_scope_operand
+    from fdai_service_contracts.ontology_query import (
+        OntologyQueryNode,
+        QueryNodeKind,
+        canonical_json,
+    )
+
+    # D25: StatedCatalogValue validates positive span and non-empty values
+    with pytest.raises(ValueError, match="positive span"):
+        StatedCatalogValue(
+            object_type="Resource",
+            property_name="type",
+            text="vm",
+            source_start=5,
+            source_end=3,
+            values=("compute.vm",),
+        )
+
+    # D26: DirectionCostReceipt rejects boolean or negative fields
+    with pytest.raises(ValueError, match="1 or 2"):
+        DirectionCostReceipt(
+            readers=True,  # type: ignore[arg-type]
+            calls=1,
+            input_bytes=10,
+            output_tokens=5,
+            wall_ms=10,
+        )
+
+    # D27: bounded_context and property_canonical_values reject blank inputs
+    assert bounded_context(("turn-1", "   ")) == ("turn-1",)
+    with pytest.raises(TypeError, match="sequence of strings"):
+        bounded_context("raw")
+    with pytest.raises(ValueError, match="exact ObjectType"):
+        property_canonical_values(
+            {"kind": "object_type", "name": "Resource", "property_names": ["   "]}
+        )
+
+    # D30: names_schema_family accepts MappingProxyType
+    assert names_schema_family(MappingProxyType({"primary_intent": "query.manifest"}))
+
+    # D31: _metric_scope_operand rejects inverted or naive timestamps
+    bad_node = OntologyQueryNode(
+        node_id="n1",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        depends_on=(),
+        arguments_json=canonical_json(
+            {
+                "concept_id": "cpu_usage",
+                "start": "2026-09-06T05:00:00Z",
+                "end": "2026-09-06T04:00:00Z",
+            }
+        ),
+        output_kind="metric.window",
+    )
+    assert _metric_scope_operand(bad_node) == ["prov_metric_window:n1"]
+
+    # D33: ambiguity_verdict strips and lowercases readings
+    assert ambiguity_verdict({"readings": " ONE "}) == "one"
+
+    # D35 & D36: AdaptiveGoal/Section/Review/Evidence/Policy and NUL byte prompt checks
+    with pytest.raises(ValueError, match="non-empty"):
+        AdaptiveGoal(goal_id="g1", kind="knowledge", question="   ", required=True)
+    with pytest.raises(ValueError, match="non-empty"):
+        AdaptiveSection(goal_id="g1", text="   ")
+    with pytest.raises(ValueError, match="unique"):
+        AdaptiveReview(safe=True, complete=True, supported_goal_ids=("g1", "g1"), issues=())
+    with pytest.raises(ValueError, match="content and references"):
+        AdaptiveEvidence(status="answered", content="   ", evidence_refs=("ref-1",))
+    with pytest.raises(ValueError, match="positive and bounded"):
+        AdaptivePolicy(total_seconds=True, per_stage_seconds=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="server-owned and bounded"):
+        ConversationProfile(agent="Bragi", role_directive="Valid\x00directive")

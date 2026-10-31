@@ -73,7 +73,8 @@ def citation_times(
         "unknown": ("최신성 확인 불가", "freshness unknown"),
         "update_pending": ("새 원본 검토 대기", "source update pending"),
     }
-    label = labels.get(status, labels["unknown"])[0 if korean else 1]
+    normalized_status = status.strip().lower() if isinstance(status, str) else "unknown"
+    label = labels.get(normalized_status, labels["unknown"])[0 if korean else 1]
     if korean:
         return f"수집: {collected}; 원본 확인: {checked}; {label}. 실시간 리소스 관측이 아닙니다."
     return (

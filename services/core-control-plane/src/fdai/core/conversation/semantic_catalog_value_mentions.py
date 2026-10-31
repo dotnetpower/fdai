@@ -33,6 +33,17 @@ class StatedCatalogValue:
     source_end: int
     values: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if (
+            not self.object_type.strip()
+            or not self.property_name.strip()
+            or not self.text.strip()
+            or self.source_start < 0
+            or self.source_end <= self.source_start
+            or not self.values
+        ):
+            raise ValueError("stated catalog value requires a positive span and non-empty values")
+
     def capability_hint(self) -> dict[str, object]:
         """Project the binding into the candidate-only judgment capability shape."""
 
@@ -97,14 +108,14 @@ def _group_terms(
         properties = descriptor.get("properties")
         declaration = properties.get(_PROPERTY) if isinstance(properties, Mapping) else None
         groups = declaration.get("value_groups") if isinstance(declaration, Mapping) else None
-        for group in groups if isinstance(groups, list) else ():
+        for group in groups if isinstance(groups, (list, tuple)) else ():
             if not isinstance(group, Mapping):
                 continue
             group_values = group.get("values")
             group_terms = group.get("terms")
             if (
-                isinstance(group_values, list)
-                and isinstance(group_terms, list)
+                isinstance(group_values, (list, tuple))
+                and isinstance(group_terms, (list, tuple))
                 and frozenset(str(value) for value in group_values) == expected
             ):
                 terms.extend(term for term in group_terms if isinstance(term, str))

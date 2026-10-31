@@ -146,13 +146,15 @@ def compile_presentation_artifact_v2(
                 "presentation_semantics",
             },
         )
-        or not isinstance(outputs, list)
-        or not isinstance(evidence_refs, list)
+        or not isinstance(outputs, (list, tuple))
+        or not isinstance(evidence_refs, (list, tuple))
         or not evidence_refs
         or len(evidence_refs) > _MAX_REFS
-        or any(not isinstance(item, str) for item in evidence_refs)
+        or any(not isinstance(item, str) or not item.strip() for item in evidence_refs)
     ):
         return None
+    outputs = list(outputs)
+    evidence_refs = list(evidence_refs)
     operation = context.get("operation")
     output_shape = context.get("output_shape")
     if operation not in _OPERATIONS or output_shape not in _OUTPUT_SHAPES:

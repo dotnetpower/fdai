@@ -328,9 +328,9 @@ def _labels(details: tuple[str, ...], families: frozenset[str], *, korean: bool)
 def _label(code: str) -> tuple[str | None, tuple[str, str] | None]:
     """Return the code's family and reviewed label, or no label for an unknown code."""
 
-    kind, _, value = code.partition(":")
-    value = value.split(":", 1)[0]
-    if kind in {"role", "unexpressible"}:
+    kind, _, value = code.strip().partition(":")
+    value = value.split(":", 1)[0].strip()
+    if kind in {"role", "unexpressible", "slot"}:
         return "role", _ROLE_LABELS.get(value)
     if kind in _KIND_LABELS:
         return "kind", _KIND_LABELS[kind]

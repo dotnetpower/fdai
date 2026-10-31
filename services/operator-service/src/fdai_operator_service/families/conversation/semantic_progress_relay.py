@@ -72,6 +72,7 @@ class SemanticProgressRelay:
                 expired_request_id, _expired = self._updates.popitem(last=False)
                 self._signals.pop(expired_request_id, None)
                 self._pins.pop(expired_request_id, None)
+                self._model_calls.pop(expired_request_id, None)
                 _LOGGER.warning(
                     "semantic_progress_capacity_evicted",
                     extra={"kind": "progress", "capacity": MAX_TRACKED_PROGRESS_REQUESTS},
@@ -107,6 +108,8 @@ class SemanticProgressRelay:
         self, request_id: str, progress_sequence: int
     ) -> tuple[SemanticModelCallProgress, ...]:
         """Return retained planning model-call updates after one stream cursor."""
+        if isinstance(progress_sequence, bool) or progress_sequence < 0:
+            raise ValueError("progress_sequence MUST be a non-negative integer")
         return tuple(
             call
             for call in self._model_calls.get(request_id, ())
@@ -133,6 +136,8 @@ class SemanticProgressRelay:
 
     def after(self, request_id: str, progress_sequence: int) -> tuple[SemanticQueryProgress, ...]:
         """Return retained updates after one iterator-local sequence cursor."""
+        if isinstance(progress_sequence, bool) or progress_sequence < 0:
+            raise ValueError("progress_sequence MUST be a non-negative integer")
         return tuple(
             update
             for update in self._updates.get(request_id, ())
