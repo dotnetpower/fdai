@@ -13,6 +13,7 @@ with decision, counts, coverage, and source kind, never paths, code, or scanner 
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.bus import PantheonBus
@@ -21,21 +22,29 @@ from fdai.core.security.code_findings.review_signal import (
     review_decision,
     validate_review_package,
 )
+from fdai.core.security.csaf.review_signal import (
+    MsrcCsafReviewError,
+    csaf_review_decision,
+    validate_csaf_review_package,
+)
 from fdai.shared.providers.code_security import CodeSecurityDriftProjector
+from fdai.shared.providers.msrc_csaf import MsrcCsafDriftProjector
 from fdai.shared.providers.state_store import StateStore
 
 CODE_SECURITY_REVIEW_STATE_PREFIX = "runtime:code-security-review:"
+MSRC_CSAF_REVIEW_STATE_PREFIX = "runtime:msrc-csaf-review:"
 DRIFT_TOOL_ID = "read_drift_status"
-"""Code-security reviews are Drift, so Heimdall's drift tool carries their facts."""
+"""Code-security and MSRC CSAF reviews are Drift, so Heimdall's drift tool carries their facts."""
 _MAX_REVIEW_ROWS = 50
 _MAX_REPOSITORIES = 10
 
 
 class HeimdallCodeSecurityMixin:
-    """Publish code-security review drift and answer from recorded reviews."""
+    """Publish code-security and MSRC CSAF review drift and answer from recorded reviews."""
 
     bus: PantheonBus | None
     _code_security_drift_projector: CodeSecurityDriftProjector | None
+    _msrc_csaf_drift_projector: MsrcCsafDriftProjector | None
     _state_store: StateStore | None
 
     if TYPE_CHECKING:
@@ -54,6 +63,81 @@ class HeimdallCodeSecurityMixin:
             return False
         await self.bus.publish("Heimdall", "object.drift", payload)
         return True
+
+    async def publish_msrc_csaf_drift(self, package: Mapping[str, object]) -> bool:
+        """Publish one strict no-authority MSRC CSAF vulnerability review on object.drift."""
+
+        if self._msrc_csaf_drift_projector is None:
+            self.record_behavior("msrc_csaf_drift:projector_unavailable")
+            return False
+        payload = self._msrc_csaf_drift_projector(package)
+        self.record_behavior(f"msrc_csaf_drift:{payload['decision']}")
+        if self.bus is None:
+            return False
+        await self.bus.publish("Heimdall", "object.drift", payload)
+        return True
+
+    async def msrc_csaf_facts(self) -> dict[str, Any] | None:
+        """Return bounded facts about recorded MSRC CSAF reviews, or None when none are stored."""
+
+        if self._state_store is None:
+            return None
+        rows = await self._state_store.read_states(
+            MSRC_CSAF_REVIEW_STATE_PREFIX, limit=_MAX_REVIEW_ROWS
+        )
+        if not rows:
+            return None
+        latest: dict[str, tuple[datetime, dict[str, Any]]] = {}
+        withheld = 0
+        for row in rows:
+            package, recorded_at = row.get("package"), row.get("recorded_at")
+            try:
+                if (
+                    not isinstance(package, Mapping)
+                    or not isinstance(recorded_at, str)
+                    or not recorded_at.strip()
+                ):
+                    raise MsrcCsafReviewError("MSRC CSAF review row is malformed")
+                parsed_ts = datetime.fromisoformat(recorded_at)
+                if parsed_ts.tzinfo is None or parsed_ts.utcoffset() is None:
+                    raise MsrcCsafReviewError("MSRC CSAF review recorded_at must be timezone-aware")
+                utc_ts = parsed_ts.astimezone(UTC)
+                review = validate_csaf_review_package(package)
+            except (MsrcCsafReviewError, ValueError):
+                withheld += 1
+                continue
+            workload_id = str(review["workload_id"])
+            if workload_id in latest and latest[workload_id][0] >= utc_ts:
+                continue
+            by_exposure = review["by_exposure"]
+            affected_count = by_exposure["affected"] if isinstance(by_exposure, Mapping) else 0
+            latest[workload_id] = (
+                utc_ts,
+                {
+                    "workload_id": workload_id,
+                    "source_revision": str(review["source_revision"])[:24],
+                    "decision": csaf_review_decision(review),
+                    "cve_count": review["cve_count"],
+                    "affected_cve_count": affected_count,
+                    "exploited_affected_count": review["exploited_affected_count"],
+                    "coverage_complete": review["coverage_complete"],
+                    "recorded_at": utc_ts.isoformat(),
+                },
+            )
+        ordered = [
+            item[1]
+            for item in sorted(
+                latest.values(),
+                key=lambda entry: (entry[0], entry[1]["workload_id"]),
+                reverse=True,
+            )
+        ]
+        return {
+            "msrc_csaf_reviews_read": len(rows) - withheld,
+            "msrc_csaf_latest_decisions": ordered[:_MAX_REPOSITORIES],
+            "msrc_csaf_reviews_withheld": withheld,
+            "msrc_csaf_reviews_truncated": len(rows) >= _MAX_REVIEW_ROWS,
+        }
 
     async def code_security_facts(self) -> dict[str, Any] | None:
         """Return bounded facts about recorded reviews, or ``None`` without a state store.
@@ -112,9 +196,25 @@ def code_security_statement(facts: Mapping[str, Any]) -> str:
     )
 
 
+def msrc_csaf_statement(facts: Mapping[str, Any]) -> str:
+    """Summarize recorded MSRC CSAF vulnerability reviews deterministically."""
+
+    decisions = facts.get("msrc_csaf_latest_decisions") or []
+    if not decisions:
+        return "No MSRC CSAF vulnerability review has been recorded"
+    urgent = sum(1 for item in decisions if item["decision"] == "urgent")
+    incomplete = sum(1 for item in decisions if item["decision"] == "coverage_incomplete")
+    return (
+        f"Latest MSRC CSAF reviews cover {len(decisions)} workloads: {urgent} urgent and "
+        f"{incomplete} with incomplete coverage"
+    )
+
+
 __all__ = [
     "CODE_SECURITY_REVIEW_STATE_PREFIX",
     "DRIFT_TOOL_ID",
     "HeimdallCodeSecurityMixin",
+    "MSRC_CSAF_REVIEW_STATE_PREFIX",
     "code_security_statement",
+    "msrc_csaf_statement",
 ]
