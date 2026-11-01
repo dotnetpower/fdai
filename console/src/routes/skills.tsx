@@ -26,6 +26,19 @@ import {
   panelRecord,
   panelStringArray,
 } from "./panel-decode";
+import {
+  buildSkillSourcesViewModel,
+  decodeSkillSourceProjection,
+  type SkillSourceCatalogProjection,
+  type SkillSourcesViewModel,
+} from "./skill-sources.model";
+
+export {
+  buildSkillSourcesViewModel,
+  decodeSkillSourceProjection,
+  type SkillSourceCatalogProjection,
+  type SkillSourcesViewModel,
+};
 
 interface SkillReference {
   readonly path: string;

@@ -7,8 +7,13 @@ import stat
 from collections.abc import Mapping
 from pathlib import Path
 
-from fdai.composition import load_execution_backend_registry_file
-from fdai.core.execution_backend import ExecutionBackendProfileRegistry
+from fdai.composition import (
+    Container,
+    bind_execution_backends,
+    load_execution_backend_registry_file,
+)
+from fdai.core.execution_backend import ExecutionBackendKind, ExecutionBackendProfileRegistry
+from fdai.shared.providers.execution_backend import ExecutionBackend, ExecutionSubmissionLedger
 
 REGISTRY_PATH_VARIABLE = "FDAI_EXECUTION_BACKEND_REGISTRY_PATH"
 REGISTRY_MAX_BYTES_VARIABLE = "FDAI_EXECUTION_BACKEND_REGISTRY_MAX_BYTES"
@@ -59,8 +64,29 @@ def _max_bytes(values: Mapping[str, str]) -> int:
     return max_bytes
 
 
+def bind_execution_backends_from_env(
+    container: Container,
+    *,
+    backends: Mapping[ExecutionBackendKind, ExecutionBackend],
+    ledger: ExecutionSubmissionLedger,
+    env: Mapping[str, str] | None = None,
+) -> Container:
+    """Bind configured execution backends into ``container`` at runtime startup."""
+
+    profiles = load_execution_backend_registry_from_env(env=env)
+    if profiles is None:
+        return container
+    return bind_execution_backends(
+        container,
+        profiles=profiles,
+        backends=backends,
+        ledger=ledger,
+    )
+
+
 __all__ = [
     "REGISTRY_MAX_BYTES_VARIABLE",
     "REGISTRY_PATH_VARIABLE",
+    "bind_execution_backends_from_env",
     "load_execution_backend_registry_from_env",
 ]

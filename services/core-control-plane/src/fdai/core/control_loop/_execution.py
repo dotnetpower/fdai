@@ -35,6 +35,13 @@ from fdai.core.mscp_profile import (
     MscpProfileMode,
     combine_mscp_authority,
 )
+from fdai.core.mscp_profile.governed_ceiling_binding import (
+    AuthorityCeilingResult,
+    GovernedCeilingDecisionInput,
+    GovernedMscpCeilingBinding,
+    GovernedReadinessWindowReceipt,
+    apply_authority_ceiling,
+)
 from fdai.core.ontology_platform.evidence_conflict import (
     EvidenceConflictCurrentReader,
     EvidenceConflictDisposition,
@@ -152,12 +159,12 @@ class ControlLoopExecutionMixin(
                 extra={"action_type": action.action_type, "error_kind": "timeout"},
             )
             return LiveProbeObservation(
-                probe_id=probe_id,
-                verdict=ProbeVerdict.ACTIVE,
-                degraded=True,
-                age_seconds=0.0,
-                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
-                reason="probe failure: timeout",
+                probe_id,
+                ProbeVerdict.ACTIVE,
+                True,
+                0.0,
+                _LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                "probe failure: timeout",
             )
         except BlastProbeError as exc:
             _LOGGER.warning(
@@ -165,12 +172,12 @@ class ControlLoopExecutionMixin(
                 extra={"action_type": action.action_type, "error_kind": exc.kind},
             )
             return LiveProbeObservation(
-                probe_id=probe_id,
-                verdict=ProbeVerdict.ACTIVE,
-                degraded=True,
-                age_seconds=0.0,
-                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
-                reason=f"probe failure: {exc.kind}",
+                probe_id,
+                ProbeVerdict.ACTIVE,
+                True,
+                0.0,
+                _LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                f"probe failure: {exc.kind}",
             )
         except Exception:  # noqa: BLE001 - unexpected adapter failure lowers authority
             _LOGGER.warning(
@@ -179,21 +186,21 @@ class ControlLoopExecutionMixin(
                 exc_info=True,
             )
             return LiveProbeObservation(
-                probe_id=probe_id,
-                verdict=ProbeVerdict.ACTIVE,
-                degraded=True,
-                age_seconds=0.0,
-                max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
-                reason="probe failure: unexpected",
+                probe_id,
+                ProbeVerdict.ACTIVE,
+                True,
+                0.0,
+                _LIVE_PROBE_MAX_DEADLINE_SECONDS,
+                "probe failure: unexpected",
             )
         return LiveProbeObservation(
-            probe_id=probe_id,
-            verdict=result.verdict,
-            degraded=result.degraded,
-            age_seconds=0.0,
-            max_age_seconds=_LIVE_PROBE_MAX_DEADLINE_SECONDS,
-            reason=result.reason,
-            metrics=result.metrics,
+            probe_id,
+            result.verdict,
+            result.degraded,
+            0.0,
+            _LIVE_PROBE_MAX_DEADLINE_SECONDS,
+            result.reason,
+            result.metrics,
         )
 
     @staticmethod
@@ -354,9 +361,9 @@ class ControlLoopExecutionMixin(
                     exc_info=True,
                 )
                 blocked_result = ExecutionResult(
-                    action_id=str(action.action_id),
-                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
-                    mode=action.mode,
+                    str(action.action_id),
+                    ExecutorOutcome.REJECTED_INVARIANT,
+                    action.mode,
                     reason="pre-dispatch kinetic safety evidence is invalid",
                 )
                 blocked_at = self._clock()
@@ -372,14 +379,13 @@ class ControlLoopExecutionMixin(
                 )
         path = action_type.execution_path if action_type is not None else None
         commitment_error = await self._prepare_workflow_safeguard_commitment(
-            action=action,
-            correlation_id=correlation_id,
+            action=action, correlation_id=correlation_id
         )
         if commitment_error is not None:
             blocked_result = ExecutionResult(
-                action_id=str(action.action_id),
-                outcome=ExecutorOutcome.REJECTED_INVARIANT,
-                mode=action.mode,
+                str(action.action_id),
+                ExecutorOutcome.REJECTED_INVARIANT,
+                action.mode,
                 reason=commitment_error,
             )
             blocked_at = self._clock()
@@ -748,8 +754,7 @@ class ControlLoopExecutionMixin(
                     )
                     conflict_disposition = EvidenceConflictDisposition.EXPIRED_UNRESOLVED
             unified, mscp_profile_entry = await self._evaluate_mscp_profile_gate(
-                action=action,
-                unified=unified,
+                action=action, unified=unified
             )
             entry = _unified_audit_dict(event=event, action=action, unified=unified)
             entry["evidence_conflict"] = {
@@ -777,5 +782,18 @@ class ControlLoopExecutionMixin(
         await self._audit_store.append_audit_entry(entry)
         return None
 
+    @staticmethod
+    def _evaluate_governed_ceiling_binding(
+        binding: GovernedMscpCeilingBinding | None,
+        decision_input: GovernedCeilingDecisionInput,
+    ) -> AuthorityCeilingResult | None:
+        return None if binding is None else binding.evaluate(decision_input)
 
-__all__ = ["ControlLoopExecutionMixin"]
+
+__all__ = [
+    "ControlLoopExecutionMixin",
+    "GovernedCeilingDecisionInput",
+    "GovernedMscpCeilingBinding",
+    "GovernedReadinessWindowReceipt",
+    "apply_authority_ceiling",
+]

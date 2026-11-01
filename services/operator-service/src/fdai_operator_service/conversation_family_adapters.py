@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.conversation.background_tasks import (
     materialize_background_task,
+    materialize_task_worker,
     open_background_task_stream,
 )
 from fdai_operator_service.families.conversation.contracts import (
@@ -154,6 +155,9 @@ class PostgresConversationAdapters:
                 )
             )
         try:
+            worker_response = await materialize_task_worker(query)
+            if worker_response is not None:
+                return worker_response
             background_response = await materialize_background_task(query, store=self.store)
         except PostgresFamilyStoreUnavailable as exc:
             raise ConversationUnavailableError(

@@ -27,6 +27,10 @@ from fdai.runtime.aks_commerce import VerifiedIncidentResolver
 from fdai.runtime.bootstrap_bindings import RuleGenerationRuntimeBinding
 from fdai.runtime.case_history import CaseHistoryRetentionTickPublisher
 from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
+from fdai.runtime.programmatic_pipeline_runtime import (
+    ProgrammaticPipelineRuntimeBundle,
+    build_programmatic_pipeline_runtime,
+)
 from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.shared.providers.event_bus import EventBus
@@ -94,6 +98,7 @@ class PantheonInitializationResult:
     alert_noise_handler: Any = None
     post_turn_review_request_consumer: PostTurnReviewRequestConsumer | None = None
     document_intent_ingress: Any = None
+    programmatic_pipeline_runtime: ProgrammaticPipelineRuntimeBundle | None = None
 
     def assignment_reconciliation(self, human_access: Any) -> Any:
         from fdai.runtime.bootstrap_assignment import bind_assignment_reconciliation
@@ -101,4 +106,9 @@ class PantheonInitializationResult:
         return bind_assignment_reconciliation(human_access, self.runtime)
 
 
-__all__ = ["PantheonInitialization", "PantheonInitializationResult"]
+__all__ = [
+    "PantheonInitialization",
+    "PantheonInitializationResult",
+    "ProgrammaticPipelineRuntimeBundle",
+    "build_programmatic_pipeline_runtime",
+]

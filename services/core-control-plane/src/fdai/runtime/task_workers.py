@@ -24,6 +24,12 @@ from fdai.delivery.azure.llm.task_worker import (
 )
 from fdai.delivery.persistence.postgres_task_worker import PostgresTaskWorkerStoreConfig
 from fdai.delivery.persistence.postgres_task_worker_runtime import PostgresTaskWorkerRuntimeStore
+from fdai.delivery.task_worker_completion_sink import (
+    CompletionSinkDeliveryReceipt,
+    DetachedSessionReplySink,
+    DetachedSessionTaskWorkerCompletionSink,
+    TaskWorkerCompletionSink,
+)
 from fdai.delivery.task_worker_inventory import (
     TaskWorkerReadScope,
     build_task_worker_inventory_tools,
@@ -61,6 +67,7 @@ class TaskWorkerRuntimeBinding:
 
     runtime: TaskWorkerRuntime
     store: PostgresTaskWorkerRuntimeStore
+    completion_sink: TaskWorkerCompletionSink | None = None
 
     async def aclose(self) -> None:
         """Attempt a bounded drain, release owned resources, and propagate any drain failure."""
@@ -71,6 +78,15 @@ class TaskWorkerRuntimeBinding:
             await self.store.aclose()
 
 
+def build_task_worker_completion_sink(
+    reply_sink: DetachedSessionReplySink,
+    *,
+    store: PostgresTaskWorkerRuntimeStore | None = None,
+) -> TaskWorkerCompletionSink:
+    """Bind a durable detached-session completion sink for terminal task-worker results."""
+    return TaskWorkerCompletionSink(reply_sink=reply_sink, store=store)
+
+
 async def build_task_worker_runtime_from_env(
     *,
     environment: Mapping[str, str],
@@ -79,6 +95,7 @@ async def build_task_worker_runtime_from_env(
     identity: WorkloadIdentity | None,
     http_client: httpx.AsyncClient | None,
     pricing: PricingTable | None,
+    reply_sink: DetachedSessionReplySink | None = None,
 ) -> TaskWorkerRuntimeBinding | None:
     """Bind enabled production workers or fail startup; absent opt-in makes no provider call."""
     enabled = environment.get("FDAI_TASK_WORKERS_ENABLED", "").strip().casefold()
@@ -124,6 +141,9 @@ async def build_task_worker_runtime_from_env(
         http_client=http_client,
     )
     store = PostgresTaskWorkerRuntimeStore(config=PostgresTaskWorkerStoreConfig(dsn=dsn))
+    completion_sink = (
+        build_task_worker_completion_sink(reply_sink) if reply_sink is not None else None
+    )
     runtime = TaskWorkerRuntime(
         store=store,
         executor=AnswerPlanningTaskWorkerExecutor(
@@ -133,6 +153,7 @@ async def build_task_worker_runtime_from_env(
         config=TaskWorkerRuntimeConfig(
             profile_allowed_tools=BACKGROUND_READ_ONLY_PROFILE.allowed_tools
         ),
+        completion_sink=completion_sink,
         require_recoverable_store=True,
     )
     try:
@@ -143,4 +164,16 @@ async def build_task_worker_runtime_from_env(
     except BaseException:
         await store.aclose()
         raise
-    return TaskWorkerRuntimeBinding(runtime, store)
+    return TaskWorkerRuntimeBinding(runtime, store, completion_sink=completion_sink)
+
+
+__all__ = [
+    "CompletionSinkDeliveryReceipt",
+    "DetachedSessionReplySink",
+    "DetachedSessionTaskWorkerCompletionSink",
+    "TaskWorkerCompletionSink",
+    "TaskWorkerRuntimeBinding",
+    "bind_task_workers",
+    "build_task_worker_completion_sink",
+    "build_task_worker_runtime_from_env",
+]

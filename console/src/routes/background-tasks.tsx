@@ -32,6 +32,21 @@ import {
   type BackgroundTaskProgressPage,
   type BackgroundTaskStatus,
 } from "./background-tasks.model";
+import {
+  buildTaskWorkersViewModel,
+  decodeTaskWorkerDetailProjection,
+  decodeTaskWorkerEventsProjection,
+  decodeTaskWorkerListProjection,
+  type TaskWorkersViewModel,
+} from "./task-workers.model";
+
+export {
+  buildTaskWorkersViewModel,
+  decodeTaskWorkerDetailProjection,
+  decodeTaskWorkerEventsProjection,
+  decodeTaskWorkerListProjection,
+  type TaskWorkersViewModel,
+};
 
 const PAGE_SIZE = 50;
 const EMPTY_CREATE_INPUT: BackgroundTaskCreateInput = {

@@ -16,6 +16,17 @@ Deployment:
 Run as the independently deployable, non-privileged Operator Service.
 """
 
+from fdai_operator_service.licensing_warning_projection import (
+    LicensingWarningProjection,
+    LicensingWarningState,
+    build_licensing_warning_projection,
+)
 from fdai_operator_service.main import SERVICE, create_app
 
-__all__ = ["SERVICE", "create_app"]
+__all__ = [
+    "LicensingWarningProjection",
+    "LicensingWarningState",
+    "SERVICE",
+    "build_licensing_warning_projection",
+    "create_app",
+]

@@ -35,6 +35,7 @@ from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 
 from fdai_operator_service.actor_display import ActorDisplayResolver
+from fdai_operator_service.adapter_commands_api import AdapterCommandController
 from fdai_operator_service.alert_quality import (
     ALERT_QUALITY_ROUTE_MANIFEST,
     AlertQualityDependencies,
@@ -60,6 +61,9 @@ from fdai_operator_service.bus_poison_halt_clear_route import (
     make_ordered_poison_halt_clear_endpoint,
 )
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
+from fdai_operator_service.conversation_delivery_panel_route import (
+    ConversationDeliveryPanelRoute,
+)
 from fdai_operator_service.cors_policy import CORS_ALLOW_HEADERS, CORS_EXPOSE_HEADERS
 from fdai_operator_service.entitlement_stamp import EntitlementStamp, EntitlementStampMiddleware
 from fdai_operator_service.families.aks_commerce import (
@@ -109,6 +113,9 @@ from fdai_operator_service.notification_template_preview import (
     incident_opened_template_preview,
 )
 from fdai_operator_service.ownership_projection import OwnershipProjectionReader
+from fdai_operator_service.programmatic_pipeline_api import (
+    ProgrammaticPipelineOperatorEndpoint,
+)
 from fdai_operator_service.projection_logic import caller_development_view
 from fdai_operator_service.projections import (
     ProjectionUnavailableError,
@@ -170,6 +177,11 @@ class OperatorRouteFamilies:
     cost_governance: CostGovernanceFamilyDependencies | None = None
     alert_quality: AlertQualityDependencies | None = None
     poison_halt_clear: OrderedPoisonHaltClearService | None = None
+    programmatic_pipeline_endpoint: ProgrammaticPipelineOperatorEndpoint = (
+        ProgrammaticPipelineOperatorEndpoint()
+    )
+    adapter_commands: AdapterCommandController | None = None
+    conversation_delivery_panel: ConversationDeliveryPanelRoute | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (

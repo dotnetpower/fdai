@@ -35,6 +35,10 @@ from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.ontology_index_runtime import OntologyIndexRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
+from fdai.runtime.skill_source_runtime import (
+    SkillSourceRuntimeBundle,
+    build_skill_source_runtime_bundle,
+)
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.hil_registry import HilWorkflowDecisionRegistry
 
@@ -75,11 +79,7 @@ class RuntimeTaskConfiguration:
     operational_readiness_handler: OperationalReadinessEventHandler | None = None
     diagnostic_event_ingest_bridge: Any = None
     hil_workflow_registry: HilWorkflowDecisionRegistry | None = None
-    """Authoritative quorum owner for ``decision_route=workflow`` parks.
-
-    Bound by runtime composition so the decision consumer can route a workflow
-    approval slot without Core importing a delivery implementation.
-    """
+    """Authoritative quorum owner for ``decision_route=workflow`` parks."""
     stewardship_governance_worker: Any = None
     exemption_lifecycle_worker: Any = None
     stewardship_identity_health_worker: Any = None
@@ -98,6 +98,18 @@ class RuntimeTaskConfiguration:
     assurance_twin_writers: tuple[Any, ...] = ()
     entitlement_state_publisher: Any = None
     document_intent_ingress: Any = None
+    skill_source_runtime: SkillSourceRuntimeBundle | None = None
+
+
+def build_optional_skill_source_runtime(
+    *, adapter_factory: Any = None, verifier_factory: Any = None, **kwargs: Any
+) -> SkillSourceRuntimeBundle | None:
+    """Compose the optional skill-source runtime bundle when factories are provided."""
+    if adapter_factory is None or verifier_factory is None:
+        return None
+    return build_skill_source_runtime_bundle(
+        adapter_factory=adapter_factory, verifier_factory=verifier_factory, **kwargs
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,41 +165,25 @@ def schedule_ontology_index_reconciliation(
 
 
 def schedule_semantic_turn_consumer(
-    *,
-    binding: Any,
-    readiness: StartupReadinessRuntime,
-    bus: EventBus,
-    stop: asyncio.Event,
+    *, binding: Any, readiness: StartupReadinessRuntime, bus: EventBus, stop: asyncio.Event
 ) -> asyncio.Task[None] | None:
     """Schedule the semantic-turn consumer only when its binding exists."""
-
     if binding is None:
         return None
     return asyncio.create_task(
-        readiness.run_when_ready(
-            stop,
-            lambda: binding.run(bus=bus, stop=stop),
-        ),
+        readiness.run_when_ready(stop, lambda: binding.run(bus=bus, stop=stop)),
         name="semantic-turn-consumer",
     )
 
 
 def schedule_incident_intervention_consumer(
-    *,
-    binding: Any,
-    readiness: StartupReadinessRuntime,
-    bus: EventBus,
-    stop: asyncio.Event,
+    *, binding: Any, readiness: StartupReadinessRuntime, bus: EventBus, stop: asyncio.Event
 ) -> asyncio.Task[None] | None:
     """Schedule the Incident intervention consumer only when its binding exists."""
-
     if binding is None:
         return None
     return asyncio.create_task(
-        readiness.run_when_ready(
-            stop,
-            lambda: binding.run(bus=bus, stop=stop),
-        ),
+        readiness.run_when_ready(stop, lambda: binding.run(bus=bus, stop=stop)),
         name="incident-intervention-consumer",
     )
 
@@ -786,6 +782,9 @@ def _notification_receipt_topic(environment: Mapping[str, str]) -> str:
 __all__ = [
     "RuntimeTaskConfiguration",
     "RuntimeTaskHooks",
+    "SkillSourceRuntimeBundle",
+    "build_optional_skill_source_runtime",
+    "build_skill_source_runtime_bundle",
     "run_runtime_tasks",
     "schedule_incident_creation_consumer",
     "schedule_incident_intervention_consumer",

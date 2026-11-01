@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Final, Literal
@@ -234,6 +235,40 @@ class SelectiveActingLicenseVerifier:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ActionTypeCapabilityRegistry:
+    """Deterministic registry mapping ActionType identifiers to required license capabilities."""
+
+    overrides: Mapping[str, frozenset[str]] = field(default_factory=dict)
+
+    def capabilities_for(self, action_type_id: str) -> frozenset[str]:
+        base = required_license_capabilities_for_action_type(action_type_id)
+        custom = self.overrides.get(action_type_id)
+        if custom is None:
+            return base
+        return frozenset(custom) | {BASE_MUTATION_CAPABILITY_ID}
+
+
+def evaluate_selective_capability(
+    authority: LicenseEntitlementAuthority,
+    *,
+    action_type_id: str,
+    now: datetime,
+    trusted_now: datetime | None = None,
+    clock_detector: TrustedTimeRollbackDetector | None = None,
+) -> SelectiveActingLicenseDecision:
+    """Evaluate selective ActionType capability availability and clock integrity."""
+    verifier = SelectiveActingLicenseVerifier(
+        authority=authority,
+        clock_detector=clock_detector,
+    )
+    return verifier.evaluate(
+        action_type_id=action_type_id,
+        now=now,
+        trusted_now=trusted_now,
+    )
+
+
 def _require_utc(moment: datetime) -> None:
     if (
         not isinstance(moment, datetime)
@@ -245,6 +280,7 @@ def _require_utc(moment: datetime) -> None:
 
 
 __all__ = [
+    "ActionTypeCapabilityRegistry",
     "BASE_MUTATION_CAPABILITY_ID",
     "ClockIntegrityDecision",
     "DEFAULT_MAX_TRUSTED_SKEW",
@@ -252,5 +288,6 @@ __all__ = [
     "SelectiveActingLicenseVerifier",
     "TrialStatus",
     "TrustedTimeRollbackDetector",
+    "evaluate_selective_capability",
     "required_license_capabilities_for_action_type",
 ]

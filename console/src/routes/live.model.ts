@@ -16,6 +16,29 @@ import type {
   LiveStageName,
   LiveStagePhase,
 } from "../hooks/use-live-stream";
+import {
+  buildBusyCancelRequest,
+  buildBusyInputControlViewModel,
+  buildBusyModeChangeRequest,
+  buildBusySubmitRequest,
+  decodeBusySessionProjection,
+  type BusyControlLocale,
+  type BusyInputControlViewModel,
+  type BusyInputMode,
+  type BusySessionProjection,
+} from "../deck/busy-input-controls.model";
+
+export {
+  buildBusyCancelRequest,
+  buildBusyInputControlViewModel,
+  buildBusyModeChangeRequest,
+  buildBusySubmitRequest,
+  decodeBusySessionProjection,
+  type BusyControlLocale,
+  type BusyInputControlViewModel,
+  type BusyInputMode,
+  type BusySessionProjection,
+};
 
 // ---------------------------------------------------------------------------
 // Constants (shared with the presentational layer)

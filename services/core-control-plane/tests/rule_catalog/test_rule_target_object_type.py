@@ -181,3 +181,39 @@ def test_mismatched_object_type_registered_submission_criterion_rejected() -> No
         )
     keys = {issue.key for issue in exc_info.value.issues}
     assert "mismatched-criterion.yaml:submission_criteria[0]" in keys
+
+
+def test_t0_engine_dispatches_rule_over_custom_target_object_type() -> None:
+    from fdai.core.tiers.t0_deterministic.engine import PolicyResult, T0Engine
+    from fdai.core.tiers.t0_deterministic.index import RuleIndex
+
+    registry = _registry()
+    raw = _base_rule_mapping()
+    raw["target_object_type"] = "ChangeSummary"
+    rule = load_rule_from_mapping(
+        raw,
+        schema_registry=registry,
+        action_type_names={"ops.publish-change-summary"},
+        resource_type_ids={"resource-group"},
+        object_type_names={"Resource", "ChangeSummary"},
+        origin="change-summary.yaml",
+    )
+    index = RuleIndex.build([rule])
+    assert index.rules_for_type("ChangeSummary") == (rule,)
+
+    class _DenyEvaluator:
+        def evaluate(self, candidate: object, props: object) -> PolicyResult:
+            del candidate, props
+            return PolicyResult(denied=True, context={"reason": "change_summary_triggered"})
+
+    engine = T0Engine(index=index, evaluator=_DenyEvaluator())
+    verdict = engine.evaluate(
+        event_id="evt-1",
+        signal_id="sig-1",
+        resource_id="change-summary:cs-1",
+        resource_type="ChangeSummary",
+        target_object_type="ChangeSummary",
+        resource_props={"requested": True},
+    )
+    assert len(verdict.findings) == 1
+    assert verdict.findings[0].rule_id == rule.id
