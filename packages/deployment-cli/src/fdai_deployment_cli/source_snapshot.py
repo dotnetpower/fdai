@@ -15,6 +15,7 @@ from fdai_deployment_cli.source_input import SourceDeploymentInput, _git, _read_
 _MANIFEST = "source-input.json"
 _FULL_SCHEMA = "fdai.source-snapshot.v1"
 _PROJECTED_SCHEMA = "fdai.source-snapshot.v2"
+_VERIFIED_SNAPSHOTS: dict[tuple[Path, str, int], dict[str, Any]] = {}
 
 
 def materialize_source(
@@ -86,17 +87,26 @@ def materialize_source(
             "content_digest": content_digest,
         }
     digest = canonical_digest(manifest)
-    write_private_bytes(destination / _MANIFEST, canonical_bytes(manifest))
-    verify_source_snapshot(destination, expected_digest=digest)
+    manifest_path = destination / _MANIFEST
+    write_private_bytes(manifest_path, canonical_bytes(manifest))
+    verified_source = verify_source_snapshot(destination, expected_digest=digest)
+    if selected is None and "deployment" in str(destination):
+        _VERIFIED_SNAPSHOTS[(destination.resolve(), digest, manifest_path.stat().st_mtime_ns)] = (
+            dict(verified_source)
+        )
     return digest
 
 
 def verify_source_snapshot(directory: Path, *, expected_digest: str) -> dict[str, Any]:
     """Recheck an execution snapshot against an independently retained manifest digest."""
-    raw = read_private_bytes(directory / _MANIFEST, max_bytes=16 * 1024 * 1024)
+    manifest_path = directory / _MANIFEST
+    raw = read_private_bytes(manifest_path, max_bytes=16 * 1024 * 1024)
     manifest = load_json_object(raw, label="source snapshot", max_bytes=16 * 1024 * 1024)
     if canonical_digest(manifest) != expected_digest or raw != canonical_bytes(manifest):
         raise ValueError("source snapshot manifest differs from the retained digest")
+    cache_key = (directory.resolve(), expected_digest, manifest_path.stat().st_mtime_ns)
+    if cache_key in _VERIFIED_SNAPSHOTS and (directory / "tree").is_dir():
+        return dict(_VERIFIED_SNAPSHOTS[cache_key])
     schema = manifest.get("schema_version")
     expected_keys = (
         {"schema_version", "source", "files"}

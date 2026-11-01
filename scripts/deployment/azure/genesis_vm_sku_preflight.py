@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import re
 import stat
@@ -107,13 +108,25 @@ def discover_foundation_vm_size(
     usages: list[object] | None = None
     stage = "catalog"
     try:
-        rows = read_vm_catalog(**context)
-        if folder is not None:
-            write_plan_input(folder / "skus.json", {"rows": rows})
-        stage = "quota"
-        usages = read_vm_usage(**context)
-        if folder is not None:
-            write_plan_input(folder / "quota.json", {"rows": usages})
+        if capture is None:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                cat_future = pool.submit(read_vm_catalog, **context)
+                quota_future = pool.submit(read_vm_usage, **context)
+                rows = cat_future.result()
+                if folder is not None:
+                    write_plan_input(folder / "skus.json", {"rows": rows})
+                stage = "quota"
+                usages = quota_future.result()
+                if folder is not None:
+                    write_plan_input(folder / "quota.json", {"rows": usages})
+        else:
+            rows = read_vm_catalog(**context)
+            if folder is not None:
+                write_plan_input(folder / "skus.json", {"rows": rows})
+            stage = "quota"
+            usages = read_vm_usage(**context)
+            if folder is not None:
+                write_plan_input(folder / "quota.json", {"rows": usages})
         stage = "selection"
         if create_runner_image:
             selected = choose_deployment_vms(policy, region=region, rows=rows, usages=usages)

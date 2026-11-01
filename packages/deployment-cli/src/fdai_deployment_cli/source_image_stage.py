@@ -50,7 +50,7 @@ _MAX_RECORD_BYTES = 1024 * 1024
 _BUILD_TIMEOUT_SECONDS = 3600
 _IMPORT_TIMEOUT_SECONDS = 1200
 _READ_TIMEOUT_SECONDS = 120
-MAX_PARALLEL_IMAGE_OPERATIONS: Final = 3
+MAX_PARALLEL_IMAGE_OPERATIONS: Final = 5
 
 _GUIDANCE = {
     UNAVAILABLE: (
@@ -263,11 +263,20 @@ def _read_back(
     commit: str,
     digests: Mapping[str, str],
 ) -> None:
-    for name, digest in sorted(digests.items()):
+    def _verify_one(item: tuple[str, str]) -> None:
+        name, digest = item
         by_digest = builder.read_digest(target, reference=f"{name}@{digest}")
         by_tag = builder.read_digest(target, reference=f"{name}:sha-{commit}")
         if by_digest != digest or by_tag != digest:
             raise SourceImageStageStopped(FAILED)
+
+    items = sorted(digests.items())
+    with ThreadPoolExecutor(
+        max_workers=min(MAX_PARALLEL_IMAGE_OPERATIONS, max(1, len(items)))
+    ) as pool:
+        futures = [pool.submit(_verify_one, item) for item in items]
+        for future in futures:
+            future.result()
 
 
 Runner = Callable[..., "subprocess.CompletedProcess[str]"]

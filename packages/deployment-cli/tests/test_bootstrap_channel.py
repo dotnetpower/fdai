@@ -62,11 +62,23 @@ def test_private_atomic_single_request_and_safe_projection(tmp_path):
         ("unknown", {}),
         ("resume", {"region": "eastus"}),
         ("inspect", {"source_root": "replacement"}),
+        ("login", {"tenant_id": "../bad"}),
+        ("login", {"tenant_id": ".."}),
+        ("login", {"tenant_id": ""}),
+        ("login", {"tenant_id": 123}),
+        ("login", {"tenant_id": "contoso.onmicrosoft.com", "extra": True}),
     ],
 )
 def test_noninstall_actions_never_replace_configuration(tmp_path, action, payload):
     with pytest.raises(ValueError):
         channel.submit_request(tmp_path, action, payload)
+
+
+def test_login_accepts_optional_tenant_id(tmp_path):
+    assert channel.validate_request("login", {}) == {}
+    assert channel.validate_request("login", {"tenant_id": "contoso.onmicrosoft.com"}) == {
+        "tenant_id": "contoso.onmicrosoft.com"
+    }
 
 
 def review_record(root, *, expired=False):
@@ -178,3 +190,67 @@ def test_symlinks_hardlinks_and_unsafe_permissions_are_rejected(tmp_path):
     root.chmod(0o755)
     with pytest.raises(ValueError):
         channel.prepare_directory(root)
+
+
+def test_install_accepts_optional_approval_mode_and_workload_tokens(tmp_path):
+    validated = channel.validate_request(
+        "install",
+        install_payload(
+            approval_mode="stepwise",
+            workload="fdaiboot",
+            runtime_platform="container-apps",
+            database_placement="postgres-flex",
+        ),
+    )
+    assert validated["approval_mode"] == "stepwise"
+    assert validated["workload"] == "fdaiboot"
+    assert validated["runtime_platform"] == "container-apps"
+    assert validated["database_placement"] == "postgres-flex"
+    with pytest.raises(ValueError, match="Approval mode"):
+        channel.validate_request("install", install_payload(approval_mode="invalid"))
+    with pytest.raises(ValueError, match="workload token"):
+        channel.validate_request("install", install_payload(workload="BAD-NAME"))
+    with pytest.raises(ValueError, match="postgres-flex"):
+        channel.validate_request(
+            "install",
+            install_payload(runtime_platform="container-apps", database_placement="postgres-aks"),
+        )
+
+
+def test_read_setup_telemetry_extracts_stage_timings_and_permissions(tmp_path):
+    import json
+    from fdai_deployment_cli.bootstrap_support import read_setup_telemetry
+
+    exec_root = tmp_path / "executor"
+    (exec_root / "azure").mkdir(parents=True)
+    (exec_root / "azure" / "azureProfile.json").write_text(
+        json.dumps(
+            {
+                "subscriptions": [
+                    {
+                        "id": "00000000-0000-0000-0000-000000000001",
+                        "state": "Enabled",
+                        "isDefault": True,
+                        "user": {"name": "operator@example.com"},
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    dep = exec_root / "deployment"
+    fdir = dep / "foundation"
+    fdir.mkdir(parents=True)
+    intent = dep / "source-intent.json"
+    intent.write_text("{}", encoding="utf-8")
+    os.utime(intent, (1700000000.0, 1700000000.0))
+    fvars = fdir / "foundation-variables.json"
+    fvars.write_text("{}", encoding="utf-8")
+    os.utime(fvars, (1700000130.0, 1700000130.0))
+
+    tel = read_setup_telemetry(tmp_path)
+    assert tel["operator_user"] == "operator@example.com"
+    assert tel["started_at"] != ""
+    assert tel["stage_timings"][0]["start_time"] != ""
+    assert tel["stage_timings"][0]["duration"] == "0s"
+    assert tel["stage_timings"][1]["duration"] == "2m 10s"

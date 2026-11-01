@@ -26,6 +26,10 @@ INSTALL_FIELDS = {
     "artifact_source",
     "source_root",
     "hub_public_key",
+    "approval_mode",
+    "workload",
+    "runtime_platform",
+    "database_placement",
 }
 
 
@@ -182,7 +186,7 @@ def read_status(root: Path) -> dict[str, object]:
 def validate_request(action: str, payload: dict[str, object]) -> dict[str, object]:
     if (
         not isinstance(action, str)
-        or action not in {"login", "accounts", "install", "resume", "inspect"}
+        or action not in {"login", "accounts", "install", "resume", "inspect", "reset"}
         or not isinstance(payload, dict)
     ):
         raise ValueError("Unsupported Bootstrap action or payload")
@@ -192,6 +196,27 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
         raise ValueError("Bootstrap payload must be a bounded JSON object") from exc
     if len(encoded) > 16384:
         raise ValueError("Bootstrap payload exceeds its size bound")
+    if action == "login":
+        if not payload:
+            return {}
+        if set(payload) - {"tenant_id", "use_device_code"}:
+            raise ValueError("Login accepts only optional tenant_id and use_device_code")
+        validated: dict[str, object] = {}
+        if "tenant_id" in payload:
+            tenant = payload.get("tenant_id")
+            if (
+                not isinstance(tenant, str)
+                or re.fullmatch(r"[A-Za-z0-9._-]{1,128}", tenant) is None
+                or tenant in {".", ".."}
+            ):
+                raise ValueError("Choose a valid Azure tenant ID or domain")
+            validated["tenant_id"] = tenant
+        if "use_device_code" in payload:
+            if type(payload.get("use_device_code")) is not bool:
+                raise ValueError("use_device_code must be a boolean")
+            if payload["use_device_code"]:
+                validated["use_device_code"] = True
+        return validated
     if action != "install":
         if payload:
             raise ValueError("This action accepts no replacement inputs")
@@ -210,6 +235,24 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
     if type(ceiling) is not int or ceiling <= 0 or ceiling > 1_000_000_000:
         raise ValueError("Monthly cost ceiling must be a positive bounded integer")
     result = {**payload, "artifact_source": payload.get("artifact_source", "hub")}
+    if "approval_mode" in payload:
+        mode = payload.get("approval_mode")
+        if not isinstance(mode, str) or mode not in {"continuous", "stepwise"}:
+            raise ValueError("Approval mode must be continuous or stepwise")
+    if "workload" in payload:
+        workload = payload.get("workload")
+        if not isinstance(workload, str) or re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
+            raise ValueError("Choose a valid lowercase workload token (2-12 alphanumeric chars)")
+    if "runtime_platform" in payload:
+        rt = payload.get("runtime_platform")
+        if not isinstance(rt, str) or rt not in {"aks", "container-apps"}:
+            raise ValueError("Runtime platform must be aks or container-apps")
+    if "database_placement" in payload:
+        db = payload.get("database_placement")
+        if not isinstance(db, str) or db not in {"postgres-flex", "postgres-aks"}:
+            raise ValueError("Database placement must be postgres-flex or postgres-aks")
+        if payload.get("runtime_platform") == "container-apps" and db != "postgres-flex":
+            raise ValueError("Container Apps requires postgres-flex database placement")
     if not isinstance(result["artifact_source"], str) or result["artifact_source"] not in {
         "hub",
         "source",
@@ -258,6 +301,7 @@ def submit_request(root: Path, action: str, payload: dict[str, object]) -> dict[
             "resume",
             "login",
             "accounts",
+            "reset",
         }:
             raise ValueError(
                 "Inspect or resume the interrupted installation before starting other work"

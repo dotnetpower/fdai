@@ -28,12 +28,17 @@ from fdai_deployment_cli.bootstrap_channel import (
     validate_request,
 )
 from fdai_deployment_cli.bootstrap_executor import BootstrapBlocked, BootstrapExecutor
+from fdai_deployment_cli.bootstrap_support import (
+    failure_diagnostic_message,
+    latest_progress_message,
+)
 
 TOTAL_SECONDS = 8 * 3600
 OPERATION_SECONDS = {
     "login": 660,
     "accounts": 120,
     "inspect": 120,
+    "reset": 120,
     "install": 14400,
     "resume": 14400,
 }
@@ -130,6 +135,7 @@ def run_request(
             else "idle",
             request_id=request["id"] if retained or action in {"install", "resume"} else None,
             review=None,
+            error_code=None,
             deployment_ready=ready,
             console_url=result.get("console_url") if ready else None,
             message=message,
@@ -155,7 +161,8 @@ def run_request(
             error_code="operation_timeout",
             message="Operation expired. Inspect retained state; do not repeat ambiguous effects.",
         )
-    except Exception:  # noqa: BLE001 - executor boundary must never publish raw provider errors
+    except Exception as exc:  # noqa: BLE001 - executor boundary must never publish raw provider errors
+        print(f"[ERROR] {type(exc).__name__}", file=os.sys.stderr, flush=True)
         _update(
             root,
             phase="failed",
@@ -163,7 +170,7 @@ def run_request(
             deployment_ready=False,
             console_url=None,
             error_code="executor_failed",
-            message="Executor stopped. Inspect private traces and retained evidence before resuming.",
+            message=failure_diagnostic_message(root),
         )
 
 
@@ -372,12 +379,23 @@ def serve(root: Path, *, total_seconds: int = TOTAL_SECONDS) -> None:
                 progress = (record.get("progress"), trace_size)
                 if progress != last_progress:
                     last_progress, progress_time = progress, time.monotonic()
+                    if action in {"install", "resume", "login"}:
+                        with locked(root):
+                            record = _read(root)
+                            if record.get("status", {}).get("phase") == "working":
+                                next_msg = latest_progress_message(
+                                    root, str(record["status"].get("message", ""))
+                                )
+                                if next_msg != record["status"].get("message"):
+                                    record["status"]["message"] = next_msg
+                                    _write(root, record)
                 timed_out = (
                     time.monotonic() - operation_started > OPERATION_SECONDS.get(action, 120)
                     or time.monotonic() - progress_time > NO_PROGRESS_SECONDS
                     or not trace_within_bound
                 )
                 if timed_out or not process.is_alive():
+                    _drain(reader, trace_fd)
                     _stop(process)
                     with locked(root):
                         record = _read(root)
@@ -391,6 +409,8 @@ def serve(root: Path, *, total_seconds: int = TOTAL_SECONDS) -> None:
                                 error_code="operation_interrupted",
                                 message="Executor stopped. Inspect retained evidence before explicit resume.",
                             )
+                        elif status["phase"] == "failed":
+                            status["message"] = failure_diagnostic_message(root)
                         record.update(status=status, active_request_id=None, progress=time.time())
                         _write(root, record)
                     process.close()

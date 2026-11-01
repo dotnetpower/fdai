@@ -277,7 +277,15 @@ def plan_source_installation(
         key: value
         for key, value in os.environ.items()
         if key
-        in {"HOME", "PATH", "AZURE_CONFIG_DIR", "LANG", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"}
+        in {
+            "HOME",
+            "PATH",
+            "AZURE_CONFIG_DIR",
+            "LANG",
+            "SSL_CERT_FILE",
+            "REQUESTS_CA_BUNDLE",
+            "PYTHONUNBUFFERED",
+        }
     }
     environment["PYTHONPATH"] = str(source.root / "packages/deployment-cli/src")
     preparation = _capture(

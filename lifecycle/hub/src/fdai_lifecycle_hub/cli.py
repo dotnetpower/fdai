@@ -52,6 +52,13 @@ type Handler = Callable[[argparse.Namespace], int]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    if sys.version_info < (3, 12):  # noqa: UP036 - friendly guard if invoked under system Python
+        print(
+            "ValueError: fdai-lifecycle-hub requires Python 3.12 or later; "
+            "install with 'uv tool install fdai-lifecycle-hub' or run under Python >= 3.12.",
+            file=sys.stderr,
+        )
+        return 1
     args = _parser().parse_args(argv)
     handler: Handler = args.handler
     provider_errors: tuple[type[Exception], ...] = (SQLAlchemyError,)
@@ -96,6 +103,30 @@ def _parser() -> argparse.ArgumentParser:
     )
     start.add_argument("--port", type=int, default=0, help="loopback port; 0 selects a free port")
     start.add_argument("--no-browser", action="store_true", help="start for local diagnostics only")
+    start.add_argument(
+        "--print-launch-url",
+        action="store_true",
+        help="print the one-time loopback launch URL for SSH port-forwarding sessions",
+    )
+    start.add_argument(
+        "--strict-port",
+        action="store_true",
+        help="fail instead of falling back to a free port when --port is already in use",
+    )
+    status_cmd = command("status", _bootstrap_status, "print local Bootstrap setup status as JSON")
+    status_cmd.add_argument(
+        "--state-dir",
+        type=Path,
+        default=Path.home() / ".local/state/fdai/lifecycle-hub-bootstrap",
+        help="private retained Bootstrap and executor directory",
+    )
+    stop_cmd = command("stop", _bootstrap_stop, "stop a running local Bootstrap session")
+    stop_cmd.add_argument(
+        "--state-dir",
+        type=Path,
+        default=Path.home() / ".local/state/fdai/lifecycle-hub-bootstrap",
+        help="private retained Bootstrap and executor directory",
+    )
 
     keygen = command("dev-keygen", _dev_keygen, "write a development Hub signing key")
     keygen.add_argument("path", type=Path)
@@ -238,6 +269,22 @@ def _start(args: argparse.Namespace) -> int:
         raise ValueError(
             "Bootstrap could not start; check the loopback port and private directory access."
         ) from error
+
+
+def _bootstrap_status(args: argparse.Namespace) -> int:
+    from fdai_deployment_cli.bootstrap_channel import read_status
+
+    state_dir: Path = args.state_dir.expanduser().absolute()
+    _print(read_status(state_dir))
+    return 0
+
+
+def _bootstrap_stop(args: argparse.Namespace) -> int:
+    from fdai_lifecycle_hub.setup_start import stop_running_bootstrap
+
+    state_dir: Path = args.state_dir.expanduser().absolute()
+    _print(stop_running_bootstrap(state_dir))
+    return 0
 
 
 def _store() -> HubStore:

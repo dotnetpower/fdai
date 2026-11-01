@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 92fb6b4a0b9e229198dc546d30a36694638a4bad
-translation_revised: 2026-10-31
+translation_source_sha: a9cc495809790a558231c536182453902c10dabb
+translation_revised: 2026-11-01
 ---
 # 런타임 배포 프로파일
 
@@ -497,7 +497,7 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 | AKS 워크로드 및 예약 작업 | `fdai-<environment>-aks-workloads.tfstate` |
 | 클러스터 내부 PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
-공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다.
+공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다. 로컬 Bootstrap 위자드 역시 `runtime_platform`(`aks` 또는 `container-apps`)과 `database_placement`(`postgres-flex` 또는 `postgres-aks`) 선택을 제공하며 계획 수립 전에 동일한 호환성 제약을 검증합니다. 실시간 사전 점검, 리소스 공급자 조회, Bastion SSH 다중화, 소스 패키징, ACR 이미지 빌드·검증, Terraform 출력 재조회는 승인·다이제스트·효과 검증 게이트를 완화하지 않고 독립적인 읽기 및 전송 작업을 병렬화합니다.
 Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management Reader 역할과 서비스 주체로만 제한해 위임하며, 일치하는 Terraform 역할 할당은
 `principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. 같은 apply에서 만드는 관리 ID에 대한 역할 할당도 모두 `principal_type = "ServicePrincipal"`을 선언하므로, Entra ID가 새 ID를 아직 복제하는 중에도 Azure가 할당을 받아들입니다. 공개 개발 경로에서는 사용자가 배포 주체가 되므로 배포 주체의 할당에는 유형을 지정하지 않으며, `test_role_assignment_principal_type.py`가 이 규칙을 강제합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,
@@ -509,7 +509,9 @@ AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리�
 엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
 집중 문서 복구는 Foundation 소유 운영 Blob 영역 링크를 하나로 유지하고 문서 엔드포인트 A
 레코드를 해당 영역에 씁니다. 애플리케이션 VNet은 애플리케이션 영역 링크를 유지하며 DFS 영역은
-필요한 두 VNet에 독립적으로 연결됩니다.
+필요한 두 VNet에 독립적으로 연결됩니다. 문서 저장소의 Defender `StorageDataScanner` 프라이빗 링크
+접근 규칙은 `local.document_storage_private_access`를 따르므로 집중 비공개 접근 경로에서도 두 번째
+Terraform 플랜이 변경 없음 상태를 유지합니다.
 기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 운영자가
 로컬에서 수행하는 배포 선행 조건으로 유지됩니다. 기존 FDAI Core Container App을 읽기 전용 `Replicas` 메트릭 범위로 고정하고 전용 Action Group 하나와 메트릭 경보 하나만 만듭니다. Core 앱을 변경하지 않으며
 애플리케이션 데이터, 자격 증명, 연결 문자열 또는 Key Vault 내용을 읽지 않습니다. 런타임 선택은
@@ -1001,10 +1003,10 @@ drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플�
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.
 
-초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. 최종 실패는 변경하지 않고
-보존하며 같은 호출 안에서는 다시 실행하지 않습니다. 이후 명시적인 소스 호출만 다음 attempt로
-진행할 수 있고, attempt는 최대 3회로 제한됩니다. 진행 중이거나 결과가 불명확한 attempt는 같은
-식별자를 유지한 채 검증 전용 복구를 수행합니다.
+초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. `retry-1` 및 `retry-2` 후속 Job이
+모두 실패해 종료된 경우를 포함한 최종 실패는 변경하지 않고 보존하며 같은 호출 안에서는 다시 실행하지
+않습니다. 이후 명시적인 소스 호출만 다음 attempt로 진행할 수 있고, attempt는 최대 3회로 제한됩니다.
+진행 중이거나 결과가 불명확한 attempt는 같은 식별자를 유지한 채 검증 전용 복구를 수행합니다.
 
 독립 closure가 one-shot Job 종료 후 예약된 재조정이 더 새로운 세대를 승격했다는 이유로만
 (`active_generation`) 실패하면, Job 자체의 세대는 정상이지만 더 이상 활성 세대가 아니므로

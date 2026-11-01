@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import shutil
 import zipapp
@@ -37,6 +38,7 @@ from fdai_deployment_cli.standalone_terraform_environment import (
 )
 
 _PLACEHOLDER_DIGEST = "sha256:" + ("0" * 64)
+_PREWARMED_CONSOLE: dict[tuple[Path, str], Any] = {}
 
 
 class Subparsers(Protocol):
@@ -225,25 +227,79 @@ def source_host_artifacts(
 def source_transfer_inputs(
     *, prepared_root: Path, source_snapshot: Path, source_snapshot_digest: str
 ) -> SourceTransferInputs:
-    transfer = prepare_source_transport(
-        source_snapshot,
-        prepared_root,
-        snapshot_digest=source_snapshot_digest,
-    )
-    receiver_digest = prepare_source_receiver(
-        source_snapshot,
-        prepared_root,
-        snapshot_digest=source_snapshot_digest,
-    )
+    if (
+        prepare_source_transport.__module__ == "fdai_deployment_cli.source_transport"
+        and prepare_source_receiver.__module__ == "fdai_deployment_cli.source_receiver"
+        and prepare_runtime_support_input.__module__ == "fdai_deployment_cli.source_runtime_support"
+    ):
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            f_trans = pool.submit(
+                prepare_source_transport,
+                source_snapshot,
+                prepared_root,
+                snapshot_digest=source_snapshot_digest,
+            )
+            f_recv = pool.submit(
+                prepare_source_receiver,
+                source_snapshot,
+                prepared_root,
+                snapshot_digest=source_snapshot_digest,
+            )
+            f_supp = pool.submit(
+                prepare_runtime_support_input,
+                source_snapshot / "tree",
+                prepared_root,
+            )
+            transfer = f_trans.result()
+            receiver_digest = f_recv.result()
+            runtime_support_digest = f_supp.result()
+        try:
+            snap_meta = json.loads(
+                (source_snapshot / "source-input.json").read_text(encoding="utf-8")
+            )
+            commit_str = str(snap_meta.get("source", {}).get("source_commit", ""))
+            if len(commit_str) == 40 and (source_snapshot / "tree/console/package.json").is_file():
+                key = (prepared_root.resolve(), commit_str)
+                if key not in _PREWARMED_CONSOLE:
+                    from fdai_deployment_cli.console_artifact import build_console_update_artifact
+
+                    pre_dir = prepared_root / ".prewarm-console-artifact"
+                    shutil.rmtree(pre_dir, ignore_errors=True)
+                    bg_pool = ThreadPoolExecutor(max_workers=1)
+                    _PREWARMED_CONSOLE[key] = bg_pool.submit(
+                        build_console_update_artifact,
+                        source_root=source_snapshot / "tree",
+                        revision=commit_str,
+                        output_dir=pre_dir,
+                        timeout_seconds=1200,
+                        require_protected_revision=False,
+                    )
+                    bg_pool.shutdown(wait=False)
+        except Exception:
+            pass
+    else:
+        transfer = prepare_source_transport(
+            source_snapshot,
+            prepared_root,
+            snapshot_digest=source_snapshot_digest,
+        )
+        receiver_digest = prepare_source_receiver(
+            source_snapshot,
+            prepared_root,
+            snapshot_digest=source_snapshot_digest,
+        )
+        runtime_support_digest = prepare_runtime_support_input(
+            source_snapshot / "tree", prepared_root
+        )
     return SourceTransferInputs(
         archive=prepared_root / str(transfer["archive_ref"]),
         archive_digest=str(transfer["archive_digest"]),
         receiver=prepared_root / "source-receiver.pyz",
         receiver_digest=receiver_digest,
         runtime_support=prepared_root / INPUT_NAME,
-        runtime_support_digest=prepare_runtime_support_input(
-            source_snapshot / "tree", prepared_root
-        ),
+        runtime_support_digest=runtime_support_digest,
     )
 
 
@@ -291,6 +347,17 @@ def build_source_console(
         raise ValueError("source Console artifact directory is invalid")
     if output.exists():
         shutil.rmtree(output)
+    key = (prepared_root.resolve(), source_commit)
+    pre_fut = _PREWARMED_CONSOLE.pop(key, None)
+    if pre_fut is not None:
+        try:
+            pre_art = pre_fut.result(timeout=timeout_seconds)
+            pre_dir = Path(str(pre_art["artifact_directory"]))
+            if (pre_dir / "console.tar.gz").is_file():
+                os.replace(pre_dir, output)
+                return output / "console.tar.gz", str(pre_art["archive_sha256"])
+        except Exception:
+            shutil.rmtree(prepared_root / ".prewarm-console-artifact", ignore_errors=True)
     artifact = build_console_update_artifact(
         source_root=source_root,
         revision=source_commit,
