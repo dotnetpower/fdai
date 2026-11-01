@@ -5,6 +5,8 @@ import {
   buildAgentTrajectories,
   filterAgentTrajectories,
   formatOutcomeLabel,
+  groupTrajectoriesForDisplay,
+  mergeLiveEventsIntoAuditItems,
   outcomeTone,
   presentReasonLabel,
   presentResourceTypeLabel,
@@ -249,5 +251,73 @@ describe("agent trajectory projection", () => {
     expect(scale.x(trajectory!.startMs)).toBe(0);
     expect(scale.x(trajectory!.endMs)).toBe(100);
     expect(scale.x(Date.parse("2026-07-15T10:00:02Z"))).toBeGreaterThan(50);
+  });
+
+  test("collapses repeated periodic step pairs, groups duplicate trajectory titles, and merges live SSE events", () => {
+    const repeatedItems = [
+      item(1, "Forseti", "change.evaluated", "2026-07-15T10:00:00Z", {
+        tier: "T0",
+        outcome: "clean",
+        rule_id: "compute.vm-scale-set.zone-redundancy",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:vmss-1"),
+      item(2, "Heimdall", "change.evaluated.clean", "2026-07-15T10:00:01Z", {
+        tier: "T0",
+        outcome: "clean",
+        rule_id: "compute.vm-scale-set.zone-redundancy",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:vmss-1"),
+      item(3, "Forseti", "change.evaluated", "2026-07-15T10:01:00Z", {
+        tier: "T0",
+        outcome: "clean",
+        rule_id: "compute.vm-scale-set.zone-redundancy",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:vmss-1"),
+      item(4, "Heimdall", "change.evaluated.clean", "2026-07-15T10:01:01Z", {
+        tier: "T0",
+        outcome: "clean",
+        rule_id: "compute.vm-scale-set.zone-redundancy",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:vmss-1"),
+      item(5, "Forseti", "change.evaluated", "2026-07-15T09:50:00Z", {
+        tier: "T0",
+        outcome: "clean",
+        rule_id: "compute.vm-scale-set.zone-redundancy",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:vmss-2"),
+    ];
+
+    const merged = mergeLiveEventsIntoAuditItems(repeatedItems, [
+      {
+        sequence: 901,
+        kind: "agent.operational-activity",
+        ts: "2026-07-15T10:05:00Z",
+        agent: "Var",
+        agents: ["Var"],
+        state: null,
+        source: "runtime-observed",
+        activityId: "act-901",
+        operationalKind: null,
+        observationDomain: null,
+        correlationId: "corr-live-1",
+        summary: "Approval expired",
+        detail: "HIL request expired before approval",
+        eventType: "hil.timeout",
+        resourceType: "resource-group",
+        resourceRef: "/subscriptions/sub-1/resourceGroups/rg-prod",
+        activityPhase: "failed",
+      },
+    ]);
+
+    const trajectories = buildAgentTrajectories(merged, agentOf);
+    const vmssPrimary = trajectories.find((t) => t.correlationId === "analyzer:vmss-1")!;
+    expect(vmssPrimary.steps).toHaveLength(2);
+    expect(vmssPrimary.steps[0]?.repeatCount).toBe(2);
+    expect(vmssPrimary.steps[1]?.repeatCount).toBe(2);
+
+    const groups = groupTrajectoriesForDisplay(trajectories, "analyzer:vmss-2");
+    expect(groups).toHaveLength(2);
+    const vmssGroup = groups.find((g) => g.members.length === 2)!;
+    expect(vmssGroup.primary.correlationId).toBe("analyzer:vmss-2");
   });
 });
