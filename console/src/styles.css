@@ -13763,6 +13763,7 @@ main { padding-bottom: 60px !important; }
 }
 .control-framework-tabs {
   display: flex;
+  flex-wrap: wrap;
   align-self: flex-start;
   max-width: 100%;
   overflow-x: auto;
