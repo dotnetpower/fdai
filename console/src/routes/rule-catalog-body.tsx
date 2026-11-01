@@ -8,12 +8,13 @@ import {
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { TERMS, composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetSelect } from "./rule-catalog-components";
 import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { PINNED_MSRC_CSAF_CATALOG } from "./msrc-csaf-controls.model";
 import { RulesCatalogRail } from "./rule-catalog-rail";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
 import { guidanceText } from "./wara-guidance.model";
@@ -105,6 +106,20 @@ export function RuleCatalogBody({
               group: "selection",
             },
             { key: "selected_remediates", value: selectedDetail.remediates, group: "selection" },
+            {
+              key: "selected_citing_cve_count",
+              value: PINNED_MSRC_CSAF_CATALOG.rows.filter((r) => r.existing_rule_id === selectedDetail.id).length,
+              group: "selection",
+            },
+            {
+              key: "selected_citing_cves",
+              value:
+                PINNED_MSRC_CSAF_CATALOG.rows
+                  .filter((r) => r.existing_rule_id === selectedDetail.id)
+                  .map((r) => r.cve_id)
+                  .join(", ") || "none",
+              group: "selection",
+            },
           );
         } else {
           selectionFacts.push({
@@ -137,7 +152,7 @@ export function RuleCatalogBody({
         routeId: "rules",
         routeLabel: t("governance.rules.context.routeLabel"),
         purpose: t("governance.rules.context.purpose"),
-        glossary: composeGlossary([TERMS.actionType, TERMS.tier, TERMS.mode]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY, [TERMS.actionType, TERMS.tier, TERMS.mode]),
         headline:
           selected !== null
             ? t("governance.rules.context.selectedHeadline", {
@@ -169,6 +184,11 @@ export function RuleCatalogBody({
           { key: "filter_category", value: filters.category || t("governance.common.parentheticalAll"), group: "filter" },
           { key: "filter_severity", value: filters.severity || t("governance.common.parentheticalAll"), group: "filter" },
           { key: "filter_source", value: filters.source || t("governance.common.parentheticalAll"), group: "filter" },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           ...selectionFacts,
         ],
         records: {

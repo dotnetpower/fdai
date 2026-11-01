@@ -719,12 +719,17 @@ export function ruleDisplayTitle(
     return `CIS ${ruleset} Kubernetes 보안 점검: ${slug || baseTitle}`;
   }
   if (rule.id.startsWith("azure-builtin.")) {
+    const lifecyclePrefix = /\bdeprecated\b/i.test(baseTitle)
+      ? "[사용 중단됨(Deprecated)] "
+      : /^\[preview\]:/i.test(baseTitle)
+        ? "[미리 보기(Preview)] "
+        : "";
     for (const [pattern, koPhrase] of COLLECTED_POLICY_PHRASES_KO) {
       if (pattern.test(baseTitle)) {
-        return `[Azure Policy] ${baseTitle} - ${koPhrase}`;
+        return `[Azure Policy] ${lifecyclePrefix}${baseTitle} - ${koPhrase}`;
       }
     }
-    return `[Azure Policy] ${baseTitle}`;
+    return `[Azure Policy] ${lifecyclePrefix}${baseTitle}`;
   }
   return baseTitle;
 }

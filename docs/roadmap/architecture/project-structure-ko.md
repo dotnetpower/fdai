@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8279b7621dca325614842e076d95cc05d55967df
+translation_source_sha: bc0398917fa9bac788c57eee2ca6c3f8bcc68c55
 translation_revised: 2026-11-01
 ---
 # 프로젝트 구조
@@ -1134,8 +1134,9 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
   를 리뷰 전에 강제합니다;
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
   참조.
-  수집된 `azure_policy` 및 `kube_bench` 규칙의 범주·구문 번역을 포함하는 이중 언어 규칙 현지화
-  (`delivery/rule_explanation_localization.py`)와 Console 도해 설명 모듈
+  수집된 `azure_policy` 및 `kube_bench` 규칙의 98개 전체 범주 및 수명주기·구문 번역을 포함하는 이중 언어
+  규칙 현지화(`delivery/rule_explanation_localization.py`), Operator 보안 동작 계약
+  (`behavior_knowledge_resolver.py`의 `DEFAULT_SECURITY_BEHAVIOR_SPECS`), Console 도해 설명 모듈
   (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`)은 서비스 간 런타임을 가져오지 않고
   실행 권한을 부여하지 않는 순수 표현 보조 모듈로 유지됩니다.
 

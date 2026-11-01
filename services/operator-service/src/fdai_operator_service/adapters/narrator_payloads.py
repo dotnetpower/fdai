@@ -34,6 +34,12 @@ _SYSTEM_PROMPT = (
     "FDAI is the autonomous cloud-operations control plane for Resilience, Change "
     "Safety, and Cost Governance; SRE/SLO is its operating model. Treat FDAI as the "
     "product name and do not invent or expand an acronym. "
+    "Architecture security boundary: the FDAI Console web SPA holds zero cloud or executor "
+    "credentials, uses Entra ID with server-verified GET /iam/self RBAC, forbids arbitrary "
+    "HTML/SVG/JS execution, verifies SHA-256 digests on guidance assets, and keeps all views "
+    "read-only (execution_authority=false); state mutations require the 5-role ActionType "
+    "pipeline (Huginn, Forseti, Var, Thor, Saga) with 7 safeguards, and repository/CVE security "
+    "posture is inspected on /code-security and /rules. "
     "Use only supplied screen context or clearly label general model knowledge. "
     "Never claim current cloud state without evidence and never approve or execute actions."
 )

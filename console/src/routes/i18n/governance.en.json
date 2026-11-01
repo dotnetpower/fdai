@@ -371,6 +371,10 @@
         "none": "No Azure WAF control cites this rule.",
         "collected": "Collected corpus rules are not cited by framework controls. Only curated rules can be cited.",
         "unavailable": "This Operator API does not provide control citations."
+      },
+      "csafCitations": {
+        "titleCount": "Citing MSRC CSAF advisories ({count})",
+        "subtitle": "MSRC CSAF 2.0 vulnerabilities whose crosswalk binds this active T0 rule for exposure detection."
       }
     },
     "activation": {
@@ -998,8 +1002,13 @@
       "evaluated_properties": "Evaluated properties",
       "trigger_signals": "Trigger signals",
       "remediation_action": "Remediation ActionType",
+      "azure_policy_name": "Azure Policy definition ID",
+      "azure_policy_display_name": "Azure Policy display name",
       "azure_policy_effect_default": "Default policy effect",
       "azure_policy_category": "Policy category",
+      "kube_bench_id": "CIS benchmark ID",
+      "kube_bench_ruleset": "CIS benchmark ruleset",
+      "kube_bench_group_id": "CIS section group",
       "kube_bench_audit": "Audit command",
       "kube_bench_scored": "CIS scored"
     },

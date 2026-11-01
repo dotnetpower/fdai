@@ -12,6 +12,8 @@ import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
 import { FrameworkGuidanceContent } from "./framework-guidance";
+import { formatGuidanceMarkdownBrief } from "./wara-guidance";
+import { getLocale } from "../i18n";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
 
@@ -70,7 +72,17 @@ export function BestPracticeDrawer({
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.controls.detail.title")}</h3>
           <div class="rule-drawer-actions">
-            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            {detail.status === "ready" ? (
+              <>
+                <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} />
+                {detail.data.guidance ? (
+                  <CopyButton
+                    text={formatGuidanceMarkdownBrief(detail.data.control_id, detail.data.guidance, getLocale())}
+                    label={t("governance.common.copyBrief")}
+                  />
+                ) : null}
+              </>
+            ) : null}
             <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
             <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
           </div>

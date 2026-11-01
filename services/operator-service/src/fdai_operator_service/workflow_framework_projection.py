@@ -16,6 +16,16 @@ from fdai_operator_service.families.workflow.contracts import (
 )
 from fdai_operator_service.workflow_rule_projection import _rule_counts
 
+_MCSB_V2_AI_TITLES_KO: dict[str, str] = {
+    "AI-1": "승인된 AI 모델만 사용하도록 보장",
+    "AI-2": "다계층 콘텐츠 필터링 및 안전 가드레일 구현",
+    "AI-3": "안전 메타 프롬프트 및 지침 경계 채택",
+    "AI-4": "에이전트 함수 및 도구에 최소 권한 적용",
+    "AI-5": "고위험 결정 및 실행에 인간 개입(HIL) 승인 보장",
+    "AI-6": "AI 입출력 모니터링 및 이상 징후 탐지 체계 수립",
+    "AI-7": "지속적인 AI 레드팀(Red Teaming) 및 적대적 검증 수행",
+}
+
 
 def _wara_counts(controls: list[dict[str, object]], field: str) -> dict[str, int]:
     values = []
@@ -168,7 +178,9 @@ def _mcsb_catalog_payload(
     coverage = request.query.get("coverage", "").strip().lower()
     needle = request.query.get("q", "").strip().lower()
     korean_titles = (
-        localized_framework_titles(controls, framework_id="azure-mcsb") if version == "v1" else {}
+        localized_framework_titles(controls, framework_id="azure-mcsb")
+        if version == "v1"
+        else dict(_MCSB_V2_AI_TITLES_KO)
     )
     matched = [
         item
@@ -182,6 +194,7 @@ def _mcsb_catalog_payload(
                 (
                     str(item.get("control_id", "")),
                     str(item.get("title", "")),
+                    str(item.get("domain", "")),
                     korean_titles.get(str(item.get("control_id", "")), ""),
                 )
             ).lower()

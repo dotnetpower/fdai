@@ -11,7 +11,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
 import { displayValue, t } from "./i18n/governance";
@@ -209,7 +209,7 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
         routeId: "rules",
         routeLabel: "MSRC CSAF 2.0",
         purpose: t("governance.rules.msrcCsaf.banner.body", { revision: catalog.source_revision }),
-        glossary: composeGlossary([]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY),
         headline: selectedRow
           ? `${selectedRow.cve_id}: ${msrcCsafDisplayTitle(selectedRow, locale)} (CVSS ${selectedRow.cvss_base_score.toFixed(1)})`
           : `MSRC CSAF 2.0: ${catalog.rows.length} CVEs (${exploitedCount} exploited)`,
@@ -226,6 +226,11 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
           { key: "blocked_cves", value: blockedCount, group: "catalog" },
           { key: "filtered_cves", value: filteredRows.length, group: "filter" },
           { key: "active_filters_summary", value: activeFiltersSummary, group: "filter" },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           // C40, V48 & TR02/TR40/TR41: Publish priority tier, attack surface, SLA, VEX, risk score, CWE, diagram flow, verification, and caution to Deck context
           ...(selectedRow && selectedGuidance && selectedCwe
             ? [

@@ -15,6 +15,8 @@ import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { RuleActivationPanel } from "./rule-catalog-activation-panel";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
 import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { EMPTY_MSRC_CSAF_FILTERS, PINNED_MSRC_CSAF_CATALOG, msrcCsafHref } from "./msrc-csaf-controls.model";
+import { computeCvePriorityTier, msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { IllustratedGuidanceContent, formatGuidanceMarkdownBrief } from "./wara-guidance";
 import {
@@ -220,13 +222,24 @@ function RuleDetailContent({
 
       <ControlCitations citations={controlCitations} />
 
+      <MsrcCsafRuleCitations ruleId={data.id} />
+
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.detail.source")} value={displayValue("ruleSource", data.source)} />
         <DetailRow label={t("governance.rules.detail.resourceType")} value={data.resource_type} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
         <DetailRow label={t("governance.rules.detail.remediates")} value={data.remediates} mono />
         {data.alternatives.length > 0 ? (
-          <DetailRow label={t("governance.rules.detail.alternatives")} value={data.alternatives.join(", ")} mono />
+          <DetailRow
+            label={t("governance.rules.detail.alternatives")}
+            value={
+              <span class="pill-row">
+                {data.alternatives.map((alt) => (
+                  <code key={alt}>{alt}</code>
+                ))}
+              </span>
+            }
+          />
         ) : null}
         <DetailRow
           label={t("governance.rules.detail.costImpact")}
@@ -242,15 +255,28 @@ function RuleDetailContent({
         title={t("governance.rules.detail.checkLogic")}
         subtitle={`${displayValue("checkLogicKind", data.check_logic.kind)} - ${data.check_logic.reference}`}
         action={
-          data.check_logic_body !== null ? <CopyButton text={data.check_logic_body} /> : null
+          data.check_logic_body !== null ? (
+            <CopyButton text={data.check_logic_body} />
+          ) : typeof data.parameters["kube_bench_audit"] === "string" && data.parameters["kube_bench_audit"].trim() ? (
+            <CopyButton text={data.parameters["kube_bench_audit"].trim()} />
+          ) : null
         }
       >
         {data.check_logic_body !== null ? (
           <pre class="mono code-block drawer-code">{data.check_logic_body}</pre>
         ) : (
-          <p class="muted footnote">
-            {t("governance.rules.detail.noCheckBody", { kind: displayValue("checkLogicKind", data.check_logic.kind) })}
-          </p>
+          <div class="stack">
+            <p class="muted footnote">
+              {t("governance.rules.detail.noCheckBody", { kind: displayValue("checkLogicKind", data.check_logic.kind) })}
+            </p>
+            {Object.keys(data.parameters).length > 0 ? (
+              <dl class="detail-grid">
+                {Object.entries(data.parameters).map(([key, val]) => (
+                  <DetailRow key={key} label={displayValue("ruleDetailKey", key)} value={String(val)} mono />
+                ))}
+              </dl>
+            ) : null}
+          </div>
         )}
       </DetailSection>
 
@@ -392,6 +418,37 @@ function ControlCitations({ citations }: { readonly citations: ControlCitationSt
             <StatusPill kind={CONTROL_STATUS_PILL[control.status]} label={displayValue("controlStatus", control.status)} />
           </li>
         ))}
+      </ul>
+    </DetailSection>
+  );
+}
+
+function MsrcCsafRuleCitations({ ruleId }: { readonly ruleId: string }) {
+  const citingCves = useMemo(
+    () => PINNED_MSRC_CSAF_CATALOG.rows.filter((row) => row.existing_rule_id === ruleId),
+    [ruleId],
+  );
+  if (citingCves.length === 0) return null;
+  const locale = getLocale();
+  return (
+    <DetailSection title={t("governance.rules.detail.csafCitations.titleCount", { count: citingCves.length })}>
+      <p class="muted footnote">{t("governance.rules.detail.csafCitations.subtitle")}</p>
+      <ul class="rule-control-citations">
+        {citingCves.map((cve) => {
+          const priority = computeCvePriorityTier(cve);
+          return (
+            <li key={cve.cve_id}>
+              <a href={msrcCsafHref(EMPTY_MSRC_CSAF_FILTERS, cve.cve_id)}>
+                <code>{cve.cve_id}</code>
+                <span>{msrcCsafDisplayTitle(cve, locale)}</span>
+              </a>
+              <StatusPill
+                kind={priority === "P0" ? "danger" : priority === "P1" ? "warning" : "info"}
+                label={`${priority} · CVSS ${cve.cvss_base_score.toFixed(1)}`}
+              />
+            </li>
+          );
+        })}
       </ul>
     </DetailSection>
   );

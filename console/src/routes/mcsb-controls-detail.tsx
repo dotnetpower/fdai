@@ -7,7 +7,8 @@ import type { McsbControlDetail } from "./mcsb-controls.model";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { FrameworkGuidanceContent } from "./framework-guidance";
-import { IllustratedGuidanceContent } from "./wara-guidance";
+import { IllustratedGuidanceContent, formatGuidanceMarkdownBrief } from "./wara-guidance";
+import { getLocale } from "../i18n";
 import { buildMcsbV2Guidance, resolveMcsbAiTaxonomy } from "./mcsb-v2-guidance";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
@@ -67,7 +68,19 @@ export function McsbControlDrawer({
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.mcsb.detail.title")}</h3>
           <div class="rule-drawer-actions">
-            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            {detail.status === "ready" ? (
+              <>
+                <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} />
+                <CopyButton
+                  text={formatGuidanceMarkdownBrief(
+                    detail.data.control_id,
+                    detail.data.guidance ?? buildMcsbV2Guidance(detail.data),
+                    getLocale(),
+                  )}
+                  label={t("governance.common.copyBrief")}
+                />
+              </>
+            ) : null}
             <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
             <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
           </div>

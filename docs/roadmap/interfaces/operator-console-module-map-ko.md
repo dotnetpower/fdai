@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: f979b1d421e471682b6a74cd9f14f84b83d0c829
+translation_source_sha: 1fa0876b40aa13c2c84322751c4788b0a70e2027
 translation_revised: 2026-11-01
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -648,10 +648,12 @@ Console 설정 경로와 정적 디자인 시안은 Calm Slate 컨트롤 토큰�
 ## 경계 불변식
 `core/conversation/`은 프로토콜만 가져옵니다. Azure SDK, HTTP, Bot Framework 및 프로바이더 호출은
 `delivery/` 아래에 있습니다. 대화 표현은 실행 권한이 되지 않습니다.
-`/rules` 카탈로그와 프레임워크 상세 서랍(`rule-catalog-*`, `best-practice-controls-*`,
-`caf-controls.tsx`, `mcsb-controls-*`, `wara-controls.tsx`, `msrc-csaf-controls.tsx`)은 평가, 승인, 실행
-권한을 부여하지 않고 선택한 가이드 요약, 다이어그램 흐름, 검증·주의 단계를 `usePublishViewContext`로
-발행하며 링크·ID·요약 복사 동작과 함께 공통 `IllustratedGuidanceContent`를 렌더링합니다.
+`/rules` 카탈로그, `/code-security` 리뷰 패널, 프레임워크 상세 서랍(`rule-catalog-*`,
+`best-practice-controls-*`, `caf-controls.tsx`, `mcsb-controls-*`, `wara-controls.tsx`,
+`msrc-csaf-controls.tsx`, `code-security.tsx`)은 평가, 승인, 실행 권한을 부여하지 않고
+`SECURITY_AND_RULES_GLOSSARY`, `console_security_posture`, 선택한 가이드 요약, 다이어그램 흐름,
+검증·주의 단계를 `usePublishViewContext`로 발행하며 링크·ID·요약 복사 동작과 함께 공통
+`IllustratedGuidanceContent`를 렌더링합니다.
 
 ## 관련 문서
 

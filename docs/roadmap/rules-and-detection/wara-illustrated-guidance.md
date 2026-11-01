@@ -220,7 +220,8 @@ The shared Console illustrated-guidance renderer also serves packaged WAF, CAF, 
 derived MCSB v2-preview (`74` controls including `AI-1..AI-7` mapped to OWASP LLM Top 10 2025 and
 MITRE ATLAS) and MSRC CSAF 2.0 (`9,058` CVEs with `P0`-`P3` exploitability priority tiers and CVSS
 attack-surface summaries) guides, and active/collected Detection Rule (`52` active plus `8,517`
-collected) guides with Markdown brief copy (`formatGuidanceMarkdownBrief`) through the same
+collected) guides with Markdown brief copy (`formatGuidanceMarkdownBrief`), reverse MSRC CSAF CVE
+citations (`MsrcCsafRuleCitations`), and `SECURITY_AND_RULES_GLOSSARY` through the same
 no-authority `GuidancePresentation` contract and the 16 reviewed CC-BY-4.0 Microsoft Learn
 reference images.
 

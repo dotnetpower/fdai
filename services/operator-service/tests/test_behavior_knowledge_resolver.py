@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 import pytest
 from fdai_operator_service.behavior_knowledge_resolver import (
+    DEFAULT_SECURITY_BEHAVIOR_SPECS,
     BehaviorAnswerVerifier,
     BehaviorCitationRecord,
     BehaviorContentLike,
@@ -269,3 +270,54 @@ async def test_resolver_rejects_control_chars_invalid_top_k_and_duplicate_seed_i
     assert len(str(payload["result_digest"])) == 71
     assert resolved.total_candidates == 1
     assert resolved.result_digest == payload["result_digest"]
+
+
+@pytest.mark.parametrize(
+    ("query_text", "locale", "expected_behavior_id"),
+    [
+        (
+            "FDAI 콘솔웹이 보안상 문제가 없나?",
+            "ko",
+            "architecture.console-web-security-posture",
+        ),
+        (
+            "Is the FDAI Console web application secure?",
+            "en",
+            "architecture.console-web-security-posture",
+        ),
+        (
+            "FDAI 자체 코드 보안 취약점 스캔과 검증은 어떻게 하나요?",
+            "ko",
+            "architecture.code-security-review-governance",
+        ),
+        (
+            "FDAI 규칙 화면과 프레임워크 평가는 보안상 안전한가요?",
+            "ko",
+            "architecture.rules-and-framework-shadow-boundary",
+        ),
+        (
+            "MSRC CSAF 2.0 CVE 취약점 평가는 어떻게 동작하나요?",
+            "ko",
+            "architecture.msrc-csaf-vulnerability-governance",
+        ),
+        (
+            "FDAI는 프롬프트 인젝션과 AI 보안을 어떻게 방어하나요?",
+            "ko",
+            "architecture.ai-security-guardrails",
+        ),
+    ],
+)
+async def test_default_security_behavior_specs_resolve_console_and_rules_security_questions(
+    query_text: str, locale: str, expected_behavior_id: str
+) -> None:
+    resolver = OperatorBehaviorKnowledgeResolver(
+        _StaticIndex(()), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS
+    )
+    result = await resolver.resolve(BehaviorTurnRequest(raw_text=query_text, locale=locale))  # type: ignore[arg-type]
+
+    assert result.handled is True
+    assert result.outcome == "rendered"
+    assert result.behavior_ids == (expected_behavior_id,)
+    assert result.verification.verified is True
+    assert result.verification.authority == "none"
+    assert "execution_authority=false" in result.rendered_text
