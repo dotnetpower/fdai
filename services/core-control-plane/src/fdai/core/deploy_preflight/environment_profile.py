@@ -49,14 +49,16 @@ class DeploymentEnvironmentProfile:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.scope:
+        if not self.scope.strip():
             raise ValueError("scope MUST be non-empty")
-        if not self.captured_at:
+        if not self.captured_at.strip():
             raise ValueError("captured_at MUST be non-empty")
         # rule_ids MUST be sorted so equality is order-independent.
-        if list(self.rule_ids) != sorted(self.rule_ids):
+        if list(self.rule_ids) != sorted(self.rule_ids) or any(
+            not item.strip() for item in self.rule_ids
+        ):
             raise ValueError("rule_ids MUST be sorted (use build_profile())")
-        if any(v < 0 for v in self.resource_type_counts.values()):
+        if any(isinstance(v, bool) or v < 0 for v in self.resource_type_counts.values()):
             raise ValueError("resource_type_counts MUST be non-negative")
 
     def with_rule_ids(
@@ -178,7 +180,7 @@ class DeploymentEnvironmentProfileCache:
         MUST fall back to re-probing.
         """
 
-        if max_age_seconds < 0:
+        if isinstance(max_age_seconds, bool) or max_age_seconds < 0:
             raise ValueError("max_age_seconds MUST be non-negative")
         entry = self.get(scope)
         if entry is None:

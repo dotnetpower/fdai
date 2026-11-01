@@ -48,6 +48,16 @@ class RunbookStep:
     branches: tuple[str, ...] = ()
     guard_rule_ref: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.id.strip() or not self.action_type.strip():
+            raise RunbookRunError("RunbookStep id and action_type MUST be non-empty")
+        if isinstance(self.quorum, bool) or self.quorum < 1:
+            raise RunbookRunError("RunbookStep quorum MUST be >= 1")
+        if self.timeout_seconds is not None and (
+            isinstance(self.timeout_seconds, bool) or self.timeout_seconds < 1
+        ):
+            raise RunbookRunError("RunbookStep timeout_seconds MUST be >= 1 when set")
+
 
 @dataclass(frozen=True, slots=True)
 class Runbook:
@@ -75,6 +85,8 @@ class Runbook:
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
+        if not self.id.strip() or not self.schema_version.strip():
+            raise RunbookRunError("runbook id and schema_version MUST be non-empty")
         if not self.steps:
             raise RunbookRunError(f"runbook {self.id!r} has no steps")
         seen: set[str] = set()
@@ -119,6 +131,10 @@ class RunbookStepResult:
     outcome: RunbookStepOutcome
     reason: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.step_id.strip() or not self.action_type.strip():
+            raise RunbookRunError("RunbookStepResult step_id and action_type MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class RunbookResult:
@@ -134,6 +150,10 @@ class RunbookResult:
     runbook_id: str
     step_results: tuple[RunbookStepResult, ...]
     terminal_outcome: RunbookStepOutcome
+
+    def __post_init__(self) -> None:
+        if not self.runbook_id.strip():
+            raise RunbookRunError("RunbookResult.runbook_id MUST be non-empty")
 
 
 __all__ = [

@@ -76,7 +76,14 @@ class CyberGymTaskConfig:
     def __post_init__(self) -> None:
         if self.deadline.tzinfo is None or self.deadline.utcoffset() is None:
             raise ValueError("CyberGym deadline MUST include a timezone")
-        if self.max_poc_bytes < 1 or self.max_patch_bytes < 1:
+        if (
+            isinstance(self.max_poc_bytes, bool)
+            or isinstance(self.max_patch_bytes, bool)
+            or self.max_poc_bytes < 1
+            or self.max_patch_bytes < 1
+            or self.max_poc_bytes > 1_073_741_824
+            or self.max_patch_bytes > 1_073_741_824
+        ):
             raise ValueError("CyberGym artifact limits MUST be positive")
         if self.mode is CyberGymMode.E2E:
             if self.crash_log is not None or self.supplied_poc is not None:
@@ -102,6 +109,8 @@ class CyberGymAdapter:
         self._closed = False
 
     async def start(self) -> EvaluationRequest:
+        if self._closed:
+            raise CyberGymAdapterError("CyberGym adapter is closed")
         return EvaluationRequest(
             session_id=self._config.session_id,
             requester_id="cybergym-driver",

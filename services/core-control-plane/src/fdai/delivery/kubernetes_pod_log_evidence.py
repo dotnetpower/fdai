@@ -43,8 +43,14 @@ class KubernetesPodLogEvidenceCollector:
             raise ValueError("Pod log source identity and revision MUST be bounded")
         if (provider_cutoff is None) != (coverage_receipt_ref is None):
             raise ValueError("Pod log provider cutoff and coverage receipt MUST be paired")
-        if provider_cutoff is not None and provider_cutoff.tzinfo is None:
+        if provider_cutoff is not None and (
+            provider_cutoff.tzinfo is None or provider_cutoff.utcoffset() is None
+        ):
             raise ValueError("Pod log provider cutoff MUST be timezone-aware")
+        if coverage_receipt_ref is not None and (
+            not coverage_receipt_ref.strip() or len(coverage_receipt_ref) > 512
+        ):
+            raise ValueError("Pod log coverage_receipt_ref MUST be bounded non-empty text")
         self._provider = provider
         self._source_identity = source_identity
         self._source_revision = source_revision
@@ -62,7 +68,14 @@ class KubernetesPodLogEvidenceCollector:
 
         if not pod_uid.strip() or len(pod_uid) > 512:
             raise ValueError("Pod log pod_uid MUST be bounded non-empty text")
-        if start.tzinfo is None or end.tzinfo is None or start >= end or end - start > _MAX_WINDOW:
+        if (
+            start.tzinfo is None
+            or start.utcoffset() is None
+            or end.tzinfo is None
+            or end.utcoffset() is None
+            or start >= end
+            or end - start > _MAX_WINDOW
+        ):
             raise ValueError("Pod log interval MUST be aware and in (0, 24 hours]")
         records = []
         try:

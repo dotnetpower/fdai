@@ -55,6 +55,18 @@ class ChangeContext:
     target_environment: str
     """`prod` / `staging` / `dev` - production changes always HIL."""
 
+    def __post_init__(self) -> None:
+        if (
+            not self.change_id.strip()
+            or not self.resource_id.strip()
+            or not self.target_environment.strip()
+        ):
+            raise ValueError(
+                "ChangeContext change_id, resource_id, and target_environment MUST be non-empty"
+            )
+        if not isinstance(self.is_reversible, bool) or not isinstance(self.is_out_of_band, bool):
+            raise ValueError("ChangeContext boolean flags MUST be booleans")
+
 
 @dataclass(frozen=True, slots=True)
 class ChangeDecision:
@@ -114,6 +126,8 @@ class ChangeSafetyClassifier:
             ChangeDecisionOutcome.TIMEOUT,
         ):
             raise ValueError("record_terminal only accepts REJECT / TIMEOUT outcomes")
+        if not change_id.strip() or not reason.strip():
+            raise ValueError("record_terminal change_id and reason MUST be non-empty")
         return ChangeDecision(
             change_id=change_id,
             risk=ChangeRisk.HIGH,

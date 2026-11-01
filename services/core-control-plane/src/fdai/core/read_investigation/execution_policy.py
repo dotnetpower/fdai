@@ -23,12 +23,14 @@ class InvestigationExecutionPolicy:
     detach_on_multi_source: bool = True
 
     def __post_init__(self) -> None:
-        if self.direct_max_ms < 1:
+        if isinstance(self.direct_max_ms, bool) or self.direct_max_ms < 1:
             raise ValueError("direct_max_ms MUST be positive")
-        if self.streamed_max_ms <= self.direct_max_ms:
+        if isinstance(self.streamed_max_ms, bool) or self.streamed_max_ms <= self.direct_max_ms:
             raise ValueError("streamed_max_ms MUST exceed direct_max_ms")
-        if self.minimum_profile_samples < 1:
+        if isinstance(self.minimum_profile_samples, bool) or self.minimum_profile_samples < 1:
             raise ValueError("minimum_profile_samples MUST be positive")
+        if not isinstance(self.detach_on_multi_source, bool):
+            raise ValueError("detach_on_multi_source MUST be a boolean")
 
     def select(
         self,

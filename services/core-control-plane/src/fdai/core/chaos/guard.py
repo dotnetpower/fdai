@@ -31,7 +31,11 @@ class ImpactObservation:
     recovery_reachable: bool
 
     def __post_init__(self) -> None:
-        if not math.isfinite(self.elapsed_seconds) or self.elapsed_seconds < 0:
+        if (
+            isinstance(self.elapsed_seconds, bool)
+            or not math.isfinite(self.elapsed_seconds)
+            or self.elapsed_seconds < 0
+        ):
             raise ValueError("elapsed_seconds MUST be finite and non-negative")
         if not isinstance(self.injector_reachable, bool) or not isinstance(
             self.recovery_reachable, bool
@@ -41,7 +45,10 @@ class ImpactObservation:
             raise ValueError("observed resource ids MUST be non-empty")
         if any(not signal.strip() for signal in self.signals):
             raise ValueError("observed signals MUST be non-empty")
-        if any(not math.isfinite(value) for value in self.objective_values.values()):
+        if any(
+            isinstance(value, bool) or not math.isfinite(value)
+            for value in self.objective_values.values()
+        ):
             raise ValueError("objective values MUST be finite")
 
 
@@ -78,7 +85,7 @@ def evaluate_impact_guard(
     observation: ImpactObservation,
     now: datetime,
 ) -> ChaosStopEvent | None:
-    if not run_id.strip() or now.tzinfo is None:
+    if not run_id.strip() or now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("guard run id and aware timestamp are required")
     stop = _stop_reason(envelope, observation, now=now)
     if stop is None:

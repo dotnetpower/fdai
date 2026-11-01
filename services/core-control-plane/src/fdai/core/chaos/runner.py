@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -65,6 +66,14 @@ class GovernedChaosRunner:
         impact_guard: ImpactGuard,
         guard_interval_seconds: float = 5.0,
     ) -> GovernedChaosRunResult:
+        if not run_id.strip():
+            raise ValueError("GovernedChaosRunner.run_id MUST be non-empty")
+        if (
+            isinstance(guard_interval_seconds, bool)
+            or not math.isfinite(guard_interval_seconds)
+            or guard_interval_seconds <= 0
+        ):
+            raise ValueError("GovernedChaosRunner.guard_interval_seconds MUST be positive")
         state = await self._run_store.create(run_id=run_id, at=self._now())
         decision = evaluate_chaos_eligibility(eligibility_context)
         if state.state.terminal:

@@ -52,6 +52,10 @@ class DeploymentReadinessReport:
     findings: tuple[ProbeFinding, ...]
     checked_categories: tuple[ProbeCategory, ...]
 
+    def __post_init__(self) -> None:
+        if not self.scope.strip() or not self.generated_at.strip():
+            raise ValueError("DeploymentReadinessReport scope and generated_at MUST be non-empty")
+
     @property
     def blocking_findings(self) -> tuple[ProbeFinding, ...]:
         return tuple(f for f in self.findings if f.severity is FindingSeverity.BLOCKING)

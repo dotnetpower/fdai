@@ -19,6 +19,25 @@ class DrRunReport:
     integrity_mismatches: int = 0
     smoke_pass: bool = True
 
+    def __post_init__(self) -> None:
+        if not self.experiment_id.strip():
+            raise ValueError("DrRunReport.experiment_id MUST be non-empty")
+        if self.completed_at.tzinfo is None or self.completed_at.utcoffset() is None:
+            raise ValueError("DrRunReport.completed_at MUST be timezone-aware")
+        if (
+            isinstance(self.rpo_seconds, bool)
+            or isinstance(self.rto_seconds, bool)
+            or not math.isfinite(self.rpo_seconds)
+            or not math.isfinite(self.rto_seconds)
+            or self.rpo_seconds < 0
+            or self.rto_seconds < 0
+        ):
+            raise ValueError("DrRunReport rpo_seconds and rto_seconds MUST be non-negative")
+        if isinstance(self.integrity_mismatches, bool) or self.integrity_mismatches < 0:
+            raise ValueError("DrRunReport.integrity_mismatches MUST be non-negative")
+        if not isinstance(self.smoke_pass, bool):
+            raise ValueError("DrRunReport.smoke_pass MUST be a boolean")
+
 
 _MEDIAN_SENTINEL: Final[float] = -1.0
 
@@ -27,6 +46,17 @@ _MEDIAN_SENTINEL: Final[float] = -1.0
 class DrObjective:
     max_rpo_seconds: float
     max_rto_seconds: float
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.max_rpo_seconds, bool)
+            or isinstance(self.max_rto_seconds, bool)
+            or not math.isfinite(self.max_rpo_seconds)
+            or not math.isfinite(self.max_rto_seconds)
+            or self.max_rpo_seconds < 0
+            or self.max_rto_seconds <= 0
+        ):
+            raise ValueError("DrObjective max_rpo_seconds >= 0 and max_rto_seconds > 0 required")
 
 
 @dataclass(frozen=True, slots=True)

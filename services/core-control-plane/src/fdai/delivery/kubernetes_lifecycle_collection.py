@@ -55,6 +55,10 @@ class KubernetesLifecycleCollector:
         http_client: httpx.AsyncClient,
         now: Callable[[], datetime] | None = None,
     ) -> None:
+        if not api_server.strip().startswith("https://"):
+            raise ValueError("Kubernetes lifecycle collector api_server MUST use HTTPS")
+        if not cluster_ref.strip() or len(cluster_ref) > 512:
+            raise ValueError("Kubernetes lifecycle collector cluster_ref MUST be bounded text")
         self._api_server = api_server.rstrip("/")
         self._cluster_ref = cluster_ref
         self._auth = auth
@@ -70,6 +74,8 @@ class KubernetesLifecycleCollector:
         if cursor.cluster_ref != self._cluster_ref:
             raise ValueError("Kubernetes lifecycle cursor changed cluster scope")
         observed_at = self._now()
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            raise ValueError("Kubernetes lifecycle collector clock MUST be timezone-aware")
         headers = dict(await self._auth.headers())
         headers["Accept-Encoding"] = "identity"
         if cursor.resume_token is None:

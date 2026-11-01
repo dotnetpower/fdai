@@ -107,6 +107,19 @@ class DbDrVerdict:
     started_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
     completed_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
+    def __post_init__(self) -> None:
+        if not self.experiment_id.strip():
+            raise ValueError("DbDrVerdict.experiment_id MUST be non-empty")
+        if (
+            self.started_at.tzinfo is None
+            or self.started_at.utcoffset() is None
+            or self.completed_at.tzinfo is None
+            or self.completed_at.utcoffset() is None
+        ):
+            raise ValueError("DbDrVerdict timestamps MUST be timezone-aware")
+        if self.completed_at < self.started_at:
+            raise ValueError("DbDrVerdict completed_at MUST be >= started_at")
+
     @property
     def is_pass(self) -> bool:
         """Convenience - the DR test passed iff outcome is PASSED."""

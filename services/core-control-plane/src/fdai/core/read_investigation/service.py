@@ -58,7 +58,7 @@ class ReadInvestigationService:
         latency_store: ReadLatencyProfileStore | None = None,
         max_parallel_evidence: int = 4,
     ) -> None:
-        if not 1 <= max_parallel_evidence <= 4:
+        if isinstance(max_parallel_evidence, bool) or not 1 <= max_parallel_evidence <= 4:
             raise ValueError("max_parallel_evidence MUST be in [1, 4]")
         self._provider = provider
         self._clock = clock or (lambda: datetime.now(tz=UTC))

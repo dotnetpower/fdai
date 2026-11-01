@@ -19,13 +19,19 @@ class ReadLatencyProfile:
     p95_ms: int | None
 
     def __post_init__(self) -> None:
-        if self.sample_count < 0 or not 0.0 <= self.failure_rate <= 1.0:
+        if (
+            isinstance(self.sample_count, bool)
+            or isinstance(self.failure_rate, bool)
+            or self.sample_count < 0
+            or not math.isfinite(self.failure_rate)
+            or not 0.0 <= self.failure_rate <= 1.0
+        ):
             raise ValueError("latency profile counts and rates MUST be valid")
         if self.sample_count == 0 and self.failure_rate != 0.0:
             raise ValueError("empty latency profile failure_rate MUST be zero")
-        if self.p50_ms is not None and self.p50_ms < 0:
+        if self.p50_ms is not None and (isinstance(self.p50_ms, bool) or self.p50_ms < 0):
             raise ValueError("p50_ms MUST be non-negative")
-        if self.p95_ms is not None and self.p95_ms < 0:
+        if self.p95_ms is not None and (isinstance(self.p95_ms, bool) or self.p95_ms < 0):
             raise ValueError("p95_ms MUST be non-negative")
         if self.p50_ms is not None and self.p95_ms is not None and self.p50_ms > self.p95_ms:
             raise ValueError("p50_ms MUST NOT exceed p95_ms")
@@ -40,6 +46,8 @@ class PlanLatencyEstimate:
     multi_source: bool
 
     def __post_init__(self) -> None:
+        if any(isinstance(v, bool) for v in (self.lower_ms, self.upper_ms, self.sample_count)):
+            raise ValueError("latency estimate values MUST be integers")
         if min(self.lower_ms, self.upper_ms, self.sample_count) < 0:
             raise ValueError("latency estimate values MUST be non-negative")
         if self.lower_ms > self.upper_ms:
@@ -77,7 +85,7 @@ def estimate_plan_latency(
     *,
     minimum_samples: int,
 ) -> PlanLatencyEstimate:
-    if minimum_samples < 1:
+    if isinstance(minimum_samples, bool) or minimum_samples < 1:
         raise ValueError("minimum_samples MUST be positive")
     estimates = [
         _tool_estimate(step.tool_id, profiles.get(step.tool_id), minimum_samples)

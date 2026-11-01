@@ -70,11 +70,16 @@ class KubernetesLifecycleObservation:
         for name, optional_value in (("namespace", self.namespace), ("owner_uid", self.owner_uid)):
             if optional_value is not None:
                 _bounded(name, optional_value)
-        if self.occurred_at.tzinfo is None or self.recorded_at.tzinfo is None:
+        if (
+            self.occurred_at.tzinfo is None
+            or self.occurred_at.utcoffset() is None
+            or self.recorded_at.tzinfo is None
+            or self.recorded_at.utcoffset() is None
+        ):
             raise ValueError("Kubernetes lifecycle times MUST be timezone-aware")
         if self.recorded_at < self.occurred_at:
             raise ValueError("Kubernetes lifecycle recorded_at MUST follow occurred_at")
-        if self.occurrence_count < 1:
+        if isinstance(self.occurrence_count, bool) or self.occurrence_count < 1:
             raise ValueError("Kubernetes lifecycle occurrence_count MUST be positive")
 
 
@@ -92,7 +97,7 @@ class KubernetesLifecycleCursor:
 
     def __post_init__(self) -> None:
         _bounded("cluster_ref", self.cluster_ref)
-        if self.sequence < 0:
+        if isinstance(self.sequence, bool) or self.sequence < 0:
             raise ValueError("Kubernetes lifecycle sequence MUST be non-negative")
         if self.resume_token is not None:
             _bounded("resume_token", self.resume_token, maximum=1024)
@@ -101,7 +106,7 @@ class KubernetesLifecycleCursor:
             self.coverage_through_at,
             self.retention_floor_at,
         ):
-            if value.tzinfo is None:
+            if value.tzinfo is None or value.utcoffset() is None:
                 raise ValueError("Kubernetes lifecycle cursor times MUST be timezone-aware")
         if self.coverage_through_at < self.coverage_started_at:
             raise ValueError("Kubernetes lifecycle coverage cannot move backward")
@@ -123,7 +128,12 @@ class KubernetesLifecycleCoverageSegment:
 
     def __post_init__(self) -> None:
         _bounded("cluster_ref", self.cluster_ref)
-        if self.started_at.tzinfo is None or self.ended_at.tzinfo is None:
+        if (
+            self.started_at.tzinfo is None
+            or self.started_at.utcoffset() is None
+            or self.ended_at.tzinfo is None
+            or self.ended_at.utcoffset() is None
+        ):
             raise ValueError("Kubernetes lifecycle coverage times MUST be timezone-aware")
         if self.ended_at <= self.started_at:
             raise ValueError("Kubernetes lifecycle coverage interval MUST be positive")
@@ -157,11 +167,16 @@ class KubernetesLifecycleBatch:
 
     def __post_init__(self) -> None:
         _bounded("cluster_ref", self.cluster_ref)
-        if self.expected_sequence < 0:
+        if isinstance(self.expected_sequence, bool) or self.expected_sequence < 0:
             raise ValueError("Kubernetes lifecycle expected_sequence MUST be non-negative")
         if self.next_resume_token is not None:
             _bounded("next_resume_token", self.next_resume_token, maximum=1024)
-        if self.coverage_started_at.tzinfo is None or self.coverage_through_at.tzinfo is None:
+        if (
+            self.coverage_started_at.tzinfo is None
+            or self.coverage_started_at.utcoffset() is None
+            or self.coverage_through_at.tzinfo is None
+            or self.coverage_through_at.utcoffset() is None
+        ):
             raise ValueError("Kubernetes lifecycle batch times MUST be timezone-aware")
         if self.coverage_through_at < self.coverage_started_at:
             raise ValueError("Kubernetes lifecycle batch coverage cannot move backward")

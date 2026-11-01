@@ -26,6 +26,12 @@ class SLI:
     total_query: str
     labels: Mapping[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, SLIKind):
+            raise ValueError("SLI.kind MUST be an SLIKind")
+        if not self.good_query.strip() or not self.total_query.strip():
+            raise ValueError("SLI good_query and total_query MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class BurnRateAlertDef:
@@ -42,19 +48,25 @@ class BurnRateAlertDef:
     severity: str = "sev3"
 
     def __post_init__(self) -> None:
-        if not self.name:
+        if not self.name.strip():
             raise ValueError("name MUST be non-empty")
+        if not self.severity.strip():
+            raise ValueError("severity MUST be non-empty")
         # The evaluator fires when ``rate >= burn_rate_threshold`` and a
         # burn rate is always >= 0. A threshold <= 0 therefore makes BOTH
         # windows trivially exceed on every pass - a fail-OPEN alert that
         # screams with zero bad events; a non-finite threshold (NaN) makes
         # every comparison False - a silently dead alert. Require a finite,
         # strictly-positive threshold so the alert means what it says.
-        if not math.isfinite(self.burn_rate_threshold) or self.burn_rate_threshold <= 0.0:
+        if (
+            isinstance(self.burn_rate_threshold, bool)
+            or not math.isfinite(self.burn_rate_threshold)
+            or self.burn_rate_threshold <= 0.0
+        ):
             raise ValueError("burn_rate_threshold MUST be finite and > 0")
-        if self.short_window_minutes < 1:
+        if isinstance(self.short_window_minutes, bool) or self.short_window_minutes < 1:
             raise ValueError("short_window_minutes MUST be >= 1")
-        if self.long_window_minutes < 1:
+        if isinstance(self.long_window_minutes, bool) or self.long_window_minutes < 1:
             raise ValueError("long_window_minutes MUST be >= 1")
         # Multi-window multi-burn-rate requires a strictly shorter fast
         # window and a longer noise-suppressing window; equal or swapped
@@ -79,9 +91,15 @@ class SLO:
     schema_version: str = "1.0.0"
 
     def __post_init__(self) -> None:
-        if not (0 < self.objective_ratio <= 1):
+        if not self.id.strip() or not self.schema_version.strip():
+            raise ValueError("SLO id and schema_version MUST be non-empty")
+        if (
+            isinstance(self.objective_ratio, bool)
+            or not math.isfinite(self.objective_ratio)
+            or not (0 < self.objective_ratio <= 1)
+        ):
             raise ValueError("objective_ratio MUST be in (0, 1]")
-        if self.window_days < 1:
+        if isinstance(self.window_days, bool) or self.window_days < 1:
             raise ValueError("window_days MUST be >= 1")
 
     @property
@@ -100,12 +118,30 @@ class ErrorBudget:
     objective_ratio: float
 
     def __post_init__(self) -> None:
-        if self.good_events < 0:
+        if not self.slo_id.strip():
+            raise ValueError("slo_id MUST be non-empty")
+        if isinstance(self.good_events, bool) or self.good_events < 0:
             raise ValueError("good_events MUST be >= 0")
-        if self.total_events < 0:
+        if isinstance(self.total_events, bool) or self.total_events < 0:
             raise ValueError("total_events MUST be >= 0")
         if self.good_events > self.total_events:
             raise ValueError("good_events MUST be <= total_events")
+        if (
+            isinstance(self.objective_ratio, bool)
+            or not math.isfinite(self.objective_ratio)
+            or not 0.0 <= self.objective_ratio <= 1.0
+        ):
+            raise ValueError("objective_ratio MUST be in [0.0, 1.0]")
+
+    @property
+    def burned_events(self) -> int:
+        """Total bad events observed in the window (`total_events - good_events`)."""
+        return self.total_events - self.good_events
+
+    @property
+    def is_exhausted(self) -> bool:
+        """True when the remaining error budget fraction is zero."""
+        return self.budget_remaining_fraction <= 0.0
 
     @property
     def observed_ratio(self) -> float:

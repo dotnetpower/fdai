@@ -61,9 +61,9 @@ async def publish_preflight_check(
     push. Input validation on the required strings.
     """
 
-    if not pr_ref:
+    if not pr_ref.strip():
         raise ValueError("pr_ref MUST be non-empty")
-    if not check_key:
+    if not check_key.strip():
         raise ValueError("check_key MUST be non-empty")
 
     check = PreflightCheck(

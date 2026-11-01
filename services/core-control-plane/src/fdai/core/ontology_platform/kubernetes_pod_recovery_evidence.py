@@ -39,6 +39,8 @@ class PodRecoveryObservation:
     def __post_init__(self) -> None:
         if not self.pod_id.strip() or len(self.pod_id) > _MAX_ID_LENGTH:
             raise ValueError("pod_id MUST be bounded non-empty text")
+        if self.ready is not None and not isinstance(self.ready, bool):
+            raise ValueError("ready MUST be a boolean or null")
         for field_name, value in (
             ("container_count", self.container_count),
             ("ready_container_count", self.ready_container_count),
@@ -75,17 +77,23 @@ class PodRestartHistoryObservation:
     def __post_init__(self) -> None:
         if not self.pod_id.strip() or len(self.pod_id) > _MAX_ID_LENGTH:
             raise ValueError("restart history pod_id MUST be bounded non-empty text")
-        if self.start.tzinfo is None or self.end.tzinfo is None or self.start >= self.end:
+        if (
+            self.start.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.end.tzinfo is None
+            or self.end.utcoffset() is None
+            or self.start >= self.end
+        ):
             raise ValueError("restart history MUST have an aware positive interval")
         if self.restart_delta is not None and (
             isinstance(self.restart_delta, bool) or self.restart_delta < 0
         ):
             raise ValueError("restart_delta MUST be a non-negative integer or null")
-        if self.complete != (self.missing_reason is None):
+        if not isinstance(self.complete, bool) or self.complete != (self.missing_reason is None):
             raise ValueError("restart history completeness and missing reason are inconsistent")
         if self.complete != (self.restart_delta is not None):
             raise ValueError("complete restart history MUST carry one delta")
-        if not self.evidence_refs or any(not item for item in self.evidence_refs):
+        if not self.evidence_refs or any(not item.strip() for item in self.evidence_refs):
             raise ValueError("restart history MUST cite evidence")
 
 

@@ -22,6 +22,7 @@ mis-wired experiment perturbs nothing.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -76,13 +77,25 @@ class FaultScenario:
     rollback_note: str = ""
 
     def __post_init__(self) -> None:
-        if not self.scenario_id:
+        if not self.scenario_id.strip():
             raise ValueError("FaultScenario.scenario_id MUST be non-empty")
-        if not self.fault_type:
+        if not self.fault_type.strip():
             raise ValueError("FaultScenario.fault_type MUST be non-empty")
-        if self.blast_radius_cap <= 0:
+        if (
+            not self.description.strip()
+            or not self.target_selector.strip()
+            or not self.expected_signal.strip()
+        ):
+            raise ValueError(
+                "FaultScenario description, target_selector, and expected_signal MUST be non-empty"
+            )
+        if isinstance(self.blast_radius_cap, bool) or self.blast_radius_cap <= 0:
             raise ValueError("FaultScenario.blast_radius_cap MUST be positive")
-        if self.duration_seconds <= 0:
+        if (
+            isinstance(self.duration_seconds, bool)
+            or not math.isfinite(self.duration_seconds)
+            or self.duration_seconds <= 0
+        ):
             raise ValueError("FaultScenario.duration_seconds MUST be positive")
 
 
@@ -108,6 +121,27 @@ class ExperimentResult:
     """Detector-owned first observation time for the expected signal."""
     error: str | None = None
     stop_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.experiment_id.strip()
+            or not self.scenario_id.strip()
+            or not self.expected_signal.strip()
+        ):
+            raise ValueError(
+                "ExperimentResult experiment_id, scenario_id, and expected_signal MUST be non-empty"
+            )
+        if (
+            self.started_at.tzinfo is None
+            or self.started_at.utcoffset() is None
+            or self.ended_at.tzinfo is None
+            or self.ended_at.utcoffset() is None
+        ):
+            raise ValueError("ExperimentResult timestamps MUST be timezone-aware")
+        if self.ended_at < self.started_at:
+            raise ValueError(
+                "ExperimentResult timestamps are reversed: ended_at MUST be >= started_at"
+            )
 
     @property
     def reverted(self) -> bool:

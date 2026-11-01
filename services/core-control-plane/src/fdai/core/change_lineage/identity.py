@@ -76,4 +76,4 @@ def compute_change_lineage_id(
     return f"{_LINEAGE_PREFIX}{digest}"
 
 
-__all__ = ["compute_change_lineage_id"]
+__all__ = ["compute_change_lineage_id", "validate_change_lineage_id"]

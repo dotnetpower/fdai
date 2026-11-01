@@ -92,8 +92,12 @@ class AksDiagnosticContext:
 def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenceReceipt:
     """Return deterministic signals without claiming root cause or execution authority."""
 
-    if context.cutoff.tzinfo is None:
+    if context.cutoff.tzinfo is None or context.cutoff.utcoffset() is None:
         raise ValueError("AKS diagnostic cutoff MUST be timezone-aware")
+    if not isinstance(context.evidence_complete, bool) or (
+        context.api_reachable is not None and not isinstance(context.api_reachable, bool)
+    ):
+        raise ValueError("AKS diagnostic boolean flags MUST be booleans")
     if not context.target.resource_id.strip() or len(context.target.resource_id) > 1_024:
         raise ValueError("AKS diagnostic target Resource id MUST be bounded non-empty text")
     if not context.principal_class.strip() or len(context.principal_class) > 64:
@@ -111,6 +115,7 @@ def assess_aks_diagnostic(context: AksDiagnosticContext) -> AksDiagnosticEvidenc
         if (
             _EVIDENCE_CODE.fullmatch(source) is None
             or cutoff.tzinfo is None
+            or cutoff.utcoffset() is None
             or cutoff > context.cutoff
         ):
             raise ValueError("AKS diagnostic source cutoff is invalid")

@@ -23,6 +23,22 @@ class EvaluationRunSummary:
     held_count: int
     failed_count: int
 
+    def __post_init__(self) -> None:
+        if not self.adapter_id.strip() or not self.session_id.strip():
+            raise ValueError("EvaluationRunSummary adapter_id and session_id MUST be non-empty")
+        counts = (
+            self.task_count,
+            self.completed_count,
+            self.held_count,
+            self.failed_count,
+        )
+        if any(
+            isinstance(count, bool) or not isinstance(count, int) or count < 0 for count in counts
+        ):
+            raise ValueError("EvaluationRunSummary counts MUST be non-negative integers")
+        if self.task_count != self.completed_count + self.held_count + self.failed_count:
+            raise ValueError("EvaluationRunSummary task_count MUST equal sum of status counts")
+
 
 class EvaluationRunner:
     """Drive an adapter through only the public EvaluationHost protocol."""
@@ -51,6 +67,10 @@ class EvaluationRunner:
         try:
             request = await self._adapter.start()
             session = await self._host.open(request)
+            if session.session_id != request.session_id:
+                raise EvaluationRunError(
+                    "host session identity does not match the evaluation request"
+                )
             while True:
                 task = await self._adapter.next_task()
                 if task is None:

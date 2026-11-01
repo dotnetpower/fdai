@@ -48,8 +48,18 @@ class RecoveryAction:
         ):
             if not value.strip():
                 raise ValueError(f"{name} MUST be non-empty")
+        for name, optional_value in (
+            ("compensation_action_type_ref", self.compensation_action_type_ref),
+            ("rollback_ref", self.rollback_ref),
+        ):
+            if optional_value is not None and not optional_value.strip():
+                raise ValueError(f"{name} MUST be non-empty when set")
         if any(not item.strip() for item in (*self.depends_on, *self.stop_conditions)):
             raise ValueError("recovery dependencies and stop conditions MUST be non-empty")
+        if self.action_id in self.depends_on or len(set(self.depends_on)) != len(self.depends_on):
+            raise ValueError("recovery action depends_on MUST be unique and non-self-referential")
+        if len(set(self.stop_conditions)) != len(self.stop_conditions):
+            raise ValueError("recovery action stop_conditions MUST be unique")
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,7 +96,14 @@ class RecoveryPlanRecord:
                 raise ValueError(f"{name} MUST be non-empty")
         if not self.actions or not self.verification_probes or not self.direct_target_ids:
             raise ValueError("recovery actions, probes, and targets MUST be non-empty")
-        if self.last_rehearsed_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if any(not item.strip() for item in (*self.verification_probes, *self.direct_target_ids)):
+            raise ValueError("recovery verification_probes and direct_target_ids MUST be non-empty")
+        if (
+            self.last_rehearsed_at.tzinfo is None
+            or self.last_rehearsed_at.utcoffset() is None
+            or self.expires_at.tzinfo is None
+            or self.expires_at.utcoffset() is None
+        ):
             raise ValueError("recovery plan timestamps MUST be timezone-aware")
         action_ids = {item.action_id for item in self.actions}
         if set(self.compensation_order) != action_ids:
@@ -143,7 +160,11 @@ class RecoveryProbeResult:
     evidence_ref: str
 
     def __post_init__(self) -> None:
-        if self.observed_at.tzinfo is None or not self.evidence_ref.strip():
+        if (
+            self.observed_at.tzinfo is None
+            or self.observed_at.utcoffset() is None
+            or not self.evidence_ref.strip()
+        ):
             raise ValueError("probe evidence and timezone-aware timestamp are required")
 
 

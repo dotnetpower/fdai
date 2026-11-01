@@ -458,6 +458,124 @@ async def test_normalizes_malformed_and_failed_status_response(
     await client.aclose()
 
 
+def test_config_rejects_bool_and_inverted_poll_timeout_or_oversized_bytes() -> None:
+    with pytest.raises(ValueError, match="timeouts MUST be finite and positive"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            poll_interval_seconds=True,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="poll_interval_seconds MUST be <="):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            poll_interval_seconds=10.0,
+            stage_timeout_seconds=5.0,
+        )
+    with pytest.raises(ValueError, match="max_response_bytes MUST be >= 1"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            max_response_bytes=True,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="max_response_bytes MUST be >= 1"):
+        SregymAdapterConfig(
+            conductor_url="http://127.0.0.1:8000",
+            artifact_id="attempt-1",
+            max_response_bytes=1_073_741_825,
+        )
+
+
+async def test_adapter_rejects_post_close_duplicate_start_and_stage_regression() -> None:
+    stages = ["diagnosis", "diagnosis", "mitigation", "mitigation", "diagnosis"]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": stages.pop(0)})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        if request.url.path == "/submit":
+            return httpx.Response(200, json={"status": "200"})
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    with pytest.raises(SregymAdapterError, match="already started"):
+        await adapter.start()
+
+    diag_task = await adapter.next_task()
+    assert diag_task is not None
+    await adapter.submit(
+        _result(
+            session_id=diag_task.session_id,
+            task_id=diag_task.task_id,
+            phase=diag_task.phase,
+            summary="Diagnosis summary.",
+        )
+    )
+    assert "diagnosis" in adapter.completed_stages
+
+    mit_task = await adapter.next_task()
+    assert mit_task is not None
+    assert mit_task.phase == "mitigation"
+    await adapter.submit(
+        _result(
+            session_id=mit_task.session_id,
+            task_id=mit_task.task_id,
+            phase=mit_task.phase,
+            summary="Mitigation summary.",
+        )
+    )
+    with pytest.raises(SregymAdapterError, match="regressed to completed stage"):
+        await adapter.next_task()
+
+    await adapter.close()
+    assert adapter.is_closed is True
+    with pytest.raises(SregymAdapterError, match="closed"):
+        await adapter.next_task()
+    await client.aclose()
+
+
+async def test_submit_rejects_non_json_or_non_object_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/status":
+            return httpx.Response(200, json={"stage": "diagnosis"})
+        if request.url.path == "/get_app":
+            return httpx.Response(
+                200,
+                json={
+                    "app_name": "example-shop",
+                    "namespace": "example",
+                    "descriptions": "Requests return errors.",
+                },
+            )
+        if request.url.path == "/submit":
+            return httpx.Response(200, json=["not-an-object"])
+        raise AssertionError(request.url.path)
+
+    adapter, client = _adapter(handler)
+    await adapter.start()
+    task = await adapter.next_task()
+    assert task is not None
+    with pytest.raises(SregymAdapterError, match="not an object"):
+        await adapter.submit(
+            _result(
+                session_id=task.session_id,
+                task_id=task.task_id,
+                phase=task.phase,
+                summary="Valid summary.",
+            )
+        )
+    await client.aclose()
+
+
 async def test_normalizes_get_transport_failure() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         raise httpx.ReadTimeout("status timed out", request=request)

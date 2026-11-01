@@ -28,6 +28,16 @@ class ChaosPromotionObservation:
     rollback_succeeded: bool
     policy_escapes: int = 0
 
+    def __post_init__(self) -> None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("ChaosPromotionObservation.observed_at MUST be timezone-aware")
+        if not self.audit_ref.strip() or not self.runner_version.strip():
+            raise ValueError(
+                "ChaosPromotionObservation audit_ref and runner_version MUST be non-empty"
+            )
+        if isinstance(self.policy_escapes, bool) or self.policy_escapes < 0:
+            raise ValueError("ChaosPromotionObservation.policy_escapes MUST be non-negative")
+
     def regression_reasons(self) -> tuple[str, ...]:
         reasons: list[str] = []
         if not self.containment_compliant:

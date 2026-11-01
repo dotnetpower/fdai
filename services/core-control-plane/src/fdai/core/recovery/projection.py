@@ -17,6 +17,8 @@ class RecoveryPlanProjector:
         hypothesis_id: str,
         process_id: str,
     ) -> None:
+        if not hypothesis_id.strip() or not process_id.strip():
+            raise ValueError("RecoveryPlanProjector hypothesis_id and process_id MUST be non-empty")
         record = plan.to_ontology_object()
         existing = await self._store.get_object(record.id)
         if existing is not None:

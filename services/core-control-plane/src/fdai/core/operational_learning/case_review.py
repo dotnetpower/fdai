@@ -92,6 +92,17 @@ class ImmutableCaseRef:
     revision: int
     manifest_digest: str
 
+    def __post_init__(self) -> None:
+        if isinstance(self.revision, bool) or self.revision < 1:
+            raise CaseReviewError("immutable_case_refs_invalid")
+        if (
+            not self.case_id
+            or len(self.case_id) > 256
+            or _IDENTIFIER.fullmatch(self.case_id) is None
+            or _SHA256.fullmatch(self.manifest_digest) is None
+        ):
+            raise CaseReviewError("immutable_case_refs_invalid")
+
     @classmethod
     def parse(cls, value: object) -> ImmutableCaseRef:
         if not isinstance(value, str) or len(value) > 384:
@@ -145,7 +156,7 @@ class OperationalCaseReview:
             cutoff = datetime.fromisoformat(cutoff_raw.replace("Z", "+00:00"))
         except ValueError as exc:
             raise CaseReviewError("case_review_invalid") from exc
-        if cutoff.tzinfo is None:
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise CaseReviewError("case_review_invalid")
         source_kind = value.get("source_kind")
         source_synthetic = value.get("source_synthetic")
@@ -205,7 +216,7 @@ def validate_case_review_window(
     reviewed_at: datetime,
     maximum_age: timedelta,
 ) -> None:
-    if reviewed_at.tzinfo is None or maximum_age <= timedelta(0):
+    if reviewed_at.tzinfo is None or reviewed_at.utcoffset() is None or maximum_age <= timedelta(0):
         raise ValueError("case review window MUST be timezone-aware and positive")
     for review in reviews:
         if review.event_time_cutoff > reviewed_at:

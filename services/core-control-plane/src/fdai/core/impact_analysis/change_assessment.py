@@ -38,6 +38,12 @@ class ChangeGraphEvidenceReceipt:
     conflict_reasons: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if (
+            not isinstance(self.authenticated, bool)
+            or not isinstance(self.source_complete, bool)
+            or not isinstance(self.truncated, bool)
+        ):
+            raise ValueError("graph evidence boolean flags MUST be booleans")
         if self.graph_revision is not None and not self.graph_revision.strip():
             raise ValueError("graph evidence graph_revision MUST be non-empty when provided")
         if self.source_generation is not None and not self.source_generation.strip():
@@ -161,6 +167,20 @@ class ChangeAssessment:
     review_required: bool
     reasons: tuple[str, ...]
     evidence_digest: str
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("change_id", self.change_id),
+            ("correlation_id", self.correlation_id),
+            ("target_ref", self.target_ref),
+            ("evidence_digest", self.evidence_digest),
+        ):
+            if not value.strip():
+                raise ValueError(f"ChangeAssessment.{name} MUST be non-empty")
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
+            raise ValueError("ChangeAssessment.occurred_at MUST be timezone-aware")
+        if not isinstance(self.review_required, bool):
+            raise ValueError("ChangeAssessment.review_required MUST be a boolean")
 
     def to_mapping(self) -> dict[str, object]:
         return {

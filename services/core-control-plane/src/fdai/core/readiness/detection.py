@@ -142,7 +142,7 @@ def reduce_detection_readiness(
 
 def detection_readiness_state_key(resource_ref: str) -> str:
     """Return a stable state key without exposing the resource ref in the key."""
-    if not resource_ref:
+    if not resource_ref.strip():
         raise ValueError("detection readiness resource_ref MUST be non-empty")
     digest = hashlib.sha256(resource_ref.encode("utf-8")).hexdigest()
     return f"{DETECTION_READINESS_STATE_PREFIX}{digest}"

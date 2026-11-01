@@ -45,7 +45,7 @@ class SelfHealthSignalPolicy:
             raise SelfHealthCatalogError("self-health metric MUST be exact non-empty text")
         if not self.threshold.is_finite():
             raise SelfHealthCatalogError("self-health threshold MUST be finite")
-        if self.maximum_age_seconds < 1:
+        if isinstance(self.maximum_age_seconds, bool) or self.maximum_age_seconds < 1:
             raise SelfHealthCatalogError("self-health maximum age MUST be positive")
         for value in (self.route, self.fallback):
             if not value.strip() or value != value.strip():
@@ -87,7 +87,7 @@ class SelfHealthCatalog:
     policies: Mapping[SelfHealthSignal, SelfHealthSignalPolicy]
 
     def __post_init__(self) -> None:
-        if self.version < 1:
+        if isinstance(self.version, bool) or self.version < 1:
             raise SelfHealthCatalogError("self-health catalog version MUST be positive")
         if set(self.policies) != set(SelfHealthSignal):
             missing = sorted(signal.value for signal in set(SelfHealthSignal) - set(self.policies))

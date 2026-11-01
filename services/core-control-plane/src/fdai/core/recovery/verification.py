@@ -26,6 +26,8 @@ def verify_recovery_postconditions(
     *,
     telemetry_complete: bool,
 ) -> RecoveryVerification:
+    if not isinstance(telemetry_complete, bool):
+        raise ValueError("telemetry_complete MUST be a boolean")
     by_kind = {item.kind: item for item in probe_results}
     if len(by_kind) != len(probe_results):
         raise ValueError("recovery probe kinds MUST be unique")

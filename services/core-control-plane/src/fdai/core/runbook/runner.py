@@ -139,21 +139,22 @@ class RunbookRunner:
                     )
                 break
 
-        terminal_audit: dict[str, object] = {
-            "actor": "fdai.core.runbook",
-            "action_kind": "runbook.terminal",
-            "mode": "shadow",
-            "runbook_id": runbook.id,
-            "start_step_id": start_step_id,
-            "terminal_outcome": terminal.value,
-            "step_outcomes": [
-                {"step_id": r.step_id, "outcome": r.outcome.value, "reason": r.reason}
-                for r in results
-            ],
-            "recorded_at": datetime.now(tz=UTC).isoformat(),
-        }
-        if audit_context:
-            terminal_audit.update(audit_context)
+        terminal_audit: dict[str, object] = dict(audit_context or {})
+        terminal_audit.update(
+            {
+                "actor": "fdai.core.runbook",
+                "action_kind": "runbook.terminal",
+                "mode": "shadow",
+                "runbook_id": runbook.id,
+                "start_step_id": start_step_id,
+                "terminal_outcome": terminal.value,
+                "step_outcomes": [
+                    {"step_id": r.step_id, "outcome": r.outcome.value, "reason": r.reason}
+                    for r in results
+                ],
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
         await self._audit_store.append_audit_entry(terminal_audit)
         return RunbookResult(
             runbook_id=runbook.id,

@@ -24,10 +24,17 @@ class SregymPlugin:
         hostname = os.environ.get("API_HOSTNAME", "127.0.0.1").strip()
         if hostname in {"0.0.0.0", "::"}:  # noqa: S104 - bind address becomes client loopback
             hostname = "127.0.0.1"
-        port = os.environ.get("API_PORT", "8000").strip()
+        if not hostname:
+            raise RuntimeError("API_HOSTNAME MUST be non-empty")
+        port_raw = os.environ.get("API_PORT", "8000").strip()
+        if not port_raw.isdecimal() or not 1 <= int(port_raw) <= 65535:
+            raise RuntimeError("API_PORT MUST be an integer between 1 and 65535")
+        formatted_host = (
+            f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
+        )
         return SregymAdapter(
             config=SregymAdapterConfig(
-                conductor_url=f"http://{hostname}:{port}",
+                conductor_url=f"http://{formatted_host}:{int(port_raw)}",
                 artifact_id=artifact_id,
             )
         )

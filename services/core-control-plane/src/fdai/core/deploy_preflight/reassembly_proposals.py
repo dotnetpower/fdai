@@ -81,6 +81,18 @@ class ToggleActionProposal:
     set_vars: Mapping[str, str]
     reason: str
 
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("idempotency_key", self.idempotency_key),
+            ("initiator_principal", self.initiator_principal),
+            ("scope", self.scope),
+            ("finding_id", self.finding_id),
+            ("toggle_module", self.toggle_module),
+            ("reason", self.reason),
+        ):
+            if not value.strip():
+                raise ValueError(f"ToggleActionProposal.{name} MUST be non-empty")
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "idempotency_key": self.idempotency_key,

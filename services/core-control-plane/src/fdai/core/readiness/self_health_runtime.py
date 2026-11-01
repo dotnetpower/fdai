@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Mapping
 from datetime import datetime
 
@@ -100,7 +101,11 @@ class SelfHealthRuntimeMonitor:
         timeout_seconds: float = 2.0,
         model_provider_scope: ModelProviderScopeSource | None = None,
     ) -> None:
-        if timeout_seconds <= 0:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
             raise ValueError("self-health exporter timeout MUST be positive")
         self._registry = registry
         self._store = store

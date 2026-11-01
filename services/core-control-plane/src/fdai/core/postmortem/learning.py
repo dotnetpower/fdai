@@ -23,6 +23,7 @@ and the living-rules discovery loop in
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
@@ -69,6 +70,25 @@ class PostmortemLearning:
     reuse_hint: str
     confidence: float
     provenance: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if (
+            not self.incident_id.strip()
+            or not self.signature.strip()
+            or not self.root_cause.strip()
+            or not self.reuse_hint.strip()
+        ):
+            raise ValueError("PostmortemLearning text fields MUST be non-empty")
+        if not self.resolving_action_types or any(
+            not item.strip() for item in self.resolving_action_types
+        ):
+            raise ValueError("PostmortemLearning.resolving_action_types MUST be non-empty")
+        if (
+            isinstance(self.confidence, bool)
+            or not math.isfinite(self.confidence)
+            or not 0.0 <= self.confidence <= 1.0
+        ):
+            raise ValueError("PostmortemLearning.confidence MUST be finite and in [0.0, 1.0]")
 
 
 class PostmortemKnowledgeExtractor:

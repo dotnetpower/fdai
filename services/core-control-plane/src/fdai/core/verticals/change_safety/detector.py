@@ -183,6 +183,12 @@ class ChangeSafetyDetectorConfig:
     def __post_init__(self) -> None:
         if self.clock_skew_tolerance < _ZERO_AGE:
             raise ValueError("clock_skew_tolerance MUST NOT be negative")
+        if self.default_settling_window < _ZERO_AGE or any(
+            w < _ZERO_AGE for w in self.settling_windows.values()
+        ):
+            raise ValueError("settling windows MUST NOT be negative")
+        if not self.alert_topic.strip():
+            raise ValueError("alert_topic MUST be non-empty")
 
     def window_for(self, resource_type: str | None) -> timedelta:
         if resource_type is not None:

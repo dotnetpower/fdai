@@ -308,6 +308,8 @@ async def test_rejects_outstanding_closed_and_mismatched_result() -> None:
     await adapter.close()
     with pytest.raises(CyberGymAdapterError, match="closed"):
         await adapter.next_task()
+    with pytest.raises(CyberGymAdapterError, match="closed"):
+        await adapter.start()
 
 
 def test_validation_rejects_cross_task_receipt() -> None:

@@ -176,7 +176,10 @@ class ShadowRecoveryOrchestrator:
             raise ShadowRecoveryError(
                 f"shadow recovery requires plan state {required_state.value!r}"
             )
-        if expected_recovery_epoch != plan.recovery_epoch:
+        if (
+            isinstance(expected_recovery_epoch, bool)
+            or expected_recovery_epoch != plan.recovery_epoch
+        ):
             raise ShadowRecoveryError("stale recovery epoch")
         if replay_start.tzinfo is None or replay_start.utcoffset() is None:
             raise ShadowRecoveryError("replay_start MUST be timezone-aware")

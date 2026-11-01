@@ -23,6 +23,18 @@ class MaintenanceWindow:
     start: datetime
     end: datetime
 
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("MaintenanceWindow.name MUST be non-empty")
+        if (
+            self.start.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.end.tzinfo is None
+            or self.end.utcoffset() is None
+            or self.start > self.end
+        ):
+            raise ValueError("MaintenanceWindow timestamps MUST be timezone-aware and ordered")
+
     def contains(self, moment: datetime) -> bool:
         return self.start <= moment <= self.end
 
@@ -32,6 +44,18 @@ class FreezePeriod:
     name: str
     start: datetime
     end: datetime
+
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("FreezePeriod.name MUST be non-empty")
+        if (
+            self.start.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.end.tzinfo is None
+            or self.end.utcoffset() is None
+            or self.start > self.end
+        ):
+            raise ValueError("FreezePeriod timestamps MUST be timezone-aware and ordered")
 
     def contains(self, moment: datetime) -> bool:
         return self.start <= moment <= self.end
@@ -48,6 +72,10 @@ class DrExperiment:
     has_rollback_path: bool = False
     stop_conditions: tuple[str, ...] = ()
     max_duration_seconds: float = 3600.0
+
+    def __post_init__(self) -> None:
+        if not self.experiment_id.strip() or not self.target_resource_ref.strip():
+            raise ValueError("DrExperiment experiment_id and target_resource_ref MUST be non-empty")
 
 
 class ExecutionMode(StrEnum):
@@ -73,6 +101,10 @@ class RunOutcome(StrEnum):
 class DrSchedulerConfig:
     max_concurrent_experiments: int = 1
     opt_out_tag: str = "chaos:opt-out"
+
+    def __post_init__(self) -> None:
+        if not self.opt_out_tag.strip():
+            raise ValueError("DrSchedulerConfig.opt_out_tag MUST be non-empty")
 
 
 @dataclass(frozen=True, slots=True)

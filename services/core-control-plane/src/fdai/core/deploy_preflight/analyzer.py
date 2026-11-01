@@ -70,6 +70,8 @@ class PreflightAnalyzer:
         review rather than silently reporting ``CLEAR`` on a partial
         pass.
         """
+        if not target.scope.strip():
+            raise ValueError("PreflightTarget.scope MUST be non-empty")
         tasks: list[asyncio.Task[Sequence[ProbeFinding]]] = []
         async with asyncio.TaskGroup() as group:
             for probe in self._probes:

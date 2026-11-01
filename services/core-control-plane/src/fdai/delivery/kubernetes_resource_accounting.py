@@ -15,10 +15,22 @@ class KubernetesResourceAccountingError(ValueError):
     """Pod resource evidence cannot be accounted for by the supported profile."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class PodResourceRequests:
     cpu_millicores: int
     memory_bytes: int
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.cpu_millicores, bool)
+            or isinstance(self.memory_bytes, bool)
+            or not 0 <= self.cpu_millicores <= MAX_RESOURCE_QUANTITY
+            or not 0 <= self.memory_bytes <= MAX_RESOURCE_QUANTITY
+        ):
+            raise KubernetesResourceAccountingError(
+                "PodResourceRequests cpu_millicores and memory_bytes "
+                "MUST be bounded non-negative integers"
+            )
 
 
 def pod_resource_requests(pod: Mapping[str, Any]) -> PodResourceRequests:

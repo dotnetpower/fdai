@@ -146,13 +146,15 @@ class CapacityGraduationEvidence(ContractBase):
 
     @model_validator(mode="after")
     def _canonical_evidence(self) -> CapacityGraduationEvidence:
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("capacity graduation observed_at MUST be timezone-aware")
         if not self.evidence_refs or tuple(sorted(set(self.evidence_refs))) != self.evidence_refs:
             raise ValueError("capacity graduation evidence_refs MUST be non-empty and canonical")
         if tuple(sorted(set(self.required_capabilities))) != self.required_capabilities:
             raise ValueError("required_capabilities MUST be sorted and unique")
-        if self.cost_observed_at is not None and self.cost_observed_at.tzinfo is None:
+        if self.cost_observed_at is not None and (
+            self.cost_observed_at.tzinfo is None or self.cost_observed_at.utcoffset() is None
+        ):
             raise ValueError("cost_observed_at MUST be timezone-aware")
         return self
 
@@ -189,6 +191,8 @@ class CapacityGraduationRecommendation(ContractBase):
     ) -> Self:
         """Create a replay-stable advisory result."""
 
+        if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
+            raise ValueError("capacity graduation evaluated_at MUST be timezone-aware")
         prototype = cls.model_construct(
             schema_version="1.0.0",
             id="capacity-graduation-recommendation:" + "0" * 64,

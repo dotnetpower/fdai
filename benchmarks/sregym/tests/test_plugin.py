@@ -25,3 +25,17 @@ def test_plugin_builds_generic_bindings(monkeypatch: pytest.MonkeyPatch) -> None
 
     assert plugin.api_version == EVALUATION_API_VERSION
     assert adapter.adapter_id == "sregym"
+
+
+def test_plugin_brackets_ipv6_loopback_and_rejects_invalid_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SREGYM_ARTIFACT_ID", "attempt-1")
+    monkeypatch.setenv("API_HOSTNAME", "::1")
+    monkeypatch.setenv("API_PORT", "8080")
+    adapter = create_plugin().create_adapter()
+    assert adapter.adapter_id == "sregym"
+
+    monkeypatch.setenv("API_PORT", "invalid")
+    with pytest.raises(RuntimeError, match="API_PORT"):
+        create_plugin().create_adapter()

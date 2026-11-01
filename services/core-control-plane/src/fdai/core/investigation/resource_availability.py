@@ -98,7 +98,13 @@ class ResourceAvailabilityAnalyzer:
         prior_finding: AnalyzerFinding | None = None,
         finding_ref: str | None = None,
     ) -> Sequence[AnalyzerFinding]:
-        if not math.isfinite(window_seconds) or window_seconds <= 0:
+        if not resource_ref.strip():
+            raise ValueError("availability resource_ref MUST be non-empty")
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
             raise ValueError("availability window MUST be finite and positive")
         until = self._clock()
         since = until - timedelta(seconds=window_seconds)

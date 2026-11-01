@@ -75,6 +75,8 @@ class ChangeDecisionTrace:
         text_values = (self.context_snapshot_id, self.selected_option_id, self.reason)
         if any(not value.strip() for value in text_values):
             raise ValueError("change decision trace identities and reason MUST be non-empty")
+        if not isinstance(self.requires_human_approval, bool):
+            raise ValueError("change decision trace requires_human_approval MUST be a boolean")
         if isinstance(self.margin, bool) or not isfinite(self.margin):
             raise ValueError("change decision trace margin MUST be finite")
         score_ids = [
@@ -171,6 +173,8 @@ class ChangeResilienceTrace:
             isinstance(self.blast_radius_count, bool) or self.blast_radius_count < 1
         ):
             raise ValueError("change resilience blast radius count MUST be positive")
+        if self.rollback_succeeded is not None and not isinstance(self.rollback_succeeded, bool):
+            raise ValueError("change resilience rollback_succeeded MUST be a boolean or null")
         timestamps = (self.predicted_at, self.observation_deadline, self.observed_at)
         if any(
             value is not None and (value.tzinfo is None or value.utcoffset() is None)

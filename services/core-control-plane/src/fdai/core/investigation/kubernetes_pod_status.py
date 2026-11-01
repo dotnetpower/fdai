@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Protocol, runtime_checkable
@@ -56,8 +57,16 @@ class PodStatusEvidence:
             or self.resource_ref != self.pod.pod_id
         ):
             raise ValueError("Pod status MUST bind one exact Resource and Pod UID")
-        if self.start.tzinfo is None or self.cutoff.tzinfo is None or self.start >= self.cutoff:
+        if (
+            self.start.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.cutoff.tzinfo is None
+            or self.cutoff.utcoffset() is None
+            or self.start >= self.cutoff
+        ):
             raise ValueError("Pod status MUST have an aware positive window")
+        if not isinstance(self.rollout_observed, bool):
+            raise ValueError("Pod status rollout_observed MUST be a boolean")
         if len(self.terminations) > 256:
             raise ValueError("Pod status termination bound exceeded")
         if any(item.pod_uid != self.pod_uid for item in self.terminations):
@@ -255,6 +264,14 @@ class KubernetesPodStatusAnalyzer:
     async def analyze(
         self, *, resource_ref: str, window_seconds: float
     ) -> tuple[AnalyzerFinding, ...]:
+        if not resource_ref.strip():
+            raise ValueError("KubernetesPodStatusAnalyzer.resource_ref MUST be non-empty")
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
+            raise ValueError("KubernetesPodStatusAnalyzer.window_seconds MUST be positive")
         evidence = await self._source.observe_status(
             resource_ref=resource_ref, window_seconds=window_seconds
         )
@@ -264,6 +281,12 @@ class KubernetesPodStatusAnalyzer:
         self, *, prior: AnalyzerFinding, window_seconds: float
     ) -> AnalyzerFinding | None:
         """Caller must supply an actual active finding, never an ordinary healthy sample."""
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
+            raise ValueError("KubernetesPodStatusAnalyzer.window_seconds MUST be positive")
 
         evidence = await self._source.observe_status(
             resource_ref=prior.resource_ref, window_seconds=window_seconds
@@ -282,6 +305,14 @@ class KubernetesPodFailureAnalyzer:
     async def analyze(
         self, *, resource_ref: str, window_seconds: float
     ) -> tuple[AnalyzerFinding, ...]:
+        if not resource_ref.strip():
+            raise ValueError("KubernetesPodFailureAnalyzer.resource_ref MUST be non-empty")
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
+            raise ValueError("KubernetesPodFailureAnalyzer.window_seconds MUST be positive")
         evidence = await self._source.observe_pod(
             resource_ref=resource_ref, window_seconds=window_seconds
         )

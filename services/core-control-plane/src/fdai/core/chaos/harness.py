@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Awaitable, Callable, Sequence
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -88,11 +89,23 @@ class FaultInjectionHarness:
         rollback_timeout_seconds: float = 30.0,
         max_hold_seconds: float = 600.0,
     ) -> None:
-        if operation_timeout_seconds <= 0:
+        if (
+            isinstance(operation_timeout_seconds, bool)
+            or not math.isfinite(operation_timeout_seconds)
+            or operation_timeout_seconds <= 0
+        ):
             raise ValueError("operation_timeout_seconds MUST be positive")
-        if rollback_timeout_seconds <= 0:
+        if (
+            isinstance(rollback_timeout_seconds, bool)
+            or not math.isfinite(rollback_timeout_seconds)
+            or rollback_timeout_seconds <= 0
+        ):
             raise ValueError("rollback_timeout_seconds MUST be positive")
-        if max_hold_seconds <= 0:
+        if (
+            isinstance(max_hold_seconds, bool)
+            or not math.isfinite(max_hold_seconds)
+            or max_hold_seconds <= 0
+        ):
             raise ValueError("max_hold_seconds MUST be positive")
         self._injectors: dict[str, FaultInjector] = {inj.fault_type: inj for inj in injectors}
         self._probe: SignalProbe = probe or NoSignalProbe()
@@ -120,7 +133,11 @@ class FaultInjectionHarness:
         impact_guard: ImpactGuard | None = None,
         guard_interval_seconds: float = 5.0,
     ) -> ExperimentResult:
-        if guard_interval_seconds <= 0:
+        if (
+            isinstance(guard_interval_seconds, bool)
+            or not math.isfinite(guard_interval_seconds)
+            or guard_interval_seconds <= 0
+        ):
             raise ValueError("guard_interval_seconds MUST be positive")
         started = self._wall_clock()
         experiment_id = f"chaos-{uuid4().hex[:12]}"

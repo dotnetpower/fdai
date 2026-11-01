@@ -52,6 +52,10 @@ def activate(plan: ResponsePlan) -> ResponsePlan:
     The gate: a plan that is missing a stop-condition, rollback, blast-radius
     bound, approver, or notify channel MUST NOT be activated.
     """
+    if plan.status is PlanStatus.RETIRED:
+        raise PlanNotReadyError(f"plan {plan.plan_id} is retired and cannot be activated")
+    if not plan.steps:
+        raise PlanNotReadyError(f"plan {plan.plan_id} has no steps")
     report = evaluate_readiness(plan)
     if report.blocked:
         raise PlanNotReadyError(
@@ -69,7 +73,14 @@ def pretest_plan(plan: ResponsePlan, incidents: Sequence[HistoricalIncident]) ->
     i.e. the plan already contains the action that resolved it.
     """
     step_actions = {step.action_ref for step in plan.steps}
-    triggering = [inc for inc in incidents if plan.trigger_signal in inc.signals]
+    seen_refs: set[str] = set()
+    triggering: list[HistoricalIncident] = []
+    for inc in incidents:
+        if inc.incident_ref in seen_refs:
+            continue
+        seen_refs.add(inc.incident_ref)
+        if plan.trigger_signal in inc.signals:
+            triggering.append(inc)
 
     matched = 0
     unmatched: list[str] = []

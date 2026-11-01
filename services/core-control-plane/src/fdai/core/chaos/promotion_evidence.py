@@ -28,9 +28,9 @@ class ScenarioEvidenceKey:
     catalog_fingerprint: str
 
     def __post_init__(self) -> None:
-        if not self.scenario_id:
+        if not self.scenario_id.strip():
             raise ValueError("scenario_id MUST be non-empty")
-        if self.scenario_version < 1:
+        if isinstance(self.scenario_version, bool) or self.scenario_version < 1:
             raise ValueError("scenario_version MUST be positive")
         if not _SHA256.fullmatch(self.catalog_fingerprint):
             raise ValueError("catalog_fingerprint MUST be a SHA-256 hex digest")
@@ -65,11 +65,15 @@ class ScenarioPromotionEvidence:
         ):
             if not value.strip():
                 raise ValueError(f"{name} MUST be non-empty")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("observed_at MUST be timezone-aware")
-        if self.detection_latency_ms is not None and self.detection_latency_ms < 0:
+        if self.detection_latency_ms is not None and (
+            isinstance(self.detection_latency_ms, bool) or self.detection_latency_ms < 0
+        ):
             raise ValueError("detection_latency_ms MUST be non-negative")
-        if self.latency_budget_ms is not None and self.latency_budget_ms < 1:
+        if self.latency_budget_ms is not None and (
+            isinstance(self.latency_budget_ms, bool) or self.latency_budget_ms < 1
+        ):
             raise ValueError("latency_budget_ms MUST be positive")
 
     def to_dict(self) -> dict[str, object]:

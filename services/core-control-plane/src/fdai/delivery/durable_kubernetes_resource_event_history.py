@@ -41,6 +41,8 @@ class DurableKubernetesResourceEventHistoryReader:
         cluster_ref: str,
         now: Any = None,
     ) -> None:
+        if not cluster_ref.strip() or len(cluster_ref) > 512:
+            raise ValueError("Durable Kubernetes reader cluster_ref MUST be bounded non-empty text")
         self._store = store
         self._cluster_ref = cluster_ref
         self._now = now or (lambda: datetime.now(UTC))
@@ -84,7 +86,11 @@ class DurableKubernetesResourceEventHistoryReader:
     ) -> ResourceEventCollection:
         if event_families != (KUBERNETES_EVENT_FAMILY,):
             raise ValueError("Durable Kubernetes reader received an unsupported family")
+        if isinstance(lookback_seconds, bool) or not 60 <= lookback_seconds <= 86_400:
+            raise ValueError("Durable Kubernetes reader lookback_seconds MUST be in [60, 86400]")
         now = self._now()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("Durable Kubernetes reader clock MUST be timezone-aware")
         since = now - timedelta(seconds=lookback_seconds)
         object_uid = _exact_uid(
             resource_ids,

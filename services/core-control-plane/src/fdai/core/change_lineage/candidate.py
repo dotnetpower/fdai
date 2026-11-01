@@ -71,12 +71,14 @@ class ChangeLearningCandidate:
             raise ValueError("change learning candidate collections MUST be sorted and unique")
         if not self.selected_objective_ids or not self.evidence_refs:
             raise ValueError("change learning candidate MUST cite objectives and evidence")
+        if self.rollback_succeeded is not None and not isinstance(self.rollback_succeeded, bool):
+            raise ValueError("change learning candidate rollback_succeeded MUST be boolean or null")
         if (
-            not self.candidate_only
-            or not self.requires_sealed_case
-            or self.operational_reuse_eligible
-            or self.execution_authority
-            or self.promotion_authority
+            self.candidate_only is not True
+            or self.requires_sealed_case is not True
+            or self.operational_reuse_eligible is not False
+            or self.execution_authority is not False
+            or self.promotion_authority is not False
         ):
             raise ValueError(
                 "change learning candidate MUST remain candidate-only and authority-free"

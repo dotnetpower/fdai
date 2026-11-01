@@ -27,6 +27,17 @@ class ReadToolSpec:
     query_template_owner: str = "server"
 
     def __post_init__(self) -> None:
+        if not self.operation_class.strip():
+            raise ValueError("investigation tool operation_class MUST be non-empty")
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or self.timeout_seconds <= 0
+            or isinstance(self.max_results, bool)
+            or self.max_results < 1
+            or isinstance(self.max_output_bytes, bool)
+            or self.max_output_bytes < 1
+        ):
+            raise ValueError("investigation tool limits MUST be positive")
         if self.required_role != "Reader":
             raise ValueError("investigation tools require Reader RBAC")
         if self.side_effect_class != "read":

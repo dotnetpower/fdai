@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -57,15 +58,26 @@ class StartupProbeBudget:
     model_sample_count: int = 2
 
     def __post_init__(self) -> None:
-        if self.max_concurrency < 1:
+        if isinstance(self.max_concurrency, bool) or self.max_concurrency < 1:
             raise ValueError("startup max_concurrency MUST be >= 1")
-        if self.per_probe_timeout_seconds <= 0 or self.phase_timeout_seconds <= 0:
+        if (
+            isinstance(self.per_probe_timeout_seconds, bool)
+            or isinstance(self.phase_timeout_seconds, bool)
+            or not math.isfinite(self.per_probe_timeout_seconds)
+            or not math.isfinite(self.phase_timeout_seconds)
+            or self.per_probe_timeout_seconds <= 0
+            or self.phase_timeout_seconds <= 0
+        ):
             raise ValueError("startup probe deadlines MUST be > 0")
-        if self.retries < 0:
+        if isinstance(self.retries, bool) or self.retries < 0:
             raise ValueError("startup probe retries MUST be >= 0")
-        if self.total_cost_limit_usd < 0:
+        if (
+            isinstance(self.total_cost_limit_usd, bool)
+            or not math.isfinite(self.total_cost_limit_usd)
+            or self.total_cost_limit_usd < 0
+        ):
             raise ValueError("startup cost limit MUST be >= 0")
-        if self.model_sample_count < 2:
+        if isinstance(self.model_sample_count, bool) or self.model_sample_count < 2:
             raise ValueError("startup model probes require at least two samples")
 
     @property

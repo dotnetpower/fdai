@@ -76,12 +76,25 @@ class KubernetesClusterBinding:
             actual_digest = "sha256:" + hashlib.sha256(self.ca_pem.encode("ascii")).hexdigest()
             if self.ca_digest != actual_digest:
                 raise ValueError("Kubernetes binding ca_digest MUST match ca_pem")
+        if self.ca_path is not None and (
+            not str(self.ca_path).strip() or "\x00" in str(self.ca_path)
+        ):
+            raise ValueError("Kubernetes binding ca_path MUST be a non-empty valid path")
+        if self.token_path is not None and (
+            not str(self.token_path).strip() or "\x00" in str(self.token_path)
+        ):
+            raise ValueError("Kubernetes binding token_path MUST be a non-empty valid path")
         if self.auth_mode not in {"service-account", "workload-identity"}:
             raise ValueError("Kubernetes binding auth_mode is invalid")
         if self.auth_mode == "service-account":
             if self.token_path is None or self.audience is not None:
                 raise ValueError("service-account binding requires only token_path")
-        elif self.audience is None or not self.audience.strip() or self.token_path is not None:
+        elif (
+            self.audience is None
+            or not self.audience.strip()
+            or len(self.audience) > 512
+            or self.token_path is not None
+        ):
             raise ValueError("workload-identity binding requires only audience")
 
     @property

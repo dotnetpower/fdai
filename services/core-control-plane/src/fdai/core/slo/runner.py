@@ -59,6 +59,11 @@ class SloBurnRunReport:
     """``(slo_id, short_error)`` pairs for each SLO whose evaluation raised;
     the pass isolates the failure and continues to the next SLO."""
 
+    def __post_init__(self) -> None:
+        counts = (self.evaluated, self.breached, self.published, self.insufficient)
+        if any(isinstance(c, bool) or not isinstance(c, int) or c < 0 for c in counts):
+            raise ValueError("SloBurnRunReport counts MUST be non-negative integers")
+
 
 def _default_clock() -> datetime:
     return datetime.now(tz=UTC)
@@ -79,16 +84,20 @@ class SloBurnRunner:
         mode: Mode = Mode.SHADOW,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
+        if not topic.strip():
+            raise ValueError("SloBurnRunner.topic MUST be non-empty")
         self._registry = registry
         self._source = source
         self._event_bus = event_bus
-        self._topic = topic
+        self._topic = topic.strip()
         self._mode = mode
         self._clock = clock or _default_clock
 
     async def run_once(self, *, now: datetime | None = None) -> SloBurnRunReport:
         """Execute one burn-rate evaluation + publish cycle over all SLOs."""
         at = now if now is not None else self._clock()
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("SloBurnRunner evaluation time MUST be timezone-aware")
         evaluated = 0
         breached = 0
         published = 0

@@ -22,6 +22,7 @@ the safety-invariant contract in
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 
@@ -38,15 +39,19 @@ class BurnRate:
     objective_ratio: float
 
     def __post_init__(self) -> None:
-        if self.window_minutes < 1:
+        if isinstance(self.window_minutes, bool) or self.window_minutes < 1:
             raise ValueError("window_minutes MUST be >= 1")
-        if self.good_events < 0:
+        if isinstance(self.good_events, bool) or self.good_events < 0:
             raise ValueError("good_events MUST be >= 0")
-        if self.total_events < 0:
+        if isinstance(self.total_events, bool) or self.total_events < 0:
             raise ValueError("total_events MUST be >= 0")
         if self.good_events > self.total_events:
             raise ValueError("good_events MUST be <= total_events")
-        if not 0.0 <= self.objective_ratio <= 1.0:
+        if (
+            isinstance(self.objective_ratio, bool)
+            or not math.isfinite(self.objective_ratio)
+            or not 0.0 <= self.objective_ratio <= 1.0
+        ):
             # A negative ratio would inflate ``allowed`` and silently
             # under-report the burn rate (fail-open on a breach); a ratio
             # above 1 is not a valid SLO objective. The ``rate`` property
@@ -82,6 +87,15 @@ class BurnRateAlert:
     alert: BurnRateAlertDef
     short: BurnRate
     long: BurnRate
+
+    def __post_init__(self) -> None:
+        if not self.slo_id.strip():
+            raise ValueError("BurnRateAlert.slo_id MUST be non-empty")
+        if (
+            self.short.window_minutes != self.alert.short_window_minutes
+            or self.long.window_minutes != self.alert.long_window_minutes
+        ):
+            raise ValueError("BurnRateAlert window observations MUST match BurnRateAlertDef")
 
 
 @dataclass(frozen=True, slots=True)

@@ -29,15 +29,17 @@ class RecoveryPlanRecord:
     last_idempotency_key: str
 
     def __post_init__(self) -> None:
-        if self.storage_revision < 0:
+        if isinstance(self.storage_revision, bool) or self.storage_revision < 0:
             raise ValueError("storage_revision MUST be >= 0")
         if self.last_transition_at.tzinfo is None or self.last_transition_at.utcoffset() is None:
             raise ValueError("last_transition_at MUST be timezone-aware")
-        if not self.last_idempotency_key:
+        if not self.last_idempotency_key.strip():
             raise ValueError("last_idempotency_key MUST be non-empty")
 
 
 def recovery_state_key(plan_id: str) -> str:
+    if not plan_id.strip():
+        raise ValueError("plan_id MUST be non-empty")
     return f"{_STATE_PREFIX}{plan_id}"
 
 

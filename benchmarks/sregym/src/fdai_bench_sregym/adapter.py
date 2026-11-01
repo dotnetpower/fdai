@@ -30,9 +30,10 @@ from fdai_evaluation_sdk import (
 _TERMINAL_STAGES: Final[frozenset[str]] = frozenset({"done", "tearing_down"})
 _TASK_STAGES: Final[frozenset[str]] = frozenset({"diagnosis", "mitigation", "resolution"})
 _PLAINTEXT_HOSTS: Final[frozenset[str]] = frozenset(
-    {"127.0.0.1", "localhost", "host.docker.internal"}
+    {"127.0.0.1", "::1", "localhost", "host.docker.internal"}
 )
 _DEFAULT_MAX_RESPONSE_BYTES: Final[int] = 1_000_000
+_MAX_RESPONSE_BYTES_CEILING: Final[int] = 1_073_741_824
 _CAPABILITIES: Final[tuple[Capability, ...]] = tuple(
     Capability(capability_id=capability_id, side_effect_class=SideEffectClass.OBSERVE)
     for capability_id in (
@@ -88,10 +89,19 @@ class SregymAdapterConfig:
             self.stage_timeout_seconds,
             self.request_timeout_seconds,
         )
-        if any(not math.isfinite(timeout) or timeout <= 0 for timeout in timeouts):
+        if any(
+            isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0
+            for timeout in timeouts
+        ):
             raise ValueError("SREGym adapter timeouts MUST be finite and positive")
-        if self.max_response_bytes < 1:
-            raise ValueError("max_response_bytes MUST be >= 1")
+        if self.poll_interval_seconds > self.stage_timeout_seconds:
+            raise ValueError("poll_interval_seconds MUST be <= stage_timeout_seconds")
+        if (
+            isinstance(self.max_response_bytes, bool)
+            or self.max_response_bytes < 1
+            or self.max_response_bytes > _MAX_RESPONSE_BYTES_CEILING
+        ):
+            raise ValueError("max_response_bytes MUST be >= 1 and <= 1073741824")
 
 
 class SregymAdapter:
@@ -111,13 +121,27 @@ class SregymAdapter:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._owns_http = http_client is None
         self._submitted_stage: str | None = None
+        self._completed_stages: set[str] = set()
         self._issued_identity: tuple[str, str, str] | None = None
         self._started = False
+        self._closed = False
+
+    @property
+    def is_closed(self) -> bool:
+        return self._closed
+
+    @property
+    def completed_stages(self) -> frozenset[str]:
+        return frozenset(self._completed_stages)
 
     async def start(self) -> EvaluationRequest:
+        if self._closed:
+            raise SregymAdapterError("SREGym adapter is closed")
+        if self._started:
+            raise SregymAdapterError("SREGym adapter is already started")
         await self._read_stage()
+        now = self._aware_now()
         self._started = True
-        now = self._clock()
         return EvaluationRequest(
             session_id=self._config.artifact_id,
             requester_id="sregym-driver",
@@ -135,6 +159,8 @@ class SregymAdapter:
         )
 
     async def next_task(self) -> EvaluationTask | None:
+        if self._closed:
+            raise SregymAdapterError("SREGym adapter is closed")
         if not self._started:
             raise SregymAdapterError("SREGym adapter MUST be started before reading tasks")
         if self._issued_identity is not None:
@@ -143,6 +169,7 @@ class SregymAdapter:
         if stage in _TERMINAL_STAGES:
             return None
         app = await self._get_json("/get_app")
+        now = self._aware_now()
         try:
             namespace = _required_text(app, "namespace", max_length=256)
             app_name = _required_text(app, "app_name", max_length=256)
@@ -154,7 +181,7 @@ class SregymAdapter:
                 objective=_objective(stage, app_name=app_name, descriptions=descriptions),
                 target=TargetRef(kind="kubernetes.namespace", value=namespace),
                 requested_capabilities=_CAPABILITIES,
-                deadline=self._clock() + timedelta(seconds=self._config.stage_timeout_seconds),
+                deadline=now + timedelta(seconds=self._config.stage_timeout_seconds),
                 resource_limits=ResourceLimits(
                     cpu_seconds=300,
                     memory_bytes=1_073_741_824,
@@ -173,11 +200,17 @@ class SregymAdapter:
         return task
 
     async def submit(self, submission: EvaluationResult) -> None:
+        if self._closed:
+            raise SregymAdapterError("SREGym adapter is closed")
         if self._issued_identity is None:
             raise SregymAdapterError("no SREGym task is awaiting submission")
         identity = (submission.session_id, submission.task_id, submission.phase)
         if identity != self._issued_identity:
             raise SregymAdapterError("submission does not match the issued SREGym task")
+        if not submission.summary.strip() or any(ord(char) < 32 for char in submission.summary):
+            raise SregymAdapterError(
+                "SREGym submission summary MUST be non-empty control-free text"
+            )
         try:
             async with self._http.stream(
                 "POST",
@@ -186,19 +219,34 @@ class SregymAdapter:
                 timeout=self._config.request_timeout_seconds,
             ) as response:
                 _raise_for_status(response, operation="submit")
-                await _read_bounded_body(
+                body = await _read_bounded_body(
                     response,
                     operation="submit",
                     max_bytes=self._config.max_response_bytes,
                 )
         except httpx.HTTPError as exc:
             raise SregymAdapterError(f"SREGym submit request failed: {exc}") from exc
+        if body.strip():
+            try:
+                payload = json.loads(body)
+            except ValueError as exc:
+                raise SregymAdapterError("SREGym response for '/submit' is not JSON") from exc
+            if not isinstance(payload, Mapping):
+                raise SregymAdapterError("SREGym response for '/submit' is not an object")
         self._submitted_stage = submission.phase
+        self._completed_stages.add(submission.phase)
         self._issued_identity = None
 
     async def close(self) -> None:
+        self._closed = True
         if self._owns_http:
             await self._http.aclose()
+
+    def _aware_now(self) -> datetime:
+        now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise SregymAdapterError("SREGym adapter clock MUST return a timezone-aware datetime")
+        return now
 
     async def _wait_for_next_stage(self) -> str:
         deadline = asyncio.get_running_loop().time() + self._config.stage_timeout_seconds
@@ -206,6 +254,8 @@ class SregymAdapter:
             stage = await self._read_stage()
             if stage in _TERMINAL_STAGES:
                 return stage
+            if stage in self._completed_stages and stage != self._submitted_stage:
+                raise SregymAdapterError(f"SREGym stage regressed to completed stage {stage!r}")
             if stage in _TASK_STAGES and stage != self._submitted_stage:
                 return stage
             if asyncio.get_running_loop().time() >= deadline:
@@ -283,6 +333,8 @@ def _raise_for_status(response: httpx.Response, *, operation: str) -> None:
 
 
 def _objective(stage: str, *, app_name: str, descriptions: str) -> str:
+    if stage not in _TASK_STAGES:
+        raise SregymAdapterError(f"unsupported SREGym task stage {stage!r}")
     if stage == "diagnosis":
         return (
             f"Diagnose the production issue affecting {app_name}. "

@@ -89,6 +89,10 @@ class AppliedToggle:
     set_vars: Mapping[str, str]
     scope: str
 
+    def __post_init__(self) -> None:
+        if not self.finding_id.strip() or not self.scope.strip():
+            raise ValueError("AppliedToggle finding_id and scope MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class ReassemblyOutcome:
@@ -149,7 +153,7 @@ async def reassemble(
     degrades to ``hil``).
     """
 
-    if max_iterations < 1:
+    if isinstance(max_iterations, bool) or max_iterations < 1:
         raise ValueError("max_iterations MUST be >= 1")
 
     report = initial_report

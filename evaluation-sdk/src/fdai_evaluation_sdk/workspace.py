@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from hashlib import sha256 as _sha256
 from typing import Protocol, runtime_checkable
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from fdai_evaluation_sdk._validation import Identifier, Sha256Digest
-from fdai_evaluation_sdk.contracts import ArtifactRef, ContractModel, ResourceLimits
+from fdai_evaluation_sdk.contracts import (
+    ArtifactRef,
+    ContractModel,
+    ResourceLimits,
+    _require_unique,
+)
 
 
 class WorkspaceCommandKind(StrEnum):
@@ -58,6 +64,14 @@ class WorkspaceFile(ContractModel):
     sha256: Sha256Digest
     content: bytes = Field(repr=False, max_length=1_073_741_824)
 
+    @model_validator(mode="after")
+    def _validate_content_integrity(self) -> WorkspaceFile:
+        if self.size_bytes != len(self.content):
+            raise ValueError("WorkspaceFile size_bytes MUST match content length")
+        if self.sha256 != _sha256(self.content).hexdigest():
+            raise ValueError("WorkspaceFile sha256 MUST match content digest")
+        return self
+
 
 class WorkspacePatchRequest(ContractModel):
     """Apply one declared patch artifact to a task-scoped workspace."""
@@ -83,6 +97,13 @@ class WorkspaceReceipt(ContractModel):
     output_artifacts: tuple[ArtifactRef, ...] = ()
     audit_ref: Identifier
     exit_code: int | None = Field(default=None, ge=0, le=255)
+
+    @model_validator(mode="after")
+    def _validate_output_artifacts(self) -> WorkspaceReceipt:
+        _require_unique(
+            self.output_artifacts, key=lambda item: item.artifact_id, label="output_artifacts"
+        )
+        return self
 
 
 @runtime_checkable

@@ -72,7 +72,7 @@ class DrScheduler:
         runner: DrExperimentRunner | None = None,
     ) -> None:
         cfg = config or DrSchedulerConfig()
-        if cfg.max_concurrent_experiments < 1:
+        if isinstance(cfg.max_concurrent_experiments, bool) or cfg.max_concurrent_experiments < 1:
             raise ValueError("max_concurrent_experiments MUST be >= 1")
         self._windows = tuple(windows)
         self._freezes = tuple(freezes)
