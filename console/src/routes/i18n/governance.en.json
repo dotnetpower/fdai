@@ -815,6 +815,13 @@
         "blockedReasons": "Blocked reasons",
         "remediationSection": "CSAF vendor_fix and workaround remediations",
         "noRemediations": "No structured remediation entries in this advisory.",
+        "safeguardSection": "Constitutional 7-safeguard remediation readiness (shadow)",
+        "stopCondition": "Stop condition",
+        "rollbackPlan": "Tested rollback plan",
+        "blastRadius": "Blast-radius & dry-run",
+        "targetLock": "Logical-target lock",
+        "idempotencyKey": "Idempotency key",
+        "effectVerification": "Independent effect verification",
         "pantheonSection": "15-agent Pantheon governance bindings"
       }
     }

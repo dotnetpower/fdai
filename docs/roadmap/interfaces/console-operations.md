@@ -24,7 +24,7 @@ recover, and audit the request through typed events.
 
 Framework control details keep server-owned enablement separate from assessed satisfaction and
 original source provenance. The shared bilingual guide renderer covers WAF, MCSB, and CAF alongside
-the existing WARA view, and the Controls catalog also exposes a read-only 50-row-paginated `MSRC CSAF` (`framework=msrc-csaf`, `GET /msrc-csaf-controls`) tab with year, threat, attack-surface, KEV SLA, and runtime exposure filtering plus formula-safe CSV/JSON export over all 9,058 pinned 2019-2026 MSRC CSAF 2.0 crosswalk records; missing guides or mismatched guide pins stay explicit. Inert Rule/ActionType
+the existing WARA view, and the Controls catalog also exposes a read-only 50-row-paginated `MSRC CSAF` (`framework=msrc-csaf`, `GET /msrc-csaf-controls`) tab with year, threat, attack-surface, KEV SLA, and runtime exposure filtering, constitutional 7-safeguard readiness inspection, and formula-safe CSV/JSON export over all 9,058 pinned 2019-2026 MSRC CSAF 2.0 crosswalk records; missing guides or mismatched guide pins stay explicit. Inert Rule/ActionType
 references link to existing Rule details and add no execution control. Reviewed profile overrides,
 the medium-or-higher default, and source-pin admission remain owned by
 [framework assessment](../rules-and-detection/framework-assessment.md#control-enablement-and-implementation-guidance),

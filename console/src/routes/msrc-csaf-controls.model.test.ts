@@ -5,7 +5,9 @@ import {
   PINNED_MSRC_CSAF_CATALOG,
   PINNED_MSRC_CSAF_RAW,
   buildMsrcCsafFacets,
+  buildSevenSafeguardPlan,
   decodeMsrcCsafCatalog,
+  evaluateCatalogZeroRiskAssurance,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
@@ -223,5 +225,20 @@ describe("msrc-csaf-controls model", () => {
     ) as { readonly execution_authority: boolean; readonly exported_count: number };
     expect(exportedJson.execution_authority).toBe(false);
     expect(exportedJson.exported_count).toBe(1);
+
+    // Z51-Z58: Verify 7-safeguard remediation plan and catalog zero-risk assurance evaluator
+    const plan = buildSevenSafeguardPlan(sampleRow, PINNED_MSRC_CSAF_CATALOG.source_revision);
+    expect(plan.execution_authority).toBe(false);
+    expect(plan.dry_run_required).toBe(true);
+    expect(plan.two_phase_audit_required).toBe(true);
+    expect(plan.distinct_approver_executor_required).toBe(true);
+    expect(plan.logical_target_lock).toContain(sampleRow.cve_id);
+
+    const zeroRisk = evaluateCatalogZeroRiskAssurance([
+      { ...sampleRow, exposure: "fixed" },
+    ]);
+    expect(zeroRisk.status).toBe("certified_zero_risk");
+    expect(zeroRisk.posture_score).toBe(100);
+    expect(zeroRisk.execution_authority).toBe(false);
   });
 });

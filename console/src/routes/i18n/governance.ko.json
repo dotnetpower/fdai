@@ -815,6 +815,13 @@
         "blockedReasons": "차단 사유",
         "remediationSection": "CSAF 패치(vendor_fix) 및 임시 완화(workaround) 조치",
         "noRemediations": "이 권고문에는 구조화된 완화 조치 항목이 없습니다.",
+        "safeguardSection": "헌법 7대 안전장치 기반 자율 조치 준비 상태 (shadow 전용)",
+        "stopCondition": "중단 조건 (Stop condition)",
+        "rollbackPlan": "검증된 롤백 계획 (Rollback)",
+        "blastRadius": "폭발 반경 상한 및 Dry-run",
+        "targetLock": "논리 대상 잠금 (Target lock)",
+        "idempotencyKey": "멱등성 키 (Idempotency key)",
+        "effectVerification": "독립 효과 검증 계약",
         "pantheonSection": "15인 에이전트 판테온 거버넌스 연결"
       }
     }

@@ -15,8 +15,10 @@ from fdai.core.security.csaf import (
     CsafVexJustification,
     CsafVulnerabilityFinding,
     MsrcCsafAssessmentRuntime,
+    SubscriptionZeroRiskCertificate,
     build_csaf_review_package,
     compute_csaf_risk_score,
+    evaluate_subscription_zero_risk_assurance,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
     to_security_control_observations,
@@ -46,9 +48,10 @@ class MsrcCsafAssessmentRunReceipt:
     review_package: dict[str, object]
     drift_payload: dict[str, object]
     operator_projection: dict[str, object]
-    # C21: Include extracted Norns rule candidates and SecurityControlObservation count
+    # C21 & Z49: Include Norns candidates, observation count, and zero-risk certificate
     rule_candidates: tuple[dict[str, object], ...] = ()
     security_observations_count: int = 0
+    zero_risk_certificate: SubscriptionZeroRiskCertificate | None = None
     execution_authority: bool = False
 
     def __post_init__(self) -> None:
@@ -76,6 +79,8 @@ def build_msrc_csaf_state_store_record(
 def build_msrc_csaf_operator_projection(
     catalog: MsrcCsafCrosswalkCatalog,
     result: CsafAssessmentResult | None = None,
+    *,
+    zero_risk_certificate: SubscriptionZeroRiskCertificate | None = None,
 ) -> dict[str, object]:
     """Build the no-authority Operator workflow projection for `/msrc-csaf-controls`."""
 
@@ -253,6 +258,9 @@ def build_msrc_csaf_operator_projection(
         "last_workload_id": result.workload_id if result is not None else None,
         "last_evaluated_at": result.evaluated_at.isoformat() if result is not None else None,
         "summary": summary,
+        "zero_risk_assurance": (
+            zero_risk_certificate.to_dict() if zero_risk_certificate is not None else None
+        ),
         "controls": controls,
     }
     revision = (
@@ -282,7 +290,16 @@ class MsrcCsafAssessmentRunner:
         assessment = self._runtime.assess(request)
         review_package = build_csaf_review_package(assessment)
         drift_payload = msrc_csaf_drift_payload(review_package)
-        projection = build_msrc_csaf_operator_projection(self._catalog, assessment)
+        certificate = evaluate_subscription_zero_risk_assurance(
+            self._catalog,
+            request,
+            assessment,
+        )
+        projection = build_msrc_csaf_operator_projection(
+            self._catalog,
+            assessment,
+            zero_risk_certificate=certificate,
+        )
         candidates = extract_csaf_rule_candidates(self._catalog, assessment)
         observations = to_security_control_observations(assessment)
         return MsrcCsafAssessmentRunReceipt(
@@ -292,6 +309,7 @@ class MsrcCsafAssessmentRunner:
             operator_projection=projection,
             rule_candidates=candidates,
             security_observations_count=len(observations),
+            zero_risk_certificate=certificate,
             execution_authority=False,
         )
 

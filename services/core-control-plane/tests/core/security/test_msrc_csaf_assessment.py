@@ -16,11 +16,13 @@ from fdai.core.security.csaf import (
     CsafVexJustification,
     MsrcCsafAssessmentRuntime,
     MsrcCsafReviewError,
+    ZeroRiskAssuranceStatus,
     build_csaf_review_package,
     compute_csaf_risk_score,
     compute_workload_posture_score,
     csaf_posture_summary,
     csaf_review_decision,
+    evaluate_subscription_zero_risk_assurance,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
     to_security_control_observations,
@@ -667,6 +669,57 @@ def test_c11_to_c20_models_runtime_and_review_signal_hardening() -> None:
     pkg_v = build_csaf_review_package(res_v)
     posture = csaf_posture_summary(pkg_v)
     assert posture["grants_authority"] is False
-    assert posture["exploited_affected_count"] >= 1
+    exploited_cnt = posture["exploited_affected_count"]
+    assert isinstance(exploited_cnt, int) and exploited_cnt >= 1
     assert cand_20001["kev_sla_tier"] == "immediate_24h"
     assert cand_20001["vex_justification"] == "affected_requires_remediation"
+
+    # Z01-Z48: Subscription Zero-Risk Assurance evaluation (at_risk vs certified_zero_risk)
+    cert_at_risk = evaluate_subscription_zero_risk_assurance(
+        runtime.catalog,
+        _request(runtime, (v_prefixed_res,)),
+        res_v,
+    )
+    assert cert_at_risk.status is ZeroRiskAssuranceStatus.AT_RISK
+    assert cert_at_risk.execution_authority is False
+    assert cert_at_risk.toxic_combination_count == 1
+    assert cert_at_risk.kev_sla_breach_count >= 1
+    assert cert_at_risk.change_freeze_recommended is True
+    assert cert_at_risk.remediation_plans
+    plan0 = cert_at_risk.remediation_plans[0]
+    assert plan0.execution_authority is False
+    assert plan0.dry_run_required is True
+    assert plan0.two_phase_audit_required is True
+    assert plan0.idempotency_key.startswith("sha256:")
+
+    # Verify a fully patched, private-network AKS resource achieves zero failed checks
+    hardened_aks = CsafScopedResource(
+        resource_id="aks-hardened-01",
+        provider_resource_type="Microsoft.ContainerService/managedClusters",
+        observed_at=_NOW - timedelta(minutes=5),
+        properties={
+            "kubernetes_version": "9999.0.0",
+            "public_network_access_enabled": False,
+            "minimum_tls_version": "1.3",
+            "managed_identity_enabled": True,
+            "disable_local_auth": True,
+            "workload_identity_enabled": True,
+            "azure_policy_addon_enabled": True,
+            "privileged_containers_allowed": False,
+            "host_network_allowed": False,
+        },
+        workload_tags=("env:prod", "owner:sre"),
+    )
+    req_hardened = _request(runtime, (hardened_aks,))
+    res_hardened = runtime.assess(req_hardened)
+    cert_hardened = evaluate_subscription_zero_risk_assurance(
+        runtime.catalog,
+        req_hardened,
+        res_hardened,
+    )
+    assert cert_hardened.status is ZeroRiskAssuranceStatus.CERTIFIED_ZERO_RISK
+    assert cert_hardened.posture_score == 100
+    assert cert_hardened.failed_checks == 0
+    assert cert_hardened.toxic_combination_count == 0
+    assert cert_hardened.kev_sla_breach_count == 0
+    assert cert_hardened.change_freeze_recommended is False
