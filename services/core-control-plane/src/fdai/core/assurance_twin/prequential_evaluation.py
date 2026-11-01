@@ -36,6 +36,8 @@ def evaluate_frozen_predictions(
     training_independence_keys: frozenset[str],
     source_kind: str,
 ) -> PrequentialEvaluation:
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
+        raise ValueError("prediction evaluation as_of MUST be timezone-aware")
     if source_kind not in {"synthetic", "simulation", "historical", "live_observation"}:
         raise ValueError("prediction evaluation source classification is invalid")
     latest = latest_feedback_revisions(outcomes, as_of=as_of)

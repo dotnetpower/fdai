@@ -87,14 +87,16 @@ class Predicate:
     value: Any = None
 
     def __post_init__(self) -> None:
-        if not self.field or not isinstance(self.field, str):
+        if not isinstance(self.field, str) or not self.field.strip():
             raise ValueError("Predicate.field MUST be a non-empty string")
         needs_value = self.op in (PredicateOp.EQ, PredicateOp.NE, PredicateOp.IN)
         if needs_value and self.value is None:
             raise ValueError(f"Predicate op {self.op.value!r} requires a value")
         if not needs_value and self.value is not None:
             raise ValueError(f"Predicate op {self.op.value!r} MUST NOT carry a value")
-        if self.op is PredicateOp.IN and not isinstance(self.value, (list, tuple)):
+        if self.op is PredicateOp.IN and (
+            not isinstance(self.value, (list, tuple)) or not self.value
+        ):
             raise ValueError("Predicate op 'in' requires a list/tuple value")
 
 

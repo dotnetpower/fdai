@@ -45,6 +45,20 @@ class OperatorMemoryProposal:
     reviewed_at: datetime | None = None
     materialized_entry_id: UUID | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.proposal_id.strip()
+            or not self.content_hash.strip()
+            or not self.scope_ref.strip()
+            or not self.body.strip()
+            or not self.proposed_by_agent.strip()
+            or self.created_at.tzinfo is None
+            or self.created_at.utcoffset() is None
+        ):
+            raise ValueError(
+                "OperatorMemoryProposal requires non-empty fields and aware created_at"
+            )
+
 
 class OperatorMemoryProposalStore(Protocol):
     async def create(self, proposal: OperatorMemoryProposal) -> OperatorMemoryProposal: ...

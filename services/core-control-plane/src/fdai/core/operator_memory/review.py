@@ -49,12 +49,16 @@ class OperatorMemoryReviewService:
         scope_kind: ScopeKind | None = None,
         scope_ref: str | None = None,
     ) -> tuple[OperatorMemoryReviewItem, ...]:
+        if isinstance(limit, bool) or limit < 1:
+            raise ValueError("operator memory review limit MUST be a positive integer")
         entries = await self._store.list_for_review(
             limit=limit,
             scope_kind=scope_kind,
             scope_ref=scope_ref,
         )
         now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("operator memory review clock MUST be timezone-aware")
         return tuple(_project(entry, now=now) for entry in entries)
 
 

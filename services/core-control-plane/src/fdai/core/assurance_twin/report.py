@@ -70,6 +70,10 @@ class PostureAssessmentReport:
     verdict: PostureVerdict
     findings: tuple[Finding, ...]
 
+    def __post_init__(self) -> None:
+        if not self.scope.strip() or not self.generated_at.strip():
+            raise ValueError("PostureAssessmentReport requires non-empty scope and generated_at")
+
     @property
     def resource_count(self) -> int:
         """Number of distinct resources touched by any finding."""

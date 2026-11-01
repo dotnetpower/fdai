@@ -100,12 +100,16 @@ class ChatSession:
         declared_purposes: frozenset[str],
         correlation_id: str,
     ) -> ChatSession:
+        if not session_id.strip() or not caller_id.strip() or not correlation_id.strip():
+            raise ValueError(
+                "ChatSession requires non-empty session_id, caller_id, and correlation_id"
+            )
         return cls(
-            session_id=session_id,
-            caller_id=caller_id,
+            session_id=session_id.strip(),
+            caller_id=caller_id.strip(),
             caller_role=caller_role,
             declared_purposes=declared_purposes,
-            correlation_id=correlation_id,
+            correlation_id=correlation_id.strip(),
             created_at=datetime.now(tz=UTC),
         )
 
@@ -169,13 +173,13 @@ def append_assistant_answer(
     ``text`` is empty (the assurance twin's abstain path returns an
     empty answer body; use :func:`append_assistant_abstain` instead).
     """
-    if not grounding:
+    if not grounding or any(not isinstance(path, str) or not path.strip() for path in grounding):
         raise GroundingRequiredError("assistant message MUST cite at least one ontology query path")
     message = ChatMessage(
         role=ChatRole.ASSISTANT,
         text=text,
         at=at or datetime.now(tz=UTC),
-        grounding=tuple(grounding),
+        grounding=tuple(path.strip() for path in grounding),
     )
     return session.with_message(message)
 
@@ -187,7 +191,7 @@ def append_assistant_abstain(
     at: datetime | None = None,
 ) -> ChatSession:
     """Convenience: append an abstain message with a human-legible reason."""
-    if not reason:
+    if not reason.strip():
         raise ValueError("abstain MUST carry a non-empty reason")
     message = ChatMessage(
         role=ChatRole.ASSISTANT,

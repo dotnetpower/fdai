@@ -33,6 +33,16 @@ class BackgroundTaskQuotaPolicy:
     max_tool_calls_per_task: int = 5
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool)
+            for value in (
+                self.max_active_tasks,
+                self.max_daily_cost_microusd,
+                self.max_wall_seconds_per_task,
+                self.max_tool_calls_per_task,
+            )
+        ):
+            raise ValueError("BackgroundTaskQuotaPolicy fields MUST NOT be booleans")
         if not 1 <= self.max_active_tasks <= 100:
             raise ValueError("max_active_tasks MUST be in [1, 100]")
         if not 0 <= self.max_daily_cost_microusd <= 100_000_000:
@@ -49,7 +59,11 @@ class BackgroundTaskQuotaUsage:
     daily_cost_microusd: int
 
     def __post_init__(self) -> None:
-        if min(self.active_tasks, self.daily_cost_microusd) < 0:
+        if (
+            isinstance(self.active_tasks, bool)
+            or isinstance(self.daily_cost_microusd, bool)
+            or min(self.active_tasks, self.daily_cost_microusd) < 0
+        ):
             raise ValueError("background task quota usage MUST be non-negative")
 
 
@@ -74,7 +88,7 @@ def background_task_quota_usage(
     *,
     now: datetime,
 ) -> BackgroundTaskQuotaUsage:
-    if now.tzinfo is None:
+    if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("quota time MUST be timezone-aware")
     day_start = now.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)

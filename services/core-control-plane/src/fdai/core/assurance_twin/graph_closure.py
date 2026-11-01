@@ -79,9 +79,12 @@ class MetricGraphTrajectoryOutcomeSource:
     ) -> None:
         if telemetry_grace < timedelta(0) or observation_window <= timedelta(0):
             raise ValueError("graph trajectory observation windows MUST be valid")
-        if not 1 <= max_episodes <= 1000:
+        if isinstance(max_episodes, bool) or not 1 <= max_episodes <= 1000:
             raise ValueError("graph trajectory max_episodes MUST be in [1, 1000]")
-        if not 0.0 < query_timeout_seconds <= _MAX_QUERY_TIMEOUT_SECONDS:
+        if (
+            isinstance(query_timeout_seconds, bool)
+            or not 0.0 < query_timeout_seconds <= _MAX_QUERY_TIMEOUT_SECONDS
+        ):
             raise ValueError("graph trajectory query timeout MUST be in (0, 10]")
         self._ledger = ledger
         self._metrics = metrics
@@ -93,7 +96,7 @@ class MetricGraphTrajectoryOutcomeSource:
 
     async def outcomes(self) -> AsyncIterator[TrajectoryClosureCommand]:
         now = self._clock()
-        if now.tzinfo is None:
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("graph trajectory observation clock MUST be timezone-aware")
         episodes = await self._ledger.list_open(limit=self._max_episodes)
         for episode in episodes:

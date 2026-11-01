@@ -71,7 +71,7 @@ class GraphIntervention:
         ):
             _text(value, "graph intervention")
         _aware(self.effective_at, "graph intervention effective_at")
-        if not math.isfinite(self.delta):
+        if isinstance(self.delta, bool) or not math.isfinite(self.delta):
             raise ValueError("graph intervention delta MUST be finite")
 
 

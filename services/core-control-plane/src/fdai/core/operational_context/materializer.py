@@ -69,6 +69,8 @@ class OperationalContextMaterializer:
             raise ValueError("max_clock_skew_seconds MUST be an integer")
         if max_clock_skew_seconds < 0:
             raise ValueError("max_clock_skew_seconds MUST be >= 0")
+        if not isinstance(require_decision_evidence, bool):
+            raise ValueError("require_decision_evidence MUST be a boolean")
         self._store = store
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._clock_identity = clock_identity
@@ -88,11 +90,11 @@ class OperationalContextMaterializer:
     ) -> OperationalContextSnapshot:
         if not target_resource_id.strip():
             raise ValueError("target_resource_id MUST be non-empty")
-        if cutoff.tzinfo is None:
+        if cutoff.tzinfo is None or cutoff.utcoffset() is None:
             raise ValueError("cutoff MUST be timezone-aware")
         cutoff = cutoff.astimezone(UTC)
         recorded_at = self._clock()
-        if recorded_at.tzinfo is None:
+        if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
             raise RuntimeError("operational context clock MUST be timezone-aware")
         recorded_at = recorded_at.astimezone(UTC)
         trusted_latest = recorded_at + timedelta(seconds=self._max_clock_skew_seconds)

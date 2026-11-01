@@ -24,9 +24,15 @@ class TrajectoryDatasetQuery:
     limit: int = 100
 
     def __post_init__(self) -> None:
-        if not self.purpose or not self.access_scope:
-            raise ValueError("trajectory dataset purpose and access_scope are required")
-        if not 1 <= self.limit <= 500:
+        if (
+            not self.principal_id.strip()
+            or not self.purpose.strip()
+            or not self.access_scope.strip()
+        ):
+            raise ValueError(
+                "trajectory dataset principal_id, purpose, and access_scope are required"
+            )
+        if isinstance(self.limit, bool) or not 1 <= self.limit <= 500:
             raise ValueError("trajectory dataset query limit MUST be in [1, 500]")
 
 

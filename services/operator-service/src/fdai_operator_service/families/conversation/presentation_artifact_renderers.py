@@ -31,10 +31,14 @@ def _compile_block(
     time_series_description: str | None = None,
     visualization: VisualizationKind = VisualizationKind.NONE,
 ) -> JsonObject | None:
-    if any(
-        isinstance(value, float) and not math.isfinite(value)
-        for record in shape.records
-        for value in record.values()
+    if (
+        not reason_code.strip()
+        or not locale.strip()
+        or any(
+            isinstance(value, float) and not math.isfinite(value)
+            for record in shape.records
+            for value in record.values()
+        )
     ):
         return None
     korean = locale.casefold().startswith("ko")

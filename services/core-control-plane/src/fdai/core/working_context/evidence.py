@@ -34,6 +34,16 @@ class ContextSelectionEvaluation:
     failure_reason: str | None
     created_at: datetime
 
+    def __post_init__(self) -> None:
+        if (
+            not self.evaluation_id.strip()
+            or self.created_at.tzinfo is None
+            or self.created_at.utcoffset() is None
+        ):
+            raise ValueError(
+                "ContextSelectionEvaluation requires non-empty evaluation_id and aware created_at"
+            )
+
 
 @runtime_checkable
 class ContextSelectionEvaluationStore(Protocol):
@@ -66,7 +76,7 @@ class InMemoryContextSelectionEvaluationStore:
             self._records[evaluation.evaluation_id] = evaluation
 
     async def list(self, *, limit: int) -> tuple[ContextSelectionEvaluation, ...]:
-        if limit < 1:
+        if isinstance(limit, bool) or limit < 1:
             raise ValueError("evaluation limit MUST be >= 1")
         async with self._lock:
             records = sorted(
@@ -77,7 +87,7 @@ class InMemoryContextSelectionEvaluationStore:
             return tuple(records[:limit])
 
     async def prune(self, *, retain_newest: int) -> int:
-        if retain_newest < 1:
+        if isinstance(retain_newest, bool) or retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
         async with self._lock:
             records = sorted(

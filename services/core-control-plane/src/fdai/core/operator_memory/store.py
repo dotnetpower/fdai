@@ -160,7 +160,7 @@ class InMemoryOperatorMemoryStore(OperatorMemoryStore):
         scope_kind: ScopeKind | None = None,
         scope_ref: str | None = None,
     ) -> tuple[OperatorMemoryEntry, ...]:
-        if not 1 <= limit <= 200:
+        if isinstance(limit, bool) or not 1 <= limit <= 200:
             raise ValueError("operator memory review limit MUST be in [1, 200]")
         entries = [
             node.entry
@@ -226,7 +226,9 @@ def _reject_policy_violations(entry: OperatorMemoryEntry) -> None:
             "self_approval",
             "author and approved_by MUST be distinct principals",
         )
-    if entry.ttl_seconds is not None and entry.ttl_seconds <= 0:
+    if entry.ttl_seconds is not None and (
+        isinstance(entry.ttl_seconds, bool) or entry.ttl_seconds <= 0
+    ):
         raise OperatorMemoryPolicyError(
             "invalid_ttl",
             f"ttl_seconds {entry.ttl_seconds!r} MUST be positive or None",

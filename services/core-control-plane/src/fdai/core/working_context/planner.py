@@ -39,6 +39,10 @@ class FoldPlan:
     level: int
     source_ids: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if isinstance(self.level, bool) or self.level < 1 or not self.source_ids:
+            raise ValueError("FoldPlan requires level >= 1 and non-empty source_ids")
+
 
 def _covered_source_ids(summaries: Sequence[TranscriptEntry], *, min_level: int) -> set[str]:
     covered: set[str] = set()
@@ -69,9 +73,9 @@ def plan_summarization(
     folded alone then re-folded) and the tier count is ``O(log L)``.
     """
 
-    if fold_factor < 2:
+    if isinstance(fold_factor, bool) or fold_factor < 2:
         raise ValueError("fold_factor MUST be >= 2")
-    if verbatim_budget < 0:
+    if isinstance(verbatim_budget, bool) or verbatim_budget < 0:
         raise ValueError("verbatim_budget MUST be >= 0")
 
     # 1. Keep window: fill the budget newest-first; the rest are candidates.

@@ -73,6 +73,19 @@ class PostTurnReviewQueueSnapshot:
     dropped: int = 0
     failed: int = 0
 
+    def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool) or value < 0
+            for value in (
+                self.enqueued,
+                self.published,
+                self.skipped,
+                self.dropped,
+                self.failed,
+            )
+        ):
+            raise ValueError("PostTurnReviewQueueSnapshot counts MUST be non-negative integers")
+
 
 class NonBlockingPostTurnReviewQueue:
     """Bounded worker queue that never waits on the semantic response path."""
@@ -85,8 +98,10 @@ class NonBlockingPostTurnReviewQueue:
         topic: str = POST_TURN_REVIEW_REQUEST_TOPIC,
         max_size: int = _MAX_QUEUE_SIZE,
     ) -> None:
-        if max_size < 1:
+        if isinstance(max_size, bool) or max_size < 1:
             raise ValueError("post-turn review queue size MUST be positive")
+        if not topic.strip():
+            raise ValueError("post-turn review queue topic MUST be non-empty")
         self._source = source
         self._publisher = publisher
         self._topic = topic

@@ -41,8 +41,10 @@ class ProposalReviewUnavailableError(ValueError):
     """The typed proposal cannot support a truthful review; never a clear verdict."""
 
     def __init__(self, reason_code: str) -> None:
+        if not reason_code.strip():
+            raise ValueError("ProposalReviewUnavailableError reason_code MUST be non-empty")
         super().__init__(f"Assurance Twin typed proposal review is unavailable: {reason_code}")
-        self.reason_code = reason_code
+        self.reason_code = reason_code.strip()
 
 
 @dataclass(frozen=True, slots=True)

@@ -73,12 +73,12 @@ def project_instance_candidates(
         or value.get("query_digest") != content_digest(arguments)
         or value.get("result_digest")
         != content_digest({key: item for key, item in value.items() if key != "result_digest"})
-        or not isinstance(candidates, list)
+        or not isinstance(candidates, (list, tuple))
         or type(count) is not int
         or not 0 <= count <= 20_000
         or len(candidates) != min(count, arguments["limit"])
         or value.get("truncated") is not (count > len(candidates))
-        or not isinstance(references, list)
+        or not isinstance(references, (list, tuple))
         or len(references) > 16
         or any(not isinstance(ref, str) or not ref.startswith("sha256:") for ref in references)
         or (candidates and not references)

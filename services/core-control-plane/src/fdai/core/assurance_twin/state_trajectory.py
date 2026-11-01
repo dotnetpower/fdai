@@ -60,8 +60,10 @@ class StateSlice:
         ):
             _bounded_text(name, value)
         _aware("effective_at", self.effective_at)
-        if not math.isfinite(self.value):
+        if isinstance(self.value, bool) or not math.isfinite(self.value):
             raise ValueError("state slice value MUST be finite")
+        if not isinstance(self.independent_observer, bool):
+            raise ValueError("state slice independent_observer MUST be a boolean")
         _bounded_refs("state slice evidence_refs", self.evidence_refs)
         if self.model_ref is not None:
             _bounded_text("model_ref", self.model_ref)

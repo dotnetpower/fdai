@@ -39,7 +39,8 @@ def authority_line(*, korean: bool) -> str:
 
 def completeness_text(complete: bool, *, korean: bool) -> str:
     """Name source completeness in the answer language."""
-
+    if not isinstance(complete, bool) or not isinstance(korean, bool):
+        raise ValueError("completeness_text requires boolean complete and korean flags")
     if korean:
         return "완전" if complete else "불완전"
     return "complete" if complete else "incomplete"
@@ -70,7 +71,7 @@ def condition_rows(output: Mapping[str, object]) -> tuple[Mapping[str, object], 
     """Return every row's values, or ``None`` when any row claims authority or is malformed."""
 
     rows = output.get("rows")
-    if not isinstance(rows, list):
+    if not isinstance(rows, (list, tuple)):
         return None
     projected: list[Mapping[str, object]] = []
     for row in rows:

@@ -65,15 +65,20 @@ class ContextPolicyEvidence:
     invariant_failures: int
 
     def __post_init__(self) -> None:
-        if not self.evidence_id:
+        if not self.evidence_id.strip():
             raise ValueError("evidence_id MUST be non-empty")
-        if self.window_start.tzinfo is None or self.window_end.tzinfo is None:
+        if (
+            self.window_start.tzinfo is None
+            or self.window_start.utcoffset() is None
+            or self.window_end.tzinfo is None
+            or self.window_end.utcoffset() is None
+        ):
             raise ValueError("evidence window timestamps MUST be timezone-aware")
         if self.window_end <= self.window_start:
             raise ValueError("evidence window_end MUST be after window_start")
-        if self.sample_count < 1:
+        if isinstance(self.sample_count, bool) or self.sample_count < 1:
             raise ValueError("evidence sample_count MUST be >= 1")
-        if self.invariant_failures < 0:
+        if isinstance(self.invariant_failures, bool) or self.invariant_failures < 0:
             raise ValueError("evidence invariant_failures MUST be >= 0")
 
 
@@ -96,6 +101,8 @@ class ContextPolicySnapshot:
     records: Mapping[ContextPolicyIdentity, ContextPolicyRecord]
 
     def __post_init__(self) -> None:
+        if isinstance(self.revision, bool) or self.revision < 0:
+            raise ValueError("ContextPolicySnapshot revision MUST be a non-negative integer")
         object.__setattr__(self, "records", MappingProxyType(dict(self.records)))
 
 

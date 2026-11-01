@@ -62,6 +62,8 @@ class TestContextCommandHandler:
             source_revision=request.policy_revision,
         )
         now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("test context command clock MUST be timezone-aware")
         if admission is None or not isinstance(admission, DecisionEvidenceAdmission):
             attempt.raise_if_rejected("test context command identity or scope admission failed")
             raise PermissionError("test context command identity or scope admission failed")

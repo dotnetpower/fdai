@@ -781,3 +781,194 @@ def test_campaign_5_g001_to_g105_incident_document_rule_opa_pantheon_invariants(
             actor_oid="   ",
             at=datetime(2026, 11, 1, tzinfo=UTC),
         )
+
+
+def test_campaign_6_h01_to_h54_trend_invariants() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.assurance_twin.chat import ChatSession
+    from fdai.core.assurance_twin.effect_model import (
+        CausalEvidenceGrade,
+        EffectModel,
+        EffectModelStatus,
+    )
+    from fdai.core.assurance_twin.fidelity import SimulationFidelityLedger
+    from fdai.core.assurance_twin.graph_effect import GraphIntervention
+    from fdai.core.assurance_twin.proposal_effects import ProposalReviewUnavailableError
+    from fdai.core.assurance_twin.query import AbstainCode, Predicate, PredicateOp
+    from fdai.core.assurance_twin.report import PostureAssessmentReport, PostureVerdict
+    from fdai.core.assurance_twin.semantic_query import AssuranceTwinQueryGap
+    from fdai.core.assurance_twin.state_trajectory import StateSlice
+    from fdai.core.background_task.models import BackgroundTaskBudget
+    from fdai.core.background_task.quota import BackgroundTaskQuotaPolicy, BackgroundTaskQuotaUsage
+    from fdai.core.operational_context.evidence_read import OperationalEvidenceReadService
+    from fdai.core.operational_context.operating_scope import ResourceScopeCoverage
+    from fdai.core.operational_evidence.issuance import VerifierIdentity
+    from fdai.core.operational_evidence.rejections import ReadbackRejection
+    from fdai.core.operator_memory.compaction import MemoryCompactionCandidate
+    from fdai.core.operator_memory.proposals import OperatorMemoryProposal
+    from fdai.core.operator_memory.types import MemoryCategory, ScopeKind
+    from fdai.core.trajectory.datasets import TrajectoryDatasetQuery
+    from fdai.core.trajectory.scanning import ScanFinding, ScanFindingKind
+    from fdai.core.trajectory.versioning import _parts
+    from fdai.core.working_context.governance import ContextPolicySnapshot
+    from fdai.core.working_context.planner import FoldPlan, plan_summarization
+    from fdai.shared.contracts.models import CeilingRole, Mode
+    from fdai_core_service.post_turn_procedure import bound_procedure_projection
+    from fdai_core_service.semantic_answer_presentation import completeness_text, condition_rows
+    from fdai_core_service.semantic_assurance_claims import SemanticAssuranceClaims
+    from fdai_core_service.semantic_target_suggestions import ResourceNameSuggestion
+    from fdai_service_contracts.operational_evidence import OperationalEvidenceRejectionClass
+
+    # H01-H12: Digital Twin & Graph Simulation Fidelity
+    with pytest.raises(ValueError, match="non-empty"):
+        ChatSession.new(
+            session_id="   ",
+            caller_id="c1",
+            caller_role=CeilingRole.READER,
+            declared_purposes=frozenset({"read"}),
+            correlation_id="corr1",
+        )
+    with pytest.raises(ValueError, match="AssuranceTwinQueryGap"):
+        AssuranceTwinQueryGap(
+            schema_version="1.0",
+            question_digest="   ",
+            compiler_revision="rev1",
+            code=next(iter(AbstainCode)),
+        )
+    with pytest.raises(ValueError, match="Predicate"):
+        Predicate(field="   ", op=PredicateOp.EQ, value="v")
+    with pytest.raises(ValueError, match="non-negative"):
+        EffectModel(
+            model_id="m1",
+            version="1.0.0",
+            revision=True,
+            action_type_id="act1",
+            metric="cpu",
+            status=EffectModelStatus.ACTIVE,
+            evidence_grade=CausalEvidenceGrade.INTERVENTIONAL,
+            causal_evidence_receipt_digest="a" * 64,
+            learned_at=datetime(2026, 11, 1, tzinfo=UTC),
+            learned_through=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+    with pytest.raises(ValueError, match="tolerance"):
+        SimulationFidelityLedger(tolerance=True)
+    with pytest.raises(ValueError, match="PostureAssessmentReport"):
+        PostureAssessmentReport(
+            scope="   ",
+            generated_at="2026-11-01T00:00:00Z",
+            mode=Mode.SHADOW,
+            verdict=PostureVerdict.CLEAR,
+            findings=(),
+        )
+    with pytest.raises(ValueError, match="finite"):
+        StateSlice(
+            object_ref="obj1",
+            object_type="Resource",
+            metric="cpu",
+            value=True,
+            effective_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+    with pytest.raises(ValueError, match="finite"):
+        GraphIntervention(
+            intervention_id="i1",
+            trigger_ref="t1",
+            source_ref="s1",
+            source_type="Resource",
+            metric="cpu",
+            delta=True,
+            effective_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+    with pytest.raises(ValueError, match="non-empty"):
+        ProposalReviewUnavailableError("   ")
+
+    # H13-H24: Zero-Trust Operational Evidence & Context Isolation
+    with pytest.raises(ValueError, match="out of bounds"):
+        OperationalEvidenceReadService(source=None, clock=lambda: _NOW, max_items=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="ResourceScopeCoverage"):
+        ResourceScopeCoverage(
+            resource_id="   ",
+            workload_ids=(),
+            service_ids=(),
+            service_ref="svc",
+        )
+    with pytest.raises(ValueError, match="VerifierIdentity"):
+        VerifierIdentity(verifier_id="   ", verifier_version="1.0")
+    with pytest.raises(ValueError, match="reason code"):
+        ReadbackRejection(
+            rejection_class=next(iter(OperationalEvidenceRejectionClass)),
+            reason_codes=("   ",),
+        )
+
+    # H25-H39: Trajectory Governance, Memory Compaction, Background Task & Working Context
+    with pytest.raises(ValueError, match="required"):
+        TrajectoryDatasetQuery(principal_id="   ", purpose="p", access_scope="s")
+    with pytest.raises(ValueError, match="ScanFinding"):
+        ScanFinding(kind=next(iter(ScanFindingKind)), code="   ")
+    with pytest.raises(ValueError, match="major.minor"):
+        _parts("-1.0")
+    with pytest.raises(ValueError, match="MemoryCompactionCandidate"):
+        MemoryCompactionCandidate(
+            candidate_id="   ",
+            scope_kind="user",
+            scope_ref="u1",
+            category="preference",
+            body="b",
+            source_entry_ids=(),
+            source_refs=(),
+            proposed_by_agent="Mimir",
+            created_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+    with pytest.raises(ValueError, match="OperatorMemoryProposal"):
+        OperatorMemoryProposal(
+            proposal_id="   ",
+            content_hash="h",
+            scope_kind=next(iter(ScopeKind)),
+            scope_ref="u1",
+            category=next(iter(MemoryCategory)),
+            body="b",
+            evidence_refs=(),
+            proposed_by_agent="Mimir",
+            created_at=datetime(2026, 11, 1, tzinfo=UTC),
+        )
+    with pytest.raises(ValueError, match="BackgroundTaskBudget"):
+        BackgroundTaskBudget(
+            max_wall_seconds=True,
+            max_tokens=100,
+            max_cost_microusd=100,
+            max_tool_calls=5,
+            max_progress_events=10,
+        )
+    with pytest.raises(ValueError, match="BackgroundTaskQuotaPolicy"):
+        BackgroundTaskQuotaPolicy(
+            max_active_tasks=True,
+            max_daily_cost_microusd=100,
+            max_wall_seconds_per_task=60,
+            max_tool_calls_per_task=5,
+        )
+    with pytest.raises(ValueError, match="non-negative"):
+        BackgroundTaskQuotaUsage(active_tasks=True, daily_cost_microusd=0)
+    with pytest.raises(ValueError, match="ContextPolicySnapshot"):
+        ContextPolicySnapshot(active=None, revision=True, records={})
+    with pytest.raises(ValueError, match="FoldPlan"):
+        FoldPlan(level=0, source_ids=("s1",))
+    with pytest.raises(ValueError, match="fold_factor"):
+        plan_summarization(
+            verbatim=(),
+            existing_summaries=(),
+            fold_factor=True,
+            verbatim_budget=1,
+        )
+
+    # H40-H54: Semantic Answer Presentation, Claims, Suggestions & Consumer Bounds
+    with pytest.raises(ValueError, match="boolean"):
+        completeness_text(1, korean=True)  # type: ignore[arg-type]
+    assert condition_rows(
+        {"rows": ({"values": {"name": "vm-1", "execution_authority": False}},)}
+    ) == ({"name": "vm-1", "execution_authority": False},)
+    claims = SemanticAssuranceClaims(fact_kinds=(" f1 ", "   "), limitation_kinds=(" l1 ",))
+    assert claims.fact_kinds == ("f1",) and claims.limitation_kinds == ("l1",)
+    with pytest.raises(ValueError, match="ResourceNameSuggestion"):
+        ResourceNameSuggestion(name="   ", resource_type="vm", similarity=0.8)
+    with pytest.raises(ValueError, match="positive integer"):
+        bound_procedure_projection({}, maximum_bytes=True)

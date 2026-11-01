@@ -37,6 +37,10 @@ class ScanFinding:
     kind: ScanFindingKind
     code: str
 
+    def __post_init__(self) -> None:
+        if not self.code.strip():
+            raise ValueError("ScanFinding code MUST be non-empty")
+
 
 def scan_envelope(envelope: TrajectoryEnvelope) -> tuple[ScanFinding, ...]:
     """Return findings without echoing the matched sensitive value."""

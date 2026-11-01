@@ -63,14 +63,15 @@ def project_ontology_relationships(
         limit = query_arguments.get("limit")
         if (
             not isinstance(value, dict)
-            or not isinstance(requested, list)
+            or not isinstance(requested, (list, tuple))
             or not 1 <= len(requested) <= 2
             or len(requested) != len(set(requested))
             or any(not isinstance(item, str) or not item for item in requested)
             or not isinstance(limit, int)
             or isinstance(limit, bool)
             or not 1 <= limit <= 100
-            or value.get("object_types") != requested
+            or not isinstance(value.get("object_types"), (list, tuple))
+            or list(value.get("object_types", ())) != list(requested)
             or value.get("authority") != "ontology_release"
             or value.get("ontology_release_digest") != plan.ontology_release_digest
             or value.get("execution_authority") is not False
@@ -78,7 +79,7 @@ def project_ontology_relationships(
         ):
             return True, None, None
         relationships = value.get("relationships")
-        if not isinstance(relationships, list) or len(relationships) > limit:
+        if not isinstance(relationships, (list, tuple)) or len(relationships) > limit:
             return True, None, None
         requested_set = set(requested)
         node_link_names: set[str] = set()

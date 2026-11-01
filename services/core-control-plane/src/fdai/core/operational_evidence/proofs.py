@@ -30,6 +30,8 @@ def build_receipt(
     producer_id: str,
     recorded_at: datetime,
 ) -> DecisionCriticalEvidenceReceipt:
+    if not producer_id.strip() or recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
+        raise ValueError("build_receipt requires non-empty producer_id and aware recorded_at")
     lookup = request.lookup
     cutoff = _aware(facts.evidence_cutoff)
     values: dict[str, object] = {
