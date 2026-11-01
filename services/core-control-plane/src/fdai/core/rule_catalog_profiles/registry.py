@@ -104,6 +104,10 @@ class ProfileRegistry:
         lenient mode) which allows unknown rule ids to pass through;
         this is intended only for authoring / preview tools.
         """
+        if not isinstance(strict, bool) or not profile_id.strip():
+            raise ProfileResolutionError(
+                "profile resolution requires non-empty id and boolean strict"
+            )
         if strict and known_rule_ids is None:
             raise ProfileResolutionError(
                 "resolve(strict=True) requires `known_rule_ids` - the caller "

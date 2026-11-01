@@ -69,6 +69,10 @@ class StewardSubject:
     responsibility: Responsibility
     duty: Duty | None = None
 
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise StewardshipValidationError("StewardSubject id MUST be non-empty")
+
     @property
     def is_accountable(self) -> bool:
         """Return ``True`` iff this subject is on the accountable tier."""

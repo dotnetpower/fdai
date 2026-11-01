@@ -13,7 +13,17 @@ from .lifecycle import IncidentTicketLink
 from .state_machine import IncidentTransition
 
 
+def _require_actor_and_time(actor_oid: str, at: datetime | None = None) -> str:
+    actor = actor_oid.strip()
+    if not actor:
+        raise ValueError("incident audit actor_oid MUST be non-empty")
+    if at is not None and (at.tzinfo is None or at.utcoffset() is None):
+        raise ValueError("incident audit timestamp MUST be timezone-aware")
+    return actor
+
+
 def open_audit_entry(*, incident: Incident, actor_oid: str) -> Mapping[str, object]:
+    actor = _require_actor_and_time(actor_oid, incident.opened_at)
     return {
         "kind": "incident.open",
         "idempotency_key": f"{incident.incident_id}::open",
@@ -21,7 +31,7 @@ def open_audit_entry(*, incident: Incident, actor_oid: str) -> Mapping[str, obje
         "incident_id": str(incident.incident_id),
         "severity": incident.severity.value,
         "state": IncidentState.OPEN.value,
-        "actor_oid": actor_oid,
+        "actor_oid": actor,
         "opened_at": incident.opened_at.isoformat(),
         "assignee_oid": incident.assignee_oid,
         "correlation_keys": list(incident.correlation_keys),
@@ -57,6 +67,7 @@ def members_audit_entry(
     actor_oid: str,
     at: datetime,
 ) -> Mapping[str, object]:
+    actor = _require_actor_and_time(actor_oid, at)
     canonical_members = "|".join(sorted(str(member) for member in added_member_event_ids))
     member_digest = hashlib.sha256(canonical_members.encode()).hexdigest()
     return {
@@ -66,7 +77,7 @@ def members_audit_entry(
         "incident_id": str(incident.incident_id),
         "severity": incident.severity.value,
         "state": incident.state.value,
-        "actor_oid": actor_oid,
+        "actor_oid": actor,
         "at": at.isoformat(),
         "member_event_ids": [str(member) for member in added_member_event_ids],
     }
@@ -79,6 +90,7 @@ def severity_audit_entry(
     actor_oid: str,
     at: datetime,
 ) -> Mapping[str, object]:
+    actor = _require_actor_and_time(actor_oid, at)
     return {
         "kind": "incident.severity",
         "idempotency_key": f"{incident.incident_id}::severity::{target_severity.value}",
@@ -87,7 +99,7 @@ def severity_audit_entry(
         "state": incident.state.value,
         "from_severity": incident.severity.value,
         "severity": target_severity.value,
-        "actor_oid": actor_oid,
+        "actor_oid": actor,
         "at": at.isoformat(),
     }
 
@@ -99,6 +111,7 @@ def assignment_audit_entry(
     actor_oid: str,
     at: datetime,
 ) -> Mapping[str, object]:
+    actor = _require_actor_and_time(actor_oid, at)
     target = assignee_oid or "unassigned"
     return {
         "kind": "incident.assigned",
@@ -109,7 +122,7 @@ def assignment_audit_entry(
         "state": incident.state.value,
         "from_assignee_oid": incident.assignee_oid,
         "assignee_oid": assignee_oid,
-        "actor_oid": actor_oid,
+        "actor_oid": actor,
         "at": at.isoformat(),
     }
 

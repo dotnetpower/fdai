@@ -302,6 +302,16 @@ class StateStoreIncidentIntakeExceptionRegistry:
     ) -> bool:
         """Append one replay-safe finding receipt without creating an Incident."""
         _require_aware(occurred_at, "occurred_at")
+        if (
+            not correlation_id.strip()
+            or not event_type.strip()
+            or not evidence_keys
+            or any(not key.strip() for key in evidence_keys)
+        ):
+            raise ValueError(
+                "incident suppression requires non-empty correlation_id, event_type, "
+                "and evidence_keys"
+            )
         evidence_digest = hashlib.sha256("\0".join(sorted(evidence_keys)).encode()).hexdigest()
         occurred_at_value = occurred_at.astimezone(UTC).isoformat()
         suppression_id = hashlib.sha256(
@@ -556,6 +566,8 @@ def _development_closure_reason(request: IncidentInterventionRequest) -> str:
 
 
 def _intervention_key(request_id: str) -> str:
+    if not request_id.strip():
+        raise ValueError("incident intervention request_id must be non-empty")
     return f"{_INTERVENTION_KEY_PREFIX}{hashlib.sha256(request_id.encode()).hexdigest()}"
 
 

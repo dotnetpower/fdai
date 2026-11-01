@@ -40,6 +40,8 @@ class RuleActivationManifestVerifier:
     ) -> RuleActivationManifest:
         """Verify all trust inputs and reserve the nonce exactly once."""
 
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("Rule activation manifest verification time MUST be timezone-aware")
         manifest = verify_rule_activation_manifest(
             envelope,
             trust=self.trust,

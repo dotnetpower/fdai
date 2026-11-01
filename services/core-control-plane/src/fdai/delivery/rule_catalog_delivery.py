@@ -40,6 +40,15 @@ class SourceDeliveryReceipt:
     mirrored_file_count: int
     review: CollectionReviewPublicationReceipt | None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.source_id.strip()
+            or not self.resolved_revision.strip()
+            or isinstance(self.mirrored_file_count, bool)
+            or self.mirrored_file_count < 0
+        ):
+            raise ValueError("SourceDeliveryReceipt fields are invalid")
+
 
 async def deliver_watcher_summary(
     summary: Mapping[str, Any],
@@ -60,7 +69,7 @@ async def deliver_watcher_summary(
     did before this module existed.
     """
     entries = summary.get("entries")
-    if not isinstance(entries, list):
+    if not isinstance(entries, (list, tuple)):
         raise ValueError("watcher summary MUST contain entries")
 
     receipts: list[SourceDeliveryReceipt] = []

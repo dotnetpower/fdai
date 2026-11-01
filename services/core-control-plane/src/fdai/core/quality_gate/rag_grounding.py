@@ -92,7 +92,7 @@ class HashedRuleEmbeddingIndex:
     _TOKEN_SPLIT_CHARS = " \t\n\r.,;:/_-()[]{}\"'"  # noqa: S105 - punctuation set
 
     def __init__(self, *, dim: int = 64) -> None:
-        if dim < 1:
+        if isinstance(dim, bool) or dim < 1:
             raise ValueError("dim MUST be >= 1")
         self._dim = dim
 

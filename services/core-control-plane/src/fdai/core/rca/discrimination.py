@@ -45,6 +45,13 @@ def build_hypothesis_discrimination_frame(
 ) -> HypothesisDiscriminationFrame:
     """Build one canonical immutable frame for discriminator selection."""
 
+    if (
+        not incident_id.strip()
+        or not graph_revision.strip()
+        or not active_hypothesis_ids
+        or any(not item.strip() for item in active_hypothesis_ids)
+    ):
+        raise ValueError("hypothesis discrimination frame requires non-empty identifiers")
     canonical_ids = tuple(sorted(active_hypothesis_ids))
     provisional = {
         "schema_version": DISCRIMINATION_SCHEMA_VERSION,
@@ -82,6 +89,8 @@ def build_discriminating_observation_candidate(
 ) -> DiscriminatingObservationCandidate:
     """Build a content-addressed candidate bound to one exact investigation frame."""
 
+    if not observation_ref.strip():
+        raise ValueError("discriminating observation candidate requires observation_ref")
     canonical_predictions = tuple(sorted(predictions, key=lambda item: item.hypothesis_id))
     provisional = {
         "schema_version": DISCRIMINATION_SCHEMA_VERSION,

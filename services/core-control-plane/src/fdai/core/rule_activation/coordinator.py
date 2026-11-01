@@ -76,6 +76,10 @@ class RuleActivationCoordinator:
     ) -> RuleActivationProposal:
         """Persist an inert direct request after independently validating its source record."""
 
+        if not source_ref.strip() or at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError(
+                "Rule activation request requires non-empty source_ref and aware timestamp"
+            )
         proposal = _direct_proposal(record, source_ref=source_ref)
         key = f"{self._REQUEST_PREFIX}{proposal.request_id}"
         body = {

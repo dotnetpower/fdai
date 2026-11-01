@@ -96,6 +96,8 @@ class KnowledgeEvidenceGatherer:
         normalized_query = query.strip() if isinstance(query, str) else ""
         if not normalized_query:
             return ()
+        if limit is not None and (isinstance(limit, bool) or limit < 1):
+            raise ValueError("limit MUST be a positive integer when provided")
 
         k = self._top_k if limit is None else max(1, min(limit, self._top_k))
         try:

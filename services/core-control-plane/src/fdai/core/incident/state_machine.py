@@ -66,6 +66,10 @@ class IncidentTransition:
     at: datetime
     reason: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.actor_oid.strip() or self.at.tzinfo is None or self.at.utcoffset() is None:
+            raise ValueError("IncidentTransition requires non-empty actor_oid and aware at")
+
     def idempotency_key(self) -> str:
         """Stable de-dupe key for the ``StateStore``.
 

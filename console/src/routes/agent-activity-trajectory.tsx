@@ -774,7 +774,7 @@ function DataBlock({
 }
 
 function renderFieldValue(value: string) {
-  if (value.includes(" \u00b7 ") && value.includes(": ")) {
+  if (value.indexOf(" \u00b7 ") >= 0 && value.indexOf(": ") >= 0) {
     const entries = value.split(" \u00b7 ").map((part) => part.trim()).filter(Boolean);
     if (entries.length > 1) {
       return (

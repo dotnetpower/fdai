@@ -75,6 +75,8 @@ class OpaRegoEvaluator:
         opa_binary: str = "opa",
         timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
+        if not opa_binary.strip():
+            raise ValueError("opa_binary MUST be non-empty")
         resolved = shutil.which(opa_binary)
         if resolved is None:
             raise MissingOpaBinaryError(
@@ -82,7 +84,7 @@ class OpaRegoEvaluator:
                 "install from https://www.openpolicyagent.org/docs/latest/#running-opa "
                 "or bind AbstainEvaluator at the composition root"
             )
-        if timeout_seconds <= 0:
+        if isinstance(timeout_seconds, bool) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
         if not policies_root.is_dir():
             raise ValueError(f"policies_root MUST be an existing directory; got {policies_root!r}")

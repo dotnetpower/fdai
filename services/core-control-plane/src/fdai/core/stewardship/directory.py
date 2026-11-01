@@ -54,14 +54,16 @@ class StaticIdentityDirectory:
     """
 
     def __init__(self, active_oids: Iterable[str] = (), *, assume_active: bool = True) -> None:
-        self._active = frozenset(active_oids)
+        if not isinstance(assume_active, bool):
+            raise ValueError("assume_active MUST be a boolean")
+        self._active = frozenset(oid.strip() for oid in active_oids if oid.strip())
         self._assume_active = assume_active
 
     async def is_active(self, oid: str) -> bool:
         if not self._active:
             # No directory data configured: do not manufacture stale findings.
             return self._assume_active
-        return oid in self._active
+        return oid.strip() in self._active
 
 
 class StaticGroupMembershipProvider:

@@ -44,11 +44,11 @@ class RuleGenerationOutboxPublisher:
         lease_duration: timedelta = timedelta(seconds=10),
         retry_delay: timedelta = timedelta(seconds=5),
     ) -> None:
-        if not claimant_id:
+        if not claimant_id.strip():
             raise ValueError("Rule generation publisher claimant id MUST be non-empty")
-        if not topic:
+        if not topic.strip():
             raise ValueError("Rule generation activation result topic MUST be non-empty")
-        if publish_timeout_seconds <= 0:
+        if isinstance(publish_timeout_seconds, bool) or publish_timeout_seconds <= 0:
             raise ValueError("Rule generation publish timeout MUST be positive")
         if lease_duration <= timedelta(0) or retry_delay < timedelta(0):
             raise ValueError("Rule generation outbox timing MUST be non-negative")

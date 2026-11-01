@@ -52,6 +52,10 @@ class ProfileRule:
     parameters: Mapping[str, object] = field(default_factory=dict)
     disabled: bool = False
 
+    def __post_init__(self) -> None:
+        if not self.id.strip() or not isinstance(self.disabled, bool):
+            raise ValueError("ProfileRule requires non-empty id and boolean disabled")
+
 
 @dataclass(frozen=True, slots=True)
 class Profile:

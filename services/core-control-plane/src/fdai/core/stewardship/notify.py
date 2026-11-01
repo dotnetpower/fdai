@@ -59,6 +59,15 @@ class StewardshipChangeEvent:
     correlation_id: str
     phase: StewardshipChangePhase = StewardshipChangePhase.REQUESTED
 
+    def __post_init__(self) -> None:
+        if (
+            not self.actor_oid.strip()
+            or not self.artifact.strip()
+            or not self.summary.strip()
+            or not self.correlation_id.strip()
+        ):
+            raise ValueError("StewardshipChangeEvent fields MUST be non-empty")
+
 
 def build_change_notification(
     mp: StewardshipMap, event: StewardshipChangeEvent

@@ -33,6 +33,10 @@ class Finding:
     message: str
     agent: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.code.strip() or not self.message.strip():
+            raise ValueError("stewardship finding code and message MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class CoverageReport:
@@ -42,6 +46,13 @@ class CoverageReport:
     total_agents: int
     autonomous_agents: int
     maintainer_count: int
+
+    def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool) or value < 0
+            for value in (self.total_agents, self.autonomous_agents, self.maintainer_count)
+        ):
+            raise ValueError("CoverageReport counts MUST be non-negative integers")
 
     @property
     def warnings(self) -> tuple[Finding, ...]:

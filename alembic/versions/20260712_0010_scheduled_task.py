@@ -49,9 +49,7 @@ def upgrade() -> None:
     """)
 
     # The scheduler scans enabled tasks every tick; index the flag.
-    op.execute(
-        "CREATE INDEX idx_scheduled_task_enabled ON scheduled_task(enabled) WHERE enabled;"
-    )
+    op.execute("CREATE INDEX idx_scheduled_task_enabled ON scheduled_task(enabled) WHERE enabled;")
 
 
 def downgrade() -> None:

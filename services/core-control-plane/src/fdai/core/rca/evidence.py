@@ -106,7 +106,10 @@ def _log_ref(record: LogRecord) -> str:
 
 def _span_ref(span: Span) -> str:
     """Citation ref for an error span - trace + span ids only."""
-    return f"trace:{span.trace_id.strip()}:{span.span_id.strip()}"
+    trace_id, span_id = span.trace_id.strip(), span.span_id.strip()
+    if not trace_id or not span_id:
+        raise ValueError("span trace_id and span_id MUST be non-empty")
+    return f"trace:{trace_id}:{span_id}"
 
 
 def _log_facts(record: LogRecord) -> tuple[str, ...]:

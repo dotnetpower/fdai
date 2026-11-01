@@ -49,7 +49,7 @@ class InMemoryIncidentProposalStore:
     """Bounded atomic proposal store for tests and single-process local use."""
 
     def __init__(self, *, capacity: int = 1_000) -> None:
-        if capacity < 1:
+        if isinstance(capacity, bool) or capacity < 1:
             raise ValueError("incident proposal store capacity MUST be >= 1")
         self._capacity = capacity
         self._entries: dict[tuple[str, str], IncidentCreationProposal] = {}
@@ -90,15 +90,15 @@ class InMemoryIncidentProposalStore:
 
 
 def _proposal_key(operator_id: str, session_id: str) -> tuple[str, str]:
-    if not operator_id:
+    if not operator_id.strip():
         raise ValueError("incident proposal operator_id MUST be non-empty")
-    if not session_id:
+    if not session_id.strip():
         raise ValueError("incident proposal session_id MUST be non-empty")
-    return operator_id, session_id
+    return operator_id.strip(), session_id.strip()
 
 
 def _require_aware(value: datetime, name: str) -> None:
-    if value.tzinfo is None:
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"incident proposal {name} MUST be timezone-aware")
 
 

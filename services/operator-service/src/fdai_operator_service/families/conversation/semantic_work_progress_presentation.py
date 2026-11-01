@@ -48,6 +48,8 @@ def work_progress_detail_fields(
     locale: str,
 ) -> JsonObject:
     """Return the optional trajectory fields in the shape the Console parses."""
+    if not isinstance(locale, str) or not locale.strip():
+        raise ValueError("work_progress_detail_fields locale MUST be a non-empty string")
     fields: dict[str, object] = {}
     shape = persisted_work_progress_shape(projection)
     if shape is not None:

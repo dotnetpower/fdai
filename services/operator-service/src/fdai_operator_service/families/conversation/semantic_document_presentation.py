@@ -21,7 +21,7 @@ def is_document_draft(projection: Mapping[str, object]) -> bool:
     assurance = semantic.get("assurance_observation")
     frame = assurance.get("frame") if isinstance(assurance, Mapping) else None
     subjects = frame.get("subject_types") if isinstance(frame, Mapping) else None
-    return subjects == ["Document"]
+    return isinstance(subjects, (list, tuple)) and tuple(subjects) == ("Document",)
 
 
 def is_inventory_document(projection: Mapping[str, object]) -> bool:
@@ -42,8 +42,8 @@ def is_inventory_document(projection: Mapping[str, object]) -> bool:
 
 def document_ready_answer(locale: str, *, included_rows: int, pdf_available: bool) -> str:
     """Render the verified document completion message."""
-    if isinstance(included_rows, bool) or included_rows < 0:
-        raise ValueError("included_rows MUST be a non-negative integer")
+    if isinstance(included_rows, bool) or included_rows < 0 or not isinstance(pdf_available, bool):
+        raise ValueError("included_rows MUST be a non-negative integer and pdf_available a boolean")
     formats = "Markdown 또는 PDF" if pdf_available else "Markdown"
     if locale.casefold().startswith("ko"):
         return (

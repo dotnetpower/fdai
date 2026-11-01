@@ -89,6 +89,8 @@ class Citation:
     facts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.ref, str):
+            raise ValueError("citation ref MUST be a string")
         if len(self.facts) > _MAX_CITATION_FACTS:
             raise ValueError("citation facts exceed the bounded count")
         canonical = tuple(sorted(set(self.facts)))
@@ -110,6 +112,15 @@ class RcaCausalHop:
     lead_seconds: float
     relationship: str
     confidence: float
+
+    def __post_init__(self) -> None:
+        if (
+            not self.cause_event_id.strip()
+            or not self.effect_event_id.strip()
+            or isinstance(self.lead_seconds, bool)
+            or isinstance(self.confidence, bool)
+        ):
+            raise ValueError("RcaCausalHop requires non-empty event ids and numeric metrics")
 
     def to_dict(self) -> dict[str, object]:
         """Return the audit-safe wire representation."""

@@ -84,6 +84,9 @@ def project_incident_metrics(
         if kind == "incident.ticket":
             tickets += 1
             continue
+        if kind == "incident.severity":
+            timeline.severity = IncidentSeverity(_required_string(entry, "severity"))
+            continue
         if kind != "incident.transition":
             raise ValueError(f"unsupported incident metric kind: {kind}")
         from_state = IncidentState(_required_string(entry, "from_state"))
