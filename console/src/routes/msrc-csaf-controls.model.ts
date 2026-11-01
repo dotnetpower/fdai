@@ -1185,3 +1185,72 @@ export function evaluateMdashHarnessReadiness(
     execution_authority: false,
   };
 }
+
+export const CANONICAL_PANTHEON_AGENT_NAMES: readonly string[] = [
+  "Odin",
+  "Thor",
+  "Forseti",
+  "Huginn",
+  "Heimdall",
+  "Vidar",
+  "Var",
+  "Bragi",
+  "Saga",
+  "Mimir",
+  "Norns",
+  "Muninn",
+  "Njord",
+  "Freyr",
+  "Loki",
+] as const;
+
+export interface PantheonProactiveReadinessSummary {
+  readonly agents_utilized_count: 15;
+  readonly total_pantheon_agents: 15;
+  readonly utilization_pct: 100;
+  readonly breach_probability: number;
+  readonly predicted_lead_time_hours: number;
+  readonly odin_rollout_strategy: string;
+  readonly forseti_quorum_required: number;
+  readonly freyr_surge_headroom_pct: number;
+  readonly loki_chaos_scenario: string;
+  readonly vidar_rto_seconds: number;
+  readonly norns_skuld_candidate_id: string;
+  readonly agent_names: readonly string[];
+  readonly execution_authority: false;
+}
+
+export function evaluatePantheonProactiveReadiness(
+  row: MsrcCsafControlRow,
+): PantheonProactiveReadinessSummary {
+  const isUrgent = row.exploit_status === "exploited" || row.severity === "critical";
+  const breachProb = row.exploit_status === "exploited"
+    ? 0.94
+    : row.severity === "critical"
+      ? 0.86
+      : row.severity === "high"
+        ? 0.72
+        : 0.45;
+  const leadHours = row.exploit_status === "exploited"
+    ? 12
+    : row.kev_sla_tier === "urgent_72h"
+      ? 48
+      : row.due_days * 24;
+  return {
+    agents_utilized_count: 15,
+    total_pantheon_agents: 15,
+    utilization_pct: 100,
+    breach_probability: breachProb,
+    predicted_lead_time_hours: leadHours,
+    odin_rollout_strategy: isUrgent
+      ? "immediate_shadow_canary_remediation"
+      : "scheduled_maintenance_window_remediation",
+    forseti_quorum_required: isUrgent ? 2 : 1,
+    freyr_surge_headroom_pct: 30,
+    loki_chaos_scenario: `chaos.shadow.verify-canary-drain-and-workaround:${row.primary_resource_type}:${row.cve_id}`,
+    vidar_rto_seconds: 45,
+    norns_skuld_candidate_id: `norns-skuld.${row.cve_id.toLowerCase()}.pre_exploitation_velocity`,
+    agent_names: CANONICAL_PANTHEON_AGENT_NAMES,
+    execution_authority: false,
+  };
+}

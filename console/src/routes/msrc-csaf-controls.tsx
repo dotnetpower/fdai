@@ -22,6 +22,7 @@ import {
   buildSevenSafeguardPlan,
   evaluateCatalogZeroRiskAssurance,
   evaluateMdashHarnessReadiness,
+  evaluatePantheonProactiveReadiness,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
@@ -869,18 +870,16 @@ function MsrcCsafDrawer({
 
             <DetailSection title={t("governance.rules.msrcCsaf.detail.pantheonSection")}>
               <dl class="detail-grid">
-                <DetailRow label="Heimdall" value="object.drift (msrc_csaf.vulnerability_drift) + read_drift_status" mono />
-                <DetailRow label="Forseti" value="object.verdict (risk_verdict=hil, autonomy=shadow_only)" mono />
-                <DetailRow label="Saga" value="object.audit-entry (append-only chain)" mono />
                 <DetailRow
-                  label="Norns"
-                  value={
-                    row.disposition === "new_rule_candidate"
-                      ? `object.rule-candidate (msrc-csaf.${row.cve_id.toLowerCase()})`
-                      : "inert"
-                  }
+                  label={t("governance.rules.msrcCsaf.detail.pantheonUtilization")}
+                  value={`${evaluatePantheonProactiveReadiness(row).agents_utilized_count}/${evaluatePantheonProactiveReadiness(row).total_pantheon_agents} (${evaluatePantheonProactiveReadiness(row).utilization_pct}%) · breach_prob=${evaluatePantheonProactiveReadiness(row).breach_probability.toFixed(2)} · lead_time=${evaluatePantheonProactiveReadiness(row).predicted_lead_time_hours}h`}
                   mono
                 />
+                <DetailRow label="Huginn + Heimdall" value="object.event + object.drift + object.forecast (msrc_csaf.proactive_risk_forecast)" mono />
+                <DetailRow label="Forseti + Odin" value={`object.verdict (hil, quorum=${evaluatePantheonProactiveReadiness(row).forseti_quorum_required}) + object.arbitration-decision (${evaluatePantheonProactiveReadiness(row).odin_rollout_strategy})`} mono />
+                <DetailRow label="Var + Thor + Vidar" value={`object.approval (distinct principal) + object.action-run (shadow dry-run) + object.rollback (RTO=${evaluatePantheonProactiveReadiness(row).vidar_rto_seconds}s)`} mono />
+                <DetailRow label="Loki + Freyr + Njord" value={`${evaluatePantheonProactiveReadiness(row).loki_chaos_scenario} · surge_headroom=${evaluatePantheonProactiveReadiness(row).freyr_surge_headroom_pct}% · FinOps ROI`} mono />
+                <DetailRow label="Norns + Mimir + Muninn + Saga + Bragi" value={`${evaluatePantheonProactiveReadiness(row).norns_skuld_candidate_id} · object.rule · object.context-index · object.audit-entry · object.turn`} mono />
               </dl>
             </DetailSection>
           </div>

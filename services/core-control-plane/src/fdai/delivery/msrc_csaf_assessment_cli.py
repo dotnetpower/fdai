@@ -15,14 +15,17 @@ from fdai.core.security.csaf import (
     CsafVexJustification,
     CsafVulnerabilityFinding,
     MsrcCsafAssessmentRuntime,
+    PantheonProactiveIntelligenceReport,
     SubscriptionZeroRiskCertificate,
     build_csaf_review_package,
     compute_csaf_risk_score,
+    evaluate_pantheon_proactive_intelligence,
     evaluate_subscription_zero_risk_assurance,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
     to_security_control_observations,
     verify_certificate_integrity,
+    verify_pantheon_proactive_report_integrity,
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.msrc_csaf import (
@@ -53,6 +56,7 @@ class MsrcCsafAssessmentRunReceipt:
     rule_candidates: tuple[dict[str, object], ...] = ()
     security_observations_count: int = 0
     zero_risk_certificate: SubscriptionZeroRiskCertificate | None = None
+    proactive_intelligence: PantheonProactiveIntelligenceReport | None = None
     execution_authority: bool = False
 
     def __post_init__(self) -> None:
@@ -66,6 +70,14 @@ class MsrcCsafAssessmentRunReceipt:
         ):
             raise ValueError(
                 "MsrcCsafAssessmentRunReceipt zero_risk_certificate failed integrity check"
+            )
+        # P082: Verify 15-agent proactive intelligence report integrity when present
+        if (
+            self.proactive_intelligence is not None
+            and not verify_pantheon_proactive_report_integrity(self.proactive_intelligence)
+        ):
+            raise ValueError(
+                "MsrcCsafAssessmentRunReceipt proactive_intelligence failed integrity check"
             )
 
 
@@ -319,6 +331,11 @@ class MsrcCsafAssessmentRunner:
             assessment,
             strict_orphan_tags=strict_orphan_tags,
         )
+        proactive_report = evaluate_pantheon_proactive_intelligence(
+            self._catalog,
+            request,
+            assessment,
+        )
         projection = build_msrc_csaf_operator_projection(
             self._catalog,
             assessment,
@@ -334,6 +351,7 @@ class MsrcCsafAssessmentRunner:
             rule_candidates=candidates,
             security_observations_count=len(observations),
             zero_risk_certificate=certificate,
+            proactive_intelligence=proactive_report,
             execution_authority=False,
         )
 

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: d6e13a717cf83f2406cb45776cc68386f6906d2d
+translation_source_sha: 8fe913a8cdaf8c0719a689d8e05a7c343733cc70
 translation_revised: 2026-11-01
 ---
 # 온톨로지 구조 모델
@@ -57,7 +57,7 @@ translation_revised: 2026-11-01
 메타데이터로 유지됩니다. 저장소 ID, 관측 커밋, README 다이제스트, 관측 시각 및 자격 증명
 참조는 Resource, ObjectType, LinkType 또는 권한 관계를 만들지 않습니다. 기록된 읽기 접근
 관측은 현재 공급자 상태나 색인된 근거가 아닙니다. 지식 읽기 권한과 독립적으로 승인된
-스캔 권한은 온톨로지 의미와 계속 분리됩니다. MSRC CSAF 제품 트리 교차표(`rule_catalog/schema/msrc_csaf.py`, `msrc_csaf_oasis_parser.py` 및 `scripts/catalog/import_msrc_csaf.py`, 다이제스트 검증 샤드 20개, 중복 제거 제품 윈도우 1,875개, 정규 ResourceType 41종, 구독 무위험 보장, 비평가 관점 강화 및 Codename MDASH 패리티 검증 `V01`-`V60`, `Z01`-`Z60`, `Q001`-`Q100`, `M001`-`M100`에 걸친 2019-2026년 공식 MSRC CSAF 권고 9,055건 및 기준선 테스트 레코드 3건 전체)도 권고문 제품 식별자를 기존 중립 ResourceType에 연결할 뿐 새 온톨로지 선언이나 실행 권한을 만들지 않습니다.
+스캔 권한은 온톨로지 의미와 계속 분리됩니다. MSRC CSAF 제품 트리 교차표(`rule_catalog/schema/msrc_csaf.py`, `msrc_csaf_oasis_parser.py` 및 `scripts/catalog/import_msrc_csaf.py`, 다이제스트 검증 샤드 20개, 중복 제거 제품 윈도우 1,875개, 정규 ResourceType 41종, 구독 무위험 보장, 비평가 관점 강화, Codename MDASH 패리티 및 15인 에이전트 사전 예측 검증 `V01`-`V60`, `Z01`-`Z60`, `Q001`-`Q100`, `M001`-`M100`, `P001`-`P100`에 걸친 2019-2026년 공식 MSRC CSAF 권고 9,055건 및 기준선 테스트 레코드 3건 전체)도 권고문 제품 식별자를 기존 중립 ResourceType에 연결할 뿐 새 온톨로지 선언이나 실행 권한을 만들지 않습니다.
 
 ## 설계 요약
 

@@ -603,6 +603,18 @@ def _msrc_csaf_catalog_payload(
                 detail="authoritative MSRC CSAF mdash_harness MUST NOT carry execution_authority",
             )
         response["mdash_harness"] = mdash
+    # P084-P085: Preserve validated 15-agent Pantheon proactive intelligence report when present
+    if isinstance(stored.get("pantheon_proactive_intelligence"), Mapping):
+        ppi = dict(cast(Mapping[str, object], stored["pantheon_proactive_intelligence"]))
+        if ppi.get("execution_authority") is not False:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "authoritative MSRC CSAF pantheon_proactive_intelligence "
+                    "MUST NOT carry execution_authority"
+                ),
+            )
+        response["pantheon_proactive_intelligence"] = ppi
     if isinstance(stored.get("last_workload_id"), str):
         response["last_workload_id"] = stored["last_workload_id"]
     if isinstance(stored.get("last_evaluated_at"), str):

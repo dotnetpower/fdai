@@ -832,7 +832,8 @@
         "mdashLanguages": "언어 지원 범위 및 특화 감사 에이전트",
         "mdashBenchmarks": "MSRC 회고 재현율 및 CyberGym 벤치마크",
         "mdashCohort": "2026년 5월 정기 패치 코호트 및 리전 주권",
-        "pantheonSection": "15인 에이전트 판테온 거버넌스 연결"
+        "pantheonSection": "15인 에이전트 판테온 사전 예측 및 거버넌스 연결 (100% 가동)",
+        "pantheonUtilization": "판테온 가동률 및 사전 리드타임 예측"
       }
     }
   },

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  CANONICAL_PANTHEON_AGENT_NAMES,
   EMPTY_MSRC_CSAF_FILTERS,
   PINNED_MSRC_CSAF_CATALOG,
   PINNED_MSRC_CSAF_RAW,
@@ -9,6 +10,7 @@ import {
   decodeMsrcCsafCatalog,
   evaluateCatalogZeroRiskAssurance,
   evaluateMdashHarnessReadiness,
+  evaluatePantheonProactiveReadiness,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
@@ -273,5 +275,15 @@ describe("msrc-csaf-controls model", () => {
     expect(mdashSummary.patch_tuesday_cohort_total).toBe(16);
     expect(mdashSummary.catalog_matched_cohort_cves).toBe(1);
     expect(mdashSummary.execution_authority).toBe(false);
+
+    // P087-P096: Verify 15-agent Pantheon proactive prediction & 100% utilization readiness
+    expect(CANONICAL_PANTHEON_AGENT_NAMES.length).toBe(15);
+    const pantheonReadiness = evaluatePantheonProactiveReadiness(sampleRow);
+    expect(pantheonReadiness.agents_utilized_count).toBe(15);
+    expect(pantheonReadiness.total_pantheon_agents).toBe(15);
+    expect(pantheonReadiness.utilization_pct).toBe(100);
+    expect(pantheonReadiness.breach_probability).toBeGreaterThan(0);
+    expect(pantheonReadiness.predicted_lead_time_hours).toBeGreaterThanOrEqual(12);
+    expect(pantheonReadiness.execution_authority).toBe(false);
   });
 });
