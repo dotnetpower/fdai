@@ -233,19 +233,9 @@ so one completed Core update cannot block a later exact repair or be mistaken fo
 | Product surface | `observation-first` plus selected add-ons | `observation-first` | Starts headless inventory, telemetry, learning, prediction, replay, drift, and advisory evidence. |
 | Optional add-ons | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance`, `policy-administration` (requires `read-only-console` and `enterprise-identity-governance`) | none | Selection never implies availability, enablement, authorization, or execution authority. |
 
-`postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
-`postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
-recovery, and upgrade evidence. The local Bootstrap wizard also exposes explicit `runtime_platform`
-(`aks` or `container-apps`) and `database_placement` (`postgres-flex` or `postgres-aks`) choices
-and enforces the same compatibility constraint before planning. Live preflight, resource-provider
-inspection, Bastion SSH multiplexing, source packaging, ACR image build/readback, and Terraform
-output readback parallelize independent read and transfer steps without relaxing any approval,
-digest, or effect-verification gate.
+`postgres-aks` is accepted only with `runtime_platform=aks`; production keeps `postgres-flex` until in-cluster zone-loss, backup, point-in-time recovery, and upgrade evidence exists. The local Bootstrap wizard exposes the same `runtime_platform`/`database_placement` choices and parallelizes read-only preflight, RP checks, Bastion SSH multiplexing, source packaging, ACR image build/readback, and Terraform output readback without relaxing approval, digest, or effect-verification gates.
 
-When a deployment binds bounded temporal series, every product surface gets the same causal
-evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor
-ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on,
-satisfy an approval, or raise autonomy.
+When a deployment binds bounded temporal series, every product surface gets the same causal evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on, satisfy an approval, or raise autonomy.
 
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
