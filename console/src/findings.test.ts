@@ -91,4 +91,24 @@ describe("authoritative Finding feed", () => {
     rememberFinding(fault, "one");
     expect(findingWasSeen(recovery, "one")).toBe(true);
   });
+
+  test("preserves optional runtime FindingState metadata when present", () => {
+    const enriched = decodeFindingPage(page([{
+      ...row(),
+      revision: 3,
+      observation_key: "scope-example:host_cpu",
+      observation_digest: `sha256:${"c".repeat(64)}`,
+      first_seen_at: "2026-08-31T23:50:00Z",
+      recorded_at: "2026-09-01T00:00:05Z",
+      current_state: "degraded",
+      recovery_closed: false,
+      assessed_by: "Heimdall",
+      publication: "published",
+    }])).items[0]!;
+    expect(enriched.revision).toBe(3);
+    expect(enriched.assessed_by).toBe("Heimdall");
+    expect(enriched.current_state).toBe("degraded");
+    expect(enriched.publication).toBe("published");
+    expect(enriched.recovery_closed).toBe(false);
+  });
 });

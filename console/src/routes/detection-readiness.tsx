@@ -241,9 +241,13 @@ export function DetectionReadinessRoute({
   readonly dataMode: ConsoleDataMode;
 }) {
   const [state, setState] = useState<AsyncState<DetectionReadinessView>>({ status: "loading" });
-  const [prioritizeFeeds, setPrioritizeFeeds] = useState(() => {
+  const [prioritizeFindings, setPrioritizeFindings] = useState(() => {
     if (typeof window === "undefined") return false;
-    return currentRoute().search.has("finding") || window.location.hash === "#console-inbox";
+    return currentRoute().search.has("finding") || window.location.hash === "#current-findings";
+  });
+  const [prioritizeInbox, setPrioritizeInbox] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.location.hash === "#console-inbox";
   });
   const chaosResults = useChaosResultSummary(
     client,
@@ -260,9 +264,10 @@ export function DetectionReadinessRoute({
   }, [client]);
   useEffect(() => {
     const syncFeedPriority = () => {
-      setPrioritizeFeeds(
-        currentRoute().search.has("finding") || window.location.hash === "#console-inbox",
+      setPrioritizeFindings(
+        currentRoute().search.has("finding") || window.location.hash === "#current-findings",
       );
+      setPrioritizeInbox(window.location.hash === "#console-inbox");
     };
     window.addEventListener("hashchange", syncFeedPriority);
     window.addEventListener("popstate", syncFeedPriority);
@@ -276,15 +281,16 @@ export function DetectionReadinessRoute({
     };
   }, []);
 
-  const showFeedsFirst = prioritizeFeeds || state.status !== "ready";
+  const showFindingsFirst = prioritizeFindings || state.status !== "ready";
+  const showInboxFirst = prioritizeInbox || state.status !== "ready";
   return (
     <div class="stack detection-readiness-route">
       <PageHeader title={t("title")} subtitle={t("subtitle")} />
-      {showFeedsFirst ? (
-        <>
-          <CurrentFindings client={client} enabled={dataMode === "live"} />
-          <ConsoleInbox client={client} enabled={dataMode === "live"} />
-        </>
+      {showFindingsFirst ? (
+        <CurrentFindings client={client} enabled={dataMode === "live"} />
+      ) : null}
+      {showInboxFirst ? (
+        <ConsoleInbox client={client} enabled={dataMode === "live"} />
       ) : null}
       <AsyncBoundary state={state} resourceLabel={t("resourceLabel")}>
         {(data) => (
@@ -294,11 +300,11 @@ export function DetectionReadinessRoute({
           />
         )}
       </AsyncBoundary>
-      {!showFeedsFirst ? (
-        <>
-          <CurrentFindings client={client} enabled={dataMode === "live"} />
-          <ConsoleInbox client={client} enabled={dataMode === "live"} />
-        </>
+      {!showFindingsFirst ? (
+        <CurrentFindings client={client} enabled={dataMode === "live"} />
+      ) : null}
+      {!showInboxFirst ? (
+        <ConsoleInbox client={client} enabled={dataMode === "live"} />
       ) : null}
     </div>
   );
