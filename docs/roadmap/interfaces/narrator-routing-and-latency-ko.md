@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 95edf124b2d27a9e3f7a919575506b9413b7d872
+translation_source_sha: dd93f97568e122f8dc177638c56c755f6e32d7f7
 translation_revised: 2026-11-01
 ---
 # 서술기 라우팅과 지연 시간
@@ -493,6 +493,11 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
   기준 커밋과 같았습니다. 공유 작업 트리의 무관한 `auth.py` 변경은 `idtyp`이 없는 기존 토큰을
   거부하며, 이번 작업은 그 소스를 수정하지 않았습니다. 격리 환경 결과는 미커밋 변경이 있는 전체
   작업 트리를 검증하지 않습니다. 이번 작업에서는 커밋하거나 푸시하지 않았습니다.
+- **동작 지식 내레이터 근거 연결:** `narrator_payloads.py`(`resolve_narrator_behavior_grounding`)와
+  `LocalAzureNarratorAdapters.open`(`local_narrator.py`)은 프롬프트가 10개 내장
+  `DEFAULT_SECURITY_BEHAVIOR_SPECS`와 일치할 때 검증된 인용과 `_verified_behavior_contract` 맥락을
+  첨부하며, Console `backend-context.ts`는 `execution_authority=false`인 `_console_security_posture`를
+  함께 전달합니다.
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |

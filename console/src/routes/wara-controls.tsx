@@ -272,6 +272,16 @@ function WaraControlsBody({
                         value: guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> "),
                         group: "selection",
                       },
+                      {
+                        key: "selected_implementation_steps_count",
+                        value: guidance.implementation_steps.length,
+                        group: "selection",
+                      },
+                      {
+                        key: "selected_verification_steps_count",
+                        value: guidance.verification_steps.length,
+                        group: "selection",
+                      },
                     ]
                   : []),
               ]

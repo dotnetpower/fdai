@@ -37,6 +37,17 @@ function viewContextWithUser(
     const hint = ROUTE_ACTION_HINTS[snapshot.routeId];
     if (hint) base._route_actions = hint;
   }
+  base._console_security_posture = {
+    summary:
+      "Read-only SPA with zero cloud/executor credentials, Entra ID + server-verified GET /iam/self RBAC, SHA-256 digest-verified guidance, no dangerouslySetInnerHTML/arbitrary SVG/JS, and 5-role ActionType + 7-safeguard mutation gating",
+    verification_routes: [
+      "/code-security",
+      "/rules?view=controls&framework=msrc-csaf",
+      "/rules?view=controls&framework=azure-mcsb",
+      "/settings-iam",
+    ],
+    execution_authority: false,
+  };
   base._locale = locale;
   return base;
 }
@@ -200,7 +211,7 @@ export function snapshotCitations(
   const citations: { readonly label: string; readonly value?: string }[] = [
     { label: "screen", value: `${snapshot.routeLabel} - ${snapshot.headline}` },
   ];
-  for (const fact of snapshot.facts.slice(0, 12)) {
+  for (const fact of snapshot.facts.slice(0, 20)) {
     citations.push({
       label: fact.key,
       value: fact.value === null ? "-" : String(fact.value),

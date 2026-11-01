@@ -63,7 +63,7 @@ def test_packaged_catalog_matches_current_reviewed_sources() -> None:
         for record in packaged.records:
             for source in record.sources:
                 assert _git("hash-object", source.path).stdout.strip() == source.blob_sha
-    assert len(rebuilt.records) == 14
+    assert len(rebuilt.records) == 18
 
 
 def test_protected_main_resolver_ignores_side_branch_head(tmp_path: Path) -> None:
@@ -89,12 +89,16 @@ def test_exact_alias_and_korean_paraphrase_return_grounded_records() -> None:
 
     exact = index.search(_request("How does FDAI keep actions safe?"))
     korean = index.search(_request("FDAI 시스템 지식 봇은 어떻게 동작하나요?", locale="ko"))
+    console_sec = index.search(_request("FDAI 콘솔웹이 보안상 문제가 없나?", locale="ko"))
 
     assert exact.matches[0].match_kind == "exact_alias"
     assert exact.matches[0].record.knowledge_id == "action-safety"
     assert korean.matches[0].record.knowledge_id == "system-knowledge-service"
+    assert console_sec.matches[0].match_kind == "exact_alias"
+    assert console_sec.matches[0].record.knowledge_id == "console-web-security"
     assert all(match.record.sources for match in korean.matches)
     assert exact.execution_authority is False
+    assert console_sec.execution_authority is False
 
 
 def test_unrelated_query_returns_complete_empty_result() -> None:

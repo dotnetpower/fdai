@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: d6e13a717cf83f2406cb45776cc68386f6906d2d
+translation_source_sha: aa5d7bbbffd9d3acbe2d884c769880c91ff07227
 translation_revised: 2026-11-01
 ---
 # 온톨로지 구조 모델
@@ -646,6 +646,9 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 
 방향, 엔드포인트, 카디널리티 또는 저장된 아이덴티티 수정에는 계속 LinkType 주 버전 또는 명시적
 그래프 이행이 필요합니다. 어떤 출시도 과거 컨텍스트 스냅샷을 다시 쓰지 않습니다.
+또한 의미 슬롯 및 유형 근거화(`semantic_slot_grounding.py`, `semantic_type_grounding.py`)는
+`object_labels`를 `concept_catalogs`로 전달하며, `rule-catalog/vocabulary/inventory-query-language.yaml`은
+온톨로지 신원이나 권한을 바꾸지 않고 한국어·영어 보안 문제 및 상태 점검 어휘를 포함합니다.
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |

@@ -288,6 +288,41 @@ export const TERMS = {
     tech: "owasp_llm_ref",
     seeAlso: "rules",
   },
+  zeroSecretSpa: {
+    term: "zero-secret SPA",
+    plain:
+      "the architectural guarantee that the FDAI Console browser bundle holds zero cloud credentials, database DSNs, or Thor executor keys",
+    tech: "zero_secret_spa",
+    seeAlso: "settings-iam",
+  },
+  sevenSafeguards: {
+    term: "7 constitutional safeguards",
+    plain:
+      "the mandatory execution preconditions: stop condition, tested rollback, blast-radius limit, dry-run success, logical-target lock, idempotency key, and two-phase audit",
+    tech: "seven_safeguards",
+    seeAlso: "promotion-gates",
+  },
+  entraRbac: {
+    term: "Entra ID RBAC projection",
+    plain:
+      "server-verified GET /iam/self mapping of Entra ID JWT claims onto Reader, Contributor, Approver, Owner, or BreakGlass roles",
+    tech: "iam_self_rbac",
+    seeAlso: "settings-iam",
+  },
+  governedDocumentRag: {
+    term: "governed document RAG",
+    plain:
+      "quarantine-scanned, ACL-scoped document retrieval (query.governed_documents) where every excerpt carries SHA-256 digests and instruction_authority=false",
+    tech: "query.governed_documents",
+    seeAlso: "documents",
+  },
+  cisaKev: {
+    term: "CISA KEV",
+    plain:
+      "the Known Exploited Vulnerabilities catalog integrated into MSRC CSAF 2.0 and Code Security Review to escalate actively exploited CVEs to P0 Immediate priority",
+    tech: "known_exploited",
+    seeAlso: "code-security",
+  },
 } as const satisfies Record<string, GlossaryTerm>;
 
 export const SECURITY_AND_RULES_GLOSSARY: readonly GlossaryTerm[] = [
@@ -303,6 +338,12 @@ export const SECURITY_AND_RULES_GLOSSARY: readonly GlossaryTerm[] = [
   TERMS.msrcCsaf,
   TERMS.cvePriorityTier,
   TERMS.owaspLlmTop10,
+  TERMS.zeroSecretSpa,
+  TERMS.sevenSafeguards,
+  TERMS.shadowMode,
+  TERMS.entraRbac,
+  TERMS.governedDocumentRag,
+  TERMS.cisaKev,
   TERMS.tier,
   TERMS.mode,
   TERMS.hil,

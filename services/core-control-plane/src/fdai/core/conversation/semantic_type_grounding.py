@@ -240,6 +240,8 @@ def type_selection_plan(
     values: tuple[str, ...],
     descriptors: Sequence[Mapping[str, Any]],
     max_shard_bytes: int,
+    *,
+    object_labels: Mapping[str, str] | None = None,
 ) -> ConceptSelectionPlan | None:
     """Plan one presentation of every subtype candidate shard for these mentions.
 
@@ -248,7 +250,7 @@ def type_selection_plan(
     and `with_grounded_types` binds only declared subtypes.
     """
 
-    catalogs = concept_catalogs(descriptors)
+    catalogs = concept_catalogs(descriptors, object_labels=object_labels)
     subtypes = catalogs.get(MentionDomain.RESOURCE_TYPE, ())
     if not subtypes:
         return None

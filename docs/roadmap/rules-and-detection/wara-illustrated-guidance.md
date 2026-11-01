@@ -221,8 +221,9 @@ derived MCSB v2-preview (`74` controls including `AI-1..AI-7` mapped to OWASP LL
 MITRE ATLAS) and MSRC CSAF 2.0 (`9,058` CVEs with `P0`-`P3` exploitability priority tiers and CVSS
 attack-surface summaries) guides, and active/collected Detection Rule (`52` active plus `8,517`
 collected) guides with Markdown brief copy (`formatGuidanceMarkdownBrief`), reverse MSRC CSAF CVE
-citations (`MsrcCsafRuleCitations`), and `SECURITY_AND_RULES_GLOSSARY` through the same
-no-authority `GuidancePresentation` contract and the 16 reviewed CC-BY-4.0 Microsoft Learn
+citations (`MsrcCsafRuleCitations`), `selected_implementation_steps_count` /
+`selected_verification_steps_count` snapshot fields, and `SECURITY_AND_RULES_GLOSSARY` through the
+same no-authority `GuidancePresentation` contract and the 16 reviewed CC-BY-4.0 Microsoft Learn
 reference images.
 
 ## Related docs

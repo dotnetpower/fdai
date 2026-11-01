@@ -305,6 +305,36 @@ async def test_resolver_rejects_control_chars_invalid_top_k_and_duplicate_seed_i
             "ko",
             "architecture.ai-security-guardrails",
         ),
+        (
+            "FDAI에서 권한이나 RBAC, Entra ID 인증은 보안상 문제가 없나?",
+            "ko",
+            "architecture.iam-rbac-and-token-boundary",
+        ),
+        (
+            "How does FDAI enforce Entra ID authentication and RBAC token security?",
+            "en",
+            "architecture.iam-rbac-and-token-boundary",
+        ),
+        (
+            "FDAI 자율 실행기나 액션이 임의로 리소스를 변경할 위험은 없나?",
+            "ko",
+            "architecture.seven-safeguard-execution-boundary",
+        ),
+        (
+            "FDAI에 업로드한 문서나 RAG 근거가 보안 문제를 일으키지 않나?",
+            "ko",
+            "architecture.governed-document-rag-boundary",
+        ),
+        (
+            "FDAI 탐지 규칙과 WARA·WAF·CAF·MCSB·CSAF 매핑은 어떻게 검증되나?",
+            "ko",
+            "architecture.rule-catalog-and-crosswalk-verification",
+        ),
+        (
+            "FDAI 콘솔웹과 백엔드 간 통신이나 SSE 스트리밍, 웹훅에 보안상 문제는 없나?",
+            "ko",
+            "architecture.operator-transport-and-webhook-security",
+        ),
     ],
 )
 async def test_default_security_behavior_specs_resolve_console_and_rules_security_questions(

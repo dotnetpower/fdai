@@ -51,17 +51,19 @@ _SUBJECT_TOKENS: Final[frozenset[str]] = frozenset(
     "incident id odin forseti saga issue fingerprint deduplication trust routing tier t0 t1 t2 "
     "quality gate risk var promotion shadow executor event ingest vidar rollback console identity "
     "thor bragi narrator web spa browser ui security vulnerability cve csaf waf caf mcsb wara "
-    "rule policy rego secret token credential rbac entra xss code prompt ai llm "
+    "rule policy rego secret token credential rbac entra xss code prompt ai llm iam jwt document "
+    "rag upload webhook sse ssrf safeguard lock blast dryrun crosswalk "
     "인시던트 오딘 포르세티 사가 이슈 중복 신뢰 라우팅 품질 게이트 승인 프로모션 실행기 롤백 콘솔 브라기 "
-    "웹 브라우저 화면 보안 취약점 규칙 정책 프레임워크 비밀 토큰 자격 권한 계정 코드 프롬프트".split()
+    "웹 브라우저 화면 보안 취약점 규칙 정책 프레임워크 비밀 토큰 자격 권한 계정 코드 프롬프트 인증 역할 "
+    "문서 업로드 웹훅 스트리밍 안전장치 교차매핑 자율 실행 액션".split()
 )
 _MECHANISM_TOKENS: Final[frozenset[str]] = frozenset(
     "how when why work behave created generated deduplicate arbitrate route verify fallback "
     "rollback separate compare difference vs safe secure security issue problem vulnerable "
     "vulnerability risk protect prevent guard isolate block check audit assess evaluate scan "
-    "review hold expose leak enforce mutate "
+    "review hold expose leak enforce mutate authenticate authorize quarantine sign "
     "어떻게 언제 왜 동작 작동 생성 병합 중재 라우팅 검증 롤백 분리 비교 차이 "
-    "보안 안전 문제 없나 있나 취약점 위험 보호 방어 격리 차단 권한 유출 노출 감사 평가 점검 스캔 확인 보유 실행".split()
+    "보안 안전 문제 없나 있나 취약점 위험 보호 방어 격리 차단 권한 유출 노출 감사 평가 점검 스캔 확인 보유 실행 인증 검역 서명".split()
 )
 _OPERATIONAL_READ_PATTERNS: Final[tuple[str, ...]] = (
     "how many incidents",
@@ -664,8 +666,100 @@ DEFAULT_SECURITY_BEHAVIOR_SPECS: Final[tuple[BehaviorSpecLike, ...]] = (
         ("비신뢰 자연어 입력, 업로드 문서, 외부 원격 분석 데이터가 AI·LLM 경로에 유입될 때 시작합니다.", "MCSB v2 AI-1..AI-7 통제와 OWASP LLM Top 10 (2025), MITRE ATLAS 보안 가드레일이 적용됩니다.", ("비신뢰 데이터를 시스템 지침과 분리하고 클라이언트가 주장하는 권한·인용 필드를 진입 시점에 제거합니다.", "모든 모델 제안을 엄격한 스키마, V-CLAIM 근거 대조, 다중 모델 QualityGate 교차 검증으로 확인합니다.", "상태를 변경하는 모든 ActionType은 Forseti 위험 분류, Var 인간 승인(HIL), Thor 격리 실행기를 거치도록 강제합니다."), "자연어 발화나 검색 문서는 실행 권한을 절대 부여하지 못하며(execution_authority=false), 미검증 주장이나 인젝션 시도는 거부됩니다.", "확률적인 프롬프트 지시문 단독으로는 권한 있는 작업의 보안 경계로 신뢰하지 않습니다.", "모호하거나 충돌하거나 정책을 위반하는 모델 출력은 즉시 기권(Abstain)·보류(Hold)하고 감사 원장에 기록합니다."),
         ("services/core-control-plane/src/fdai/core/quality_gate/gate.py", "QualityGate.evaluate", 1, 80, "f" * 40),
     ),
+    _sec_spec(
+        "architecture.iam-rbac-and-token-boundary", "IAM.EntraID.RBAC.SelfProjection.NoExecutorToken", "Operator Service / IAM Family",
+        ("FDAI에서 권한이나 RBAC, Entra ID 인증은 보안상 문제가 없나?", "How does FDAI enforce Entra ID authentication and RBAC token security?"),
+        ("An operator or API client authenticates to the Operator Service.", "Entra ID JWT signature, issuer, audience, and tenant claims are validated.", ("Map verified App Roles and group claims to canonical OperatorRole (Reader, Contributor, Approver, Owner, BreakGlass) via GET /iam/self.", "Strip client-supplied principal_id, owner_principal_id, and role claims at HTTP ingress.", "Keep human bearer tokens strictly separate from Thor's workload Managed Identity."), "Every route enforces server-verified RBAC with execution_authority=false on read and proposal surfaces.", "Browser tokens and stewardship assignments never grant direct cloud or executor credentials.", "Expired, wrong-audience, or unmapped tokens fail closed with 401/403 before reading request bodies."),
+        ("운영자 또는 API 클라이언트가 Operator Service에 인증을 요청할 때 시작합니다.", "Entra ID JWT 서명, 발급자(issuer), 대상(audience), 테넌트 클레임이 검증되어야 합니다.", ("검증된 앱 역할 및 그룹 클레임을 GET /iam/self를 통해 정규 역할(Reader, Contributor, Approver, Owner, BreakGlass)로 투영합니다.", "HTTP 진입점에서 클라이언트가 임의로 보낸 principal_id·권한 클레임을 즉시 제거합니다.", "사람의 인증 토큰과 Thor 실행기의 관리 ID(Managed Identity)를 철저히 분리합니다."), "모든 라우트는 서버가 검증한 RBAC를 강제하며 조회·제안 경로는 실행 권한(execution_authority=false)을 갖지 않습니다.", "브라우저 토큰이나 스튜어드십 배정은 클라우드 또는 실행기 자격 증명을 부여하지 않습니다.", "만료되었거나 대상(audience)이 불일치하거나 매핑되지 않은 토큰은 본문 처리 전에 401/403으로 차단합니다."),
+        ("services/operator-service/src/fdai_operator_service/auth.py", "OperatorAuthenticator", 1, 80, "1" * 40),
+    ),
+    _sec_spec(
+        "architecture.seven-safeguard-execution-boundary", "Execution.Thor.Vidar.SevenSafeguards.TwoPhaseAudit", "Huginn / Forseti / Var / Thor / Vidar / Saga",
+        ("FDAI 자율 실행기나 액션이 임의로 리소스를 변경할 위험은 없나?", "How do the 7 constitutional safeguards protect autonomous action execution?"),
+        ("A state-changing ActionType is proposed from detection or operator workflow.", "The ActionType is registered and evaluated through the 5-role Pantheon pipeline.", ("Require all 7 safeguards: stop condition, tested rollback, blast-radius limit, dry-run success, logical-target lock, stable idempotency key, and two-phase audit.", "Enforce distinct human approver (Var) and isolated workload executor (Thor) identities.", "Verify post-execution effects independently and trigger Vidar rollback on failure."), "No action executes without explicit human approval or valid standing authorization and all 7 safeguards.", "Broker acceptance or API 200 is never treated as operational effect verification.", "Any missing safeguard, lock conflict, or dry-run failure aborts execution and records an immutable Saga audit."),
+        ("탐지 결과 또는 운영자 워크플로에서 상태 변경 ActionType이 제안될 때 시작합니다.", "해당 ActionType이 레지스트리에 등록되어 있고 5대 역할(Huginn·Forseti·Var·Thor·Saga) 파이프라인을 통과해야 합니다.", ("중단 조건, 검증된 롤백, 폭발 반경 제한, 드라이런 성공, 논리 대상 잠금, 멱등성 키, 2단계 감사의 7대 헌법적 안전장치를 모두 강제합니다.", "사람 승인자(Var)와 격리된 실행기(Thor)의 신원을 엄격히 분리합니다.", "실행 후 효과를 독립적으로 검증하고 실패 시 Vidar가 자동 롤백을 수행합니다."), "명시적 승인 또는 유효한 사전 권한과 7대 안전장치가 모두 충족되기 전에는 어떠한 리소스 변경도 실행되지 않으며 제안 자체는 실행 권한이 없습니다(execution_authority=false).", "브로커 수락이나 API 200 응답만으로 운영 효과가 검증되었다고 간주하지 않습니다.", "안전장치 누락, 잠금 충돌, 드라이런 실패가 발생하면 즉시 실행을 중단하고 불변 Saga 감사 로그를 기록합니다."),
+        ("services/core-control-plane/src/fdai/core/executor/executor.py", "ShadowExecutor.execute", 1, 80, "2" * 40),
+    ),
+    _sec_spec(
+        "architecture.governed-document-rag-boundary", "Documents.Ingestion.Quarantine.ACL.NoInstructionAuthority", "Document Ingestion API / Muninn / Bragi",
+        ("FDAI에 업로드한 문서나 RAG 근거가 보안 문제를 일으키지 않나?", "How does FDAI secure uploaded documents and RAG retrieval against leaks or injection?"),
+        ("An operator uploads a document on /documents or queries governed documents in chat.", "Quarantine storage, malware/safety scanning, and principal ACL bindings are active.", ("Scan uploads in quarantine for malware, active HTML/SVG/scripts, and sensitive data before chunking.", "Enforce principal role and group ACL scope on query.governed_documents retrieval.", "Stamp every GovernedDocumentExcerpt with content-addressed SHA-256 digests and instruction_authority=false."), "Authorized excerpts provide cited reference context only and never override system policy or grant execution authority (execution_authority=false).", "Unscoped or unverified uploads never enter the searchable governed document index.", "Cross-principal ACL mismatches or stale document revisions fail closed without leaking excerpt content."),
+        ("운영자가 /documents에 문서를 업로드하거나 채팅에서 관리 문서를 조회할 때 시작합니다.", "격리(Quarantine) 저장소, 악성코드·안전성 검사, 주체별 ACL 바인딩이 활성화되어 있어야 합니다.", ("격리 단계에서 악성코드, 활성 HTML·SVG·스크립트, 민감 정보를 검사한 뒤에만 청킹·색인합니다.", "query.governed_documents 조회 시 호출 주체의 역할과 그룹 ACL 범위를 엄격히 필터링합니다.", "모든 발췌본(GovernedDocumentExcerpt)에 SHA-256 콘텐츠 다이제스트와 instruction_authority=false를 부여합니다."), "승인된 문서 발췌본은 출처가 명시된 참고 근거로만 사용되며 시스템 정책을 덮어쓰거나 실행 권한을 부여하지 않습니다(execution_authority=false).", "검역을 통과하지 못했거나 권한 범위가 없는 문서는 검색 인덱스에 노출되지 않습니다.", "권한 불일치나 리비전 불일치 시 발췌 내용을 유출하지 않고 안전하게 조회를 거부합니다."),
+        ("services/core-control-plane/src/fdai/core/ontology_platform/governed_document_queries.py", "GovernedDocumentExcerpt", 51, 95, "3" * 40),
+    ),
+    _sec_spec(
+        "architecture.rule-catalog-and-crosswalk-verification", "RuleCatalog.Crosswalk.WARA.WAF.CAF.MCSB.CSAF.SearchRules", "Mimir / Forseti / Operator Service",
+        ("FDAI 탐지 규칙과 WARA·WAF·CAF·MCSB·CSAF 매핑은 어떻게 검증되나?", "How does FDAI verify detection rules and framework crosswalk mappings?"),
+        ("Catalog snapshots or catalog.search_rules queries are evaluated across /rules.", "Exact ontology release digests and SHA-256 rule/framework catalog commitments are pinned.", ("Validate 52 active T0 Rego rules and 8,517 collected rules against canonical ResourceType and ActionType schemas.", "Cross-reference rules bidirectionally with Azure WARA, WAF, CAF, MCSB v1/v2, and MSRC CSAF 2.0 CVE advisories.", "Return candidate_only receipts with retrieval_receipt_digest and execution_authority=false."), "Operators and agents receive deterministic, citation-pinned rule and framework mappings without unverified inference.", "Collected reference rules never execute as active policy without explicit promotion and dual-principal activation.", "Digest mismatches or unpinned objective bindings degrade atomically to safe read-only fallbacks."),
+        ("/rules 화면이나 catalog.search_rules에서 탐지 규칙·프레임워크 매핑을 조회할 때 시작합니다.", "정확한 온톨로지 릴리스 다이제스트와 SHA-256 규칙·프레임워크 카탈로그 해시가 고정되어 있어야 합니다.", ("52개 활성 T0 Rego 규칙과 8,517개 수집 규칙을 정규 ResourceType·ActionType 스키마로 검증합니다.", "탐지 규칙을 Azure WARA, WAF, CAF, MCSB v1/v2, MSRC CSAF 2.0 CVE 권고문과 양방향으로 교차 매핑합니다.", "retrieval_receipt_digest와 execution_authority=false가 포함된 읽기 전용 영수증을 반환합니다."), "운영자와 에이전트는 추측 없이 다이제스트로 검증된 규칙·프레임워크 교차 매핑과 아키텍처 가이드를 참조합니다.", "수집(Collected) 참조 규칙은 별도 승격과 요청자·승인자 교차 서명 없이는 활성 정책으로 실행되지 않습니다.", "다이제스트 불일치나 미검증 목표 바인딩이 감지되면 즉시 안전한 읽기 전용 폴백으로 전환합니다."),
+        ("services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py", "catalog_search_rules_function_type", 47, 143, "4" * 40),
+    ),
+    _sec_spec(
+        "architecture.operator-transport-and-webhook-security", "Operator.Transport.SSE.WebhookHMAC.SSRF.UploadGuard", "Operator Service",
+        ("FDAI 콘솔웹과 백엔드 간 통신이나 SSE 스트리밍, 웹훅에 보안상 문제는 없나?", "How does the Operator Service secure SSE streaming, webhooks, and external evidence against attacks?"),
+        ("HTTP requests, SSE streams, webhooks, or image/web evidence reach the Operator Service.", "Strict payload byte caps, HMAC secrets, and SSRF/magic-byte validators are active.", ("Enforce bounded JSON/SSE frames (256 KiB cap), nosniff headers, and Unicode bidi/control-character sanitization.", "Verify HMAC signatures on incoming webhooks and reject loopback, link-local, or cloud IMDS URLs (169.254.169.254) against SSRF.", "Reject polyglot SVG/HTML/script magic bytes on image attachments before narrator resolution."), "Transport and webhook boundaries fail closed against XSS, SSRF, replay, and oversized payload attacks with execution_authority=false.", "Webhook or stream acceptance never bypasses Core semantic verification or action gates.", "Malformed frames, invalid HMACs, or private-network URLs are rejected immediately with audited error codes."),
+        ("HTTP 요청, SSE 스트림, 웹훅, 이미지·웹 근거가 Operator Service 경계에 도달할 때 시작합니다.", "엄격한 페이로드 크기 상한, HMAC 서명 검증기, SSRF·매직 바이트 차단기가 활성화되어 있습니다.", ("JSON·SSE 프레임 크기 상한(256 KiB), nosniff 헤더, 유니코드 양방향(bidi)·제어 문자 제거를 강제합니다.", "수신 웹훅의 HMAC 서명을 검증하고 루프백·사설망·클라우드 IMDS(169.254.169.254) URL을 차단해 SSRF를 방어합니다.", "첨부 이미지에서 폴리글랏 SVG·HTML·스크립트 매직 바이트를 사전 차단합니다."), "전송·웹훅 경계는 XSS, SSRF, 재전송, 대용량 페이로드 공격에 대해 안전하게 차단(Fail-closed)하며 실행 권한(execution_authority=false)을 부여하지 않습니다.", "웹훅이나 스트림 수락이 Core의 의미 검증이나 액션 승인 관문을 우회할 수 없습니다.", "비정상 프레임, 유효하지 않은 HMAC, 사설망 URL은 즉시 거부되고 감사 코드로 기록됩니다."),
+        ("services/operator-service/src/fdai_operator_service/families/conversation/transport.py", "read_json_body", 31, 80, "5" * 40),
+    ),
 )
 # fmt: on
+
+
+class _EmptyBehaviorIndex:
+    async def search(self, query: str, *, k: int = 5) -> Sequence[BehaviorSearchResultLike]:
+        del query, k
+        return ()
+
+
+def resolve_security_behavior_sync(
+    raw_text: str, *, locale: str = "en", top_k: int = 5
+) -> BehaviorResolutionResult:
+    """Synchronously resolve security and architecture behavior questions over built-in specs."""
+    resolver = OperatorBehaviorKnowledgeResolver(
+        _EmptyBehaviorIndex(), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS
+    )
+    loc: Literal["en", "ko"] = "ko" if locale.startswith("ko") else "en"
+    req = BehaviorTurnRequest(raw_text=raw_text, locale=loc, top_k=top_k)
+    _validate_query_text(req.raw_text)
+    effective_k = _validate_top_k(top_k)
+    fallback_reason = resolver._check_authority_fallback(req.raw_text)
+    if fallback_reason is not None:
+        return resolver._fallback_result(req.locale, fallback_reason, False, 0)
+    results = list(resolver._search_registered_seeds(req.raw_text, k=effective_k))
+    if not results or results[0].score < RETRIEVAL_FLOOR:
+        return resolver._fallback_result(
+            req.locale, "below_retrieval_floor", False, 0, len(results)
+        )
+    top = results[0]
+    citations = tuple(
+        BehaviorCitationRecord(
+            s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit
+        )
+        for s in top.spec.sources
+    )
+    sections, rendered = resolver._renderer.render_single(
+        top.spec, locale=req.locale, citations=citations
+    )
+    meta = resolver._verifier.verify(
+        sections=sections,
+        rendered_text=rendered,
+        citations=citations,
+        stale_sources=top.stale_sources,
+        client_evidence_stripped=False,
+        stripped_claim_count=0,
+    )
+    return BehaviorResolutionResult(
+        True,
+        False,
+        "rendered",
+        None,
+        req.locale,
+        (top.spec.behavior_id,),
+        sections,
+        rendered,
+        meta,
+        total_candidates=len(results),
+    )
 
 
 __all__ = [
@@ -684,4 +778,5 @@ __all__ = [
     "DeterministicBehaviorRenderer",
     "OperatorBehaviorKnowledgeResolver",
     "normalize_behavior_tokens",
+    "resolve_security_behavior_sync",
 ]
