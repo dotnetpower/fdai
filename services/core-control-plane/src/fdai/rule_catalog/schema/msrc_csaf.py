@@ -58,7 +58,24 @@ _MAX_VULNERABILITIES_PER_ADVISORY = 128
 _MAX_PRODUCTS_PER_ADVISORY = 256
 _MAX_REMEDIATIONS_PER_VULNERABILITY = 64
 _DOTTED_VERSION_RE = re.compile(r"^(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){1,7}$")
+_BIDI_CONTROL_CHARS = frozenset(
+    {"\u202a", "\u202b", "\u202c", "\u202d", "\u202e", "\u2066", "\u2067", "\u2068", "\u2069"}
+)
+_CVSS_REQUIRED_BASE_METRICS: dict[str, frozenset[str]] = {
+    "AV": frozenset({"N", "A", "L", "P"}),
+    "AC": frozenset({"L", "H"}),
+    "PR": frozenset({"N", "L", "H"}),
+    "UI": frozenset({"N", "R"}),
+    "S": frozenset({"U", "C"}),
+    "C": frozenset({"N", "L", "H"}),
+    "I": frozenset({"N", "L", "H"}),
+    "A": frozenset({"N", "L", "H"}),
+}
 StrictScalar = StrictStr | StrictBool | StrictInt
+
+
+def _has_forbidden_text_chars(text: str) -> bool:
+    return any(ord(ch) < 32 or ord(ch) == 127 or ch in _BIDI_CONTROL_CHARS for ch in text)
 
 
 class CsafSchemaError(ValueError):
@@ -66,11 +83,7 @@ class CsafSchemaError(ValueError):
 
 
 def _validate_https_url(
-    url: str,
-    *,
-    allowed_hosts: frozenset[str],
-    field_name: str,
-    allow_query: bool = False,
+    url: str, *, allowed_hosts: frozenset[str], field_name: str, allow_query: bool = False
 ) -> None:
     if any(ch.isspace() or ord(ch) < 32 for ch in url):
         raise ValueError(f"{field_name} MUST NOT contain whitespace or control characters")
@@ -103,7 +116,6 @@ def _reject_nonfinite_constant(token: str) -> Any:
 
 def parse_dotted_version(raw: str) -> tuple[int, ...]:
     """Parse a canonical numeric dotted version into an integer tuple or raise."""
-
     if not isinstance(raw, str) or _DOTTED_VERSION_RE.fullmatch(raw) is None:
         raise CsafSchemaError(f"version {raw!r} MUST be a canonical numeric dotted version")
     return tuple(int(part) for part in raw.split("."))
@@ -115,26 +127,20 @@ def _pad_version(version: tuple[int, ...], length: int) -> tuple[int, ...]:
 
 def compare_dotted_versions(left: str, right: str) -> int:
     """Compare two canonical dotted versions numerically (-1, 0, or 1)."""
-
-    left_tuple = parse_dotted_version(left)
-    right_tuple = parse_dotted_version(right)
+    left_tuple, right_tuple = parse_dotted_version(left), parse_dotted_version(right)
     width = max(len(left_tuple), len(right_tuple))
-    padded_left = _pad_version(left_tuple, width)
-    padded_right = _pad_version(right_tuple, width)
-    if padded_left < padded_right:
-        return -1
-    if padded_left > padded_right:
-        return 1
-    return 0
+    padded_left, padded_right = _pad_version(left_tuple, width), _pad_version(right_tuple, width)
+    return -1 if padded_left < padded_right else (1 if padded_left > padded_right else 0)
 
 
 def version_train_prefix(minimum_inclusive: str, ceiling_exclusive: str) -> tuple[int, ...]:
     """Return the shared leading version-train tuple between minimum and ceiling."""
-
-    min_tuple = parse_dotted_version(minimum_inclusive)
-    max_tuple = parse_dotted_version(ceiling_exclusive)
     shared: list[int] = []
-    for left, right in zip(min_tuple, max_tuple, strict=False):
+    for left, right in zip(
+        parse_dotted_version(minimum_inclusive),
+        parse_dotted_version(ceiling_exclusive),
+        strict=False,
+    ):
         if left != right:
             break
         shared.append(left)
@@ -142,13 +148,9 @@ def version_train_prefix(minimum_inclusive: str, ceiling_exclusive: str) -> tupl
 
 
 def is_version_in_affected_window(
-    observed_version: str,
-    *,
-    minimum_inclusive: str,
-    ceiling_exclusive: str,
+    observed_version: str, *, minimum_inclusive: str, ceiling_exclusive: str
 ) -> bool:
     """Return True when ``observed_version`` lies in ``[minimum_inclusive, ceiling_exclusive)``."""
-
     if compare_dotted_versions(minimum_inclusive, ceiling_exclusive) >= 0:
         raise CsafSchemaError(
             "affected version window requires minimum_inclusive < ceiling_exclusive"
@@ -161,16 +163,13 @@ def is_version_in_affected_window(
 
 def severity_for_cvss_score(score: float) -> Severity:
     """Map a CVSS v3 base score onto the canonical FDAI Severity band."""
-
     if not math.isfinite(score) or score < 0.0 or score > 10.0:
         raise CsafSchemaError("CVSS score MUST be a finite number in [0.0, 10.0]")
     if score >= 9.0:
         return Severity.CRITICAL
     if score >= 7.0:
         return Severity.HIGH
-    if score >= 4.0:
-        return Severity.MEDIUM
-    return Severity.LOW
+    return Severity.MEDIUM if score >= 4.0 else Severity.LOW
 
 
 class CsafDisposition(StrEnum):
@@ -222,37 +221,30 @@ class CsafAttackVectorProfile:
 
 def parse_cvss_v3_vector_profile(vector: str) -> CsafAttackVectorProfile:
     """Parse CVSS v3.0/3.1 base metrics into an attack-surface profile (V02)."""
-
     if not isinstance(vector, str) or re.fullmatch(_CVSS_V3_VECTOR, vector) is None:
         raise CsafSchemaError(f"invalid CVSS v3 vector {vector!r}")
-    metrics: dict[str, str] = {}
-    for segment in vector.split("/")[1:]:
-        key, _, val = segment.partition(":")
-        metrics[key] = val
-    net = metrics.get("AV") == "N"
-    low_ac = metrics.get("AC") == "L"
-    unauth = metrics.get("PR") == "N"
-    zero_click = metrics.get("UI") == "N"
-    scope_changed = metrics.get("S") == "C"
+    metrics = dict(segment.partition(":")[::2] for segment in vector.split("/")[1:])
+    net, low_ac, unauth, zero_click = (
+        metrics.get("AV") == "N",
+        metrics.get("AC") == "L",
+        metrics.get("PR") == "N",
+        metrics.get("UI") == "N",
+    )
     high_cia = metrics.get("C") == "H" and metrics.get("I") == "H" and metrics.get("A") == "H"
-    wormable = net and low_ac and unauth and zero_click and high_cia
     return CsafAttackVectorProfile(
-        is_network_reachable=net,
-        is_unauthenticated=unauth,
-        is_zero_click=zero_click,
-        is_scope_changed=scope_changed,
-        is_high_cia_impact=high_cia,
-        is_wormable_candidate=wormable,
+        net,
+        unauth,
+        zero_click,
+        metrics.get("S") == "C",
+        high_cia,
+        net and low_ac and unauth and zero_click and high_cia,
     )
 
 
 def classify_kev_sla_tier(
-    severity: Severity,
-    exploit_status: CsafThreatExploitStatus,
-    cvss_vector: str,
+    severity: Severity, exploit_status: CsafThreatExploitStatus, cvss_vector: str
 ) -> tuple[CsafKevSlaTier, int]:
     """Return (CsafKevSlaTier, due_days) from severity, exploit status, and CVSS vector (V05)."""
-
     profile = parse_cvss_v3_vector_profile(cvss_vector)
     if exploit_status is CsafThreatExploitStatus.EXPLOITED:
         return CsafKevSlaTier.IMMEDIATE_24H, 1
@@ -267,21 +259,21 @@ def classify_kev_sla_tier(
         CsafThreatExploitStatus.PUBLICLY_DISCLOSED,
     }:
         return CsafKevSlaTier.HIGH_14D, 14
-    if severity is Severity.MEDIUM:
-        return CsafKevSlaTier.STANDARD_30D, 30
-    return CsafKevSlaTier.MONITOR_90D, 90
+    return (
+        (CsafKevSlaTier.STANDARD_30D, 30)
+        if severity is Severity.MEDIUM
+        else (CsafKevSlaTier.MONITOR_90D, 90)
+    )
 
 
 class CsafProductBranch(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-
     product_id: Annotated[str, Field(pattern=_PRODUCT_ID)]
     name: Annotated[str, Field(min_length=1, max_length=256)]
     cpe: Annotated[str, Field(min_length=5, max_length=256)] | None = None
 
     @model_validator(mode="after")
     def validate_product_branch(self) -> CsafProductBranch:
-        # C02: Reject control characters or blank names and validate CPE prefix
         if not self.name.strip() or any(ord(ch) < 32 for ch in self.name):
             raise ValueError("CSAF product branch name MUST NOT be blank or contain control chars")
         if self.cpe is not None and (
@@ -294,7 +286,6 @@ class CsafProductBranch(BaseModel):
 
 class CsafRemediationRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-
     category: CsafRemediationCategory
     product_ids: tuple[Annotated[str, Field(pattern=_PRODUCT_ID)], ...]
     details: Annotated[str, Field(min_length=1, max_length=512)]
@@ -309,6 +300,10 @@ class CsafRemediationRecord(BaseModel):
     def validate_remediation(self) -> CsafRemediationRecord:
         if not self.product_ids or self.product_ids != tuple(sorted(set(self.product_ids))):
             raise ValueError("CSAF remediation product_ids MUST be non-empty, unique, and ordered")
+        if not self.details.strip() or _has_forbidden_text_chars(self.details):
+            raise ValueError(
+                "CSAF remediation details MUST NOT be blank or contain control/bidi chars"
+            )
         if self.fixed_version is not None:
             parse_dotted_version(self.fixed_version)
         if self.url is not None:
@@ -324,7 +319,6 @@ class CsafRemediationRecord(BaseModel):
             and self.kb_article is None
         ):
             raise ValueError("vendor_fix remediation requires fixed_version or kb_article")
-        # C03: Reject contradictory none_available remediations that claim a fix or action
         if self.category is CsafRemediationCategory.NONE_AVAILABLE and (
             self.fixed_version is not None
             or self.workaround_property is not None
@@ -363,12 +357,29 @@ class CsafVulnerabilityRecord(BaseModel):
     def validate_vulnerability(self) -> CsafVulnerabilityRecord:
         if not self.known_affected_product_ids:
             raise ValueError("CSAF vulnerability requires at least one known_affected product_id")
-        # C01: Validate CVSS vector metric uniqueness and finite temporal score
-        vector_metrics = [segment.split(":", 1)[0] for segment in self.cvss_vector.split("/")[1:]]
+        # Q003: Reject blank or control/bidi characters in vulnerability title
+        if not self.title.strip() or _has_forbidden_text_chars(self.title):
+            raise ValueError(
+                "CSAF vulnerability title MUST NOT be blank or contain control/bidi chars"
+            )
+        # C01 & Q001: Validate CVSS vector metric uniqueness and mandatory base metrics
+        vector_pairs = [segment.split(":", 1) for segment in self.cvss_vector.split("/")[1:]]
+        vector_metrics = [pair[0] for pair in vector_pairs]
         if len(vector_metrics) != len(set(vector_metrics)):
             raise ValueError("CSAF cvss_vector MUST NOT contain duplicate metric keys")
-        if self.cvss_temporal_score is not None and not math.isfinite(self.cvss_temporal_score):
-            raise ValueError("CSAF cvss_temporal_score MUST be a finite number")
+        metric_map = {pair[0]: pair[1] for pair in vector_pairs if len(pair) == 2}
+        for req_key, allowed_vals in _CVSS_REQUIRED_BASE_METRICS.items():
+            if metric_map.get(req_key) not in allowed_vals:
+                raise ValueError(
+                    f"CSAF cvss_vector requires valid base metric "
+                    f"{req_key} in {sorted(allowed_vals)}"
+                )
+        # Q002: Validate finite temporal score and enforce temporal_score <= base_score
+        if self.cvss_temporal_score is not None:
+            if not math.isfinite(self.cvss_temporal_score):
+                raise ValueError("CSAF cvss_temporal_score MUST be a finite number")
+            if self.cvss_temporal_score > self.cvss_base_score:
+                raise ValueError("CSAF cvss_temporal_score MUST NOT exceed cvss_base_score")
         for label, items in (
             ("known_affected_product_ids", self.known_affected_product_ids),
             ("fixed_product_ids", self.fixed_product_ids),
@@ -376,9 +387,11 @@ class CsafVulnerabilityRecord(BaseModel):
         ):
             if items != tuple(sorted(set(items))):
                 raise ValueError(f"{label} MUST be unique and ordered")
-        affected = set(self.known_affected_product_ids)
-        fixed = set(self.fixed_product_ids)
-        unaffected = set(self.known_not_affected_product_ids)
+        affected, fixed, unaffected = (
+            set(self.known_affected_product_ids),
+            set(self.fixed_product_ids),
+            set(self.known_not_affected_product_ids),
+        )
         if (affected & fixed) or (affected & unaffected) or (fixed & unaffected):
             raise ValueError("CSAF product_status sets MUST be mutually disjoint")
         if len(self.remediations) > _MAX_REMEDIATIONS_PER_VULNERABILITY:
@@ -403,8 +416,6 @@ class CsafVulnerabilityRecord(BaseModel):
 
     @property
     def attack_profile(self) -> CsafAttackVectorProfile:
-        """Return deterministic CVSS v3 attack-surface profile (V03)."""
-
         return parse_cvss_v3_vector_profile(self.cvss_vector)
 
 
@@ -432,6 +443,8 @@ class CsafAdvisoryDocument(BaseModel):
 
     @model_validator(mode="after")
     def validate_advisory(self) -> CsafAdvisoryDocument:
+        if not self.title.strip() or _has_forbidden_text_chars(self.title):
+            raise ValueError("CSAF advisory title MUST NOT be blank or contain control/bidi chars")
         _validate_https_url(
             self.source_url,
             allowed_hosts=frozenset({"msrc.microsoft.com"}),
@@ -469,14 +482,10 @@ class CsafAdvisoryDocument(BaseModel):
 
     @property
     def is_multi_revision(self) -> bool:
-        """Return True when the advisory has been revised after initial release (V10)."""
-
         return self.revision_count > 1
 
     @property
     def release_latency_days(self) -> int:
-        """Return elapsed days between initial_release_date and current_release_date (V10)."""
-
         return max(0, (self.current_release_date - self.initial_release_date).days)
 
 
@@ -497,6 +506,9 @@ class CsafProductCrosswalk(BaseModel):
 
     @model_validator(mode="after")
     def validate_product_crosswalk(self) -> CsafProductCrosswalk:
+        # Q005: Reject control/bidi chars in product_name
+        if not self.product_name.strip() or _has_forbidden_text_chars(self.product_name):
+            raise ValueError("CSAF product_name MUST NOT be blank or contain control/bidi chars")
         if self.canonical_resource_types != tuple(sorted(set(self.canonical_resource_types))):
             raise ValueError("canonical_resource_types MUST be unique and ordered")
         if (self.disposition is ResourceTypeDisposition.CANONICAL) != bool(
@@ -530,13 +542,9 @@ class CsafProductCrosswalk(BaseModel):
                 raise ValueError(
                     "canonical CSAF product crosswalk requires version_property and version window"
                 )
-            if (
-                compare_dotted_versions(
-                    self.minimum_affected_version_inclusive,
-                    self.vulnerable_version_ceiling_exclusive,
-                )
-                >= 0
-            ):
+            min_v = self.minimum_affected_version_inclusive
+            max_v = self.vulnerable_version_ceiling_exclusive
+            if compare_dotted_versions(min_v, max_v) >= 0:
                 raise ValueError(
                     "minimum_affected_version_inclusive MUST be < "
                     "vulnerable_version_ceiling_exclusive"
@@ -568,7 +576,6 @@ class CsafVulnerabilityCrosswalk(BaseModel):
             raise ValueError("existing_rule disposition requires existing_rule_id")
         if self.disposition is CsafDisposition.AMBIGUOUS_OR_BLOCKED and not self.blocked_reasons:
             raise ValueError("ambiguous_or_blocked disposition requires blocked_reasons")
-        # C05: Reject unmapped mapping_state when disposition is not ambiguous_or_blocked
         if (
             self.mapping_state is WaraMappingState.UNMAPPED
             and self.disposition is not CsafDisposition.AMBIGUOUS_OR_BLOCKED
@@ -598,25 +605,23 @@ class MsrcCsafCrosswalkCatalog(BaseModel):
     @model_validator(mode="after")
     def validate_catalog(self) -> MsrcCsafCrosswalkCatalog:
         prod_ids = tuple(item.product_id for item in self.product_mappings)
-        if not prod_ids or prod_ids != tuple(sorted(set(prod_ids))):
-            raise ValueError("product_mappings MUST be non-empty, unique, and ordered")
         cve_ids = tuple(item.cve_id for item in self.vulnerability_mappings)
-        if not cve_ids or cve_ids != tuple(sorted(set(cve_ids))):
-            raise ValueError("vulnerability_mappings MUST be non-empty, unique, and ordered")
         tracking_ids = tuple(item.tracking_id for item in self.advisories)
-        if not tracking_ids or tracking_ids != tuple(sorted(set(tracking_ids))):
-            raise ValueError("advisories MUST be non-empty, unique, and ordered by tracking_id")
-        expected_advisories_digest = canonical_digest(
+        for name, ids in (
+            ("product_mappings", prod_ids),
+            ("vulnerability_mappings", cve_ids),
+            ("advisories", tracking_ids),
+        ):
+            if not ids or ids != tuple(sorted(set(ids))):
+                raise ValueError(f"{name} MUST be non-empty, unique, and ordered")
+        if self.advisories_digest != canonical_digest(
             [item.model_dump(mode="json") for item in self.advisories]
-        )
-        if self.advisories_digest != expected_advisories_digest:
+        ):
             raise ValueError("advisories_digest does not match canonical advisory records")
         advisory_by_tracking = {item.tracking_id: item for item in self.advisories}
         advisory_cves: dict[str, tuple[str, CsafVulnerabilityRecord]] = {}
-        advisory_products: set[str] = set()
+        advisory_products = {p.product_id for adv in self.advisories for p in adv.products}
         for advisory in self.advisories:
-            for prod in advisory.products:
-                advisory_products.add(prod.product_id)
             for vuln in advisory.vulnerabilities:
                 if vuln.cve_id in advisory_cves:
                     raise ValueError(f"duplicate CVE {vuln.cve_id} across advisories")
@@ -650,31 +655,43 @@ class MsrcCsafCrosswalkCatalog(BaseModel):
                                 f"{pmap.vulnerable_version_ceiling_exclusive!r} "
                                 f"does not match advisory vendor_fix {rem.fixed_version!r}"
                             )
-            if mapping.workaround_property is not None:
-                matched_workaround = any(
-                    rem.category
-                    in {CsafRemediationCategory.WORKAROUND, CsafRemediationCategory.MITIGATION}
-                    and rem.workaround_property == mapping.workaround_property
-                    and type(rem.workaround_expected_value)
-                    is type(mapping.workaround_expected_value)
-                    and rem.workaround_expected_value == mapping.workaround_expected_value
-                    for rem in vuln.remediations
+            if mapping.workaround_property is not None and not any(
+                rem.category
+                in {CsafRemediationCategory.WORKAROUND, CsafRemediationCategory.MITIGATION}
+                and rem.workaround_property == mapping.workaround_property
+                and type(rem.workaround_expected_value) is type(mapping.workaround_expected_value)
+                and rem.workaround_expected_value == mapping.workaround_expected_value
+                for rem in vuln.remediations
+            ):
+                raise ValueError(
+                    f"crosswalk workaround for {mapping.cve_id} "
+                    "does not match advisory remediations"
                 )
-                if not matched_workaround:
-                    raise ValueError(
-                        f"crosswalk workaround for {mapping.cve_id} "
-                        "does not match advisory remediations"
-                    )
         payload = self.model_dump(mode="json")
         payload.pop("crosswalk_digest", None)
         if self.crosswalk_digest != canonical_digest(payload):
             raise ValueError("crosswalk_digest does not match canonical catalog content")
         return self
 
+    def get_vulnerability_crosswalk(self, cve_id: str) -> CsafVulnerabilityCrosswalk | None:
+        return next((item for item in self.vulnerability_mappings if item.cve_id == cve_id), None)
+
+    def summary_counts(self) -> dict[str, int]:
+        return {
+            "advisories": len(self.advisories),
+            "product_mappings": len(self.product_mappings),
+            "vulnerability_mappings": len(self.vulnerability_mappings),
+            "exploited": sum(
+                1
+                for adv in self.advisories
+                for v in adv.vulnerabilities
+                if v.exploit_status is CsafThreatExploitStatus.EXPLOITED
+            ),
+        }
+
 
 def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
     """Load and assemble a pinned MSRC CSAF crosswalk dictionary (resolving shards when present)."""
-
     if path.is_symlink() or not path.is_file():
         raise CsafSchemaError("MSRC CSAF crosswalk path MUST be a regular non-symlink file")
     raw_bytes = path.read_bytes()
@@ -690,23 +707,19 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
         raise CsafSchemaError("MSRC CSAF crosswalk is not valid UTF-8 JSON") from exc
     if not isinstance(raw, dict):
         raise CsafSchemaError("MSRC CSAF crosswalk root MUST be a JSON object")
-    shards = raw.get("shards")
-    if shards is None:
+    if (shards := raw.get("shards")) is None:
         return raw
     if not isinstance(shards, list) or not shards:
         raise CsafSchemaError("MSRC CSAF crosswalk shards MUST be a non-empty list")
-    assembled_advisories: list[Any] = []
-    assembled_vuln_mappings: list[Any] = []
+    assembled_advisories, assembled_vuln_mappings = [], []
     seen_paths: set[str] = set()
     for idx, shard_ref in enumerate(shards):
         if not isinstance(shard_ref, dict):
             raise CsafSchemaError("MSRC CSAF shard reference MUST be an object")
         rel_path = str(shard_ref.get("path") or "")
-        expected_rel_path = f"shards/crosswalk-{idx:02d}.json"
-        # C06: Require contiguous ordered shard paths and bounded total records
         if (
             re.fullmatch(r"shards/crosswalk-[0-9]{2}\.json", rel_path) is None
-            or rel_path != expected_rel_path
+            or rel_path != f"shards/crosswalk-{idx:02d}.json"
             or rel_path in seen_paths
         ):
             raise CsafSchemaError(f"invalid or non-contiguous MSRC CSAF shard path {rel_path!r}")
@@ -717,8 +730,7 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
         shard_bytes = shard_path.read_bytes()
         if len(shard_bytes) > 1_048_576:
             raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} exceeds 1 MiB ceiling")
-        actual_digest = f"sha256:{hashlib.sha256(shard_bytes).hexdigest()}"
-        if actual_digest != shard_ref.get("digest"):
+        if f"sha256:{hashlib.sha256(shard_bytes).hexdigest()}" != shard_ref.get("digest"):
             raise CsafSchemaError(f"MSRC CSAF shard digest mismatch for {rel_path!r}")
         shard_obj: Any = json.loads(
             shard_bytes.decode("utf-8"),
@@ -727,8 +739,10 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
         )
         if not isinstance(shard_obj, dict):
             raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} root MUST be an object")
-        shard_advs = shard_obj.get("advisories")
-        shard_vmaps = shard_obj.get("vulnerability_mappings")
+        shard_advs, shard_vmaps = (
+            shard_obj.get("advisories"),
+            shard_obj.get("vulnerability_mappings"),
+        )
         if (
             not isinstance(shard_advs, list)
             or not isinstance(shard_vmaps, list)
@@ -746,14 +760,15 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
     ):
         raise CsafSchemaError("MSRC CSAF assembled shard counts are empty or exceed ceiling")
     merged = {key: value for key, value in raw.items() if key != "shards"}
-    merged["advisories"] = assembled_advisories
-    merged["vulnerability_mappings"] = assembled_vuln_mappings
+    merged["advisories"], merged["vulnerability_mappings"] = (
+        assembled_advisories,
+        assembled_vuln_mappings,
+    )
     return merged
 
 
 def load_msrc_csaf_crosswalk_catalog(path: Path) -> MsrcCsafCrosswalkCatalog:
     """Load and verify a pinned MSRC CSAF crosswalk catalog from disk."""
-
     return MsrcCsafCrosswalkCatalog.model_validate(load_msrc_csaf_raw_dict(path))
 
 

@@ -825,6 +825,7 @@
         "blastRadius": "폭발 반경 상한 및 Dry-run",
         "targetLock": "논리 대상 잠금 (Target lock)",
         "idempotencyKey": "멱등성 키 (Idempotency key)",
+        "twoPhaseAudit": "2단계 감사 및 승인·실행 신원 분리",
         "effectVerification": "독립 효과 검증 계약",
         "pantheonSection": "15인 에이전트 판테온 거버넌스 연결"
       }

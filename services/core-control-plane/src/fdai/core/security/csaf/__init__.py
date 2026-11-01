@@ -27,7 +27,11 @@ from .review_signal import (
     msrc_csaf_drift_payload,
     validate_csaf_review_package,
 )
-from .runtime import MsrcCsafAssessmentRuntime, to_security_control_observations
+from .runtime import (
+    MsrcCsafAssessmentRuntime,
+    summarize_findings_by_resource,
+    to_security_control_observations,
+)
 from .subscription_assurance import (
     SevenSafeguardRemediationPlan,
     SubscriptionAssuranceControlCheck,
@@ -35,6 +39,7 @@ from .subscription_assurance import (
     ZeroRiskAssuranceStatus,
     build_seven_safeguard_remediation_plan,
     evaluate_subscription_zero_risk_assurance,
+    verify_certificate_integrity,
 )
 
 __all__ = [
@@ -65,6 +70,8 @@ __all__ = [
     "evaluate_subscription_zero_risk_assurance",
     "extract_csaf_rule_candidates",
     "msrc_csaf_drift_payload",
+    "summarize_findings_by_resource",
     "to_security_control_observations",
     "validate_csaf_review_package",
+    "verify_certificate_integrity",
 ]

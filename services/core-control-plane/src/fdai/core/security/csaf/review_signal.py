@@ -192,8 +192,13 @@ def validate_csaf_review_package(raw: Mapping[str, object]) -> dict[str, object]
     if not isinstance(review_digest, str) or _HEX64_RE.fullmatch(review_digest) is None:
         raise MsrcCsafReviewError("review_digest is invalid")
     cve_count = raw["cve_count"]
-    if not isinstance(cve_count, int) or isinstance(cve_count, bool) or cve_count < 0:
-        raise MsrcCsafReviewError("cve_count must be a non-negative integer")
+    # Q031: Bound cve_count to [0, 25000]
+    if (
+        not isinstance(cve_count, int)
+        or isinstance(cve_count, bool)
+        or not 0 <= cve_count <= 25_000
+    ):
+        raise MsrcCsafReviewError("cve_count must be a non-negative integer <= 25000")
     by_exposure = _count_map(raw["by_exposure"], _EXPOSURES, "by_exposure")
     by_severity = _count_map(raw["by_severity"], _SEVERITIES, "by_severity")
     if sum(by_exposure.values()) != cve_count:
@@ -266,8 +271,10 @@ def validate_csaf_review_package(raw: Mapping[str, object]) -> dict[str, object]
 
 
 def csaf_review_decision(package: Mapping[str, object]) -> str:
-    """Return ``coverage_incomplete``, ``urgent``, ``open``, or ``clear`` deterministically."""
+    """Return ``coverage_incomplete``, ``urgent``, ``open``, or ``clear`` (Q033)."""
 
+    if package.get("grants_authority") is not False or package.get("review_required") is not True:
+        raise MsrcCsafReviewError("csaf_review_decision requires a no-authority review package")
     by_exposure = package["by_exposure"]
     if package["coverage_complete"] is not True or (
         isinstance(by_exposure, Mapping)
@@ -296,9 +303,10 @@ def csaf_review_decision(package: Mapping[str, object]) -> str:
 
 
 def compute_workload_posture_score(result: CsafAssessmentResult) -> int:
-    """Compute a deterministic 0-100 workload security posture score from CSAF findings (V16)."""
+    """Compute a deterministic 0-100 workload security posture score (V16, Q034)."""
 
     deduction = 0
+    unknown_deduction = 0
     for finding in result.findings:
         if finding.exposure is CsafExposureStatus.AFFECTED:
             if finding.exploit_status is CsafThreatExploitStatus.EXPLOITED:
@@ -312,12 +320,13 @@ def compute_workload_posture_score(result: CsafAssessmentResult) -> int:
         elif finding.exposure is CsafExposureStatus.MITIGATED:
             deduction += 3
         elif finding.exposure is CsafExposureStatus.UNKNOWN:
-            deduction += 2
-    return max(0, 100 - min(100, deduction))
+            unknown_deduction += 2
+    total_deduction = deduction + min(20, unknown_deduction)
+    return max(0, 100 - min(100, total_deduction))
 
 
 def csaf_posture_summary(package: Mapping[str, object]) -> dict[str, object]:
-    """Build a bounded posture summary from a validated MSRC CSAF review package (V16)."""
+    """Build a bounded posture summary from a validated MSRC CSAF review package (V16, Q035)."""
 
     validated = validate_csaf_review_package(package)
     by_exp = validated["by_exposure"]
@@ -342,20 +351,23 @@ def csaf_posture_summary(package: Mapping[str, object]) -> dict[str, object]:
         "workload_id": validated["workload_id"],
         "decision": csaf_review_decision(validated),
         "posture_score": max(0, 100 - min(100, deduction)),
+        "coverage_complete": validated["coverage_complete"],
         "affected_count": affected,
         "mitigated_count": mitigated,
         "fixed_count": fixed,
         "unknown_count": unknown,
         "exploited_affected_count": exploited,
         "critical_affected_count": critical,
+        "top_cve_ids": validated["top_cve_ids"],
         "grants_authority": False,
     }
 
 
 def msrc_csaf_drift_payload(raw: Mapping[str, object]) -> dict[str, object]:
-    """Project one validated MSRC CSAF review package into Heimdall's Drift ownership."""
+    """Project one validated MSRC CSAF review package into Heimdall's Drift ownership (Q036)."""
 
     package = validate_csaf_review_package(raw)
+    posture = csaf_posture_summary(package)
     workload_id = str(package["workload_id"])
     digest = str(package["review_digest"])
     return {
@@ -367,6 +379,7 @@ def msrc_csaf_drift_payload(raw: Mapping[str, object]) -> dict[str, object]:
         "resource_id": f"workload://{workload_id}",
         "target_type": "workload",
         "decision": csaf_review_decision(package),
+        "posture_score": posture["posture_score"],
         "authority_ceiling": "shadow",
         "human_approval_required": True,
         **{key: package[key] for key in sorted(package) if key not in ("schema_version", "kind")},
@@ -451,6 +464,8 @@ def extract_csaf_rule_candidates(
             "workaround_property": mapping.workaround_property,
             "workaround_expected_value": mapping.workaround_expected_value,
             "recommended_action_type": mapping.candidate_action_type,
+            "evidence_complete": finding.evidence_complete,
+            "limitations": list(finding.limitations),
             "state": "candidate",
             "mode": "shadow",
             "grants_authority": False,
@@ -463,9 +478,13 @@ def extract_csaf_rule_candidates(
         body["candidate_digest"] = f"sha256:{digest}"
         body["idempotency_key"] = f"norns-csaf-candidate:{digest}"
         candidates.append(body)
-    # C20: Order extracted Norns RuleCandidates by highest CVSS score then CVE ID
+    # C20 & Q039: Order Norns RuleCandidates by highest CVSS score, risk score, then CVE ID
     candidates.sort(
-        key=lambda item: (-float(item["cvss_base_score"]), str(item["cve_id"]))  # type: ignore[arg-type]
+        key=lambda item: (
+            -float(item["cvss_base_score"]),  # type: ignore[arg-type]
+            -float(item["risk_score"]),  # type: ignore[arg-type]
+            str(item["cve_id"]),
+        )
     )
     return tuple(candidates)
 

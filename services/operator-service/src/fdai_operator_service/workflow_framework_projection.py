@@ -419,13 +419,20 @@ def _msrc_csaf_catalog_payload(
         .lower()
         for field in filter_fields
     }
-    # V23: Support attack_surface query filter (zero_click, pre_auth_network, wormable)
+    # V23 & Q076: Support attack_surface and min_risk_score query filters
     attack_surface = request.query.get("attack_surface", "").strip().lower()
     surface_flag_map = {
         "zero_click": "is_zero_click",
         "pre_auth_network": "is_pre_auth_network",
         "wormable": "is_wormable_candidate",
     }
+    min_risk_raw = request.query.get("min_risk_score", "").strip()
+    min_risk_score = 0.0
+    if min_risk_raw:
+        try:
+            min_risk_score = max(0.0, min(100.0, float(min_risk_raw)))
+        except ValueError:
+            min_risk_score = 0.0
     needle_tokens = [tok for tok in request.query.get("q", "").strip().lower().split() if tok]
 
     def _matches_control(item: dict[str, object]) -> bool:
@@ -439,6 +446,11 @@ def _msrc_csaf_catalog_payload(
             and item.get(surface_flag_map[attack_surface]) is not True
         ):
             return False
+        if min_risk_score > 0.0:
+            raw_rs = item.get("risk_score", 0.0)
+            rs_val = float(raw_rs) if isinstance(raw_rs, (int, float)) else 0.0
+            if rs_val < min_risk_score:
+                return False
         if not needle_tokens:
             return True
         # C28, V26, V27: Multi-token AND search across all identifying and crosswalk fields
@@ -558,16 +570,30 @@ def _msrc_csaf_catalog_payload(
             "by_exposure": _wara_counts(controls, "exposure"),
             "by_kev_sla_tier": _wara_counts(controls, "kev_sla_tier"),
             "by_vex_justification": _wara_counts(controls, "vex_justification"),
+            # Q078: Include attack-surface counts in Operator facets
+            "by_attack_surface": {
+                "pre_auth_network": sum(
+                    1 for c in controls if c.get("is_pre_auth_network") is True
+                ),
+                "zero_click": sum(1 for c in controls if c.get("is_zero_click") is True),
+                "wormable": sum(1 for c in controls if c.get("is_wormable_candidate") is True),
+            },
         },
         "controls": [dict(item) for item in matched[offset : offset + limit]],
     }
-    # C30 & Z50: Preserve summary, zero_risk_assurance, last_workload_id, and last_evaluated_at
+    # C30, Z50, Q077: Preserve summary, validated zero_risk_assurance, and evaluation metadata
     if isinstance(stored.get("summary"), Mapping):
         response["summary"] = dict(cast(Mapping[str, object], stored["summary"]))
     if isinstance(stored.get("zero_risk_assurance"), Mapping):
-        response["zero_risk_assurance"] = dict(
-            cast(Mapping[str, object], stored["zero_risk_assurance"])
-        )
+        zra = dict(cast(Mapping[str, object], stored["zero_risk_assurance"]))
+        if zra.get("execution_authority") is not False:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "authoritative MSRC CSAF zero_risk_assurance MUST NOT carry execution_authority"
+                ),
+            )
+        response["zero_risk_assurance"] = zra
     if isinstance(stored.get("last_workload_id"), str):
         response["last_workload_id"] = stored["last_workload_id"]
     if isinstance(stored.get("last_evaluated_at"), str):

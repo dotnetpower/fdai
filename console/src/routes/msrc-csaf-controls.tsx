@@ -831,6 +831,11 @@ function MsrcCsafDrawer({
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.blastRadius")} value={`${safeguardPlan.blast_radius_limit} (dry_run=${String(safeguardPlan.dry_run_required)})`} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.targetLock")} value={safeguardPlan.logical_target_lock} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.idempotencyKey")} value={safeguardPlan.idempotency_key} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.twoPhaseAudit")}
+                  value={`two_phase_audit=${String(safeguardPlan.two_phase_audit_required)}, distinct_identities=${String(safeguardPlan.distinct_approver_executor_required)}, execution_authority=${String(safeguardPlan.execution_authority)}`}
+                  mono
+                />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.effectVerification")} value={safeguardPlan.effect_verification_contract} />
               </dl>
             </DetailSection>

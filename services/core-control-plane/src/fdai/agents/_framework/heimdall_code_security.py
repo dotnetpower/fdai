@@ -24,6 +24,7 @@ from fdai.core.security.code_findings.review_signal import (
 )
 from fdai.core.security.csaf.review_signal import (
     MsrcCsafReviewError,
+    csaf_posture_summary,
     csaf_review_decision,
     validate_csaf_review_package,
 )
@@ -123,13 +124,15 @@ class HeimdallCodeSecurityMixin:
             affected_count = by_exposure["affected"] if isinstance(by_exposure, Mapping) else 0
             top_cves_raw = review.get("top_cve_ids")
             actions_raw = review.get("recommended_action_types")
-            # C24: Include critical_affected_count, top_cve_ids, and recommended_action_types
+            posture = csaf_posture_summary(review)
+            # C24 & Q074: Include posture_score, critical_affected_count, and top_cve_ids
             latest[workload_id] = (
                 utc_ts,
                 {
                     "workload_id": workload_id,
                     "source_revision": str(review["source_revision"])[:24],
                     "decision": csaf_review_decision(review),
+                    "posture_score": posture["posture_score"],
                     "cve_count": review["cve_count"],
                     "affected_cve_count": affected_count,
                     "critical_affected_count": review["critical_affected_count"],
@@ -152,7 +155,7 @@ class HeimdallCodeSecurityMixin:
                 reverse=True,
             )
         ]
-        # V18 & Z47: Report fleet-wide urgent, incomplete, and zero-risk certified workload counts
+        # V18, Z47, Q075: Report fleet-wide urgent, incomplete, certified, and min posture score
         urgent_workloads = sum(1 for item in ordered if item["decision"] == "urgent")
         incomplete_workloads = sum(
             1 for item in ordered if item["decision"] == "coverage_incomplete"
@@ -162,11 +165,16 @@ class HeimdallCodeSecurityMixin:
             for item in ordered
             if item["decision"] == "clear" and item.get("coverage_complete") is True
         )
+        min_posture = min(
+            (int(item["posture_score"]) for item in ordered),
+            default=100,
+        )
         return {
             "msrc_csaf_reviews_read": len(rows) - withheld,
             "msrc_csaf_urgent_workload_count": urgent_workloads,
             "msrc_csaf_incomplete_workload_count": incomplete_workloads,
             "msrc_csaf_zero_risk_certified_count": zero_risk_workloads,
+            "msrc_csaf_min_posture_score": min_posture,
             "msrc_csaf_latest_decisions": ordered[:_MAX_REPOSITORIES],
             "msrc_csaf_reviews_withheld": withheld,
             "msrc_csaf_reviews_truncated": len(rows) >= _MAX_REVIEW_ROWS,
