@@ -69,10 +69,26 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 12px;
-  color: var(--fg-muted);
+  gap: 6px 8px;
+  margin-bottom: 10px;
+  color: var(--cs-deck-meta-text, var(--fg-muted));
   font-size: 12px;
+}
+.deck-answer-posture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin-bottom: 8px;
+  color: var(--cs-deck-meta-text, var(--fg-muted));
+  font-size: 12px;
+}
+.deck-answer-posture > strong {
+  color: var(--cs-deck-ok-text, var(--fg));
+  font-weight: 650;
+}
+.deck-answer-posture[data-issue]:not([data-issue="none"]) > strong {
+  color: var(--cs-deck-attention-text, var(--warning));
 }
 
 .incident-evidence-links { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 12px 0; }
@@ -7897,7 +7913,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: 2px;
   background: var(--accent);
 }
-.deck-dock-resize-handle:focus-visible { outline: 0; }
+.deck-dock-resize-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
 .deck-dock-resize-handle span {
   position: relative;
   width: 3px;
@@ -8037,8 +8056,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-header-copy {
   min-width: 0;
   display: grid;
-  gap: 1px;
-  line-height: 1.2;
+  gap: 2px;
+  line-height: 1.25;
 }
 .deck-header-conversation-title {
   max-width: clamp(220px, 30vw, 420px);
@@ -8046,6 +8065,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   color: var(--fg);
   font-size: 13.5px;
   font-weight: 650;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8075,12 +8095,24 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   min-width: 112px;
   min-height: 32px;
   box-sizing: border-box;
-  padding: 4px 28px 4px 9px;
-  border: 1px solid var(--border);
+  padding: 4px 28px 4px 10px;
+  border: 1px solid var(--cs-deck-control-line, var(--border));
   border-radius: 7px;
-  background: var(--bg);
+  background: var(--cs-card, var(--bg));
   color: var(--fg);
   font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.deck-model-selector select:hover:not(:disabled) {
+  border-color: var(--fg-muted);
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 3%, var(--cs-card, var(--bg)));
+}
+.deck-model-selector select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .deck-model-selector select:focus-visible {
   outline: 2px solid var(--accent);
@@ -8104,12 +8136,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .deck-header-action:hover,
 .deck-header-action[aria-pressed="true"] {
   color: var(--fg);
-  border-color: var(--border);
-  background: var(--bg);
+  border-color: var(--cs-deck-line-strong, var(--border));
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 4%, var(--cs-card, var(--bg)));
+}
+.deck-header-action[aria-pressed="true"] {
+  font-weight: 600;
 }
 /* The conversation count sits beside its icon, as in the Command deck study. */
 .deck-header-action.deck-header-history {
@@ -8140,10 +8176,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   text-align: center;
 }
 .deck-header-route {
-  color: var(--fg-muted);
+  color: var(--cs-deck-meta-text, var(--fg-muted));
   font-weight: 500;
   letter-spacing: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 /* Active agent-chat session badge + a way back to the general deck. */
 .deck-session-chip {
@@ -8160,12 +8196,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-session-exit {
   appearance: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--cs-deck-control-line, var(--border));
   border-radius: 999px;
   background: transparent;
   color: var(--fg-muted);
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   min-height: 32px;
   box-sizing: border-box;
   padding: 2px 9px;
@@ -8200,7 +8236,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-items: center;
   gap: 5px;
   padding: 4px 6px 4px 9px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--cs-deck-control-line, var(--border));
   border-radius: 8px;
   background: var(--bg);
   color: var(--fg-muted);
@@ -8223,7 +8259,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-search-count {
   min-width: 26px;
   color: var(--fg-muted);
-  font-size: 10.5px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -8238,6 +8274,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   cursor: pointer;
 }
 .deck-search button:hover:not(:disabled) { background: var(--bg-elevated); color: var(--fg); }
+.deck-search button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .deck-search button:disabled { opacity: 0.35; cursor: default; }
 .deck-search kbd {
   padding: 1px 5px;
@@ -8586,7 +8623,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-size: 11.5px;
   line-height: 1.5;
 }
-.deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 6px; }
+.deck-trajectory-cluster { min-width: 0; width: 100%; margin-top: 10px; }
+.deck-trajectory-cluster > .cs-run-record > .cs-run-record-summary {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.deck-trajectory-cluster > .cs-run-record > .cs-run-record-summary:hover {
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 3%, var(--cs-card, var(--bg-elevated)));
+}
 .deck-trajectory-results {
   display: inline-flex;
   align-items: center;
@@ -8827,7 +8871,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-trajectory-signals > div:first-child { padding-left: 0; border-left: 0; }
 .deck-trajectory-signals > div:last-child { padding-right: 0; }
 .deck-trajectory-signals dt { margin-bottom: 3px; color: var(--cs-deck-meta-text); font-size: 12px; font-weight: 400; }
-.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12px; line-height: 1.45; }
+.deck-trajectory-signals dd { min-width: 0; display: flex; align-items: baseline; gap: 6px; margin: 0; overflow-wrap: anywhere; color: var(--fg); font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .deck-trajectory-performance { row-gap: 10px; margin: 0 0 14px; }
 .deck-trajectory-performance dd::before { display: none; }
 .deck-trajectory-performance > div:nth-child(3n + 1) { padding-left: 0; border-left: 0; }
@@ -8963,6 +9007,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding-block: clamp(48px, 10vh, 112px);
 }
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 0; color: var(--fg-muted); font-size: 12px; }
+.deck-overlay-mode-workspace .deck-resume-banner {
+  width: min(100%, var(--deck-reading-width));
+  max-width: var(--deck-reading-width);
+  align-self: center;
+}
 .deck-resume-banner button { min-height: 32px; padding: 3px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .deck-resume-banner button:hover { border-color: var(--border); background: var(--bg); }
 .deck-digest {
@@ -9807,8 +9856,13 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   background: var(--border);
   pointer-events: none;
 }
-.deck-turn.is-investigation-flow.is-flow-start::before { top: 9px; }
+.deck-turn.is-investigation-flow.is-flow-start::before { top: 34px; }
 .deck-turn.is-investigation-flow.is-flow-end::before { bottom: calc(100% - 9px); }
+.deck-turn.is-investigation-flow > .deck-turn-head {
+  position: relative;
+  z-index: 1;
+  background: var(--cs-bg, var(--bg));
+}
 .deck-marker-glyph {
   display: block;
   line-height: 1;
@@ -9955,7 +10009,23 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   /* Center the 15px status mark on the 1px flow rail whose left edge sits at 9px. */
   transform: translateX(-5.5px);
 }
+.deck-investigation-head > .deck-investigation-spinner {
+  flex: 0 0 auto;
+  translate: -4px 0;
+  box-shadow: 0 0 0 3px var(--cs-bg, var(--bg-elevated));
+}
 .deck-investigation > summary.deck-investigation-head { cursor: pointer; }
+.deck-investigation > summary.deck-investigation-head {
+  border-radius: var(--cs-radius-sm, 6px);
+  transition: background-color 0.15s ease;
+}
+.deck-investigation > summary.deck-investigation-head:hover {
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 3.5%, var(--cs-card, var(--bg-elevated)));
+}
+.deck-investigation > summary.deck-investigation-head:focus-visible {
+  outline: 2px solid var(--cs-steel, var(--accent));
+  outline-offset: 2px;
+}
 .deck-investigation-head::-webkit-details-marker { display: none; }
 .deck-investigation > summary.deck-investigation-head::after {
   content: "";
@@ -10029,13 +10099,21 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-session-copy > strong { font-size: 12.5px; font-weight: 700; }
 .deck-investigation-session-copy > small,
-.deck-investigation-session-summary { font-size: 12px; }
-.deck-investigation-session-copy > small { color: var(--fg-muted); white-space: nowrap; }
+.deck-investigation-session-summary {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.deck-investigation-session-copy > small { color: var(--cs-deck-meta-text, var(--fg-muted)); white-space: nowrap; }
 .deck-investigation-session-summary {
   min-width: 12rem;
   flex: 1 1 auto;
   line-height: 1.4;
   white-space: normal;
+  color: var(--cs-deck-meta-text, var(--fg-muted));
+}
+.deck-investigation-session-summary:not(:empty)::before {
+  content: "· ";
+  color: var(--cs-deck-meta-text, var(--fg-muted));
 }
 /* The lead panel's turn-wide facts take their own row under the title, so the plan and the settled
    limits never squeeze the title or the panel summary. */
@@ -10187,6 +10265,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   list-style: none;
 }
 .deck-branch-disclosure > summary::-webkit-details-marker { display: none; }
+.deck-branch-disclosure > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 .deck-branch-step {
   color: var(--accent);
   font-size: 12px;
@@ -10292,7 +10375,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 5px;
   background: color-mix(in oklab, var(--accent) 16%, transparent);
   color: var(--accent);
-  font-size: 8.5px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.02em;
 }
@@ -10363,6 +10446,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   width: 25px;
   border-top: 1px solid var(--border);
 }
+/* Terminate the vertical list rail below the last item's node mark so an expanded ModelCallGroup
+   or execution disclosure never leaves an orphan vertical line hanging down the left margin. */
+.deck-investigation-item:last-child::after {
+  content: "";
+  position: absolute;
+  top: 26px;
+  bottom: -6px;
+  left: calc(var(--deck-investigation-rail-x, 9px) - 1px);
+  width: 3px;
+  background: var(--cs-bg, var(--bg));
+  pointer-events: none;
+}
 .deck-investigation-item-disclosure { min-width: 0; }
 .deck-investigation-item-disclosure > summary {
   position: relative;
@@ -10378,16 +10473,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation-item-disclosure > summary::after {
   content: "";
   position: absolute;
-  top: 18px;
-  right: 3px;
+  top: 50%;
+  right: 10px;
   width: 6px;
   height: 6px;
   border-right: 1.5px solid var(--fg-muted);
   border-bottom: 1.5px solid var(--fg-muted);
+  translate: 0 -60%;
   transform: rotate(45deg);
   transition: transform .14s ease;
 }
 .deck-investigation-item-disclosure[open] > summary::after {
+  translate: 0 -30%;
   transform: rotate(225deg) translate(-1px, -1px);
 }
 .deck-investigation-item-disclosure[open] > .deck-investigation-execution {
@@ -10433,17 +10530,22 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   }
 }
 /* The planning group lists each model call as a quiet, badge-free line with an inline mark. */
+.deck-investigation-item.is-model-group > .deck-investigation-item-disclosure > summary .deck-investigation-summary {
+  border: 1px solid var(--cs-hairline, var(--border));
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 2%, var(--cs-card, var(--bg-elevated)));
+}
 .deck-model-call-list {
   display: grid;
   gap: 2px;
-  margin: 2px 0 6px;
-  padding: 0;
+  margin: 4px 0 6px 10px;
+  padding: 2px 0 2px 10px;
+  border-left: 1px solid var(--cs-hairline, var(--border));
   list-style: none;
 }
 .deck-model-call-list .deck-investigation-summary,
 .deck-model-call-list .deck-investigation-summary.has-kind-badge {
   grid-template-columns: 16px minmax(0, 1fr);
-  min-height: 34px;
+  min-height: 30px;
   padding: 3px 8px;
 }
 .deck-model-call-list .deck-investigation-kind-badge { display: none; }
@@ -10452,7 +10554,18 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   translate: none;
   box-shadow: none;
 }
+.deck-model-call-list .deck-investigation-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+}
 .deck-model-call-list .deck-investigation-copy strong { font-weight: 600; }
+.deck-model-call-list .deck-investigation-copy small {
+  color: var(--cs-deck-meta-text, var(--fg-muted));
+  font-variant-numeric: tabular-nums;
+}
 .deck-investigation-item-static .deck-investigation-summary {
   padding: 5px 8px;
   border-radius: 7px;
@@ -10512,8 +10625,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-weight: 800;
   line-height: 1;
 }
-.deck-investigation-item.is-running .deck-investigation-state,
-.deck-investigation-item.is-pending .deck-investigation-state,
+.deck-investigation-item.is-running > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+.deck-investigation-item.is-pending > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
 .deck-model-call:is(.is-running, .is-pending) .deck-investigation-state {
   box-sizing: border-box;
   border: 2px solid color-mix(in oklab, var(--accent) 14%, transparent);
@@ -10523,20 +10636,32 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-item:is(
   .is-completed, .is-unavailable, .is-failed, .is-stopped, .is-not_completed
+) > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+.deck-model-call:is(
+  .is-completed, .is-unavailable, .is-failed, .is-stopped, .is-not_completed
 ) .deck-investigation-state {
   box-sizing: border-box;
   border: 1.5px solid currentColor;
   background: var(--cs-card);
+  animation: none;
 }
 /* A read that never reported an end is named as stopped or not completed, never as running. */
-.deck-investigation-item:is(.is-stopped, .is-not_completed) :is(
+.deck-investigation-item:is(.is-stopped, .is-not_completed) > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) :is(
   .deck-investigation-state, .deck-investigation-title-line > em
-) {
+),
+.deck-model-call:is(.is-stopped, .is-not_completed) .deck-investigation-state {
   color: var(--cs-deck-attention-text);
 }
-.deck-investigation-item.is-completed .deck-investigation-state { color: var(--cs-deck-ok-text); }
-.deck-investigation-item.is-unavailable .deck-investigation-state { color: var(--cs-deck-attention-text); }
-.deck-investigation-item.is-failed .deck-investigation-state { color: var(--cs-deck-failure-text); }
+.deck-investigation-item.is-completed > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+.deck-model-call.is-completed .deck-investigation-state {
+  color: var(--cs-deck-ok-text);
+  border-color: color-mix(in srgb, var(--cs-sage) 42%, var(--cs-hairline));
+  background: color-mix(in srgb, var(--cs-sage) 10%, var(--cs-card));
+}
+.deck-investigation-item.is-unavailable > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+.deck-model-call.is-unavailable .deck-investigation-state { color: var(--cs-deck-attention-text); }
+.deck-investigation-item.is-failed > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+.deck-model-call.is-failed .deck-investigation-state { color: var(--cs-deck-failure-text); }
 .deck-investigation-copy {
   min-width: 0;
   display: grid;
@@ -10596,6 +10721,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
+}
+@container deck-transcript (max-width: 560px) {
+  .deck-investigation-provenance,
+  .deck-investigation-query-summary > dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .deck-investigation-provenance {
   border-bottom: 1px solid color-mix(in srgb, var(--cs-code-text) 12%, var(--cs-code-bg));
@@ -11438,9 +11569,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   min-width: 0;
   box-sizing: border-box;
   margin: 0 auto 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--cs-hairline, var(--border));
+  border-radius: var(--cs-radius-sm, 6px);
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 2%, var(--cs-card, var(--bg)));
   color: var(--fg-muted);
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
+}
+.deck-overlay-mode-workspace .deck-busy,
+.deck-overlay-mode-workspace .deck-composer-context {
+  width: min(100%, calc(var(--deck-reading-width) + 120px));
+  box-sizing: border-box;
+  padding-inline: 10px;
 }
 .deck-busy-heading,
 .deck-busy-actions {
@@ -11560,7 +11701,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   position: absolute;
   left: 20px;
   right: 20px;
-  bottom: calc(100% - 6px);
+  bottom: calc(100% + 6px);
+  max-height: min(280px, 45vh);
+  overflow-y: auto;
   margin: 0;
   padding: 4px;
   list-style: none;
@@ -11572,6 +11715,31 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 10px;
   box-shadow: 0 8px 24px color-mix(in oklab, var(--fg) 16%, transparent);
   z-index: 5;
+}
+.deck-handover-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.deck-handover-actions > :is(a, button) {
+  min-height: 32px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border: 1px solid var(--cs-deck-control-line, var(--border));
+  border-radius: var(--cs-radius-pill, 999px);
+  background: var(--cs-card, var(--bg));
+  color: var(--fg);
+  font: 500 12px/1.35 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+.deck-handover-actions > :is(a, button):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cs-steel, var(--accent)) 7%, var(--cs-card, var(--bg)));
 }
 .deck-slash-item {
   display: flex;
@@ -11608,9 +11776,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1.5;
   background: var(--bg);
   color: var(--fg);
-  min-height: 40px;
+  min-height: 42px;
   max-height: 180px;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 .deck-input:focus {
   outline: none;
@@ -11627,8 +11795,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 8px;
 }
 .deck-btn {
+  min-height: 42px;
   padding: 8px 18px;
-  border-radius: 8px;
+  border-radius: 10px;
   font: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -11636,6 +11805,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--fg);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .deck-btn:hover:not(:disabled) {
   border-color: var(--fg-muted);
@@ -11681,18 +11851,26 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-attach-input { display: none; }
 .deck-attach-btn {
   align-self: end;
-  width: 40px;
-  min-height: 40px;
-  border: 1px solid var(--border);
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border: 1px solid var(--cs-deck-control-line, var(--border));
   border-radius: 10px;
-  background: var(--bg);
-  color: var(--fg-muted);
-  font-size: 22px;
-  font-weight: 400;
+  background: var(--cs-card, var(--bg));
+  color: var(--fg);
+  font-size: 20px;
+  font-weight: 500;
   line-height: 1;
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
-.deck-attach-btn:hover { color: var(--fg); border-color: var(--fg-muted); }
+.deck-attach-btn:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+  background: color-mix(in srgb, var(--cs-text, var(--fg)) 4%, var(--cs-card, var(--bg)));
+}
 .deck-attach-btn:focus-visible {
   outline: none;
   border-color: var(--accent);
@@ -11793,7 +11971,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -11801,7 +11979,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -11809,15 +11987,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border-radius: 999px;
   background: color-mix(in oklab, var(--fg) 8%, transparent);
 }
-.deck-attach-status.is-scanning { color: #4a6a86; }
-.deck-attach-status.is-ready { color: #4f7a4a; }
+.deck-attach-status.is-scanning { color: var(--cs-deck-link-text, #4a6a86); }
+.deck-attach-status.is-ready { color: var(--cs-deck-ok-text, #4f7a4a); }
 .deck-attach-status.is-abandoned { color: var(--fg-muted); }
 .deck-attach-remove {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 18px;
-  height: 18px;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
@@ -12195,7 +12373,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   transition: none !important;
 }
 :root[data-motion="reduced"] .deck-pending-reply,
-:root[data-motion="reduced"] .deck-pending-reply-dots > span {
+:root[data-motion="reduced"] .deck-pending-reply-dots > span,
+:root[data-motion="reduced"] .deck-investigation-spinner,
+:root[data-motion="reduced"] .deck-model-call .deck-investigation-state {
   animation: none !important;
 }
 
@@ -12213,6 +12393,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-history-state.is-loading span,
   .deck-investigation-item-disclosure[open] > .deck-investigation-execution,
   .deck-investigation-spinner,
+  .deck-investigation-item.is-running > :is(.deck-investigation-item-disclosure > summary, .deck-investigation-item-static) .deck-investigation-state,
+  .deck-model-call:is(.is-running, .is-pending) .deck-investigation-state,
   .deck-branch-item,
   .deck-branch-item::after,
   .deck-turn-deck.is-streaming,

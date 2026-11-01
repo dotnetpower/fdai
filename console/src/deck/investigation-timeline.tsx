@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "./i18n/investigation";
@@ -54,6 +54,18 @@ export function upsertInvestigationActivity(
   if (index < 0) return [...activities, incoming];
   const existing = activities[index];
   if (existing && !canAdvanceActivity(existing.status, incoming.status)) return activities;
+  if (
+    existing &&
+    existing.status === incoming.status &&
+    existing.label === incoming.label &&
+    existing.detail === incoming.detail &&
+    existing.completed === incoming.completed &&
+    existing.total === incoming.total &&
+    existing.execution === incoming.execution &&
+    existing.modelCall === incoming.modelCall
+  ) {
+    return activities;
+  }
   return activities.map((item, itemIndex) => itemIndex === index ? incoming : item);
 }
 
@@ -314,10 +326,16 @@ function ExecutionEvidence({
   const outputLabel = evidence.inputKind === "query" || providerUsesTerminal(evidence)
     ? t("deck.investigation.queryResult")
     : t("deck.investigation.outputLogs");
-  const formattedCommand = formatJsonValue(inventoryDisplay?.iql ?? evidence.command);
-  const formattedOutput = evidence.output === undefined
-    ? undefined
-    : formatJsonValue(evidence.output);
+  const formattedCommand = useMemo(
+    () => formatJsonValue(inventoryDisplay?.iql ?? evidence.command),
+    [inventoryDisplay?.iql, evidence.command],
+  );
+  const formattedOutput = useMemo(
+    () => evidence.output === undefined
+      ? undefined
+      : formatJsonValue(evidence.output),
+    [evidence.output],
+  );
   const hasTimestamps = evidence.startedAt || evidence.completedAt || evidence.durationMs !== undefined;
   const kindLabel = executionKindLabel(evidence, inventoryDisplay !== undefined);
   const safetyLabel = evidence.inputKind === "query"
@@ -676,6 +694,23 @@ function providerUsesTerminal(evidence: InvestigationExecutionEvidence): boolean
   );
 }
 
+function InvestigationElapsedDuration({
+  running,
+  finalDurationMs,
+}: {
+  readonly running: boolean;
+  readonly finalDurationMs: number;
+}) {
+  const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
+  return (
+    <>
+      {t("deck.investigation.totalDuration", {
+        duration: formatDuration(running ? elapsedMs : finalDurationMs),
+      })}
+    </>
+  );
+}
+
 export function InvestigationTimeline({
   activities,
   branches,
@@ -711,7 +746,6 @@ export function InvestigationTimeline({
 }) {
   const observedExecutionMs = terminalDuration(branches, activities);
   const finalDurationMs = turnTiming?.duration_ms ?? turnDurationMs ?? observedExecutionMs;
-  const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
   // The planning model calls render as one row, so they count as one event.
@@ -785,7 +819,7 @@ export function InvestigationTimeline({
   const interruption: ReadInterruption | undefined = running
     ? undefined
     : stopped ? "stopped" : "not_completed";
-  const modelCalls = activities.filter(isModelCallStep);
+  const modelCalls = plannedCalls;
   const firstModelCallIndex = activities.findIndex(isModelCallStep);
   const receipts = lead && answerSettled && contextReceipts && contextReceipts.length > 0
     ? contextReceipts
@@ -921,9 +955,7 @@ export function InvestigationTimeline({
       <span class="deck-investigation-session-copy cs-work-summary-copy">
         <strong class="cs-work-summary-title">{phaseTitle}</strong>
         <small class="cs-work-summary-meta">
-          {eventSummary} · {t("deck.investigation.totalDuration", {
-            duration: formatDuration(running ? elapsedMs : finalDurationMs),
-          })}
+          {eventSummary} · <InvestigationElapsedDuration running={running} finalDurationMs={finalDurationMs} />
         </small>
       </span>
       <span class="deck-investigation-session-summary muted">{detailText}</span>

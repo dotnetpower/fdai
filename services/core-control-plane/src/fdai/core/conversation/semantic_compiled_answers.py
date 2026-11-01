@@ -60,6 +60,7 @@ from .semantic_reasoning_shadow import (
     QuestionFormModel,
     ReasoningShadowObservation,
     ShadowBudget,
+    bind_turn_extraction_cache,
     run_reasoning_shadow,
 )
 from .semantic_stored_result_handles import StoredReferenceContext, bind_stored_references
@@ -121,10 +122,12 @@ class CompiledAnswerTicket:
         clock: Callable[[], float] = time.monotonic,
         typed_only: bool = False,
         ambiguity: Callable[[], concurrent.futures.Future[Mapping[str, Any] | None]] | None = None,
+        allow_resample: list[bool] | None = None,
     ) -> None:
         self._future = future
         self._collector = collector
         self._ambiguity = ambiguity
+        self._allow_resample = allow_resample
         self._deadline = clock() + deadline_seconds
         self._manifest = manifest
         self._verifier = verifier
@@ -319,6 +322,12 @@ class CompiledAnswerTicket:
             hold_details=hold_details(self._unsupported),
         )
 
+    def disable_resample(self) -> None:
+        """Stop after the first form sample when a verified deterministic frame is already ready."""
+
+        if self._allow_resample is not None:
+            self._allow_resample[0] = False
+
     def cancel(self) -> None:
         """Cancel an unconsumed path; the owner loop drains its provider calls."""
 
@@ -424,11 +433,13 @@ class CompiledAnswerPath:
 
             stored_reference_binder = bind_stored
         collector = _ObservationCollector()
+        allow_resample = [True]
         future = asyncio.run_coroutine_threadsafe(
             _run_form_path(
                 self._model,
                 collector,
                 escalation_model=self._escalation_model,
+                allow_resample=allow_resample,
                 utterance=utterance,
                 context=context,
                 locale=locale,
@@ -469,6 +480,7 @@ class CompiledAnswerPath:
             cutoff=self._clock,
             typed_only=self._settings.typed_only,
             ambiguity=ambiguity if reader is not None else None,
+            allow_resample=allow_resample,
         )
 
 
@@ -572,6 +584,7 @@ def typed_only_outcome(
 
 
 _MAX_REPLACEMENT_SAMPLES = 2
+_MAX_ESCALATED_RESAMPLE_MS = 12_000
 
 
 async def _run_form_path(
@@ -579,6 +592,7 @@ async def _run_form_path(
     collector: _ObservationCollector,
     *,
     escalation_model: QuestionFormModel | None = None,
+    allow_resample: list[bool] | None = None,
     **arguments: Any,
 ) -> ReasoningShadowObservation:
     """Read the question once, and again only while the latest reading failed as a form.
@@ -590,29 +604,34 @@ async def _run_form_path(
     tier is spent on a reading the first reader could not form and never on an ordinary turn.
     """
 
-    async with bind_adaptive_model_budget(collector):
-        first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-        if not resample_worthy(first):
-            return first
-        latest = first
-        total_calls, total_ms = first.model_calls, first.elapsed_ms
-        for _attempt in range(_MAX_REPLACEMENT_SAMPLES):
-            sample = await run_reasoning_shadow(
-                model=escalation_model or model, retain_compilations=True, **arguments
-            )
-            total_calls += sample.model_calls
-            total_ms += sample.elapsed_ms
-            escalated = ("form_escalated",) if escalation_model is not None else ()
-            if not isinstance(single_compiled_batch(sample), str):
-                return replace(
-                    sample,
-                    model_calls=total_calls,
-                    elapsed_ms=total_ms,
-                    notes=(*sample.notes, *escalated, "form_resampled"),
-                    discarded_sample=latest,
+    with bind_turn_extraction_cache():
+        async with bind_adaptive_model_budget(collector):
+            first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
+            if (allow_resample is not None and not allow_resample[0]) or not resample_worthy(first):
+                return first
+            latest = first
+            total_calls, total_ms = first.model_calls, first.elapsed_ms
+            for _attempt in range(_MAX_REPLACEMENT_SAMPLES):
+                if allow_resample is not None and not allow_resample[0]:
+                    break
+                sample = await run_reasoning_shadow(
+                    model=escalation_model or model, retain_compilations=True, **arguments
                 )
-            if not resample_worthy(sample):
-                break
+                total_calls += sample.model_calls
+                total_ms += sample.elapsed_ms
+                escalated = ("form_escalated",) if escalation_model is not None else ()
+                if not isinstance(single_compiled_batch(sample), str):
+                    return replace(
+                        sample,
+                        model_calls=total_calls,
+                        elapsed_ms=total_ms,
+                        notes=(*sample.notes, *escalated, "form_resampled"),
+                        discarded_sample=latest,
+                    )
+                if not resample_worthy(sample) or (
+                    escalation_model is not None and total_ms >= _MAX_ESCALATED_RESAMPLE_MS
+                ):
+                    break
     return replace(
         first,
         notes=(*first.notes, *escalated, "form_resampled_unanswered"),

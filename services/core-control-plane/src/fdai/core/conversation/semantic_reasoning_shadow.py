@@ -1,11 +1,4 @@
-"""Shadow runner for the question-form path; it records digests and never answers.
-
-The runner asks the model for a closed question form, binds quoted spans, admits
-the form, grounds concepts over complete catalog shards, and compiles verified
-plans. A proposal that breaks its contract gets one bounded repair call. It
-returns an observation of dispositions and digests only. It never executes a
-plan, renders an answer, or changes the production turn.
-"""
+"""Shadow runner for the question-form path; it records digests and never answers."""
 
 from __future__ import annotations
 
@@ -14,7 +7,9 @@ import contextlib
 import copy
 import functools
 import time
-from collections.abc import Awaitable, Callable, Mapping
+from collections import OrderedDict
+from collections.abc import Awaitable, Callable, Iterator, Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Any, Literal, Protocol, cast
@@ -39,10 +34,7 @@ from .semantic_reasoning_concepts import (
     concept_catalogs,
     shard_answer_valid,
 )
-from .semantic_reasoning_direction import (
-    DirectionQuestion,
-    settle_directions,
-)
+from .semantic_reasoning_direction import DirectionQuestion, settle_directions
 from .semantic_reasoning_form import SemanticQuestionForm, SourceSpan
 from .semantic_reasoning_handles import (
     HandleScope,
@@ -52,19 +44,10 @@ from .semantic_reasoning_handles import (
     reference_anchors,
 )
 from .semantic_reasoning_kinds import ground_kinds
-from .semantic_reasoning_proposal import (
-    FormInputHeldError,
-)
-from .semantic_reasoning_repair import (
-    FormRepair,
-    propose_with_repair,
-)
-from .semantic_reasoning_review import FormReview, review_forms
-from .semantic_reasoning_review_repair import (
-    ReviewRepair,
-    propose_review_repair,
-    review_repair,
-)
+from .semantic_reasoning_proposal import FormInputHeldError
+from .semantic_reasoning_repair import FormRepair, propose_with_repair
+from .semantic_reasoning_review import FormReview, resolve_extraction, review_forms
+from .semantic_reasoning_review_repair import ReviewRepair, propose_review_repair, review_repair
 from .semantic_reasoning_selection import select_concepts
 from .semantic_reasoning_shape import form_shape
 from .turn_reservations import (
@@ -76,6 +59,42 @@ from .turn_reservations import (
 )
 
 MAX_FORM_PASSES = 3
+_MAX_CATALOG_CACHE = 16
+_CATALOG_CACHE: OrderedDict[str, Any] = OrderedDict()
+_TURN_EXTRACTION_CACHE: ContextVar[dict[str, Mapping[str, Any]] | None] = ContextVar(
+    "semantic_turn_extraction_cache", default=None
+)
+
+
+@contextlib.contextmanager
+def bind_turn_extraction_cache() -> Iterator[dict[str, Mapping[str, Any]]]:
+    """Bind a turn-local cache so replacement form samples reuse a valid blind extraction."""
+    if (existing := _TURN_EXTRACTION_CACHE.get()) is not None:
+        yield existing
+        return
+    cache: dict[str, Mapping[str, Any]] = {}
+    token = _TURN_EXTRACTION_CACHE.set(cache)
+    try:
+        yield cache
+    finally:
+        _TURN_EXTRACTION_CACHE.reset(token)
+
+
+def _cached_concept_catalogs(manifest: QueryManifest) -> Any:
+    if (cached := _CATALOG_CACHE.get(manifest.manifest_digest)) is not None:
+        _CATALOG_CACHE.move_to_end(manifest.manifest_digest)
+        return cached
+    built = concept_catalogs(
+        manifest.descriptors,
+        object_labels=dict(manifest.object_labels),
+        metric_labels=dict(manifest.metric_labels),
+        health_labels=dict(manifest.health_labels),
+        property_reads=manifest.property_reads,
+    )
+    _CATALOG_CACHE[manifest.manifest_digest] = built
+    while len(_CATALOG_CACHE) > _MAX_CATALOG_CACHE:
+        _CATALOG_CACHE.popitem(last=False)
+    return built
 
 
 class QuestionFormModel(Protocol):
@@ -176,16 +195,7 @@ class ShadowPass:
 
 @dataclass(frozen=True, slots=True)
 class ReasoningShadowObservation:
-    """Digest-only record of one shadow turn; it carries no utterance text.
-
-    ``compilations`` is populated only when an evaluation harness explicitly asks
-    to retain compiled plans; production shadow use never retains them. ``released``
-    is true only when every pass was admitted, no continuation is pending, and every
-    constraint the independent extraction found lies in a span of the admitted forms
-    that states it, because an earlier pass compiles before the final pass accounts for
-    every word and before the review; until then every compilation is provisional and
-    no answer may use it.
-    """
+    """Digest-only record of one shadow turn; it carries no utterance text."""
 
     passes: tuple[ShadowPass, ...]
     model_calls: int
@@ -351,13 +361,7 @@ async def run_reasoning_shadow(
     passes: list[ShadowPass] = []
     compilations: list[ReasoningCompilation] = []
     prior_goals: tuple[dict[str, Any], ...] = ()
-    catalogs = concept_catalogs(
-        manifest.descriptors,
-        object_labels=dict(manifest.object_labels),
-        metric_labels=dict(manifest.metric_labels),
-        health_labels=dict(manifest.health_labels),
-        property_reads=manifest.property_reads,
-    )
+    catalogs = _cached_concept_catalogs(manifest)
     pending = False
     notes: list[str] = []
     accounting = SpanAccounting(required=account_spans)
@@ -440,34 +444,29 @@ async def run_reasoning_shadow(
         )
         review: FormReview | None = None
         if complete:
-            raw, failure = await extraction
-            review = (
-                FormReview("unavailable", (failure,))
-                if failure is not None
-                else review_forms(
+
+            def _review_raw(raw_ext: Mapping[str, Any] | None, err: str | None) -> FormReview:
+                if err is not None:
+                    return FormReview("unavailable", (err,))
+                return review_forms(
                     admitted_forms,
-                    raw,
+                    raw_ext,
                     utterance=utterance,
                     syntactic_labels=tuple(syntactic_labels),
                 )
-            )
+
+            raw, failure = await extraction
+            review = _review_raw(raw, failure)
             if review.outcome == "invalid":
-                # An unusable extraction, such as a quote not in the question, is read once
-                # more by the same blind extractor; its answer is reviewed by the same rules.
                 notes.append("review_reextracted")
                 raw, failure = await _extract(
-                    counting, utterance=utterance, context=context, locale=locale
+                    counting,
+                    utterance=utterance,
+                    context=context,
+                    locale=locale,
+                    force_refresh=True,
                 )
-                review = (
-                    FormReview("unavailable", (failure,))
-                    if failure is not None
-                    else review_forms(
-                        admitted_forms,
-                        raw,
-                        utterance=utterance,
-                        syntactic_labels=tuple(syntactic_labels),
-                    )
-                )
+                review = _review_raw(raw, failure)
             repair = review_repair(
                 review,
                 raw,
@@ -505,15 +504,11 @@ async def run_reasoning_shadow(
                     and repaired_whole
                 ):
                     review = review_forms(
-                        (admitted,),
-                        raw,
-                        utterance=utterance,
-                        syntactic_labels=normalized_labels,
+                        (admitted,), raw, utterance=utterance, syntactic_labels=normalized_labels
                     )
                     if retain_compilations and compilation is not None:
                         compilations = [compilation]
                 else:
-                    # A repair that reads only part of the question releases nothing.
                     complete = False
                     pending = pending or not repaired_whole
         else:
@@ -555,12 +550,7 @@ def _direction_cost(counting: _CountingModel) -> DirectionCostReceipt | None:
 
 
 def _generation_drifted(pinned: tuple[str, ...], observed: tuple[str, ...]) -> bool:
-    """Return whether a continuation pass's anchor reads left the turn's pinned snapshot.
-
-    A pass that read no anchor has nothing to compare. A pass whose own reads saw two
-    generations, or one other than the generation the first reads saw, has drifted.
-    """
-
+    """Return whether a continuation pass's anchor reads left the turn's pinned snapshot."""
     if not observed:
         return False
     return len(observed) > 1 or (bool(pinned) and observed != pinned)
@@ -580,14 +570,32 @@ async def _extract(
     utterance: str,
     context: tuple[str, ...],
     locale: str,
+    force_refresh: bool = False,
 ) -> tuple[Mapping[str, Any] | None, str | None]:
     """Ask the independent extractor for every constraint the question states."""
 
+    cache = _TURN_EXTRACTION_CACHE.get()
+    key = (
+        content_digest({"utterance": utterance, "context": context, "locale": locale})
+        if cache is not None
+        else None
+    )
+    if cache is not None and key is not None and not force_refresh:
+        cached = cache.get(key)
+        if cached is not None:
+            return copy.deepcopy(cached), None
     try:
         raw = await model.extract_constraints(utterance=utterance, context=context, locale=locale)
     except Exception as exc:  # noqa: BLE001 - an unavailable review releases nothing
         held = exc.reason if isinstance(exc, FormInputHeldError) else None
         return None, held or f"review_error:{type(exc).__name__}"
+    if (
+        cache is not None
+        and key is not None
+        and raw is not None
+        and resolve_extraction(raw, utterance) is not None
+    ):
+        cache[key] = copy.deepcopy(raw)
     return raw, None
 
 
@@ -636,39 +644,35 @@ async def _run_pass(
             propose, review_repair, utterance=utterance, accounting=accounting
         )
     )
+    empty: tuple[tuple[dict[str, Any], ...], None, None, tuple[SourceSpan, ...]] = (
+        (),
+        None,
+        None,
+        (),
+    )
     if proposal.resolution is None:
-        return ShadowPass(index, "model_unavailable"), (), None, None, ()
+        return ShadowPass(index, "model_unavailable"), *empty
     resolution, admission = proposal.resolution, proposal.admission
     if resolution.form is None or admission is None:
-        return (
-            ShadowPass(
-                index,
-                "invalid",
-                resolution.reasons,
-                repair=proposal.repair,
-                repaired_reasons=proposal.repaired_reasons,
-            ),
-            (),
-            None,
-            None,
-            (),
+        failed = ShadowPass(
+            index,
+            "invalid",
+            resolution.reasons,
+            repair=proposal.repair,
+            repaired_reasons=proposal.repaired_reasons,
         )
+        return failed, *empty
     if admission.disposition is not AdmissionDisposition.ADMITTED:
-        return (
-            ShadowPass(
-                index,
-                admission.disposition.value,
-                admission.reasons,
-                resolution.form.digest,
-                repair=proposal.repair,
-                repaired_reasons=proposal.repaired_reasons,
-                shape=form_shape(resolution.form),
-            ),
-            (),
-            None,
-            None,
-            (),
+        held_pass = ShadowPass(
+            index,
+            admission.disposition.value,
+            admission.reasons,
+            resolution.form.digest,
+            repair=proposal.repair,
+            repaired_reasons=proposal.repaired_reasons,
+            shape=form_shape(resolution.form),
         )
+        return held_pass, *empty
 
     def select(lane: Any, calls: int) -> Any:
         return select_concepts(

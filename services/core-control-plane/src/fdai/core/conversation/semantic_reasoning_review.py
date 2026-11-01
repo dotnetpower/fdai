@@ -96,7 +96,7 @@ _UNSTATED_ROLES = frozenset({ConstraintRole.ASKS, ConstraintRole.QUANTIFIES})
 _UNEXPRESSIBLE: dict[ConstraintRole, frozenset[GoalOperation]] = {
     ConstraintRole.NEGATES: frozenset(),
     ConstraintRole.COMPARES: _RANKING | _COMPARISON,
-    ConstraintRole.ORDERS: _RANKING,
+    ConstraintRole.ORDERS: _RANKING | frozenset({GoalOperation.HISTORY}),
 }
 
 
@@ -169,19 +169,25 @@ class FormReview:
         return self.outcome == "faithful"
 
 
+_EXTRACTION_SCHEMA_TEMPLATE: dict[str, Any] | None = None
+
+
 def extraction_schema() -> dict[str, Any]:
     """Return the extractor-facing schema, with quoted spans in place of offsets."""
 
-    schema = copy.deepcopy(ConstraintExtraction.model_json_schema())
-    definitions = schema.get("$defs", {})
-    if "SourceSpan" not in definitions:
-        raise ValueError("constraint extraction schema has no SourceSpan definition")
-    definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
-    # Strict structured output requires every property, so the extractor always answers.
-    schema["required"] = sorted(
-        {*schema.get("required", ()), "literals", "answer_kind", "request_kind"}
-    )
-    return schema
+    global _EXTRACTION_SCHEMA_TEMPLATE
+    if _EXTRACTION_SCHEMA_TEMPLATE is None:
+        schema = copy.deepcopy(ConstraintExtraction.model_json_schema())
+        definitions = schema.get("$defs", {})
+        if "SourceSpan" not in definitions:
+            raise ValueError("constraint extraction schema has no SourceSpan definition")
+        definitions["SourceSpan"] = copy.deepcopy(_QUOTE_SCHEMA)
+        # Strict structured output requires every property, so the extractor always answers.
+        schema["required"] = sorted(
+            {*schema.get("required", ()), "literals", "answer_kind", "request_kind"}
+        )
+        _EXTRACTION_SCHEMA_TEMPLATE = schema
+    return copy.deepcopy(_EXTRACTION_SCHEMA_TEMPLATE)
 
 
 def review_forms(

@@ -105,7 +105,7 @@ export function CommandDeckHeader({
           </svg>
         </span>
         <span class="deck-header-copy">
-          <strong class="deck-header-conversation-title">{conversationTitle}</strong>
+          <strong class="deck-header-conversation-title" title={conversationTitle}>{conversationTitle}</strong>
           <span class="deck-header-route">{routeLabel}</span>
         </span>
         {sessionLabel && (

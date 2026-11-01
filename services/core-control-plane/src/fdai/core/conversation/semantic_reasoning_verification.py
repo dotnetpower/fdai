@@ -470,7 +470,13 @@ def _function_violations(
         }
     elif name == "query.recent_resource_changes":
         lookback = _expected_lookback(goal, default_lookback_seconds)
-        limit = _declared_maximum(descriptors, name, "limit")
+        max_limit = _declared_maximum(descriptors, name, "limit")
+        stated_limit = goal.measure.order.limit if goal.measure and goal.measure.order else None
+        limit = (
+            stated_limit
+            if stated_limit and max_limit and 1 <= stated_limit <= max_limit
+            else max_limit
+        )
         if (
             lookback is None
             or limit is None

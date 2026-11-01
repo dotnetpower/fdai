@@ -400,6 +400,15 @@ def _comparison_failures(goal: FormGoal, utterance: str) -> list[str]:
         literals = _decimal_literals(str(_span_text(comparison.value_span, utterance)))
         if literals != (Decimal(comparison.value),):
             failures.append(f"comparison_value_mismatch:{goal.id}")
+    order = goal.measure.order if goal.measure is not None else None
+    if order is not None and order.limit is not None and order.limit_span is not None:
+        limit_text = _span_text(order.limit_span, utterance)
+        if limit_text is None:
+            failures.append(f"order_limit_span_invalid:{goal.id}")
+        else:
+            digits = [value for value in _decimal_numbers(limit_text) if value is not None]
+            if digits and digits != [order.limit]:
+                failures.append(f"order_limit_mismatch:{goal.id}")
     return failures
 
 

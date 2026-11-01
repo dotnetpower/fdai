@@ -19,7 +19,7 @@
  * privileged calls, no side effects beyond a self-cancelling timer.
  */
 
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { t } from "./i18n/conversation-layer";
 import type {
   BackendHealth,
@@ -130,22 +130,7 @@ export function buildStages(
   return stages;
 }
 
-export function RetrievalTrace({
-  snapshot,
-  health,
-  progress,
-}: {
-  readonly snapshot: ViewSnapshot | null;
-  readonly health: BackendHealth | null;
-  readonly progress: VerificationProgress | null;
-}) {
-  const sources = sourceCards(snapshot, progress?.sources ?? []);
-  const sourceCount = sources.length;
-  const sourceSignature = sources
-    .map((source) => `${source.kind}:${source.label}:${source.detail}`)
-    .join("|");
-  const routeId = snapshot?.routeId ?? "";
-  const [shown, setShown] = useState(0);
+function GroundingElapsed() {
   const [elapsedMs, setElapsedMs] = useState(0);
 
   useEffect(() => {
@@ -155,6 +140,34 @@ export function RetrievalTrace({
     }, 100);
     return () => window.clearInterval(id);
   }, []);
+
+  return (
+    <span class="cs-grounding-elapsed" aria-hidden="true">
+      {(elapsedMs / 1000).toFixed(1)} s
+    </span>
+  );
+}
+
+export function RetrievalTrace({
+  snapshot,
+  health,
+  progress,
+}: {
+  readonly snapshot: ViewSnapshot | null;
+  readonly health: BackendHealth | null;
+  readonly progress: VerificationProgress | null;
+}) {
+  const sources = useMemo(
+    () => sourceCards(snapshot, progress?.sources ?? []),
+    [snapshot, progress?.sources],
+  );
+  const sourceCount = sources.length;
+  const sourceSignature = useMemo(
+    () => sources.map((source) => `${source.kind}:${source.label}:${source.detail}`).join("|"),
+    [sources],
+  );
+  const routeId = snapshot?.routeId ?? "";
+  const [shown, setShown] = useState(0);
 
   useEffect(() => {
     setShown(0);
@@ -176,7 +189,10 @@ export function RetrievalTrace({
     return () => window.clearInterval(id);
   }, [routeId, sourceCount, sourceSignature]);
 
-  const stages = buildStages(snapshot, health, progress);
+  const stages = useMemo(
+    () => buildStages(snapshot, health, progress),
+    [snapshot, health, progress],
+  );
   const activeStep = stages.findIndex((stage) => !stage.done) + 1 || stages.length;
   const visibleSources = sources.slice(Math.max(0, shown - VISIBLE), shown);
   const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
@@ -207,9 +223,7 @@ export function RetrievalTrace({
           <span class="cs-grounding-status">
             {t("deck.retrieval.stepOf", { current: activeStep, total: stages.length })}
           </span>
-          <span class="cs-grounding-elapsed" aria-hidden="true">
-            {(elapsedMs / 1000).toFixed(1)} s
-          </span>
+          <GroundingElapsed />
           <span class="cs-grounding-authority">{t("deck.retrieval.readOnly")}</span>
         </header>
 

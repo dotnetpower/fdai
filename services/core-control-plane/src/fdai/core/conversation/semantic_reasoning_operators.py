@@ -1,8 +1,4 @@
-"""Compile instance-level question-form goals into verified read-plan specs.
-
-A goal atom that no reviewed builder can express returns a typed unsupported
-reason instead of a broader or substitute read.
-"""
+"""Compile instance-level question-form goals into verified read-plan specs."""
 
 from __future__ import annotations
 
@@ -664,12 +660,7 @@ def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
 def _recent_changes(
     goal: FormGoal, ctx: CompileContext, seconds: int, requirement: str
 ) -> OperatorResult:
-    """Read the newest provider-observed change of each Resource in the window.
-
-    The reader has no kind restriction, so only Resources in general are read; a stated
-    kind is unsupported rather than silently widened. The reader's declared row bound
-    applies, and a window with more changed Resources stays marked incomplete.
-    """
+    """Read the newest provider-observed change of each Resource in the window."""
 
     if goal.subject is not None:
         values, failure = concept_values(goal.subject, ctx)
@@ -681,9 +672,14 @@ def _recent_changes(
         )
         if not general:
             return OperatorResult(unsupported=("recent_change_kind_unsupported",))
-    limit = declared_maximum(ctx, RECENT_CHANGES_FUNCTION, "limit")
-    if limit is None:
+    max_limit = declared_maximum(ctx, RECENT_CHANGES_FUNCTION, "limit")
+    if max_limit is None:
         return OperatorResult(unsupported=(f"function_unavailable:{RECENT_CHANGES_FUNCTION}",))
+    stated_limit = goal.measure.order.limit if goal.measure and goal.measure.order else None
+    if stated_limit is not None and not 1 <= stated_limit <= max_limit:
+        return OperatorResult(unsupported=("recent_change_limit_out_of_bounds",))
+    limit = stated_limit if stated_limit is not None else max_limit
+    requirements = (requirement, f"result_limit.{stated_limit}") if stated_limit else (requirement,)
     end = ctx.evaluation_time.astimezone(UTC)
     node = OntologyQueryNode(
         node_id=f"{goal.id}-changes",
@@ -702,16 +698,19 @@ def _recent_changes(
         ),
         output_kind="query.table",
     )
-    spec = plan_spec(
-        goal,
-        (node,),
-        (node.node_id,),
-        ctx,
-        subjects=(RESOURCE_OBJECT_TYPE,),
-        output_shape=SemanticOutputShape.RESOURCE_CHANGES,
-        evidence_requirements=(requirement,),
+    return OperatorResult(
+        specs=(
+            plan_spec(
+                goal,
+                (node,),
+                (node.node_id,),
+                ctx,
+                subjects=(RESOURCE_OBJECT_TYPE,),
+                output_shape=SemanticOutputShape.RESOURCE_CHANGES,
+                evidence_requirements=requirements,
+            ),
+        )
     )
-    return OperatorResult(specs=(spec,))
 
 
 def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:

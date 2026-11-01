@@ -434,6 +434,11 @@ describe("upsertEvidenceBranch", () => {
     expect(conversationLayer).toMatch(
       /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.cs-run-event-kind,[\s\S]*?\.cs-run-axis,[\s\S]*?\{ display: none; \}/,
     );
+    expect(styles).not.toContain(".deck-investigation-item.is-running .deck-investigation-state,");
+    expect(styles).toContain(".deck-model-call.is-completed .deck-investigation-state {");
+    expect(styles).toContain(".deck-investigation-item:last-child::after {");
+    expect(styles).toContain(".deck-model-call-list .deck-investigation-copy {");
+    expect(component).toContain("<InvestigationElapsedDuration running={running} finalDurationMs={finalDurationMs} />");
     expect(styles).toMatch(
       /\.deck-investigation-item\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent/,
     );

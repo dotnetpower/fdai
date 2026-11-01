@@ -1,5 +1,5 @@
 import { Fragment, type RefObject } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
@@ -198,7 +198,7 @@ export function CommandDeckView({
   onInputKeyDown,
   onStopStream,
 }: CommandDeckViewProps) {
-  const trajectories = conversationTrajectoriesByTurn(turns);
+  const trajectories = useMemo(() => conversationTrajectoriesByTurn(turns), [turns]);
   const [showModelTrace, setShowModelTrace] = useState(
     () => readConsolePreferences().showModelTrace,
   );
@@ -715,7 +715,7 @@ function DeckComposer({
           {inFlight ? (
             <button
               type="button"
-              class="deck-btn deck-btn-stop cs-deck-composer-send"
+              class="deck-btn deck-btn-stop cs-deck-composer-send is-stop"
               onClick={onStopStream}
             >
               {t("deck.stop")}

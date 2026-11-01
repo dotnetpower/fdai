@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from collections.abc import Mapping
+from typing import TypedDict, cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_service_contracts.semantic_model_call_progress import SemanticModelCallProgress
@@ -74,4 +75,35 @@ def model_call_activity(call: SemanticModelCallProgress, *, locale: str) -> Mode
     }
 
 
-__all__ = ["ModelCallActivity", "model_call_activity"]
+def settled_model_call_fields(
+    detail: str | None,
+    kind: str,
+    model_call: JsonObject | None,
+    *,
+    locale: str,
+) -> tuple[str | None, JsonObject | None]:
+    """Return settled detail and model_call fields when a running model call completes at done."""
+
+    if kind != "model_call" or not isinstance(model_call, Mapping):
+        return detail, model_call
+    korean = locale.casefold().startswith("ko")
+    raw_model = model_call.get("model")
+    model_name = (
+        raw_model.strip()
+        if isinstance(raw_model, str) and raw_model.strip()
+        else ("모델" if korean else "model")
+    )
+    duration_ms = model_call.get("duration_ms")
+    valid_ms = (
+        duration_ms if isinstance(duration_ms, int) and not isinstance(duration_ms, bool) else 0
+    )
+    seconds = valid_ms / 1000
+    settled_detail = (
+        f"{model_name} · {seconds:.1f}초 · 완료"
+        if korean
+        else f"{model_name} · {seconds:.1f} s · completed"
+    )
+    return settled_detail, cast(JsonObject, {**model_call, "duration_ms": valid_ms})
+
+
+__all__ = ["ModelCallActivity", "model_call_activity", "settled_model_call_fields"]

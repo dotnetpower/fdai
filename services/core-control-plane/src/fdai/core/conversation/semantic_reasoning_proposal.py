@@ -55,21 +55,27 @@ class FormResolution:
     request_kind: RequestKind | None = None
 
 
+_PROPOSAL_SCHEMA_TEMPLATE: dict[str, Any] | None = None
+
+
 def question_form_proposal_schema() -> dict[str, Any]:
     """Return the model-facing schema, with quoted spans in place of offsets."""
 
-    schema = copy.deepcopy(SemanticQuestionForm.model_json_schema())
-    definitions = schema.get("$defs", {})
-    if "SourceSpan" not in definitions:
-        raise ValueError("question form schema has no SourceSpan definition")
-    definitions["SourceSpan"] = copy.deepcopy(_QUOTED_SPAN_SCHEMA)
-    schema["properties"]["request_kind"] = {
-        "type": ["string", "null"],
-        "enum": [*REQUEST_KINDS, None],
-        "description": "Classify the actual request, not a quoted request or imagined action.",
-    }
-    schema["required"] = [*schema.get("required", ()), "request_kind"]
-    return schema
+    global _PROPOSAL_SCHEMA_TEMPLATE
+    if _PROPOSAL_SCHEMA_TEMPLATE is None:
+        schema = copy.deepcopy(SemanticQuestionForm.model_json_schema())
+        definitions = schema.get("$defs", {})
+        if "SourceSpan" not in definitions:
+            raise ValueError("question form schema has no SourceSpan definition")
+        definitions["SourceSpan"] = copy.deepcopy(_QUOTED_SPAN_SCHEMA)
+        schema["properties"]["request_kind"] = {
+            "type": ["string", "null"],
+            "enum": [*REQUEST_KINDS, None],
+            "description": "Classify the actual request, not a quoted request or imagined action.",
+        }
+        schema["required"] = [*schema.get("required", ()), "request_kind"]
+        _PROPOSAL_SCHEMA_TEMPLATE = schema
+    return copy.deepcopy(_PROPOSAL_SCHEMA_TEMPLATE)
 
 
 def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormResolution:
@@ -164,6 +170,7 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
     if failures:
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
     measure_words_to_cue(mentions, goals)
+    valueless_window_to_unspecified(goals)
     try:
         return FormResolution(
             SemanticQuestionForm.model_validate(payload), (), request_kind=request_kind
@@ -301,6 +308,26 @@ def measure_words_to_cue(mentions: list[Any], goals: list[Any]) -> None:
         mentions[:] = [
             item for item in mentions if not (isinstance(item, dict) and item.get("id") in dropped)
         ]
+
+
+def valueless_window_to_unspecified(goals: list[Any]) -> None:
+    """Keep a qualitative time cue (such as 'recent' / '최근' with no number) as unspecified.
+
+    When the proposer labels a numberless time cue as ``window`` with ``value: null``,
+    the closed schema requires ``unspecified`` so the history compiler applies its
+    default window while still accounting for the quoted time cue span.
+    """
+
+    for goal in goals:
+        time_field = goal.get("time") if isinstance(goal, dict) else None
+        if (
+            isinstance(time_field, dict)
+            and time_field.get("kind") == "window"
+            and time_field.get("value") is None
+            and not time_field.get("windows")
+            and isinstance(time_field.get("cue"), dict)
+        ):
+            time_field["kind"] = "unspecified"
 
 
 def _holds(outer: object, inner: object) -> bool:
