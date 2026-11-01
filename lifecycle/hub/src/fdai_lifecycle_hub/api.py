@@ -7,9 +7,11 @@ sign-in, and transport authentication are Lifecycle I1 work and gate any non-loo
 from __future__ import annotations
 
 from base64 import b64encode
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
+from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
@@ -47,15 +49,15 @@ from fdai_lifecycle_hub.native_ownership_api import native_ownership_routes
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
+    LiftSuppressionRequest,
     PlanReport,
     RejectionRequest,
     SignedEnrollment,
+    SuppressionCommandRequest,
     actor_name,
     enrollment_request,
-    installation_detail_record,
     installation_summary_record,
     pending_enrollment_record,
-    plan_record,
     reported_state_json,
 )
 from fdai_lifecycle_hub.signing import HubSigningKey, verify_key_proof
@@ -229,32 +231,16 @@ def create_app(
 
     async def get_installation(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
-        status = await run_in_threadpool(store.enrollment_status, installation_id)
-        if status is not EnrollmentStatus.ENROLLED:
-            # Only an enrolled installation is on the list screen or has its own detail page.
-            raise NotEnrolledError(installation_id)
-        now = clock()
-        installation = await run_in_threadpool(store.load, installation_id)
-        last_evaluation = await run_in_threadpool(store.last_evaluation, installation_id)
-        open_plan = await run_in_threadpool(store.current_plan, installation_id, now=now)
-        reports = await run_in_threadpool(store.reports, installation_id)
         return JSONResponse(
-            installation_detail_record(
-                installation,
-                enrollment=status,
-                open_plan=open_plan,
-                last_evaluation=last_evaluation,
-                reports=reports,
-                now=now,
-            )
+            await run_in_threadpool(store.installation_detail_view, installation_id, now=clock())
         )
 
     async def get_plan_detail(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
         plan_id = request.path_params["plan_id"]
-        record = await run_in_threadpool(store.plan_detail, installation_id, plan_id)
-        reports = await run_in_threadpool(store.plan_reports, plan_id)
-        return JSONResponse(plan_record(record, installation_id=installation_id, reports=reports))
+        return JSONResponse(
+            await run_in_threadpool(store.plan_detail_view, installation_id, plan_id)
+        )
 
     async def list_pending(request: Request) -> Response:
         pending = await run_in_threadpool(store.list_pending_enrollments)
@@ -263,14 +249,9 @@ def create_app(
     async def list_bindable(request: Request) -> Response:
         """Installations the deployment bound to an Agent, so the operator picks, not types."""
 
-        pending, enrolled = await run_in_threadpool(
-            lambda: (store.list_pending_enrollments(), store.list_installations())
-        )
-        status = {item.installation.installation_id: "pending" for item in pending} | {
-            item.installation.installation_id: "enrolled" for item in enrolled
-        }
         principals = remote_auth.agent_principals if remote_auth is not None else ()
         bound = sorted({principal.installation_id for principal in principals})
+        status = await run_in_threadpool(store.enrollment_statuses, frozenset(bound))
         return JSONResponse(
             {
                 "installations": [
@@ -324,6 +305,78 @@ def create_app(
             now=clock(),
         )
         return JSONResponse({"rejected": installation_id})
+
+    async def list_audit(request: Request) -> Response:
+        fields = dict(request.query_params)
+        if len(fields) != len(request.query_params.multi_items()):
+            return _error(422, "audit_query_invalid")
+        if set(fields) - {"installation_id", "limit"}:
+            return _error(422, "audit_query_invalid")
+        installation_id = fields.get("installation_id")
+        if installation_id is not None and not installation_id.strip():
+            return _error(422, "audit_query_invalid")
+        limit = 100
+        if "limit" in fields:
+            raw_limit = fields["limit"]
+            if not raw_limit.isascii() or not raw_limit.isdecimal():
+                return _error(422, "audit_query_invalid")
+            limit = int(raw_limit)
+            if not 1 <= limit <= 200:
+                return _error(422, "audit_query_invalid")
+        return JSONResponse(
+            await run_in_threadpool(
+                partial(store.audit_records, installation_id=installation_id, limit=limit)
+            )
+        )
+
+    async def post_suppression(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
+        body = await _read_limited(request, MAX_APPROVAL_BYTES)
+        if body is None:
+            return _error(413, "request_too_large")
+        try:
+            command = SuppressionCommandRequest.model_validate_json(body)
+            window = SuppressionWindow(
+                command.scope, command.starts_at, command.ends_at, origin="manual"
+            )
+        except (ValidationError, ValueError):
+            return _error(422, "suppression_invalid")
+        installation_id = request.path_params["installation_id"]
+        if command.confirmation != f"suppress {installation_id} {command.scope}":
+            return _error(422, "suppression_invalid")
+        try:
+            await run_in_threadpool(store.add_suppression, installation_id, window, now=clock())
+        except ValueError:
+            return _error(422, "suppression_invalid")
+        return JSONResponse(
+            {
+                "suppressed": installation_id,
+                "scope": command.scope,
+                "ends_at": command.ends_at.isoformat(),
+            }
+        )
+
+    async def post_lift_suppression(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
+        body = await _read_limited(request, MAX_APPROVAL_BYTES)
+        if body is None:
+            return _error(413, "request_too_large")
+        try:
+            command = LiftSuppressionRequest.model_validate_json(body)
+        except ValidationError:
+            return _error(422, "suppression_invalid")
+        installation_id = request.path_params["installation_id"]
+        if command.confirmation != f"lift suppression {installation_id} {command.scope}":
+            return _error(422, "suppression_invalid")
+        try:
+            await run_in_threadpool(
+                store.lift_suppressions, installation_id, command.scope, now=clock()
+            )
+        except ValueError:
+            return _error(409, "suppression_not_active")
+        return JSONResponse({"lifted": installation_id, "scope": command.scope})
 
     async def not_found(request: Request, exc: Exception) -> Response:
         return _error(404, "not_found")
@@ -384,11 +437,22 @@ def create_app(
             methods=["POST"],
         ),
         Route("/v1/installations/{installation_id}/state", post_state, methods=["POST"]),
-        # Operator UI routes: read-only, plus enrollment approval.
+        # Operator UI routes: read-only, plus enrollment approval and suppression commands.
         Route("/v1/installations", list_installations),
         Route("/v1/configurations", list_configurations),
+        Route("/v1/audit", list_audit),
         Route("/v1/installations/{installation_id}", get_installation),
         Route("/v1/installations/{installation_id}/plans/{plan_id}", get_plan_detail),
+        Route(
+            "/v1/installations/{installation_id}/suppressions",
+            post_suppression,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/suppressions/lift",
+            post_lift_suppression,
+            methods=["POST"],
+        ),
         Route("/v1/enrollments/pending", list_pending),
         Route("/v1/enrollments/pending/{installation_id}", get_pending),
         Route(

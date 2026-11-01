@@ -1,13 +1,15 @@
 import { useEffect, useState } from "preact/hooks";
 import { Nav } from "./components/nav";
 import { currentRoute, subscribe, type Route } from "./router";
+import { AuditPage } from "./routes/audit";
+import { CatalogPage } from "./routes/catalog";
+import { CommandsPage } from "./routes/commands";
 import { EnrollmentsPage } from "./routes/enrollments";
 import { InstallationPage } from "./routes/installation";
 import { InstallationsPage } from "./routes/installations";
-import { PlanPage } from "./routes/plan";
-import { CatalogPage } from "./routes/catalog";
-import { UpdatesPage } from "./routes/updates";
 import { ConfigurationsPage, ReleasesPage } from "./routes/inventory";
+import { PlanPage } from "./routes/plan";
+import { UpdatesPage } from "./routes/updates";
 
 function useRoute(): Route {
   const [route, setRoute] = useState<Route>(currentRoute());
@@ -25,6 +27,10 @@ function Screen({ route }: { route: Route }) {
       return <ReleasesPage />;
     case "configurations":
       return <ConfigurationsPage />;
+    case "commands":
+      return <CommandsPage />;
+    case "audit":
+      return <AuditPage />;
     case "installations":
       return <InstallationsPage />;
     case "installation":

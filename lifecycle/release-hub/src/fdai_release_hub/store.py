@@ -72,6 +72,8 @@ from fdai_release_hub.database import (
 )
 
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
+MAX_VERIFIED_MANIFEST_CACHE = 1024
+_TRAILING_REVISION = re.compile(rb',"revision":([0-9]+)\}\Z')
 
 
 def _is_custom_channel(value: str | None) -> bool:
@@ -101,6 +103,28 @@ class CapabilityChange(CatalogConfirmation):
     lifting_release_id: str | None = Field(default=None, max_length=64)
 
 
+class CanaryObservationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    installation_id: str = Field(min_length=1, max_length=160)
+    release_id: str = Field(min_length=1, max_length=64)
+    healthy: bool
+    soak_seconds: int = Field(ge=0)
+
+
+class StagePromotion(CatalogConfirmation):
+    source_channel: str = Field(min_length=1, max_length=64)
+    target_channel: str = Field(min_length=1, max_length=64)
+    channel_confirmation: str | None = Field(default=None, max_length=64)
+    required_labels: tuple[str, ...] = ()
+    labels: tuple[str, ...] = ()
+    min_soak_seconds: int = Field(default=0, ge=0)
+    min_healthy_canaries: int = Field(default=0, ge=0)
+    max_stage_timeout_seconds: int = Field(default=3600, ge=1)
+    elapsed_stage_seconds: int = Field(default=0, ge=0)
+    canary_observations: tuple[CanaryObservationInput, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class SignedExport:
     """Exact export bytes, their digest and the Release key's detached signature."""
@@ -126,6 +150,8 @@ class ReleaseStore:
         self.key = key
         self._export_lock = threading.Lock()
         self._signed_export: SignedExport | None = None
+        self._verified_lock = threading.Lock()
+        self._verified_manifests: dict[tuple[str, str, str], str] = {}
         self.clock = clock or (lambda: datetime.now(UTC))
         self.engine = (
             create_engine(f"sqlite:///{path}", poolclass=NullPool)
@@ -202,13 +228,25 @@ class ReleaseStore:
         )
         db.execute(event_actors.insert().values(revision=next_revision, actor=actor))
 
-    def _verify_signature(self, manifest: str, signature: str | None) -> None:
+    def _verify_signature(self, manifest: str, signature: str | None) -> str:
+        if not signature:
+            raise CatalogError("Stored Release signature failed verification.", 503)
+        cache_key = (self.key.key_id, manifest, signature)
+        with self._verified_lock:
+            cached = self._verified_manifests.get(cache_key)
+        if cached is not None:
+            return cached
         try:
-            if not signature:
-                raise ValueError("Missing signature.")
-            self.key.public_key.verify(b64decode(signature, validate=True), manifest.encode())
+            raw_manifest = manifest.encode()
+            self.key.public_key.verify(b64decode(signature, validate=True), raw_manifest)
         except (InvalidSignature, ValueError) as error:
             raise CatalogError("Stored Release signature failed verification.", 503) from error
+        digest = hashlib.sha256(raw_manifest).hexdigest()
+        with self._verified_lock:
+            if len(self._verified_manifests) >= MAX_VERIFIED_MANIFEST_CACHE:
+                self._verified_manifests.pop(next(iter(self._verified_manifests)))
+            self._verified_manifests[cache_key] = digest
+        return digest
 
     def _verify_release_state(
         self,
@@ -216,13 +254,14 @@ class ReleaseStore:
         signature: str | None,
         published_at: str | None,
         recalled_at: str | None,
-    ) -> None:
+    ) -> str:
         if (published_at is not None or recalled_at is not None) and not signature:
             self._verify_signature(manifest, signature)
         if signature and published_at is None:
             raise CatalogError("Stored Release publication state is inconsistent.", 503)
         if signature:
-            self._verify_signature(manifest, signature)
+            return self._verify_signature(manifest, signature)
+        return hashlib.sha256(manifest.encode()).hexdigest()
 
     def renew(
         self, change: CatalogConfirmation, *, actor: str = "local-operator"
@@ -469,37 +508,91 @@ class ReleaseStore:
     ) -> dict[str, Any]:
         """Promote ``release_id`` to ``criteria.target_channel`` only when pipeline checks pass."""
 
-        current = self.snapshot()
-        release_entries = {item["id"]: item for item in current["releases"]}
-        if release_id not in release_entries:
-            raise CatalogError("Release was not found.", 404)
-        release = parse_lifecycle_release_manifest(release_entries[release_id]["manifest"].encode())
-        present_in_source = release_id in current["channels"].get(criteria.source_channel, [])
-        events_asc = list(reversed(current["events"]))
-        stage_input = PromotionStageInput(
-            release_id=release_id,
-            present_in_source_channel=present_in_source,
-            labels=labels,
-            canary_observations=canary_observations,
-            elapsed_stage_seconds=elapsed_stage_seconds,
-            capability_ids=tuple(sorted(release.capability_maximums)),
-            recall_records=self._recall_records_from_events(events_asc),
-        )
-        decision = evaluate_promotion_stage(criteria, stage_input)
-        if not decision.allowed:
-            raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
-        return self.change(
-            "contribute",
-            release_id,
-            Change(
-                revision=change.revision,
-                confirmation=change.confirmation,
-                reason=change.reason,
+        if not actor.strip() or len(actor) > 160:
+            raise CatalogError("An attributed operator is required.")
+        if not is_release_id(release_id):
+            raise CatalogError("Release id must be canonical SemVer.")
+        if change.confirmation != release_id:
+            raise CatalogError("Type the exact Release id to confirm.")
+        if not change.reason.strip():
+            raise CatalogError("A non-blank reason is required.")
+        if criteria.target_channel not in CHANNELS and not _is_custom_channel(
+            criteria.target_channel
+        ):
+            raise CatalogError("Choose a built-in channel or a custom- channel name.")
+        if _is_custom_channel(criteria.target_channel):
+            if change.channel_confirmation != criteria.target_channel:
+                raise CatalogError("Type the exact custom channel name to confirm.")
+        elif change.channel_confirmation is not None:
+            raise CatalogError("Custom channel confirmation is not valid for a built-in channel.")
+
+        with self.connect() as db:
+            self._lock_revision(db, change.revision)
+            now = self.clock().isoformat()
+            row = db.execute(select(releases).where(releases.c.id == release_id)).mappings().first()
+            if row is None:
+                raise CatalogError("Release was not found.", 404)
+            self._verify_release_state(
+                row["manifest"],
+                row["signature"],
+                row["published_at"],
+                row["recalled_at"],
+            )
+            if row["recalled_at"]:
+                raise CatalogError("Recalled Releases cannot be changed or re-promoted.", 409)
+            if not row["signature"]:
+                raise CatalogError("Publish the Release before adding it to a channel.", 409)
+            release = parse_lifecycle_release_manifest(row["manifest"].encode())
+            present_in_source = (
+                db.execute(
+                    select(membership).where(
+                        membership.c.channel == criteria.source_channel,
+                        membership.c.release_id == release_id,
+                    )
+                ).first()
+                is not None
+            )
+            events_asc = [
+                dict(event_row)
+                for event_row in db.execute(
+                    select(events).order_by(events.c.revision.asc())
+                ).mappings()
+            ]
+            stage_input = PromotionStageInput(
+                release_id=release_id,
+                present_in_source_channel=present_in_source,
+                labels=labels,
+                canary_observations=canary_observations,
+                elapsed_stage_seconds=elapsed_stage_seconds,
+                capability_ids=tuple(sorted(release.capability_maximums)),
+                recall_records=self._recall_records_from_events(events_asc),
+            )
+            decision = evaluate_promotion_stage(criteria, stage_input)
+            if not decision.allowed:
+                raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
+            exists = db.execute(
+                select(membership).where(
+                    membership.c.channel == criteria.target_channel,
+                    membership.c.release_id == release_id,
+                )
+            ).first()
+            if exists:
+                raise CatalogError("Release already belongs to this channel.", 409)
+            db.execute(
+                membership.insert().values(channel=criteria.target_channel, release_id=release_id)
+            )
+            self._record_event(
+                db,
+                "contribute",
+                release_id,
+                change,
+                actor,
+                now,
                 channel=criteria.target_channel,
-                channel_confirmation=change.channel_confirmation,
-            ),
-            actor=actor,
-        )
+            )
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     @staticmethod
     def _validate_configuration_version(release_id: str, release: LifecycleRelease) -> None:
@@ -551,15 +644,12 @@ class ReleaseStore:
         records = []
         for row in rows:
             record = dict(row)
-            self._verify_release_state(
+            record["signed_payload_sha256"] = self._verify_release_state(
                 record["manifest"],
                 record["signature"],
                 record["published_at"],
                 record["recalled_at"],
             )
-            record["signed_payload_sha256"] = hashlib.sha256(
-                record["manifest"].encode()
-            ).hexdigest()
             record["channels"] = channels_by_release.get(row["id"], [])
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"
@@ -629,15 +719,12 @@ class ReleaseStore:
             first = True
             for row in stream(db, select(releases).order_by(releases.c.id.desc())):
                 record = dict(row)
-                self._verify_release_state(
+                record["signed_payload_sha256"] = self._verify_release_state(
                     record["manifest"],
                     record["signature"],
                     record["published_at"],
                     record["recalled_at"],
                 )
-                record["signed_payload_sha256"] = hashlib.sha256(
-                    record["manifest"].encode()
-                ).hexdigest()
                 record["channels"] = release_channels(db, record["id"], writer.remaining)
                 record["state"] = (
                     "recalled"
@@ -737,7 +824,10 @@ class ReleaseStore:
             if cached is not None and cached.revision == revision:
                 return cached
             raw, digest = self.export()
-            built_revision = json.loads(raw)["revision"]
+            match = _TRAILING_REVISION.search(raw[-64:])
+            built_revision = (
+                int(match.group(1)) if match is not None else int(json.loads(raw)["revision"])
+            )
             signed = SignedExport(
                 revision=built_revision,
                 raw=raw,

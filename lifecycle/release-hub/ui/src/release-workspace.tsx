@@ -1,6 +1,10 @@
 import type { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
-import { actionsFor, artifacts, parseReleaseManifest, releaseTitle, schemaCompatibility, type Action, type Catalog, type Release } from "./api";
+import { useMemo, useRef, useState } from "preact/hooks";
+import {
+  actionsFor, activeCapabilityRecalls, artifacts, blockedReleaseCapabilities,
+  nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
+  type Action, type Catalog, type Release,
+} from "./api";
 
 const stages = ["DEV", "RELEASE_CANDIDATE", "RELEASE"] as const;
 
@@ -23,9 +27,16 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
   const t = (en: string, ko: string) => locale === "ko" ? ko : en;
   const evidence = useRef<HTMLDetailsElement>(null);
   const history = useRef<HTMLElement>(null);
-  const manifest = parseReleaseManifest(release.manifest);
+  const manifest = useMemo(() => parseReleaseManifest(release.manifest), [release.manifest]);
+  const declaredArtifacts = useMemo(() => artifacts(manifest), [manifest]);
   const step = nextReleaseStep(release, catalog);
   const stage = recordedStage(release);
+  const transition = nextPromotionTransition(release);
+  const activeCapRecalls = useMemo(() => activeCapabilityRecalls(catalog.events), [catalog.events]);
+  const blockedCaps = useMemo(
+    () => blockedReleaseCapabilities(manifest, catalog.events),
+    [manifest, catalog.events],
+  );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
     : t("Development published", "개발용 발행 완료");
@@ -82,10 +93,27 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
       <summary>{t("Promotion evidence and blockers", "승격 근거 및 차단 이유")}</summary>
       <p>{t("The existing server-side promotion evaluator owns source membership, labels, canary health, soak, timeout and recall checks. This catalog API does not expose its run results. No passed gate is inferred here.", "기존 서버 측 승격 검증기가 원본 채널 소속, 레이블, 카나리 상태, 관찰 시간, 제한 시간 및 회수를 검사합니다. 현재 카탈로그 API에는 실행 결과가 없습니다. 이 화면은 검사 통과를 추정하지 않습니다.")}</p>
       <dl>
+        <dt>{t("Next gated stage", "다음 승격 단계")}</dt><dd>{transition
+          ? `${transition.sourceChannel} -> ${transition.targetChannel}`
+          : release.channels.includes("RELEASE")
+          ? t("Already in RELEASE", "이미 RELEASE 채널에 소속됨")
+          : t("Not eligible for stage promotion", "단계 승격 대상이 아님")}</dd>
         <dt>{t("Gate run results", "검사 실행 결과")}</dt><dd>{t("Unavailable in this workspace", "이 작업 영역에서 제공되지 않음")}</dd>
         <dt>{t("Build / publish job", "빌드 / 발행 작업")}</dt><dd>{t("No durable job status is provided by this API", "이 API는 영속적인 작업 상태를 제공하지 않음")}</dd>
         <dt>{t("Release recall", "릴리스 회수")}</dt><dd>{release.recalled_at ?? t("No release recall recorded; capability recalls are checked by the server", "릴리스 회수 기록 없음. 기능 회수는 서버에서 검사함")}</dd>
+        <dt>{t("Active capability recalls", "활성 기능 회수")}</dt><dd>{blockedCaps.length > 0
+          ? t(`Blocked by recalled capabilities: ${blockedCaps.join(", ")}`, `회수된 기능으로 인해 차단됨: ${blockedCaps.join(", ")}`)
+          : activeCapRecalls.length > 0
+          ? t(`Catalog has ${activeCapRecalls.length} active capability recall(s) (${activeCapRecalls.join(", ")}); none declared by this release`, `카탈로그에 활성 기능 회수 ${activeCapRecalls.length}건(${activeCapRecalls.join(", ")})이 있으나 이 릴리스에는 해당하지 않음`)
+          : t("No active capability recalls in catalog", "카탈로그에 활성 기능 회수 없음")}</dd>
       </dl>
+      {transition && blockedCaps.length === 0 && !catalog.expired && (
+        <div class="actions">
+          <button type="button" class="primary" disabled={disabled} onClick={() => act("promote", release)}>
+            {t(`Promote ${transition.sourceChannel} -> ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 승격`)}
+          </button>
+        </div>
+      )}
       <p>{t("Use the supported promotion pipeline for gated advancement. Advanced channel curation below is a separate manual operation, not verified promotion.", "검사가 적용되는 승격에는 지원되는 승격 파이프라인을 사용하세요. 아래 고급 채널 편집은 별도의 수동 작업이며 검증된 승격이 아닙니다.")}</p>
     </details>
     <details class="release-disclosure">
@@ -107,7 +135,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
       </dl>
       <h2>{t("Declared artifacts", "선언된 아티팩트")}</h2>
       <p>{t("Declared digests only. No registry, SBOM or provenance verification is established by this view.", "선언된 다이제스트만 표시합니다. 이 화면은 레지스트리, SBOM 또는 출처 검증을 입증하지 않습니다.")}</p>
-      <div class="artifact-list">{artifacts(manifest).map((artifact) => <article key={artifact.component}>
+      <div class="artifact-list">{declaredArtifacts.map((artifact) => <article key={artifact.component}>
         <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
         <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest" lang="en">{artifact.sbom}</code></details>
       </article>)}</div>

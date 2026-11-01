@@ -5,7 +5,7 @@ import { Link } from "../components/link";
 import { ConstraintResults } from "../components/constraint-results";
 import { formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
-import { planDisplayStatus } from "../plan-status";
+import { planDispatchEligibility, planDisplayStatus } from "../plan-status";
 import { reportSeverity, reportSeverityClass, reportSeverityIcon } from "../report-status";
 import { installationPath, installationsPath } from "../router";
 
@@ -27,6 +27,7 @@ export function PlanPage({
     <AsyncBoundary state={plan}>
       {(record) => {
         const status = planDisplayStatus(record);
+        const eligibility = planDispatchEligibility(record);
         return (
           <>
             <div class="crumb">
@@ -38,7 +39,8 @@ export function PlanPage({
               <div>
                 <h1>{record.plan_id}</h1>
                 <div class="sub">
-                  Sequence {record.sequence} · installation {installationId}
+                  Sequence {record.sequence} · installation {installationId} ·{" "}
+                  <span>{eligibility.label}</span>
                 </div>
               </div>
               <div class="acts">

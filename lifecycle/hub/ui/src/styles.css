@@ -140,6 +140,19 @@ h3 {
   opacity: 0.65;
   cursor: default;
 }
+.side-locale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+}
+.side-locale .input {
+  height: 32px;
+  padding: 0 8px;
+}
 .main {
   padding: 24px 32px 40px;
   min-width: 0;

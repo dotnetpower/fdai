@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import type { InstallationSummary } from "../api";
 import { hubApi } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
@@ -52,6 +52,13 @@ export function InstallationsPage() {
   const installations = useAsync(() => hubApi.listInstallations(), []);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"id" | "channel" | "outcome">("id");
+  const visible = useMemo(
+    () =>
+      installations.status === "ready"
+        ? filterAndSortInstallations(installations.data.installations, query, sortBy)
+        : [],
+    [installations, query, sortBy],
+  );
 
   return (
     <>
@@ -92,7 +99,6 @@ export function InstallationsPage() {
       </div>
       <AsyncBoundary state={installations} layout="table">
         {({ installations: rows }) => {
-          const visible = filterAndSortInstallations(rows, query, sortBy);
           return rows.length === 0 ? (
             <p class="empty">No installations enrolled.</p>
           ) : visible.length === 0 ? (

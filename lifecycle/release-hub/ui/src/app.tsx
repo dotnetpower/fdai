@@ -1,9 +1,20 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { catalogChangeObserved, catalogRecovery, isCustomChannel, releaseStateIndex, releaseTitle, requestCatalog, type Action, type Catalog, type Change, type Release } from "./api";
+import {
+  catalogChangeObserved, catalogRecovery, isCustomChannel, nextPromotionTransition,
+  releaseStateIndex, releaseTitle, requestCatalog,
+  type Action, type Catalog, type Change, type Release,
+} from "./api";
 import { DeploymentRequests } from "./deployment-requests";
 import { ReleaseWorkspace } from "./release-workspace";
 
-const TITLES = { register: "Register release", publish: "Publish to DEV", contribute: "Add to channel", recall: "Recall release", renew: "Renew catalog freshness" };
+const TITLES: Record<Action, string> = {
+  register: "Register release",
+  publish: "Publish to DEV",
+  contribute: "Add to channel",
+  promote: "Promote stage",
+  recall: "Recall release",
+  renew: "Renew catalog freshness",
+};
 type Pending = { action: Action; release: Release | null };
 type RegistrationDraft = Pick<Release, "id" | "label" | "manifest">;
 type ConfirmationState = {
@@ -40,10 +51,15 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
   const [confirmation, setConfirmation] = useState("");
   const [reason, setReason] = useState("");
   const { manifest, label } = registration;
+  const transition = pending.release ? nextPromotionTransition(pending.release) : null;
   const [channel, setChannel] = useState(
-    Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
+    pending.action === "promote" && transition
+      ? transition.targetChannel
+      : Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
   );
   const [channelConfirmation, setChannelConfirmation] = useState("");
+  const [labelsInput, setLabelsInput] = useState("security-reviewed, qa-passed");
+  const [soakSeconds, setSoakSeconds] = useState("0");
   const customChannel = isCustomChannel(channel);
   const action = pending.action;
   const target = action === "renew" ? `renew ${catalog.revision}` : id;
@@ -60,10 +76,23 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
     if (busy) return;
     setBusy(true);
     try {
+      const parsedLabels = labelsInput.split(",").map((item) => item.trim()).filter(Boolean);
+      const soak = Math.max(0, Number.parseInt(soakSeconds, 10) || 0);
       const change: Change = {
         revision: catalog.revision, confirmation, reason,
         ...(action === "register" ? { label, manifest } : {}),
         ...(action === "contribute" ? { channel, ...(customChannel ? { channel_confirmation: channelConfirmation } : {}) } : {}),
+        ...(action === "promote" && transition ? {
+          source_channel: transition.sourceChannel,
+          target_channel: transition.targetChannel,
+          required_labels: parsedLabels,
+          labels: parsedLabels,
+          min_soak_seconds: soak,
+          elapsed_stage_seconds: soak,
+          max_stage_timeout_seconds: Math.max(3600, soak + 3600),
+          min_healthy_canaries: 0,
+          canary_observations: [],
+        } : {}),
       };
       await requestCatalog(action === "renew" ? "/v1/catalog/renew" : `/v1/releases/${encodeURIComponent(id)}/${action}`, change);
       await done(id, change);
@@ -84,6 +113,11 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
       </>}
       {pending.release && <p><strong>{releaseTitle(pending.release)}</strong><code class="digest">{pending.release.digest}</code></p>}
       {action === "publish" && <p>Sign the exact manifest with the development key and add it to DEV. This does not establish production trust.</p>}
+      {action === "promote" && transition && <>
+        <p>Run the server-side promotion pipeline from <strong>{transition.sourceChannel}</strong> to <strong>{transition.targetChannel}</strong>. Source membership, active recalls, labels, soak time, and timeouts are verified atomically.</p>
+        <label>Verified gate labels (comma-separated)<input value={labelsInput} onInput={(e) => setLabelsInput(e.currentTarget.value)} /></label>
+        <label>Observed stage soak (seconds)<input type="number" min="0" step="1" value={soakSeconds} onInput={(e) => setSoakSeconds(e.currentTarget.value)} /></label>
+      </>}
       {action === "contribute" && <>
         <label>Destination channel<input required list="contribution-channels" maxLength={64} pattern="DEV|RELEASE_CANDIDATE|RELEASE|custom-[a-z0-9]+(-[a-z0-9]+)*" aria-describedby="channel-help" value={channel} onInput={(e) => setChannel(e.currentTarget.value)} /></label>
         <datalist id="contribution-channels">
@@ -97,6 +131,14 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
       {action === "renew" && <p class="warning">Review the current releases, channels and recalls before confirming. Publish a new revision with 24-hour freshness; manifests, signatures and eligibility stay unchanged. Customers must separately approve the new exact export pin and import it. This does not restore their accepted catalogs automatically.</p>}
       <label>Reason<textarea required minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
       <label>Type {target || "the Release id"} to confirm<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
+      {target && (
+        <button type="button" disabled={busy || confirmation === target} onClick={() => {
+          setConfirmation(target);
+          if (action === "contribute" && customChannel) setChannelConfirmation(channel);
+        }}>
+          Fill reviewed confirmation ({target})
+        </button>
+      )}
       <p>Catalog revision {catalog.revision}. A concurrent change requires refresh and review.</p>
       <footer><button type="button" disabled={busy} onClick={close}>Cancel</button>
         <button class={action === "recall" ? "danger" : "primary"} disabled={isConfirmationDisabled({

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { nextReleaseStep, recordedStage } from "./release-workspace";
-import { CatalogRequestError, catalogChangeObserved, catalogRecovery, type Catalog, type Release } from "./api";
+import {
+  activeCapabilityRecalls, blockedReleaseCapabilities, CatalogRequestError,
+  catalogChangeObserved, catalogRecovery, nextPromotionTransition, parseReleaseManifest,
+  type Catalog, type Release,
+} from "./api";
 
 const release: Release = {
   id: "1.0.0", label: "", manifest: "{}", digest: "a".repeat(64),
@@ -66,5 +70,39 @@ describe("release workspace decisions", () => {
       expect(catalogChangeObserved({ ...current, events: [{ ...event, action, channel: null }] },
         action, release.id, change)).toBe(true);
     }
+    expect(catalogChangeObserved(
+      current,
+      "promote",
+      release.id,
+      { revision: 3, confirmation: release.id, reason: " reviewed ", target_channel: "RELEASE_CANDIDATE" },
+    )).toBe(true);
+  });
+
+  it("derives next stage promotion transitions and active capability recalls deterministically", () => {
+    expect(nextPromotionTransition({ ...release, state: "draft" })).toBeNull();
+    expect(nextPromotionTransition({ ...release, state: "recalled" })).toBeNull();
+    expect(nextPromotionTransition(release)).toEqual({
+      sourceChannel: "DEV",
+      targetChannel: "RELEASE_CANDIDATE",
+    });
+    expect(nextPromotionTransition({ ...release, channels: ["DEV", "RELEASE_CANDIDATE"] })).toEqual({
+      sourceChannel: "RELEASE_CANDIDATE",
+      targetChannel: "RELEASE",
+    });
+    expect(nextPromotionTransition({ ...release, channels: ["DEV", "RELEASE_CANDIDATE", "RELEASE"] })).toBeNull();
+
+    const recallEvents = [
+      { revision: 1, release_id: "action:scale-service", action: "recall_capability", reason: "bug", channel: null, occurred_at: "2026-10-26T00:00:00Z" },
+      { revision: 2, release_id: "action:restart-pod", action: "recall_capability", reason: "bug2", channel: null, occurred_at: "2026-10-26T01:00:00Z" },
+      { revision: 3, release_id: "action:scale-service", action: "lift_capability", reason: "fixed", channel: "1.6.0", occurred_at: "2026-10-26T02:00:00Z" },
+    ];
+    expect(activeCapabilityRecalls(recallEvents)).toEqual(["action:restart-pod"]);
+    const manifest = parseReleaseManifest(JSON.stringify({
+      capability_maximums: {
+        "action:restart-pod": "auto",
+        "action:other": "shadow",
+      },
+    }));
+    expect(blockedReleaseCapabilities(manifest, recallEvents)).toEqual(["action:restart-pod"]);
   });
 });

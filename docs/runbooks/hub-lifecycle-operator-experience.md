@@ -45,12 +45,14 @@ These priorities describe the operator journey, not a vulnerability severity ass
 
 ## Status of delivered items
 
-- UXH-01/05/11/12/15, vendor increment (#2532 / #2534): the release detail workspace puts
-  publication state, recorded built-in channel, catalog revision and one next step before
-  technical evidence. Membership is not a verified promotion history. Digests, exact manifest
-  bytes, signatures, custom membership, manual curation, recall and attributed activity remain
-  accessible. New workspace copy supports English and Korean; the existing shell, activity
-  records and confirmation dialogs retain their current language behavior.
+- UXH-01/02/04/05/07/09/10/11/12/13/14/15, customer and vendor readiness/recovery increment
+  (#2532 / #2534 / #2535): Release Hub adds transactional stage promotion
+  (`POST /v1/releases/{id}/promote`), active capability-recall blocker visibility, and one-click
+  reviewed confirmation prefill without manual string transcription. Lifecycle Hub adds typed
+  error recovery in `AsyncBoundary`, a unified Update Readiness & Next-Step panel, three-horizon
+  time summaries (environment anchor, daily schedule, and Plan validity), a Failure/Hold/Recovery
+  timeline, an enabled Configuration tab distinguishing stored metadata from verified package
+  signatures, working Commands and hash-chained Audit screens, and EN/KO workspace switching.
 - UXH-02/04/16, bounded recovery: catalog errors distinguish expired sessions, denied access,
   conflicts, readiness and timeouts without displaying arbitrary server diagnostics. After a
   failed or uncertain write, the dialog closes and the UI reads authoritative catalog state

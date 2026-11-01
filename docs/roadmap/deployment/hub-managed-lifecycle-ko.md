@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 60d464af89284ae07c178ab2b0998b6960e12b55
-translation_revised: 2026-10-31
+translation_source_sha: b1f1d53c2d5592b163797f1045ded1dc36f98467
+translation_revised: 2026-11-02
 ---
 # Hub 관리형 수명 주기
 
@@ -783,13 +783,12 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
 
 > **구현된 명령 만료 및 비상 해제 경계:** `LifecycleCommand`와 `validate_lifecycle_command`는 모든
 > 명령(`suppression-window`, `authority-lowering`, `break-glass`)에 명시적 만료 시각을 요구하며,
-> 권한을 높이는 요청(`shadow`를 넘는 `target_mode`, `hil`을 넘는 `target_autonomy`, kill switch
-> 해제, 또는 `maintenance-window`, `suppression-window`, `version-range` 밖의 우회)을 거부합니다.
-> 비상 해제 명령이 활성 상태인 동안에는 시크릿 검사를 통과한 비상 재정의(`configuration-change`
-> Plan)를 적용하고 선언된 구간·버전 범위 제약만 우회하되 회수, 스키마, 산출물, 데이터 상주 검사는
-> 그대로 유지합니다. 만료 시점에는 병합된 변경이 비상 재정의를 채택하지 않은 경우 `plan_next`가
-> 승인된 구성 개정으로 되돌리는 `drift-reconciliation` Plan을 발급합니다. 전용 Hub 명령 HTTP/UI
-> 경로는 별도로 유지됩니다.
+> 권한 상향 요청(`shadow` 초과 `target_mode`, `hil` 초과 `target_autonomy`, kill switch 해제,
+> `maintenance-window`·`suppression-window`·`version-range` 밖 우회)을 거부합니다. 활성 비상 해제
+> 명령은 시크릿 검사를 통과한 비상 재정의(`configuration-change` Plan)를 적용하되 회수·스키마·산출물·
+> 상주 검사는 유지하고, 만료 시 미채택 재정의를 승인된 구성 개정으로 되돌립니다(`drift-reconciliation`
+> Plan). Hub 억제·감사 경로(`/suppressions`, `/v1/audit`) 및 Commands, Audit, Configuration,
+> 준비·복구 UI 화면은 로컬에 구현되어 있습니다.
 
 ## 운영 루프와의 분리
 
