@@ -102,10 +102,8 @@ class InMemoryBehaviorKnowledgeIndex:
         return previous != spec
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[BehaviorSearchResult]:
-        if isinstance(k, bool) or k < 1 or k > _MAX_RESULTS:
+        if k < 1 or k > _MAX_RESULTS:
             raise ValueError(f"behavior search k MUST be in [1, {_MAX_RESULTS}]")
-        if not isinstance(query, str) or not query.strip():
-            return ()
         if not self._specs:
             return ()
         query_tokens = set(normalize_tokens(query))

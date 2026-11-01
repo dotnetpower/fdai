@@ -638,3 +638,7 @@ async def test_consult_t2_resolves_resource_type_rules_when_routed_via_t1(tmp_pa
     assert result.tier == "t2"
     assert result.t2_decision is not None
     assert result.t2_decision.outcome is T2Outcome.PROPOSED
+    assert result.t2_decision.proposed_action_type == "remediate.tag-add"
+    assert result.t2_decision.cited_rule_ids == ("r1",)
+    assert result.t2_decision.aggregate_confidence == pytest.approx(0.0)
+    assert tier.has_self_consistency is False

@@ -18,7 +18,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuditItem } from "../types";
-import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
+import { AgentWorkspaceNav, rolesHref } from "../components/agent-workspace-nav";
 import {
   AsyncBoundary,
   PageHeader,
@@ -75,6 +75,8 @@ export {
   otherEntryFields,
 } from "./agent-activity-semantics";
 import { AgentTrajectories } from "./agent-activity-trajectory";
+import { t as tTrajectory } from "./i18n/agent-trajectory";
+import "./agent-activity-trajectory.css";
 import {
   activityFiltersFromSearch,
   activityRouteFilterParams,
@@ -292,7 +294,6 @@ export function AgentActivityRoute({ client }: Props) {
 
   return (
     <div class="stack">
-      <AgentWorkspaceNav />
       <PageHeader
         title={t("route.agentActivity")}
         subtitle={t("nav.panelSub.agentActivity")}
@@ -313,6 +314,7 @@ export function AgentActivityRoute({ client }: Props) {
           </button>
         )}
       />
+      <AgentWorkspaceNav />
       <AsyncBoundary state={state} resourceLabel={t("route.agentActivity")}>
         {(data) => (
           <ActivityBody
@@ -519,6 +521,22 @@ function ActivityBody({
 
   return (
     <div class="stack">
+      <section class="aa-source-bar" aria-label={tTrajectory("agentActivity.trajectory.evidenceDetails")}>
+        <div class="aa-source-info">
+          <strong role="status">
+            {t(`agents.connection.${streamStatus}`)} - {observationSourceLabel(activitySource)}
+          </strong>
+          <details class="aa-provenance">
+            <summary>{tTrajectory("agentActivity.trajectory.evidenceDetails")}</summary>
+            <p>
+              {tTrajectory("agentActivity.trajectory.evidenceDetailsBody", {
+                records: data.items.length,
+                operational: provenanceCounts.operational,
+              })}
+            </p>
+          </details>
+        </div>
+      </section>
       <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
         <button
           type="button"
@@ -537,6 +555,21 @@ function ActivityBody({
           {t("agentActivity.trajectory.logView")}
         </button>
       </div>
+      {selected && selectionValid ? (
+        <div class="aa-selection" role="status">
+          <span>
+            {tTrajectory(
+              view === "trajectory"
+                ? "agentActivity.trajectory.selectionTrajectory"
+                : "agentActivity.trajectory.selectionLog",
+              { agent: selected },
+            )}
+          </span>
+          <a class="cs-control-button" href={rolesHref(currentRoute())}>
+            {tTrajectory("agentActivity.trajectory.roleDetails")}
+          </a>
+        </div>
+      ) : null}
       {provenanceCounts.sample > 0 ? (
         <div class="callout" role="status">
           <strong>{t("agentActivity.main.sampleTitle")}</strong> - {t("agentActivity.main.sampleBody", { count: provenanceCounts.sample })}

@@ -106,6 +106,26 @@ class LiveStreamHub:
     def next_sequence(self) -> int:
         return self._next_sequence
 
+    @property
+    def subscriber_count(self) -> int:
+        return len(self._subscribers)
+
+    @property
+    def latest_snapshot_count(self) -> int:
+        return len(self._latest_events)
+
+    @property
+    def replay_buffer_count(self) -> int:
+        return len(self._recent_events)
+
+    @property
+    def has_source_event(self) -> bool:
+        return self._source_event is not None
+
+    @property
+    def replay_enabled(self) -> bool:
+        return self._replay_window_seconds > 0
+
     async def publish(self, event: LiveStreamEvent) -> None:
         """Offer one cursor-bearing delta without blocking its producer."""
         _json(event.payload)

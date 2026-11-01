@@ -93,6 +93,22 @@ class T2Decision:
         """True only when the quality gate cleared the candidate."""
         return self.outcome is T2Outcome.PROPOSED
 
+    @property
+    def proposed_action_type(self) -> str | None:
+        return self.candidate.action_type if self.candidate is not None else None
+
+    @property
+    def cited_rule_ids(self) -> tuple[str, ...]:
+        return self.candidate.cited_rule_ids if self.candidate is not None else ()
+
+    @property
+    def aggregate_confidence(self) -> float | None:
+        if self.quality_decision is not None:
+            return float(self.quality_decision.aggregate_confidence)
+        if self.candidate is not None:
+            return float(self.candidate.aggregate_confidence)
+        return None
+
 
 @dataclass(frozen=True, slots=True)
 class T2ProposalContext:
@@ -102,6 +118,10 @@ class T2ProposalContext:
     target_resource_ref: str
     target_resource_type: str
     allowed_rules: tuple[Rule, ...]
+
+    @property
+    def allowed_rule_ids(self) -> tuple[str, ...]:
+        return tuple(rule.id for rule in self.allowed_rules)
 
 
 @runtime_checkable
@@ -200,6 +220,10 @@ class T2Tier:
             max_cost_microusd_total=None,
         )
         self._ledger: BudgetLedger = budget_ledger or InMemoryBudgetLedger(self._budget)
+
+    @property
+    def has_self_consistency(self) -> bool:
+        return self._self_consistency is not None
 
     async def evaluate(self, *, context: T2ProposalContext) -> T2Decision:
         """Propose a candidate for ``event`` and gate it.

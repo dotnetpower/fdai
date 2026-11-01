@@ -154,6 +154,14 @@ class T1Decision:
     def reused_action_type(self) -> str | None:
         return self.best_match.action.action_type if self.best_match is not None else None
 
+    @property
+    def similarity_score(self) -> float | None:
+        return float(self.best_match.score) if self.best_match is not None else None
+
+    @property
+    def is_reused(self) -> bool:
+        return self.outcome is T1Outcome.REUSED
+
 
 # ---------------------------------------------------------------------------
 # DI seams
@@ -288,6 +296,18 @@ class T1Tier:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._case_history = case_history
         self._retained_pattern_source = retained_pattern_source
+
+    @property
+    def config(self) -> T1Config:
+        return self._config
+
+    @property
+    def has_case_history(self) -> bool:
+        return self._case_history is not None
+
+    @property
+    def has_current_reuse_verifier(self) -> bool:
+        return self._current_reuse_verifier is not None
 
     def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
         """Bind the authoritative current-case reader once at runtime composition."""

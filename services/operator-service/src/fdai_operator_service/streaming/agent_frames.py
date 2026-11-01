@@ -97,6 +97,21 @@ class AgentActivityProjector:
     def active_incident_count(self) -> int:
         return len(self._incidents)
 
+    def involved_agents_for(self, correlation_id: str) -> tuple[str, ...]:
+        incident = self._incidents.get(correlation_id)
+        return incident.involved if incident is not None else ()
+
+    def incident_status_for(self, correlation_id: str) -> str | None:
+        incident = self._incidents.get(correlation_id)
+        return incident.status if incident is not None else None
+
+    def clear_incidents(self) -> None:
+        self._incidents.clear()
+
+    @staticmethod
+    def known_pantheon_agents() -> frozenset[str]:
+        return _PANTHEON
+
     def project(self, payload: Mapping[str, object]) -> tuple[LiveStreamEvent, ...]:
         """Return only events grounded in a valid runtime or stage observation."""
         if not isinstance(payload, Mapping):
@@ -150,9 +165,12 @@ class AgentActivityProjector:
             title=(
                 prior.title
                 if prior is not None
-                else f"Rule {detail['rule']}"
-                if _nonempty(detail.get("rule"))
-                else f"Event {event_id}"
+                else _nonempty(detail.get("title"))
+                or (
+                    f"Rule {detail['rule']}"
+                    if _nonempty(detail.get("rule"))
+                    else f"Event {event_id}"
+                )
             ),
             severity=(
                 _nonempty(detail.get("severity"))

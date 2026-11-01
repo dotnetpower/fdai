@@ -124,3 +124,18 @@ sources:
       to keep rule intent aligned with the enforcement surface Azure
       customers already recognize.
     maintainer_url: https://learn.microsoft.com/azure/governance/policy/overview
+
+  - id: msrc_csaf
+    name: Microsoft Security Response Center CSAF Advisories
+    url_prefix: https://msrc.microsoft.com/csaf
+    license: LicenseRef-reference-only
+    redistribution: reference-only
+    scope: >-
+      OASIS Common Security Advisory Framework (CSAF) 2.0 security advisories
+      published by the Microsoft Security Response Center (MSRC), covering
+      product-tree applicability, CVE product status (known_affected, fixed,
+      known_not_affected), CVSS v3.1 scores, exploitation threats, and
+      vendor_fix or workaround remediations. FDAI consumes verified CSAF
+      generations and reviewed product-to-resource crosswalks without
+      redistributing unapproved vendor advisory bodies.
+    maintainer_url: https://msrc.microsoft.com/update-guide

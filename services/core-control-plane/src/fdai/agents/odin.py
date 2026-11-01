@@ -164,6 +164,14 @@ class Odin(Agent, HandoverKnowledgeMixin):
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
 
+    @property
+    def verdicts_observed(self) -> int:
+        return self._verdicts_observed
+
+    @property
+    def last_winning_domain(self) -> str | None:
+        return self._last_decision.winning_domain if self._last_decision is not None else None
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._handover_message(topic, payload):
             return

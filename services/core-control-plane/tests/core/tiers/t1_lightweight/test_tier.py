@@ -341,3 +341,23 @@ def test_event_embedding_projection_includes_optional_semantic_facets() -> None:
     assert "metric=cpu_percent" in projected
     assert "severity=high" in projected
     assert "domain=resilience" in projected
+
+
+def test_t1_library_management_and_decision_properties() -> None:
+    library = InMemoryPatternLibrary()
+    first = _action(signature="sig-a", rule_id="rule-a")
+    second = _action(signature="sig-b", rule_id="rule-b")
+    library.seed_patterns([([0.1] * 8, first), ([0.2] * 8, second)])
+    assert len(library.find_by_rule_id("rule-a")) == 1
+    assert library.remove_pattern("sig-a") is True
+    assert library.remove_pattern("sig-a") is False
+    library.clear()
+    assert len(library) == 0
+
+    tier = T1Tier(
+        embedding_model=DeterministicEmbeddingModel(dim=8),
+        pattern_library=library,
+    )
+    assert tier.config.similarity_threshold == pytest.approx(0.8)
+    assert tier.has_case_history is False
+    assert tier.has_current_reuse_verifier is False
