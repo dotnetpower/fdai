@@ -816,3 +816,51 @@ def test_v01_to_v12_attack_vector_profile_kev_sla_and_oasis_notes() -> None:
     assert doc.vulnerabilities[0].attack_profile.is_network_reachable is True
     assert doc.is_multi_revision is True
     assert doc.release_latency_days >= 0
+
+    # Q001-Q010: Verify mandatory CVSS base metrics, temporal <= base, bidi, and draft rejection
+    with pytest.raises(ValueError, match="requires valid base metric"):
+        CsafVulnerabilityRecord(
+            cve_id="CVE-2026-20001",
+            title="Incomplete Vector",
+            cvss_base_score=7.5,
+            cvss_vector="CVSS:3.1/AV:N/AC:L",
+            severity=Severity.HIGH,
+            exploit_status=CsafThreatExploitStatus.UNPROVEN,
+            publicly_disclosed=False,
+            known_affected_product_ids=("AZURE-AKS-1.28",),
+        )
+    with pytest.raises(ValueError, match="MUST NOT exceed cvss_base_score"):
+        CsafVulnerabilityRecord(
+            cve_id="CVE-2026-20001",
+            title="Temporal Exceeds Base",
+            cvss_base_score=7.5,
+            cvss_temporal_score=8.5,
+            cvss_vector=wormable_vec,
+            severity=Severity.HIGH,
+            exploit_status=CsafThreatExploitStatus.UNPROVEN,
+            publicly_disclosed=False,
+            known_affected_product_ids=("AZURE-AKS-1.28",),
+        )
+    with pytest.raises(ValueError, match="control/bidi chars"):
+        CsafVulnerabilityRecord(
+            cve_id="CVE-2026-20001",
+            title="Bidi\u202eSpoof",
+            cvss_base_score=7.5,
+            cvss_vector=wormable_vec,
+            severity=Severity.HIGH,
+            exploit_status=CsafThreatExploitStatus.UNPROVEN,
+            publicly_disclosed=False,
+            known_affected_product_ids=("AZURE-AKS-1.28",),
+        )
+
+    draft_payload = _sample_oasis_payload()
+    assert isinstance(draft_payload["document"], dict)
+    draft_payload["document"]["tracking"]["status"] = "draft"
+    draft_b = json.dumps(draft_payload).encode("utf-8")
+    with pytest.raises(CsafSchemaError, match="tracking.status"):
+        parse_oasis_csaf_bytes(
+            draft_b,
+            expected_sha256=f"sha256:{hashlib.sha256(draft_b).hexdigest()}",
+            signature_verified=True,
+            source_url="https://msrc.microsoft.com/csaf/advisories/2026/draft.json",
+        )

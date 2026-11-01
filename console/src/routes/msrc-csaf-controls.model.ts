@@ -363,6 +363,10 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
     const adv = panelRecord(advItem, `advisories[${advIdx}]`);
     const trackingId = panelNonEmptyString(adv, "tracking_id", `advisories[${advIdx}]`);
     const advTitle = panelNonEmptyString(adv, "title", `advisories[${advIdx}]`);
+    // Q079: Reject control or bidi override characters in advisory and vulnerability titles
+    if (/[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/.test(advTitle)) {
+      throw new OperatorApiError(502, `MSRC CSAF advisory ${trackingId} title contains control/bidi chars`);
+    }
     const sourceUrl = panelNonEmptyString(adv, "source_url", `advisories[${advIdx}]`);
     const docDigest = panelNonEmptyString(adv, "document_digest", `advisories[${advIdx}]`);
     const initialDate = panelNonEmptyString(adv, "initial_release_date", `advisories[${advIdx}]`);
@@ -375,14 +379,25 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
     for (const [vIdx, vItem] of panelArray(adv["vulnerabilities"], `advisories[${advIdx}].vulnerabilities`).entries()) {
       const vuln = panelRecord(vItem, `vulnerabilities[${vIdx}]`);
       const cveId = panelNonEmptyString(vuln, "cve_id", `vulnerabilities[${vIdx}]`);
+      const vulnTitle = panelNonEmptyString(vuln, "title", `vulnerabilities[${vIdx}]`);
+      if (/[\x00-\x1f\x7f\u202a-\u202e\u2066-\u2069]/.test(vulnTitle)) {
+        throw new OperatorApiError(502, `MSRC CSAF vulnerability ${cveId} title contains control/bidi chars`);
+      }
       const baseScore = vuln["cvss_base_score"];
       if (typeof baseScore !== "number" || !Number.isFinite(baseScore) || baseScore < 0 || baseScore > 10) {
         throw new OperatorApiError(502, `invalid CVSS base score for ${cveId}`);
       }
       const temporalRaw = vuln["cvss_temporal_score"];
+      // Q080: Enforce temporalRaw <= baseScore when temporalRaw !== null
       if (
         temporalRaw !== null
-        && (typeof temporalRaw !== "number" || !Number.isFinite(temporalRaw) || temporalRaw < 0 || temporalRaw > 10)
+        && (
+          typeof temporalRaw !== "number"
+          || !Number.isFinite(temporalRaw)
+          || temporalRaw < 0
+          || temporalRaw > 10
+          || temporalRaw > baseScore
+        )
       ) {
         throw new OperatorApiError(502, `invalid CVSS temporal score for ${cveId}`);
       }
@@ -791,6 +806,13 @@ export function mergeMsrcCsafProjection(
   ) {
     throw new OperatorApiError(502, "MSRC CSAF projection digest or revision mismatch");
   }
+  // Q081: Validate zero_risk_assurance.execution_authority === false when present
+  if (root["zero_risk_assurance"] !== undefined && root["zero_risk_assurance"] !== null) {
+    const zra = panelRecord(root["zero_risk_assurance"], "msrc_csaf_projection.zero_risk_assurance");
+    if (panelBoolean(zra, "execution_authority", "zero_risk_assurance") !== false) {
+      throw new OperatorApiError(502, "MSRC CSAF zero_risk_assurance MUST NOT carry execution_authority");
+    }
+  }
   const knownCves = new Set(baseCatalog.rows.map((r) => r.cve_id));
   const overrides = new Map<
     string,
@@ -898,6 +920,7 @@ function escapeCsvCell(raw: string): string {
 export function exportMsrcCsafRowsCsv(rows: readonly MsrcCsafControlRow[]): string {
   const header = [
     "cve_id",
+    "advisory_tracking_id",
     "year",
     "severity",
     "cvss_base_score",
@@ -915,6 +938,7 @@ export function exportMsrcCsafRowsCsv(rows: readonly MsrcCsafControlRow[]): stri
   const lines = rows.map((row) =>
     [
       escapeCsvCell(row.cve_id),
+      escapeCsvCell(row.advisory_tracking_id),
       escapeCsvCell(row.year),
       escapeCsvCell(row.severity),
       row.cvss_base_score.toFixed(1),
@@ -949,6 +973,7 @@ export function exportMsrcCsafRowsJson(
       posture: summarizeMsrcCsafPosture(rows),
       rows: rows.map((r) => ({
         cve_id: r.cve_id,
+        advisory_tracking_id: r.advisory_tracking_id,
         year: r.year,
         title: r.title,
         severity: r.severity,
@@ -983,6 +1008,10 @@ export interface MsrcCsafSevenSafeguardPlan {
   readonly two_phase_audit_required: true;
   readonly distinct_approver_executor_required: true;
   readonly effect_verification_contract: string;
+  readonly kev_sla_tier: MsrcCsafKevSlaTier;
+  readonly due_days: number;
+  readonly vex_justification: MsrcCsafVexJustification;
+  readonly risk_score: number;
   readonly mode: "shadow";
   readonly execution_authority: false;
 }
@@ -992,18 +1021,24 @@ export function buildSevenSafeguardPlan(
   sourceRevision: string,
 ): MsrcCsafSevenSafeguardPlan {
   const actionType = row.candidate_action_type ?? "ops.apply-security-update";
+  const isCanaryRequired = row.exploit_status === "exploited" || row.severity === "critical";
+  const blastLimit = isCanaryRequired ? 1 : Math.max(1, Math.min(5, row.product_ids.length));
   return {
     cve_id: row.cve_id,
     action_type: actionType,
     stop_condition: `Abort immediately on health-probe failure, error-rate > 1%, or revision drift from ${sourceRevision}.`,
     tested_rollback_plan: `Restore pre-patch resource snapshot or version pin prior to ${row.cve_id} update (${row.version_window}).`,
-    blast_radius_limit: 1,
+    blast_radius_limit: blastLimit,
     dry_run_required: true,
     logical_target_lock: `lock:${row.primary_resource_type}:${row.cve_id}`,
     idempotency_key: `idem:${sourceRevision}:${row.cve_id}:${actionType}`,
     two_phase_audit_required: true,
     distinct_approver_executor_required: true,
     effect_verification_contract: `Observe independent post-action inventory generation and verify ${row.primary_resource_type} exits ${row.version_window}.`,
+    kev_sla_tier: row.kev_sla_tier,
+    due_days: row.due_days,
+    vex_justification: row.vex_justification,
+    risk_score: row.risk_score,
     mode: "shadow",
     execution_authority: false,
   };
@@ -1018,6 +1053,7 @@ export interface MsrcCsafZeroRiskAssuranceSummary {
   readonly unknown_count: number;
   readonly exploited_affected_count: number;
   readonly wormable_affected_count: number;
+  readonly kev_sla_breach_count: number;
   readonly change_freeze_recommended: boolean;
   readonly execution_authority: false;
 }
@@ -1032,12 +1068,16 @@ export function evaluateCatalogZeroRiskAssurance(
   let exploitedAffected = 0;
   let wormableAffected = 0;
   let criticalAffected = 0;
+  let kevSlaBreaches = 0;
   for (const row of rows) {
     if (row.exposure === "affected") {
       affected += 1;
       if (row.exploit_status === "exploited") exploitedAffected += 1;
       if (row.severity === "critical") criticalAffected += 1;
       if (row.attack_surface_tags.some((tag) => tag === "wormable")) wormableAffected += 1;
+      if (row.kev_sla_tier === "immediate_24h" || row.kev_sla_tier === "urgent_72h") {
+        kevSlaBreaches += 1;
+      }
     } else if (row.exposure === "mitigated") {
       mitigated += 1;
     } else if (row.exposure === "fixed") {
@@ -1066,7 +1106,8 @@ export function evaluateCatalogZeroRiskAssurance(
     unknown_count: unknown,
     exploited_affected_count: exploitedAffected,
     wormable_affected_count: wormableAffected,
-    change_freeze_recommended: exploitedAffected > 0 || wormableAffected > 0,
+    kev_sla_breach_count: kevSlaBreaches,
+    change_freeze_recommended: exploitedAffected > 0 || wormableAffected > 0 || kevSlaBreaches > 0,
     execution_authority: false,
   };
 }

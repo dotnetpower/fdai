@@ -99,6 +99,9 @@ def _validate_receipts(
             item_reasons.add("conflicting_evidence")
         if receipt.observed_at > request.evaluated_at:
             item_reasons.add("future_evidence_timestamp")
+        elif receipt.recorded_at > request.recorded_at:
+            # Q021: Reject receipts recorded after the assessment request cutoff
+            item_reasons.add("future_receipt_recorded_timestamp")
         elif request.evaluated_at - receipt.observed_at > timedelta(
             seconds=min(receipt.freshness_ceiling_seconds, ceiling.total_seconds())
         ):
@@ -174,6 +177,7 @@ def _evaluate_resource_against_product(
         return CsafExposureStatus.UNKNOWN, "conflicting_inventory_and_receipt_outcome", ref
     if receipt_outcome is CsafExposureStatus.AFFECTED:
         return CsafExposureStatus.AFFECTED, None, ref
+    # Q023: Bind workaround property into evidence ref when mitigated by workaround
     if (
         mapping.workaround_property is not None
         and mapping.workaround_expected_value is not None
@@ -181,7 +185,12 @@ def _evaluate_resource_against_product(
             resource.properties.get(mapping.workaround_property),
             mapping.workaround_expected_value,
         )
-    ) or receipt_outcome is CsafExposureStatus.MITIGATED:
+    ):
+        wa_ref = (
+            f"{ref}:workaround:{mapping.workaround_property}={mapping.workaround_expected_value}"
+        )
+        return CsafExposureStatus.MITIGATED, None, wa_ref
+    if receipt_outcome is CsafExposureStatus.MITIGATED:
         return CsafExposureStatus.MITIGATED, None, ref
     return CsafExposureStatus.AFFECTED, None, ref
 
@@ -266,6 +275,10 @@ class MsrcCsafAssessmentRuntime:
                     counts["vector.wormable_affected"] = (
                         counts.get("vector.wormable_affected", 0) + 1
                     )
+        # Q026: Record integer-rounded maximum risk score across all findings
+        counts["max_risk_score_int"] = int(
+            round(max((f.risk_score for f in findings), default=0.0))
+        )
 
         digest_material: dict[str, Any] = {
             "assessment_id": request.assessment_id,
@@ -299,6 +312,30 @@ class MsrcCsafAssessmentRuntime:
             findings=findings,
             aggregate_counts=dict(sorted(counts.items())),
             result_digest=canonical_digest(digest_material),
+        )
+
+    def assess_single_cve(
+        self,
+        request: CsafAssessmentRequest,
+        cve_id: str,
+    ) -> CsafVulnerabilityFinding:
+        """Evaluate a single CVE against ``request`` in shadow mode (Q025)."""
+
+        if request.source_revision != self._catalog.source_revision:
+            raise ValueError("CSAF assessment source_revision mismatch")
+        mapping = self._catalog.get_vulnerability_crosswalk(cve_id)
+        if mapping is None:
+            raise KeyError(f"unknown MSRC CSAF CVE {cve_id!r}")
+        evidence_by_cve = _index_evidence(request.evidence)
+        resources_by_rtype: dict[str, list[CsafScopedResource]] = {}
+        for item in request.resources:
+            resources_by_rtype.setdefault(item.provider_resource_type.casefold(), []).append(item)
+        return self._evaluate_vulnerability(
+            mapping,
+            request,
+            evidence_by_cve.get(cve_id, ()),
+            request_rtypes=frozenset(resources_by_rtype),
+            resources_by_rtype=resources_by_rtype,
         )
 
     def _evaluate_vulnerability(
@@ -511,6 +548,11 @@ class MsrcCsafAssessmentRuntime:
             ),
             CsafExposureStatus.UNKNOWN: CsafVexJustification.UNDETERMINED_EVIDENCE_GAP,
         }
+        # Q024: Deduplicate (evidence_ref, evidence_digest) pairs by unique ref
+        paired_evidence: dict[str, str] = {}
+        for ref_item, dig_item in zip(evidence_refs, evidence_digests, strict=False):
+            if ref_item not in paired_evidence:
+                paired_evidence[ref_item] = dig_item
         complete = not unknown_ids and not limitations and overall is not CsafExposureStatus.UNKNOWN
         return CsafVulnerabilityFinding(
             cve_id=mapping.cve_id,
@@ -532,8 +574,8 @@ class MsrcCsafAssessmentRuntime:
                 if overall in {CsafExposureStatus.AFFECTED, CsafExposureStatus.MITIGATED}
                 else None
             ),
-            evidence_refs=tuple(dict.fromkeys(evidence_refs)),
-            evidence_digests=tuple(dict.fromkeys(evidence_digests)),
+            evidence_refs=tuple(paired_evidence.keys()),
+            evidence_digests=tuple(paired_evidence.values()),
             evidence_complete=complete,
             limitations=tuple(sorted(limitations)),
             vex_justification=vex_map[overall],
@@ -646,16 +688,45 @@ def to_security_control_observations(
                     due_days=due_days,
                     applicability=applicability,
                     cve_ids=(finding.cve_id,),
+                    # Q027 & Q028: Bind compliance controls and OpenVEX managed_service_note
+                    compliance_controls=(
+                        "MSRC-CSAF-2.0",
+                        f"SLA:{finding.kev_sla_tier.value}",
+                    ),
                     source_urls=(
                         f"https://msrc.microsoft.com/update-guide/vulnerability/{finding.cve_id}",
                     ),
+                    managed_service_note=f"vex_justification={finding.vex_justification.value}",
                     patch_status=resource_exposure.value,
                 )
             )
     return tuple(observations)
 
 
+def summarize_findings_by_resource(
+    result: CsafAssessmentResult,
+) -> dict[str, dict[str, int]]:
+    """Aggregate per-resource CVE exposure counts from a CsafAssessmentResult (Q030)."""
+
+    summary: dict[str, dict[str, int]] = {}
+    for finding in result.findings:
+        for bucket, rids in (
+            ("affected", finding.affected_resource_ids),
+            ("mitigated", finding.mitigated_resource_ids),
+            ("fixed", finding.fixed_resource_ids),
+            ("unknown", finding.unknown_resource_ids),
+        ):
+            for rid in rids:
+                entry = summary.setdefault(
+                    rid,
+                    {"affected": 0, "mitigated": 0, "fixed": 0, "unknown": 0},
+                )
+                entry[bucket] += 1
+    return dict(sorted(summary.items()))
+
+
 __all__ = [
     "MsrcCsafAssessmentRuntime",
+    "summarize_findings_by_resource",
     "to_security_control_observations",
 ]

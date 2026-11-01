@@ -25,8 +25,10 @@ from fdai.core.security.csaf import (
     evaluate_subscription_zero_risk_assurance,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
+    summarize_findings_by_resource,
     to_security_control_observations,
     validate_csaf_review_package,
+    verify_certificate_integrity,
 )
 from fdai.rule_catalog.schema.msrc_csaf import load_msrc_csaf_crosswalk_catalog
 
@@ -723,3 +725,11 @@ def test_c11_to_c20_models_runtime_and_review_signal_hardening() -> None:
     assert cert_hardened.toxic_combination_count == 0
     assert cert_hardened.kev_sla_breach_count == 0
     assert cert_hardened.change_freeze_recommended is False
+    # Q025, Q030, Q045, Q068: Verify single-CVE assessment, summaries, and certificate integrity
+    assert verify_certificate_integrity(cert_hardened) is True
+    assert cert_hardened.domain_summary()["zero_trust_network"]["failed"] == 0
+    single_finding = runtime.assess_single_cve(req_hardened, "CVE-2026-20001")
+    assert single_finding.exposure is CsafExposureStatus.NOT_APPLICABLE
+    by_res = summarize_findings_by_resource(res_hardened)
+    assert by_res["aks-hardened-01"]["affected"] == 0
+    assert by_res["aks-hardened-01"]["fixed"] >= 1

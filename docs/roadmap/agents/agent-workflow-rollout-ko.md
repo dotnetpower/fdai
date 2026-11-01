@@ -1,7 +1,7 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: 2a9a1d0b02321f63e6bb29fdc4b82153e0a21944
+translation_source_sha: f191f200748c46c227465d7f5f7689ac75df61ff
 translation_revised: 2026-11-01
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
@@ -30,6 +30,7 @@ translation_revised: 2026-11-01
 | 2026-11-01 | implemented | `AgentSpec`, topic 또는 shadow 권한 경계를 바꾸지 않고 `HeimdallCodeSecurityMixin.publish_msrc_csaf_drift`(`C25`)의 발행 경계에서 shadow 권한 상한을 검증하고 `msrc_csaf_facts`(`C24`)에 `critical_affected_count`, 상위 5개로 제한된 `top_cve_ids`, `recommended_action_types`를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (2 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-11-01 | implemented | `AgentSpec`, topic 및 shadow 권한 경계를 유지하면서 `HeimdallCodeSecurityMixin.msrc_csaf_facts`(`V18`)에 전체 워크로드 기준 `msrc_csaf_urgent_workload_count`와 `msrc_csaf_incomplete_workload_count` 집계를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (3 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-11-01 | implemented | `AgentSpec`, topic 및 shadow 권한 경계를 유지하면서 10라운드(`Z01`-`Z60`) 구독 무위험 보장 검증의 일환으로 `HeimdallCodeSecurityMixin.msrc_csaf_facts`(`Z47`)에 `msrc_csaf_zero_risk_certified_count` 집계를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (3 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
+| 2026-11-01 | implemented | `AgentSpec`, topic 및 shadow 권한 경계를 유지하면서 100라운드(`Q001`-`Q100`) 비평가 관점 강화 검증의 일환으로 `HeimdallCodeSecurityMixin.msrc_csaf_facts`에 워크로드별 `posture_score`(`Q074`)와 전체 플릿 기준 `msrc_csaf_min_posture_score`(`Q075`) 집계를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (4 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-10-15 | implemented | 모든 메타데이터 작업 흐름을 정확한 ID 기준으로 카탈로그 연결 또는 메타데이터 전용 처리 결과에 연결하고, 이름만 비슷한 항목으로 대체하거나 같은 ID를 중복 선언하지 못하게 했습니다. | `current change`; 작업 흐름 판정 구성, 스키마, 검사기; 집중 검사기 테스트 10개 | 런타임 롤아웃 및 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-09-16 | implemented | 작업 흐름 13개 모두에 정확한 정의와 연결된 판정 인벤토리를 추가했습니다. 게이트는 누락된 작업 흐름, 오래된 정의 또는 추적, 불완전한 차단 사유 종류, 확인할 수 없는 근거 참조, 인벤토리를 통한 권한 부여 또는 모드 변경 시도를 거부합니다. | `current change`; 작업 흐름 판정 구성 및 스키마; 집중 검사기 테스트 7개 통과 | 승격 대상 작업 흐름이 shadow를 벗어나기 전에 통제된 운영 근거를 수집하고 별도의 권한 있는 승격 경로를 사용합니다. |
 | 2026-09-15 | implemented | 강제 적용되는 에이전트 파일 상한을 복원하기 위해 Heimdall의 에피소드 신원, 범위가 제한된 이력 및 순환 경고 예산 보조 로직을 비공개 프레임워크로 분리했습니다. AgentSpec, topic, 소유권, 모델 정책, hot-path 결정성 및 권한은 바뀌지 않았습니다. | `current change`, `heimdall_alert_window.py`, Heimdall 830줄, 집중 framework-layout, Wave 3 및 Wave 6 검사 96개 통과, Ruff, strict mypy 및 강제 LOC 게이트 | 런타임 종료 게이트와 배포 근거는 바뀌지 않았습니다. |

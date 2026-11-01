@@ -162,6 +162,8 @@ const CWE_RULES: readonly (readonly [RegExp, string, string, string])[] = [
   [/security feature bypass|authentication bypass/i, "CWE-284", "Improper Access Control / Bypass", "접근 제어 및 보안 기능 우회"],
   [/spoofing/i, "CWE-290", "Authentication Bypass by Spoofing", "스푸핑 기반 신원 위장"],
   [/tampering/i, "CWE-345", "Insufficient Verification of Data Authenticity", "데이터 진위 검증 미흡 및 변조"],
+  [/certificate/i, "CWE-295", "Improper Certificate Validation", "인증서 유효성 검증 미흡"],
+  [/cryptographic|cipher|tls|protocol downgrade/i, "CWE-327", "Broken or Risky Cryptographic Algorithm", "취약한 암호화·프로토콜 알고리즘"],
 ];
 
 export function inferCweCategory(title: string): CweCategoryClassification {
@@ -295,6 +297,7 @@ const CVSS_DIMENSIONS: Readonly<Record<string, {
 };
 
 export function parseCvssVector(vector: string): readonly CvssVectorDimension[] {
+  if (!vector.startsWith("CVSS:3.")) return [];
   const parts = vector.split("/").slice(1);
   const result: CvssVectorDimension[] = [];
   for (const part of parts) {

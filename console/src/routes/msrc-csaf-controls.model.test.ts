@@ -239,6 +239,23 @@ describe("msrc-csaf-controls model", () => {
     ]);
     expect(zeroRisk.status).toBe("certified_zero_risk");
     expect(zeroRisk.posture_score).toBe(100);
+    expect(zeroRisk.kev_sla_breach_count).toBe(0);
     expect(zeroRisk.execution_authority).toBe(false);
+
+    // Q079-Q086: Verify CWE-327/CWE-295 classification, parseCvssVector guard, and zero_risk_assurance authority check
+    expect(inferCweCategory("Azure TLS Protocol Downgrade Vulnerability").cweId).toBe("CWE-327");
+    expect(inferCweCategory("Windows Certificate Validation Vulnerability").cweId).toBe("CWE-295");
+    expect(parseCvssVector("invalid-vector")).toEqual([]);
+    expect(() =>
+      mergeMsrcCsafProjection(PINNED_MSRC_CSAF_CATALOG, {
+        schema_version: "1.0.0",
+        source_id: "msrc_csaf",
+        source_revision: PINNED_MSRC_CSAF_CATALOG.source_revision,
+        advisories_digest: PINNED_MSRC_CSAF_CATALOG.advisories_digest,
+        crosswalk_digest: PINNED_MSRC_CSAF_CATALOG.crosswalk_digest,
+        zero_risk_assurance: { execution_authority: true },
+        controls: [],
+      }),
+    ).toThrow(/zero_risk_assurance MUST NOT carry execution_authority/);
   });
 });

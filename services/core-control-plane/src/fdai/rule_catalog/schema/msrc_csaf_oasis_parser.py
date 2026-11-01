@@ -73,6 +73,9 @@ def _collect_product_branches(
         branch = CsafProductBranch(product_id=product_id, name=name, cpe=cpe)
         if product_id in collected and collected[product_id] != branch:
             raise CsafSchemaError(f"conflicting product_tree entry for {product_id!r}")
+        # Q007: Enforce maximum product_tree branch ceiling during recursive walk
+        if len(collected) >= 512 and product_id not in collected:
+            raise CsafSchemaError("OASIS CSAF product_tree exceeds 512 product branches")
         collected[product_id] = branch
     branches = node.get("branches")
     if branches is not None:
@@ -229,6 +232,9 @@ def _parse_remediations(remediations_raw: object) -> tuple[CsafRemediationRecord
         return ()
     if not isinstance(remediations_raw, list):
         raise CsafSchemaError("OASIS CSAF remediations MUST be a list")
+    # Q008: Bound remediation list size during parsing
+    if len(remediations_raw) > 64:
+        raise CsafSchemaError("OASIS CSAF remediations exceed 64 entries per vulnerability")
     records: list[CsafRemediationRecord] = []
     for item in remediations_raw:
         if not isinstance(item, Mapping):
@@ -313,6 +319,17 @@ def parse_oasis_csaf_bytes(
     tracking = doc.get("tracking")
     if not isinstance(tracking, Mapping):
         raise CsafSchemaError("OASIS CSAF document.tracking is required")
+    # Q009: Reject draft advisories or invalid tracking.status values
+    tracking_status = tracking.get("status")
+    if tracking_status is not None and (
+        not isinstance(tracking_status, str) or tracking_status not in {"final", "interim"}
+    ):
+        raise CsafSchemaError(
+            f"OASIS CSAF document.tracking.status {tracking_status!r} MUST be 'final' or 'interim'"
+        )
+    # Q010: Reject empty vulnerabilities list before iteration
+    if not vulns_raw:
+        raise CsafSchemaError("OASIS CSAF vulnerabilities list MUST be non-empty")
     # C10: Validate document.category when present and verify revision_history item structure
     doc_category = doc.get("category")
     if doc_category is not None and (

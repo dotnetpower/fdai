@@ -825,6 +825,7 @@
         "blastRadius": "Blast-radius & dry-run",
         "targetLock": "Logical-target lock",
         "idempotencyKey": "Idempotency key",
+        "twoPhaseAudit": "Two-phase audit & separation of duties",
         "effectVerification": "Independent effect verification",
         "pantheonSection": "15-agent Pantheon governance bindings"
       }

@@ -22,6 +22,7 @@ from fdai.core.security.csaf import (
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
     to_security_control_observations,
+    verify_certificate_integrity,
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.msrc_csaf import (
@@ -59,12 +60,19 @@ class MsrcCsafAssessmentRunReceipt:
             raise ValueError("MsrcCsafAssessmentRunReceipt MUST NOT grant execution_authority")
         if self.security_observations_count < 0:
             raise ValueError("security_observations_count MUST be non-negative")
+        # Q071: Verify zero_risk_certificate integrity and shadow-only invariant when present
+        if self.zero_risk_certificate is not None and not verify_certificate_integrity(
+            self.zero_risk_certificate
+        ):
+            raise ValueError(
+                "MsrcCsafAssessmentRunReceipt zero_risk_certificate failed integrity check"
+            )
 
 
 def build_msrc_csaf_state_store_record(
     receipt: MsrcCsafAssessmentRunReceipt,
 ) -> tuple[str, dict[str, object]]:
-    """Build the state-store key and record consumed by Heimdall.msrc_csaf_facts() (C23)."""
+    """Build the state-store key and record consumed by Heimdall.msrc_csaf_facts() (C23, Q072)."""
 
     if receipt.execution_authority is not False:
         raise ValueError("state-store record requires a shadow no-authority receipt")
@@ -72,6 +80,16 @@ def build_msrc_csaf_state_store_record(
     record: dict[str, object] = {
         "package": receipt.review_package,
         "recorded_at": receipt.assessment.recorded_at.isoformat(),
+        "zero_risk_status": (
+            receipt.zero_risk_certificate.status.value
+            if receipt.zero_risk_certificate is not None
+            else None
+        ),
+        "posture_score": (
+            receipt.zero_risk_certificate.posture_score
+            if receipt.zero_risk_certificate is not None
+            else None
+        ),
     }
     return key, record
 
@@ -286,7 +304,12 @@ class MsrcCsafAssessmentRunner:
     def catalog(self) -> MsrcCsafCrosswalkCatalog:
         return self._catalog
 
-    def run(self, request: CsafAssessmentRequest) -> MsrcCsafAssessmentRunReceipt:
+    def run(
+        self,
+        request: CsafAssessmentRequest,
+        *,
+        strict_orphan_tags: bool = False,
+    ) -> MsrcCsafAssessmentRunReceipt:
         assessment = self._runtime.assess(request)
         review_package = build_csaf_review_package(assessment)
         drift_payload = msrc_csaf_drift_payload(review_package)
@@ -294,6 +317,7 @@ class MsrcCsafAssessmentRunner:
             self._catalog,
             request,
             assessment,
+            strict_orphan_tags=strict_orphan_tags,
         )
         projection = build_msrc_csaf_operator_projection(
             self._catalog,

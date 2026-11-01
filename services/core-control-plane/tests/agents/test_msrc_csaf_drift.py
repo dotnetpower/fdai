@@ -169,8 +169,10 @@ async def test_heimdall_drift_tool_orders_msrc_csaf_reviews_by_utc_timestamp() -
     assert facts["msrc_csaf_urgent_workload_count"] == 0
     assert facts["msrc_csaf_incomplete_workload_count"] == 0
     assert facts["msrc_csaf_zero_risk_certified_count"] == 1
+    assert facts["msrc_csaf_min_posture_score"] == 100
     (latest,) = facts["msrc_csaf_latest_decisions"]
     assert latest["decision"] == "clear"
+    assert latest["posture_score"] == 100
     assert latest["critical_affected_count"] == 0
     assert latest["top_cve_ids"] == []
     assert latest["recorded_at"] == "2026-10-08T01:00:00+00:00"

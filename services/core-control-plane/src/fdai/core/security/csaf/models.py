@@ -56,8 +56,10 @@ def compute_csaf_risk_score(
     cvss_vector: str | None = None,
     exposure: CsafExposureStatus = CsafExposureStatus.UNKNOWN,
 ) -> float:
-    """Compute a deterministic 0.0-100.0 composite risk score (V13)."""
+    """Compute a deterministic 0.0-100.0 composite risk score (V13, Q019)."""
 
+    if not math.isfinite(cvss_base_score) or not 0.0 <= cvss_base_score <= 10.0:
+        raise ValueError("compute_csaf_risk_score requires finite cvss_base_score in [0.0, 10.0]")
     if exposure in {CsafExposureStatus.FIXED, CsafExposureStatus.NOT_APPLICABLE}:
         return 0.0
     base_points = max(0.0, min(50.0, cvss_base_score * 5.0))
@@ -110,6 +112,15 @@ class CsafScopedResource:
             raise ValueError("CSAF scoped resource observed_at MUST be timezone-aware")
         if self.workload_tags != tuple(sorted(set(self.workload_tags))):
             raise ValueError("CSAF scoped resource workload_tags MUST be unique and ordered")
+        # Q011 & Q012: Reject blank/control-char workload_tags and bound properties/tags count
+        if len(self.workload_tags) > 64 or any(
+            not tag.strip() or any(ord(ch) < 32 for ch in tag) for tag in self.workload_tags
+        ):
+            raise ValueError(
+                "CSAF scoped resource workload_tags MUST be <= 64 non-empty printable strings"
+            )
+        if len(self.properties) > 256:
+            raise ValueError("CSAF scoped resource properties MUST NOT exceed 256 entries")
         normalized_props: dict[str, ScalarProperty] = {}
         for key in sorted(self.properties):
             if not isinstance(key, str) or _PROP_KEY_RE.fullmatch(key) is None:
@@ -174,6 +185,29 @@ class CsafEvidenceReceipt:
             )
         if self.freshness_ceiling_seconds < 1 or self.freshness_ceiling_seconds > 31_536_000:
             raise ValueError("CSAF evidence freshness ceiling MUST be in [1, 31536000]")
+        # Q013: Reject control characters across receipt identity and metadata strings
+        for text_val in (
+            self.evidence_ref,
+            self.evidence_kind,
+            self.producer,
+            self.source_revision,
+            self.inventory_generation,
+            self.provider_error or "",
+        ):
+            if any(ord(ch) < 32 for ch in text_val):
+                raise ValueError("CSAF evidence receipt fields MUST NOT contain control chars")
+
+    @property
+    def is_admissible(self) -> bool:
+        """Return True when the receipt is non-synthetic, complete, and error-free (Q014)."""
+
+        return (
+            not self.synthetic
+            and self.provider_error is None
+            and self.complete
+            and not self.truncated
+            and not self.conflicting
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +246,20 @@ class CsafAssessmentRequest:
                 raise ValueError(f"CSAF {label} digest MUST be lowercase SHA-256")
         if not self.resources:
             raise ValueError("CSAF assessment requires at least one scoped resource")
+        # Q015: Bound request resources/evidence counts and reject control chars in request pins
+        if len(self.resources) > 10_000 or len(self.evidence) > 50_000:
+            raise ValueError("CSAF assessment request exceeds resource or evidence ceiling")
+        if any(
+            any(ord(ch) < 32 for ch in pin)
+            for pin in (
+                self.assessment_id,
+                self.source_revision,
+                self.ontology_release,
+                self.inventory_generation,
+                self.workload_id,
+            )
+        ):
+            raise ValueError("CSAF assessment request pins MUST NOT contain control chars")
         resource_ids = tuple(item.resource_id for item in self.resources)
         if resource_ids != tuple(sorted(set(resource_ids))):
             raise ValueError("CSAF assessment resources MUST be unique and ordered by resource_id")
@@ -307,6 +355,43 @@ class CsafVulnerabilityFinding:
             raise ValueError(
                 "CsafVulnerabilityFinding with exposure=unknown MUST have evidence_complete=False"
             )
+        # Q016: Fixed or not_applicable evaluated findings MUST NOT carry recommended_action_type
+        if (
+            self.evaluation is CsafEvaluationStatus.EVALUATED
+            and self.exposure in {CsafExposureStatus.FIXED, CsafExposureStatus.NOT_APPLICABLE}
+            and self.recommended_action_type is not None
+        ):
+            raise ValueError(
+                "fixed or not_applicable CsafVulnerabilityFinding "
+                "MUST NOT set recommended_action_type"
+            )
+        # Q017: Validate evidence_refs and evidence_digests length parity and uniqueness
+        if len(self.evidence_refs) != len(self.evidence_digests) or len(
+            set(self.evidence_refs)
+        ) != len(self.evidence_refs):
+            raise ValueError(
+                "CsafVulnerabilityFinding evidence_refs and evidence_digests "
+                "MUST be unique and paired"
+            )
+        # Q018: Enforce OpenVEX justification compatibility with evaluated exposure
+        if self.vex_justification is not CsafVexJustification.UNDETERMINED_EVIDENCE_GAP:
+            allowed_vex = {
+                CsafExposureStatus.AFFECTED: {CsafVexJustification.AFFECTED_REQUIRES_REMEDIATION},
+                CsafExposureStatus.MITIGATED: {
+                    CsafVexJustification.INLINE_MITIGATIONS_ALREADY_EXIST
+                },
+                CsafExposureStatus.FIXED: {CsafVexJustification.PATCHED_VERSION_DEPLOYED},
+                CsafExposureStatus.NOT_APPLICABLE: {
+                    CsafVexJustification.COMPONENT_NOT_PRESENT,
+                    CsafVexJustification.VULNERABLE_CODE_NOT_IN_EXECUTE_PATH,
+                },
+                CsafExposureStatus.UNKNOWN: {CsafVexJustification.UNDETERMINED_EVIDENCE_GAP},
+            }[self.exposure]
+            if self.vex_justification not in allowed_vex:
+                raise ValueError(
+                    f"vex_justification {self.vex_justification.value!r} "
+                    f"conflicts with exposure {self.exposure.value!r}"
+                )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -370,6 +455,17 @@ class CsafAssessmentResult:
             or self.recorded_at < self.evaluated_at
         ):
             raise ValueError("CsafAssessmentResult timestamps MUST be timezone-aware and ordered")
+        # Q020: Validate aggregate_counts values are non-negative integers
+        for key, count_val in self.aggregate_counts.items():
+            if (
+                not key.strip()
+                or not isinstance(count_val, int)
+                or isinstance(count_val, bool)
+                or count_val < 0
+            ):
+                raise ValueError(
+                    f"CsafAssessmentResult.aggregate_counts[{key!r}] MUST be a non-negative int"
+                )
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         payload: dict[str, object] = {
