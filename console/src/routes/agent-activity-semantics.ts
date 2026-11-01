@@ -233,32 +233,69 @@ export function citedRulesOf(item: AuditItem): readonly string[] {
 export type AuditProvenance = "operational" | "sample";
 
 export const RETAINED_CORRELATED_AUDIT_LIMIT = 600;
+export const RETAINED_MIRROR_AUDIT_LIMIT = 150;
 export const RETAINED_UNCORRELATED_AUDIT_LIMIT = 200;
 
-export function hasAuditCorrelation(item: AuditItem): boolean {
+export function resolvedAuditCorrelation(item: AuditItem): string | null {
   const resolved =
     (item.correlation_id !== null && item.correlation_id.trim()
       ? item.correlation_id.trim()
       : null) ??
     entryStr(item, "correlation_id") ??
     entryStr(item, "incident_id");
-  return resolved !== null && resolved.trim().length > 0;
+  return resolved && resolved.trim().length > 0 ? resolved.trim() : null;
+}
+
+export function hasAuditCorrelation(item: AuditItem): boolean {
+  return resolvedAuditCorrelation(item) !== null;
+}
+
+function isPassiveBackgroundAuditItem(item: AuditItem): boolean {
+  return (
+    isSagaAuditMirror(item) ||
+    item.action_kind === "measurement.control_loop.v1" ||
+    item.action_kind === "observation-campaign.source-transition" ||
+    item.action_kind === "runtime.operational-state-recorded" ||
+    item.action_kind === "mimir.rule-source.observed" ||
+    item.action_kind === "startup_readiness.audit_probe"
+  );
 }
 
 /**
  * Merges incoming `/audit` pages into the session's retained audit items while keeping
- * correlated trajectory steps and uncorrelated rows in independent bounded pools so that
- * bursts of uncorrelated measurement rows never evict correlated trajectories.
+ * primary correlated trajectory steps, Saga audit mirrors, and uncorrelated rows in independent
+ * bounded pools. During silent background polls, passive mirror and measurement churn is ignored
+ * unless it belongs to an already-retained correlation id, preventing trajectory and group counts
+ * from oscillating or climbing on background maintenance ticks.
  */
 export function mergeRetainedAuditItems(
   previous: readonly AuditItem[],
   incoming: readonly AuditItem[],
   correlatedLimit = RETAINED_CORRELATED_AUDIT_LIMIT,
   uncorrelatedLimit = RETAINED_UNCORRELATED_AUDIT_LIMIT,
+  silent = false,
+  mirrorLimit = RETAINED_MIRROR_AUDIT_LIMIT,
 ): readonly AuditItem[] {
   if (previous.length === 0) return incoming;
+  const existingCorrelations = new Set<string>();
+  if (silent) {
+    for (const item of previous) {
+      const corr = resolvedAuditCorrelation(item);
+      if (corr !== null) existingCorrelations.add(corr);
+    }
+  }
+  const filteredIncoming = silent
+    ? incoming.filter((item) => {
+        if (!isPassiveBackgroundAuditItem(item)) return true;
+        const corr = resolvedAuditCorrelation(item);
+        return corr !== null && existingCorrelations.has(corr);
+      })
+    : incoming;
+  if (silent && filteredIncoming.length === 0) {
+    return previous;
+  }
   const byKey = new Map<string, AuditItem>();
-  for (const item of [...incoming, ...previous]) {
+  for (const item of [...filteredIncoming, ...previous]) {
     const key = item.seq > 0 ? `seq:${item.seq}` : `event:${item.event_id}`;
     if (!byKey.has(key)) byKey.set(key, item);
   }
@@ -269,11 +306,17 @@ export function mergeRetainedAuditItems(
   );
   const retained: AuditItem[] = [];
   let correlatedCount = 0;
+  let mirrorCount = 0;
   let uncorrelatedCount = 0;
   for (const item of merged) {
     if (hasAuditCorrelation(item)) {
-      if (correlatedCount >= correlatedLimit) continue;
-      correlatedCount += 1;
+      if (isSagaAuditMirror(item)) {
+        if (mirrorCount >= mirrorLimit) continue;
+        mirrorCount += 1;
+      } else {
+        if (correlatedCount >= correlatedLimit) continue;
+        correlatedCount += 1;
+      }
     } else {
       if (uncorrelatedCount >= uncorrelatedLimit) continue;
       uncorrelatedCount += 1;

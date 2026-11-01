@@ -252,13 +252,20 @@ export function AgentActivityRoute({ client }: Props) {
         if (operational.items[0]) setLastEventAt(operational.items[0].observed_at);
         setState((prev) => {
           const nextItems = prev.status === "ready"
-            ? mergeRetainedAuditItems(prev.data.items, page.items)
+            ? mergeRetainedAuditItems(
+                prev.data.items,
+                page.items,
+                RETAINED_CORRELATED_AUDIT_LIMIT,
+                RETAINED_UNCORRELATED_AUDIT_LIMIT,
+                silent,
+              )
             : page.items;
           if (
             silent &&
             prev.status === "ready" &&
-            prev.data.items.length === nextItems.length &&
-            prev.data.items[0]?.seq === nextItems[0]?.seq &&
+            (prev.data.items === nextItems ||
+              (prev.data.items.length === nextItems.length &&
+                prev.data.items[0]?.seq === nextItems[0]?.seq)) &&
             prev.data.olderAvailable === (page.next_cursor !== null) &&
             prev.data.operationalSource === operational.source
           ) {
