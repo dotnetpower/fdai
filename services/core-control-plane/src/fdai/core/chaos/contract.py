@@ -139,7 +139,9 @@ class ExperimentResult:
         ):
             raise ValueError("ExperimentResult timestamps MUST be timezone-aware")
         if self.ended_at < self.started_at:
-            raise ValueError("ExperimentResult ended_at MUST be >= started_at")
+            raise ValueError(
+                "ExperimentResult timestamps are reversed: ended_at MUST be >= started_at"
+            )
 
     @property
     def reverted(self) -> bool:

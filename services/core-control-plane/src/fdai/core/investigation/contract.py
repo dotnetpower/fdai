@@ -122,8 +122,6 @@ class AnalyzerFinding:
             raise ValueError("AnalyzerFinding.signal MUST be non-empty")
         if not self.observation.strip():
             raise ValueError("AnalyzerFinding.observation MUST be non-empty")
-        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
-            raise ValueError("AnalyzerFinding.occurred_at MUST be timezone-aware")
         if self.remediation_ref is not None and not self.remediation_ref.strip():
             raise ValueError("AnalyzerFinding.remediation_ref MUST be non-empty when set")
         if any(not ref.strip() for ref in self.evidence_refs):
