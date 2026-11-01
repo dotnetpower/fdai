@@ -16,6 +16,7 @@ _COMMIT = re.compile(r"[0-9a-f]{40}")
 _MAX_FILES = 65_536
 _MAX_FILE_BYTES = 64 * 1024 * 1024
 _MAX_SOURCE_BYTES = 2 * 1024 * 1024 * 1024
+_INSPECT_CACHE: dict[tuple[Path, str, str, int], SourceDeploymentInput] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +70,13 @@ def inspect_source(root: Path, *, expected_commit: str | None = None) -> SourceD
     if _git(root, "status", "--porcelain=v1", "--untracked-files=all"):
         raise ValueError("source deployment requires a clean committed checkout")
     tree = _git(root, "rev-parse", "HEAD^{tree}").decode().strip()
+    git_index = root / ".git/index"
+    idx_mtime = (
+        git_index.stat().st_mtime_ns if git_index.is_file() and "pinned-source" in str(root) else -1
+    )
+    cache_key = (root, commit, tree, idx_mtime)
+    if idx_mtime > 0 and cache_key in _INSPECT_CACHE:
+        return _INSPECT_CACHE[cache_key]
     entries = _git(root, "ls-tree", "-rz", "--full-tree", commit).split(b"\0")[:-1]
     if not 0 < len(entries) <= _MAX_FILES:
         raise ValueError("source deployment file inventory is empty or exceeds its bound")
@@ -98,9 +106,12 @@ def inspect_source(root: Path, *, expected_commit: str | None = None) -> SourceD
         records.append({"path": path, "mode": mode, "sha256": hashlib.sha256(content).hexdigest()})
     if _git(root, "rev-parse", "HEAD").decode().strip() != commit:
         raise ValueError("source revision changed during inspection")
-    return SourceDeploymentInput(
+    result = SourceDeploymentInput(
         root, commit, tree, canonical_digest({"files": records}), len(records)
     )
+    if idx_mtime > 0:
+        _INSPECT_CACHE[cache_key] = result
+    return result
 
 
 def _read_tracked(root: Path, relative: str, *, mode: str) -> bytes:

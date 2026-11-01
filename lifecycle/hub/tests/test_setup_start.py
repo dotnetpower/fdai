@@ -158,3 +158,18 @@ def test_sigterm_reaps_the_actual_executor_before_launcher_exits(tmp_path):
             process.wait(timeout=5)
         if worker_pid is not None:
             setup_start._signal_worker_group(worker_pid, signal.SIGKILL)
+
+
+def test_status_and_stop_subcommands_operate_without_database(tmp_path, monkeypatch, capsys):
+    monkeypatch.delenv("FDAI_HUB_REMOTE_CONFIG", raising=False)
+    monkeypatch.delenv(cli.DATABASE_URL_ENV, raising=False)
+    assert cli.main(["status", "--state-dir", str(tmp_path)]) == 0
+    status_out = json.loads(capsys.readouterr().out)
+    assert status_out["phase"] == "idle"
+    (tmp_path / "launch.url").write_text("http://127.0.0.1:8000/setup#session=tok")
+    (tmp_path / "session.cookie").write_text("cookie")
+    assert cli.main(["stop", "--state-dir", str(tmp_path)]) == 0
+    stop_out = json.loads(capsys.readouterr().out)
+    assert stop_out["stopped"] is False
+    assert not (tmp_path / "launch.url").exists()
+    assert not (tmp_path / "session.cookie").exists()

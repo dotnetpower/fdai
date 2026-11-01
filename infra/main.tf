@@ -1591,7 +1591,7 @@ module "document_storage" {
   container_delete_retention_days = var.document_soft_delete_retention_days
   quarantine_retention_days       = var.document_quarantine_retention_days
   derived_cool_after_days         = var.document_derived_cool_after_days
-  private_link_access = var.enable_private_networking ? {
+  private_link_access = local.document_storage_private_access ? {
     defender_storage_data_scanner = {
       endpoint_resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Security/datascanners/StorageDataScanner"
       endpoint_tenant_id   = var.tenant_id

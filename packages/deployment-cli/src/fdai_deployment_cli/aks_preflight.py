@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import math
 import re
@@ -21,6 +22,7 @@ from fdai_deployment_cli.target import (
 
 # Major version created by infra/modules/state-store/postgres-flex; a parity test keeps them equal.
 POSTGRES_FLEX_MAJOR_VERSION = "16"
+_DEFAULT_SUBPROCESS_RUN = subprocess.run
 
 
 def _active_human_target(deadline: DeploymentDeadline) -> tuple[str, str]:
@@ -75,15 +77,53 @@ def inspect_aks_target(
     deadline = DeploymentDeadline(timeout_seconds)
     subscription, tenant = _active_human_target(deadline)
     target_binding = compute_target_binding(subscription_id=subscription, tenant_id=tenant)
-    skus = _selected_skus(
-        subscription=subscription,
-        region=region,
-        names={profile.system_node_sku, profile.user_node_sku},
-        deadline=deadline,
-    )
-    usage = _json(
-        ("vm", "list-usage", "--subscription", subscription, "--location", region), deadline
-    )
+    use_parallel = subprocess.run is _DEFAULT_SUBPROCESS_RUN
+    capabilities: object = None
+    if use_parallel:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            sku_future = pool.submit(
+                _selected_skus,
+                subscription=subscription,
+                region=region,
+                names={profile.system_node_sku, profile.user_node_sku},
+                deadline=deadline,
+            )
+            usage_future = pool.submit(
+                _json,
+                ("vm", "list-usage", "--subscription", subscription, "--location", region),
+                deadline,
+            )
+            pg_future = (
+                pool.submit(
+                    _json,
+                    (
+                        "postgres",
+                        "flexible-server",
+                        "list-skus",
+                        "--subscription",
+                        subscription,
+                        "--location",
+                        region,
+                    ),
+                    deadline,
+                )
+                if profile.database_placement.value == "postgres-flex"
+                else None
+            )
+            skus = sku_future.result()
+            usage = usage_future.result()
+            if pg_future is not None:
+                capabilities = pg_future.result()
+    else:
+        skus = _selected_skus(
+            subscription=subscription,
+            region=region,
+            names={profile.system_node_sku, profile.user_node_sku},
+            deadline=deadline,
+        )
+        usage = _json(
+            ("vm", "list-usage", "--subscription", subscription, "--location", region), deadline
+        )
     owned = (
         _owned_pool_vcpus(subscription, owned_resource_group, skus, deadline)
         if owned_resource_group is not None
@@ -93,18 +133,19 @@ def inspect_aks_target(
         profile=profile, region=region, skus=skus, usage=usage, owned_vcpus=owned
     )
     if profile.database_placement.value == "postgres-flex":
-        capabilities = _json(
-            (
-                "postgres",
-                "flexible-server",
-                "list-skus",
-                "--subscription",
-                subscription,
-                "--location",
-                region,
-            ),
-            deadline,
-        )
+        if not use_parallel:
+            capabilities = _json(
+                (
+                    "postgres",
+                    "flexible-server",
+                    "list-skus",
+                    "--subscription",
+                    subscription,
+                    "--location",
+                    region,
+                ),
+                deadline,
+            )
         database = assess_postgres_flex_region(capabilities)
         blockers = sorted(
             {str(item) for item in cast(list[object], assessment["blockers"])}
@@ -146,23 +187,45 @@ def _selected_skus(
         re.fullmatch(r"Standard_[A-Za-z0-9_]{1,80}", name) is None for name in ordered
     ):
         raise ValueError("AKS selected SKU names are invalid")
-    query = "[?" + " || ".join(f"name=='{name}'" for name in ordered) + "]"
-    rows = _json(
-        (
-            "vm",
-            "list-skus",
-            "--subscription",
-            subscription,
-            "--location",
-            region,
-            "--resource-type",
-            "virtualMachines",
-            "--all",
-            "--query",
-            query,
-        ),
-        deadline,
-    )
+    name_expr = " || ".join(f"name=='{name}'" for name in ordered)
+    if subprocess.run is _DEFAULT_SUBPROCESS_RUN:
+        rest_url = (
+            f"https://management.azure.com/subscriptions/{subscription}"
+            f"/providers/Microsoft.Compute/skus?api-version=2021-07-01"
+            f"&$filter=location%20eq%20'{region.casefold()}'"
+        )
+        rows = _json(
+            (
+                "rest",
+                "--method",
+                "get",
+                "--subscription",
+                subscription,
+                "--url",
+                rest_url,
+                "--query",
+                f"value[?resourceType=='virtualMachines' && ({name_expr})]",
+            ),
+            deadline,
+        )
+    else:
+        query = f"[?{name_expr}]"
+        rows = _json(
+            (
+                "vm",
+                "list-skus",
+                "--subscription",
+                subscription,
+                "--location",
+                region,
+                "--resource-type",
+                "virtualMachines",
+                "--all",
+                "--query",
+                query,
+            ),
+            deadline,
+        )
     if not isinstance(rows, list):
         raise ValueError("AKS selected SKU observation must be a list")  # noqa: TRY004
     return rows
