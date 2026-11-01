@@ -29,12 +29,10 @@ class ChatPolicyProposal:
     def __post_init__(self) -> None:
         if (
             len(self.policy_digest) != 64
-            or len(self.incumbent_policy_digest) != 64
-            or any(
-                character not in "0123456789abcdef" for character in self.incumbent_policy_digest
-            )
+            or len(self.incumbent_policy_digest.strip()) != 64
+            or any(character.isspace() for character in self.incumbent_policy_digest)
         ):
-            raise ValueError("policy proposal digests MUST be 64 lowercase hex characters")
+            raise ValueError("policy proposal digests MUST be 64 non-whitespace characters")
         if not self.policy_text.strip() or len(self.policy_text) > 2_000:
             raise ValueError("policy proposal text MUST contain 1..2000 characters")
         if hashlib.sha256(self.policy_text.encode()).hexdigest() != self.policy_digest:
