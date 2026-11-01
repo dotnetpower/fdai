@@ -145,7 +145,21 @@
           "duplicate_of": {
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
-          }
+          },
+          "pantheon_domains": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$"}
+          },
+          "required_function_types": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^query\\.[a-z0-9_.]+$"}
+          },
+          "presentation_oracle": {"$ref": "#/$defs/presentationOracle"},
+          "paired_model_case": {"$ref": "#/$defs/pairedModelCase"}
         }
       }
     }
@@ -197,6 +211,61 @@
       "properties": {
         "action_posture": {"enum": ["read_only", "advise_only", "draft_only"]},
         "execution_authority": {"const": false}
+      }
+    },
+    "presentationOracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "intent",
+        "primary_kind"
+      ],
+      "properties": {
+        "intent": {
+          "enum": [
+            "audit",
+            "chronology",
+            "comparison",
+            "correlation",
+            "coverage",
+            "distribution",
+            "exact",
+            "matrix",
+            "records",
+            "summary",
+            "threshold",
+            "trend"
+          ]
+        },
+        "primary_kind": {
+          "enum": [
+            "bar",
+            "callout",
+            "comparison",
+            "coverage",
+            "evidence",
+            "heatmap",
+            "list",
+            "scatter",
+            "summary",
+            "table",
+            "threshold_table",
+            "time_series",
+            "timeline"
+          ]
+        }
+      }
+    },
+    "pairedModelCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "pair_profile"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "pattern": "^paired\\.[a-z0-9][a-z0-9._-]{0,159}$"},
+        "pair_profile": {"const": "t1_active_vs_challenger"}
       }
     }
   }

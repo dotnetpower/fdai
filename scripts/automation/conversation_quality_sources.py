@@ -44,6 +44,66 @@ def has_answer_oracle(case: dict[str, Any]) -> bool:
     )
 
 
+_REQUIRED_PAIRED_CONTROL_AXES = frozenset(
+    {
+        "question_cohort",
+        "ontology_release",
+        "principal_manifest",
+        "evidence_snapshot",
+        "prompt_catalog",
+        "locale",
+        "runtime_policy",
+    }
+)
+
+
+def has_presentation_oracle(
+    question: dict[str, Any],
+    *,
+    presentation_intents: set[str],
+    presentation_kinds: set[str],
+    presentation_layouts: set[str],
+    responsive_policies: set[str],
+    accessibility_fallbacks: set[str],
+) -> bool:
+    oracle = question.get("presentation_oracle")
+    if (
+        not isinstance(oracle, dict)
+        or not presentation_layouts
+        or not responsive_policies
+        or not accessibility_fallbacks
+    ):
+        return False
+    return bool(
+        oracle.get("intent") in presentation_intents
+        and oracle.get("primary_kind") in presentation_kinds
+    )
+
+
+def has_paired_model_case(question: dict[str, Any]) -> bool:
+    paired = question.get("paired_model_case")
+    variations = question.get("variations")
+    safety = question.get("safety")
+    if (
+        not isinstance(paired, dict)
+        or not isinstance(variations, dict)
+        or not isinstance(safety, dict)
+    ):
+        return False
+    en_vars = variations.get("en")
+    ko_vars = variations.get("ko")
+    return bool(
+        isinstance(paired.get("case_id"), str)
+        and paired["case_id"].startswith("paired.")
+        and paired.get("pair_profile") == "t1_active_vs_challenger"
+        and isinstance(en_vars, list)
+        and isinstance(ko_vars, list)
+        and len(en_vars) >= 1
+        and len(ko_vars) >= 1
+        and safety.get("execution_authority") is False
+    )
+
+
 def json_object(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):

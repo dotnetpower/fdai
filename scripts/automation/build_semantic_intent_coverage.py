@@ -27,6 +27,8 @@ from scripts.automation.conversation_quality_sources import (
     digest,
     enum_values,
     has_answer_oracle,
+    has_paired_model_case,
+    has_presentation_oracle,
     json_object,
     paths_digest,
     presentation_registry_kinds,
@@ -73,11 +75,23 @@ def build_inventory(root: Path) -> dict[str, Any]:
     function_root = root / "services/core-control-plane/src/fdai/core/ontology_platform"
     function_source_paths = sorted(function_root.glob("*.py"))
     function_names = query_function_names(function_source_paths)
+    bank_questions = question_bank["questions"]
+    validated_questions = [
+        item
+        for item in bank_questions
+        if item["readiness"]["content_review"] == "reviewed"
+        and item["readiness"]["validation"] == "contract_passed"
+    ]
     golden_functions = Counter(
         function_name
         for case in golden["cases"]
         for function_name in case["semantic_retrieval"]["required_function_types"]
     )
+    for item in validated_questions:
+        if item["source_kind"] == "golden":
+            continue
+        for function_name in item.get("required_function_types", []):
+            golden_functions[function_name] += 1
     intent_functions = Counter(
         intent
         for case in intent_cases["cases"]
@@ -87,37 +101,62 @@ def build_inventory(root: Path) -> dict[str, Any]:
         )
         if intent.startswith("query.")
     )
+    for item in validated_questions:
+        for function_name in item.get("required_function_types", []):
+            intent_functions[function_name] += 1
     unknown_function_refs = (set(golden_functions) | set(intent_functions)) - set(function_names)
     if unknown_function_refs:
         raise ValueError(
             "semantic intent sources reference undeclared query functions: "
             f"{sorted(unknown_function_refs)}"
         )
+    pantheon_domain_counts = Counter(
+        domain for item in validated_questions for domain in item.get("pantheon_domains", [])
+    )
     question_domain_rows = []
     for spec in PANTHEON_SPECS:
         for domain in spec.question_domains:
+            case_count = pantheon_domain_counts[domain]
             question_domain_rows.append(
                 {
                     "topic_id": domain,
                     "agent": spec.name,
-                    "semantic_contract_case_count": 0,
-                    "coverage_state": "unmapped",
+                    "semantic_contract_case_count": case_count,
+                    "coverage_state": "covered" if case_count > 0 else "unmapped",
                 }
             )
-    bank_questions = question_bank["questions"]
     bank_domains = Counter(item["domain"] for item in bank_questions)
     bank_categories = Counter(item.get("category") or "uncategorized" for item in bank_questions)
     golden_categories = Counter(item["category"] for item in golden["cases"])
     required_bank_domains = required_question_bank_domains(question_bank_source)
     required_golden_categories = set(question_bank_source["golden_category_domains"])
     answer_oracle_count = sum(has_answer_oracle(case) for case in golden["cases"])
+    presentation_intents = set(enum_values(presentation_planner_path, "PresentationIntent"))
     presentation_kinds = enum_values(presentation_planner_path, "PresentationKind")
     presentation_registry = presentation_registry_kinds(presentation_registry_path)
     if set(presentation_kinds) != presentation_registry:
         raise ValueError("Operator presentation kinds and Console registrations MUST match exactly")
-    presentation_oracle_count = sum(
-        bool(item.get("presentation_oracle")) for item in bank_questions
+    presentation_layouts = set(
+        typescript_string_union(presentation_backend_types_path, "PresentationLayout")
     )
+    responsive_policies = set(
+        typescript_string_union(presentation_module_types_path, "PresentationResponsivePolicy")
+    )
+    accessibility_fallbacks = set(
+        typescript_string_union(presentation_module_types_path, "PresentationAccessibilityFallback")
+    )
+    presentation_oracle_count = sum(
+        has_presentation_oracle(
+            item,
+            presentation_intents=presentation_intents,
+            presentation_kinds=set(presentation_kinds),
+            presentation_layouts=presentation_layouts,
+            responsive_policies=responsive_policies,
+            accessibility_fallbacks=accessibility_fallbacks,
+        )
+        for item in validated_questions
+    )
+    paired_model_case_count = sum(has_paired_model_case(item) for item in validated_questions)
     function_rows = [
         {
             "topic_id": name,
@@ -251,7 +290,7 @@ def build_inventory(root: Path) -> dict[str, Any]:
             "question_presentation_oracle_coverage": _ratio(
                 presentation_oracle_count, len(bank_questions)
             ),
-            "paired_model_case_coverage": _ratio(0, len(bank_questions)),
+            "paired_model_case_coverage": _ratio(paired_model_case_count, len(bank_questions)),
         },
         "hard_zero_metrics": list(HARD_ZERO_METRICS),
         "coverage_limitations": list(QUALITY_COVERAGE_LIMITATIONS),

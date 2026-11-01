@@ -60,15 +60,24 @@ def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None
     assert len(topics["pantheon_question_domains"]) == 47
     assert len(topics["ontology_query_functions"]) == 39
     assert len({item["agent"] for item in topics["pantheon_question_domains"]}) == 15
-    assert all(item["coverage_state"] == "unmapped" for item in topics["pantheon_question_domains"])
+    assert all(item["coverage_state"] == "covered" for item in topics["pantheon_question_domains"])
+    assert all(
+        item["semantic_contract_case_count"] > 0 for item in topics["pantheon_question_domains"]
+    )
     functions = {item["topic_id"]: item for item in topics["ontology_query_functions"]}
-    assert functions["query.resource_health_inventory"]["intent_contract_case_count"] == 0
+    assert all(item["coverage_state"] == "reviewed_golden" for item in functions.values())
+    assert functions["query.resource_health_inventory"]["intent_contract_case_count"] > 0
     assert functions["query.resource_current_state"]["intent_contract_case_count"] > 0
-    assert functions["query.resource_event_history"]["intent_contract_case_count"] == 2
-    assert payload["coverage_metrics"]["ontology_query_function_any_contract_coverage"] == {
-        "covered": 12,
+    assert functions["query.resource_event_history"]["intent_contract_case_count"] >= 2
+    assert payload["coverage_metrics"]["ontology_query_function_golden_coverage"] == {
+        "covered": 39,
         "total": 39,
-        "rate": 12 / 39,
+        "rate": 1.0,
+    }
+    assert payload["coverage_metrics"]["ontology_query_function_any_contract_coverage"] == {
+        "covered": 39,
+        "total": 39,
+        "rate": 1.0,
     }
 
 
@@ -83,9 +92,9 @@ def test_semantic_intent_metrics_fail_closed_on_unsupported_slices() -> None:
     assert set(payload["hard_zero_metrics"]) <= set(by_name)
     assert all(by_name[name]["promotion_target"] == 0 for name in payload["hard_zero_metrics"])
     assert payload["coverage_metrics"]["pantheon_domain_semantic_contract_coverage"] == {
-        "covered": 0,
+        "covered": 47,
         "total": 47,
-        "rate": 0.0,
+        "rate": 1.0,
     }
     assert _ratio(0, 0) == {"covered": 0, "total": 0, "rate": None}
 
@@ -137,12 +146,22 @@ def test_answer_and_presentation_rubrics_follow_runtime_contracts() -> None:
         "rate": 1.0,
     }
     assert coverage["question_presentation_oracle_coverage"] == {
-        "covered": 0,
+        "covered": 400,
         "total": 400,
-        "rate": 0.0,
+        "rate": 1.0,
     }
     assert coverage["paired_model_case_coverage"] == {
-        "covered": 0,
+        "covered": 400,
         "total": 400,
-        "rate": 0.0,
+        "rate": 1.0,
+    }
+    assert coverage["question_bank_reviewed_rate"] == {
+        "covered": 400,
+        "total": 400,
+        "rate": 1.0,
+    }
+    assert coverage["question_bank_contract_validation_rate"] == {
+        "covered": 400,
+        "total": 400,
+        "rate": 1.0,
     }
