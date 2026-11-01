@@ -25,12 +25,59 @@ const VULNERABILITY_SUFFIX_TRANSLATIONS: readonly (readonly [RegExp, string])[] 
   [/\bHeap-based Buffer Overflow Vulnerability$/i, "힙 버퍼 오버플로 취약점"],
   [/\bServer-Side Request Forgery \(SSRF\) Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
   [/\bSQL Injection Vulnerability$/i, "SQL 인젝션 취약점"],
+  [/\bArbitrary Code Execution Vulnerability$/i, "임의 코드 실행 취약점"],
+  [/\bLocal Privilege Escalation Vulnerability$/i, "로컬 권한 상승 취약점"],
+  [/\bDirectory Traversal Vulnerability$/i, "디렉터리 탐색(Directory Traversal) 취약점"],
+  [/\bPath Traversal Vulnerability$/i, "경로 탐색(Path Traversal) 취약점"],
+  [/\bImproper Input Validation Vulnerability$/i, "입력값 검증 미흡 취약점"],
+  [/\bDeserialization of Untrusted Data Vulnerability$/i, "신뢰되지 않는 데이터 역직렬화 취약점"],
+  [/\bInteger Overflow Vulnerability$/i, "정수 오버플로 취약점"],
+  [/\bRace Condition Vulnerability$/i, "경쟁 상태(Race Condition) 취약점"],
+  [/\bNull Pointer Dereference Vulnerability$/i, "널 포인터 역참조 취약점"],
+  [/\bCommand Injection Vulnerability$/i, "명령어 인젝션 취약점"],
   [/\bCross-Tenant Information Disclosure$/i, "테넌트 간 정보 노출 취약점"],
   [/\bContainer Escape and Privilege Escalation$/i, "컨테이너 이스케이프 및 권한 상승 취약점"],
   [/\bProtocol Downgrade and Session Hijacking$/i, "프로토콜 다운그레이드 및 세션 하이재킹 취약점"],
   [/\bUnauthenticated Administrative API Exposure$/i, "비인증 관리 API 노출 취약점"],
   [/\bVulnerability$/i, "보안 취약점"],
 ];
+
+export interface CweCategoryClassification {
+  readonly cweId: string;
+  readonly label: GuidanceText;
+}
+
+const CWE_RULES: readonly (readonly [RegExp, string, string, string])[] = [
+  [/use after free/i, "CWE-416", "Use After Free", "해제 후 재사용 (Use After Free)"],
+  [/out-of-bounds write|heap.*overflow|buffer overflow/i, "CWE-787", "Out-of-bounds Write", "경계 밖 메모리 쓰기 (OOB Write)"],
+  [/out-of-bounds read/i, "CWE-125", "Out-of-bounds Read", "경계 밖 메모리 읽기 (OOB Read)"],
+  [/memory corruption/i, "CWE-119", "Memory Buffer Bounds Restriction", "메모리 버퍼 경계 손상"],
+  [/sql injection/i, "CWE-89", "SQL Injection", "SQL 인젝션"],
+  [/command injection/i, "CWE-77", "Command Injection", "명령어 인젝션"],
+  [/cross-site scripting|\bxss\b/i, "CWE-79", "Cross-site Scripting (XSS)", "사이트 간 스크립팅 (XSS)"],
+  [/server-side request forgery|\bssrf\b/i, "CWE-918", "Server-Side Request Forgery (SSRF)", "서버 측 요청 위조 (SSRF)"],
+  [/path traversal|directory traversal/i, "CWE-22", "Path Traversal", "경로 탐색 (Path Traversal)"],
+  [/deserialization/i, "CWE-502", "Deserialization of Untrusted Data", "신뢰되지 않는 데이터 역직렬화"],
+  [/remote code execution|arbitrary code execution/i, "CWE-94", "Improper Control of Code Generation (RCE)", "원격·임의 코드 실행 (RCE)"],
+  [/elevation of privilege|privilege escalation/i, "CWE-269", "Improper Privilege Management (EoP)", "부적절한 권한 관리 및 권한 상승 (EoP)"],
+  [/information disclosure|cross-tenant/i, "CWE-200", "Exposure of Sensitive Information", "민감 정보 노출 (Information Disclosure)"],
+  [/denial of service/i, "CWE-400", "Uncontrolled Resource Consumption (DoS)", "서비스 거부 및 리소스 고갈 (DoS)"],
+  [/security feature bypass|authentication bypass/i, "CWE-284", "Improper Access Control / Bypass", "접근 제어 및 보안 기능 우회"],
+  [/spoofing/i, "CWE-290", "Authentication Bypass by Spoofing", "스푸핑 기반 신원 위장"],
+  [/tampering/i, "CWE-345", "Insufficient Verification of Data Authenticity", "데이터 진위 검증 미흡 및 변조"],
+];
+
+export function inferCweCategory(title: string): CweCategoryClassification {
+  for (const [pattern, cweId, enLabel, koLabel] of CWE_RULES) {
+    if (pattern.test(title)) {
+      return { cweId, label: text(`${cweId}: ${enLabel}`, `${cweId}: ${koLabel}`) };
+    }
+  }
+  return {
+    cweId: "CWE-693",
+    label: text("CWE-693: Protection Mechanism Failure", "CWE-693: 보호 메커니즘 약화"),
+  };
+}
 
 export function msrcCsafDisplayTitle(
   row: Pick<MsrcCsafControlRow, "title">,
@@ -179,6 +226,7 @@ export function buildMsrcCsafGuidance(
   const productNames = row.products.map((p) => p.product_name).join(", ") || row.product_ids.join(", ");
   const vendorFix = row.remediations.find((r) => r.category === "vendor_fix");
   const workaround = row.remediations.find((r) => r.category === "workaround" || r.category === "mitigation");
+  const cwe = inferCweCategory(row.title);
 
   const exploitSummaryEn = row.exploit_status === "exploited"
     ? "Active exploitation in the wild has been confirmed by MSRC."
@@ -191,9 +239,10 @@ export function buildMsrcCsafGuidance(
       ? "공격 표면과 익스플로잇 성숙도 기준상 악용 가능성이 높은(Exploitation More Likely) 취약점입니다."
       : "버전이 고정된 MSRC CSAF 2.0 보안 권고 코퍼스에서 추적 중인 취약점입니다.";
 
+  // V41: Include CWE classification, KEV SLA tier, and risk score in summary
   const summary = text(
-    `${row.cve_id} (CVSS ${row.cvss_base_score.toFixed(1)}, ${row.severity.toUpperCase()}) affects ${productNames} on canonical resource type ${row.primary_resource_type} within version window ${row.version_window}. ${exploitSummaryEn}`,
-    `${row.cve_id} (CVSS ${row.cvss_base_score.toFixed(1)}, 심각도 ${row.severity.toUpperCase()}) 취약점은 정규 리소스 유형 ${row.primary_resource_type}의 ${productNames} 제품(취약 버전 구간: ${row.version_window})에 영향을 미칩니다. ${exploitSummaryKo}`,
+    `${row.cve_id} (CVSS ${row.cvss_base_score.toFixed(1)}, Risk ${row.risk_score.toFixed(1)}/100, ${row.severity.toUpperCase()}, ${cwe.cweId}, SLA ${row.due_days}d) affects ${productNames} on canonical resource type ${row.primary_resource_type} within version window ${row.version_window}. ${exploitSummaryEn}`,
+    `${row.cve_id} (CVSS ${row.cvss_base_score.toFixed(1)}, 위험도 점수 ${row.risk_score.toFixed(1)}/100, 심각도 ${row.severity.toUpperCase()}, ${cwe.cweId}, 권장 조치 기한 ${row.due_days}일) 취약점은 정규 리소스 유형 ${row.primary_resource_type}의 ${productNames} 제품(취약 버전 구간: ${row.version_window})에 영향을 미칩니다. ${exploitSummaryKo}`,
   );
 
   const fixTextEn = vendorFix?.fixed_version

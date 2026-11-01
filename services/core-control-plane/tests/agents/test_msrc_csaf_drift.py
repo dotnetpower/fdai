@@ -166,6 +166,8 @@ async def test_heimdall_drift_tool_orders_msrc_csaf_reviews_by_utc_timestamp() -
     facts = introspection.facts
     assert facts["msrc_csaf_reviews_read"] == 2
     assert facts["msrc_csaf_reviews_withheld"] == 1
+    assert facts["msrc_csaf_urgent_workload_count"] == 0
+    assert facts["msrc_csaf_incomplete_workload_count"] == 0
     (latest,) = facts["msrc_csaf_latest_decisions"]
     assert latest["decision"] == "clear"
     assert latest["critical_affected_count"] == 0

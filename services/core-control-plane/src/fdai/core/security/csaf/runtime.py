@@ -21,6 +21,7 @@ from fdai.rule_catalog.schema.msrc_csaf import (
     CsafVulnerabilityCrosswalk,
     CsafVulnerabilityRecord,
     MsrcCsafCrosswalkCatalog,
+    classify_kev_sla_tier,
     compare_dotted_versions,
     parse_dotted_version,
     version_train_prefix,
@@ -40,7 +41,9 @@ from .models import (
     CsafEvidenceReceipt,
     CsafExposureStatus,
     CsafScopedResource,
+    CsafVexJustification,
     CsafVulnerabilityFinding,
+    compute_csaf_risk_score,
 )
 
 
@@ -234,6 +237,7 @@ class MsrcCsafAssessmentRuntime:
         )
         counts: dict[str, int] = {}
         for finding in findings:
+            # V15: Record VEX justification, KEV SLA tier, and attack-vector exposure counts
             for prefix, value in (
                 ("disposition", finding.disposition.value),
                 ("mapping", finding.mapping_state),
@@ -241,14 +245,27 @@ class MsrcCsafAssessmentRuntime:
                 ("exposure", finding.exposure.value),
                 ("severity", finding.severity.value),
                 ("exploit_status", finding.exploit_status.value),
+                ("vex", finding.vex_justification.value),
+                ("sla", finding.kev_sla_tier.value),
             ):
                 key = f"{prefix}.{value}"
                 counts[key] = counts.get(key, 0) + 1
-            if (
-                finding.exposure is CsafExposureStatus.AFFECTED
-                and finding.exploit_status is CsafThreatExploitStatus.EXPLOITED
-            ):
-                counts["exploited_affected"] = counts.get("exploited_affected", 0) + 1
+            if finding.exposure is CsafExposureStatus.AFFECTED:
+                if finding.exploit_status is CsafThreatExploitStatus.EXPLOITED:
+                    counts["exploited_affected"] = counts.get("exploited_affected", 0) + 1
+                profile = self._vulnerabilities[finding.cve_id].attack_profile
+                if profile.is_zero_click:
+                    counts["vector.zero_click_affected"] = (
+                        counts.get("vector.zero_click_affected", 0) + 1
+                    )
+                if profile.is_network_reachable and profile.is_unauthenticated:
+                    counts["vector.pre_auth_network_affected"] = (
+                        counts.get("vector.pre_auth_network_affected", 0) + 1
+                    )
+                if profile.is_wormable_candidate:
+                    counts["vector.wormable_affected"] = (
+                        counts.get("vector.wormable_affected", 0) + 1
+                    )
 
         digest_material: dict[str, Any] = {
             "assessment_id": request.assessment_id,
@@ -294,6 +311,11 @@ class MsrcCsafAssessmentRuntime:
         resources_by_rtype: dict[str, list[CsafScopedResource]] | None = None,
     ) -> CsafVulnerabilityFinding:
         vuln = self._vulnerabilities[mapping.cve_id]
+        sla_tier, _due_days = classify_kev_sla_tier(
+            vuln.severity,
+            vuln.exploit_status,
+            vuln.cvss_vector,
+        )
         if (
             mapping.disposition is CsafDisposition.AMBIGUOUS_OR_BLOCKED
             or mapping.mapping_state is WaraMappingState.UNMAPPED
@@ -320,6 +342,14 @@ class MsrcCsafAssessmentRuntime:
                 evidence_digests=(),
                 evidence_complete=False,
                 limitations=reasons,
+                vex_justification=CsafVexJustification.UNDETERMINED_EVIDENCE_GAP,
+                kev_sla_tier=sla_tier,
+                risk_score=compute_csaf_risk_score(
+                    cvss_base_score=vuln.cvss_base_score,
+                    exploit_status=vuln.exploit_status,
+                    cvss_vector=vuln.cvss_vector,
+                    exposure=CsafExposureStatus.UNKNOWN,
+                ),
             )
 
         if request_rtypes and not any(
@@ -345,6 +375,9 @@ class MsrcCsafAssessmentRuntime:
                 evidence_digests=(),
                 evidence_complete=True,
                 limitations=(),
+                vex_justification=CsafVexJustification.COMPONENT_NOT_PRESENT,
+                kev_sla_tier=sla_tier,
+                risk_score=0.0,
             )
 
         products = [self._products[pid] for pid in mapping.product_ids]
@@ -445,6 +478,9 @@ class MsrcCsafAssessmentRuntime:
                 evidence_digests=(),
                 evidence_complete=True,
                 limitations=(),
+                vex_justification=CsafVexJustification.COMPONENT_NOT_PRESENT,
+                kev_sla_tier=sla_tier,
+                risk_score=0.0,
             )
 
         if affected_ids:
@@ -465,6 +501,16 @@ class MsrcCsafAssessmentRuntime:
             overall = CsafExposureStatus.UNKNOWN
             limitations.add("partial_mapping_requires_manual_verification")
 
+        # V09: Map evaluated exposure outcome onto OpenVEX justification
+        vex_map = {
+            CsafExposureStatus.AFFECTED: CsafVexJustification.AFFECTED_REQUIRES_REMEDIATION,
+            CsafExposureStatus.MITIGATED: CsafVexJustification.INLINE_MITIGATIONS_ALREADY_EXIST,
+            CsafExposureStatus.FIXED: CsafVexJustification.PATCHED_VERSION_DEPLOYED,
+            CsafExposureStatus.NOT_APPLICABLE: (
+                CsafVexJustification.VULNERABLE_CODE_NOT_IN_EXECUTE_PATH
+            ),
+            CsafExposureStatus.UNKNOWN: CsafVexJustification.UNDETERMINED_EVIDENCE_GAP,
+        }
         complete = not unknown_ids and not limitations and overall is not CsafExposureStatus.UNKNOWN
         return CsafVulnerabilityFinding(
             cve_id=mapping.cve_id,
@@ -490,6 +536,14 @@ class MsrcCsafAssessmentRuntime:
             evidence_digests=tuple(dict.fromkeys(evidence_digests)),
             evidence_complete=complete,
             limitations=tuple(sorted(limitations)),
+            vex_justification=vex_map[overall],
+            kev_sla_tier=sla_tier,
+            risk_score=compute_csaf_risk_score(
+                cvss_base_score=vuln.cvss_base_score,
+                exploit_status=vuln.exploit_status,
+                cvss_vector=vuln.cvss_vector,
+                exposure=overall,
+            ),
         )
 
 
@@ -552,10 +606,18 @@ def to_security_control_observations(
                     else RemediationPriority.NONE
                 )
             )
+            # V06: Wire KEV SLA tier due_days and VEX justification into SecurityControlObservation
+            sla_days = {
+                "immediate_24h": 1,
+                "urgent_72h": 3,
+                "high_14d": 14,
+                "standard_30d": 30,
+                "monitor_90d": 90,
+            }.get(finding.kev_sla_tier.value, 14)
             due_days = (
                 1
                 if is_exploited_affected
-                else (2 if priority is RemediationPriority.CRITICAL else 14)
+                else (2 if priority is RemediationPriority.CRITICAL else sla_days)
             )
             observations.append(
                 SecurityControlObservation(
@@ -571,7 +633,9 @@ def to_security_control_observations(
                     rationale=(
                         f"MSRC CSAF advisory {finding.advisory_tracking_id} "
                         f"(CVSS {finding.cvss_base_score:.1f}, "
-                        f"exploit={finding.exploit_status.value})"
+                        f"exploit={finding.exploit_status.value}, "
+                        f"sla={finding.kev_sla_tier.value}, "
+                        f"vex={finding.vex_justification.value})"
                     ),
                     source="msrc_csaf",
                     collected_at=result.evaluated_at,

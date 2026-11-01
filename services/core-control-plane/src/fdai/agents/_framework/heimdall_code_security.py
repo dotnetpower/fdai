@@ -152,8 +152,15 @@ class HeimdallCodeSecurityMixin:
                 reverse=True,
             )
         ]
+        # V18: Report fleet-wide urgent and incomplete workload counts
+        urgent_workloads = sum(1 for item in ordered if item["decision"] == "urgent")
+        incomplete_workloads = sum(
+            1 for item in ordered if item["decision"] == "coverage_incomplete"
+        )
         return {
             "msrc_csaf_reviews_read": len(rows) - withheld,
+            "msrc_csaf_urgent_workload_count": urgent_workloads,
+            "msrc_csaf_incomplete_workload_count": incomplete_workloads,
             "msrc_csaf_latest_decisions": ordered[:_MAX_REPOSITORIES],
             "msrc_csaf_reviews_withheld": withheld,
             "msrc_csaf_reviews_truncated": len(rows) >= _MAX_REVIEW_ROWS,
