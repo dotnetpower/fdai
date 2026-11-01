@@ -646,6 +646,17 @@ export const ACTIVE_RULE_GUIDANCE_SPECS: Readonly<Record<string, ActiveRuleGuida
   },
 };
 
+const COLLECTED_POLICY_PHRASES_KO: readonly (readonly [string, string])[] = [
+  ["should use a customer-managed key", "고객 관리형 키(CMK) 사용 필요"],
+  ["should use private link", "Private Link 사설 연결 사용 필요"],
+  ["should use private endpoints", "프라이빗 엔드포인트 사용 필요"],
+  ["should disable public network access", "공용 네트워크 접근 비활성화 필요"],
+  ["should use a virtual network", "가상 네트워크(VNet) 통합 필요"],
+  ["should be associated with a data collection rule", "데이터 수집 규칙(DCR) 연결 필요"],
+  ["should have diagnostic settings", "진단 설정 활성화 필요"],
+  ["should have firewall rules", "방화벽 규칙 구성 필요"],
+];
+
 export function ruleDisplayTitle(
   rule: Pick<RuleDto, "id" | "title" | "title_ko">,
   locale: string,
@@ -662,6 +673,12 @@ export function ruleDisplayTitle(
     return `CIS ${ruleset} Kubernetes 보안 점검: ${slug || baseTitle}`;
   }
   if (rule.id.startsWith("azure-builtin.")) {
+    const lower = baseTitle.toLowerCase();
+    for (const [pattern, koPhrase] of COLLECTED_POLICY_PHRASES_KO) {
+      if (lower.includes(pattern)) {
+        return `[Azure Policy] ${baseTitle} - ${koPhrase}`;
+      }
+    }
     return `[Azure Policy] ${baseTitle}`;
   }
   return baseTitle;

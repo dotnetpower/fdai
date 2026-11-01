@@ -5,6 +5,7 @@ import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { displayValue, t } from "./i18n/governance";
+import type { McsbDetailState } from "./mcsb-controls";
 import {
   mcsbControlsHref,
   type McsbControl,
@@ -14,9 +15,10 @@ import {
   type McsbAssessmentSummary,
   type McsbSatisfaction,
 } from "./mcsb-controls.model";
-import { mcsbDisplayTitle } from "./mcsb-v2-guidance";
+import { buildMcsbV2Guidance, mcsbDisplayTitle } from "./mcsb-v2-guidance";
 import { FacetChips, FacetSelect } from "./rule-catalog-components";
 import { ControlEnablementBadge } from "./control-enablement";
+import { guidanceText } from "./wara-guidance.model";
 
 const EMPTY_FILTERS: McsbFilters = { domain: "", coverage: "", q: "" };
 export const MCSB_COVERAGE_PILL: Readonly<Record<McsbCoverage, PillKind>> = {
@@ -50,6 +52,7 @@ export function McsbControlsBody({
   searchInput,
   loading,
   selected,
+  detail,
   onFilter,
   onSearch,
   onSelect,
@@ -59,6 +62,7 @@ export function McsbControlsBody({
   readonly searchInput: string;
   readonly loading: boolean;
   readonly selected: string | null;
+  readonly detail?: McsbDetailState;
   readonly onFilter: (patch: Partial<McsbFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (controlId: string) => void;
@@ -180,46 +184,69 @@ export function McsbControlsBody({
   );
 
   usePublishViewContext(
-    () => ({
-      routeId: "rules",
-      routeLabel: t("governance.rules.mcsb.context.routeLabel"),
-      purpose: t("governance.rules.mcsb.context.purpose"),
-      glossary: composeGlossary([]),
-      headline: t("governance.rules.mcsb.context.headline", {
-        version,
-        total: data.total,
-        unmapped,
-      }),
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "benchmark_version", value: version, group: "catalog" },
-        { key: "control_definition_count", value: data.total, group: "catalog" },
-        { key: "automated_coverage_count", value: automated, group: "coverage" },
-        { key: "partial_coverage_count", value: partial, group: "coverage" },
-        { key: "manual_coverage_count", value: manual, group: "coverage" },
-        { key: "unmapped_coverage_count", value: unmapped, group: "coverage" },
-        { key: "azure_policy_reference_count", value: policyRefs, group: "catalog" },
-        { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
-        {
-          key: "shadow_assessment_status",
-          value: data.assessment_summary?.status ?? "unavailable",
-          group: "evidence",
+    () => {
+      const locale = getLocale();
+      const selectedDetail = selected !== null && detail?.status === "ready" ? detail.data : null;
+      const guidance = selectedDetail
+        ? (selectedDetail.guidance ?? (selectedDetail.benchmark_version === "v2-preview" ? buildMcsbV2Guidance(selectedDetail) : null))
+        : null;
+      return {
+        routeId: "rules",
+        routeLabel: t("governance.rules.mcsb.context.routeLabel"),
+        purpose: t("governance.rules.mcsb.context.purpose"),
+        glossary: composeGlossary([]),
+        headline: t("governance.rules.mcsb.context.headline", {
+          version,
+          total: data.total,
+          unmapped,
+        }),
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "benchmark_version", value: version, group: "catalog" },
+          { key: "control_definition_count", value: data.total, group: "catalog" },
+          { key: "automated_coverage_count", value: automated, group: "coverage" },
+          { key: "partial_coverage_count", value: partial, group: "coverage" },
+          { key: "manual_coverage_count", value: manual, group: "coverage" },
+          { key: "unmapped_coverage_count", value: unmapped, group: "coverage" },
+          { key: "azure_policy_reference_count", value: policyRefs, group: "catalog" },
+          { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+          {
+            key: "shadow_assessment_status",
+            value: data.assessment_summary?.status ?? "unavailable",
+            group: "evidence",
+          },
+          ...(selectedDetail
+            ? [
+                { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
+                { key: "selected_title", value: mcsbDisplayTitle(version, selectedDetail, locale), group: "selection" },
+                { key: "selected_domain", value: selectedDetail.domain, group: "selection" },
+                { key: "selected_coverage", value: selectedDetail.coverage, group: "selection" },
+                ...(guidance
+                  ? [
+                      { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
+                      { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+                      { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+                      { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        records: {
+          controls: data.controls.map((control) => ({
+            control_id: control.control_id,
+            title: mcsbDisplayTitle(version, control, locale),
+            domain: control.domain,
+            coverage: control.coverage,
+            rule_count: control.rule_count,
+            runtime_observation_count: control.runtime_observation_count,
+            manual_evidence_count: control.manual_evidence_count,
+            assessment_satisfaction: control.assessment?.satisfaction ?? null,
+          })),
         },
-      ],
-      records: {
-        controls: data.controls.map((control) => ({
-          control_id: control.control_id,
-          title: control.title,
-          domain: control.domain,
-          coverage: control.coverage,
-          rule_count: control.rule_count,
-          runtime_observation_count: control.runtime_observation_count,
-          manual_evidence_count: control.manual_evidence_count,
-          assessment_satisfaction: control.assessment?.satisfaction ?? null,
-        })),
-      },
-    }),
-    [automated, data, manual, partial, policyRefs, unmapped, version],
+      };
+    },
+    [automated, data, detail, manual, partial, policyRefs, selected, unmapped, version],
   );
 
   const metadataOnly = data.benchmark.control_import_status === "metadata_only";
@@ -254,7 +281,7 @@ export function McsbControlsBody({
           <FacetChips label={t("governance.rules.mcsb.filter.coverage")} value={filters.coverage} counts={data.facets.by_coverage} displayGroup="mcsbCoverage" onChange={(coverageValue) => onFilter({ coverage: coverageValue })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.mcsb.filter.searchAria")}</span>
-            <input type="search" value={searchInput} placeholder={t("governance.rules.mcsb.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
+            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.mcsb.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
         </div>
         <div class="table-toolbar">

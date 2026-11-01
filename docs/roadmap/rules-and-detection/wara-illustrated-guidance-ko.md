@@ -1,8 +1,8 @@
 ---
 title: 도표를 포함한 WARA 설명
 translation_of: wara-illustrated-guidance.md
-translation_source_sha: afc30c555f35369c4dabbee1d7a42a5734fc7bad
-translation_revised: 2026-10-31
+translation_source_sha: b5aae68ceddc8f0033c30c95492100e12b120e52
+translation_revised: 2026-11-01
 ---
 # 도표를 포함한 WARA 설명
 
@@ -218,6 +218,11 @@ Operator 읽기 결과와 Console은 본문, 도표, 제품 그룹 검증 표시
 테스트는 원본 ID, 코퍼스 수량, 엄격한 디코딩, 렌더링, 언어별 텍스트, 잘못된 출처,
 설명 사용 불가, 권한 없음 동작을 다룹니다. 고정 예제 브라우저 검증은 고정 예제임을
 명시하며 인증된 실환경 평가 결과로 표시하지 않습니다.
+
+공통 Console 도해 설명 렌더러는 동일한 권한 없는 `GuidancePresentation` 계약과 검토된
+CC-BY-4.0 Microsoft Learn 공식 참조 도해 16종을 통해 패키지된 WAF, CAF, MCSB v1 설명과
+파생된 MCSB v2-preview(`AI-1..AI-7` 포함 74개 컨트롤), MSRC CSAF 2.0(268개 CVE), 활성 및
+수집 탐지 규칙(활성 52개 및 수집 8,517개) 도해 설명도 함께 렌더링합니다.
 
 ## 관련 문서
 

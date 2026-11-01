@@ -312,6 +312,7 @@ export function RuleCatalogBody({
             <span>{t("governance.rules.filter.searchAria")}</span>
             <input
               type="search"
+              maxLength={256}
               value={searchInput}
               placeholder={t("governance.rules.filter.searchPlaceholder")}
               onInput={(event) => onSearch((event.target as HTMLInputElement).value)}
@@ -351,10 +352,10 @@ export function RuleCatalogBody({
                 {loading ? <span class="muted">{t("governance.rules.result.updating")}</span> : null}
               </p>
               <div class="pager">
-                <button type="button" class="btn" disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
+                <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
                   {t("governance.rules.result.previous")}
                 </button>
-                <button type="button" class="btn" disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
+                <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
                   {t("governance.rules.result.next")}
                 </button>
               </div>

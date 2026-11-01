@@ -964,6 +964,73 @@
       "kube_bench_audit": "감사 명령어",
       "kube_bench_scored": "CIS 점수 반영 여부"
     },
+    "checkLogicKind": {
+      "rego": "OPA Rego 정책",
+      "expression": "정책 조건식"
+    },
+    "redistribution": {
+      "embeddable": "패키지 내장 가능",
+      "reference-only": "참조 전용"
+    },
+    "requirementMode": {
+      "all": "모든 요구 사항 충족 필요 (ALL)",
+      "any": "하나 이상 요구 사항 충족 (ANY)"
+    },
+    "catalogStatus": {
+      "present": "카탈로그 등록됨"
+    },
+    "cafProcessPhase": {
+      "none": "기술 관측 전용",
+      "procedure": "절차(Procedure) 단계",
+      "execution": "실행(Execution) 단계",
+      "both": "절차 및 실행 단계"
+    },
+    "cafTargetKind": {
+      "rule": "탐지 규칙",
+      "waf": "Azure WAF",
+      "mcsb": "MCSB",
+      "control_objective": "통제 목표(ControlObjective)",
+      "azure_policy": "Azure Policy",
+      "provider_observation": "공급자 관측",
+      "manual_evidence": "수동 근거"
+    },
+    "cafRelationship": {
+      "full": "완전 매핑",
+      "partial": "부분 매핑",
+      "supporting_only": "보조 근거 전용",
+      "unmapped": "미매핑"
+    },
+    "msrcRemediationCategory": {
+      "vendor_fix": "공식 보안 패치 (vendor_fix)",
+      "workaround": "임시 구성 완화 (workaround)",
+      "mitigation": "보완 완화 조치 (mitigation)",
+      "none_available": "가용 패치 없음"
+    },
+    "msrcBlockedReason": {
+      "unsupported_product_family": "지원되지 않는 제품군",
+      "missing_version_property": "리소스 버전 속성 미제공",
+      "ambiguous_product_mapping": "모호한 제품 매핑",
+      "manual_verification_required": "수동 검증 필요"
+    },
+    "activationStatus": {
+      "applied": "적용 완료",
+      "already_applied": "이미 적용됨",
+      "conflict": "세대 충돌",
+      "rejected": "거부됨",
+      "failed": "실패"
+    },
+    "activationSource": {
+      "git_catalog": "Git 카탈로그",
+      "operator_request": "운영자 요청",
+      "offline_bundle": "서명된 오프라인 번들",
+      "bootstrap": "부트스트랩"
+    },
+    "remediationLimitation": {
+      "promotion_required": "ActionType이 Shadow 모드이므로 Enforce 전환 전 승격이 필요합니다",
+      "rule_activation_runtime_support_and_safety_gates_required": "규칙 활성화 멤버십, 런타임 지원 및 7대 안전 게이트 통과가 필요합니다",
+      "rule_not_in_active_catalog": "인용된 규칙이 활성 카탈로그에 포함되어 있지 않습니다",
+      "action_type_runtime_unsupported": "연결된 ActionType이 현재 런타임 실행기에서 지원되지 않습니다"
+    },
     "sideEffect": {
       "read": "읽기",
       "simulate": "시뮬레이션",

@@ -151,6 +151,7 @@ export function BestPracticeControlsRoute({ client }: { readonly client: Operato
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
         selected={selected}
+        detail={detail}
         onFilter={updateFilter}
         onSearch={setSearchInput}
         onSelect={selectControl}

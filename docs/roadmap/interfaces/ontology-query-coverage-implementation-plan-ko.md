@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: b216c750d8b59106286bb6e51541cce350a8ec5f
-translation_revised: 2026-10-28
+translation_source_sha: f4a311e15eeec698d88cdc10c9fc50d1ca92386b
+translation_revised: 2026-11-01
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -779,6 +779,9 @@ OQ-06부터 OQ-11까지 landing한 후 전체 프로그램을 대상으로 8,500
 회귀가 두 수정 사항을 입증합니다. 구현된 ontology-query 프로그램에는 재현 가능한 Medium 이상
 발견 사항이 남아 있지 않습니다. 남은 운영 프로바이더/영속 어댑터 연결은 명시적인 전달 공백이며
 fail-close합니다.
+규칙 카탈로그 의미 및 어휘 검색(`catalog_search.py` 및 `authoritative_rule_projection.py`)은
+질의 검증이나 실행 권한을 바꾸지 않고 정규 영어 규칙 ID와 함께 한국어 제목(`title_ko`), 한국어
+설명(`description_ko`), 프레임워크 인용 접두사를 함께 인덱싱합니다.
 
 ## 관련 문서
 

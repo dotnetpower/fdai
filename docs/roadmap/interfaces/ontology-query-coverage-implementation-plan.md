@@ -769,6 +769,10 @@ filtering as ObjectType properties, and goal receipts preserve both an existing 
 evidence-reference truncation. Focused regressions prove both fixes. No reproducible
 Medium-or-higher finding remains in the implemented ontology-query program; remaining production
 provider and durable adapter bindings are explicit delivery gaps and fail closed.
+Rule catalog semantic and lexical search (`catalog_search.py` and `authoritative_rule_projection.py`)
+also indexes bilingual titles (`title_ko`), Korean descriptions (`description_ko`), and framework
+citation prefixes alongside canonical English rule identifiers without changing query verification
+or execution authority.
 
 ## Related docs
 

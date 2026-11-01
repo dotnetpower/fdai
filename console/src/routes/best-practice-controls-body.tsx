@@ -11,6 +11,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
+import type { BestPracticeDetailState } from "./best-practice-controls";
 import {
   bestPracticeHref,
   type BestPracticeControl,
@@ -23,6 +24,7 @@ import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { FacetChips } from "./rule-catalog-components";
 import { SEVERITY_PILL } from "./rule-catalog-types";
 import { ControlEnablementBadge } from "./control-enablement";
+import { guidanceText } from "./wara-guidance.model";
 
 const EMPTY_FILTERS: BestPracticeFilters = { pillar: "", status: "", q: "" };
 export const CONTROL_STATUS_PILL: Readonly<Record<ControlStatus, PillKind>> = {
@@ -39,6 +41,7 @@ export function BestPracticeControlsBody({
   searchInput,
   loading,
   selected,
+  detail,
   onFilter,
   onSearch,
   onSelect,
@@ -48,6 +51,7 @@ export function BestPracticeControlsBody({
   readonly searchInput: string;
   readonly loading: boolean;
   readonly selected: string | null;
+  readonly detail?: BestPracticeDetailState;
   readonly onFilter: (patch: Partial<BestPracticeFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (id: string) => void;
@@ -143,49 +147,68 @@ export function BestPracticeControlsBody({
   const unknown = data.facets.by_status["unknown"] ?? 0;
 
   usePublishViewContext(
-    () => ({
-      routeId: "rules",
-      routeLabel: t("governance.rules.controls.context.routeLabel"),
-      purpose: t("governance.rules.controls.context.purpose"),
-      glossary: composeGlossary([]),
-      headline: t("governance.rules.controls.context.headline", {
-        total: data.total,
-        unknown,
-      }),
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "control_definition_count", value: data.total, group: "catalog" },
-        { key: "filtered_control_count", value: data.filtered_total, group: "catalog" },
-        { key: "reliability_control_count", value: reliability, group: "catalog" },
-        { key: "operational_excellence_control_count", value: operations, group: "catalog" },
-        { key: "unknown_control_count", value: unknown, group: "evidence" },
-        { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
-        { key: "filter_pillar", value: filters.pillar || "all", group: "filter" },
-        { key: "filter_status", value: filters.status || "all", group: "filter" },
-        { key: "search_query", value: filters.q || null, group: "filter" },
-        { key: "selected_control", value: selected, group: "selection" },
-      ],
-      records: {
-        controls: data.controls.map((control) => ({
-          control_id: control.control_id,
-          title: control.title,
-          pillar: control.pillar,
-          severity: control.severity,
-          status: control.status,
-          catalog_status: control.catalog_status,
-          mapping_status: control.mapping_status,
-          evaluation_status: control.evaluation_status,
-          applicability: control.applicability,
-          satisfaction: control.satisfaction,
-          evaluation_scope: control.evaluation_scope,
-          evaluated_at: control.evaluated_at,
-          requirement_count: control.requirement_count,
-          owner: control.owner,
-          evaluation_source: control.evaluation_source,
-        })),
-      },
-    }),
-    [data, filters, operations, reliability, selected, unknown],
+    () => {
+      const locale = getLocale();
+      const selectedDetail = selected !== null && detail?.status === "ready" ? detail.data : null;
+      const guidance = selectedDetail?.guidance ?? null;
+      return {
+        routeId: "rules",
+        routeLabel: t("governance.rules.controls.context.routeLabel"),
+        purpose: t("governance.rules.controls.context.purpose"),
+        glossary: composeGlossary([]),
+        headline: t("governance.rules.controls.context.headline", {
+          total: data.total,
+          unknown,
+        }),
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "control_definition_count", value: data.total, group: "catalog" },
+          { key: "filtered_control_count", value: data.filtered_total, group: "catalog" },
+          { key: "reliability_control_count", value: reliability, group: "catalog" },
+          { key: "operational_excellence_control_count", value: operations, group: "catalog" },
+          { key: "unknown_control_count", value: unknown, group: "evidence" },
+          { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+          { key: "filter_pillar", value: filters.pillar || "all", group: "filter" },
+          { key: "filter_status", value: filters.status || "all", group: "filter" },
+          { key: "search_query", value: filters.q || null, group: "filter" },
+          { key: "selected_control", value: selected, group: "selection" },
+          ...(selectedDetail
+            ? [
+                { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
+                { key: "selected_title", value: frameworkDisplayTitle("azure-waf", selectedDetail, locale), group: "selection" },
+                ...(guidance
+                  ? [
+                      { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
+                      { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+                      { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+                      { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        records: {
+          controls: data.controls.map((control) => ({
+            control_id: control.control_id,
+            title: frameworkDisplayTitle("azure-waf", control, locale),
+            pillar: control.pillar,
+            severity: control.severity,
+            status: control.status,
+            catalog_status: control.catalog_status,
+            mapping_status: control.mapping_status,
+            evaluation_status: control.evaluation_status,
+            applicability: control.applicability,
+            satisfaction: control.satisfaction,
+            evaluation_scope: control.evaluation_scope,
+            evaluated_at: control.evaluated_at,
+            requirement_count: control.requirement_count,
+            owner: control.owner,
+            evaluation_source: control.evaluation_source,
+          })),
+        },
+      };
+    },
+    [data, detail, filters, operations, reliability, selected, unknown],
   );
 
   return (
@@ -206,7 +229,7 @@ export function BestPracticeControlsBody({
           <FacetChips label={t("governance.rules.controls.filter.status")} value={filters.status} counts={data.facets.by_status} displayGroup="controlStatus" onChange={(status) => onFilter({ status })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.controls.filter.searchAria")}</span>
-            <input type="search" value={searchInput} placeholder={t("governance.rules.controls.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
+            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.controls.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
         </div>
         <div class="table-toolbar">

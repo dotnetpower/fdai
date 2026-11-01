@@ -333,7 +333,7 @@ function CafControlsBody({
           <FacetSelect label={t("governance.rules.caf.filter.satisfaction")} value={filters.satisfaction} counts={facet("by_satisfaction")} displayGroup="controlStatus" onChange={(satisfaction) => onFilter({ satisfaction })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.caf.filter.searchAria")}</span>
-            <input type="search" value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
+            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
         </div>
         <div class="table-toolbar">
@@ -377,13 +377,18 @@ function CafDrawer({
       return;
     }
     if (event.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -422,16 +427,16 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
       <ControlRemediationSection value={data.remediation} />
       <div class="pill-row">
         <StatusPill kind={SATISFACTION_PILL[data.satisfaction]} label={displayValue("controlStatus", data.satisfaction)} />
-        <StatusPill kind="info" label={data.area} />
+        <StatusPill kind="info" label={displayValue("cafArea", data.area)} />
       </div>
       <dl class="detail-grid">
-        <DetailRow label={t("governance.rules.caf.detail.reference")} value={data.reference_state} />
-        <DetailRow label={t("governance.rules.controls.column.mapping")} value={data.mapping_state} />
+        <DetailRow label={t("governance.rules.caf.detail.reference")} value={displayValue("catalogStatus", data.reference_state)} />
+        <DetailRow label={t("governance.rules.controls.column.mapping")} value={displayValue("cafRelationship", data.mapping_state)} />
         <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
         <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
         <DetailRow label={t("governance.rules.controls.column.satisfaction")} value={displayValue("controlStatus", data.satisfaction)} />
         <DetailRow label={t("governance.rules.caf.detail.owner")} value={data.owner_slot} mono />
-        <DetailRow label={t("governance.rules.caf.detail.cadence")} value={`${data.cadence_days} days`} />
+        <DetailRow label={t("governance.rules.caf.detail.cadence")} value={t("governance.rules.controls.detail.cadenceDays", { days: data.cadence_days })} />
         <DetailRow label={t("governance.rules.caf.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.profile")} value={data.profile_id ?? "-"} mono />
@@ -446,14 +451,14 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <dl class="detail-grid">
           <DetailRow label={t("governance.rules.caf.detail.evidenceRefs")} value={data.evidence_refs.join(", ") || "-"} mono />
           <DetailRow label={t("governance.rules.caf.detail.evidenceDigests")} value={data.evidence_digests.join(", ") || "-"} mono />
-          <DetailRow label={t("governance.rules.caf.detail.limitations")} value={data.limitations.join(", ") || "-"} />
+          <DetailRow label={t("governance.rules.caf.detail.limitations")} value={data.limitations.map((code) => displayValue("requirementLimitation", code)).join(", ") || "-"} />
         </dl>
       </DetailSection>
       <DetailSection title={t("governance.rules.caf.detail.specifications")}>
         <div class="control-requirement-list">
           {data.evidence_specifications.map((item) => (
             <article key={item.requirement_id} class="control-requirement-row">
-              <div><span class="muted small">{item.kind} - {item.process_phase}</span><code>{item.source_ref}</code></div>
+              <div><span class="muted small">{displayValue("controlRequirementKind", item.kind)} - {displayValue("cafProcessPhase", item.process_phase)}</span><code>{item.source_ref}</code></div>
               <span>{item.authoritative_producer ?? item.blocked_dependency}</span>
             </article>
           ))}
@@ -463,8 +468,8 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <div class="control-requirement-list">
           {data.crosswalk.map((item) => (
             <article key={`${item.target_kind}:${item.target_ref}`} class="control-requirement-row">
-              <div><span class="muted small">{item.target_kind}</span><code>{item.target_ref ?? "unmapped"}</code></div>
-              <span>{item.relationship}</span>
+              <div><span class="muted small">{displayValue("cafTargetKind", item.target_kind)}</span><code>{item.target_ref ?? "unmapped"}</code></div>
+              <span>{displayValue("cafRelationship", item.relationship)}</span>
             </article>
           ))}
         </div>

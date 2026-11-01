@@ -5,11 +5,14 @@ import { MCSB_COVERAGE_PILL, MCSB_SATISFACTION_PILL, mcsbAssessmentSummaryText }
 import type { McsbDetailState } from "./mcsb-controls";
 import type { McsbControlDetail } from "./mcsb-controls.model";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
+import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { IllustratedGuidanceContent } from "./wara-guidance";
 import { buildMcsbV2Guidance } from "./mcsb-v2-guidance";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
+
+const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
 export function McsbControlDrawer({
   detail,
@@ -33,13 +36,18 @@ export function McsbControlDrawer({
       return;
     }
     if (event.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -63,10 +71,22 @@ export function McsbControlDrawer({
   );
 }
 
-function ReferenceList({ values }: { readonly values: readonly string[] }) {
+function ReferenceList({ values, linkRules = false }: { readonly values: readonly string[]; readonly linkRules?: boolean }) {
   return values.length > 0 ? (
     <div class="mcsb-reference-list">
-      {values.map((value) => <code key={value}>{value}</code>)}
+      {values.map((value) =>
+        linkRules ? (
+          <a
+            key={value}
+            href={ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: value, origin: "active" })}
+            aria-label={t("governance.rules.controls.detail.openRule", { id: value })}
+          >
+            <code>{value}</code>
+          </a>
+        ) : (
+          <code key={value}>{value}</code>
+        )
+      )}
     </div>
   ) : (
     <p class="muted">{t("governance.rules.mcsb.detail.none")}</p>
@@ -107,7 +127,7 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
       <p class="muted">{t("governance.rules.mcsb.detail.boundary")}</p>
       {data.benchmark_version === "v1" ? <McsbAssessmentSection data={data} /> : null}
       <DetailSection title={t("governance.rules.mcsb.detail.rules")}>
-        <ReferenceList values={data.rule_ids} />
+        <ReferenceList values={data.rule_ids} linkRules />
       </DetailSection>
       <DetailSection title={t("governance.rules.mcsb.detail.runtime")}>
         <ReferenceList values={data.runtime_observation_ids} />
@@ -153,7 +173,16 @@ function McsbAssessmentSection({ data }: { readonly data: McsbControlDetail }) {
             <ul class="mcsb-assessment-requirements" aria-label={t("governance.rules.mcsb.detail.requirements")}>
               {assessment.requirements.map((requirement) => (
                 <li key={`${requirement.kind}:${requirement.ref}`}>
-                  <code>{requirement.ref}</code>
+                  {requirement.kind === "rule" ? (
+                    <a
+                      href={ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: requirement.ref, origin: "active" })}
+                      aria-label={t("governance.rules.controls.detail.openRule", { id: requirement.ref })}
+                    >
+                      <code>{requirement.ref}</code>
+                    </a>
+                  ) : (
+                    <code>{requirement.ref}</code>
+                  )}
                   <span class="pill-row">
                     <StatusPill
                       kind={requirement.evidence_role === "decisive" ? "info" : "neutral"}

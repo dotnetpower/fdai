@@ -67,14 +67,19 @@ export function RuleDetailDrawer({
       return;
     }
     if (e.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     if (focusables.length === 0) return;
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (e.shiftKey && document.activeElement === first) {
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       e.preventDefault();
       last.focus();
     } else if (!e.shiftKey && document.activeElement === last) {
@@ -190,7 +195,7 @@ function RuleDetailContent({
 
       <RuleOverview data={data} />
 
-      <div id="rule-runtime" tabIndex={-1} />
+      <h3 id="rule-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <RuleActivationPanel
         ruleId={data.id}
         activation={activation}
@@ -204,7 +209,7 @@ function RuleDetailContent({
       <ControlCitations citations={controlCitations} />
 
       <dl class="detail-grid">
-        <DetailRow label={t("governance.rules.detail.source")} value={data.source} />
+        <DetailRow label={t("governance.rules.detail.source")} value={displayValue("ruleSource", data.source)} />
         <DetailRow label={t("governance.rules.detail.resourceType")} value={data.resource_type} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
         <DetailRow label={t("governance.rules.detail.remediates")} value={data.remediates} mono />
@@ -223,7 +228,7 @@ function RuleDetailContent({
 
       <DetailSection
         title={t("governance.rules.detail.checkLogic")}
-        subtitle={`${data.check_logic.kind} - ${data.check_logic.reference}`}
+        subtitle={`${displayValue("checkLogicKind", data.check_logic.kind)} - ${data.check_logic.reference}`}
         action={
           data.check_logic_body !== null ? <CopyButton text={data.check_logic_body} /> : null
         }
@@ -232,7 +237,7 @@ function RuleDetailContent({
           <pre class="mono code-block drawer-code">{data.check_logic_body}</pre>
         ) : (
           <p class="muted footnote">
-            {t("governance.rules.detail.noCheckBody", { kind: data.check_logic.kind })}
+            {t("governance.rules.detail.noCheckBody", { kind: displayValue("checkLogicKind", data.check_logic.kind) })}
           </p>
         )}
       </DetailSection>
@@ -264,7 +269,7 @@ function RuleDetailContent({
             value={<ExternalLink href={data.provenance.source_url}>{data.provenance.source_url}</ExternalLink>}
           />
           <DetailRow label={t("governance.rules.detail.license")} value={data.provenance.license} />
-          <DetailRow label={t("governance.rules.detail.redistribution")} value={data.provenance.redistribution} />
+          <DetailRow label={t("governance.rules.detail.redistribution")} value={displayValue("redistribution", data.provenance.redistribution)} />
           <DetailRow label={t("governance.rules.detail.contentHash")} value={data.provenance.content_hash} mono />
           <DetailRow label={t("governance.rules.detail.resolvedRef")} value={data.provenance.resolved_ref} mono />
           <DetailRow label={t("governance.rules.detail.retrievedAt")} value={data.provenance.retrieved_at} mono />
@@ -401,7 +406,7 @@ function AffectedResources({ findings }: { readonly findings: FindingsState }) {
             <div class="finding-head">
               <span class="mono finding-res">{finding.resource_name ?? finding.resource_id}</span>
               {finding.severity ? (
-                <StatusPill kind={SEVERITY_PILL[finding.severity] ?? "neutral"} label={finding.severity} />
+                <StatusPill kind={SEVERITY_PILL[finding.severity] ?? "neutral"} label={displayValue("severity", finding.severity)} />
               ) : null}
             </div>
             {finding.problem ? <p class="finding-problem">{finding.problem}</p> : null}

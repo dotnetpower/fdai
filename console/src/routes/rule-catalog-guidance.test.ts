@@ -135,5 +135,14 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     expect(
       frameworkDisplayTitle("azure-waf", { control_id: "RE:01", title: "Source control title" }, "ko"),
     ).toBe("Source control title");
+    expect(
+      ruleDisplayTitle(
+        {
+          id: "azure-builtin.apimanagement.vnet",
+          title: "API Management services should use a virtual network",
+        },
+        "ko",
+      ),
+    ).toContain("가상 네트워크(VNet) 통합 필요");
   });
 });

@@ -39,7 +39,7 @@
 .wara-guidance-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; padding: 8px 0; border-block: 1px solid var(--border); }
 .wara-guidance-nav strong { flex-basis: 100%; font-size: var(--cs-type-label-size); color: var(--fg-muted); font-weight: 600; }
 .wara-guidance-nav a { display: inline-flex; align-items: center; min-height: 32px; }
-.wara-guidance-section, .wara-runtime { scroll-margin-top: 16px; }
+.wara-guidance-section, .wara-runtime, #framework-runtime, #rule-runtime { scroll-margin-top: 16px; }
 .wara-runtime { font-size: var(--cs-type-body-size); }
 .wara-runtime ul { padding-left: 20px; margin: 0; }
 .wara-runtime li + li { margin-top: 8px; }

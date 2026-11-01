@@ -152,6 +152,7 @@ export function McsbControlsRoute({ client }: { readonly client: OperatorApiClie
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
         selected={selected}
+        detail={detail}
         onFilter={updateFilter}
         onSearch={setSearchInput}
         onSelect={selectControl}

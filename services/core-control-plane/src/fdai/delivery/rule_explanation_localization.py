@@ -228,6 +228,62 @@ _EFFECT_LABELS_KO: dict[str, str] = {
     "append": "추가(Append)",
 }
 
+_AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
+    (
+        "should use a customer-managed key to encrypt data at rest",
+        "저장 데이터 암호화에 고객 관리형 키(CMK) 사용 필요",
+    ),
+    (
+        "should use customer-managed keys to encrypt data at rest",
+        "저장 데이터 암호화에 고객 관리형 키(CMK) 사용 필요",
+    ),
+    ("should use a customer-managed key", "고객 관리형 키(CMK) 사용 필요"),
+    ("should use private link", "Private Link 사설 연결 사용 필요"),
+    ("should use private endpoints", "프라이빗 엔드포인트(Private Endpoint) 사용 필요"),
+    ("should disable public network access", "공용 네트워크 접근 비활성화 필요"),
+    ("should have public network access disabled", "공용 네트워크 접근 비활성화 필요"),
+    ("should use a virtual network", "가상 네트워크(VNet) 통합 사용 필요"),
+    ("should be associated with a data collection rule", "데이터 수집 규칙(DCR) 연결 필요"),
+    ("should have diagnostic settings", "진단 설정(Diagnostic Settings) 활성화 필요"),
+    ("resource logs should be enabled", "리소스 진단 로그 활성화 필요"),
+    ("should have firewall rules", "방화벽(Firewall) 규칙 구성 필요"),
+    ("should use managed identity", "관리 ID(Managed Identity) 사용 필요"),
+    ("local authentication methods should be disabled", "로컬 인증 방식 비활성화 필요"),
+    ("should have local authentication methods disabled", "로컬 인증 방식 비활성화 필요"),
+    ("should be zone redundant", "영역 중복(Zone Redundant) 구성 필요"),
+)
+
+_KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
+    ("file permissions are set to", "파일 권한 설정 준수"),
+    ("file ownership is set to", "파일 소유권(root:root) 설정 준수"),
+    ("argument is set to", "실행 인자(Argument) 보안 설정 준수"),
+    ("admission control plugin", "어드미션 컨트롤 플러그인 활성화"),
+    ("minimize the admission of", "컨테이너 고위험 권한 허용 최소화"),
+    ("ensure that the", "보안 기준 점검:"),
+)
+
+
+def _translate_policy_phrase_ko(display_name: str) -> str:
+    lower = display_name.lower()
+    for pattern, ko_phrase in _AZURE_POLICY_PHRASE_KO:
+        if pattern in lower:
+            return f"{display_name} - {ko_phrase}"
+    if lower.startswith("configure "):
+        return f"{display_name} (자동 구성 정책)"
+    if lower.startswith("deploy "):
+        return f"{display_name} (자동 배포 정책)"
+    if lower.startswith("microsoft managed control"):
+        return f"{display_name} (Microsoft 관리형 규정 준수 통제)"
+    return display_name
+
+
+def _translate_kube_bench_clause_ko(clause: str) -> str:
+    lower = clause.lower()
+    for pattern, ko_phrase in _KUBE_BENCH_PHRASE_KO:
+        if pattern in lower:
+            return f"{ko_phrase} ({clause})"
+    return clause
+
 
 def humanize_kube_bench_slug(rule_id: str, ruleset: str, bench_id: str) -> str:
     prefix = f"kube-bench.{ruleset}.{bench_id.replace('.', '-')}."
@@ -267,9 +323,8 @@ def localize_kube_bench_explanation(
     scored_en = "scored" if scored else "not scored (advisory)"
     scored_ko = "점수 반영(Scored)" if scored else "권고 점검(Not Scored)"
 
-    title_ko = (
-        f"CIS {ruleset} {bench_id}: Kubernetes {component_ko} 보안 설정 점검 ({readable_clause})"
-    )
+    clause_ko = _translate_kube_bench_clause_ko(readable_clause)
+    title_ko = f"CIS {ruleset} {bench_id}: Kubernetes {component_ko} {clause_ko}"
     audit_clause_en = f" Audit command: `{audit_cmd}`." if audit_cmd else ""
     audit_clause_ko = f" 감사 명령: `{audit_cmd}`." if audit_cmd else ""
 
@@ -297,7 +352,8 @@ def localize_azure_policy_explanation(
     effect_ko = _EFFECT_LABELS_KO.get(effect_raw.lower(), effect_raw)
 
     title_en = display_name
-    title_ko = f"[{category}] {display_name} ({effect_ko})"
+    translated_ko = _translate_policy_phrase_ko(display_name)
+    title_ko = f"[{category}] {translated_ko} ({effect_ko})"
     description_en = (
         f"Evaluates Azure Policy built-in definition `{policy_name or rule_id}` (category: {category}, "
         f"default effect: {effect_raw}) on `{resource_type}` to verify that the resource configuration "

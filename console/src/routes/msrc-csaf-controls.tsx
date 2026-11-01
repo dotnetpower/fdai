@@ -31,9 +31,12 @@ import {
   parseCvssVector,
 } from "./msrc-csaf-guidance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
 import { IllustratedGuidanceContent } from "./wara-guidance";
 import { guidanceText } from "./wara-guidance.model";
+
+const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
 const EXPLOIT_PILL: Readonly<Record<MsrcCsafExploitStatus, PillKind>> = {
   exploited: "danger",
@@ -324,6 +327,7 @@ export function MsrcCsafControlsRoute() {
             <span class="sr-only">{t("governance.rules.msrcCsaf.filter.searchAria")}</span>
             <input
               type="search"
+              maxLength={256}
               value={searchInput}
               placeholder={t("governance.rules.msrcCsaf.filter.searchPlaceholder")}
               onInput={(event) => setSearchInput((event.target as HTMLInputElement).value)}
@@ -422,7 +426,10 @@ function MsrcCsafDrawer({
       panelRef.current.querySelectorAll<HTMLElement>(
         'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((el) => el.getClientRects().length > 0);
+    ).filter((el) => {
+      const closed = el.closest("details:not([open])");
+      return el.getClientRects().length > 0 && (closed === null || el === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
@@ -527,7 +534,22 @@ function MsrcCsafDrawer({
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.productIds")} value={row.product_ids.join(", ")} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.canonicalResourceType")} value={row.primary_resource_type} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.versionWindow")} value={row.version_window} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.existingRule")} value={row.existing_rule_id ?? "-"} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.existingRule")}
+                  value={
+                    row.existing_rule_id ? (
+                      <a
+                        href={ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: row.existing_rule_id, origin: "active" })}
+                        aria-label={t("governance.rules.controls.detail.openRule", { id: row.existing_rule_id })}
+                      >
+                        <code>{row.existing_rule_id}</code>
+                      </a>
+                    ) : (
+                      "-"
+                    )
+                  }
+                  mono
+                />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.candidateActionType")} value={row.candidate_action_type ?? "-"} mono />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.workaroundCheck")}
@@ -538,7 +560,7 @@ function MsrcCsafDrawer({
                   }
                   mono
                 />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.blockedReasons")} value={row.blocked_reasons.join(", ") || "-"} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.blockedReasons")} value={row.blocked_reasons.map((reason) => displayValue("msrcBlockedReason", reason)).join(", ") || "-"} />
               </dl>
             </DetailSection>
 
@@ -550,7 +572,7 @@ function MsrcCsafDrawer({
                   {row.remediations.map((rem, idx) => (
                     <div key={`${rem.category}-${idx}`} class="control-requirement-row">
                       <div>
-                        <strong>{rem.category}</strong>
+                        <strong>{displayValue("msrcRemediationCategory", rem.category)}</strong>
                         <span>{rem.details}</span>
                         {rem.fixed_version ? <code>fixed_version &gt;= {rem.fixed_version}</code> : null}
                         {rem.workaround_property ? (
