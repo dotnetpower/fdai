@@ -588,6 +588,17 @@ function ActivityBody({
           streamSource={activitySource}
           onAgentChange={(agent) => openActivity(agent, "trajectory")}
           onQueryChange={(query) => openFilters({ ...filters, query })}
+          onClearFilters={() => {
+            const route = currentRoute().search;
+            setSelected(null);
+            setFilters({ ...filters, query: "" });
+            replaceRouteState(routeHref("agent-activity", {
+              params: {
+                data: route.get("data") === "sample" ? "sample" : null,
+                trajectory: route.get("trajectory"),
+              },
+            }));
+          }}
           onShowLog={(correlationId) => navigate(routeHref("agent-activity", {
             params: { agent: selected, view: "activity", q: correlationId },
           }))}
