@@ -103,11 +103,29 @@ def observer_proposal_notification_audit_id(
     *,
     principal_ref: str,
 ) -> str:
-    """Return the stable durable outbox identity for one principal/proposal pair."""
+    """Return the stable durable outbox identity for one principal/proposal pair.
+
+    Uses the semantic recommendation content rather than timestamp-bearing digests so
+    periodic expiry renewals of an unchanged recommendation do not re-notify channels.
+    """
 
     principal = _bounded_principal_ref(principal_ref)
     principal_digest = canonical_digest({"principal_ref": principal})
-    return f"observer-deployment-proposal:{proposal.proposal_digest}:{principal_digest}"
+    recommendation_digest = canonical_digest(
+        {
+            "target_ref": proposal.target_ref,
+            "status": proposal.status,
+            "candidates": [item.model_dump(mode="json") for item in proposal.candidates],
+            "recommended": (
+                proposal.recommended.model_dump(mode="json")
+                if proposal.recommended is not None
+                else None
+            ),
+            "approval_required": proposal.approval_required,
+            "execution_authority": proposal.execution_authority,
+        }
+    )
+    return f"observer-deployment-proposal:{recommendation_digest}:{principal_digest}"
 
 
 def observer_proposal_notification_message(
@@ -202,6 +220,7 @@ async def publish_discovered_proposals(
     from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
     from fdai.delivery.inventory_change_acceleration import build_job_event_bus
 
+    delivery_store = None
     if notification_dispatcher is None and notification_store_dsn:
         from fdai.delivery.persistence import (
             PostgresNotificationDeliveryStore,
@@ -209,12 +228,13 @@ async def publish_discovered_proposals(
         )
         from fdai.runtime.delivery import _build_notification_router
 
+        delivery_store = PostgresNotificationDeliveryStore(
+            config=PostgresStateStoreConfig(dsn=notification_store_dsn)
+        )
         notification_dispatcher = _build_notification_router(
             store,
             http_client=notification_http_client,
-            notification_delivery_store=PostgresNotificationDeliveryStore(
-                config=PostgresStateStoreConfig(dsn=notification_store_dsn)
-            ),
+            notification_delivery_store=delivery_store,
         )
 
     raw, _ = build_job_event_bus(identity)
@@ -237,6 +257,26 @@ async def publish_discovered_proposals(
                 if notification_dispatcher is not None:
                     proposal = await service.current(target)
                     if proposal is not None:
+                        if delivery_store is not None:
+                            from fdai.core.notifications.delivery import ChannelDeliveryState
+
+                            audit_id = observer_proposal_notification_audit_id(
+                                proposal,
+                                principal_ref=notification_principal_ref,
+                            )
+                            snapshot = await delivery_store.snapshot(
+                                audit_id=audit_id,
+                                now=datetime.now(UTC),
+                            )
+                            if (
+                                snapshot.target_channel_ids
+                                and snapshot.terminal
+                                and all(
+                                    item.state is ChannelDeliveryState.DELIVERED
+                                    for item in snapshot.deliveries
+                                )
+                            ):
+                                continue
                         await publish_observer_proposal_notification(
                             proposal=proposal,
                             dispatcher=notification_dispatcher,

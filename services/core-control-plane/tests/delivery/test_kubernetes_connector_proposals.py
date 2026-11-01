@@ -634,6 +634,21 @@ async def test_chatops_notification_dedupes_per_proposal_principal_and_channel()
     assert other_principal.outcome is RouteOutcome.DELIVERED_ALL
     assert len(teams.records) == len(slack.records) == 2
 
+    renewed = initial.model_copy(
+        update={
+            "evaluated_at": NOW + timedelta(minutes=9),
+            "expires_at": NOW + timedelta(minutes=19),
+            "proposal_digest": "sha256:" + "f" * 64,
+        }
+    )
+    renewed_result = await publish_observer_proposal_notification(
+        proposal=renewed,
+        dispatcher=router(delivery_store, teams, slack),
+        principal_ref="observer-proposal-reader",
+    )
+    assert renewed_result.outcome is RouteOutcome.DELIVERED_ALL
+    assert len(teams.records) == len(slack.records) == 2
+
     valid = context()
     reader.value = context(
         target_ref=target,

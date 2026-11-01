@@ -111,9 +111,10 @@ class ControlLoopBoundaryMixin:
         operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
-    ) -> None:
+        reopen_on_expiry: bool = True,
+    ) -> Any:
         """Park a HIL-routed action and push an approval card."""
-        await request_hil_approval(
+        return await request_hil_approval(
             self._hil_resume_coordinator,
             _LOGGER,
             action=action,
@@ -126,6 +127,7 @@ class ControlLoopBoundaryMixin:
             operator_policy=operator_policy,
             original_quorum_required=original_quorum_required,
             effective_quorum_required=effective_quorum_required,
+            reopen_on_expiry=reopen_on_expiry,
         )
 
     async def _emit_stage(

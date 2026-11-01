@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c7c2b4fee0eebb44d3e7805a61613c90b7b11561
-translation_revised: 2026-11-01
+translation_source_sha: f845adba700a7a299706f9b59af265e5aca1e3ed
+translation_revised: 2026-11-02
 ---
 # 프로젝트 구조
 
@@ -1133,15 +1133,7 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
 - 사례 보존, 검토 기한, 이미지 만료, 권한 부여 기간처럼 기한이 있는 근거를 다루는 테스트는 테스트
   대상 구성 요소마다 fixture의 유효 기간 안에 있는 고정 시계를 줍니다. 구성 요소가 시계를 받지
   않으면 fixture 날짜를 현재 시각 기준으로 정하므로, 어떤 테스트도 실행 날짜에 좌우되지 않습니다.
-- CI는 위에서 참조된 게이트(포매터/린터, 시크릿 검사, 의존성 감사, 커버리지, 회귀)
-  를 리뷰 전에 강제합니다;
-  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
-  참조.
-  수집된 `azure_policy` 및 `kube_bench` 규칙의 98개 전체 범주 및 수명주기·구문 번역을 포함하는 이중 언어
-  규칙 현지화(`delivery/rule_explanation_localization.py`), Operator 보안 동작 계약
-  (`behavior_knowledge_resolver.py`의 `DEFAULT_SECURITY_BEHAVIOR_SPECS`), Console 도해 설명 모듈
-  (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`)은 서비스 간 런타임을 가져오지 않고
-  실행 권한을 부여하지 않는 순수 표현 보조 모듈로 유지됩니다.
+- CI는 위에서 참조된 게이트(포매터/린터, 시크릿 검사, 의존성 감사, 커버리지, 회귀)를 리뷰 전에 강제합니다; [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) 참조. 수집된 `azure_policy` 및 `kube_bench` 규칙의 98개 전체 범주 및 수명주기·구문 번역을 포함하는 이중 언어 규칙 현지화(`delivery/rule_explanation_localization.py`), Operator 보안 동작 계약(`behavior_knowledge_resolver.py`의 `DEFAULT_SECURITY_BEHAVIOR_SPECS`), Console 도해 설명 모듈(`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`)은 서비스 간 런타임을 가져오지 않고 실행 권한을 부여하지 않는 순수 표현 보조 모듈로 유지됩니다. 컨트롤 루프 게이트 단계 발행과 아웃바운드 결정 알림은 안정적인 주체 키를 첨부하여 반복 관찰이나 HIL 중복 제거 관찰의 재알림을 억제하며, 주기적인 기준선 인벤토리 스캔은 준수 상태가 바뀌거나 운영자가 주체를 명시적으로 다시 열기 전까지 미응답 만료 HIL 주체를 기존 요청에 유지합니다.
 
 ## 관련 문서
 

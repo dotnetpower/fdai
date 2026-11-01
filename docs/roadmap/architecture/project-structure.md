@@ -1139,15 +1139,7 @@ remain open.
   or grant windows, gives each component under test a fixed clock inside its fixtures' validity
   window. Where the component takes no clock, the fixture dates are relative to the current time,
   so no test depends on the date it runs.
-- CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit,
-  coverage, and regression-before review; see
-  [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
-  Bilingual rule localization (`delivery/rule_explanation_localization.py`, including all 98
-  category and lifecycle/phrase translations for collected `azure_policy` and `kube_bench` rules),
-  Operator security behavior contracts (`DEFAULT_SECURITY_BEHAVIOR_SPECS` in
-  `behavior_knowledge_resolver.py`), and Console guidance modules (`console/src/routes/*-guidance.ts`,
-  `reference-images.catalog.ts`) remain pure presentation helpers that import no cross-service
-  runtime and grant no execution authority.
+- CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit, coverage, and regression-before review; see [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md). Bilingual rule localization (`delivery/rule_explanation_localization.py`, including all 98 category and lifecycle/phrase translations for collected `azure_policy` and `kube_bench` rules), Operator security behavior contracts (`DEFAULT_SECURITY_BEHAVIOR_SPECS` in `behavior_knowledge_resolver.py`), and Console guidance modules (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`) remain pure presentation helpers that import no cross-service runtime and grant no execution authority. Control-loop gate stage emission and outbound decision notifications attach stable subject keys and suppress repeated or HIL-deduplicated observations while periodic baseline inventory scans keep unanswered expired HIL subjects attached to their existing request until compliance changes or an operator explicitly reopens the subject.
 
 ## Related docs
 

@@ -101,6 +101,7 @@ async def admit_subject(
     candidate_approval_id: str,
     event_id: str,
     now: datetime,
+    reopen_on_expiry: bool = True,
 ) -> SubjectAdmissionResult:
     """Claim the subject for ``candidate_approval_id`` or report the request that owns it."""
     state_key = subject_state_key(key)
@@ -116,7 +117,7 @@ async def admit_subject(
             continue
         head_id = str(record.get("approval_id") or "")
         head = await store.read_state(park_key(head_id)) if head_id else None
-        state = _head_state(record, head, now=now)
+        state = _head_state(record, head, now=now, reopen_on_expiry=reopen_on_expiry)
         if state == "open":
             await _observe(store, state_key, record, event_id=event_id, now=now)
             return SubjectAdmissionResult(
@@ -160,7 +161,13 @@ async def admit_subject(
     return SubjectAdmissionResult(SubjectAdmission.OPEN_REQUEST, head_id)
 
 
-def _head_state(record: Mapping[str, Any], head: Mapping[str, Any] | None, *, now: datetime) -> str:
+def _head_state(
+    record: Mapping[str, Any],
+    head: Mapping[str, Any] | None,
+    *,
+    now: datetime,
+    reopen_on_expiry: bool = True,
+) -> str:
     """Classify the subject's current request as open, rejected, or reusable."""
     if head is None:
         claimed_at = _parse(record.get("claimed_at"))
@@ -168,10 +175,21 @@ def _head_state(record: Mapping[str, Any], head: Mapping[str, Any] | None, *, no
         return "open" if in_flight else "reusable"
     status = head.get("status")
     if status in _OPEN_STATUSES:
-        return "reusable" if approval_expired(head, now=now) else "open"
+        if not approval_expired(head, now=now):
+            return "open"
+        if not reopen_on_expiry and record.get("reopened_head") != head.get("approval_id"):
+            return "open"
+        return "reusable"
     if status == "resolved" and head.get("decision") == "reject":
         # An operator reopen names exactly this rejected head, so a later rejection stays closed.
         return "reusable" if record.get("reopened_head") == head.get("approval_id") else "rejected"
+    if (
+        not reopen_on_expiry
+        and status == "resolved"
+        and head.get("decision") == "timeout"
+        and record.get("reopened_head") != head.get("approval_id")
+    ):
+        return "open"
     return "reusable"
 
 

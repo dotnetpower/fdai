@@ -712,12 +712,9 @@ deployment gates.
 
 - **OD-C1 resolved** - the strict core narrator prompt lives in the delivery-layer Azure OpenAI narrator adapter; the
   broader prompt catalog uses `rule-catalog/prompts/base`, `packs`, `scenarios`, and `tools`.
-- **OD-C2 resolved** - principal-scoped user memory/preferences and separate governed operator
-  memory now have schemas, provenance, consent, and retention paths.
-- **OD-C3 residual** - persistent BreakGlass grant/elevation is not implemented. A future design
-  must retain no-self-approval and separately approve any distinct-approver requirement.
-- **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent
-  history file and retention/redaction contract are neither shipped nor blockers for the current CLI.
+- **OD-C2 resolved** - principal-scoped user memory/preferences and separate governed operator memory now have schemas, provenance, consent, and retention paths.
+- **OD-C3 residual** - persistent BreakGlass grant/elevation is not implemented. A future design must retain no-self-approval and separately approve any distinct-approver requirement.
+- **OD-C4 current behavior** - CLI history is bounded process-memory navigation only. A persistent history file and retention/redaction contract are neither shipped nor blockers for the current CLI. Client-local `console-web` notifications ignore repeated or already-open HIL stage frames, retain deduplication for unacknowledged delivered tags across the retention window, and coalesce same-kind alert bursts without changing approval or execution authority.
 ## 16. Further reading
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -

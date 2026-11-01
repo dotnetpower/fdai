@@ -102,7 +102,7 @@ class OperatorRequestHost(Protocol):
         operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
-    ) -> None: ...
+    ) -> Any: ...
 
     async def _development_park_block(
         self,

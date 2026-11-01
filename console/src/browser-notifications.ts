@@ -29,6 +29,11 @@ const FAILURE_OUTCOMES: ReadonlySet<string> = new Set([
   "rolled_back",
   "timed_out",
 ]);
+const ACTIVE_HIL_REQUEST_OUTCOMES: ReadonlySet<string> = new Set([
+  "parked",
+  "parked_dispatch_failed",
+  "contact_consent_required",
+]);
 
 type StorageReader = Pick<Storage, "getItem">;
 type StorageWriter = Pick<Storage, "setItem" | "removeItem">;
@@ -183,7 +188,12 @@ function claimBrowserAlertDeliveryUnlocked(
     );
     if (
       entries.some(
-        (entry) => entry.tag === tag && entry.claimedAt > now - DELIVERY_DEDUP_MS,
+        (entry) =>
+          entry.tag === tag
+          && (
+            entry.claimedAt > now - DELIVERY_DEDUP_MS
+            || (entry.deliveredAt !== null && entry.acknowledgedAt === null)
+          ),
       )
     ) {
       return "duplicate";
@@ -539,25 +549,47 @@ export function browserAlertForLiveEvent(event: LiveStageEvent): BrowserAlert | 
   }
 
   const detail = event.detail ?? {};
+  if (detail["repeated_observation"] === true || detail["notification_suppressed"] === true) {
+    return null;
+  }
   const decision = normalizedDetail(detail, event.stage === "audit" ? "decision" : "gate_decision");
   const outcome = normalizedDetail(detail, "outcome");
+  const hilRequestOutcome = normalizedDetail(detail, "hil_request_outcome");
   let kind: BrowserAlertKind | null = null;
 
   if (event.phase === "failed") kind = "failed";
-  else if (event.stage === "gate" && event.phase === "done" && decision === "hil") kind = "approval";
+  else if (event.stage === "gate" && event.phase === "done" && decision === "hil") {
+    if (hilRequestOutcome !== "" && !ACTIVE_HIL_REQUEST_OUTCOMES.has(hilRequestOutcome)) {
+      return null;
+    }
+    kind = "approval";
+  }
   else if (event.stage === "gate" && event.phase === "done" && decision === "deny") kind = "denied";
   else if (event.stage === "audit" && event.phase === "done" && FAILURE_OUTCOMES.has(outcome)) kind = "failed";
   if (kind === null) return null;
 
+  const approvalGroupId = safeTagSuffix(detail["approval_group_id"], "group:");
+  const subjectKey = safeTagSuffix(detail["subject_key"], "subject:");
+  const approvalId = safeTagSuffix(detail["approval_id"], "approval:");
+  const tag = approvalGroupId ?? subjectKey ?? approvalId ?? `fdai:${event.event_id}`;
+
   return {
     kind,
-    tag: `fdai:${event.event_id}`,
+    tag,
     path: kind === "approval"
       ? routeHref("hil-queue", { params: { data: "live" } })
       : routeHref("audit", {
         params: { correlation: event.correlation_id, data: "live" },
       }),
   };
+}
+
+function safeTagSuffix(value: unknown, prefix: string): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  const candidate = `${prefix}${trimmed}`;
+  return SAFE_EVENT_ID.test(candidate) ? `fdai:${candidate}` : null;
 }
 
 function normalizedDetail(detail: Record<string, unknown>, key: string): string {

@@ -91,6 +91,32 @@ describe("browser notification boundary", () => {
     expect(browserAlertForLiveEvent(event({ stage: "audit", detail: { outcome: "rolled_back" } }))?.kind)
       .toBe("failed");
     expect(browserAlertForLiveEvent(event({ stage: "audit", detail: { outcome: "succeeded" } }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      detail: { gate_decision: "hil", hil_request_outcome: "already_open" },
+    }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      detail: { gate_decision: "hil", hil_request_outcome: "already_parked" },
+    }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      detail: { gate_decision: "hil", hil_request_outcome: "rejected_subject" },
+    }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      detail: { gate_decision: "hil", hil_request_outcome: "parked_deferred" },
+    }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      detail: { gate_decision: "hil", repeated_observation: true },
+    }))).toBeNull();
+    expect(browserAlertForLiveEvent(event({
+      event_id: "event-gen-2",
+      detail: {
+        gate_decision: "hil",
+        hil_request_outcome: "parked",
+        subject_key: "49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2",
+        approval_id: "f2289b2f55844026b7aacf02f82ead1e",
+      },
+    }))?.tag).toBe(
+      "fdai:subject:49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2",
+    );
   });
 
   test("accepts only runtime-observed events with safe identifiers", () => {
@@ -799,5 +825,36 @@ describe("browser notification boundary", () => {
       now + 6 * 60_000 + 2,
       storage,
     ))?.deliveredAt).toBe(now + 6 * 60_000 + 2);
+  });
+
+  test("suppresses unacknowledged delivered alerts beyond the five-minute claim window", async () => {
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+    const now = 1_800_000_000_000;
+    const tag = "fdai:subject:49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2";
+    expect(await claimBrowserAlertDelivery(tag, "principal-a", now, storage)).toBe("claimed");
+    await recordBrowserAlertDelivered(
+      tag,
+      acknowledgementToken(storage, "principal-a", tag),
+      "principal-a",
+      now + 1,
+      storage,
+    );
+
+    expect(await claimBrowserAlertDelivery(tag, "principal-a", now + 30 * 60_000, storage))
+      .toBe("duplicate");
+    await acknowledgeBrowserAlertDelivery(
+      tag,
+      acknowledgementToken(storage, "principal-a", tag),
+      "principal-a",
+      now + 30 * 60_000 + 1,
+      storage,
+    );
+    expect(await claimBrowserAlertDelivery(tag, "principal-a", now + 36 * 60_000, storage))
+      .toBe("claimed");
   });
 });

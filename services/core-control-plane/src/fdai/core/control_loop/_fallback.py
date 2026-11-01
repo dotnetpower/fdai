@@ -17,6 +17,10 @@ from fdai.core.control_loop._execution_outcomes import (
     is_execution_success as _is_execution_success,
 )
 from fdai.core.control_loop._learned_reuse import record_learned_reuse_advisory
+from fdai.core.control_loop._notification_helpers import (
+    build_gate_stage_detail,
+    request_unified_hil_approval,
+)
 from fdai.core.control_loop._t1_resource_guard import guard_reuse_resource_type
 from fdai.core.control_loop._t2_context import resolve_t2_context
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
@@ -107,11 +111,15 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
         action: Action,
         rule: Rule,
         correlation_id: str,
+        submitter_oid: str = "system:control-loop",
+        event: Event | None = None,
+        development_authority: Mapping[str, Any] | None = None,
         approval_profile: Mapping[str, Any] | None = None,
         operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
-    ) -> None: ...
+        reopen_on_expiry: bool = True,
+    ) -> Any: ...
 
     async def _write_t1_audit(
         self, *, event: Event, decision: RoutingDecision, t1: T1Decision
@@ -405,37 +413,27 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             )
         if unified.is_auto or unified.requires_hil:
             action = action.model_copy(update={"mode": unified.gate.effective_mode})
+        t1_hil_result = await request_unified_hil_approval(
+            self,
+            action=action,
+            rule=rule,
+            unified=unified,
+            correlation_id=correlation_id,
+        )
         await self._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
             stage=StageName.GATE,
             phase=StagePhase.DONE,
-            detail={
-                "tier": "t1",
-                "action_type": action.action_type,
-                "gate_decision": unified.decision,
-                "mode": action.mode.value,
-            },
+            detail=build_gate_stage_detail(
+                tier="t1",
+                rule_id="",
+                action_type=action.action_type,
+                gate_decision=unified.decision,
+                mode=action.mode.value,
+                hil_result=t1_hil_result,
+            ),
         )
-        if unified.requires_hil and self._hil_resume_coordinator is not None:
-            await self._request_hil_approval(
-                action=action,
-                rule=rule,
-                correlation_id=correlation_id,
-                approval_profile=(
-                    unified.authority.approval_profile.as_audit_dict()
-                    if unified.authority is not None
-                    and unified.authority.approval_profile is not None
-                    else None
-                ),
-                operator_policy=_operator_policy_audit(unified),
-                original_quorum_required=(
-                    unified.authority.original_quorum
-                    if unified.authority is not None
-                    else unified.quorum
-                ),
-                effective_quorum_required=unified.quorum,
-            )
         if unified.is_denied or unified.requires_hil:
             return ControlLoopResult(
                 outcome=(
@@ -732,37 +730,27 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                 t1_decision=t1_decision,
                 t2_decision=t2,
             )
+        t2_hil_result = await request_unified_hil_approval(
+            self,
+            action=action,
+            rule=rule,
+            unified=unified,
+            correlation_id=correlation_id,
+        )
         await self._emit_stage(
             event_id=event_id,
             correlation_id=correlation_id,
             stage=StageName.GATE,
             phase=StagePhase.DONE,
-            detail={
-                "tier": "t2",
-                "action_type": action.action_type,
-                "gate_decision": unified.decision,
-                "mode": action.mode.value,
-            },
+            detail=build_gate_stage_detail(
+                tier="t2",
+                rule_id="",
+                action_type=action.action_type,
+                gate_decision=unified.decision,
+                mode=action.mode.value,
+                hil_result=t2_hil_result,
+            ),
         )
-        if unified.requires_hil and self._hil_resume_coordinator is not None:
-            await self._request_hil_approval(
-                action=action,
-                rule=rule,
-                correlation_id=correlation_id,
-                approval_profile=(
-                    unified.authority.approval_profile.as_audit_dict()
-                    if unified.authority is not None
-                    and unified.authority.approval_profile is not None
-                    else None
-                ),
-                operator_policy=_operator_policy_audit(unified),
-                original_quorum_required=(
-                    unified.authority.original_quorum
-                    if unified.authority is not None
-                    else unified.quorum
-                ),
-                effective_quorum_required=unified.quorum,
-            )
         if unified.is_denied or unified.requires_hil:
             outcome = ControlLoopOutcome.DENIED if unified.is_denied else ControlLoopOutcome.HIL
             return ControlLoopResult(
