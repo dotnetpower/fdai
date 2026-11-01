@@ -68,7 +68,7 @@
 .tj-filters .tj-correlation-field select { max-width: 240px; }
 .tj-filters .tj-clear-btn { border-color: transparent; background: transparent; color: var(--cs-steel); }
 .tj-filters .tj-clear-btn:hover { background: var(--cs-shade); }
-.tj-source { margin: 0; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.tj-source { margin: 0; color: var(--cs-text-soft); font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); font-variant-numeric: tabular-nums; }
 .tj-empty { padding: 28px 20px; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-shade); color: var(--cs-text-soft); }
 .tj-empty strong { color: var(--cs-text); }
 .tj-empty p { margin: 6px 0 0; }
@@ -93,6 +93,8 @@
 }
 .tj-list li + li { border-top: 1px solid var(--tj-soft-line); }
 .aa-trajectories .tj-item {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 6px;
@@ -133,6 +135,7 @@
   min-width: 0;
   color: var(--cs-text-soft);
   font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
 }
 .tj-item-id {
   display: flex;
@@ -166,14 +169,8 @@
   color: var(--cs-text-soft);
   font-size: var(--cs-type-label-size);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-.aa-trajectories .tj-item.is-live-updated {
-  animation: tj-live-pulse 3s cubic-bezier(.2, .7, .25, 1) both;
-}
-@keyframes tj-live-pulse {
-  0%, 16% { box-shadow: inset 0 2px 0 0 var(--cs-steel); }
-  100% { box-shadow: none; }
 }
 .tj-occurrences {
   display: flex;
@@ -190,6 +187,7 @@
   color: var(--cs-text-soft);
   font-size: var(--cs-type-label-size);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .tj-occurrences-list {
   display: flex;
@@ -208,6 +206,7 @@
   color: var(--cs-text-soft);
   font: inherit;
   font-size: var(--cs-type-label-size);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 .aa-trajectories .tj-occurrence-btn[aria-pressed="true"] {
@@ -230,6 +229,7 @@
   color: var(--cs-text-soft);
   font-size: var(--cs-type-label-size);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .tj-avatar { display: inline-grid; flex: 0 0 auto; width: 22px; height: 22px; place-items: center; border-radius: 6px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 700; }
@@ -446,7 +446,7 @@
   .tj-step > details > summary { min-height: var(--cs-control-height-touch); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tj-chevron svg, .tj-step-main, .aa-trajectories .tj-mark::before, .aa-trajectories .tj-item.is-live-updated { transition: none; animation: none; }
+  .tj-chevron svg, .tj-step-main, .aa-trajectories .tj-mark::before { transition: none; }
 }
 @media (forced-colors: active) {
   .tj-phases li + li::before, .tj-step::before { forced-color-adjust: none; background: CanvasText; }

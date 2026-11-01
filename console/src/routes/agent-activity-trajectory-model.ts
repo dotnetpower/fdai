@@ -12,6 +12,7 @@ import type { AuditItem } from "../types";
 import type { LiveAgentActivityEvent } from "./agents.model";
 import {
   ACTION_TYPE_LABELS,
+  agentOf as defaultAgentOf,
   auditProvenanceOf,
   entryConversation,
   entryMap,
@@ -235,27 +236,60 @@ export function mergeLiveEventsIntoAuditItems(
   const knownKeys = new Set<string>();
   for (const item of items) {
     if (item.event_id) knownKeys.add(`id:${item.event_id}`);
-    if (item.correlation_id) {
-      knownKeys.add(`sig:${item.correlation_id}|${item.actor}|${item.action_kind}|${item.recorded_at}`);
+    const resolvedCorr =
+      (item.correlation_id !== null && item.correlation_id.trim()
+        ? item.correlation_id.trim()
+        : null) ??
+      entryStr(item, "correlation_id") ??
+      entryStr(item, "incident_id");
+    if (resolvedCorr) {
+      const resolvedAgent = defaultAgentOf(item);
+      knownKeys.add(`sig:${resolvedCorr}|${item.actor}|${item.action_kind}|${item.recorded_at}`);
+      knownKeys.add(`sig:${resolvedCorr}|${resolvedAgent}|${item.action_kind}|${item.recorded_at}`);
+      knownKeys.add(`act:${resolvedCorr}|${resolvedAgent}|${item.action_kind}`);
+      const evtType = entryStr(item, "event_type");
+      if (evtType) {
+        knownKeys.add(`act:${resolvedCorr}|${resolvedAgent}|${evtType}`);
+      }
+      for (const turn of entryConversation(item) ?? []) {
+        knownKeys.add(`turn:${resolvedCorr}|${turn.from}|${turn.to}|${turn.text}`);
+      }
     }
   }
   const appended: AuditItem[] = [];
   for (const event of liveEvents) {
     if (event.source === "replay" || !event.correlationId || !event.correlationId.trim()) continue;
-    if (event.kind === "agent.state" && event.activityPhase === "started") continue;
+    if (event.kind === "agent.state") {
+      if (event.activityPhase !== "completed" && event.activityPhase !== "failed") {
+        continue;
+      }
+    }
     if (
-      event.kind === "agent.state" &&
-      !event.activityPhase &&
-      (event.state === "idle" || event.state === "watching")
+      event.kind === "agent.operational-activity" &&
+      (event.activityPhase === "started" || event.summary.endsWith(" - started"))
     ) {
       continue;
+    }
+    const corr = event.correlationId.trim();
+    if (event.kind === "conversation.turn" && event.agents.length >= 2) {
+      const turnText = event.detail ?? event.summary;
+      const turnKey = `turn:${corr}|${event.agents[0]}|${event.agents[1]}|${turnText}`;
+      if (knownKeys.has(turnKey)) continue;
+      knownKeys.add(turnKey);
     }
     const eventId = event.eventId ?? event.activityId ?? `live-${event.sequence}`;
     const actionKind = event.operationalKind
       ?? event.eventType
       ?? (event.kind === "conversation.turn" ? "conversation.turn" : event.kind);
-    const sigKey = `sig:${event.correlationId}|${event.agent}|${actionKind}|${event.ts}`;
-    if (knownKeys.has(`id:${eventId}`) || knownKeys.has(sigKey)) continue;
+    const sigKey = `sig:${corr}|${event.agent}|${actionKind}|${event.ts}`;
+    const actKey = `act:${corr}|${event.agent}|${actionKind}`;
+    if (
+      knownKeys.has(`id:${eventId}`) ||
+      knownKeys.has(sigKey) ||
+      (event.kind !== "conversation.turn" && knownKeys.has(actKey))
+    ) {
+      continue;
+    }
     knownKeys.add(`id:${eventId}`);
     knownKeys.add(sigKey);
     const entry: Record<string, unknown> = {
@@ -280,7 +314,7 @@ export function mergeLiveEventsIntoAuditItems(
     appended.push({
       seq: 1_000_000_000 + event.sequence,
       event_id: eventId,
-      correlation_id: event.correlationId,
+      correlation_id: corr,
       actor: event.agent,
       action_kind: actionKind,
       mode: "shadow",
@@ -314,6 +348,61 @@ export interface StabilizedTrajectorySelection {
   readonly pinned: PinnedTrajectoryDetail | null;
 }
 
+export function trajectoryGroupKey(
+  trajectory: AgentTrajectory,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  const mirrorStep = trajectory.steps.length === 1 ? trajectory.steps[0] : undefined;
+  const rawTitle = presentTrajectoryTitle(trajectory, locale);
+  const normalizedTitle =
+    mirrorStep?.actionKind === "audit.record" &&
+    mirrorStep.aggregateType === "forseti.no_rule_match"
+      ? rawTitle.replace(/\s*\(\d+(?:건)?\)$/, "")
+      : rawTitle;
+  const outcomeKey = trajectory.latestOutcome
+    ? formatOutcomeLabel(trajectory.latestOutcome, locale)
+    : "";
+  return `${normalizedTitle}||${outcomeKey}`;
+}
+
+/**
+ * Semantic update key for a trajectory card. Excludes elapsed duration, raw timestamps, and
+ * selection state so the shared top-edge shimmer triggers only on genuine visible content updates.
+ */
+export function trajectoryCardUpdateKey(
+  trajectory: AgentTrajectory,
+  groupCount = 1,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  return [
+    presentTrajectoryTitle(trajectory, locale),
+    trajectory.latestOutcome ? formatOutcomeLabel(trajectory.latestOutcome, locale) : "",
+    trajectory.tone,
+    trajectory.agents.join(","),
+    trajectory.steps.length,
+    trajectory.tiers.join(","),
+    groupCount,
+  ].join("|");
+}
+
+export function visibleGroupOccurrences(
+  members: readonly AgentTrajectory[],
+  selectedCorrelationId: string,
+  limit = 12,
+): ReadonlyArray<{ readonly member: AgentTrajectory; readonly index: number }> {
+  const indexed = members.map((member, index) => ({ member, index: index + 1 }));
+  if (indexed.length <= limit) return indexed;
+  const visible = indexed.slice(0, limit);
+  if (visible.some((entry) => entry.member.correlationId === selectedCorrelationId)) {
+    return visible;
+  }
+  const selectedEntry = indexed.find(
+    (entry) => entry.member.correlationId === selectedCorrelationId,
+  );
+  if (!selectedEntry) return visible;
+  return [...visible.slice(0, Math.max(0, limit - 1)), selectedEntry];
+}
+
 export function groupTrajectoriesForDisplay(
   trajectories: readonly AgentTrajectory[],
   selectedCorrelationId: string | null,
@@ -321,10 +410,7 @@ export function groupTrajectoriesForDisplay(
 ): readonly TrajectoryDisplayGroup[] {
   const groups = new Map<string, AgentTrajectory[]>();
   for (const trajectory of trajectories) {
-    const key = [
-      presentTrajectoryTitle(trajectory, locale),
-      trajectory.latestOutcome ?? "",
-    ].join("||");
+    const key = trajectoryGroupKey(trajectory, locale);
     const bucket = groups.get(key) ?? [];
     bucket.push(trajectory);
     groups.set(key, bucket);

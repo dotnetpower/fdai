@@ -232,6 +232,57 @@ export function citedRulesOf(item: AuditItem): readonly string[] {
 
 export type AuditProvenance = "operational" | "sample";
 
+export const RETAINED_CORRELATED_AUDIT_LIMIT = 600;
+export const RETAINED_UNCORRELATED_AUDIT_LIMIT = 200;
+
+export function hasAuditCorrelation(item: AuditItem): boolean {
+  const resolved =
+    (item.correlation_id !== null && item.correlation_id.trim()
+      ? item.correlation_id.trim()
+      : null) ??
+    entryStr(item, "correlation_id") ??
+    entryStr(item, "incident_id");
+  return resolved !== null && resolved.trim().length > 0;
+}
+
+/**
+ * Merges incoming `/audit` pages into the session's retained audit items while keeping
+ * correlated trajectory steps and uncorrelated rows in independent bounded pools so that
+ * bursts of uncorrelated measurement rows never evict correlated trajectories.
+ */
+export function mergeRetainedAuditItems(
+  previous: readonly AuditItem[],
+  incoming: readonly AuditItem[],
+  correlatedLimit = RETAINED_CORRELATED_AUDIT_LIMIT,
+  uncorrelatedLimit = RETAINED_UNCORRELATED_AUDIT_LIMIT,
+): readonly AuditItem[] {
+  if (previous.length === 0) return incoming;
+  const byKey = new Map<string, AuditItem>();
+  for (const item of [...incoming, ...previous]) {
+    const key = item.seq > 0 ? `seq:${item.seq}` : `event:${item.event_id}`;
+    if (!byKey.has(key)) byKey.set(key, item);
+  }
+  const merged = [...byKey.values()].sort(
+    (left, right) =>
+      milliseconds(right.recorded_at) - milliseconds(left.recorded_at) ||
+      right.seq - left.seq,
+  );
+  const retained: AuditItem[] = [];
+  let correlatedCount = 0;
+  let uncorrelatedCount = 0;
+  for (const item of merged) {
+    if (hasAuditCorrelation(item)) {
+      if (correlatedCount >= correlatedLimit) continue;
+      correlatedCount += 1;
+    } else {
+      if (uncorrelatedCount >= uncorrelatedLimit) continue;
+      uncorrelatedCount += 1;
+    }
+    retained.push(item);
+  }
+  return retained;
+}
+
 export function auditProvenanceOf(item: AuditItem): AuditProvenance {
   return item.entry["fixture_source"] === "operator-api-dev-seed" ||
     item.entry["observation_source"] === "synthetic-dev"
@@ -273,6 +324,7 @@ export function milliseconds(iso: string): number {
 }
 
 export function entryStr(item: AuditItem, key: string): string | null {
+  if (!item.entry || typeof item.entry !== "object") return null;
   const value = item.entry[key];
   return typeof value === "string" ? value : null;
 }

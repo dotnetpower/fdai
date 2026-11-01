@@ -279,6 +279,7 @@ test("keeps the selected trajectory detail body unchanged when new activities st
   }, change);
 
   await expect(view.locator(".tj-item")).toHaveCount(3);
+  await expect(view.locator(".tj-item.is-live-updated")).toHaveCount(0);
   await expect(detail.locator(".tj-eyebrow code")).toHaveText(change);
   await expect(detail.locator("h2")).toHaveText("Change request normalized with its original event time.");
   await expect(detail.locator(".tj-step")).toHaveCount(4);
