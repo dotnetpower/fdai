@@ -842,22 +842,22 @@ function renderFieldValue(value: string) {
           </div>
         ) : null}
         {parsed.nestedEntries.map(([nestedKey, nestedObj]) => (
-          <NestedObjectBlock key={nestedKey} title={nestedKey} record={nestedObj} />
+          <NestedObjectBlock key={nestedKey} heading={nestedKey} record={nestedObj} />
         ))}
       </div>
     );
   }
   if (parsed.kind === "object" && parsed.directObject) {
-    return <NestedObjectBlock title="" record={parsed.directObject} />;
+    return <NestedObjectBlock heading="" record={parsed.directObject} />;
   }
   return value;
 }
 
 function NestedObjectBlock({
-  title,
+  heading,
   record,
 }: {
-  readonly title: string;
+  readonly heading: string;
   readonly record: Record<string, unknown>;
 }) {
   const scalars: Array<readonly [string, string]> = [];
@@ -886,8 +886,8 @@ function NestedObjectBlock({
   }
   if (scalars.length === 0 && longScalars.length === 0 && subObjects.length === 0) return null;
   return (
-    <div class="tj-nested-card">
-      {title ? <div class="tj-nested-title">{breakableName(title)}</div> : null}
+    <div class="tj-nested-panel">
+      {heading ? <div class="tj-nested-title">{breakableName(heading)}</div> : null}
       {scalars.length > 0 ? (
         <span class="tj-chips">
           {scalars.map(([k, v]) => (

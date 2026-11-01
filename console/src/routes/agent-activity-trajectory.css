@@ -310,7 +310,7 @@
 .tj-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .tj-chip { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px; max-width: 100%; padding: 2px 8px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); font-size: var(--cs-type-label-size); line-height: 1.45; overflow-wrap: anywhere; }
 .tj-chip > span { color: var(--cs-text-soft); }
-.tj-nested-card { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); }
+.tj-nested-panel { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); }
 .tj-nested-title { color: var(--cs-text); font: 600 var(--cs-type-label-size)/1.4 var(--cs-font-mono, monospace); }
 .tj-nested-sub { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid var(--tj-soft-line); }
 .tj-nested-subtitle { color: var(--cs-text-soft); font: 600 var(--cs-type-label-size)/1.4 var(--cs-font-mono, monospace); }
