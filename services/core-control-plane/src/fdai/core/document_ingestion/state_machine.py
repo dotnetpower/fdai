@@ -55,6 +55,8 @@ _TRANSITIONS = MappingProxyType(
 
 def transition(current: DocumentState, target: DocumentState) -> DocumentState:
     """Return ``target`` when allowed, otherwise fail without side effects."""
+    if not isinstance(current, DocumentState) or not isinstance(target, DocumentState):
+        raise InvalidDocumentTransitionError("document transition states MUST be DocumentState")
     if target not in _TRANSITIONS[current]:
         raise InvalidDocumentTransitionError(
             f"invalid document transition: {current.value} -> {target.value}"
@@ -63,6 +65,8 @@ def transition(current: DocumentState, target: DocumentState) -> DocumentState:
 
 
 def can_transition(current: DocumentState, target: DocumentState) -> bool:
+    if not isinstance(current, DocumentState) or not isinstance(target, DocumentState):
+        return False
     return target in _TRANSITIONS[current]
 
 

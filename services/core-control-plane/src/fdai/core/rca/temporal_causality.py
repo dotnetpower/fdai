@@ -95,6 +95,16 @@ class TemporalCausalClaim:
     evidence_refs: tuple[str, ...]
     falsifiers: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if (
+            not self.claim_id.strip()
+            or not self.cause_metric.strip()
+            or not self.effect_metric.strip()
+            or self.feature_cutoff.tzinfo is None
+            or self.feature_cutoff.utcoffset() is None
+        ):
+            raise ValueError("TemporalCausalClaim requires non-empty fields and aware cutoff")
+
 
 class TemporalCausalityAnalyzer:
     """Rank lagged associations without claiming experimental causality."""

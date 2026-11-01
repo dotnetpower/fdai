@@ -97,6 +97,16 @@ class CorrelatedEvent:
     cause_domain: CauseDomain = CauseDomain.UNKNOWN
     inventory_generation: str | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.event_id.strip()
+            or not self.resource_ref.strip()
+            or not isinstance(self.is_change, bool)
+        ):
+            raise ValueError(
+                "CorrelatedEvent requires non-empty ids, boolean is_change, and aware timestamp"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class CausalHop:

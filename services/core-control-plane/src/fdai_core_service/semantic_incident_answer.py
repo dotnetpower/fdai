@@ -134,13 +134,15 @@ def render_incident_answer(
     profile = output.get("incident_profile")
     root_cause = output.get("root_cause")
     gaps = output.get("evidence_gaps")
-    shown = len(evidence) if isinstance(evidence, list) else 0
+    shown = len(evidence) if isinstance(evidence, (list, tuple)) else 0
     verified = output.get("verified_records")
     evidence_count = (
         verified if isinstance(verified, int) and not isinstance(verified, bool) else shown
     )
     gap_values = (
-        tuple(item for item in gaps if isinstance(item, str)) if isinstance(gaps, list) else ()
+        tuple(item.strip() for item in gaps if isinstance(item, str) and item.strip())
+        if isinstance(gaps, (list, tuple))
+        else ()
     )
     korean = request.locale.casefold().startswith("ko")
     facts = incident_profile_facts(profile, korean=korean)

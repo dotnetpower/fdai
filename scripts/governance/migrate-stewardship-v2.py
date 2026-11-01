@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 import yaml
-
 from fdai.core.stewardship import (
     StewardshipMigrationError,
     StewardshipValidationError,

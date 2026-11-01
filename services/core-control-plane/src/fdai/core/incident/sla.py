@@ -94,6 +94,17 @@ def evaluate_incident_sla(
                 entered_at=_aware_datetime(entry, "opened_at"),
             )
             continue
+        if kind == "incident.severity":
+            previous = current.get(incident_id)
+            if previous is None:
+                raise ValueError(f"incident SLA severity precedes open: {incident_id}")
+            current[incident_id] = _SlaIncident(
+                incident_id=incident_id,
+                state=previous.state,
+                severity=IncidentSeverity(_required_string(entry, "severity")),
+                entered_at=previous.entered_at,
+            )
+            continue
         if kind != "incident.transition":
             raise ValueError(f"unsupported incident SLA audit kind: {kind}")
         previous = current.get(incident_id)
@@ -160,7 +171,7 @@ class IncidentSlaMonitor:
         interval_seconds: float,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if interval_seconds <= 0:
+        if isinstance(interval_seconds, bool) or interval_seconds <= 0:
             raise ValueError("incident SLA monitor interval_seconds MUST be positive")
         self._source = source
         self._notifier = notifier

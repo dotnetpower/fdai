@@ -23,6 +23,10 @@ def rehydrate_incidents(
     schema_version: str,
 ) -> dict[UUID, Incident]:
     """Validate ordered lifecycle rows and return a complete incident index."""
+    if not schema_version.strip():
+        raise IncidentReplayError(
+            "invalid incident lifecycle audit: schema_version MUST be non-empty"
+        )
     restored: dict[UUID, Incident] = {}
     try:
         for entry in entries:

@@ -75,7 +75,8 @@ class RuleBasedVerifier(VerifierPolicy):
             return None
 
         for rule in cited:
-            if rule.resource_type != target_type:
+            applies_to = rule.applies_to or [rule.resource_type]
+            if rule.resource_type != target_type and target_type not in applies_to:
                 # Cited rule doesn't apply to this resource type - skip.
                 continue
             if candidate.action_type == rule.remediates:

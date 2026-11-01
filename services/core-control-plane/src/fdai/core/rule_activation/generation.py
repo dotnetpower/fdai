@@ -28,6 +28,10 @@ def build_rule_activation_generation(
 
     if created_at.tzinfo is None or created_at.utcoffset() is None:
         raise ValueError("Rule activation generation clock MUST be timezone-aware")
+    if not profile_id.strip() or not profile_version.strip():
+        raise ValueError(
+            "Rule activation generation profile_id and profile_version MUST be non-empty"
+        )
     canonical_rules = sorted(rules, key=lambda rule: rule.id)
     if not canonical_rules:
         raise ValueError("Rule activation generation MUST contain at least one Rule")

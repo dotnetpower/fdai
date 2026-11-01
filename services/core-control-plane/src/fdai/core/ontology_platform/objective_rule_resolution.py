@@ -64,6 +64,10 @@ class ObjectiveRuleResolution:
     fallback_applied: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.fallback_applied, bool):
+            raise ValueError("fallback_applied MUST be a boolean")
+        if self.degraded_reason is not None and not self.degraded_reason.strip():
+            raise ValueError("degraded_reason MUST be non-empty when provided")
         if self.requested_objective_refs != tuple(sorted(set(self.requested_objective_refs))):
             raise ValueError("requested objective refs MUST be unique and ordered")
         if len(self.requested_objective_refs) > MAX_OBJECTIVE_REFS:

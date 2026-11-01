@@ -114,6 +114,8 @@ class AgentActivityProjector:
 
     def project(self, payload: Mapping[str, object]) -> tuple[LiveStreamEvent, ...]:
         """Return only events grounded in a valid runtime or stage observation."""
+        if not isinstance(payload, Mapping):
+            return ()
         operational = _operational_activity_event(payload)
         if operational is not None:
             return (operational,)

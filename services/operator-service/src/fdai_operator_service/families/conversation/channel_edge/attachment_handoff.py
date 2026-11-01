@@ -30,8 +30,10 @@ class ChannelAttachmentHandoffError(RuntimeError):
     """Fail one attachment without retaining provider response details."""
 
     def __init__(self, message: str, *, code: str) -> None:
+        if not code.strip():
+            raise ValueError("ChannelAttachmentHandoffError code MUST be non-empty")
         super().__init__(message)
-        self.code = code
+        self.code = code.strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,7 +44,7 @@ class WorkloadAccessToken:
     audience: str
 
     def __post_init__(self) -> None:
-        if not self.token or not self.audience:
+        if not self.token.strip() or not self.audience.strip():
             raise ValueError("workload token and audience MUST be non-empty")
 
 

@@ -30,10 +30,17 @@ class HandoverKnowledgeStage:
         if self.owner not in _OWNERS:
             raise ValueError("handover stage owner is unsupported")
 
-    async def check(self, notice: HandoverKnowledgeNotice) -> HandoverKnowledgeDecision:
+    async def check(
+        self, notice: HandoverKnowledgeDecision | HandoverKnowledgeNotice
+    ) -> HandoverKnowledgeDecision:
         """Revalidate before each owner acts; source failures become explicit held outcomes."""
+        if not isinstance(notice, HandoverKnowledgeNotice):
+            raise TypeError("HandoverKnowledgeStage.check requires a HandoverKnowledgeNotice")
         try:
-            notice.require_current(self.clock())
+            now = self.clock()
+            if now.tzinfo is None or now.utcoffset() is None:
+                raise ValueError("handover stage clock MUST be timezone-aware")
+            notice.require_current(now)
         except ValueError:
             return HandoverKnowledgeDecision(
                 notice=notice,

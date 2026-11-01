@@ -48,11 +48,11 @@
         "How is an Incident ID created?",
         "인시던트 ID는 어떻게 생성하나요?"
       ],
-      "source_manifest_hash": "57f26852437be492fdde83130a82b8e44eb42798f5c7fb641c370246bad9e562",
+      "source_manifest_hash": "aedaa0f353d4fbddd16aec9017d0b2e13376756df38fc825e6d5e15edfa49dd3",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "90b93caebd5713ed0cd0fd665c73857187feddb6",
+          "blob_sha": "b96cce6f6384632ccac0d1bf5aaadc9bdf0445d9",
           "line_end": 103,
           "line_start": 91,
           "path": "services/core-control-plane/src/fdai/core/incident/registry.py",
@@ -61,8 +61,8 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "90b93caebd5713ed0cd0fd665c73857187feddb6",
-          "line_end": 290,
+          "blob_sha": "b96cce6f6384632ccac0d1bf5aaadc9bdf0445d9",
+          "line_end": 294,
           "line_start": 184,
           "path": "services/core-control-plane/src/fdai/core/incident/registry.py",
           "source_kind": "code",

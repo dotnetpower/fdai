@@ -264,3 +264,78 @@ def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
             included_rows=1,
             sha256="a" * 64,
         )
+
+    # G005, G048, G049, G097, G099, G100, G105: Operator incident, document, and agent trajectory
+    from fdai_operator_service.families.conversation.channel_edge.attachment_handoff import (
+        ChannelAttachmentHandoffError,
+        WorkloadAccessToken,
+    )
+    from fdai_operator_service.families.conversation.semantic_document_presentation import (
+        document_ready_answer,
+        is_document_draft,
+    )
+    from fdai_operator_service.families.conversation.semantic_incident_presentation import (
+        incident_cell,
+        incident_citations_block,
+        incident_impact_block,
+    )
+    from fdai_operator_service.families.conversation.semantic_runtime_activity import (
+        query_execution_target,
+    )
+    from fdai_operator_service.families.conversation.semantic_trajectory_presentation import (
+        semantic_technical_trajectory,
+    )
+    from fdai_operator_service.families.conversation.semantic_work_progress_presentation import (
+        work_progress_detail_fields,
+    )
+    from fdai_operator_service.streaming.agent_handler_context import identifier
+
+    assert incident_cell(float("nan")) is None
+    assert (
+        incident_impact_block(
+            ({"metric": "cpu", "observed": 90, "unit": "%"},),
+            bounded_refs=["audit:1"],
+            korean=True,
+        )
+        is not None
+    )
+    assert (
+        incident_citations_block(
+            ({"tier": "t0", "kind": "rule", "ref": "r1", "summary": "s", "recorded_at": "t"},),
+            bounded_refs=["audit:1"],
+            korean=False,
+        )
+        is not None
+    )
+    assert (
+        is_document_draft(
+            {
+                "semantic_result": {
+                    "disposition": "action_draft",
+                    "assurance_observation": {"frame": {"subject_types": ("Document",)}},
+                }
+            }
+        )
+        is True
+    )
+    with pytest.raises(ValueError, match="pdf_available"):
+        document_ready_answer("ko", included_rows=1, pdf_available=1)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-empty"):
+        ChannelAttachmentHandoffError("err", code="   ")
+    with pytest.raises(ValueError, match="non-empty"):
+        WorkloadAccessToken(token="   ", audience="aud")
+    assert identifier("   ") is None
+    assert (
+        semantic_technical_trajectory(
+            projection={},
+            technical_details=None,
+            checks_completed=True,
+            checks_total=1,
+            locale="ko",
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="non-empty"):
+        query_execution_target("   ")
+    with pytest.raises(ValueError, match="non-empty"):
+        work_progress_detail_fields({}, locale="   ")

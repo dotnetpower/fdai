@@ -34,8 +34,10 @@ class RoutedIncidentLifecycleNotifier:
         dispatcher: NotificationDispatcher,
         incidents_url: str = "/incidents",
     ) -> None:
+        if not incidents_url.strip() or not incidents_url.strip().startswith("/"):
+            raise ValueError("incidents_url MUST be a non-empty relative path")
         self._dispatcher = dispatcher
-        self._incidents_url = incidents_url
+        self._incidents_url = incidents_url.strip()
 
     async def notify(self, notice: IncidentLifecycleNotice) -> object:
         """Dispatch one A2 lifecycle message through the notification matrix."""

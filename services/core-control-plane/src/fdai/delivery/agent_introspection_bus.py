@@ -53,8 +53,12 @@ def agent_introspection_server_group_id(
     process_id: int | None = None,
 ) -> str:
     """Return a fresh local group while preserving production load balancing."""
+    if not isinstance(local_process, bool):
+        raise ValueError("local_process MUST be a boolean")
     if not local_process:
         return _SERVER_GROUP_ID
+    if isinstance(process_id, bool):
+        raise ValueError("process_id MUST be a positive integer")
     resolved_process_id = os.getpid() if process_id is None else process_id
     if resolved_process_id <= 0:
         raise ValueError("process_id MUST be positive")

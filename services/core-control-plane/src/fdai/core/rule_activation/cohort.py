@@ -78,6 +78,8 @@ class LocalRuleActivationCohortCommitStore:
         expected_latest_prepare: Mapping[str, Any],
         lease_expires_at: datetime,
     ) -> bool:
+        if lease_expires_at.tzinfo is None or lease_expires_at.utcoffset() is None:
+            raise ValueError("lease_expires_at MUST be timezone-aware")
         async with self._lock:
             if _aware(self.clock()) >= lease_expires_at:
                 return False

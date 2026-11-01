@@ -27,6 +27,8 @@ def build_wara_rule_receipts(
 ) -> tuple[WaraEvidenceReceipt, ...]:
     """Return one receipt per binding whose Rule coverage is decisive for this workload."""
 
+    if not scope_digest.strip():
+        raise ValueError("WARA rule receipt scope_digest MUST be non-empty")
     if coverage.scope_digest != scope_digest or coverage.unattributed_unexpected_count:
         return ()
     if coverage.activation.generation_digest != canonical_sha256(activation.generation_digest):

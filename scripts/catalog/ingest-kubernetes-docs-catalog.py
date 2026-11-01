@@ -14,7 +14,6 @@ import pathlib
 from dataclasses import dataclass
 
 import yaml
-
 from fdai.core.detection.signals import SignalRole, known_signals
 
 _HERE = pathlib.Path(__file__).resolve()

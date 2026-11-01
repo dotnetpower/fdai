@@ -35,6 +35,14 @@ class ScopedCoverageResourceMapping:
     resource_id: str
     resource_type: str
 
+    def __post_init__(self) -> None:
+        if (
+            not self.provider_resource_id.strip()
+            or not self.resource_id.strip()
+            or not self.resource_type.strip()
+        ):
+            raise ValueError("ScopedCoverageResourceMapping fields MUST be non-empty")
+
 
 def build_scoped_coverage_record(
     *,

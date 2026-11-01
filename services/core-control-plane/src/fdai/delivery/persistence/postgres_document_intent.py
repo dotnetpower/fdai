@@ -62,7 +62,12 @@ class PostgresDocumentIntent:
                     (properties.id,),
                 )
             ).fetchone()
-        return int(row["revision"]) if row is not None else 0
+        if row is None:
+            return 0
+        raw_revision = row["revision"]
+        if isinstance(raw_revision, bool) or not isinstance(raw_revision, int) or raw_revision < 0:
+            raise ValueError("document intent target revision is malformed")
+        return int(raw_revision)
 
     async def current_source_digests(self, document: UUID, version: UUID) -> tuple[str, ...]:
         async with await self.graph._connect() as connection:

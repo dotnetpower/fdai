@@ -21,6 +21,10 @@ def rule_snapshot(
     policies_root: Path,
     remediation_root: Path,
 ) -> dict[str, object]:
+    if len({rule.id for rule in active_rules}) != len(active_rules) or len(
+        {rule.id for rule in collected_rules}
+    ) != len(collected_rules):
+        raise ValueError("rule_snapshot requires unique Rule ids within each origin")
     entries = [
         *((rule, "active") for rule in active_rules),
         *((rule, "collected") for rule in collected_rules),
