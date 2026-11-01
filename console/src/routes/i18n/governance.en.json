@@ -777,7 +777,7 @@
         "searchPlaceholder": "Filter CVE, advisory ID, product ID, or title"
       },
       "result": {
-        "showing": "Showing {filtered} of {total} cataloged MSRC CSAF vulnerabilities",
+        "showing": "Showing {start}-{end} of {filtered} filtered ({total} total)",
         "empty": "No MSRC CSAF vulnerabilities match these filters"
       },
       "detail": {
@@ -894,6 +894,7 @@
     "waraMapping": {
       "existing_rule": "Existing rule",
       "new_rule_candidate": "New rule candidate",
+      "version_observation": "Version observation",
       "manual_evidence": "Manual evidence",
       "conditional_not_applicable": "Conditional not applicable",
       "ambiguous_or_blocked": "Ambiguous or blocked",

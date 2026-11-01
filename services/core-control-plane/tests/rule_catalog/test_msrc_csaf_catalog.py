@@ -114,9 +114,9 @@ def _sample_oasis_payload(
 def test_shipped_msrc_csaf_crosswalk_loads_and_verifies_digests() -> None:
     catalog = load_msrc_csaf_crosswalk_catalog(CROSSWALK_PATH)
     assert catalog.source_id == "msrc_csaf"
-    assert len(catalog.advisories) == 2
-    assert len(catalog.product_mappings) == 3
-    assert len(catalog.vulnerability_mappings) == 3
+    assert len(catalog.advisories) == 267
+    assert len(catalog.product_mappings) == 268
+    assert len(catalog.vulnerability_mappings) == 268
 
 
 def test_dotted_version_comparison_and_train_prefix_are_numeric() -> None:
@@ -250,19 +250,21 @@ def test_url_and_strict_scalar_guards_reject_path_traversal_and_type_coercion() 
         (lambda c: c.__setitem__("advisories_digest", "sha256:" + "9" * 64), "advisories_digest"),
         (lambda c: c.__setitem__("crosswalk_digest", "sha256:" + "9" * 64), "crosswalk_digest"),
         (
-            lambda c: c["vulnerability_mappings"][0].__setitem__("workaround_expected_value", True),
+            lambda c: next(
+                m for m in c["vulnerability_mappings"] if m["cve_id"] == "CVE-2026-20001"
+            ).__setitem__("workaround_expected_value", True),
             "crosswalk workaround",
         ),
         (
-            lambda c: c["vulnerability_mappings"][0].__setitem__(
-                "advisory_tracking_id", "MSRC-OTHER"
-            ),
+            lambda c: next(
+                m for m in c["vulnerability_mappings"] if m["cve_id"] == "CVE-2026-20001"
+            ).__setitem__("advisory_tracking_id", "MSRC-OTHER"),
             "advisory_tracking_id mismatch",
         ),
         (
-            lambda c: c["vulnerability_mappings"][0].__setitem__(
-                "product_ids", ["AZURE-STORAGE-TLS"]
-            ),
+            lambda c: next(
+                m for m in c["vulnerability_mappings"] if m["cve_id"] == "CVE-2026-20001"
+            ).__setitem__("product_ids", ["AZURE-STORAGE-TLS"]),
             "product_ids mismatch",
         ),
     ):

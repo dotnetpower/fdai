@@ -41,11 +41,14 @@ const EXPOSURE_PILL: Readonly<Record<MsrcCsafExposure, PillKind>> = {
   unknown: "neutral",
 };
 
+const PAGE_SIZE = 50;
+
 export function MsrcCsafControlsRoute() {
   const initial = msrcCsafStateFromSearch(currentRoute().search);
   const [filters, setFilters] = useState<MsrcCsafFilters>(initial.filters);
   const [searchInput, setSearchInput] = useState(initial.filters.q);
   const [selected, setSelected] = useState<string | null>(initial.selected);
+  const [offset, setOffset] = useState<number>(initial.offset);
   const debounceRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -54,7 +57,8 @@ export function MsrcCsafControlsRoute() {
       if (searchInput === filters.q) return;
       const next = { ...filters, q: searchInput };
       setFilters(next);
-      replaceRouteState(msrcCsafHref(next, selected));
+      setOffset(0);
+      replaceRouteState(msrcCsafHref(next, selected, 0));
     }, 250);
     return () => window.clearTimeout(debounceRef.current);
   }, [filters, searchInput, selected]);
@@ -65,6 +69,7 @@ export function MsrcCsafControlsRoute() {
       setFilters(next.filters);
       setSearchInput(next.filters.q);
       setSelected(next.selected);
+      setOffset(next.offset);
     };
     window.addEventListener("popstate", onRouteChange);
     window.addEventListener("fdai:route-changed", onRouteChange);
@@ -83,7 +88,8 @@ export function MsrcCsafControlsRoute() {
   function updateFilter(patch: Partial<MsrcCsafFilters>): void {
     const next = { ...filters, ...patch };
     setFilters(next);
-    navigate(msrcCsafHref(next, selected));
+    setOffset(0);
+    navigate(msrcCsafHref(next, selected, 0));
   }
 
   const catalog = PINNED_MSRC_CSAF_CATALOG;
@@ -92,6 +98,15 @@ export function MsrcCsafControlsRoute() {
     () => filterMsrcCsafRows(catalog.rows, filters),
     [catalog.rows, filters],
   );
+  const safeOffset = offset < filteredRows.length ? offset : 0;
+  const pagedRows = useMemo(
+    () => filteredRows.slice(safeOffset, safeOffset + PAGE_SIZE),
+    [filteredRows, safeOffset],
+  );
+  const pageStart = filteredRows.length === 0 ? 0 : safeOffset + 1;
+  const pageEnd = Math.min(safeOffset + PAGE_SIZE, filteredRows.length);
+  const hasPrevious = safeOffset > 0;
+  const hasNext = safeOffset + PAGE_SIZE < filteredRows.length;
   const selectedRow = useMemo(
     () => (selected === null ? null : catalog.rows.find((row) => row.cve_id === selected) ?? null),
     [catalog.rows, selected],
@@ -247,18 +262,40 @@ export function MsrcCsafControlsRoute() {
         <div class="table-toolbar">
           <p class="muted">
             {t("governance.rules.msrcCsaf.result.showing", {
+              start: pageStart,
+              end: pageEnd,
               filtered: filteredRows.length,
               total: catalog.rows.length,
             })}
           </p>
+          <div class="pager">
+            <button
+              type="button"
+              class="btn"
+              style={{ minHeight: 44 }}
+              disabled={!hasPrevious}
+              onClick={() => navigate(msrcCsafHref(filters, selected, Math.max(0, safeOffset - PAGE_SIZE)))}
+            >
+              {t("governance.rules.result.previous")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              style={{ minHeight: 44 }}
+              disabled={!hasNext}
+              onClick={() => navigate(msrcCsafHref(filters, selected, safeOffset + PAGE_SIZE))}
+            >
+              {t("governance.rules.result.next")}
+            </button>
+          </div>
         </div>
         <DataTable<MsrcCsafControlRow>
           columns={columns}
-          rows={filteredRows}
+          rows={pagedRows}
           keyOf={(item) => item.cve_id}
           empty={t("governance.rules.msrcCsaf.result.empty")}
           onRowClick={(item) => {
-            pushRouteState(msrcCsafHref(filters, item.cve_id));
+            pushRouteState(msrcCsafHref(filters, item.cve_id, safeOffset));
             setSelected(item.cve_id);
           }}
           isRowActive={(item) => item.cve_id === selected}
@@ -272,7 +309,7 @@ export function MsrcCsafControlsRoute() {
           sourceRevision={catalog.source_revision}
           crosswalkDigest={catalog.crosswalk_digest}
           onClose={() => {
-            pushRouteState(msrcCsafHref(filters, null));
+            pushRouteState(msrcCsafHref(filters, null, safeOffset));
             setSelected(null);
           }}
         />

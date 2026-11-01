@@ -27,6 +27,8 @@ _MAX_RAW_CSAF_BYTES = 1_048_576
 _MAX_BRANCH_DEPTH = 8
 _EXPLOIT_STATUS_MAP: dict[str, CsafThreatExploitStatus] = {
     "exploited": CsafThreatExploitStatus.EXPLOITED,
+    "exploitation detected": CsafThreatExploitStatus.EXPLOITED,
+    "exploitation_detected": CsafThreatExploitStatus.EXPLOITED,
     "exploitation more likely": CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY,
     "exploitation_more_likely": CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY,
     "exploitation less likely": CsafThreatExploitStatus.EXPLOITATION_LESS_LIKELY,
