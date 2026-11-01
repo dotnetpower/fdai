@@ -267,11 +267,14 @@ export function RuleCatalogBody({
       {
         key: "resource_type",
         header: t("governance.rules.column.resource"),
-        render: (rule) => (
-          <span title={rule.resource_type !== formatRuleResourceType(rule.resource_type) ? rule.resource_type : undefined}>
-            {formatRuleResourceType(rule.resource_type)}
-          </span>
-        ),
+        render: (rule) => {
+          const formatted = formatRuleResourceType(rule.resource_type);
+          return rule.resource_type !== formatted ? (
+            <Tooltip content={rule.resource_type}>
+              <span>{formatted}</span>
+            </Tooltip>
+          ) : formatted;
+        },
         cellClass: "mono",
       },
       {

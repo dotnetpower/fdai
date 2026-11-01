@@ -350,9 +350,11 @@ function CoverageFunnel({
         })}
       </ol>
       <div class="coverage-attention-summary">
-        <a href="#detection-coverage-summary" title={t("coverage.heldHint")}>
-          {t("coverage.held")} <strong>{coverage.held_count}</strong>
-        </a>
+        <Tooltip content={t("coverage.heldHint")}>
+          <a href="#detection-coverage-summary">
+            {t("coverage.held")} <strong>{coverage.held_count}</strong>
+          </a>
+        </Tooltip>
         <a
           href={resourcesHref}
           onClick={(event) => activate(event, onOpenResources)}

@@ -45,11 +45,16 @@ function formatAlertBody(body: string): ComponentChildren {
       const compact = /^sha256:[0-9a-f]{24,}$/i.test(token)
         ? `${token.slice(0, 15)}...${token.slice(-8)}`
         : token;
-      return (
-        <code key={index} class="mono inbox-code-chip" title={token !== compact ? token : undefined}>
+      const codeEl = (
+        <code key={index} class="mono inbox-code-chip">
           {compact}
         </code>
       );
+      return token !== compact ? (
+        <Tooltip key={index} content={token}>
+          {codeEl}
+        </Tooltip>
+      ) : codeEl;
     }
     return part;
   });
