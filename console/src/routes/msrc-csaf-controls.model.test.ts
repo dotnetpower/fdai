@@ -11,6 +11,7 @@ import {
   msrcCsafHref,
   msrcCsafStateFromSearch,
 } from "./msrc-csaf-controls.model";
+import { msrcCsafDisplayTitle, parseCvssVector } from "./msrc-csaf-guidance";
 
 describe("msrc-csaf-controls model", () => {
   it("stays synchronized with the repository-pinned MSRC CSAF crosswalk catalog", () => {
@@ -147,5 +148,42 @@ describe("msrc-csaf-controls model", () => {
         ],
       }),
     ).toThrow(/MUST NOT carry execution_authority/);
+
+    // C34: Reject unknown or duplicate cve_id in Operator projection
+    expect(() =>
+      mergeMsrcCsafProjection(PINNED_MSRC_CSAF_CATALOG, {
+        schema_version: "1.0.0",
+        source_id: "msrc_csaf",
+        source_revision: PINNED_MSRC_CSAF_CATALOG.source_revision,
+        advisories_digest: PINNED_MSRC_CSAF_CATALOG.advisories_digest,
+        crosswalk_digest: PINNED_MSRC_CSAF_CATALOG.crosswalk_digest,
+        controls: [
+          {
+            cve_id: "CVE-1999-99999",
+            evaluation_status: "evaluated",
+            exposure: "affected",
+            execution_authority: false,
+          },
+        ],
+      }),
+    ).toThrow(/unknown or duplicated/);
+  });
+
+  it("supports exposure filtering, product/rule search, Korean title suffixes, and temporal CVSS dimensions (C31-C36)", () => {
+    const facets = buildMsrcCsafFacets(PINNED_MSRC_CSAF_CATALOG.rows);
+    expect(facets["by_exposure"]?.["unknown"]).toBe(9058);
+    expect(
+      filterMsrcCsafRows(PINNED_MSRC_CSAF_CATALOG.rows, {
+        ...EMPTY_MSRC_CSAF_FILTERS,
+        q: "secret-store.soft-delete.enable",
+      }).length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      msrcCsafDisplayTitle({ title: "Azure Service Memory Corruption Vulnerability" }, "ko"),
+    ).toContain("메모리 손상 취약점");
+    const dims = parseCvssVector("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H/E:F/RL:O/RC:C");
+    expect(dims.map((d) => d.code)).toContain("E:F");
+    expect(dims.map((d) => d.code)).toContain("RL:O");
+    expect(dims.map((d) => d.code)).toContain("RC:C");
   });
 });

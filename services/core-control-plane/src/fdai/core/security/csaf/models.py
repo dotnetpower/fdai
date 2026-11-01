@@ -44,6 +44,13 @@ class CsafScopedResource:
     def __post_init__(self) -> None:
         if not self.resource_id.strip() or not self.provider_resource_type.strip():
             raise ValueError("CSAF scoped resource requires non-empty identity and provider type")
+        # C11: Reject control characters in resource identity, provider type, and string properties
+        if any(ord(ch) < 32 for ch in self.resource_id) or any(
+            ord(ch) < 32 for ch in self.provider_resource_type
+        ):
+            raise ValueError(
+                "CSAF scoped resource identity and provider type MUST NOT contain control chars"
+            )
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("CSAF scoped resource observed_at MUST be timezone-aware")
         if self.workload_tags != tuple(sorted(set(self.workload_tags))):
@@ -55,6 +62,10 @@ class CsafScopedResource:
             val = self.properties[key]
             if not isinstance(val, (str, bool, int)):
                 raise ValueError(f"CSAF scoped resource property {key!r} MUST be str, bool, or int")
+            if isinstance(val, str) and any(ord(ch) < 32 for ch in val):
+                raise ValueError(
+                    f"CSAF scoped resource property {key!r} MUST NOT contain control chars"
+                )
             normalized_props[key] = val
         object.__setattr__(self, "properties", normalized_props)
 
@@ -101,8 +112,13 @@ class CsafEvidenceReceipt:
             raise ValueError("CSAF evidence timestamps MUST be timezone-aware")
         if self.recorded_at < self.observed_at:
             raise ValueError("CSAF evidence recorded_at MUST follow observed_at")
-        if self.freshness_ceiling_seconds < 1:
-            raise ValueError("CSAF evidence freshness ceiling MUST be positive")
+        # C12: Require non-empty source_revision/inventory_generation and bounded ceiling
+        if not self.source_revision.strip() or not self.inventory_generation.strip():
+            raise ValueError(
+                "CSAF evidence source_revision and inventory_generation MUST be non-empty"
+            )
+        if self.freshness_ceiling_seconds < 1 or self.freshness_ceiling_seconds > 31_536_000:
+            raise ValueError("CSAF evidence freshness ceiling MUST be in [1, 31536000]")
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +214,38 @@ class CsafVulnerabilityFinding:
     def __post_init__(self) -> None:
         if not math.isfinite(self.cvss_base_score) or not 0.0 <= self.cvss_base_score <= 10.0:
             raise ValueError("CsafVulnerabilityFinding.cvss_base_score MUST be in [0.0, 10.0]")
+        # C13: Validate sorted uniqueness and mutual disjointness of resource ID tuples
+        for label, items in (
+            ("affected_resource_ids", self.affected_resource_ids),
+            ("mitigated_resource_ids", self.mitigated_resource_ids),
+            ("fixed_resource_ids", self.fixed_resource_ids),
+            ("unknown_resource_ids", self.unknown_resource_ids),
+            ("limitations", self.limitations),
+        ):
+            if items != tuple(sorted(set(items))):
+                raise ValueError(f"CsafVulnerabilityFinding.{label} MUST be unique and ordered")
+        all_rids = (
+            *self.affected_resource_ids,
+            *self.mitigated_resource_ids,
+            *self.fixed_resource_ids,
+            *self.unknown_resource_ids,
+        )
+        if len(all_rids) != len(set(all_rids)):
+            raise ValueError(
+                "CsafVulnerabilityFinding resource ID buckets MUST be mutually disjoint"
+            )
+        # C14: Enforce semantic consistency between evaluation, exposure, and evidence_complete
+        if self.evaluation is not CsafEvaluationStatus.EVALUATED and (
+            self.exposure is not CsafExposureStatus.UNKNOWN or self.evidence_complete
+        ):
+            raise ValueError(
+                "unevaluated or blocked CsafVulnerabilityFinding MUST have "
+                "exposure=unknown and evidence_complete=False"
+            )
+        if self.exposure is CsafExposureStatus.UNKNOWN and self.evidence_complete:
+            raise ValueError(
+                "CsafVulnerabilityFinding with exposure=unknown MUST have evidence_complete=False"
+            )
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -246,6 +294,18 @@ class CsafAssessmentResult:
             raise ValueError("CSAF assessment results are shadow-only and never grant authority")
         if _SHA256_RE.fullmatch(self.result_digest) is None:
             raise ValueError("CSAF assessment result_digest MUST be lowercase SHA-256")
+        # C15: Verify findings are ordered by unique cve_id and timestamps are ordered
+        cve_ids = tuple(item.cve_id for item in self.findings)
+        if cve_ids != tuple(sorted(set(cve_ids))):
+            raise ValueError("CsafAssessmentResult.findings MUST be unique and ordered by cve_id")
+        if (
+            self.evaluated_at.tzinfo is None
+            or self.evaluated_at.utcoffset() is None
+            or self.recorded_at.tzinfo is None
+            or self.recorded_at.utcoffset() is None
+            or self.recorded_at < self.evaluated_at
+        ):
+            raise ValueError("CsafAssessmentResult timestamps MUST be timezone-aware and ordered")
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         payload: dict[str, object] = {

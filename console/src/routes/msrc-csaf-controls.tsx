@@ -151,6 +151,17 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
   const exploitedCount = catalog.rows.filter((r) => r.exploit_status === "exploited").length;
   const mappedCount = catalog.rows.filter((r) => r.mapping_state === "full").length;
   const blockedCount = catalog.rows.filter((r) => r.evaluation_status === "blocked").length;
+  const evaluatedCount = catalog.rows.filter((r) => r.evaluation_status === "evaluated").length;
+  const hasActiveFilters = Boolean(
+    filters.year
+    || filters.severity
+    || filters.exploit_status
+    || filters.disposition
+    || filters.mapping_state
+    || filters.resource_type
+    || filters.exposure
+    || filters.q,
+  );
   const facet = (name: string) => facets[name] ?? {};
 
   usePublishViewContext(
@@ -172,12 +183,15 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
           { key: "mapped_cves", value: mappedCount, group: "catalog" },
           { key: "blocked_cves", value: blockedCount, group: "catalog" },
           { key: "filtered_cves", value: filteredRows.length, group: "filter" },
+          // C40: Publish selected_year and selected_exposure facts to Deck context
           ...(selectedRow && selectedGuidance
             ? [
                 { key: "selected_cve", value: selectedRow.cve_id, group: "selection" },
+                { key: "selected_year", value: selectedRow.year, group: "selection" },
                 { key: "selected_title", value: msrcCsafDisplayTitle(selectedRow, locale), group: "selection" },
                 { key: "selected_cvss", value: selectedRow.cvss_base_score, group: "selection" },
                 { key: "selected_exploit_status", value: selectedRow.exploit_status, group: "selection" },
+                { key: "selected_exposure", value: selectedRow.exposure, group: "selection" },
                 { key: "selected_resource_type", value: selectedRow.primary_resource_type, group: "selection" },
                 { key: "selected_version_window", value: selectedRow.version_window, group: "selection" },
                 { key: "selected_summary", value: guidanceText(selectedGuidance.summary, locale), group: "selection" },
@@ -283,7 +297,10 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
 
   return (
     <div class="stack wara-controls-view msrc-csaf-controls-view">
-      <div class="governance-readonly-banner control-evidence-banner" data-evidence-state="not-connected">
+      <div
+        class="governance-readonly-banner control-evidence-banner"
+        data-evidence-state={evaluatedCount > 0 ? "connected" : "not-connected"}
+      >
         <strong>{t("governance.rules.msrcCsaf.banner.title")}</strong>
         <span>{t("governance.rules.msrcCsaf.banner.body", { revision: catalog.source_revision })}</span>
       </div>
@@ -351,6 +368,13 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
             counts={facet("by_resource_type")}
             onChange={(value) => updateFilter({ resource_type: value })}
           />
+          <FacetSelect
+            label={t("governance.rules.msrcCsaf.column.exposure")}
+            value={filters.exposure}
+            counts={facet("by_exposure")}
+            displayGroup="msrcCsafExposure"
+            onChange={(value) => updateFilter({ exposure: value })}
+          />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.msrcCsaf.filter.searchAria")}</span>
             <input
@@ -361,6 +385,20 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
               onInput={(event) => setSearchInput((event.target as HTMLInputElement).value)}
             />
           </label>
+          {hasActiveFilters ? (
+            <button
+              type="button"
+              class="btn"
+              onClick={() => {
+                setFilters(EMPTY_MSRC_CSAF_FILTERS);
+                setSearchInput("");
+                setOffset(0);
+                navigate(msrcCsafHref(EMPTY_MSRC_CSAF_FILTERS, selected, 0));
+              }}
+            >
+              {t("governance.common.clearFilter")}
+            </button>
+          ) : null}
         </div>
         <div class="table-toolbar">
           <p class="muted">
@@ -543,8 +581,17 @@ function MsrcCsafDrawer({
             <DetailSection title={t("governance.rules.msrcCsaf.detail.advisorySection")}>
               <dl class="detail-grid">
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.trackingId")} value={row.advisory_tracking_id} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.filter.year")} value={row.year} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.sourceRevision")} value={sourceRevision} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.cvssVector")} value={row.cvss_vector} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.cvssVector")}
+                  value={
+                    row.cvss_temporal_score !== null
+                      ? `${row.cvss_vector} (temporal ${row.cvss_temporal_score.toFixed(1)})`
+                      : row.cvss_vector
+                  }
+                  mono
+                />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.initialRelease")} value={row.initial_release_date} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.currentRelease")} value={row.current_release_date} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.signatureVerified")} value={displayValue("boolean", String(row.signature_verified))} />

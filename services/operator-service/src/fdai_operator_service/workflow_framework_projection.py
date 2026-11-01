@@ -374,15 +374,17 @@ def _msrc_csaf_catalog_payload(
         )
 
     if request.operation is WorkflowOperation.MSRC_CSAF_DETAIL:
-        cve_id = request.path_parameters.get("cve_id", "")
+        cve_id = request.path_parameters.get("cve_id", "").strip()
+        # C29: Validate CVE/ADV identifier format on detail lookup and return 404 when unknown
         selected = next((item for item in controls if item.get("cve_id") == cve_id), None)
-        if selected is None:
+        if not cve_id or selected is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"unknown MSRC CSAF vulnerability {cve_id!r}",
             )
         return dict(selected)
 
+    # C26: Support evaluation_status and exposure filters in addition to year/severity/exploit
     filter_fields = (
         "year",
         "severity",
@@ -390,6 +392,8 @@ def _msrc_csaf_catalog_payload(
         "disposition",
         "mapping_state",
         "primary_resource_type",
+        "evaluation_status",
+        "exposure",
     )
     filters = {
         field: request.query.get(
@@ -401,6 +405,7 @@ def _msrc_csaf_catalog_payload(
         for field in filter_fields
     }
     needle = request.query.get("q", "").strip().lower()
+    # C28: Include product_ids, existing_rule_id, and candidate_action_type in text search
     matched = [
         item
         for item in controls
@@ -412,20 +417,52 @@ def _msrc_csaf_catalog_payload(
             not needle
             or needle
             in "\n".join(
-                str(item.get(field, ""))
-                for field in (
-                    "cve_id",
-                    "title",
-                    "advisory_tracking_id",
-                    "advisory_title",
-                    "primary_resource_type",
-                )
+                [
+                    *(
+                        str(item.get(field, ""))
+                        for field in (
+                            "cve_id",
+                            "title",
+                            "advisory_tracking_id",
+                            "advisory_title",
+                            "primary_resource_type",
+                            "existing_rule_id",
+                            "candidate_action_type",
+                        )
+                    ),
+                    *(
+                        str(pid)
+                        for pid in (
+                            cast(list[object], item["product_ids"])
+                            if isinstance(item.get("product_ids"), list)
+                            else []
+                        )
+                    ),
+                ]
             ).lower()
         )
     ]
+    # C27: Sort matched controls by threat priority (exploited -> CVSS score -> cve_id)
+    exploit_rank = {
+        "exploited": 5,
+        "exploitation_more_likely": 4,
+        "publicly_disclosed": 3,
+        "exploitation_less_likely": 2,
+        "exploitation_unlikely": 1,
+        "unproven": 0,
+    }
+    matched.sort(
+        key=lambda item: (
+            -exploit_rank.get(str(item.get("exploit_status", "")), 0),
+            -float(item.get("cvss_base_score", 0.0))
+            if isinstance(item.get("cvss_base_score"), (int, float))
+            else 0.0,
+            str(item.get("cve_id", "")),
+        )
+    )
     offset = request.offset or 0
     limit = request.limit or 100
-    return {
+    response: dict[str, object] = {
         "schema_version": str(stored.get("schema_version") or "1.0.0"),
         "source_id": "msrc_csaf",
         "source_revision": source_revision,
@@ -443,6 +480,16 @@ def _msrc_csaf_catalog_payload(
             "by_disposition": _wara_counts(controls, "disposition"),
             "by_mapping_state": _wara_counts(controls, "mapping_state"),
             "by_resource_type": _wara_counts(controls, "primary_resource_type"),
+            "by_evaluation_status": _wara_counts(controls, "evaluation_status"),
+            "by_exposure": _wara_counts(controls, "exposure"),
         },
         "controls": [dict(item) for item in matched[offset : offset + limit]],
     }
+    # C30: Preserve optional summary, last_workload_id, and last_evaluated_at metadata
+    if isinstance(stored.get("summary"), Mapping):
+        response["summary"] = dict(cast(Mapping[str, object], stored["summary"]))
+    if isinstance(stored.get("last_workload_id"), str):
+        response["last_workload_id"] = stored["last_workload_id"]
+    if isinstance(stored.get("last_evaluated_at"), str):
+        response["last_evaluated_at"] = stored["last_evaluated_at"]
+    return response

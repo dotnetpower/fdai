@@ -204,6 +204,18 @@ class CsafProductBranch(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=256)]
     cpe: Annotated[str, Field(min_length=5, max_length=256)] | None = None
 
+    @model_validator(mode="after")
+    def validate_product_branch(self) -> CsafProductBranch:
+        # C02: Reject control characters or blank names and validate CPE prefix
+        if not self.name.strip() or any(ord(ch) < 32 for ch in self.name):
+            raise ValueError("CSAF product branch name MUST NOT be blank or contain control chars")
+        if self.cpe is not None and (
+            any(ch.isspace() or ord(ch) < 32 for ch in self.cpe)
+            or not self.cpe.startswith(("cpe:2.3:", "cpe:/"))
+        ):
+            raise ValueError("CSAF product branch cpe MUST start with 'cpe:2.3:' or 'cpe:/'")
+        return self
+
 
 class CsafRemediationRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -237,6 +249,15 @@ class CsafRemediationRecord(BaseModel):
             and self.kb_article is None
         ):
             raise ValueError("vendor_fix remediation requires fixed_version or kb_article")
+        # C03: Reject contradictory none_available remediations that claim a fix or action
+        if self.category is CsafRemediationCategory.NONE_AVAILABLE and (
+            self.fixed_version is not None
+            or self.workaround_property is not None
+            or self.recommended_action_type is not None
+        ):
+            raise ValueError(
+                "none_available remediation MUST NOT specify fixed_version, workaround, or action"
+            )
         if self.category in {
             CsafRemediationCategory.WORKAROUND,
             CsafRemediationCategory.MITIGATION,
@@ -267,6 +288,12 @@ class CsafVulnerabilityRecord(BaseModel):
     def validate_vulnerability(self) -> CsafVulnerabilityRecord:
         if not self.known_affected_product_ids:
             raise ValueError("CSAF vulnerability requires at least one known_affected product_id")
+        # C01: Validate CVSS vector metric uniqueness and finite temporal score
+        vector_metrics = [segment.split(":", 1)[0] for segment in self.cvss_vector.split("/")[1:]]
+        if len(vector_metrics) != len(set(vector_metrics)):
+            raise ValueError("CSAF cvss_vector MUST NOT contain duplicate metric keys")
+        if self.cvss_temporal_score is not None and not math.isfinite(self.cvss_temporal_score):
+            raise ValueError("CSAF cvss_temporal_score MUST be a finite number")
         for label, items in (
             ("known_affected_product_ids", self.known_affected_product_ids),
             ("fixed_product_ids", self.fixed_product_ids),
@@ -392,6 +419,15 @@ class CsafProductCrosswalk(BaseModel):
             sorted(set(self.provider_resource_types))
         ):
             raise ValueError("provider_resource_types MUST be non-empty, unique, and ordered")
+        # C04: Reject blank or case-insensitively duplicated provider_resource_types
+        lower_rtypes = [pt.strip().casefold() for pt in self.provider_resource_types]
+        if any(not pt or "/" not in pt for pt in lower_rtypes) or len(lower_rtypes) != len(
+            set(lower_rtypes)
+        ):
+            raise ValueError(
+                "provider_resource_types MUST be non-blank provider/type strings "
+                "without case-fold duplicates"
+            )
         if self.disposition is ResourceTypeDisposition.CANONICAL:
             if (
                 self.version_property is None
@@ -439,6 +475,14 @@ class CsafVulnerabilityCrosswalk(BaseModel):
             raise ValueError("existing_rule disposition requires existing_rule_id")
         if self.disposition is CsafDisposition.AMBIGUOUS_OR_BLOCKED and not self.blocked_reasons:
             raise ValueError("ambiguous_or_blocked disposition requires blocked_reasons")
+        # C05: Reject unmapped mapping_state when disposition is not ambiguous_or_blocked
+        if (
+            self.mapping_state is WaraMappingState.UNMAPPED
+            and self.disposition is not CsafDisposition.AMBIGUOUS_OR_BLOCKED
+        ):
+            raise ValueError(
+                "unmapped vulnerability crosswalk requires ambiguous_or_blocked disposition"
+            )
         if (self.workaround_property is None) != (self.workaround_expected_value is None):
             raise ValueError(
                 "workaround_property and workaround_expected_value MUST be supplied together"
@@ -561,15 +605,18 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
     assembled_advisories: list[Any] = []
     assembled_vuln_mappings: list[Any] = []
     seen_paths: set[str] = set()
-    for shard_ref in shards:
+    for idx, shard_ref in enumerate(shards):
         if not isinstance(shard_ref, dict):
             raise CsafSchemaError("MSRC CSAF shard reference MUST be an object")
         rel_path = str(shard_ref.get("path") or "")
+        expected_rel_path = f"shards/crosswalk-{idx:02d}.json"
+        # C06: Require contiguous ordered shard paths and bounded total records
         if (
             re.fullmatch(r"shards/crosswalk-[0-9]{2}\.json", rel_path) is None
+            or rel_path != expected_rel_path
             or rel_path in seen_paths
         ):
-            raise CsafSchemaError(f"invalid or duplicate MSRC CSAF shard path {rel_path!r}")
+            raise CsafSchemaError(f"invalid or non-contiguous MSRC CSAF shard path {rel_path!r}")
         seen_paths.add(rel_path)
         shard_path = path.parent / rel_path
         if shard_path.is_symlink() or not shard_path.is_file():
@@ -598,6 +645,13 @@ def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
             raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} counts do not match manifest")
         assembled_advisories.extend(shard_advs)
         assembled_vuln_mappings.extend(shard_vmaps)
+    if (
+        not assembled_advisories
+        or not assembled_vuln_mappings
+        or len(assembled_advisories) > 25_000
+        or len(assembled_vuln_mappings) > 25_000
+    ):
+        raise CsafSchemaError("MSRC CSAF assembled shard counts are empty or exceed ceiling")
     merged = {key: value for key, value in raw.items() if key != "shards"}
     merged["advisories"] = assembled_advisories
     merged["vulnerability_mappings"] = assembled_vuln_mappings

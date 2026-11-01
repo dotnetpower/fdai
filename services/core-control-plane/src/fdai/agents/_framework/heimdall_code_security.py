@@ -71,10 +71,20 @@ class HeimdallCodeSecurityMixin:
             self.record_behavior("msrc_csaf_drift:projector_unavailable")
             return False
         payload = self._msrc_csaf_drift_projector(package)
+        # C25: Enforce shadow ceiling and no-authority contract at Heimdall publish boundary
+        if (
+            not isinstance(payload, Mapping)
+            or payload.get("authority_ceiling") != "shadow"
+            or payload.get("human_approval_required") is not True
+            or payload.get("grants_authority") is not False
+        ):
+            raise MsrcCsafReviewError(
+                "Heimdall MSRC CSAF drift payload MUST preserve shadow authority ceiling"
+            )
         self.record_behavior(f"msrc_csaf_drift:{payload['decision']}")
         if self.bus is None:
             return False
-        await self.bus.publish("Heimdall", "object.drift", payload)
+        await self.bus.publish("Heimdall", "object.drift", dict(payload))
         return True
 
     async def msrc_csaf_facts(self) -> dict[str, Any] | None:
@@ -111,6 +121,9 @@ class HeimdallCodeSecurityMixin:
                 continue
             by_exposure = review["by_exposure"]
             affected_count = by_exposure["affected"] if isinstance(by_exposure, Mapping) else 0
+            top_cves_raw = review.get("top_cve_ids")
+            actions_raw = review.get("recommended_action_types")
+            # C24: Include critical_affected_count, top_cve_ids, and recommended_action_types
             latest[workload_id] = (
                 utc_ts,
                 {
@@ -119,7 +132,14 @@ class HeimdallCodeSecurityMixin:
                     "decision": csaf_review_decision(review),
                     "cve_count": review["cve_count"],
                     "affected_cve_count": affected_count,
+                    "critical_affected_count": review["critical_affected_count"],
                     "exploited_affected_count": review["exploited_affected_count"],
+                    "top_cve_ids": (
+                        list(top_cves_raw[:5]) if isinstance(top_cves_raw, list) else []
+                    ),
+                    "recommended_action_types": (
+                        list(actions_raw[:5]) if isinstance(actions_raw, list) else []
+                    ),
                     "coverage_complete": review["coverage_complete"],
                     "recorded_at": utc_ts.isoformat(),
                 },

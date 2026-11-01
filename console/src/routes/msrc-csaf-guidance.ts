@@ -18,6 +18,13 @@ const VULNERABILITY_SUFFIX_TRANSLATIONS: readonly (readonly [RegExp, string])[] 
   [/\bCross-Site Scripting \(XSS\) Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
   [/\bCross-Site Scripting Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
   [/\bAuthentication Bypass Vulnerability$/i, "인증 우회 취약점"],
+  [/\bMemory Corruption Vulnerability$/i, "메모리 손상 취약점"],
+  [/\bOut-of-bounds Read Vulnerability$/i, "경계 밖 읽기(OOB Read) 취약점"],
+  [/\bOut-of-bounds Write Vulnerability$/i, "경계 밖 쓰기(OOB Write) 취약점"],
+  [/\bUse After Free Vulnerability$/i, "해제 후 재사용(UAF) 취약점"],
+  [/\bHeap-based Buffer Overflow Vulnerability$/i, "힙 버퍼 오버플로 취약점"],
+  [/\bServer-Side Request Forgery \(SSRF\) Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
+  [/\bSQL Injection Vulnerability$/i, "SQL 인젝션 취약점"],
   [/\bCross-Tenant Information Disclosure$/i, "테넌트 간 정보 노출 취약점"],
   [/\bContainer Escape and Privilege Escalation$/i, "컨테이너 이스케이프 및 권한 상승 취약점"],
   [/\bProtocol Downgrade and Session Hijacking$/i, "프로토콜 다운그레이드 및 세션 하이재킹 취약점"],
@@ -109,6 +116,36 @@ const CVSS_DIMENSIONS: Readonly<Record<string, {
       H: { text: text("High (Full service outage)", "높음 (서비스 전면 중단 위험)"), tone: "danger" },
       L: { text: text("Low (Degraded performance)", "낮음 (성능 저하)"), tone: "warning" },
       N: { text: text("None", "없음"), tone: "neutral" },
+    },
+  },
+  // C36: Support CVSS v3 Temporal metrics (Exploit Code Maturity, Remediation Level, Report Confidence)
+  E: {
+    label: text("Exploit Maturity", "익스플로잇 성숙도 (E)"),
+    values: {
+      H: { text: text("High (Autonomous / widespread)", "높음 (자동화·광범위 악용)"), tone: "danger" },
+      F: { text: text("Functional exploit exists", "기능적 익스플로잇 존재"), tone: "danger" },
+      P: { text: text("Proof-of-concept (PoC)", "개념 증명(PoC) 공개"), tone: "warning" },
+      U: { text: text("Unproven", "미확인"), tone: "neutral" },
+      X: { text: text("Not defined", "미지정"), tone: "neutral" },
+    },
+  },
+  RL: {
+    label: text("Remediation Level", "패치 수준 (RL)"),
+    values: {
+      O: { text: text("Official fix available", "공식 패치 제공됨"), tone: "info" },
+      T: { text: text("Temporary fix", "임시 패치 제공됨"), tone: "warning" },
+      W: { text: text("Workaround available", "임시 완화(Workaround) 가능"), tone: "warning" },
+      U: { text: text("Unavailable", "패치 미제공"), tone: "danger" },
+      X: { text: text("Not defined", "미지정"), tone: "neutral" },
+    },
+  },
+  RC: {
+    label: text("Report Confidence", "보고 신뢰도 (RC)"),
+    values: {
+      C: { text: text("Confirmed by vendor", "공급자 공식 확인됨"), tone: "info" },
+      R: { text: text("Reasonable confidence", "상당한 신뢰도"), tone: "neutral" },
+      U: { text: text("Unknown confidence", "신뢰도 미확인"), tone: "warning" },
+      X: { text: text("Not defined", "미지정"), tone: "neutral" },
     },
   },
 };

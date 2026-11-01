@@ -13,17 +13,21 @@ from fdai.core.security.csaf import (
     CsafAssessmentResult,
     MsrcCsafAssessmentRuntime,
     build_csaf_review_package,
+    extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
+    to_security_control_observations,
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.msrc_csaf import (
     CsafDisposition,
+    CsafThreatExploitStatus,
     CsafVulnerabilityRecord,
     MsrcCsafCrosswalkCatalog,
     load_msrc_csaf_crosswalk_catalog,
 )
 
 MSRC_CSAF_PROJECTION_KEY = "operator-projection:workflow:msrc-csaf.list"
+MSRC_CSAF_REVIEW_STATE_PREFIX = "runtime:msrc-csaf-review:"
 _REPO_ROOT = repo_asset_root()
 _DEFAULT_CROSSWALK_PATH = _REPO_ROOT / "rule-catalog/collected/msrc-csaf/crosswalk.json"
 _CVE_YEAR_RE = re.compile(r"^CVE-(\d{4})-")
@@ -37,11 +41,31 @@ class MsrcCsafAssessmentRunReceipt:
     review_package: dict[str, object]
     drift_payload: dict[str, object]
     operator_projection: dict[str, object]
+    # C21: Include extracted Norns rule candidates and SecurityControlObservation count
+    rule_candidates: tuple[dict[str, object], ...] = ()
+    security_observations_count: int = 0
     execution_authority: bool = False
 
     def __post_init__(self) -> None:
         if self.execution_authority is not False:
             raise ValueError("MsrcCsafAssessmentRunReceipt MUST NOT grant execution_authority")
+        if self.security_observations_count < 0:
+            raise ValueError("security_observations_count MUST be non-negative")
+
+
+def build_msrc_csaf_state_store_record(
+    receipt: MsrcCsafAssessmentRunReceipt,
+) -> tuple[str, dict[str, object]]:
+    """Build the state-store key and record consumed by Heimdall.msrc_csaf_facts() (C23)."""
+
+    if receipt.execution_authority is not False:
+        raise ValueError("state-store record requires a shadow no-authority receipt")
+    key = f"{MSRC_CSAF_REVIEW_STATE_PREFIX}{receipt.assessment.workload_id}"
+    record: dict[str, object] = {
+        "package": receipt.review_package,
+        "recorded_at": receipt.assessment.recorded_at.isoformat(),
+    }
+    return key, record
 
 
 def build_msrc_csaf_operator_projection(
@@ -132,9 +156,35 @@ def build_msrc_csaf_operator_projection(
                 "primary_resource_type": primary_rtype,
                 "evaluation_status": eval_status,
                 "exposure": exposure,
+                # C22: Include per-CVE resource counts and limitations in Operator projection
+                "affected_resource_count": (
+                    len(finding.affected_resource_ids) if finding is not None else 0
+                ),
+                "mitigated_resource_count": (
+                    len(finding.mitigated_resource_ids) if finding is not None else 0
+                ),
+                "fixed_resource_count": (
+                    len(finding.fixed_resource_ids) if finding is not None else 0
+                ),
+                "limitations": list(finding.limitations) if finding is not None else [],
                 "execution_authority": False,
             }
         )
+
+    summary = {
+        "total": len(controls),
+        "affected": sum(1 for item in controls if item["exposure"] == "affected"),
+        "mitigated": sum(1 for item in controls if item["exposure"] == "mitigated"),
+        "fixed": sum(1 for item in controls if item["exposure"] == "fixed"),
+        "not_applicable": sum(1 for item in controls if item["exposure"] == "not_applicable"),
+        "unknown": sum(1 for item in controls if item["exposure"] == "unknown"),
+        "exploited_affected": sum(
+            1
+            for item in controls
+            if item["exposure"] == "affected"
+            and item["exploit_status"] == CsafThreatExploitStatus.EXPLOITED.value
+        ),
+    }
 
     payload: dict[str, object] = {
         "schema_version": catalog.schema_version,
@@ -145,6 +195,9 @@ def build_msrc_csaf_operator_projection(
         "evaluation_source": (
             "msrc-csaf-shadow-assessment" if result is not None else "repository-catalog"
         ),
+        "last_workload_id": result.workload_id if result is not None else None,
+        "last_evaluated_at": result.evaluated_at.isoformat() if result is not None else None,
+        "summary": summary,
         "controls": controls,
     }
     revision = (
@@ -175,10 +228,14 @@ class MsrcCsafAssessmentRunner:
         review_package = build_csaf_review_package(assessment)
         drift_payload = msrc_csaf_drift_payload(review_package)
         projection = build_msrc_csaf_operator_projection(self._catalog, assessment)
+        candidates = extract_csaf_rule_candidates(self._catalog, assessment)
+        observations = to_security_control_observations(assessment)
         return MsrcCsafAssessmentRunReceipt(
             assessment=assessment,
             review_package=review_package,
             drift_payload=drift_payload,
             operator_projection=projection,
+            rule_candidates=candidates,
+            security_observations_count=len(observations),
             execution_authority=False,
         )

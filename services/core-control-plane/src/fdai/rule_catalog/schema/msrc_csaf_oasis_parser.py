@@ -90,6 +90,18 @@ def _collect_product_branches(
             if not isinstance(item, Mapping):
                 raise CsafSchemaError("OASIS CSAF full_product_name item MUST be an object")
             _collect_product_branches({"product": item}, depth=depth + 1, collected=collected)
+    # C07: Support OASIS CSAF product_tree relationships (full_product_name)
+    relationships = node.get("relationships")
+    if relationships is not None:
+        if not isinstance(relationships, list):
+            raise CsafSchemaError("OASIS CSAF relationships MUST be a list")
+        for rel in relationships:
+            if not isinstance(rel, Mapping):
+                raise CsafSchemaError("OASIS CSAF relationship item MUST be an object")
+            fpn = rel.get("full_product_name")
+            if not isinstance(fpn, Mapping):
+                raise CsafSchemaError("OASIS CSAF relationship requires full_product_name object")
+            _collect_product_branches({"product": fpn}, depth=depth + 1, collected=collected)
     return collected
 
 
@@ -111,7 +123,16 @@ def _parse_threats(threats_raw: object) -> tuple[CsafThreatExploitStatus, bool]:
     for item in threats_raw:
         if not isinstance(item, Mapping):
             raise CsafSchemaError("OASIS CSAF threat entry MUST be an object")
+        # C08: Validate optional threat category and reject completely blank threat entries
+        cat_raw = item.get("category")
+        if cat_raw is not None and (
+            not isinstance(cat_raw, str)
+            or cat_raw not in {"exploit_status", "impact", "target_set"}
+        ):
+            raise CsafSchemaError(f"invalid OASIS CSAF threat category {cat_raw!r}")
         details = str(item.get("details") or "").strip().casefold()
+        if not details and cat_raw is None:
+            raise CsafSchemaError("OASIS CSAF threat entry requires details or category")
         for clause in (part.strip() for part in details.split(";") if part.strip()):
             if ":" in clause:
                 key, _, val = (segment.strip() for segment in clause.partition(":"))
@@ -170,11 +191,16 @@ def _parse_scores(
         cvss = item.get("cvss_v3")
         if not isinstance(cvss, Mapping):
             raise CsafSchemaError("OASIS CSAF score entry requires cvss_v3")
+        # C09: Validate optional cvss_v3.version and enforce [0.0, 10.0] score bounds
+        cvss_ver = cvss.get("version")
+        if cvss_ver is not None and cvss_ver not in {"3.0", "3.1"}:
+            raise CsafSchemaError(f"OASIS CSAF cvss_v3.version {cvss_ver!r} MUST be '3.0' or '3.1'")
         base_raw = cvss.get("baseScore")
         if (
             not isinstance(base_raw, (int, float))
             or isinstance(base_raw, bool)
             or not math.isfinite(float(base_raw))
+            or not 0.0 <= float(base_raw) <= 10.0
         ):
             raise CsafSchemaError("OASIS CSAF cvss_v3.baseScore MUST be a finite number")
         base_score = float(base_raw)
@@ -186,6 +212,7 @@ def _parse_scores(
                 not isinstance(temporal_raw, (int, float))
                 or isinstance(temporal_raw, bool)
                 or not math.isfinite(float(temporal_raw))
+                or not 0.0 <= float(temporal_raw) <= 10.0
             ):
                 raise CsafSchemaError("OASIS CSAF cvss_v3.temporalScore MUST be a finite number")
             temporal = float(temporal_raw)
@@ -286,9 +313,32 @@ def parse_oasis_csaf_bytes(
     tracking = doc.get("tracking")
     if not isinstance(tracking, Mapping):
         raise CsafSchemaError("OASIS CSAF document.tracking is required")
+    # C10: Validate document.category when present and verify revision_history item structure
+    doc_category = doc.get("category")
+    if doc_category is not None and (
+        not isinstance(doc_category, str)
+        or doc_category
+        not in {
+            "csaf_security_advisory",
+            "csaf_vex",
+            "csaf_base",
+            "Microsoft Security Advisory",
+        }
+    ):
+        raise CsafSchemaError(f"invalid OASIS CSAF document.category {doc_category!r}")
     rev_history = tracking.get("revision_history")
     if not isinstance(rev_history, list) or not rev_history:
         raise CsafSchemaError("OASIS CSAF document.tracking.revision_history MUST be non-empty")
+    for rev_entry in rev_history:
+        if not isinstance(rev_entry, Mapping):
+            raise CsafSchemaError("OASIS CSAF revision_history entry MUST be an object")
+        if "number" in rev_entry and not str(rev_entry.get("number") or "").strip():
+            raise CsafSchemaError("OASIS CSAF revision_history.number MUST be non-empty")
+        if "date" in rev_entry:
+            try:
+                datetime.fromisoformat(str(rev_entry["date"]))
+            except ValueError as exc:
+                raise CsafSchemaError("OASIS CSAF revision_history.date MUST be ISO-8601") from exc
     branches = _collect_product_branches(tree)
     products = tuple(branches[pid] for pid in sorted(branches))
     vulnerabilities: list[CsafVulnerabilityRecord] = []

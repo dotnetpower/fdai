@@ -14,6 +14,7 @@ from fdai.delivery.msrc_csaf_assessment_cli import (
     MSRC_CSAF_PROJECTION_KEY,
     MsrcCsafAssessmentRunner,
     build_msrc_csaf_operator_projection,
+    build_msrc_csaf_state_store_record,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -62,7 +63,16 @@ def test_runner_evaluates_9058_cves_and_builds_shadow_operator_projection() -> N
     aks_row = next(item for item in controls if item["cve_id"] == "CVE-2026-20001")
     assert aks_row["evaluation_status"] == "evaluated"
     assert aks_row["exposure"] == "affected"
+    assert aks_row["affected_resource_count"] == 1
     assert aks_row["execution_authority"] is False
+    assert isinstance(proj["summary"], dict)
+    assert proj["summary"]["total"] == 9058
+    assert receipt.rule_candidates
+    assert receipt.security_observations_count >= 9058
+
+    state_key, state_record = build_msrc_csaf_state_store_record(receipt)
+    assert state_key == "runtime:msrc-csaf-review:payments-prod"
+    assert state_record["package"] == receipt.review_package
 
     static_proj = build_msrc_csaf_operator_projection(catalog, None)
     assert static_proj["evaluation_source"] == "repository-catalog"
