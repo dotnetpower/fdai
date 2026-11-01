@@ -58,7 +58,7 @@ export function ControlsCatalogRoute({ client }: { readonly client: OperatorApiC
       ) : framework === "azure-wara" ? (
         <WaraControlsRoute client={client} />
       ) : framework === "msrc-csaf" ? (
-        <MsrcCsafControlsRoute />
+        <MsrcCsafControlsRoute client={client} />
       ) : (
         <McsbControlsRoute client={client} />
       )}

@@ -342,3 +342,107 @@ def _wara_catalog_payload(
         "source_revision": stored.get("source_revision"),
         "crosswalk_digest": stored.get("crosswalk_digest"),
     }
+
+
+def _msrc_csaf_catalog_payload(
+    stored: Mapping[str, object],
+    request: WorkflowReadRequest,
+) -> dict[str, object]:
+    controls_value = stored.get("controls")
+    evaluation_source = stored.get("evaluation_source")
+    source_revision = stored.get("source_revision")
+    advisories_digest = stored.get("advisories_digest")
+    crosswalk_digest = stored.get("crosswalk_digest")
+    if (
+        not isinstance(controls_value, list)
+        or not isinstance(evaluation_source, str)
+        or not isinstance(source_revision, str)
+        or not isinstance(advisories_digest, str)
+        or not isinstance(crosswalk_digest, str)
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative MSRC CSAF catalog is malformed",
+        )
+    controls = [item for item in controls_value if isinstance(item, dict)]
+    if len(controls) != len(controls_value) or any(
+        item.get("execution_authority") is not False for item in controls
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative MSRC CSAF catalog is malformed",
+        )
+
+    if request.operation is WorkflowOperation.MSRC_CSAF_DETAIL:
+        cve_id = request.path_parameters.get("cve_id", "")
+        selected = next((item for item in controls if item.get("cve_id") == cve_id), None)
+        if selected is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"unknown MSRC CSAF vulnerability {cve_id!r}",
+            )
+        return dict(selected)
+
+    filter_fields = (
+        "year",
+        "severity",
+        "exploit_status",
+        "disposition",
+        "mapping_state",
+        "primary_resource_type",
+    )
+    filters = {
+        field: request.query.get(
+            "resource_type" if field == "primary_resource_type" else field,
+            "",
+        )
+        .strip()
+        .lower()
+        for field in filter_fields
+    }
+    needle = request.query.get("q", "").strip().lower()
+    matched = [
+        item
+        for item in controls
+        if all(
+            not expected or str(item.get(field, "")).lower() == expected
+            for field, expected in filters.items()
+        )
+        and (
+            not needle
+            or needle
+            in "\n".join(
+                str(item.get(field, ""))
+                for field in (
+                    "cve_id",
+                    "title",
+                    "advisory_tracking_id",
+                    "advisory_title",
+                    "primary_resource_type",
+                )
+            ).lower()
+        )
+    ]
+    offset = request.offset or 0
+    limit = request.limit or 100
+    return {
+        "schema_version": str(stored.get("schema_version") or "1.0.0"),
+        "source_id": "msrc_csaf",
+        "source_revision": source_revision,
+        "advisories_digest": advisories_digest,
+        "crosswalk_digest": crosswalk_digest,
+        "evaluation_source": evaluation_source,
+        "total": len(controls),
+        "filtered_total": len(matched),
+        "offset": offset,
+        "limit": limit,
+        "facets": {
+            "by_year": _wara_counts(controls, "year"),
+            "by_severity": _wara_counts(controls, "severity"),
+            "by_exploit_status": _wara_counts(controls, "exploit_status"),
+            "by_disposition": _wara_counts(controls, "disposition"),
+            "by_mapping_state": _wara_counts(controls, "mapping_state"),
+            "by_resource_type": _wara_counts(controls, "primary_resource_type"),
+        },
+        "controls": [dict(item) for item in matched[offset : offset + limit]],
+    }

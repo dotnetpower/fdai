@@ -299,13 +299,45 @@ def _classify_product_family(
             "existing_rule",
             "remediate.disable-public-access",
         )
-    if "storage" in combined and "windows storage" not in combined:
+    if any(k in combined for k in ("site recovery", "azure backup", "recovery services")):
+        return (
+            "backup-vault",
+            "microsoft.recoveryservices/vaults",
+            "vault_agent_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if (
+        "storage" in combined
+        or "file sync" in combined
+        or "storsimple" in combined
+        or "data box" in combined
+    ) and "windows storage" not in combined:
         return (
             "object-storage",
             "microsoft.storage/storageaccounts",
             "minimum_tls_version",
             "object-storage.public-access.deny",
             "existing_rule",
+            "remediate.disable-public-access",
+        )
+    if "postgresql" in combined:
+        return (
+            "postgresql-server",
+            "microsoft.dbforpostgresql/flexibleservers",
+            "engine_version",
+            None,
+            "version_observation",
+            "remediate.disable-public-access",
+        )
+    if "mysql" in combined:
+        return (
+            "mysql-server",
+            "microsoft.dbformysql/flexibleservers",
+            "engine_version",
+            None,
+            "version_observation",
             "remediate.disable-public-access",
         )
     if "sql managed instance" in combined:
@@ -353,7 +385,7 @@ def _classify_product_family(
             "version_observation",
             "remediate.disable-public-access",
         )
-    if any(k in combined for k in ("app service", "web apps", "spring")):
+    if any(k in combined for k in ("app service", "web apps", "spring", "service connector")):
         return (
             "compute.web-app",
             "microsoft.web/sites",
@@ -389,6 +421,9 @@ def _classify_product_family(
             "data explorer",
             "hdinsight",
             "data manager",
+            "purview",
+            "microsoft fabric",
+            "on-premises data gateway",
         )
     ):
         return (
@@ -417,7 +452,7 @@ def _classify_product_family(
             "version_observation",
             "remediate.disable-public-access",
         )
-    if "bot service" in combined:
+    if any(k in combined for k in ("bot service", "health bot", "bot framework")):
         return (
             "bot-service",
             "microsoft.botservice/botservices",
@@ -456,6 +491,24 @@ def _classify_product_family(
             "new_rule_candidate",
             "ops.restart-service",
         )
+    if any(k in combined for k in ("application gateway", "app gateway")):
+        return (
+            "network.application-gateway",
+            "microsoft.network/applicationgateways",
+            "gateway_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if "azure firewall" in combined:
+        return (
+            "network.firewall",
+            "microsoft.network/azurefirewalls",
+            "firewall_version",
+            None,
+            "version_observation",
+            None,
+        )
     if "front door" in combined:
         return (
             "network.cdn-profile",
@@ -492,6 +545,24 @@ def _classify_product_family(
             "version_observation",
             "remediate.disable-public-access",
         )
+    if any(k in combined for k in ("cache for redis", "azure redis")):
+        return (
+            "cache",
+            "microsoft.cache/redis",
+            "redis_version",
+            None,
+            "version_observation",
+            "remediate.disable-public-access",
+        )
+    if any(k in combined for k in ("event hubs", "event hub")):
+        return (
+            "event-hub",
+            "microsoft.eventhub/namespaces",
+            "namespace_version",
+            None,
+            "version_observation",
+            None,
+        )
     if "event grid" in combined:
         return (
             "event-grid-topic",
@@ -506,6 +577,60 @@ def _classify_product_family(
             "service-bus-namespace",
             "microsoft.servicebus/namespaces",
             "namespace_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if "azure automation" in combined:
+        return (
+            "automation-account",
+            "microsoft.automation/automationaccounts",
+            "agent_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if "compute gallery" in combined:
+        return (
+            "compute.image-gallery",
+            "microsoft.compute/galleries",
+            "image_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if "azure batch" in combined:
+        return (
+            "compute.batch-account",
+            "microsoft.batch/batchaccounts",
+            "node_agent_version",
+            None,
+            "version_observation",
+            None,
+        )
+    if any(
+        k in combined
+        for k in (
+            "cyclecloud",
+            "service fabric",
+            "azure stack",
+            "azure local",
+            "eflow",
+        )
+    ):
+        return (
+            "compute.vm-scale-set",
+            "microsoft.compute/virtualmachinescalesets",
+            "cluster_runtime_version",
+            None,
+            "version_observation",
+            "ops.restart-service",
+        )
+    if any(k in combined for k in ("virtual desktop", "windows 365")):
+        return (
+            "compute.desktop-host-pool",
+            "microsoft.desktopvirtualization/hostpools",
+            "agent_version",
             None,
             "version_observation",
             None,
@@ -528,7 +653,15 @@ def _classify_product_family(
             "version_observation",
             None,
         )
-    if "iot" in combined:
+    if any(
+        k in combined
+        for k in (
+            "iot",
+            "azure sphere",
+            "azure rtos",
+            "real time operating system",
+        )
+    ):
         return (
             "iot-hub",
             "microsoft.devices/iothubs",
@@ -555,6 +688,7 @@ def _classify_product_family(
             "azure cli",
             "billing",
             "custom locations",
+            "azure identity",
         )
     ):
         return (
@@ -866,17 +1000,33 @@ def collect_all_msrc_csaf_records() -> tuple[
         vec = str(sc0.get("vectorString") or "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N")
         if not re.fullmatch(r"CVSS:3\.[01](/[A-Z]+:[A-Za-z0-9.]+)+", vec):
             vec = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
+        csaf_branches = _walk_branches(doc.get("product_tree") or {})
+        csaf_pnames = [fam or bname for _cat, fam, bname, _pid in csaf_branches if (fam or bname)]
+        if not csaf_pnames:
+            csaf_pnames = [str(doc["document"].get("title") or cve)]
+        csaf_fixed_build: str | None = None
+        csaf_rem_url: str | None = None
+        csaf_rem_desc: str | None = None
+        for rem in v0.get("remediations") or []:
+            if not isinstance(rem, Mapping):
+                continue
+            u = rem.get("url")
+            if isinstance(u, str) and u.strip() and not csaf_rem_url:
+                csaf_rem_url = u.strip()
+            d = rem.get("details")
+            if isinstance(d, str) and d.strip() and not csaf_rem_desc:
+                csaf_rem_desc = d.strip()
         cvrf_by_cve[cve] = {
             "cve": cve,
             "title": str(v0.get("title") or doc["document"].get("title") or cve),
-            "p_names": [str(doc["document"].get("title") or cve)],
+            "p_names": csaf_pnames,
             "base_score": base,
             "temp_score": float(temp) if isinstance(temp, (int, float)) else None,
             "vector": vec,
             "threats": v0.get("threats") or [],
-            "fixed_build": None,
-            "rem_url": None,
-            "rem_desc": "Security Update",
+            "fixed_build": csaf_fixed_build,
+            "rem_url": csaf_rem_url,
+            "rem_desc": csaf_rem_desc or "Security Update",
             "rev_count": max(1, len(doc["document"]["tracking"].get("revision_history") or [1])),
             "init_date": str(doc["document"]["tracking"].get("initial_release_date") or mod_date),
             "cur_date": str(doc["document"]["tracking"].get("current_release_date") or mod_date),
@@ -896,7 +1046,7 @@ def collect_all_msrc_csaf_records() -> tuple[
         info = cvrf_by_cve[cve]
         title = _clean_text(info["title"], max_len=240)
         p_names = [n for n in info["p_names"] if n]
-        preferred_names = [
+        tier1_names = [
             n
             for n in p_names
             if any(
@@ -908,16 +1058,38 @@ def collect_all_msrc_csaf_records() -> tuple[
                     "entra",
                     "arc",
                     "keyvault",
+                    "key vault",
                     "storage",
                     "cosmos",
                     "mariner",
+                    "purview",
+                    "service fabric",
+                    "site recovery",
                 )
             )
         ]
-        family_name = _clean_text(
-            preferred_names[0] if preferred_names else (p_names[0] if p_names else title),
-            max_len=180,
+        tier2_names = [
+            n
+            for n in p_names
+            if any(
+                k in n.casefold()
+                for k in (
+                    "windows server 2025",
+                    "windows server 2022",
+                    "windows server 2019",
+                    "windows server",
+                    "linux",
+                )
+            )
+        ]
+        selected_name = (
+            tier1_names[0]
+            if tier1_names
+            else tier2_names[0]
+            if tier2_names
+            else (p_names[0] if p_names else title)
         )
+        family_name = _clean_text(selected_name, max_len=180)
         canonical_type, arm_type, ver_prop, existing_rule, disposition, action_type = (
             _classify_product_family(family_name, title)
         )
@@ -946,7 +1118,12 @@ def collect_all_msrc_csaf_records() -> tuple[
 
         tracking_id = f"msrc_{cve}"
         source_url = f"https://msrc.microsoft.com/csaf/advisories/{rel_path}"
-        doc_digest = "sha256:" + hashlib.sha256(f"{rel_path}:{mod_date}:{cve}".encode()).hexdigest()
+        doc_digest = (
+            "sha256:"
+            + hashlib.sha256(
+                f"{rel_path}|{mod_date}|{cve}|{title}|{info['base_score']}|{info['vector']}|{max_ver}".encode()
+            ).hexdigest()
+        )
         init_ts = _normalize_iso_timestamp(info["init_date"], mod_date)
         cur_ts = _normalize_iso_timestamp(info["cur_date"], mod_date)
         if cur_ts < init_ts:

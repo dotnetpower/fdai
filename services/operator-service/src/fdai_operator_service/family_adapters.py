@@ -84,6 +84,7 @@ from fdai_operator_service.workflow_catalog_projection import (
     _best_practice_catalog_payload,
     _caf_catalog_payload,
     _mcsb_catalog_payload,
+    _msrc_csaf_catalog_payload,
     _promotion_gate_payload,
     _rule_catalog_payload,
     _rule_findings_summary_payload,
@@ -335,6 +336,16 @@ class PostgresWorkflowAdapters:
                             sort_keys=True,
                         ).encode()
                     ).hexdigest()
+            elif request.operation in {
+                WorkflowOperation.MSRC_CSAF_LIST,
+                WorkflowOperation.MSRC_CSAF_DETAIL,
+            }:
+                stored = await self.store.read_projection(
+                    family="workflow",
+                    operation=WorkflowOperation.MSRC_CSAF_LIST.value,
+                )
+                projection_key = "operator-projection:workflow:msrc-csaf.list"
+                payload = _msrc_csaf_catalog_payload(stored, request)
             elif request.operation is WorkflowOperation.PROMOTION_GATE_LIST:
                 stored = await self.store.read_projection(
                     family="workflow",
