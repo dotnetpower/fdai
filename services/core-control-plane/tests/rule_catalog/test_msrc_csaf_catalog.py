@@ -116,7 +116,7 @@ def test_shipped_msrc_csaf_crosswalk_loads_and_verifies_digests() -> None:
     catalog = load_msrc_csaf_crosswalk_catalog(CROSSWALK_PATH)
     assert catalog.source_id == "msrc_csaf"
     assert len(catalog.advisories) == 9057
-    assert len(catalog.product_mappings) == 1868
+    assert len(catalog.product_mappings) == 1875
     assert len(catalog.vulnerability_mappings) == 9058
 
 

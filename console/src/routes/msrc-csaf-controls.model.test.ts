@@ -7,6 +7,7 @@ import {
   buildMsrcCsafFacets,
   decodeMsrcCsafCatalog,
   filterMsrcCsafRows,
+  mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
 } from "./msrc-csaf-controls.model";
@@ -107,5 +108,44 @@ describe("msrc-csaf-controls model", () => {
       vulnerability_mappings: raw.vulnerability_mappings.slice(0, 1),
     };
     expect(() => decodeMsrcCsafCatalog(minimal)).toThrow(/signature is not verified/);
+  });
+
+  it("overlays Operator projection evaluations and rejects execution_authority or digest drift", () => {
+    const merged = mergeMsrcCsafProjection(PINNED_MSRC_CSAF_CATALOG, {
+      schema_version: "1.0.0",
+      source_id: "msrc_csaf",
+      source_revision: PINNED_MSRC_CSAF_CATALOG.source_revision,
+      advisories_digest: PINNED_MSRC_CSAF_CATALOG.advisories_digest,
+      crosswalk_digest: PINNED_MSRC_CSAF_CATALOG.crosswalk_digest,
+      controls: [
+        {
+          cve_id: "CVE-2026-20001",
+          evaluation_status: "evaluated",
+          exposure: "affected",
+          execution_authority: false,
+        },
+      ],
+    });
+    const row = merged.rows.find((r) => r.cve_id === "CVE-2026-20001");
+    expect(row?.evaluation_status).toBe("evaluated");
+    expect(row?.exposure).toBe("affected");
+
+    expect(() =>
+      mergeMsrcCsafProjection(PINNED_MSRC_CSAF_CATALOG, {
+        schema_version: "1.0.0",
+        source_id: "msrc_csaf",
+        source_revision: PINNED_MSRC_CSAF_CATALOG.source_revision,
+        advisories_digest: PINNED_MSRC_CSAF_CATALOG.advisories_digest,
+        crosswalk_digest: PINNED_MSRC_CSAF_CATALOG.crosswalk_digest,
+        controls: [
+          {
+            cve_id: "CVE-2026-20001",
+            evaluation_status: "evaluated",
+            exposure: "affected",
+            execution_authority: true,
+          },
+        ],
+      }),
+    ).toThrow(/MUST NOT carry execution_authority/);
   });
 });

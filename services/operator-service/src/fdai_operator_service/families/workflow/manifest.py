@@ -177,6 +177,21 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
     ),
     WorkflowRouteSpec(
         "GET",
+        "/msrc-csaf-controls",
+        "list_handler",
+        WorkflowOperation.MSRC_CSAF_LIST,
+        "read",
+        pagination=PaginationSpec(100, 500),
+    ),
+    WorkflowRouteSpec(
+        "GET",
+        "/msrc-csaf-controls/{cve_id}",
+        "detail_handler",
+        WorkflowOperation.MSRC_CSAF_DETAIL,
+        "read",
+    ),
+    WorkflowRouteSpec(
+        "GET",
         "/kpi/promotion-gates",
         "handler",
         WorkflowOperation.PROMOTION_GATE_LIST,
