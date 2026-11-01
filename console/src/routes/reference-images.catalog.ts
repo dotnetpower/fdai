@@ -1047,6 +1047,76 @@ const CONTROL_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
   "azure-mcsb:DS-6": "02-soft-delete"
 };
 
+const RULE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
+  "kubernetes-node-pool.multi-zone": "aks-node-pools",
+  "kubernetes-node-pool.auto-scaler-enabled": "aks-node-pools",
+  "kubernetes-cluster.system-user-pool-separated": "aks-node-pools",
+  "kubernetes-cluster.diagnostic-settings-required": "aks-monitor-data-v2",
+  "kubernetes-cluster.audit-log-enabled": "aks-monitor-data-v2",
+  "kubernetes-cluster.container-insights-enabled": "aks-monitor-data-v2",
+  "kubernetes-cluster.network-policy-configured": "network-watcher-capabilities",
+  "kubernetes-cluster.private-api-server": "fastpath-vnet-peering",
+  "kubernetes-cluster.authorized-ip-ranges-configured": "front-door-overview",
+  "object-storage.blob-versioning-enabled": "point-in-time-restore-diagram",
+  "object-storage.soft-delete.enabled": "point-in-time-restore-diagram",
+  "object-storage.geo-redundant": "geo-zone-redundant-storage",
+  "object-storage.customer-managed-key-required": "geo-zone-redundant-storage",
+  "object-storage.diagnostic-settings-required": "data-export-overview",
+  "object-storage.public-network-access.disabled": "fastpath-vnet-peering",
+  "block-storage.snapshot-policy-attached": "vmbackup-architecture",
+  "virtual-machine.backup-enabled": "vmbackup-architecture",
+  "virtual-machine.availability-zone-configured": "aks-node-pools",
+  "secret-store.soft-delete-enabled": "backup-item-delete-flow",
+  "secret-store.purge-protection.enabled": "backup-item-delete-flow",
+  "secret-store.diagnostic-settings-required": "data-export-overview",
+  "secret-store.public-network-access.disabled": "fastpath-vnet-peering",
+  "virtual-network.ddos-protection-enabled": "front-door-overview",
+  "network-security-group.flow-logs-enabled": "network-watcher-capabilities",
+  "network.nsg.no-internet-inbound-rdp": "network-watcher-capabilities",
+  "network.nsg.no-internet-inbound-ssh": "network-watcher-capabilities",
+  "load-balancer.waf-enabled": "front-door-overview",
+  "load-balancer.health-probe-configured": "appgatewayprobe",
+  "relational-database.point-in-time-restore-retention": "point-in-time-restore-diagram",
+  "relational-database.geo-redundant-backup-enabled": "vmbackup-architecture",
+  "relational-database.diagnostic-settings-required": "data-export-overview",
+  "relational-database.public-network-access.disabled": "fastpath-vnet-peering",
+};
+
+const RESOURCE_TYPE_IMAGE_BINDINGS: Readonly<Record<string, string>> = {
+  "kubernetes-node-pool": "aks-node-pools",
+  "kubernetes-cluster": "aks-node-pools",
+  "kubernetes-cluster.control-plane": "aks-monitor-data-v2",
+  "kubernetes_cluster": "aks-node-pools",
+  "Microsoft.ContainerService/managedClusters": "aks-node-pools",
+  "object-storage": "geo-zone-redundant-storage",
+  "object_storage": "geo-zone-redundant-storage",
+  "Microsoft.Storage/storageAccounts": "geo-zone-redundant-storage",
+  "block-storage": "vmbackup-architecture",
+  "block_storage": "vmbackup-architecture",
+  "virtual-machine": "vmbackup-architecture",
+  "virtual_machine": "vmbackup-architecture",
+  "Microsoft.Compute/virtualMachines": "vmbackup-architecture",
+  "secret-store": "backup-item-delete-flow",
+  "secret_store": "backup-item-delete-flow",
+  "Microsoft.KeyVault/vaults": "backup-item-delete-flow",
+  "container-registry": "02-soft-delete",
+  "Microsoft.ContainerRegistry/registries": "02-soft-delete",
+  "load-balancer": "appgatewayprobe",
+  "load_balancer": "appgatewayprobe",
+  "Microsoft.Network/applicationGateways": "appgatewayprobe",
+  "Microsoft.Cdn/profiles": "front-door-overview",
+  "Microsoft.Network/frontDoors": "front-door-overview",
+  "network-security-group": "network-watcher-capabilities",
+  "network_security_group": "network-watcher-capabilities",
+  "Microsoft.Network/networkSecurityGroups": "network-watcher-capabilities",
+  "virtual-network": "fastpath-vnet-peering",
+  "virtual_network": "fastpath-vnet-peering",
+  "Microsoft.Network/virtualNetworks": "fastpath-vnet-peering",
+  "relational-database": "point-in-time-restore-diagram",
+  "relational_database": "point-in-time-restore-diagram",
+  "log-analytics-workspace": "data-export-overview",
+};
+
 export function resolveControlReferenceImage(
   scope: "azure-waf" | "azure-caf" | "azure-mcsb" | "mcsb-v2-preview" | "msrc-csaf" | "rule",
   id: string,
@@ -1058,42 +1128,11 @@ export function resolveControlReferenceImage(
     const v1Mapped = CONTROL_IMAGE_BINDINGS[`azure-mcsb:${id}`];
     if (v1Mapped) return PACKAGED_REFERENCE_IMAGES[v1Mapped];
   }
-  const lower = `${id} ${resourceType ?? ""}`.toLowerCase();
-  if (lower.includes("node-pool") || lower.includes("multi-zone") || lower.includes("aks") && lower.includes("zone")) {
-    return PACKAGED_REFERENCE_IMAGES["aks-node-pools"];
-  }
-  if (lower.includes("kubernetes") && (lower.includes("diagnostic") || lower.includes("monitor") || lower.includes("audit"))) {
-    return PACKAGED_REFERENCE_IMAGES["aks-monitor-data-v2"];
-  }
-  if (lower.includes("point-in-time") || lower.includes("versioning") || lower.includes("soft-delete-blob")) {
-    return PACKAGED_REFERENCE_IMAGES["point-in-time-restore-diagram"];
-  }
-  if (lower.includes("object-storage") || lower.includes("storage") && (lower.includes("geo") || lower.includes("redundan") || lower.includes("encryption"))) {
-    return PACKAGED_REFERENCE_IMAGES["geo-zone-redundant-storage"];
-  }
-  if (lower.includes("snapshot") || lower.includes("backup") && lower.includes("vm")) {
-    return PACKAGED_REFERENCE_IMAGES["vmbackup-architecture"];
-  }
-  if (lower.includes("purge-protection") || lower.includes("soft-delete") && lower.includes("secret")) {
-    return PACKAGED_REFERENCE_IMAGES["backup-item-delete-flow"];
-  }
-  if (lower.includes("containerregistry") || lower.includes("acr")) {
-    return PACKAGED_REFERENCE_IMAGES["02-soft-delete"];
-  }
-  if (lower.includes("frontdoor") || lower.includes("waf") || lower.includes("ddos")) {
-    return PACKAGED_REFERENCE_IMAGES["front-door-overview"];
-  }
-  if (lower.includes("applicationgateway") || lower.includes("probe")) {
-    return PACKAGED_REFERENCE_IMAGES["appgatewayprobe"];
-  }
-  if (lower.includes("nsg") || lower.includes("network-watcher") || lower.includes("network-policy")) {
-    return PACKAGED_REFERENCE_IMAGES["network-watcher-capabilities"];
-  }
-  if (lower.includes("private-endpoint") || lower.includes("private-cluster") || lower.includes("vnet") || lower.includes("peering")) {
-    return PACKAGED_REFERENCE_IMAGES["fastpath-vnet-peering"];
-  }
-  if (lower.includes("diagnostic-settings") || lower.includes("log") && lower.includes("workspace")) {
-    return PACKAGED_REFERENCE_IMAGES["data-export-overview"];
+  const ruleBinding = RULE_IMAGE_BINDINGS[id];
+  if (ruleBinding) return PACKAGED_REFERENCE_IMAGES[ruleBinding];
+  if (resourceType) {
+    const rtBinding = RESOURCE_TYPE_IMAGE_BINDINGS[resourceType];
+    if (rtBinding) return PACKAGED_REFERENCE_IMAGES[rtBinding];
   }
   return undefined;
 }
