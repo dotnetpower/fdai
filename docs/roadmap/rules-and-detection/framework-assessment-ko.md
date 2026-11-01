@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 6648b64e6ba35edc601658f633e3de10aa86e17c
+translation_source_sha: a6a7ce4fb9d93d59a8daa90d21bbcbf2e5bb1afd
 translation_revised: 2026-11-01
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -345,8 +345,9 @@ Operator 대화 상태 snapshot과 요청 필드는 평가 출처, 발견 사항
 패키지된 WAF, CAF, MCSB v1 컨트롤과 MCSB v2-preview 컨트롤(`AI-1..AI-7`에 대한 OWASP LLM Top 10 및
 MITRE ATLAS 참조 포함), MSRC CSAF 권고(`P0`-`P3` 우선순위 등급 및 공격 표면 요약 포함), 탐지 규칙은 평가
 판정이나 충족 상태 또는 실행 권한을 바꾸지 않고 한국어/영어 제목(`title_ko`), 5노드 관계 다이어그램,
-검토된 공식 참조 아키텍처 이미지, Command Deck 화면 맥락(`selected_diagram_flow`,
-`selected_verification`, `selected_caution`)을 표현 메타데이터로 연결합니다.
+검토된 공식 참조 아키텍처 이미지, 역방향 MSRC CSAF CVE 인용, Command Deck 화면 맥락
+(`selected_diagram_flow`, `selected_verification`, `selected_caution`, `console_security_posture`)을
+표현 메타데이터로 연결합니다.
 
 ## 관련 문서
 

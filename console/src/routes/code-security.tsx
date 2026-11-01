@@ -16,7 +16,7 @@ import {
 } from "../components/ui";
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { t as appT } from "../i18n";
 import { t } from "./i18n/code-security";
 import { routeHref } from "../router";
@@ -305,11 +305,23 @@ export function knownExploitedTotal(reviews: readonly CodeSecurityReview[]): num
 export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSnapshot {
   const data = state.reviews;
   const latest = latestPerRepository(data.reviews);
+  const sumSeverity = (key: (typeof SEVERITIES)[number]) =>
+    latest.reduce((acc, rev) => acc + (rev.by_severity[key] ?? 0), 0);
+  const sumPriority = (key: (typeof PRIORITIES)[number]) =>
+    latest.reduce((acc, rev) => acc + (rev.by_priority[key] ?? 0), 0);
+  const coverageCompleteCount = latest.filter((rev) => rev.coverage_complete).length;
+  const incompleteRepos = latest
+    .filter((rev) => !rev.coverage_complete)
+    .map((rev) => rev.repository_alias)
+    .join(", ") || "none";
+  const exposureSummary = EXPOSURES.map(
+    (exp) => `${exp}:${latest.filter((rev) => rev.exposure === exp).length}`,
+  ).join(", ");
   return {
     routeId: "code-security",
     routeLabel: appT("nav.panel.codeSecurity"),
     purpose: t("codeSecurity.readOnlyBody"),
-    glossary: composeGlossary([], [
+    glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY, [
       { term: appT("nav.panel.codeSecurity"), plain: t("codeSecurity.subtitle"), tech: "code-security-review" },
     ]),
     headline: data.available
@@ -328,6 +340,37 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
         key: "known_exploited_count",
         label: t("codeSecurity.kpi.knownExploited"),
         value: knownExploitedTotal(latest),
+      },
+      { key: "critical_issue_count", value: sumSeverity("critical"), group: "severity" },
+      { key: "high_issue_count", value: sumSeverity("high"), group: "severity" },
+      { key: "medium_issue_count", value: sumSeverity("medium"), group: "severity" },
+      { key: "low_issue_count", value: sumSeverity("low"), group: "severity" },
+      { key: "p0_issue_count", value: sumPriority("P0"), group: "priority" },
+      { key: "p1_issue_count", value: sumPriority("P1"), group: "priority" },
+      { key: "coverage_complete_repositories", value: coverageCompleteCount, group: "coverage" },
+      { key: "incomplete_coverage_repositories", value: incompleteRepos, group: "coverage" },
+      { key: "exposure_summary", value: exposureSummary, group: "exposure" },
+      {
+        key: "registered_repository_count",
+        value: state.repositories?.repositories.length ?? 0,
+        group: "registration",
+      },
+      {
+        key: "worker_status",
+        value: state.worker?.available ? "available" : "unavailable",
+        group: "runtime",
+      },
+      { key: "execution_authority", value: false, group: "security_boundary" },
+      {
+        key: "console_web_security_boundary",
+        value:
+          "Read-only SPA with zero cloud/executor credentials, Entra ID + server-verified GET /iam/self RBAC, SHA-256 digest-verified guidance, no dangerouslySetInnerHTML/arbitrary SVG/JS, and 5-role ActionType + 7-safeguard mutation gating",
+        group: "security_boundary",
+      },
+      {
+        key: "related_security_routes",
+        value: "/rules?view=controls&framework=msrc-csaf, /rules?view=controls&framework=azure-mcsb, /rules?category=security",
+        group: "navigation",
       },
     ],
     records: {

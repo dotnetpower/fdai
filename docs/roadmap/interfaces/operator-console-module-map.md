@@ -650,11 +650,12 @@ The static component gallery reads contracts from `mocks/ui/assets/component-reg
 ## Boundary invariant
 `core/conversation/` imports protocols only. Azure SDK, HTTP, Bot Framework, and provider calls live
 under `delivery/`. Conversation presentation never becomes execution authority.
-The `/rules` catalog and framework drawers (`rule-catalog-*`, `best-practice-controls-*`,
-`caf-controls.tsx`, `mcsb-controls-*`, `wara-controls.tsx`, `msrc-csaf-controls.tsx`) publish
-selected guidance summaries, diagram flows, and verification/caution steps to `usePublishViewContext`
-and render shared `IllustratedGuidanceContent` with permalink/ID/brief copy actions without granting
-assessment, approval, or execution authority.
+The `/rules` catalog, `/code-security` review panel, and framework drawers (`rule-catalog-*`,
+`best-practice-controls-*`, `caf-controls.tsx`, `mcsb-controls-*`, `wara-controls.tsx`,
+`msrc-csaf-controls.tsx`, `code-security.tsx`) publish `SECURITY_AND_RULES_GLOSSARY`,
+`console_security_posture`, selected guidance summaries, diagram flows, and verification/caution
+steps to `usePublishViewContext` and render shared `IllustratedGuidanceContent` with
+permalink/ID/brief copy actions without granting assessment, approval, or execution authority.
 
 ## Related docs
 

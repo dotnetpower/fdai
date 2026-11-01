@@ -14,7 +14,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import {
@@ -34,6 +34,7 @@ import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components
 import { guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { FrameworkGuidanceContent } from "./framework-guidance";
+import { formatGuidanceMarkdownBrief } from "./wara-guidance";
 import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
 import { bestPracticeHref } from "./best-practice-controls.model";
@@ -225,7 +226,7 @@ function CafControlsBody({
         routeId: "rules",
         routeLabel: "Azure CAF",
         purpose: t("governance.rules.caf.banner.body"),
-        glossary: composeGlossary([]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY),
         headline: selectedDetail
           ? `CAF ${selectedDetail.control_id}: ${frameworkDisplayTitle("azure-caf", selectedDetail, locale)}`
           : `Azure CAF: ${data.total} controls (${data.filtered_total} shown)`,
@@ -234,6 +235,11 @@ function CafControlsBody({
           { key: "total_caf_controls", value: data.total, group: "catalog" },
           { key: "filtered_caf_controls", value: data.filtered_total, group: "catalog" },
           { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           ...(selectedDetail
             ? [
                 { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
@@ -241,6 +247,13 @@ function CafControlsBody({
                 { key: "selected_area", value: selectedDetail.area, group: "selection" },
                 { key: "selected_owner", value: selectedDetail.owner_slot, group: "selection" },
                 { key: "selected_satisfaction", value: selectedDetail.satisfaction, group: "selection" },
+                {
+                  key: "selected_crosswalk_refs",
+                  value: selectedDetail.crosswalk
+                    .map((cw) => `${cw.target_kind}:${cw.target_ref ?? "unmapped"}`)
+                    .join(", ") || "none",
+                  group: "selection",
+                },
                 ...(guidance
                   ? [
                       { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
@@ -433,7 +446,17 @@ function CafDrawer({
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.caf.detail.title")}</h3>
           <div class="rule-drawer-actions">
-            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            {detail.status === "ready" ? (
+              <>
+                <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} />
+                {detail.data.guidance ? (
+                  <CopyButton
+                    text={formatGuidanceMarkdownBrief(detail.data.control_id, detail.data.guidance, getLocale())}
+                    label={t("governance.common.copyBrief")}
+                  />
+                ) : null}
+              </>
+            ) : null}
             <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
             <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
           </div>

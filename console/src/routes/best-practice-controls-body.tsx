@@ -9,7 +9,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import type { BestPracticeDetailState } from "./best-practice-controls";
 import {
@@ -155,7 +155,7 @@ export function BestPracticeControlsBody({
         routeId: "rules",
         routeLabel: t("governance.rules.controls.context.routeLabel"),
         purpose: t("governance.rules.controls.context.purpose"),
-        glossary: composeGlossary([]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY),
         headline: t("governance.rules.controls.context.headline", {
           total: data.total,
           unknown,
@@ -171,11 +171,24 @@ export function BestPracticeControlsBody({
           { key: "filter_pillar", value: filters.pillar || "all", group: "filter" },
           { key: "filter_status", value: filters.status || "all", group: "filter" },
           { key: "search_query", value: filters.q || null, group: "filter" },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           { key: "selected_control", value: selected, group: "selection" },
           ...(selectedDetail
             ? [
                 { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
                 { key: "selected_title", value: frameworkDisplayTitle("azure-waf", selectedDetail, locale), group: "selection" },
+                {
+                  key: "selected_cited_rules",
+                  value: selectedDetail.requirements
+                    .filter((req) => req.kind === "rule")
+                    .map((req) => req.ref)
+                    .join(", ") || "none",
+                  group: "selection",
+                },
                 ...(guidance
                   ? [
                       { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },

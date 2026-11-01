@@ -371,6 +371,10 @@
         "none": "이 규칙을 인용하는 Azure WAF 컨트롤이 없습니다.",
         "collected": "수집된 코퍼스 규칙은 프레임워크 컨트롤이 인용하지 않습니다. 선별된 규칙만 인용할 수 있습니다.",
         "unavailable": "이 Operator API는 컨트롤 인용 정보를 제공하지 않습니다."
+      },
+      "csafCitations": {
+        "titleCount": "연결된 MSRC CSAF 보안 권고 ({count})",
+        "subtitle": "노출 탐지를 위해 이 활성 T0 규칙에 바인딩된 MSRC CSAF 2.0 CVE 취약점 목록입니다."
       }
     },
     "activation": {
@@ -998,8 +1002,13 @@
       "evaluated_properties": "평가 대상 속성",
       "trigger_signals": "트리거 관측 신호",
       "remediation_action": "교정 ActionType",
+      "azure_policy_name": "Azure Policy 정의 ID",
+      "azure_policy_display_name": "Azure Policy 표시 이름",
       "azure_policy_effect_default": "기본 정책 효과",
       "azure_policy_category": "정책 범주",
+      "kube_bench_id": "CIS 벤치마크 ID",
+      "kube_bench_ruleset": "CIS 벤치마크 배포판",
+      "kube_bench_group_id": "CIS 섹션 그룹",
       "kube_bench_audit": "감사 명령어",
       "kube_bench_scored": "CIS 점수 반영 여부"
     },

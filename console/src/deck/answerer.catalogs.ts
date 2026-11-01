@@ -32,8 +32,30 @@ export const ROUTE_ACTION_HINTS: Readonly<Record<string, string>> = {
     "Audit: search rows by seq/correlation/action, filter by mode (shadow/enforce), " +
     "click a row to open its trace; export is via the header if enabled.",
   rules:
-    "Rules: search by id/category/severity, click a rule to open its detail drawer " +
-    "with provenance + remediation + shadow accuracy; enable/disable is governance-only.",
+    "Rules (/rules): inspect Detection Rules (52 active T0 Rego + 8,517 collected Azure Policy/CIS kube-bench) " +
+    "and 6 framework tabs (Azure WAF, Azure CAF, MCSB v1/v2-preview with AI-1..AI-7 OWASP LLM/MITRE ATLAS, " +
+    "Azure WARA, and MSRC CSAF 2.0 9,058 CVEs with P0-P3 KEV priority). All views are read-only (execution_authority=false).",
+  "code-security":
+    "Code security (/code-security): review signed multi-lens repository security scans, Kata sandbox verification " +
+    "verdicts, P0-P4 / critical-to-low issue counts, known-exploited findings, and adjudication packs (execution_authority=false).",
+  "settings-iam":
+    "IAM settings (/settings-iam): inspect Entra ID principal identity and server-verified GET /iam/self FDAI roles " +
+    "(Reader, Contributor, Approver, Owner). The Console browser never holds cloud or executor credentials.",
+  documents:
+    "Documents (/documents): inspect governed document ingestion, quarantine/malware/extraction checks, " +
+    "collection access boundaries, and handover goal checklists (execution_authority=false).",
+  stewardship:
+    "Stewardship (/stewardship): review accountable human stewards and scoped duty handovers mapped to the " +
+    "fixed 15-agent Pantheon without granting personal IAM or execution authority.",
+  "assurance-twin":
+    "Assurance twin (/assurance-twin): inspect shadow twin validation, scenario replay, and challenger readiness " +
+    "without mutating production resources.",
+  "cost-governance":
+    "Cost governance (/cost-governance): review FinOps anomaly candidates, pseudonymous cost attribution, and " +
+    "budget guardrails (execution_authority=false).",
+  "execution-backends":
+    "Execution backends (/execution-backends): inspect read-only status and health of isolated execution backends " +
+    "without exposing credentials or Thor's executor identity.",
   "hil-queue":
     "Approvals: review pending items and their risk reason; eligible approvers can record " +
     "approve or reject in FDAI Console or a supported channel. A decision never executes " +

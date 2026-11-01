@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { usePublishViewContext } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import {
   CopyButton,
@@ -237,7 +237,7 @@ function WaraControlsBody({
         routeId: "rules",
         routeLabel: "Azure WARA",
         purpose: t("governance.rules.wara.banner.body"),
-        glossary: composeGlossary([]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY),
         headline: selectedDetail
           ? `WARA ${selectedDetail.id.slice(0, 8)}: ${waraDisplayTitle(selectedDetail, locale)}`
           : `Azure WARA: ${data.total} recommendations (${data.inventory.active_recommendations} active)`,
@@ -247,6 +247,11 @@ function WaraControlsBody({
           { key: "active_wara_recommendations", value: data.inventory.active_recommendations, group: "catalog" },
           { key: "automated_wara_recommendations", value: data.inventory.automated_recommendations, group: "catalog" },
           { key: "filtered_wara_recommendations", value: data.filtered_total, group: "filter" },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           ...(selectedDetail
             ? [
                 { key: "selected_recommendation_id", value: selectedDetail.id, group: "selection" },

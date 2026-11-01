@@ -458,3 +458,25 @@ def test_rule_snapshot_attaches_bilingual_explanations_for_active_and_collected_
     assert kb_exp["description"]
     assert "파일 소유권(root:root) 설정 준수" in kb_exp["details"]["title_ko"]
     assert kb_exp["details"]["description_ko"]
+
+    from fdai.delivery.rule_explanation_localization import (
+        localize_azure_policy_explanation,
+        translate_azure_policy_category_ko,
+    )
+
+    assert (
+        translate_azure_policy_category_ko("Guest Configuration")
+        == "게스트 구성(Guest Configuration)"
+    )
+    policy_exp = localize_azure_policy_explanation(
+        rule_id="azure-builtin.deprecated-sample",
+        resource_type="azure.resource",
+        parameters={
+            "azure_policy_display_name": (
+                "[Deprecated]: Audit virtual machines without disaster recovery"
+            ),
+            "azure_policy_category": "Resilience",
+            "azure_policy_effect_default": "Audit",
+        },
+    )
+    assert "[복원력(Resilience)] [사용 중단됨(Deprecated)]" in policy_exp[1]

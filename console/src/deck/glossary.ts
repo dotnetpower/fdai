@@ -204,7 +204,111 @@ export const TERMS = {
     seeAlso: "detection-coverage",
     match: "detection_readiness",
   },
+  consoleSecurityBoundary: {
+    term: "console security boundary",
+    plain:
+      "the FDAI Console web SPA holds zero cloud or executor credentials, verifies Entra ID and server-owned GET /iam/self RBAC, forbids arbitrary HTML/SVG/JS execution, verifies SHA-256 guidance digests, and keeps execution_authority=false",
+    tech: "execution_authority=false",
+    seeAlso: "code-security",
+  },
+  executionAuthority: {
+    term: "execution authority",
+    plain:
+      "whether a surface or projection can mutate cloud resources; all Console views, rules, framework assessments, and chat responses keep execution_authority=false",
+    tech: "execution_authority",
+    seeAlso: "promotion-gates",
+  },
+  codeSecurityReview: {
+    term: "code security review",
+    plain:
+      "a signed multi-lens repository scan and isolated Kata sandbox verification record showing P0-P4 priority, severity, confidence, and known-exploited counts without auto-execution authority",
+    tech: "CodeSecurityReview",
+    seeAlso: "code-security",
+  },
+  verificationPack: {
+    term: "verification pack",
+    plain:
+      "an immutable adjudication and rescan verification bundle tracking fixed_verified, still_present, inconclusive, and false_positive verdicts for code security findings",
+    tech: "CodeSecurityPack",
+    seeAlso: "code-security",
+  },
+  t0Rule: {
+    term: "T0 detection rule",
+    plain:
+      "a deterministic Rego or policy expression rule that evaluates inventory snapshots and proposes a paired ActionType without bypassing risk or HIL gates",
+    tech: "Rule",
+    seeAlso: "rules",
+  },
+  wafControl: {
+    term: "Azure WAF control",
+    plain:
+      "one of the 59 Azure Well-Architected Framework controls across Reliability, Security, Cost, Operational Excellence, and Performance Efficiency evaluated in shadow mode",
+    tech: "azure-waf",
+    seeAlso: "rules",
+  },
+  cafControl: {
+    term: "Azure CAF control",
+    plain:
+      "one of the 15 Cloud Adoption Framework methodology and landing-zone governance areas requiring procedure and execution evidence",
+    tech: "azure-caf",
+    seeAlso: "rules",
+  },
+  mcsbBenchmark: {
+    term: "MCSB control",
+    plain:
+      "a Microsoft Cloud Security Benchmark control (86 v1 controls plus 74 v2-preview controls including AI-1..AI-7) where decisive evidence is required for satisfaction",
+    tech: "azure-mcsb",
+    seeAlso: "rules",
+  },
+  waraRecommendation: {
+    term: "WARA recommendation",
+    plain:
+      "one of the 456 Azure Well-Architected Review Assessment (APRL) reliability recommendations with source-pinned KQL evaluators and illustrated architecture guidance",
+    tech: "azure-wara",
+    seeAlso: "rules",
+  },
+  msrcCsaf: {
+    term: "MSRC CSAF advisory",
+    plain:
+      "a signed OASIS CSAF 2.0 Microsoft Security Response Center vulnerability record mapped to canonical ResourceTypes, version windows, CWE classes, and P0-P3 KEV priority tiers",
+    tech: "msrc_csaf",
+    seeAlso: "rules",
+  },
+  cvePriorityTier: {
+    term: "CVE priority tier",
+    plain:
+      "the deterministic exploitability priority tier (P0 Immediate for exploited/KEV, P1 Urgent, P2 Scheduled, P3 Monitor) combining exploit status, CVSS v3.1 attack surface, and runtime exposure",
+    tech: "priority_tier",
+    seeAlso: "rules",
+  },
+  owaspLlmTop10: {
+    term: "OWASP LLM Top 10 & MITRE ATLAS",
+    plain:
+      "the AI security threat taxonomy mapped onto MCSB v2-preview controls AI-1 through AI-7 covering prompt injection, excessive agency, supply chain, and red-teaming",
+    tech: "owasp_llm_ref",
+    seeAlso: "rules",
+  },
 } as const satisfies Record<string, GlossaryTerm>;
+
+export const SECURITY_AND_RULES_GLOSSARY: readonly GlossaryTerm[] = [
+  TERMS.consoleSecurityBoundary,
+  TERMS.executionAuthority,
+  TERMS.codeSecurityReview,
+  TERMS.verificationPack,
+  TERMS.t0Rule,
+  TERMS.wafControl,
+  TERMS.cafControl,
+  TERMS.mcsbBenchmark,
+  TERMS.waraRecommendation,
+  TERMS.msrcCsaf,
+  TERMS.cvePriorityTier,
+  TERMS.owaspLlmTop10,
+  TERMS.tier,
+  TERMS.mode,
+  TERMS.hil,
+  TERMS.actionType,
+  TERMS.humanRbac,
+];
 
 /**
  * The pantheon agent term - the 15 fixed agents share one definition shape, so

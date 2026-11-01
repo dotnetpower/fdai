@@ -2,7 +2,7 @@ import { useMemo } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { DataTable, KpiCard, KpiGrid, StatusPill, type Column, type PillKind } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { composeGlossary } from "../deck/glossary";
+import { SECURITY_AND_RULES_GLOSSARY, composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import { displayValue, t } from "./i18n/governance";
 import type { McsbDetailState } from "./mcsb-controls";
@@ -194,7 +194,7 @@ export function McsbControlsBody({
         routeId: "rules",
         routeLabel: t("governance.rules.mcsb.context.routeLabel"),
         purpose: t("governance.rules.mcsb.context.purpose"),
-        glossary: composeGlossary([]),
+        glossary: composeGlossary(SECURITY_AND_RULES_GLOSSARY),
         headline: t("governance.rules.mcsb.context.headline", {
           version,
           total: data.total,
@@ -215,12 +215,22 @@ export function McsbControlsBody({
             value: data.assessment_summary?.status ?? "unavailable",
             group: "evidence",
           },
+          {
+            key: "console_security_posture",
+            value: "read_only_spa_zero_privileged_identity; execution_authority=false; code_security_route=/code-security",
+            group: "security_boundary",
+          },
           ...(selectedDetail
             ? [
                 { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
                 { key: "selected_title", value: mcsbDisplayTitle(version, selectedDetail, locale), group: "selection" },
                 { key: "selected_domain", value: selectedDetail.domain, group: "selection" },
                 { key: "selected_coverage", value: selectedDetail.coverage, group: "selection" },
+                {
+                  key: "selected_cited_rules",
+                  value: selectedDetail.rule_ids.join(", ") || "none",
+                  group: "selection",
+                },
                 ...(resolveMcsbAiTaxonomy(selectedDetail.control_id)
                   ? [
                       { key: "selected_owasp_llm", value: resolveMcsbAiTaxonomy(selectedDetail.control_id)!.owaspLlmRef, group: "selection" },

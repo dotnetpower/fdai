@@ -229,34 +229,108 @@ _EFFECT_LABELS_KO: dict[str, str] = {
 }
 
 _AZURE_POLICY_CATEGORY_KO: dict[str, str] = {
-    "network": "네트워크(Network)",
-    "storage": "스토리지(Storage)",
+    "api for fhir": "FHIR 의료 API",
+    "api management": "API Management",
+    "app configuration": "앱 구성(App Configuration)",
+    "app platform": "Spring Apps(App Platform)",
+    "app service": "앱 서비스(App Service)",
+    "attestation": "신뢰 실행 증명(Attestation)",
+    "authorization": "권한 부여(Authorization)",
+    "automanage": "자동 관리(Automanage)",
+    "automatic update": "자동 업데이트",
+    "automation": "자동화(Automation)",
+    "azure active directory": "Microsoft Entra ID(AAD)",
+    "azure ai services": "Azure AI 서비스",
+    "azure arc": "Azure Arc 하이브리드",
+    "azure data explorer": "Data Explorer(Kusto)",
+    "azure databricks": "Azure Databricks",
+    "azure edge hardware center": "Edge 하드웨어 센터",
+    "azure load testing": "부하 테스트(Load Testing)",
+    "azure local": "Azure Local(하이브리드)",
+    "azure purview": "Microsoft Purview",
+    "azure stack edge": "Azure Stack Edge",
+    "azure update manager": "업데이트 관리자(Update Manager)",
+    "backup": "백업(Backup)",
+    "batch": "Batch 일괄 처리",
+    "bot service": "봇 서비스(Bot Service)",
+    "builtinpolicytest": "정책 검증(BuiltInPolicyTest)",
+    "cache": "캐시(Redis Cache)",
+    "cdn": "콘텐츠 전송 네트워크(CDN)",
+    "changetrackingandinventory": "변경 추적 및 인벤토리",
+    "cognitive services": "Cognitive Services (AI)",
+    "communication": "Communication Services",
+    "compute": "컴퓨팅(Compute)",
+    "container apps": "컨테이너 앱(Container Apps)",
+    "container instance": "컨테이너 인스턴스(ACI)",
+    "container instances": "컨테이너 인스턴스(ACI)",
+    "container registry": "컨테이너 레지스트리(ACR)",
+    "cosmos db": "Cosmos DB",
+    "custom provider": "사용자 지정 공급자",
+    "data box": "Data Box",
+    "data factory": "Data Factory",
+    "data lake": "Data Lake Analytics/Store",
+    "defender for cloud": "클라우드용 Defender",
+    "desktop virtualization": "가상 데스크톱(AVD)",
+    "devcenter": "개발 센터(DevCenter)",
+    "devopsinfrastructure": "DevOps 인프라",
+    "durable task": "지속형 작업(Durable Task)",
+    "elasticsan": "Elastic SAN 스토리지",
+    "event grid": "Event Grid",
+    "event hub": "Event Hub",
+    "fluid relay": "Fluid Relay",
+    "general": "일반 거버넌스(General)",
+    "guest configuration": "게스트 구성(Guest Configuration)",
+    "hdinsight": "HDInsight 빅데이터",
+    "health bot": "의료 봇(Health Bot)",
+    "health data services workspace": "의료 데이터 워크스페이스",
+    "health deidentification service": "의료 비식별화 서비스",
+    "healthcare apis": "Healthcare APIs",
+    "internet of things": "사물 인터넷(IoT)",
     "key vault": "자격 증명 모음(Key Vault)",
     "kubernetes": "쿠버네티스(Kubernetes)",
-    "sql": "데이터베이스(SQL)",
-    "compute": "컴퓨팅(Compute)",
-    "monitoring": "모니터링(Monitoring)",
-    "security center": "보안 센터(Security Center)",
-    "defender for cloud": "클라우드용 Defender",
-    "app service": "앱 서비스(App Service)",
-    "authorization": "권한 부여(Authorization)",
-    "backup": "백업(Backup)",
-    "cosmos db": "Cosmos DB",
-    "data factory": "Data Factory",
-    "event hub": "Event Hub",
-    "service bus": "Service Bus",
-    "container registry": "컨테이너 레지스트리(ACR)",
-    "container instance": "컨테이너 인스턴스(ACI)",
-    "api management": "API Management",
-    "postgresql": "PostgreSQL",
-    "mysql": "MySQL",
-    "redis cache": "Redis Cache",
-    "synapse": "Synapse Analytics",
-    "cognitive services": "Cognitive Services (AI)",
+    "kubernetes service": "쿠버네티스 서비스(AKS)",
+    "lab services": "랩 서비스(Lab Services)",
+    "lighthouse": "Azure Lighthouse",
+    "logic apps": "논리 앱(Logic Apps)",
     "machine learning": "Machine Learning (AI)",
-    "general": "일반 거버넌스(General)",
-    "tags": "태그(Tags)",
+    "managed application": "관리형 애플리케이션",
+    "managed grafana": "관리형 Grafana",
+    "managed identity": "관리 ID(Managed Identity)",
+    "maps": "Azure Maps",
+    "media services": "미디어 서비스(Media Services)",
+    "migrate": "마이그레이션(Azure Migrate)",
+    "mission": "미션 크리티컬(Mission)",
+    "missionplatforms": "미션 플랫폼(MissionPlatforms)",
+    "mobile network": "모바일 네트워크(5G Core)",
+    "monitoring": "모니터링(Monitoring)",
+    "mysql": "MySQL 데이터베이스",
+    "network": "네트워크(Network)",
+    "planetary computer": "Planetary Computer",
+    "portal": "Azure 포털(Portal)",
+    "postgresql": "PostgreSQL 데이터베이스",
+    "privileged identity management": "특권 ID 관리(PIM)",
+    "redis cache": "Redis Cache",
     "regulatory compliance": "규정 준수(Regulatory Compliance)",
+    "resilience": "복원력(Resilience)",
+    "search": "AI Search 검색",
+    "security center": "보안 센터(Security Center)",
+    "security center - granular pricing": "보안 센터(세부 요금제)",
+    "service bus": "Service Bus",
+    "service fabric": "Service Fabric",
+    "signalr": "SignalR 서비스",
+    "site recovery": "재해 복구(Site Recovery)",
+    "sql": "데이터베이스(SQL)",
+    "sql managed instance": "SQL Managed Instance",
+    "sql server": "SQL Server(하이브리드)",
+    "stack hci": "Azure Local(Stack HCI)",
+    "storage": "스토리지(Storage)",
+    "stream analytics": "Stream Analytics",
+    "synapse": "Synapse Analytics",
+    "tags": "태그(Tags)",
+    "trusted launch": "신뢰할 수 있는 시작(Trusted Launch)",
+    "virtualenclaves": "가상 엔클레이브(Virtual Enclaves)",
+    "vm image builder": "VM 이미지 빌더",
+    "web pubsub": "Web PubSub",
 }
 
 _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
@@ -313,6 +387,20 @@ _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
     ("allowed locations", "허용된 Azure 리전(Region) 위치 제한"),
     ("allowed virtual machine size skus", "허용된 가상 머신(VM) SKU 크기 제한"),
     ("require a tag", "필수 거버넌스 태그(Tag) 지정 필요"),
+    ("meet requirements for 'security options", "게스트 OS 보안 옵션 기준 준수 필요"),
+    ("meet requirements for 'system audit policies", "게스트 OS 시스템 감사 정책 기준 준수 필요"),
+    ("should be zone resilient", "영역 복원력(Zone Resilient) 구성 필요"),
+    ("have resource logs enabled", "리소스 로그 활성화 필요"),
+    ("have azure monitor agent installed", "Azure Monitor 에이전트(AMA) 설치 필요"),
+    ("microsoft entra-only authentication", "Microsoft Entra 전용 인증 활성화 필요"),
+    ("use a sku that supports private link", "Private Link 지원 SKU 사용 필요"),
+    ("use customer-managed key for encryption", "암호화에 고객 관리형 키(CMK) 사용 필요"),
+    (
+        "client certificates (incoming client certificates)",
+        "수신 클라이언트 인증서(mTLS) 활성화 필요",
+    ),
+    ("encryption at host", "호스트 수준 암호화(Encryption at Host) 활성화 필요"),
+    ("trusted launch", "신뢰할 수 있는 시작(Trusted Launch) 보안 구성 필요"),
 )
 
 _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
@@ -332,6 +420,14 @@ _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
         "Kubelet HTTPS(--kubelet-https=true) 암호화 통신 강제",
     ),
     ("service-account-lookup", "서비스 계정 토큰 검증(--service-account-lookup) 활성화"),
+    ("rotate-certificates", "Kubelet 인증서 자동 순환(--rotate-certificates) 활성화"),
+    ("streaming-connection-idle-timeout", "스트리밍 연결 유휴 타임아웃 설정 준수"),
+    ("make-iptables-util-chains", "iptables 유틸리티 체인 자동 관리 활성화"),
+    ("tls-cipher-suites", "안전한 TLS 암호화 스위트(--tls-cipher-suites) 설정 준수"),
+    ("pod-max-pids", "Pod 최대 프로세스 수(--pod-max-pids) 제한 설정"),
+    ("insecure-port", "비보안 포트(--insecure-port) 비활성화"),
+    ("token-auth-file", "정적 토큰 파일 인증(--token-auth-file) 사용 금지"),
+    ("basic-auth-file", "기본 인증 파일(--basic-auth-file) 사용 금지"),
     ("etcd data directory", "etcd 데이터 디렉터리 권한·소유권 보호"),
     ("pki directory and file", "PKI 인증서 디렉터리 및 파일 권한 보호"),
     ("kubeconfig file", "kubeconfig 구성 파일 권한·소유권 설정 준수"),
@@ -353,16 +449,23 @@ def translate_azure_policy_category_ko(category: str) -> str:
 
 def _translate_policy_phrase_ko(display_name: str) -> str:
     lower = display_name.lower()
+    lifecycle_prefix = ""
+    if "deprecated" in lower:
+        lifecycle_prefix = "[사용 중단됨(Deprecated)] "
+    elif lower.startswith("[preview]:") or lower.startswith("preview:"):
+        lifecycle_prefix = "[미리 보기(Preview)] "
     for pattern, ko_phrase in _AZURE_POLICY_PHRASE_KO:
         if pattern in lower:
-            return f"{display_name} - {ko_phrase}"
-    if lower.startswith("configure "):
-        return f"{display_name} (자동 구성 정책)"
-    if lower.startswith("deploy "):
-        return f"{display_name} (자동 배포 정책)"
+            return f"{lifecycle_prefix}{display_name} - {ko_phrase}"
+    if lower.startswith("configure ") or "]: configure " in lower:
+        return f"{lifecycle_prefix}{display_name} (자동 구성 정책)"
+    if lower.startswith("deploy ") or "]: deploy " in lower:
+        return f"{lifecycle_prefix}{display_name} (자동 배포 정책)"
+    if lower.startswith("audit ") or "]: audit " in lower:
+        return f"{lifecycle_prefix}{display_name} (구성 감사 정책)"
     if lower.startswith("microsoft managed control"):
-        return f"{display_name} (Microsoft 관리형 규정 준수 통제)"
-    return display_name
+        return f"{lifecycle_prefix}{display_name} (Microsoft 관리형 규정 준수 통제)"
+    return f"{lifecycle_prefix}{display_name}" if lifecycle_prefix else display_name
 
 
 def _translate_kube_bench_clause_ko(clause: str) -> str:

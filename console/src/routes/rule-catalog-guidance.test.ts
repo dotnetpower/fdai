@@ -183,5 +183,24 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
     const brief = formatGuidanceMarkdownBrief(detail.id, guidance, "ko");
     expect(brief).toContain(`# [${detail.id}]`);
     expect(brief).toContain("ps -ef | grep kube-apiserver");
+
+    expect(
+      ruleDisplayTitle(
+        {
+          id: "azure-builtin.deprecated.vm",
+          title: "[Deprecated]: Audit virtual machines",
+        },
+        "ko",
+      ),
+    ).toContain("[사용 중단됨(Deprecated)]");
+    expect(
+      ruleDisplayTitle(
+        {
+          id: "azure-builtin.preview.ai",
+          title: "[Preview]: Azure AI services should disable public network access",
+        },
+        "ko",
+      ),
+    ).toContain("[미리 보기(Preview)]");
   });
 });
