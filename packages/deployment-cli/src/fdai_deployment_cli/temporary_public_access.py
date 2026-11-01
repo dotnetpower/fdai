@@ -415,11 +415,21 @@ def register_temporary_public_access_command(provision_commands: Any) -> None:
         "temporary-access",
         "Validate a bounded /32 temporary public-access request and emit Phase 1 audit",
     )
-    temp_access.add_argument("--correlation-id", required=True)
-    temp_access.add_argument("--target-resource-id", required=True)
-    temp_access.add_argument("--caller-cidr", required=True)
-    temp_access.add_argument("--ttl-seconds", type=int, default=900)
-    temp_access.add_argument("--principal-id", default="authenticated-operator")
+    temp_access.add_argument(
+        "--correlation-id", required=True, help="Correlation identifier for two-phase audit"
+    )
+    temp_access.add_argument(
+        "--target-resource-id", required=True, help="Target Azure resource identifier"
+    )
+    temp_access.add_argument(
+        "--caller-cidr", required=True, help="Explicit routable IPv4 /32 host CIDR"
+    )
+    temp_access.add_argument(
+        "--ttl-seconds", type=int, default=900, help="Temporary access TTL in seconds (1..3600)"
+    )
+    temp_access.add_argument(
+        "--principal-id", default="authenticated-operator", help="Authenticated caller principal"
+    )
     temp_access.set_defaults(handler=run_temporary_public_access_command)
 
 
