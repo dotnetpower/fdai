@@ -6,6 +6,10 @@ import {
   filterAgentTrajectories,
   formatOutcomeLabel,
   outcomeTone,
+  presentReasonLabel,
+  presentResourceTypeLabel,
+  presentStepSummary,
+  presentTrajectoryTitle,
   stepCategory,
   trajectoryPhases,
   trajectoryScale,
@@ -168,11 +172,57 @@ describe("agent trajectory projection", () => {
     expect(trajectories[0]!.title).toBe("No rule denied \u00b7 compute.vm-scale-set");
     expect(trajectories[0]!.latestOutcome).toBe("compliant");
     expect(trajectories[0]!.tone).toBe("good");
-    expect(trajectorySubtitle(trajectories[0]!)).toContain("Control loop \u00b7 compliant");
+    expect(trajectorySubtitle(trajectories[0]!, "en")).toContain("Policy compliance evaluation");
+    expect(trajectorySubtitle(trajectories[0]!, "ko")).toContain("가상 머신 확장 집합(VMSS)");
+    expect(presentTrajectoryTitle(trajectories[0]!, "ko")).toBe(
+      "가상 머신 확장 집합(VMSS) 호스트 CPU 메트릭 점검 - 이상 및 규칙 위반 없음",
+    );
+    expect(presentTrajectoryTitle(trajectories[0]!, "en")).toBe(
+      "VM Scale Set (VMSS) host CPU metric check - compliant",
+    );
     expect(trajectories[1]!.title).toBe("Inventory \u00b7 resource observed \u00b7 vm-alpha");
     expect(trajectories[1]!.latestOutcome).toBe("retained_for_replay");
-    expect(formatOutcomeLabel("hil_pending")).toBe("HIL pending");
-    expect(formatOutcomeLabel("retained_for_replay")).toBe("Retained for replay");
+    expect(presentTrajectoryTitle(trajectories[1]!, "ko")).toBe(
+      "가상 머신(VM) (vm-alpha) 인벤토리 관측 상태 감사 보존",
+    );
+    expect(presentTrajectoryTitle(trajectories[1]!, "en")).toBe(
+      "Virtual Machine (VM) (vm-alpha) inventory observation retained in audit",
+    );
+    expect(formatOutcomeLabel("hil_pending", "en")).toBe("Awaiting Approval (HIL)");
+    expect(formatOutcomeLabel("hil_pending", "ko")).toBe("운영자 승인 대기 (HIL)");
+    expect(formatOutcomeLabel("retained_for_replay", "en")).toBe("Audit Retained");
+    expect(formatOutcomeLabel("retained_for_replay", "ko")).toBe("감사 보존됨");
+  });
+
+  test("synthesizes bilingual problem-oriented titles and step summaries for RCA, HIL, and abstain flows", () => {
+    const rcaFlow = buildAgentTrajectories([
+      item(21, "Forseti", "rca.hypothesis", "2026-07-15T10:20:00Z", {
+        rule_id: "compute.vm.environment-tag.required",
+        rca_outcome: "grounded",
+        rca_reason: "grounded",
+        rca_remediation_ref: "remediate.tag-add",
+        rca_impact: [{
+          evidence_ref: "finding:compute.vm.environment-tag.required::1.0.0::scope-1/resource-group/rg-1/providers/microsoft.compute/virtualmachines/vm-prod-01::evt-21",
+        }],
+      }, "corr-rca"),
+      item(22, "Var", "hil.requested", "2026-07-15T10:20:01Z", {
+        rule_id: "compute.vm.environment-tag.required",
+        action_type: "remediate.tag-add",
+      }, "corr-rca"),
+    ], agentOf)[0]!;
+
+    expect(presentTrajectoryTitle(rcaFlow, "ko")).toBe(
+      "가상 머신(VM) 환경(environment) 필수 태그 누락 점검 (vm-prod-01) - 필수 거버넌스 태그 추가 승인 대기",
+    );
+    expect(presentTrajectoryTitle(rcaFlow, "en")).toBe(
+      "Virtual Machine required environment tag check (vm-prod-01) - awaiting approval (Add required governance tag)",
+    );
+    expect(presentStepSummary(rcaFlow.steps[0]!, "ko")).toContain("필수 거버넌스 태그 추가 조치 권고");
+    expect(presentStepSummary(rcaFlow.steps[1]!, "en")).toContain("Created human approval (HIL) request");
+    expect(presentReasonLabel("inventory_baseline_no_rule_match", "ko")).toBe(
+      "해당 리소스 유형에 적용할 정책 규칙 없음",
+    );
+    expect(presentResourceTypeLabel("authorization.role-assignment", "ko")).toBe("IAM 역할 할당");
   });
 
   test("filters by participating agent, conversation recipient, and recorded text", () => {

@@ -12,6 +12,12 @@ import {
   buildAgentTrajectories,
   filterAgentTrajectories,
   formatOutcomeLabel,
+  formatOutcomeWithCode,
+  parseStructuredFieldValue,
+  presentReasonLabel,
+  presentResourceTypeLabel,
+  presentStepSummary,
+  presentTrajectoryTitle,
   trajectoryPhases,
   trajectoryScale,
   trajectorySubtitle,
@@ -57,6 +63,7 @@ interface Props {
   readonly streamSource: ObservationSource;
   readonly onAgentChange: (agent: string | null) => void;
   readonly onQueryChange: (query: string) => void;
+  readonly onClearFilters?: () => void;
   readonly onShowLog: (correlationId: string) => void;
 }
 
@@ -69,6 +76,7 @@ export function AgentTrajectories({
   streamSource,
   onAgentChange,
   onQueryChange,
+  onClearFilters,
   onShowLog,
 }: Props) {
   const all = useMemo(() => buildAgentTrajectories(items, agentOf), [items]);
@@ -166,9 +174,13 @@ export function AgentTrajectories({
           type="button"
           class="cs-control-button is-quiet tj-clear-btn"
           onClick={() => {
+            setCorrelationFilter("");
+            if (onClearFilters) {
+              onClearFilters();
+              return;
+            }
             onAgentChange(null);
             onQueryChange("");
-            setCorrelationFilter("");
           }}
         >
           {t("agentActivity.trajectory.clearFilters")}
@@ -263,7 +275,7 @@ function TrajectoryListItem({
       onClick={onSelect}
     >
       <span class="tj-item-head">
-        <strong>{trajectory.title}</strong>
+        <strong>{presentTrajectoryTitle(trajectory)}</strong>
         <OutcomePill trajectory={trajectory} />
       </span>
       <span class="tj-item-meta">
@@ -321,6 +333,7 @@ function TrajectoryDetail({
   };
 
   const subtitle = trajectorySubtitle(trajectory);
+  const titleText = presentTrajectoryTitle(trajectory);
   return (
     <article id="aa-trajectory-detail" class="tj-detail" aria-labelledby="aa-trajectory-title">
       <header class="tj-hero">
@@ -331,7 +344,7 @@ function TrajectoryDetail({
               <code tabIndex={-1}>{trajectory.correlationId}</code>
             </Tooltip>
           </span>
-          <h2 id="aa-trajectory-title" ref={titleRef} tabIndex={-1}>{trajectory.title}</h2>
+          <h2 id="aa-trajectory-title" ref={titleRef} tabIndex={-1}>{titleText}</h2>
           {subtitle ? <p class="tj-hero-sub">{subtitle}</p> : null}
         </div>
         <OutcomePill trajectory={trajectory} large />
@@ -656,7 +669,7 @@ function TrajectoryStepView({
                 </span>
               </span>
               <span class="tj-step-summary">
-                {step.summary === step.actionKind ? formatActionKindLabel(step.actionKind) : step.summary}
+                {presentStepSummary(step)}
               </span>
               <span class="tj-step-foot">
                 {status ? (
@@ -697,12 +710,39 @@ function TrajectoryStepView({
 
 function TrajectoryStepBody({ step, index }: { readonly step: TrajectoryStep; readonly index: number }) {
   const decision: Array<readonly [string, string]> = [];
-  if (step.outcome) decision.push([t("agentActivity.trajectory.field.outcome"), step.outcome]);
-  if (step.decision) decision.push([t("agentActivity.trajectory.field.decision"), step.decision]);
-  if (step.reason) decision.push([t("agentActivity.trajectory.field.reason"), step.reason]);
+  if (step.outcome) {
+    decision.push([
+      t("agentActivity.trajectory.field.outcome"),
+      formatOutcomeWithCode(step.outcome),
+    ]);
+  }
+  if (step.decision) {
+    decision.push([
+      t("agentActivity.trajectory.field.decision"),
+      formatOutcomeWithCode(step.decision),
+    ]);
+  }
+  if (step.reason) {
+    const label = presentReasonLabel(step.reason);
+    decision.push([
+      t("agentActivity.trajectory.field.reason"),
+      label === step.reason ? step.reason : `${label} (${step.reason})`,
+    ]);
+  }
   if (step.tier) decision.push([t("agentActivity.trajectory.field.tier"), step.tier]);
   decision.push([t("agentActivity.trajectory.field.mode"), step.mode]);
-  if (step.resource) decision.push([t("agentActivity.trajectory.field.resource"), step.resource]);
+  if (step.resource) {
+    const typePrefix = step.resourceType && step.resource !== step.resourceType
+      ? `${presentResourceTypeLabel(step.resourceType)} \u00b7 `
+      : step.resourceType && step.resource === step.resourceType
+        ? `${presentResourceTypeLabel(step.resourceType)} (`
+        : "";
+    const typeSuffix = step.resourceType && step.resource === step.resourceType ? ")" : "";
+    decision.push([
+      t("agentActivity.trajectory.field.resource"),
+      `${typePrefix}${step.resource}${typeSuffix}`,
+    ]);
+  }
   const turns = step.conversation ?? [];
   return (
     <div class="tj-step-body">
@@ -774,27 +814,141 @@ function DataBlock({
 }
 
 function renderFieldValue(value: string) {
-  if (value.indexOf(" \u00b7 ") >= 0 && value.indexOf(": ") >= 0) {
-    const entries = value.split(" \u00b7 ").map((part) => part.trim()).filter(Boolean);
-    if (entries.length > 1) {
-      return (
-        <span class="tj-chips">
-          {entries.map((entry, idx) => {
-            const colon = entry.indexOf(": ");
-            if (colon > 0) {
-              return (
+  const parsed = parseStructuredFieldValue(value);
+  if (parsed.kind === "structured") {
+    return (
+      <div class="tj-structured-value">
+        {parsed.scalars.length > 0 ? (
+          <span class="tj-chips">
+            {parsed.scalars.map(([k, v], idx) =>
+              k ? (
                 <span key={idx} class="tj-chip">
-                  <span>{entry.slice(0, colon + 1)}</span> {entry.slice(colon + 2)}
+                  <span>{k}:</span> {v}
                 </span>
-              );
-            }
-            return <span key={idx} class="tj-chip">{entry}</span>;
-          })}
-        </span>
-      );
-    }
+              ) : (
+                <span key={idx} class="tj-chip">{v}</span>
+              ),
+            )}
+          </span>
+        ) : null}
+        {parsed.longScalars.length > 0 ? (
+          <div class="tj-nested-rows">
+            {parsed.longScalars.map(([k, v]) => (
+              <div key={k} class="tj-nested-row">
+                <code class="tj-nested-key">{breakableName(k)}</code>
+                <span class="tj-nested-reason">{v}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {parsed.nestedEntries.map(([nestedKey, nestedObj]) => (
+          <NestedObjectBlock key={nestedKey} title={nestedKey} record={nestedObj} />
+        ))}
+      </div>
+    );
+  }
+  if (parsed.kind === "object" && parsed.directObject) {
+    return <NestedObjectBlock title="" record={parsed.directObject} />;
   }
   return value;
+}
+
+function NestedObjectBlock({
+  title,
+  record,
+}: {
+  readonly title: string;
+  readonly record: Record<string, unknown>;
+}) {
+  const scalars: Array<readonly [string, string]> = [];
+  const longScalars: Array<readonly [string, string]> = [];
+  const subObjects: Array<readonly [string, Record<string, unknown>]> = [];
+  for (const [key, val] of Object.entries(record)) {
+    if (val === null || val === undefined || val === "") continue;
+    if (Array.isArray(val)) {
+      if (val.length > 0) {
+        const joined = val.map(String).join(", ");
+        if (key.length + joined.length > 28) longScalars.push([key, joined]);
+        else scalars.push([key, joined]);
+      }
+      continue;
+    }
+    if (typeof val === "object") {
+      subObjects.push([key, val as Record<string, unknown>]);
+      continue;
+    }
+    const strVal = String(val);
+    if (key.length + strVal.length > 28 || /^\d{4}-\d{2}-\d{2}T/.test(strVal)) {
+      longScalars.push([key, strVal]);
+    } else {
+      scalars.push([key, strVal]);
+    }
+  }
+  if (scalars.length === 0 && longScalars.length === 0 && subObjects.length === 0) return null;
+  return (
+    <div class="tj-nested-card">
+      {title ? <div class="tj-nested-title">{breakableName(title)}</div> : null}
+      {scalars.length > 0 ? (
+        <span class="tj-chips">
+          {scalars.map(([k, v]) => (
+            <span key={k} class="tj-chip">
+              <span>{k}:</span> {v}
+            </span>
+          ))}
+        </span>
+      ) : null}
+      {longScalars.length > 0 ? (
+        <div class="tj-nested-rows">
+          {longScalars.map(([k, v]) => (
+            <div key={k} class="tj-nested-row">
+              <code class="tj-nested-key">{breakableName(k)}</code>
+              <span class="tj-nested-reason">{v}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {subObjects.map(([subKey, subObj]) => (
+        <div key={subKey} class="tj-nested-sub">
+          <div class="tj-nested-subtitle">{breakableName(subKey)}</div>
+          <div class="tj-nested-rows">
+            {Object.entries(subObj).map(([axisKey, axisVal]) => {
+              if (axisVal === null || axisVal === undefined) return null;
+              if (typeof axisVal === "object" && !Array.isArray(axisVal)) {
+                const axisRec = axisVal as Record<string, unknown>;
+                const level = typeof axisRec["level"] === "string" ? axisRec["level"] : null;
+                const reason = typeof axisRec["reason"] === "string" ? axisRec["reason"] : null;
+                if (level || reason) {
+                  return (
+                    <div key={axisKey} class="tj-nested-row">
+                      <code class="tj-nested-key">{axisKey}</code>
+                      {level ? <span class="tj-chip">{level}</span> : null}
+                      {reason ? <span class="tj-nested-reason">{reason}</span> : null}
+                    </div>
+                  );
+                }
+                const pairs = Object.entries(axisRec)
+                  .filter(([, v]) => v !== null && v !== undefined && v !== "")
+                  .map(([k, v]) => `${k}: ${String(v)}`)
+                  .join(" \u00b7 ");
+                return (
+                  <div key={axisKey} class="tj-nested-row">
+                    <code class="tj-nested-key">{axisKey}</code>
+                    <span class="tj-nested-reason">{pairs}</span>
+                  </div>
+                );
+              }
+              return (
+                <div key={axisKey} class="tj-nested-row">
+                  <code class="tj-nested-key">{axisKey}</code>
+                  <span class="tj-nested-reason">{String(axisVal)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function OutcomePill({ trajectory, large = false }: { readonly trajectory: AgentTrajectory; readonly large?: boolean }) {

@@ -7,15 +7,22 @@
  * recorded outcome. This is a read-only presentation projection, not a governed trajectory export.
  */
 
+import { getLocale } from "../i18n";
 import type { AuditItem } from "../types";
 import {
+  ACTION_TYPE_LABELS,
   auditProvenanceOf,
   entryConversation,
   entryMap,
   entryNum,
   entryStr,
   isSagaAuditMirror,
+  OBSERVATION_DOMAIN_LABELS,
   otherEntryFields,
+  OUTCOME_LABELS,
+  REASON_LABELS,
+  RESOURCE_TYPE_LABELS,
+  RULE_LABELS,
   tierOf,
   type AgentTurn,
 } from "./agent-activity-semantics";
@@ -69,6 +76,14 @@ export interface TrajectoryStep {
   readonly entryHash: string;
   readonly previousHash: string;
   readonly sample: boolean;
+  readonly hasExplicitSummary?: boolean;
+  readonly ruleId?: string | null;
+  readonly actionType?: string | null;
+  readonly resourceType?: string | null;
+  readonly domain?: string | null;
+  readonly eventType?: string | null;
+  readonly aggregateType?: string | null;
+  readonly aggregateCount?: number | null;
 }
 
 export interface AgentTrajectory {
@@ -283,10 +298,46 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
     ? endMs - durationMs
     : explicitStart !== null && explicitStart <= endMs ? explicitStart : endMs;
   const payload = nestedRecord(item.entry["payload"]);
+  const authority = nestedRecord(item.entry["authority"]);
+  const hasExplicitSummary = Boolean(
+    entryStr(item, "summary") ||
+    entryStr(item, "detail") ||
+    recordStr(payload, "summary") ||
+    recordStr(payload, "detail"),
+  );
+  const embedded = extractEmbeddedAuditContext(item);
+  const ruleId = entryStr(item, "rule_id")
+    ?? firstStringElement(item.entry["candidate_rule_ids"])
+    ?? firstCitationRef(item.entry["rca_citations"])
+    ?? recordStr(authority, "matched_rule_id")
+    ?? embedded.ruleId;
+  const actionType = entryStr(item, "action_type")
+    ?? entryStr(item, "action_type_id")
+    ?? entryStr(item, "rca_remediation_ref")
+    ?? recordStr(authority, "action_type_id");
+  const domain = entryStr(item, "domain")
+    ?? entryStr(item, "source_id")
+    ?? recordStr(payload, "source_id");
+  const eventType = entryStr(item, "event_type") ?? recordStr(payload, "event_type");
+  const aggregateType = recordStr(payload, "aggregate_type");
+  const aggregateCount = typeof payload?.["count"] === "number" ? payload["count"] : null;
+  const rawResource = entryStr(item, "resource_ref")
+    || entryStr(item, "target_resource_ref")
+    || entryStr(item, "resource_id")
+    || entryStr(item, "target_ref")
+    || recordStr(payload, "resource_id")
+    || recordStr(payload, "resource_ref")
+    || embedded.resourceRef
+    || entryStr(item, "repository_alias");
+  const resourceType = entryStr(item, "resource_type")
+    || recordStr(payload, "resource_type")
+    || inferResourceType(ruleId, rawResource);
+  const resource = rawResource || resourceType;
   const outcome = entryStr(item, "outcome")
     ?? entryStr(item, "terminal_outcome")
     ?? entryStr(item, "t1_outcome")
     ?? entryStr(item, "t2_outcome")
+    ?? entryStr(item, "rca_outcome")
     ?? entryStr(item, "status")
     ?? recordStr(payload, "outcome")
     ?? recordStr(payload, "terminal_outcome")
@@ -294,22 +345,21 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
     ?? (item.action_kind.endsWith(".timeout") || entryStr(item, "reason") === "approval_expired"
       ? "timed_out"
       : null)
-    ?? (recordStr(payload, "aggregate_type") ? "aggregated" : null);
+    ?? (item.action_kind === "hil.requested" ? "hil_pending" : null)
+    ?? (item.action_kind === "hil.request.dispatch_unavailable" ? "shadow_queued" : null)
+    ?? (item.action_kind.endsWith(".abstain") ? "abstain" : null)
+    ?? (item.action_kind.endsWith(".compliant") ? "compliant" : null)
+    ?? (aggregateType ? "aggregated" : null);
   const decision = entryStr(item, "decision")
     ?? entryStr(item, "gate_route")
+    ?? entryStr(item, "gate_outcome")
     ?? recordStr(payload, "decision");
   const reason = entryStr(item, "reason")
     ?? entryStr(item, "t1_reason")
     ?? entryStr(item, "t2_reason")
+    ?? entryStr(item, "rca_reason")
+    ?? firstStringElement(item.entry["gate_reasons"])
     ?? recordStr(payload, "reason");
-  const resource = entryStr(item, "resource_ref")
-    || entryStr(item, "target_resource_ref")
-    || entryStr(item, "resource_id")
-    || entryStr(item, "target_ref")
-    || entryStr(item, "resource_type")
-    || recordStr(payload, "resource_id")
-    || recordStr(payload, "resource_ref")
-    || recordStr(payload, "resource_type");
   return {
     seq: item.seq,
     eventId: item.event_id,
@@ -336,7 +386,122 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
     entryHash: item.entry_hash,
     previousHash: item.previous_hash,
     sample: auditProvenanceOf(item) === "sample",
+    hasExplicitSummary,
+    ruleId,
+    actionType,
+    resourceType,
+    domain,
+    eventType,
+    aggregateType,
+    aggregateCount,
   };
+}
+
+function firstStringElement(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  const found = value.find((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  return found ? found.trim() : null;
+}
+
+function firstCitationRef(value: unknown): string | null {
+  if (!Array.isArray(value)) return null;
+  for (const item of value) {
+    const rec = nestedRecord(item);
+    const ref = recordStr(rec, "ref");
+    if (ref) return ref;
+  }
+  return null;
+}
+
+function extractEmbeddedAuditContext(item: AuditItem): {
+  readonly ruleId: string | null;
+  readonly resourceRef: string | null;
+} {
+  let ruleId: string | null = null;
+  let resourceRef: string | null = null;
+  const impacts = item.entry["rca_impact"];
+  if (Array.isArray(impacts)) {
+    for (const impact of impacts) {
+      const rec = nestedRecord(impact);
+      const evidenceRef = recordStr(rec, "evidence_ref");
+      if (evidenceRef && evidenceRef.startsWith("finding:")) {
+        const parts = evidenceRef.slice("finding:".length).split("::");
+        if (parts[0]?.trim()) ruleId = ruleId ?? parts[0].trim();
+        if (parts[2]?.trim()) resourceRef = resourceRef ?? parts[2].trim();
+      }
+    }
+  }
+  const idempotencyKey = entryStr(item, "idempotency_key");
+  if (idempotencyKey && idempotencyKey.includes("::")) {
+    const parts = idempotencyKey.split("::");
+    if (parts.length >= 3) {
+      if (parts[1]?.trim()) ruleId = ruleId ?? parts[1].trim();
+      const rawTarget = parts[2]?.trim() ?? "";
+      const cleanTarget = rawTarget.replace(/:(hil_request|hil_timeout|rca)$/i, "");
+      if (cleanTarget) resourceRef = resourceRef ?? cleanTarget;
+    }
+  }
+  if (!resourceRef && item.correlation_id?.startsWith("inventory:scope-")) {
+    resourceRef = item.correlation_id.slice("inventory:".length);
+  }
+  return { ruleId, resourceRef };
+}
+
+const ARM_PROVIDER_RESOURCE_TYPE: Readonly<Record<string, string>> = {
+  "microsoft.compute/virtualmachinescalesets": "compute.vm-scale-set",
+  "microsoft.compute/virtualmachines": "compute.vm",
+  "microsoft.compute/disks": "disk",
+  "microsoft.compute/galleries": "compute.image-gallery",
+  "microsoft.compute/images": "compute.image",
+  "microsoft.network/networksecuritygroups": "network.nsg",
+  "microsoft.network/virtualnetworks": "network.vnet",
+  "microsoft.network/networkinterfaces": "network.interface",
+  "microsoft.network/publicipaddresses": "network.public-ip",
+  "microsoft.network/loadbalancers": "network.load-balancer",
+  "microsoft.network/natgateways": "network.nat-gateway",
+  "microsoft.network/privateendpoints": "network.private-endpoint",
+  "microsoft.network/privatednszones": "network.private-dns-zone",
+  "microsoft.network/dnszones": "network.dns-zone",
+  "microsoft.network/bastionhosts": "network.bastion-host",
+  "microsoft.network/azurefirewalls": "network.firewall",
+  "microsoft.network/firewallpolicies": "network.firewall-policy",
+  "microsoft.network/routetables": "network.route-table",
+  "microsoft.network/networkwatchers": "observability.network-monitor",
+  "microsoft.storage/storageaccounts": "object-storage",
+  "microsoft.keyvault/vaults": "secret-store",
+  "microsoft.dbforpostgresql/flexibleservers": "postgresql-server",
+  "microsoft.containerservice/managedclusters": "kubernetes-cluster",
+  "microsoft.containerregistry/registries": "container-registry",
+  "microsoft.app/containerapps": "compute.container-app",
+  "microsoft.app/jobs": "compute.container-app-job",
+  "microsoft.app/managedenvironments": "compute.container-app-environment",
+  "microsoft.cognitiveservices/accounts": "llm-endpoint",
+  "microsoft.eventhub/namespaces": "event-hub",
+  "microsoft.operationalinsights/workspaces": "log-workspace",
+  "microsoft.insights/components": "application-insights",
+  "microsoft.managedidentity/userassignedidentities": "managed-identity",
+  "microsoft.authorization/roleassignments": "authorization.role-assignment",
+};
+
+function inferResourceType(ruleId: string | null, resourceRef: string | null): string | null {
+  if (ruleId) {
+    for (const candidate of Object.keys(RESOURCE_TYPE_LABELS)) {
+      if (ruleId === candidate || ruleId.startsWith(`${candidate}.`)) return candidate;
+    }
+  }
+  if (resourceRef) {
+    if (RESOURCE_TYPE_LABELS[resourceRef]) return resourceRef;
+    const lowered = resourceRef.toLowerCase();
+    if (lowered.includes("/deployments/")) return "llm-model-deployment";
+    const providerMatch = /\/providers\/([^/]+\/[^/]+)/.exec(lowered);
+    if (providerMatch?.[1] && ARM_PROVIDER_RESOURCE_TYPE[providerMatch[1]]) {
+      return ARM_PROVIDER_RESOURCE_TYPE[providerMatch[1]]!;
+    }
+    if (/\/resource-group\/[^/]+$/.test(lowered) || /\/resourcegroups\/[^/]+$/.test(lowered)) {
+      return "resource-group";
+    }
+  }
+  return null;
 }
 
 function nestedRecord(value: unknown): Record<string, unknown> | null {
@@ -462,27 +627,438 @@ export function trajectoryTitle(steps: readonly TrajectoryStep[]): string {
   return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : machine;
 }
 
-export function trajectorySubtitle(trajectory: AgentTrajectory): string {
+export function trajectorySubtitle(trajectory: AgentTrajectory, locale: "en" | "ko" = getLocale()): string {
   const first = trajectory.steps[0];
   if (!first) return "";
-  const parts: string[] = [humanizeMachineToken(first.actionKind)];
-  const shortRes = shortResourceLabel(first.resource);
-  if (shortRes && !trajectory.title.includes(shortRes)) {
-    parts.push(shortRes);
+  const rules = unique(trajectory.steps.map((step) => step.ruleId ?? null));
+  const actions = unique(trajectory.steps.map((step) => step.actionType ?? null));
+  const resType = trajectory.steps.find((step) => step.resourceType)?.resourceType ?? null;
+  const parts: string[] = [];
+  if (resType) {
+    parts.push(presentResourceTypeLabel(resType, locale));
+  }
+  if (rules.length > 0) {
+    parts.push(locale === "ko" ? `규칙: ${rules[0]}${rules.length > 1 ? ` 외 ${rules.length - 1}건` : ""}` : `Rule: ${rules[0]}${rules.length > 1 ? ` +${rules.length - 1}` : ""}`);
+  } else {
+    parts.push(presentActionKindLabel(first.actionKind, locale));
+  }
+  if (actions.length > 0) {
+    const actionLabel = ACTION_TYPE_LABELS[actions[0]!]?.[locale] ?? actions[0]!;
+    parts.push(locale === "ko" ? `권고 조치: ${actionLabel}` : `Action: ${actionLabel}`);
   }
   if (trajectory.modes.length > 0) {
-    parts.push(trajectory.modes.join(" / "));
+    parts.push(locale === "ko" ? `${trajectory.modes.join(" / ")} 모드` : `${trajectory.modes.join(" / ")} mode`);
   }
   return parts.join(" \u00b7 ");
 }
 
-export function formatOutcomeLabel(outcome: string): string {
+export interface ParsedStructuredFieldValue {
+  readonly kind: "plain" | "structured" | "object";
+  readonly scalars: ReadonlyArray<readonly [string, string]>;
+  readonly longScalars: ReadonlyArray<readonly [string, string]>;
+  readonly nestedEntries: ReadonlyArray<readonly [string, Record<string, unknown>]>;
+  readonly directObject: Record<string, unknown> | null;
+}
+
+export function parseStructuredFieldValue(value: string): ParsedStructuredFieldValue {
+  if (value.includes(" \u00b7 ") && value.includes(":")) {
+    const entries = value.split(" \u00b7 ").map((part) => part.trim()).filter(Boolean);
+    if (entries.length > 1) {
+      const scalars: Array<readonly [string, string]> = [];
+      const longScalars: Array<readonly [string, string]> = [];
+      const nestedEntries: Array<readonly [string, Record<string, unknown>]> = [];
+      for (const entry of entries) {
+        if (entry.endsWith(":")) continue;
+        const colon = entry.indexOf(": ");
+        if (colon <= 0) {
+          scalars.push(["", entry]);
+          continue;
+        }
+        const key = entry.slice(0, colon).trim();
+        const rawVal = entry.slice(colon + 2).trim();
+        if (!rawVal || rawVal === "[]" || rawVal === "{}" || rawVal === "null") continue;
+        const parsedObj = parseJsonObject(rawVal);
+        if (parsedObj) {
+          nestedEntries.push([key, parsedObj]);
+        } else if (key.length + rawVal.length > 28 || /^\d{4}-\d{2}-\d{2}T/.test(rawVal)) {
+          longScalars.push([key, rawVal]);
+        } else {
+          scalars.push([key, rawVal]);
+        }
+      }
+      return {
+        kind: "structured",
+        scalars,
+        longScalars,
+        nestedEntries,
+        directObject: null,
+      };
+    }
+  }
+  const directObj = parseJsonObject(value.trim());
+  if (directObj) {
+    return {
+      kind: "object",
+      scalars: [],
+      longScalars: [],
+      nestedEntries: [],
+      directObject: directObj,
+    };
+  }
+  return {
+    kind: "plain",
+    scalars: [],
+    longScalars: [],
+    nestedEntries: [],
+    directObject: null,
+  };
+}
+
+function parseJsonObject(raw: string): Record<string, unknown> | null {
+  if (!raw.startsWith("{") || !raw.endsWith("}")) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function formatOutcomeWithCode(
+  outcome: string,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  const label = formatOutcomeLabel(outcome, locale);
+  return label.toLowerCase() === outcome.toLowerCase() ? outcome : `${label} (${outcome})`;
+}
+
+export function formatOutcomeLabel(outcome: string, locale: "en" | "ko" = getLocale()): string {
+  const key = outcome.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const entry = OUTCOME_LABELS[key];
+  if (entry) return entry[locale];
   const normalized = outcome.trim().replace(/[-_]+/g, " ");
   if (!normalized) return outcome;
   if (/^hil\b/i.test(normalized)) {
     return `HIL${normalized.slice(3)}`;
   }
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+export function presentResourceTypeLabel(resourceType: string, locale: "en" | "ko" = getLocale()): string {
+  return RESOURCE_TYPE_LABELS[resourceType]?.[locale] ?? humanizeMachineToken(resourceType);
+}
+
+export function presentReasonLabel(reason: string, locale: "en" | "ko" = getLocale()): string {
+  const key = reason.trim();
+  const entry = REASON_LABELS[key];
+  if (entry) return entry[locale];
+  if (key.startsWith("control_loop_unhandled_error:")) {
+    const errType = key.slice("control_loop_unhandled_error:".length);
+    return locale === "ko"
+      ? `컨트롤 루프 처리 중 예외 발생 (${errType})`
+      : `Unhandled control-loop error (${errType})`;
+  }
+  return /\s/.test(key) ? key : humanizeMachineToken(key);
+}
+
+export function presentActionKindLabel(actionKind: string, locale: "en" | "ko" = getLocale()): string {
+  const map: Readonly<Record<string, { readonly en: string; readonly ko: string }>> = {
+    "control_loop.compliant": { en: "Policy compliance evaluation", ko: "정책 준수 평가" },
+    "control_loop.abstain": { en: "Trust router rule check", ko: "신뢰 라우터 규칙 매칭 점검" },
+    "control_loop.t1_evaluate": { en: "T1 similarity case evaluation", ko: "T1 유사 과거 사례 비교 평가" },
+    "control_loop.t2_evaluate": { en: "T2 deliberative reasoning evaluation", ko: "T2 심층 추론 및 검증 평가" },
+    "control_loop.unhandled_failure": { en: "Control-loop exception handling", ko: "컨트롤 루프 예외 처리" },
+    "measurement.control_loop.v1": { en: "Control-loop outcome measurement", ko: "컨트롤 루프 처리 결과 계측" },
+    "rca.hypothesis": { en: "Root-cause & policy violation analysis", ko: "규칙 위반 원인 및 영향 분석(RCA)" },
+    "risk_gate.unified": { en: "Risk gate & autonomy ceiling check", ko: "위험 등급 및 자율 실행 한도 평가" },
+    "risk_gate.evaluated": { en: "Risk gate evaluation", ko: "위험 게이트 평가" },
+    "hil.requested": { en: "Human-in-the-loop approval request", ko: "운영자 승인(HIL) 요청 발행" },
+    "hil.request.dispatch_unavailable": { en: "Approval queue retention (shadow)", ko: "승인 요청 콘솔 대기열 유지(Shadow)" },
+    "hil.timeout": { en: "Human approval timeout expiration", ko: "운영자 승인 대기 기한 만료 처리" },
+    "observation-campaign.source-transition": { en: "Scheduled observation campaign probe", ko: "정기 관측 캠페인 소스 점검" },
+    "notification.route": { en: "Operational alert notification routing", ko: "운영 알림 채널 라우팅 및 전송" },
+    "audit.record": { en: "Immutable audit ledger retention", ko: "불변 감사 원장 보존 기록" },
+    "event.normalized": { en: "Operational event intake & normalization", ko: "운영 이벤트 수집 및 정규화" },
+    "inventory.current_state.read": { en: "Current resource state verification", ko: "현재 리소스 상태 조회" },
+    "baseline_evaluation.started": { en: "Inventory baseline evaluation started", ko: "인벤토리 기준선 정책 평가 시작" },
+    "baseline_evaluation.coverage": { en: "Inventory baseline coverage summary", ko: "인벤토리 기준선 평가 범위 집계" },
+    "mimir.rule-source.observed": { en: "Rule catalog source observation", ko: "규칙 카탈로그 소스 변경 감지" },
+    "runtime.operational-state-recorded": { en: "Runtime health & posture snapshot", ko: "런타임 상태 스냅샷 기록" },
+    "observer.deployment.proposed": { en: "Cluster observer deployment proposal", ko: "클러스터 관측기 배포 제안" },
+    "observer.deployment.refreshed": { en: "Cluster observer posture refresh", ko: "클러스터 관측기 상태 갱신" },
+  };
+  return map[actionKind]?.[locale] ?? humanizeMachineToken(actionKind);
+}
+
+export function presentTrajectoryTitle(
+  trajectory: AgentTrajectory,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  const explicitStep = trajectory.steps.find((step) => step.hasExplicitSummary);
+  if (explicitStep) return explicitStep.summary;
+
+  const rules = unique(trajectory.steps.map((step) => step.ruleId ?? null));
+  const actionType = trajectory.steps.find((step) => step.actionType)?.actionType ?? null;
+  const resType = trajectory.steps.find((step) => step.resourceType)?.resourceType ?? null;
+  const rawResource = trajectory.steps.find((step) =>
+    step.resource && step.resource !== step.resourceType)?.resource ?? null;
+  const shortRes = rawResource && rawResource !== resType ? shortResourceLabel(rawResource) : null;
+  const resTypeLabel = resType ? presentResourceTypeLabel(resType, locale) : null;
+  const targetSuffix = shortRes && (!resTypeLabel || !resTypeLabel.toLowerCase().includes(shortRes.toLowerCase()))
+    ? ` (${shortRes})`
+    : "";
+
+  // 1. Policy Rule-driven trajectories (RCA, HIL, Risk Gate, or T0 Compliance)
+  if (rules.length > 0) {
+    const primaryRule = RULE_LABELS[rules[0]!]?.[locale] ?? humanizeMachineToken(rules[0]!);
+    const extraRules = rules.length > 1
+      ? (locale === "ko" ? ` 외 ${rules.length - 1}건` : ` (+${rules.length - 1} more)`)
+      : "";
+    if (trajectory.latestOutcome === "timed_out") {
+      return locale === "ko"
+        ? `${primaryRule}${extraRules}${targetSuffix} - 승인 기한 만료`
+        : `${primaryRule}${extraRules}${targetSuffix} - approval expired`;
+    }
+    if (trajectory.latestOutcome === "hil" || trajectory.latestOutcome === "hil_pending" || trajectory.latestOutcome === "shadow_queued") {
+      const actionLabel = actionType ? (ACTION_TYPE_LABELS[actionType]?.[locale] ?? actionType) : null;
+      return locale === "ko"
+        ? `${primaryRule}${extraRules}${targetSuffix} - ${actionLabel ? `${actionLabel} 승인 대기` : "운영자 승인 대기"}`
+        : `${primaryRule}${extraRules}${targetSuffix} - ${actionLabel ? `awaiting approval (${actionLabel})` : "awaiting approval"}`;
+    }
+    if (trajectory.latestOutcome === "compliant") {
+      return locale === "ko"
+        ? `${primaryRule}${extraRules}${targetSuffix} - 정책 준수 확인`
+        : `${primaryRule}${extraRules}${targetSuffix} - compliant`;
+    }
+    return `${primaryRule}${extraRules}${targetSuffix}`;
+  }
+
+  // 2. Observation campaign transitions
+  const campaignStep = trajectory.steps.find((step) => step.actionKind === "observation-campaign.source-transition");
+  if (campaignStep) {
+    const domKey = campaignStep.domain ?? "metrics";
+    const domLabel = OBSERVATION_DOMAIN_LABELS[domKey]?.[locale] ?? domKey;
+    if (trajectory.latestOutcome === "degraded") {
+      return locale === "ko"
+        ? `${domLabel} 정기 관측 캠페인 점검 - 수집 지연 감지`
+        : `${domLabel} observation campaign check - source degraded`;
+    }
+    return locale === "ko"
+      ? `${domLabel} 정기 관측 캠페인 점검`
+      : `${domLabel} scheduled observation campaign check`;
+  }
+
+  // 3. Notification routing
+  const notifStep = trajectory.steps.find((step) => step.actionKind === "notification.route");
+  if (notifStep) {
+    return locale === "ko"
+      ? "운영 알림 채널 라우팅 및 콘솔 수신함 전송"
+      : "Operational alert notification routed and delivered";
+  }
+
+  // 4. Observer deployment proposals/refreshes
+  const observerStep = trajectory.steps.find((step) => step.actionKind.startsWith("observer.deployment."));
+  if (observerStep) {
+    return locale === "ko"
+      ? "클러스터 관측기(Observer) 배포 준비 상태 점검 - 추가 확인 필요"
+      : "Cluster observer deployment readiness check - needs evidence";
+  }
+
+  // 5. Rule activation requests
+  const ruleActStep = trajectory.steps.find((step) => step.actionKind.startsWith("rule_activation."));
+  if (ruleActStep) {
+    return locale === "ko"
+      ? "정책 규칙 카탈로그 활성화 세대 전환 및 검증"
+      : "Policy rule catalog activation generation update";
+  }
+
+  // 6. Control-loop reason-based trajectories (e.g. inventory_baseline_no_rule_match, no_rule_matches_resource_and_signal_type, event_payload_missing_resource_type)
+  const primaryReason = trajectory.steps.find((step) => step.reason)?.reason ?? null;
+  const hasT1NoNeighbour = trajectory.steps.some((step) => step.reason === "no_neighbour_found");
+  const subjectLabel = resTypeLabel
+    ? `${resTypeLabel}${targetSuffix}`
+    : (shortRes ?? (locale === "ko" ? "클라우드 리소스" : "Cloud resource"));
+
+  if (primaryReason === "inventory_baseline_no_rule_match") {
+    return locale === "ko"
+      ? `${subjectLabel} 인벤토리 기준선 검토 - 적용 대상 규칙 없음`
+      : `${subjectLabel} inventory baseline review - no applicable rule`;
+  }
+  if (primaryReason === "no_rule_matches_resource_and_signal_type") {
+    return locale === "ko"
+      ? `${subjectLabel} 변경 이벤트 검토 - ${hasT1NoNeighbour ? "일치 규칙 및 유사 사례 없음" : "일치하는 규칙 없음"}`
+      : `${subjectLabel} change event review - ${hasT1NoNeighbour ? "no matching rule or similar case" : "no matching rule"}`;
+  }
+  if (primaryReason === "no_rule_denied") {
+    const eventType = trajectory.steps.find((step) => step.eventType)?.eventType;
+    if (eventType === "analyzer.host_cpu.observed") {
+      return locale === "ko"
+        ? `${subjectLabel} 호스트 CPU 메트릭 점검 - 이상 및 규칙 위반 없음`
+        : `${subjectLabel} host CPU metric check - compliant`;
+    }
+    return locale === "ko"
+      ? `${subjectLabel} 정책 준수 점검 - 위반 사항 없음`
+      : `${subjectLabel} policy compliance check - no violations`;
+  }
+  if (primaryReason === "event_payload_missing_resource_type") {
+    return locale === "ko"
+      ? `${subjectLabel} 변경 이벤트 수신 - 리소스 유형 누락으로 라우팅 보류`
+      : `${subjectLabel} change event - routing abstained (missing resource type)`;
+  }
+  if (primaryReason === "approval_expired") {
+    return locale === "ko"
+      ? `${subjectLabel} 조치 승인 요청 - 승인 대기 기한 만료`
+      : `${subjectLabel} remediation approval request - expired`;
+  }
+
+  // 7. Saga single-step audit mirrors
+  const mirrorStep = trajectory.steps[0];
+  if (mirrorStep && mirrorStep.actionKind === "audit.record") {
+    if (mirrorStep.aggregateType === "forseti.no_rule_match") {
+      const cnt = mirrorStep.aggregateCount ?? 1;
+      return locale === "ko"
+        ? `규칙 미일치 리소스 이벤트 감사 집계 기록 (${cnt}건)`
+        : `Unmatched-rule resource event audit aggregate (${cnt})`;
+    }
+    if (mirrorStep.eventType === "inventory.resource_observed") {
+      return locale === "ko"
+        ? `${subjectLabel} 인벤토리 관측 상태 감사 보존`
+        : `${subjectLabel} inventory observation retained in audit`;
+    }
+    if (mirrorStep.eventType === "inventory.resource_changed") {
+      return locale === "ko"
+        ? `${subjectLabel} 인벤토리 변경 감지 감사 보존`
+        : `${subjectLabel} inventory change retained in audit`;
+    }
+  }
+
+  return trajectory.title;
+}
+
+export function presentAuditItemSummary(
+  item: AuditItem,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  const direct = entryStr(item, "summary") || entryStr(item, "detail");
+  if (direct) return direct;
+  const step = stepOf(item, () => item.actor);
+  if (!step) return entryStr(item, "reason") || item.action_kind;
+  if (
+    !step.ruleId &&
+    !step.actionType &&
+    !step.resourceType &&
+    !step.domain &&
+    !step.eventType &&
+    !step.aggregateType &&
+    !step.reason &&
+    !step.outcome
+  ) {
+    return item.action_kind;
+  }
+  return presentStepSummary(step, locale);
+}
+
+export function presentStepSummary(
+  step: TrajectoryStep,
+  locale: "en" | "ko" = getLocale(),
+): string {
+  if (step.hasExplicitSummary) return step.summary;
+  const resLabel = step.resourceType
+    ? presentResourceTypeLabel(step.resourceType, locale)
+    : shortResourceLabel(step.resource);
+  const shortRes = step.resource && step.resource !== step.resourceType
+    ? shortResourceLabel(step.resource)
+    : null;
+  const targetSuffix = shortRes && resLabel && !resLabel.toLowerCase().includes(shortRes.toLowerCase())
+    ? ` (${shortRes})`
+    : "";
+  const subject = resLabel ? `${resLabel}${targetSuffix}` : (shortRes ?? "");
+
+  if (step.actionKind === "rca.hypothesis") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : "";
+    const actionText = step.actionType ? (ACTION_TYPE_LABELS[step.actionType]?.[locale] ?? step.actionType) : "";
+    if (locale === "ko") {
+      return `${ruleText || subject} 위반 확인${actionText ? ` -> ${actionText} 조치 권고` : ""}`;
+    }
+    return `Confirmed ${ruleText || subject} violation${actionText ? ` -> recommended ${actionText}` : ""}`;
+  }
+  if (step.actionKind === "risk_gate.unified" || step.actionKind === "risk_gate.evaluated") {
+    const actionText = step.actionType ? (ACTION_TYPE_LABELS[step.actionType]?.[locale] ?? step.actionType) : "";
+    return locale === "ko"
+      ? `위험 게이트 평가: ${actionText ? `${actionText} 조치에 대해 ` : ""}운영자 승인(HIL) 필요 판정`
+      : `Risk gate evaluation: human approval (HIL) required${actionText ? ` for ${actionText}` : ""}`;
+  }
+  if (step.actionKind === "hil.requested") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : subject;
+    return locale === "ko"
+      ? `${ruleText} 조치를 위한 운영자 승인(HIL) 요청 생성`
+      : `Created human approval (HIL) request for ${ruleText}`;
+  }
+  if (step.actionKind === "hil.request.dispatch_unavailable") {
+    return locale === "ko"
+      ? "외부 알림 채널 전송 생략 - Shadow 모드로 콘솔 승인 대기열에 보관"
+      : "External approval dispatch skipped - retained in Console queue under shadow mode";
+  }
+  if (step.actionKind === "hil.timeout") {
+    return locale === "ko"
+      ? `${subject ? `${subject} ` : ""}운영자 승인 대기 시간 만료 - 미실행 종료`
+      : `${subject ? `${subject} ` : ""}human approval window expired - closed without execution`;
+  }
+  if (step.actionKind === "control_loop.t1_evaluate") {
+    const reasonText = step.reason ? presentReasonLabel(step.reason, locale) : "";
+    return locale === "ko"
+      ? `${subject ? `${subject} ` : ""}T1 유사 사례 비교 평가 - ${reasonText || "보류"}`
+      : `${subject ? `${subject} ` : ""}T1 similarity evaluation - ${reasonText || "abstained"}`;
+  }
+  if (step.actionKind === "control_loop.abstain") {
+    const reasonText = step.reason ? presentReasonLabel(step.reason, locale) : "";
+    return locale === "ko"
+      ? `${subject ? `${subject} ` : ""}규칙 매칭 점검 - ${reasonText || "자동 조치 보류"}`
+      : `${subject ? `${subject} ` : ""}rule matching check - ${reasonText || "abstained"}`;
+  }
+  if (step.actionKind === "control_loop.compliant") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : subject;
+    return locale === "ko"
+      ? `${ruleText} 평가 완료 - 모든 정책 기준 충족(위반 없음)`
+      : `${ruleText} evaluated - all policy criteria satisfied`;
+  }
+  if (step.actionKind === "measurement.control_loop.v1") {
+    const outcomeText = step.outcome ? formatOutcomeLabel(step.outcome, locale) : "";
+    return locale === "ko"
+      ? `${subject ? `${subject} ` : ""}컨트롤 루프 처리 결과 계측 기록${outcomeText ? ` (${outcomeText})` : ""}`
+      : `Recorded ${subject ? `${subject} ` : ""}control-loop outcome measurement${outcomeText ? ` (${outcomeText})` : ""}`;
+  }
+  if (step.actionKind === "observation-campaign.source-transition") {
+    const domKey = step.domain ?? "metrics";
+    const domLabel = OBSERVATION_DOMAIN_LABELS[domKey]?.[locale] ?? domKey;
+    const outcomeText = step.outcome ? formatOutcomeLabel(step.outcome, locale) : "";
+    return locale === "ko"
+      ? `${domLabel} 관측 캠페인 소스 상태 기록${outcomeText ? ` - ${outcomeText}` : ""}`
+      : `Recorded ${domLabel} campaign source status${outcomeText ? ` - ${outcomeText}` : ""}`;
+  }
+  if (step.actionKind === "audit.record") {
+    if (step.aggregateType === "forseti.no_rule_match") {
+      const cnt = step.aggregateCount ?? 1;
+      return locale === "ko"
+        ? `규칙 미일치 이벤트 ${cnt}건을 감사 원장에 집계 기록`
+        : `Recorded aggregate of ${cnt} unmatched-rule event(s) in audit ledger`;
+    }
+    if (step.eventType === "inventory.resource_observed") {
+      return locale === "ko"
+        ? `${subject || "리소스"} 인벤토리 관측 이벤트를 감사 원장에 보존`
+        : `Retained ${subject || "resource"} inventory observation event in audit ledger`;
+    }
+    if (step.eventType === "inventory.resource_changed") {
+      return locale === "ko"
+        ? `${subject || "리소스"} 인벤토리 변경 감지 이벤트를 감사 원장에 보존`
+        : `Retained ${subject || "resource"} inventory change event in audit ledger`;
+    }
+  }
+  return step.summary === step.actionKind
+    ? presentActionKindLabel(step.actionKind, locale)
+    : step.summary;
 }
 
 function unique(values: readonly (string | null)[]): readonly string[] {
