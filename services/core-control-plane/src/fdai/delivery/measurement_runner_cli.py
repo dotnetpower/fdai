@@ -72,6 +72,9 @@ from fdai.delivery.measurement.operational_promotion_evidence import (
     ManifestOperationalPromotionUnitVerifier,
     OperationalPromotionEvidenceManifest,
 )
+from fdai.delivery.measurement.outcome_assurance_producer import (
+    OutcomeAssuranceProjectionProducer,
+)
 from fdai.delivery.measurement.pattern_evidence import (
     PatternEvidenceProducer,
     PostgresPatternEvidenceSource,
@@ -114,6 +117,7 @@ class MeasurementMode(StrEnum):
     PATTERN_GROWTH = "pattern-growth"
     GRAPH_DYNAMIC = "graph-dynamic"
     OPERATIONAL_PROMOTION = "operational-promotion"
+    OUTCOME_ASSURANCE = "outcome-assurance"
 
 
 def _required_env(name: str) -> str:
@@ -507,6 +511,61 @@ async def _run_operational_promotion() -> int:
     return 3 if aborted else 0
 
 
+async def _run_outcome_assurance() -> int:
+    import fdai_service_contracts as sc
+
+    from fdai.core.measurement.outcome_assurance import (
+        FinalizedOutcomeEvent,
+        OutcomeMeasurementObservation,
+    )
+
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    principal_id = _required_env("FDAI_OUTCOME_ASSURANCE_PRINCIPAL_ID")
+    root_raw = os.environ.get("FDAI_OUTCOME_ASSURANCE_ROOT", "").strip()
+    root = Path(root_raw).resolve(strict=True) if root_raw else _catalog_root().parent
+    bundle_path = _bounded_evidence_path(
+        root=root,
+        value=_required_env("FDAI_OUTCOME_ASSURANCE_SOURCE_BUNDLE_PATH"),
+    )
+    raw = json.loads(bundle_path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict) or "state" in raw or "alignment" in raw:
+        raise ValueError(
+            "Outcome Assurance source bundle MUST supply raw sources, "
+            "not precomputed state/alignment"
+        )
+    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    receipt = await OutcomeAssuranceProjectionProducer(
+        store=state_store
+    ).publish_from_authoritative_sources(
+        principal_id=principal_id,
+        scope=sc.OutcomeAssuranceScope.model_validate(raw["scope"]),
+        window=sc.OutcomeAssuranceWindow.model_validate(raw["window"]),
+        sources=tuple(
+            sc.OutcomeAssuranceSource.model_validate(item) for item in raw.get("sources", ())
+        ),
+        readiness=tuple(
+            sc.OutcomeAssuranceReadiness.model_validate(item) for item in raw.get("readiness", ())
+        ),
+        finalized_events=tuple(
+            FinalizedOutcomeEvent.model_validate(item) for item in raw.get("finalized_events", ())
+        ),
+        observations=tuple(
+            OutcomeMeasurementObservation.model_validate(item)
+            for item in raw.get("observations", ())
+        ),
+        outcomes=tuple(
+            sc.OutcomeAssuranceMetric.model_validate(item) for item in raw.get("outcomes", ())
+        ),
+        guards=sc.OutcomeAssuranceControlSummary.model_validate(raw["guards"]),
+        as_of=datetime.fromisoformat(str(raw["as_of"]).replace("Z", "+00:00")),
+    )
+    _LOGGER.info(
+        "outcome_assurance_projection_published",
+        extra=receipt.to_mapping(),
+    )
+    return 0 if receipt.state is sc.OutcomeAssuranceReadState.COMPLETE else 3
+
+
 def _bounded_evidence_path(*, root: Path, value: str) -> Path:
     candidate = Path(value)
     if not candidate.is_absolute():
@@ -549,6 +608,8 @@ async def _run_mode(mode: MeasurementMode) -> int:
         return await _run_pattern_growth()
     if mode is MeasurementMode.GRAPH_DYNAMIC:
         return await _run_graph_dynamic()
+    if mode is MeasurementMode.OUTCOME_ASSURANCE:
+        return await _run_outcome_assurance()
     return await _run_operational_promotion()
 
 

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fdai.core.skills import RuntimeSkillDisclosure, SkillBundleTrustVerifier, SkillTrustVerifier
+from fdai.core.skills import (
+    RuntimeSkillDisclosure,
+    SkillBundleCatalog,
+    SkillBundleTrustVerifier,
+    SkillCatalog,
+    SkillTrustVerifier,
+)
 from fdai.core.supply_chain import (
     SkillBundleTrustVerifierFactory,
     SkillTrustVerifierFactory,
@@ -27,6 +33,21 @@ class SkillDisclosureStartupReadiness:
     @property
     def ready(self) -> bool:
         return True
+
+
+@dataclass(frozen=True, slots=True)
+class SkillDisclosureStartupBinding:
+    """Composed RuntimeSkillDisclosure whose snapshots were verified and published before ready."""
+
+    disclosure: RuntimeSkillDisclosure
+    readiness: SkillDisclosureStartupReadiness
+
+    def require_ready_disclosure(self) -> RuntimeSkillDisclosure:
+        """Return the disclosure only after startup snapshot publication succeeded."""
+
+        if not self.readiness.ready:
+            raise RuntimeError("runtime skill disclosure snapshots are not ready")
+        return self.disclosure
 
 
 async def publish_trusted_skill_disclosure_snapshots(
@@ -78,7 +99,46 @@ async def publish_trusted_skill_disclosure_snapshots(
     )
 
 
+async def compose_runtime_skill_disclosure_startup(
+    *,
+    store: TrustedArtifactStore,
+    skill_verifier_factory: SkillTrustVerifierFactory,
+    bundle_verifier_factory: SkillBundleTrustVerifierFactory,
+    skill_verifier: SkillTrustVerifier,
+    bundle_verifier: SkillBundleTrustVerifier,
+    available_tools: frozenset[str],
+    known_agents: frozenset[str],
+    agent: str = "Bragi",
+) -> SkillDisclosureStartupBinding:
+    """Construct RuntimeSkillDisclosure with deployment trust roots and publish before traffic."""
+
+    if not agent.strip() or agent not in known_agents:
+        raise ValueError("skill disclosure startup agent MUST be a known agent")
+    disclosure = RuntimeSkillDisclosure(
+        catalog=SkillCatalog(),
+        verifier=skill_verifier,
+        agent=agent,
+        available_tools=available_tools,
+        bundle_catalog=SkillBundleCatalog(),
+        bundle_verifier=bundle_verifier,
+        known_agents=known_agents,
+    )
+    readiness = await publish_trusted_skill_disclosure_snapshots(
+        disclosure,
+        store=store,
+        skill_verifier_factory=skill_verifier_factory,
+        bundle_verifier_factory=bundle_verifier_factory,
+        skill_verifier=skill_verifier,
+        bundle_verifier=bundle_verifier,
+        available_tools=available_tools,
+        known_agents=known_agents,
+    )
+    return SkillDisclosureStartupBinding(disclosure=disclosure, readiness=readiness)
+
+
 __all__ = [
+    "SkillDisclosureStartupBinding",
     "SkillDisclosureStartupReadiness",
+    "compose_runtime_skill_disclosure_startup",
     "publish_trusted_skill_disclosure_snapshots",
 ]
