@@ -56,6 +56,10 @@ class CoreHandoverServices:
         access: HandoverKnowledgeAccessContext,
     ) -> tuple[KnowledgeChunk, ...]:
         """Use the actual current goal, restricted SQL query, and read-time ACL verifier."""
+        if not isinstance(goal_id, str) or not goal_id.strip():
+            raise ValueError("Core handover search requires a non-empty goal_id")
+        if not isinstance(question, str) or not question.strip():
+            raise ValueError("Core handover search requires a non-empty question")
         goal = await self.goals.get_goal(goal_id)
         return await HandoverKnowledgeRetrieval(
             query=PostgresCoreHandoverSearch(self.source, self.goals, goal),

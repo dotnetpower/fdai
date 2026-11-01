@@ -38,8 +38,8 @@ class DeterministicExtractor:
             if match is None:
                 continue
             agent_name = _AGENT_NAME_BY_CASEFOLD.get(match.group(1).strip().casefold())
-            identity = match.group(4).strip().rstrip(" .,;:")
-            if agent_name is None or not identity:
+            identity = " ".join(match.group(4).strip().rstrip(" .,;:").split())
+            if agent_name is None or not identity or any(ord(c) < 32 for c in identity):
                 continue
             mappings.append(
                 ExtractedMapping(
@@ -48,12 +48,13 @@ class DeterministicExtractor:
                     responsibility=Responsibility(match.group(2).casefold()),
                     confidence=1.0,
                     source=MappingSource.DETERMINISTIC,
-                    citations=(
+                    citations=tuple(
                         SourceSpan(
                             doc_id=document.doc_id,
                             line=line_number,
-                            quote=line[:_MAX_QUOTE],
-                        ),
+                            quote=line[start : start + _MAX_QUOTE],
+                        )
+                        for start in range(0, len(line), _MAX_QUOTE)
                     ),
                     rationale="explicit structured assignment",
                 )

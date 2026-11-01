@@ -141,11 +141,21 @@ def notice_for_source(
     """Create only a request for independent source checking, never an admissibility result."""
     if at.utcoffset() is None:
         raise ValueError("handover source observation time MUST include a timezone")
-    digest = record.get("source_digest") or knowledge_source_digest(record)
+    revision = record.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+        raise ValueError("handover source observation revision MUST be a positive integer")
+    raw_digest = record.get("source_digest")
+    if raw_digest is not None and (not isinstance(raw_digest, str) or not raw_digest.strip()):
+        raise ValueError("handover source_digest MUST be a non-empty digest when provided")
+    digest = (
+        raw_digest
+        if isinstance(raw_digest, str) and raw_digest
+        else knowledge_source_digest(record)
+    )
     return HandoverKnowledgeNotice(
         source=source,
         goal_id=record["goal_id"],
-        goal_revision=record["revision"],
+        goal_revision=revision,
         source_digest=digest,
         check_epoch=int(at.timestamp()) // 300,
     )

@@ -64,12 +64,23 @@ def migrate_stewardship_mapping_to_v2(raw: Mapping[str, Any]) -> dict[str, Any]:
     for raw_agent in agents.values():
         if not isinstance(raw_agent, dict):
             continue
+        accept = raw_agent.get("accept_autonomous")
+        if isinstance(accept, dict) and isinstance(accept.get("reason"), str):
+            accept["reason"] = accept["reason"].strip()
         accountable_index = 0
         for entry in raw_agent.get("stewards", []):
             if not isinstance(entry, dict):
                 continue
+            if isinstance(entry.get("id"), str):
+                entry["id"] = entry["id"].strip()
             if entry.get("responsibility") == "accountable":
-                entry["duty"] = "primary" if accountable_index == 0 else "backup"
+                existing_duty = entry.get("duty")
+                if accountable_index == 0:
+                    entry["duty"] = "primary"
+                elif existing_duty in {"backup", "escalation"}:
+                    entry["duty"] = existing_duty
+                else:
+                    entry["duty"] = "backup"
                 accountable_index += 1
             else:
                 entry.pop("duty", None)

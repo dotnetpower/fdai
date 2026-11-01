@@ -106,8 +106,8 @@ class AssignmentIntent:
     def __post_init__(self) -> None:
         if self.requested_role is Role.BREAK_GLASS:
             raise AssignmentModelError("BreakGlass is not available for routine assignment")
-        if not self.duty_bindings:
-            raise AssignmentModelError("at least one duty binding is required")
+        if not self.duty_bindings or len(self.duty_bindings) > 30:
+            raise AssignmentModelError("between 1 and 30 duty bindings are required")
         object.__setattr__(
             self,
             "idempotency_key",
@@ -116,8 +116,10 @@ class AssignmentIntent:
         object.__setattr__(self, "requester_ref", _identifier(self.requester_ref, "requester_ref"))
         object.__setattr__(self, "duty_bindings", tuple(self.duty_bindings))
         normalized_goals = tuple(_identifier(ref, "goal_ref") for ref in self.goal_refs)
-        if len(set(normalized_goals)) != len(normalized_goals):
-            raise AssignmentModelError("goal refs MUST be unique")
+        if len(normalized_goals) > 20 or len({g.casefold() for g in normalized_goals}) != len(
+            normalized_goals
+        ):
+            raise AssignmentModelError("goal refs MUST be unique and at most 20")
         object.__setattr__(self, "goal_refs", normalized_goals)
         if self.revocation is not None and self.goal_refs:
             raise AssignmentModelError("revocation cannot create handover goals")
@@ -419,16 +421,18 @@ class AssignmentCase:
 
 
 def _identifier(value: str, name: str) -> str:
+    if not isinstance(value, str):
+        raise AssignmentModelError(f"{name} MUST be a string")
     normalized = value.strip()
-    if not normalized:
-        raise AssignmentModelError(f"{name} MUST be non-empty")
+    if not normalized or any(ord(c) < 32 for c in normalized):
+        raise AssignmentModelError(f"{name} MUST be non-empty without control characters")
     if len(normalized) > _MAX_IDENTIFIER_CHARS:
         raise AssignmentModelError(f"{name} MUST be at most {_MAX_IDENTIFIER_CHARS} characters")
     return normalized
 
 
 def _aware(value: datetime, name: str) -> None:
-    if value.tzinfo is None:
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise AssignmentModelError(f"{name} MUST be timezone-aware")
 
 

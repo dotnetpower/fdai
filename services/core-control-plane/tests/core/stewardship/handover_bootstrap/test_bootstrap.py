@@ -198,3 +198,36 @@ async def test_draft_yaml_carries_citation_comments() -> None:
     assert "Jane Kim" in text
     assert "UNRESOLVED" in text  # Sam Lee flagged inline
     assert "DRAFT" in text
+
+
+async def test_handover_bootstrap_hardening_rounds_h017_to_h025() -> None:
+    from fdai.core.stewardship.handover_bootstrap.draft_yaml import render_candidate_yaml
+
+    # H017-H020: contract & people validation
+    with pytest.raises(ValueError, match="HandoverDocument"):
+        HandoverDocument(doc_id="   ", kind=DocumentKind.RACI, text="x")
+    with pytest.raises(ValueError, match="1-based positive integer"):
+        SourceSpan(doc_id="d1", line=0, quote="q")
+    with pytest.raises(ValueError, match="ResolvedIdentity"):
+        ResolvedIdentity(oid="   ")
+    with pytest.raises(ValueError, match="confidence_floor"):
+        HandoverBootstrapper(confidence_floor=True)
+
+    # H021: long structured line segmented into <=200-char citations and whitespace normalized
+    long_name = "Jane   " + ("K" * 180)
+    doc = HandoverDocument(
+        doc_id="raci-long",
+        kind=DocumentKind.RACI,
+        text=f"Agent: Njord; responsibility: accountable; subject: user; identity: {long_name}",
+    )
+    draft = await HandoverBootstrapper(directory=_directory()).bootstrap((doc,))
+    assert len(draft.mappings) == 1
+    assert len(draft.mappings[0].citations) >= 2
+    assert "  " not in draft.mappings[0].person.display_name
+
+    # H022-H025: candidate YAML preserves v2 duty and sanitizes comment newlines
+    seeded_draft = await HandoverBootstrapper(directory=_directory()).bootstrap(_docs())
+    base_raw = yaml.safe_load(render_draft_yaml(seeded_draft))
+    base_map = load_stewardship_from_mapping(base_raw, environ={})
+    candidate_text = render_candidate_yaml(draft, base=base_map)
+    assert load_stewardship_from_mapping(yaml.safe_load(candidate_text), environ={}).version == 1

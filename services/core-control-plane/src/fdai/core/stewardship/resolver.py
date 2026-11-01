@@ -164,7 +164,10 @@ def _parse_maintainers(
         )
         for i, o in enumerate(oids)
     )
-    if len(set(oids)) != len(oids) and any(not _is_placeholder(oid) for oid in oids):
+    normalized_oids = [m.oid.casefold() for m in validated]
+    if len(set(normalized_oids)) != len(normalized_oids) and any(
+        not _is_placeholder(m.oid) for m in validated
+    ):
         raise StewardshipValidationError(
             "stewardship config: maintainers MUST contain distinct Entra object ids"
         )
@@ -177,6 +180,7 @@ def _parse_channels(raw: Any, *, require_real_bindings: bool) -> dict[str, str]:
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError("stewardship config: 'channels' MUST be a mapping")
     channels: dict[str, str] = {}
+    seen_oids: set[str] = set()
     for oid, channel_id in raw.items():
         if not isinstance(channel_id, str) or not channel_id.strip():
             raise StewardshipValidationError(
@@ -187,6 +191,12 @@ def _parse_channels(raw: Any, *, require_real_bindings: bool) -> dict[str, str]:
             where=f"channels[{oid!r}]",
             require_real_bindings=require_real_bindings,
         )
+        oid_key = validated_oid.casefold()
+        if oid_key in seen_oids:
+            raise StewardshipValidationError(
+                f"stewardship config: 'channels' has duplicate Entra object id {validated_oid!r}"
+            )
+        seen_oids.add(oid_key)
         channels[validated_oid] = channel_id.strip()
     return channels
 
@@ -197,7 +207,7 @@ def _parse_hop_timeout(raw: Any) -> int:
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError("stewardship config: 'escalation' MUST be a mapping")
     value = raw.get("hop_timeout_seconds", 900)
-    if not isinstance(value, int) or value <= 0:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise StewardshipValidationError(
             "stewardship config: 'escalation.hop_timeout_seconds' MUST be a positive integer"
         )
@@ -210,7 +220,7 @@ def _parse_over_assigned_max(raw: Any) -> int:
     if not isinstance(raw, Mapping):
         raise StewardshipValidationError("stewardship config: 'thresholds' MUST be a mapping")
     value = raw.get("over_assigned_max", 5)
-    if not isinstance(value, int) or value <= 0:
+    if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise StewardshipValidationError(
             "stewardship config: 'thresholds.over_assigned_max' MUST be a positive integer"
         )
@@ -296,11 +306,21 @@ def _parse_one_agent(
         )
 
     if version == 2 and has_accountable:
-        if not any(subject.duty is Duty.PRIMARY for subject in stewards):
+        primary_keys = {
+            (subject.kind, subject.id.casefold())
+            for subject in stewards
+            if subject.duty is Duty.PRIMARY
+        }
+        fallback_keys = {
+            (subject.kind, subject.id.casefold())
+            for subject in stewards
+            if subject.duty in {Duty.BACKUP, Duty.ESCALATION}
+        }
+        if not primary_keys:
             raise StewardshipValidationError(
                 f"stewardship config: agent {name!r} version 2 requires a primary steward"
             )
-        if not any(subject.duty in {Duty.BACKUP, Duty.ESCALATION} for subject in stewards):
+        if not (fallback_keys - primary_keys):
             raise StewardshipValidationError(
                 f"stewardship config: agent {name!r} version 2 requires a distinct backup "
                 "or escalation steward"
@@ -357,7 +377,7 @@ def _parse_stewards(
         )
         if resp is Responsibility.ACCOUNTABLE:
             accountable_count += 1
-        subject_key = (kind, oid)
+        subject_key = (kind, oid.casefold())
         if subject_key in seen_subjects:
             raise StewardshipValidationError(
                 f"stewardship config: agent {agent!r} has duplicate steward {kind.value}:{oid}"
@@ -371,6 +391,7 @@ def _parse_steward_env_tokens(
     agent: str, override: str, *, version: int, require_real_bindings: bool
 ) -> tuple[StewardSubject, ...]:
     subjects: list[StewardSubject] = []
+    seen_subjects: set[tuple[StewardKind, str]] = set()
     accountable_count = 0
     for raw_tok in override.split(","):
         tok = raw_tok.strip()
@@ -403,6 +424,12 @@ def _parse_steward_env_tokens(
         )
         if resp is Responsibility.ACCOUNTABLE:
             accountable_count += 1
+        subject_key = (kind, oid.casefold())
+        if subject_key in seen_subjects:
+            raise StewardshipValidationError(
+                f"stewardship config: agent {agent!r} has duplicate steward {kind.value}:{oid}"
+            )
+        seen_subjects.add(subject_key)
         subjects.append(StewardSubject(kind=kind, id=oid, responsibility=resp, duty=duty))
     return tuple(subjects)
 

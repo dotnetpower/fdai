@@ -37,11 +37,13 @@ class PostgresCoreHandoverSearch:
             or not query.strip()
             or len(query) > 20_000
             or not isinstance(collection_id, str)
+            or collection_id != collection_id.strip()
             or not 1 <= len(collection_id) <= 256
             or not isinstance(allowed_access_refs, frozenset)
             or not 1 <= len(allowed_access_refs) <= 100
             or any(
-                not isinstance(ref, str) or not 1 <= len(ref) <= 512 for ref in allowed_access_refs
+                not isinstance(ref, str) or ref != ref.strip() or not 1 <= len(ref) <= 512
+                for ref in allowed_access_refs
             )
             or type(k) is not int
             or not 1 <= k <= 20

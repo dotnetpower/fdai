@@ -85,8 +85,12 @@ def render_candidate_yaml(draft: StewardMapDraft, *, base: StewardshipMap) -> st
     lines.append(f"    over_assigned_max: {base.over_assigned_max}")
     lines.append("  agents:")
     for name in AGENT_NAMES:
-        lines.extend(_candidate_agent_block(base.agent(name), by_agent[name]))
+        lines.extend(_candidate_agent_block(base.agent(name), by_agent[name], version=base.version))
     return "\n".join(lines) + "\n"
+
+
+def _inline_text(value: str) -> str:
+    return " ".join(value.splitlines()).strip()
 
 
 def _header(draft: StewardMapDraft) -> list[str]:
@@ -97,16 +101,15 @@ def _header(draft: StewardMapDraft) -> list[str]:
         f"# outcome: {draft.outcome.value}",
     ]
     for warning in draft.warnings:
-        lines.append(f"# warning: {warning}")
+        lines.append(f"# warning: {_inline_text(warning)}")
     for person in draft.unresolved_people:
-        lines.append(
-            f"# unresolved: {person.display_name!r} ({person.kind.value}) - set a real Entra id"
-        )
+        person_name = _inline_text(person.display_name)
+        lines.append(f"# unresolved: {person_name!r} ({person.kind.value}) - set a real Entra id")
     for mapping in draft.abstained:
         cite = mapping.citations[0] if mapping.citations else None
-        where = f" {cite.doc_id}:L{cite.line}" if cite else ""
+        where = f" {_inline_text(cite.doc_id)}:L{cite.line}" if cite else ""
         lines.append(
-            f"# below-floor: {mapping.agent_name} <- {mapping.person.display_name!r} "
+            f"# below-floor: {mapping.agent_name} <- {_inline_text(mapping.person.display_name)!r} "
             f"conf={mapping.confidence}{where} (confirm manually)"
         )
     lines.append("#")
@@ -141,40 +144,57 @@ def _agent_block(name: str, mappings: list[ExtractedMapping]) -> list[str]:
     return lines
 
 
-def _steward_line(mapping: ExtractedMapping) -> str:
+def _steward_line(mapping: ExtractedMapping, *, duty: str | None = None) -> str:
     person = mapping.person
     oid = person.oid or _PLACEHOLDER_OID
     cite = mapping.citations[0] if mapping.citations else None
-    where = f" {cite.doc_id}:L{cite.line}" if cite else ""
+    where = f" {_inline_text(cite.doc_id)}:L{cite.line}" if cite else ""
     flag = "" if person.oid else " UNRESOLVED"
-    comment = (
-        f"# {person.display_name}{flag} conf={mapping.confidence} src={mapping.source.value}{where}"
-    )
+    person_name = _inline_text(person.display_name)
+    comment = f"# {person_name}{flag} conf={mapping.confidence} src={mapping.source.value}{where}"
+    duty_part = f", duty: {duty}" if duty is not None else ""
     return (
         f'        - {{ kind: {person.kind.value}, id: "{oid}", '
-        f"responsibility: {mapping.responsibility.value} }}   {comment}"
+        f"responsibility: {mapping.responsibility.value}{duty_part} }}   {comment}"
     )
 
 
 def _candidate_agent_block(
     existing: AgentStewardship,
     additions: list[ExtractedMapping],
+    *,
+    version: int = 1,
 ) -> list[str]:
     subjects: dict[tuple[str, str], StewardSubject | ExtractedMapping] = {
-        (subject.kind.value, subject.id): subject for subject in existing.stewards
+        (subject.kind.value, subject.id.casefold()): subject for subject in existing.stewards
+    }
+    prior_duties: dict[tuple[str, str], str] = {
+        (subject.kind.value, subject.id.casefold()): subject.duty.value
+        for subject in existing.stewards
+        if subject.duty is not None
     }
     for mapping in additions:
         if mapping.person.oid is not None:
-            subjects[(mapping.person.kind.value, mapping.person.oid)] = mapping
+            subjects[(mapping.person.kind.value, mapping.person.oid.casefold())] = mapping
 
     lines = [f"    {existing.agent_name}:", "      stewards:"]
-    for subject in subjects.values():
+    accountable_index = 0
+    for key, subject in subjects.items():
         if isinstance(subject, ExtractedMapping):
-            lines.append(_steward_line(subject))
+            duty: str | None = None
+            if version == 2 and subject.responsibility is Responsibility.ACCOUNTABLE:
+                duty = prior_duties.get(key) or ("primary" if accountable_index == 0 else "backup")
+                accountable_index += 1
+            lines.append(_steward_line(subject, duty=duty))
         else:
+            duty_part = (
+                f", duty: {subject.duty.value}" if version == 2 and subject.duty is not None else ""
+            )
+            if subject.is_accountable:
+                accountable_index += 1
             lines.append(
                 f'        - {{ kind: {subject.kind.value}, id: "{subject.id}", '
-                f"responsibility: {subject.responsibility.value} }}"
+                f"responsibility: {subject.responsibility.value}{duty_part} }}"
             )
     accountable = any(
         (
@@ -185,7 +205,9 @@ def _candidate_agent_block(
         for subject in subjects.values()
     )
     if not accountable:
-        reason = existing.accept_autonomous_reason or "review required: no accountable owner"
+        reason = _inline_text(
+            existing.accept_autonomous_reason or "review required: no accountable owner"
+        )
         lines.append("      accept_autonomous:")
         lines.append(f'        reason: "{reason}"')
     return lines

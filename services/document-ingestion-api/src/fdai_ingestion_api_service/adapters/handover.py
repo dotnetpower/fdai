@@ -19,6 +19,14 @@ class PostgresHandoverDraftReader:
     """Read the durable handover projection without importing worker code."""
 
     def __init__(self, *, dsn: str, connect_timeout_s: int = 10) -> None:
+        if not isinstance(dsn, str) or not dsn.strip():
+            raise ValueError("handover draft reader PostgreSQL DSN MUST NOT be empty")
+        if (
+            isinstance(connect_timeout_s, bool)
+            or not isinstance(connect_timeout_s, int)
+            or connect_timeout_s < 1
+        ):
+            raise ValueError("handover draft reader connect timeout MUST be positive")
         self._dsn = dsn
         self._connect_timeout_s = connect_timeout_s
 

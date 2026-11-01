@@ -61,7 +61,7 @@ def explicit_rule_candidates(document: ManualDocument) -> tuple[DistilledCandida
         if {"source", "provenance"} & body.keys():
             raise ValueError("typed handover Rule cannot supply compiler-owned provenance")
         identity = body.get("id")
-        if not isinstance(identity, str):
+        if not isinstance(identity, str) or not identity.strip():
             raise ValueError("typed handover Rule requires a canonical Rule id")
         candidates.append(
             DistilledCandidate(

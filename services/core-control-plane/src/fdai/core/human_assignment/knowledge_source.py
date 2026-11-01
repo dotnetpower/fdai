@@ -78,7 +78,17 @@ class HandoverKnowledgeSourceCheck:
         final = await self.reader.read(notice)
         if final is None:
             return _decision(notice, "withdrawn", "source_withdrawn")
-        if knowledge_source_digest(final) != notice.source_digest:
+        if final.get("state") in {"stale", "declined", "superseded"}:
+            return _decision(notice, "withdrawn", "source_withdrawn")
+        try:
+            final_digest = knowledge_source_digest(final)
+        except (TypeError, ValueError):
+            return _decision(notice, "held", "source_unavailable")
+        if (
+            final.get("goal_id") != notice.goal_id
+            or final.get("revision") != notice.goal_revision
+            or final_digest != notice.source_digest
+        ):
             return _decision(notice, "held", "source_changed")
         if not await self.reader.contribution_current(notice):
             return _decision(notice, "withdrawn", "source_withdrawn")

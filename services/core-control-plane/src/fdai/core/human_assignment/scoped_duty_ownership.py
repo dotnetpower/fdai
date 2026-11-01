@@ -32,6 +32,15 @@ class ScopedDutyMergeObservation:
     observed_at: datetime
     expires_at: datetime
 
+    def __post_init__(self) -> None:
+        if any(
+            not val.strip()
+            for val in (self.pr_ref, self.path, self.candidate_digest, self.merge_commit_sha)
+        ):
+            raise ValueError("scoped duty merge observation fields MUST be non-empty")
+        if utc_instant(self.observed_at) > utc_instant(self.expires_at):
+            raise ValueError("scoped duty merge observation window MUST not invert")
+
 
 class ScopedDutyMergeReader(Protocol):
     """Verify exact reviewed merge and current default-branch content independently of publish."""

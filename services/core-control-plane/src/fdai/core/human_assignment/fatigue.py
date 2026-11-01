@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,13 +22,14 @@ class HandoverFatiguePolicy:
             "max_session_minutes",
             "snooze_hours",
         ):
-            if not 1 <= getattr(self, name) <= 168:
+            val = getattr(self, name)
+            if isinstance(val, bool) or not isinstance(val, int) or not 1 <= val <= 168:
                 raise ValueError(f"{name} MUST be in [1, 168]")
 
     def week_key(self, at: datetime) -> str:
-        if at.tzinfo is None:
+        if not isinstance(at, datetime) or at.tzinfo is None or at.utcoffset() is None:
             raise ValueError("fatigue timestamp MUST be timezone-aware")
-        year, week, _ = at.isocalendar()
+        year, week, _ = at.astimezone(UTC).isocalendar()
         return f"{year}-W{week:02d}"
 
 

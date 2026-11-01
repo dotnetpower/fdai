@@ -111,3 +111,24 @@ def test_retired_package_never_revives_after_source_recovery():
         True,
         True,
     )
+
+
+def test_distill_handover_hardening_rounds_h082_to_h084() -> None:
+    from fdai.rule_catalog.pipeline.distill.handover_rules import explicit_rule_candidates
+    from fdai.rule_catalog.pipeline.distill.handover_semantics import HandoverSemanticVerification
+    from fdai.shared.providers.distiller import ManualDocument
+
+    doc = ManualDocument(
+        doc_id="d1",
+        text='{"kind": "fdai.rule.candidate.v1", "rule": {"id": "   "}}',
+        source_ref="doc:1",
+        content_sha="a" * 64,
+    )
+    with pytest.raises(ValueError, match="canonical Rule id"):
+        explicit_rule_candidates(doc)
+    with pytest.raises(ValueError, match="SHA-256 hex"):
+        HandoverSemanticVerification(
+            rules=None,  # type: ignore[arg-type]
+            context=lambda _e: None,  # type: ignore[arg-type,return-value]
+            compiler_digest="not-a-digest",
+        )

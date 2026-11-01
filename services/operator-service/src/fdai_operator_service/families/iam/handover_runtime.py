@@ -245,7 +245,8 @@ class ProactiveHandoverRuntime:
                 raise IamConflictError("handover reuse requires a distinct source goal")
             reused = await self.get_goal(command.source_goal_id)
             if (
-                reused.get("subject_ref") != subject_ref
+                str(reused.get("subject_ref", "")).strip().casefold()
+                != subject_ref.strip().casefold()
                 or reused.get("scope_ref") != current.get("scope_ref")
                 or reused.get("source_revision") != source_revision
                 or reused.get("state") != "accepted"
@@ -374,7 +375,10 @@ class ProactiveHandoverRuntime:
                 "handover_state_unavailable",
                 "handover state is unavailable",
             ) from exc
-        if goal.get("subject_ref") != proposal.scope.subject_id:
+        if (
+            str(goal.get("subject_ref", "")).strip().casefold()
+            != proposal.scope.subject_id.strip().casefold()
+        ):
             raise ConversationBoundaryError(
                 404, "handover_goal_not_found", "handover goal was not found"
             )
@@ -532,8 +536,12 @@ class ProactiveHandoverRuntime:
                 subject = _mapping(raw_subject, "ownership subject")
                 if (
                     subject.get("kind") == "user"
-                    and (subject.get("subject_id") if current_shape else subject.get("id"))
-                    == subject_ref
+                    and str(
+                        (subject.get("subject_id") if current_shape else subject.get("id")) or ""
+                    )
+                    .strip()
+                    .casefold()
+                    == subject_ref.strip().casefold()
                     and subject.get("responsibility") == "accountable"
                     and (not current_shape or subject.get("active") is True)
                     and (required_duties is None or subject.get("duty") in required_duties)

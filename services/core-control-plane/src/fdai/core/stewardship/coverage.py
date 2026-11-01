@@ -15,6 +15,7 @@ from enum import StrEnum
 
 from fdai.core.stewardship.directory import IdentityDirectory
 from fdai.core.stewardship.model import StewardKind, StewardshipMap
+from fdai.core.stewardship.names import AGENT_NAME_SET
 
 
 class Severity(StrEnum):
@@ -34,8 +35,19 @@ class Finding:
     agent: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.code.strip() or not self.message.strip():
+        code = self.code.strip() if isinstance(self.code, str) else ""
+        message = self.message.strip() if isinstance(self.message, str) else ""
+        if not code or not message:
             raise ValueError("stewardship finding code and message MUST be non-empty")
+        object.__setattr__(self, "code", code)
+        object.__setattr__(self, "message", message)
+        if self.agent is not None:
+            agent = self.agent.strip() if isinstance(self.agent, str) else ""
+            if agent not in AGENT_NAME_SET:
+                raise ValueError(
+                    f"stewardship finding agent MUST be a pantheon agent: {self.agent!r}"
+                )
+            object.__setattr__(self, "agent", agent)
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +131,7 @@ def build_coverage_report(mp: StewardshipMap) -> CoverageReport:
                     )
                 )
 
-        accountable_units = {(subject.kind, subject.id) for subject in agent.accountable}
+        accountable_units = {(subject.kind, subject.id.casefold()) for subject in agent.accountable}
         bus_factor = len(accountable_units)
         if bus_factor == 1:
             findings.append(
@@ -130,7 +142,7 @@ def build_coverage_report(mp: StewardshipMap) -> CoverageReport:
                     agent=name,
                 )
             )
-        for oid in agent.accountable_user_ids:
+        for oid in {uid.casefold(): uid for uid in agent.accountable_user_ids}.values():
             user_load[oid] += 1
 
     for oid, count in sorted(user_load.items()):
@@ -162,9 +174,16 @@ async def audit_stale_oids(mp: StewardshipMap, directory: IdentityDirectory) -> 
     liveness probe.
     """
     findings: list[Finding] = []
+    checked_oids: dict[str, bool] = {}
+
+    async def _is_oid_active(oid: str) -> bool:
+        key = oid.strip().casefold()
+        if key not in checked_oids:
+            checked_oids[key] = await directory.is_active(oid)
+        return checked_oids[key]
 
     for i, oid in enumerate(mp.maintainer_oids):
-        if not await directory.is_active(oid):
+        if not await _is_oid_active(oid):
             findings.append(
                 Finding(
                     code="stale_oid",
@@ -178,7 +197,7 @@ async def audit_stale_oids(mp: StewardshipMap, directory: IdentityDirectory) -> 
         for subject in agent.stewards:
             if subject.kind is not StewardKind.USER:
                 continue
-            if not await directory.is_active(subject.id):
+            if not await _is_oid_active(subject.id):
                 findings.append(
                     Finding(
                         code="stale_oid",

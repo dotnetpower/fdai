@@ -21,7 +21,12 @@ async def require_revocation_target(
     goal mutations while effect convergence is unknown. Another case cannot borrow that hold.
     """
     target = intent.revocation
-    if target is None or target.case_id == revocation_case_id:
+    if (
+        target is None
+        or not isinstance(revocation_case_id, str)
+        or not revocation_case_id.strip()
+        or target.case_id == revocation_case_id.strip()
+    ):
         raise ValueError("revocation requires a separate original assignment")
     old = await load_case_state(store, target.case_id)
     matches = (

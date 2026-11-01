@@ -31,6 +31,15 @@ class PostgresCoreHandoverReview:
 
     async def verify_subject(self, *, subject_ref: str, assignment_case_id: str) -> bool:
         """Keep the provider namespace and active source-case fence through the human read."""
+        if (
+            not isinstance(subject_ref, str)
+            or not subject_ref.strip()
+            or subject_ref != subject_ref.strip()
+            or not isinstance(assignment_case_id, str)
+            or not assignment_case_id.strip()
+            or assignment_case_id != assignment_case_id.strip()
+        ):
+            return False
         async with asyncio.timeout(10):
             async with await self.source._connect() as connection:
                 row = await (

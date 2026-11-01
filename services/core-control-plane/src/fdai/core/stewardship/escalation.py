@@ -99,7 +99,17 @@ def resolve_person_channel(mp: StewardshipMap, oid: str, fallback_channel_id: st
     fallback (the agent's category route in the notifications matrix) is used.
     Group subjects always use the fallback - a group has no personal channel.
     """
-    return mp.channels.get(oid, fallback_channel_id)
+    fallback = fallback_channel_id.strip() if isinstance(fallback_channel_id, str) else ""
+    if not fallback:
+        raise ValueError("fallback_channel_id MUST be non-empty")
+    normalized_oid = oid.strip() if isinstance(oid, str) else ""
+    if normalized_oid in mp.channels:
+        return mp.channels[normalized_oid]
+    oid_fold = normalized_oid.casefold()
+    for key, channel in mp.channels.items():
+        if key.strip().casefold() == oid_fold:
+            return channel
+    return fallback
 
 
 async def expand_group_recipients(
@@ -111,18 +121,19 @@ async def expand_group_recipients(
     one opaque unit (so it is still notified on the domain channel) rather than
     vanishing. Order is preserved; duplicates are dropped.
     """
-    seen: dict[str, None] = {}
+    seen: dict[str, str] = {}
     for r in plan.recipients:
         if r.kind is StewardKind.USER:
-            seen.setdefault(r.id, None)
+            seen.setdefault(r.id.strip().casefold(), r.id.strip())
             continue
         members = await provider.members_of(r.id)
         if members:
             for m in members:
-                seen.setdefault(m, None)
+                if isinstance(m, str) and m.strip():
+                    seen.setdefault(m.strip().casefold(), m.strip())
         else:
-            seen.setdefault(r.id, None)
-    return tuple(seen.keys())
+            seen.setdefault(r.id.strip().casefold(), r.id.strip())
+    return tuple(seen.values())
 
 
 def affected_agents_from_workflow(workflow_raw: Mapping[str, object]) -> frozenset[str]:
@@ -141,7 +152,7 @@ def affected_agents_from_workflow(workflow_raw: Mapping[str, object]) -> frozens
         elif isinstance(node, Mapping):
             for v in node.values():
                 _walk(v)
-        elif isinstance(node, (list, tuple)):
+        elif isinstance(node, (list, tuple, set, frozenset)):
             for v in node:
                 _walk(v)
 
@@ -155,7 +166,8 @@ def affected_agents_from_stewardship_change(
 ) -> frozenset[str]:
     """Return agents affected by a validated stewardship-map replacement."""
     global_change = (
-        before.maintainers != after.maintainers
+        before.version != after.version
+        or before.maintainers != after.maintainers
         or dict(before.channels) != dict(after.channels)
         or before.hop_timeout_seconds != after.hop_timeout_seconds
         or before.over_assigned_max != after.over_assigned_max
@@ -177,10 +189,14 @@ def stakeholders_for_change(
     seen: dict[str, EscalationRecipient] = {}
 
     def _add(rec: EscalationRecipient) -> None:
-        # Keep the highest-priority tier if an id appears twice.
-        existing = seen.get(rec.id)
-        if existing is None or _tier_rank(rec.tier) < _tier_rank(existing.tier):
-            seen[rec.id] = rec
+        # Keep the highest-priority tier/duty if an id appears twice.
+        key = rec.id.strip().casefold()
+        existing = seen.get(key)
+        if existing is None or (_tier_rank(rec.tier), _duty_rank(rec.duty)) < (
+            _tier_rank(existing.tier),
+            _duty_rank(existing.duty),
+        ):
+            seen[key] = rec
 
     for name in agents:
         if name not in mp.agents:

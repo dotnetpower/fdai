@@ -75,6 +75,7 @@ class CoreHandoverDocumentReader:
                 CeilingRole.OWNER,
             }
             or not isinstance(principal_ref, str)
+            or principal_ref != principal_ref.strip()
             or not 1 <= len(principal_ref) <= 256
             or not isinstance(query, str)
             or not query.strip()

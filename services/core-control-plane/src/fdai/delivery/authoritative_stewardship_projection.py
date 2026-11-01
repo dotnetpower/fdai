@@ -55,7 +55,7 @@ def _stewardship_agent(stewardship: StewardshipMap, name: str) -> dict[str, obje
         "name": name,
         "autonomous": agent.is_autonomous,
         "accept_autonomous_reason": agent.accept_autonomous_reason,
-        "bus_factor": len({(subject.kind, subject.id) for subject in agent.accountable}),
+        "bus_factor": len({(subject.kind, subject.id.casefold()) for subject in agent.accountable}),
         "stewards": [
             {
                 "kind": str(subject.kind),

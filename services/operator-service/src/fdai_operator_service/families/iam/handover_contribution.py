@@ -23,6 +23,8 @@ class PostgresHandoverContributionGuard:
     dsn: str
 
     async def may_contribute(self, *, subject_ref: str, agent_name: str) -> bool:
+        if not subject_ref.strip() or not agent_name.strip():
+            raise IamUnavailableError("assignment contribution subject and agent are required")
         try:
             async with await psycopg.AsyncConnection.connect(
                 self.dsn, connect_timeout=5
@@ -47,6 +49,8 @@ class PostgresHandoverContributionGuard:
 
 def contribution_allowed(records: list[Mapping[str, Any]], *, agent_name: str) -> bool:
     """Hold revoked originals until their map changes or a separately converged grant exists."""
+    if not isinstance(agent_name, str) or not agent_name.strip():
+        raise IamUnavailableError("assignment contribution agent_name is malformed")
     removed, active = False, False
     for record in records:
         if not isinstance(record, Mapping):

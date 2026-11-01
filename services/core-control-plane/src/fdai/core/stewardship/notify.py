@@ -21,6 +21,7 @@ from enum import StrEnum
 
 from fdai.core.stewardship.escalation import EscalationRecipient, stakeholders_for_change
 from fdai.core.stewardship.model import StewardshipMap
+from fdai.core.stewardship.names import AGENT_NAME_SET
 from fdai.shared.providers.notifications.base import (
     NotificationMessage,
     Severity,
@@ -60,13 +61,22 @@ class StewardshipChangeEvent:
     phase: StewardshipChangePhase = StewardshipChangePhase.REQUESTED
 
     def __post_init__(self) -> None:
-        if (
-            not self.actor_oid.strip()
-            or not self.artifact.strip()
-            or not self.summary.strip()
-            or not self.correlation_id.strip()
-        ):
+        actor = self.actor_oid.strip() if isinstance(self.actor_oid, str) else ""
+        artifact = self.artifact.strip() if isinstance(self.artifact, str) else ""
+        summary = self.summary.strip() if isinstance(self.summary, str) else ""
+        correlation = self.correlation_id.strip() if isinstance(self.correlation_id, str) else ""
+        if not actor or not artifact or not summary or not correlation:
             raise ValueError("StewardshipChangeEvent fields MUST be non-empty")
+        normalized_agents = tuple(
+            agent.strip() if isinstance(agent, str) else "" for agent in self.affected_agents
+        )
+        if any(agent not in AGENT_NAME_SET for agent in normalized_agents):
+            raise ValueError("StewardshipChangeEvent affected_agents MUST be valid pantheon agents")
+        object.__setattr__(self, "actor_oid", actor)
+        object.__setattr__(self, "artifact", artifact)
+        object.__setattr__(self, "summary", summary)
+        object.__setattr__(self, "correlation_id", correlation)
+        object.__setattr__(self, "affected_agents", normalized_agents)
 
 
 def build_change_notification(

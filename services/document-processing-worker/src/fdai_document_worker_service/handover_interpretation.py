@@ -31,7 +31,13 @@ def validate_interpretation(
     *,
     max_candidates: int,
 ) -> bool:
-    if result.unavailable_reason is not None or not result.mappings:
+    if (
+        isinstance(max_candidates, bool)
+        or not isinstance(max_candidates, int)
+        or max_candidates < 1
+        or result.unavailable_reason is not None
+        or not result.mappings
+    ):
         return False
     review = result.review
     if (
@@ -45,7 +51,11 @@ def validate_interpretation(
     lines = tuple(line for unit in envelope.units for line in unit.text.splitlines())
     identities: set[tuple[str, str, str]] = set()
     for mapping in result.mappings:
-        identity = (mapping.agent_name, mapping.person.display_name, mapping.responsibility.value)
+        identity = (
+            mapping.agent_name,
+            mapping.person.display_name.strip().casefold(),
+            mapping.responsibility.value,
+        )
         if (
             mapping.source != "model"
             or mapping.person.oid is not None

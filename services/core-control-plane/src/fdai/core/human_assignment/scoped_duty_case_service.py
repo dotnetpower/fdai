@@ -59,6 +59,8 @@ class ScopedDutyCaseService:
 
     async def get(self, case_id: str) -> ScopedDutyCase:
         """Load only the distinct Core-owned scoped namespace, never a personal IAM case."""
+        if not isinstance(case_id, str) or not case_id.strip():
+            raise ValueError("scoped duty case_id MUST be non-empty")
         raw = await self.store.read_state(SCOPED_CASE_PREFIX + case_id)
         if raw is None:
             raise ValueError("scoped duty case was not found")

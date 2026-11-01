@@ -83,7 +83,15 @@ class ReplacementCoveragePlanner:
         replacement_revisions: Mapping[str, int],
     ) -> ReplacementCoveragePlan:
         """Require independently converged, distinct replacements for every old duty scope."""
-        if not 1 <= len(replacement_revisions) <= 30 or case_id in replacement_revisions:
+        if (
+            not isinstance(replacement_revisions, Mapping)
+            or not 1 <= len(replacement_revisions) <= 30
+            or case_id in replacement_revisions
+            or any(
+                isinstance(rev, bool) or not isinstance(rev, int) or rev < 1
+                for rev in replacement_revisions.values()
+            )
+        ):
             raise ValueError("replacement coverage requires bounded independent cases")
         current = await self.cases.get_case(case_id)
         _active_revision(current, expected_revision)

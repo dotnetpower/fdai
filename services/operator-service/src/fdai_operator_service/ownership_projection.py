@@ -340,7 +340,7 @@ async def _resolve_subjects(
             return ref, "unavailable"
         if identity is None:
             return ref, "not_found"
-        if identity.subject_id != subject_id:
+        if identity.subject_id.strip().casefold() != subject_id.strip().casefold():
             return ref, "kind_mismatch"
         if kind == "group" and identity.principal_type != "group":
             return ref, "kind_mismatch"
@@ -423,12 +423,12 @@ def _project_agent(
         if responsibility == "accountable":
             accountable_index += 1
     primary_subjects = {
-        (str(subject["kind"]), str(subject["subject_id"]))
+        (str(subject["kind"]), str(subject["subject_id"]).strip().casefold())
         for subject in subjects
         if subject["responsibility"] == "accountable" and subject["duty"] == "primary"
     }
     backup_subjects = {
-        (str(subject["kind"]), str(subject["subject_id"]))
+        (str(subject["kind"]), str(subject["subject_id"]).strip().casefold())
         for subject in subjects
         if subject["responsibility"] == "accountable"
         and subject["duty"] in {"backup", "escalation"}

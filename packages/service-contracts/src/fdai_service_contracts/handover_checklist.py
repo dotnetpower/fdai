@@ -60,11 +60,12 @@ def checklist_slots(goal: Mapping[str, Any]) -> dict[str, dict[str, str]]:
     """
     if goal.get("checklist_version") != CHECKLIST_VERSION:
         raise ValueError("handover checklist requires current versioned requirements")
-    if goal.get("required_slots") != list(HANDOVER_SLOTS):
+    required_slots = goal.get("required_slots")
+    if not isinstance(required_slots, (list, tuple)) or tuple(required_slots) != HANDOVER_SLOTS:
         raise ValueError("handover checklist requirements are incomplete or reordered")
     raw = goal.get("evidence", [])
     exemptions = goal.get("slot_exemptions", {})
-    if not isinstance(raw, list) or len(raw) > 64 or not isinstance(exemptions, Mapping):
+    if not isinstance(raw, (list, tuple)) or len(raw) > 64 or not isinstance(exemptions, Mapping):
         raise ValueError("handover checklist evidence is malformed")
     slots: dict[str, dict[str, str]] = {}
     for evidence in raw:
@@ -104,6 +105,10 @@ def checklist_digest(goal: Mapping[str, Any]) -> str:
     high_impact = goal.get("high_impact")
     if type(high_impact) is not bool:
         raise ValueError("handover impact classification is unavailable")
+    for required_key in ("goal_id", "subject_ref", "agent_name", "scope_ref", "prompt_ref"):
+        val = goal.get(required_key)
+        if not isinstance(val, str) or not val.strip():
+            raise ValueError(f"handover checklist digest requires non-empty {required_key}")
     content = {
         key: goal.get(key)
         for key in (
@@ -119,6 +124,7 @@ def checklist_digest(goal: Mapping[str, Any]) -> str:
             "high_impact",
         )
     }
+    content["required_slots"] = list(HANDOVER_SLOTS)
     content["slots"] = slots
     canonical = json.dumps(content, sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(canonical.encode()).hexdigest()

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
@@ -22,7 +23,12 @@ class AssignmentReconciliationWorker:
     scoped_observation: Callable[[], Awaitable[None]] | None = None
 
     def __post_init__(self) -> None:
-        if self.interval_seconds <= 0:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or self.interval_seconds <= 0
+        ):
             raise ValueError("assignment reconciliation interval MUST be positive")
 
     async def run_once(self) -> int:

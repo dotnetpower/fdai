@@ -32,6 +32,14 @@ class TransitionIntent:
     expected_revision: int
     target_state: AssignmentState
 
+    def __post_init__(self) -> None:
+        if isinstance(self.expected_revision, bool) or not isinstance(self.expected_revision, int):
+            raise StaleAssignmentRevisionError(
+                f"stale assignment revision: expected={self.expected_revision!r}"
+            )
+        if not isinstance(self.target_state, AssignmentState):
+            raise AssignmentTransitionError("target_state MUST be an AssignmentState")
+
 
 ALLOWED_TRANSITIONS: Final[Mapping[AssignmentState, frozenset[AssignmentState]]] = MappingProxyType(
     {

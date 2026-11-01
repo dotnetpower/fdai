@@ -671,3 +671,55 @@ def _session_and_envelope(text: str) -> tuple[UploadSession, DocumentEnvelope]:
         extractor_name="test",
         extractor_version="1",
     )
+
+
+def test_worker_and_ingestion_handover_hardening_rounds_h096_to_h103() -> None:
+    from fdai_document_worker_service.adapters.handover import PostgresHandoverDraftStore
+    from fdai_document_worker_service.handover_interpretation import validate_interpretation
+    from fdai_ingestion_api_service.adapters.handover import PostgresHandoverDraftReader
+    from fdai_ingestion_api_service.adapters.stewardship import (
+        GitHubRepositoryHandoverIntakeConfig,
+        GitHubStewardshipWebhookConfig,
+        PostgresRepositoryHandoverDraftRecorder,
+        PostgresStewardshipMergeRecorder,
+    )
+
+    with pytest.raises(ValueError, match="MUST be positive"):
+        HandoverGenerationBudget(max_units=True)
+    with pytest.raises(ValueError, match="confidence floor"):
+        HandoverBootstrapConsumer(
+            directory=Directory(),
+            store=Store(),
+            stewardship=_stewardship_input(),
+            confidence_floor=True,
+        )
+    _, env = _session_and_envelope(
+        "Agent: Njord; responsibility: accountable; subject: user; identity: Jane Kim"
+    )
+    assert (
+        validate_interpretation(ReviewedHandoverInterpretation(), env, max_candidates=True) is False
+    )
+    with pytest.raises(ValueError, match="connect timeout"):
+        PostgresHandoverDraftStore(dsn="postgresql://localhost/db", connect_timeout_s=True)
+    with pytest.raises(ValueError, match="DSN MUST NOT be empty"):
+        PostgresHandoverDraftReader(dsn="   ")
+    with pytest.raises(ValueError, match="connect timeout"):
+        PostgresHandoverDraftReader(dsn="postgresql://localhost/db", connect_timeout_s=True)
+    with pytest.raises(ValueError, match="bounds MUST be positive"):
+        GitHubStewardshipWebhookConfig(
+            repository="org/repo",
+            webhook_secret="x" * 32,
+            timeout_seconds=True,
+        )
+    with pytest.raises(ValueError, match="connect timeout"):
+        PostgresStewardshipMergeRecorder(dsn="postgresql://localhost/db", connect_timeout_s=True)
+    with pytest.raises(ValueError, match="connect timeout"):
+        PostgresRepositoryHandoverDraftRecorder(
+            dsn="postgresql://localhost/db", connect_timeout_s=True
+        )
+    with pytest.raises(ValueError, match="bounds MUST be positive"):
+        GitHubRepositoryHandoverIntakeConfig(
+            repository="org/repo",
+            webhook_secret="x" * 32,
+            max_body_bytes=True,
+        )

@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -56,9 +57,18 @@ class StewardshipMergeEffectsWorker:
     batch_limit: int = 100
 
     def __post_init__(self) -> None:
-        if self.interval_seconds <= 0:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or self.interval_seconds <= 0
+        ):
             raise ValueError("stewardship merge-effects interval MUST be positive")
-        if not 1 <= self.batch_limit <= 1000:
+        if (
+            isinstance(self.batch_limit, bool)
+            or not isinstance(self.batch_limit, int)
+            or not 1 <= self.batch_limit <= 1000
+        ):
             raise ValueError("stewardship merge-effects batch limit MUST be between 1 and 1000")
 
     async def run_once(self) -> int:

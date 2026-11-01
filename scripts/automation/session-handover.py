@@ -64,6 +64,9 @@ def _worktree_status(root: Path) -> dict[str, object]:
 
 def record(root: Path, revision: str) -> int:
     """Persist a concise handover for one committed revision."""
+    if not isinstance(revision, str) or not revision.strip() or revision.strip().startswith("-"):
+        raise ValueError("session handover revision MUST be a non-empty git revision reference")
+    revision = revision.strip()
     repo_root, state = _paths(root)
     commit = _git(repo_root, "rev-parse", "--verify", f"{revision}^{{commit}}").stdout.strip()
     subject = _git(repo_root, "show", "-s", "--format=%s", commit).stdout.strip()

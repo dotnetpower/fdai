@@ -133,7 +133,7 @@ class CurrentAcceptedHandoverSources:
             agent.get("name") == record["agent_name"]
             and any(
                 steward.get("kind") == "user"
-                and steward.get("id") == reviewer
+                and str(steward.get("id", "")).strip().casefold() == reviewer.strip().casefold()
                 and steward.get("responsibility") == "accountable"
                 and steward.get("duty") in {"backup", "escalation"}
                 for steward in agent.get("stewards", [])

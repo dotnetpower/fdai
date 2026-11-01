@@ -48,7 +48,10 @@ class HandoverKnowledgeStage:
                 reason="check_expired",
             )
         try:
-            return await self.source.check(notice)
+            decision = await self.source.check(notice)
+            if decision.notice != notice:
+                raise ValueError("handover source check notice mismatch")
+            return decision
         except Exception:  # noqa: BLE001 - no exception values enter the owned event
             return HandoverKnowledgeDecision(
                 notice=notice,

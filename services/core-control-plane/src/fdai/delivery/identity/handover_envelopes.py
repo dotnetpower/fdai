@@ -114,7 +114,7 @@ class HandoverEnvelopeReader:
             )
             handles.append(file)
             before = os.fstat(file)
-            if not stat.S_ISREG(before.st_mode) or before.st_size > _MAX_BYTES:
+            if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= _MAX_BYTES:
                 raise ValueError("normalized envelope must be a bounded regular file")
             with os.fdopen(os.dup(file), "rb") as stream:
                 raw = stream.read(_MAX_BYTES + 1)

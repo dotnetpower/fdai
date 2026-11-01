@@ -6,6 +6,7 @@ import base64
 import hashlib
 import hmac
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -44,7 +45,15 @@ class GitHubStewardshipWebhookConfig:
             raise ValueError("GitHub token MUST be non-empty")
         if parsed.scheme != "https" or not parsed.hostname or parsed.query or parsed.fragment:
             raise ValueError("GitHub API base MUST be an HTTPS origin")
-        if self.timeout_seconds <= 0 or self.max_file_pages < 1:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or isinstance(self.max_file_pages, bool)
+            or not isinstance(self.max_file_pages, int)
+            or self.max_file_pages < 1
+        ):
             raise ValueError("GitHub webhook bounds MUST be positive")
 
 
@@ -52,9 +61,13 @@ class PostgresStewardshipMergeRecorder:
     """Record verified merge evidence once without applying stewardship state."""
 
     def __init__(self, *, dsn: str, connect_timeout_s: int = 10) -> None:
-        if not dsn:
+        if not isinstance(dsn, str) or not dsn.strip():
             raise ValueError("stewardship merge PostgreSQL DSN MUST NOT be empty")
-        if connect_timeout_s < 1:
+        if (
+            isinstance(connect_timeout_s, bool)
+            or not isinstance(connect_timeout_s, int)
+            or connect_timeout_s < 1
+        ):
             raise ValueError("stewardship merge connect timeout MUST be positive")
         self._dsn = dsn
         self._connect_timeout_s = connect_timeout_s
@@ -81,9 +94,13 @@ class PostgresRepositoryHandoverDraftRecorder:
     """Store repository drafts as inert state without changing stewardship configuration."""
 
     def __init__(self, *, dsn: str, connect_timeout_s: int = 10) -> None:
-        if not dsn:
+        if not isinstance(dsn, str) or not dsn.strip():
             raise ValueError("repository handover PostgreSQL DSN MUST NOT be empty")
-        if connect_timeout_s < 1:
+        if (
+            isinstance(connect_timeout_s, bool)
+            or not isinstance(connect_timeout_s, int)
+            or connect_timeout_s < 1
+        ):
             raise ValueError("repository handover connect timeout MUST be positive")
         self._dsn = dsn
         self._connect_timeout_s = connect_timeout_s
@@ -120,7 +137,14 @@ class GitHubRepositoryHandoverIntakeConfig:
             raise ValueError("GitHub repository MUST be 'owner/name'")
         if len(self.webhook_secret) < 32:
             raise ValueError("GitHub webhook secret MUST contain at least 32 characters")
-        if self.max_body_bytes < 1 or not 1 <= self.max_content_characters <= 65_536:
+        if (
+            isinstance(self.max_body_bytes, bool)
+            or not isinstance(self.max_body_bytes, int)
+            or self.max_body_bytes < 1
+            or isinstance(self.max_content_characters, bool)
+            or not isinstance(self.max_content_characters, int)
+            or not 1 <= self.max_content_characters <= 65_536
+        ):
             raise ValueError("repository handover intake bounds MUST be positive and supported")
 
 

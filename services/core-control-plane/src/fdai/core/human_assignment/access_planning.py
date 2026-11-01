@@ -43,7 +43,11 @@ class HumanAccessPlanner:
         if EffectKind.OWNERSHIP not in case.effect_kinds:
             raise ValueError("human access apply requires an ownership effect receipt")
         group = self.role_group_ids.get(case.intent.requested_role)
-        if group is None or case.intent.requested_role is Role.BREAK_GLASS:
+        if (
+            not isinstance(group, str)
+            or not group.strip()
+            or case.intent.requested_role is Role.BREAK_GLASS
+        ):
             raise ValueError("requested role has no routine allowlisted group")
         return HumanAccessPlan(
             case_id=case.case_id,

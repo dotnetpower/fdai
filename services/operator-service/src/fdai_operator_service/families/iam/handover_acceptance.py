@@ -26,6 +26,8 @@ def transition_checklist(
     Legacy unassigned documents remain visible but cannot satisfy the new checklist. Updating
     evidence invalidates previous review digests; accepted and terminal goals cannot be reopened.
     """
+    if now.tzinfo is None or now.utcoffset() is None:
+        raise ValueError("handover checklist transition time MUST include a timezone")
     if current.get("state") in {"accepted", "stale", "declined", "superseded"}:
         raise IamConflictError("handover goal is closed to evidence and review commands")
     updated = {**current, "revision": command.expected_revision + 1}
@@ -58,7 +60,10 @@ def transition_checklist(
             if slot in checklist_slots(updated):
                 raise ValueError("handover slot is already satisfied")
             updated.update(
-                slot_exemptions={**updated.get("slot_exemptions", {}), slot: command.reason_ref},
+                slot_exemptions={
+                    **updated.get("slot_exemptions", {}),
+                    slot: command.reason_ref.strip(),
+                },
                 owner_review=None,
                 backup_review=None,
             )

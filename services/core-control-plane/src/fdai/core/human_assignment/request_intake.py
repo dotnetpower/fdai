@@ -44,9 +44,13 @@ class AssignmentRequestIntake:
     clock_skew: timedelta = timedelta(seconds=30)
 
     def __post_init__(self) -> None:
-        if not timedelta(0) < self.maximum_age <= timedelta(minutes=5):
+        if not isinstance(self.maximum_age, timedelta) or not (
+            timedelta(0) < self.maximum_age <= timedelta(minutes=5)
+        ):
             raise ValueError("assignment receipt maximum age MUST be in (0, 5 minutes]")
-        if not timedelta(0) <= self.clock_skew <= timedelta(seconds=30):
+        if not isinstance(self.clock_skew, timedelta) or not (
+            timedelta(0) <= self.clock_skew <= timedelta(seconds=30)
+        ):
             raise ValueError("assignment receipt clock skew MUST be in [0, 30 seconds]")
 
     async def receive(
