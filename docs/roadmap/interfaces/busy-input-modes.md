@@ -270,43 +270,11 @@ Coverage includes all three modes, duplicate and conflicting IDs, capacity, expi
 exactly-once consume, turn-end versus steer races, restart persistence, one-shot and stream cleanup,
 no partial assistant history, bounded steer reruns, mode and inspection routes, and shared Slack and
 Teams gateway acknowledgements.
-
-## Implementation status
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Core contracts and deterministic arbitration | implemented | `services/core-control-plane/src/fdai/core/conversation/busy_input.py`; `services/core-control-plane/tests/conversation/test_busy_input.py` | The bounded records, modes, dispositions, idempotency rules, overflow behavior, and turn-finish fallback have focused unit coverage. |
-| In-memory store and coordinator | implemented | `services/core-control-plane/src/fdai/core/conversation/busy_input_store.py`; `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py`; `services/core-control-plane/tests/conversation/test_busy_input_store.py` | The protocol reference store, revision checks, exactly-once consumption, cancellation signal, and steer boundary are implemented for process-local composition. |
-| PostgreSQL durability and concurrency | implemented | `alembic/versions/20260720_0041_busy_input.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_busy_input.py`; focused live PostgreSQL tests (`7 passed`, no skips) | An isolated supported local database proves durable mode and active-turn state, idempotent submission, revision conflicts, exactly-once consume, expiry, restart reads, and concurrent turn-finish arbitration. Governed operational evidence remains separate. |
-| Slack and Teams channel gateway | implemented | `services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`; `services/core-control-plane/tests/conversation/test_channel_gateway.py` | Both channel adapters share coordinator submission and begin/finish semantics with bounded acknowledgements. |
-| JSON and SSE active-turn integration | not-started | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | Production use of the coordinator is currently limited to the channel gateway; the one-shot and stream turn executors do not consume its cancel or steer signals. |
-| Operator API routes and materialization | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | The generic read and proposal routes exist, but no production busy-input proposal consumer or authoritative projection materializer was found. |
-| FDAI Console and client controls | implemented | `console/src/deck/busy-input-client.ts`; `console/src/deck/busy-input-controls.tsx`; `console/src/deck/busy-input-client.test.ts`; `console/tests/e2e/busy-input-controls.spec.ts`; focused client, typecheck, and mocked Console browser checks | The Deck uses its exact active chat session ID and existing authentication headers for all four routes. Only a confirmed matching GET enables controls or reports a pending disposition. Unavailable and unconfirmed responses retain the draft. The follow-up section stays hidden until a matching GET confirms the projection, and then appears only while a local turn is active, the projection reports an active turn or pending follow-up, or a confirmed control needs failure feedback. The browser check uses synthetic responses, not a production Operator consumer or live conversational cancellation. |
-| Metrics and operational evidence | in-progress | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | Counter names and increment calls exist, but no production telemetry binding or governed runtime evidence proves emission, restart recovery, or race behavior. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | Current change in this owner pair; focused core, channel, persistence, and Operator API checks listed in the scope table. | Connect the web turn executors, materialize the API boundary, add client controls, run live durability checks, and record governed operational evidence. |
-| 2026-08-14 | implemented | Ran every focused busy-input persistence case against an isolated supported local PostgreSQL database and removed the database after the run. | `current change`; `services/core-control-plane/tests/persistence/test_busy_input.py`; `7 passed`, no skips. | Connect JSON and SSE turns, materialize Operator operations, add Console controls, and retain governed telemetry and runtime evidence. |
-| 2026-09-26 | implemented | Added bounded authenticated Console follow-up, inspect, mode, and conversational-cancel controls without changing local Stop, action authority, or the backend consumers. | `current change`; `console/src/deck/busy-input-client.ts`, `busy-input-controls.tsx`, `busy-input-client.test.ts`, `console/tests/e2e/busy-input-controls.spec.ts`; 17 focused client tests, Console typecheck, and 3 synthetic desktop browser scenarios passed. | Connect Core JSON/SSE turns, materialize Operator busy operations, and record governed telemetry and runtime evidence. |
-| 2026-09-27 | implemented | Hid the Console follow-up section until the exact-session projection is confirmed and busy-turn work exists. Without an Operator materializer, the route returns 503, so every idle composer had shown a permanent unavailable notice. | `current change`; `console/src/deck/busy-input-controls.tsx`, `console/src/deck/command-deck-view.tsx`, `console/tests/e2e/busy-input-controls.spec.ts`; Console typecheck and 8 synthetic browser scenarios across the desktop and mobile projects passed; the two new scenarios fail against the previous component. | Connect Core JSON/SSE turns, materialize Operator busy operations, and record governed telemetry and runtime evidence. |
-
-### Remaining work
-
-- [x] Run every live case in `services/core-control-plane/tests/persistence/test_busy_input.py` against the supported local PostgreSQL service and record a passing durability and concurrency receipt with no skipped cases.
-- [ ] Connect the JSON and SSE active-turn executors to `BusyInputCoordinator`, then add focused tests proving interrupt cleanup, bounded steer reruns, queue fallback, and no partial assistant history.
-- [ ] Add a production consumer and authoritative projection materializer for the four Operator API operations, then prove principal scope, idempotency, revision conflicts, and not-found equivalence with focused route tests.
-- [x] Add FDAI Console client controls for submit, inspect, mode change, and conversational cancellation, with focused interaction and accessibility checks (`busy-input-client.test.ts`; `busy-input-controls.spec.ts` desktop synthetic route).
-- [ ] Bind the coordinator counters to production telemetry and record governed restart, expiry, race-recovery, and channel parity evidence before promoting any row to `validated`.
-
 ## Related docs
 
 | To learn about | Read |
 |----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/interfaces/busy-input-modes.md) |
 | Operator conversation and history | [Operator Console](operator-console.md) |
 | Detached investigations | [Background Task Sessions](background-task-sessions.md) |
 | Typed action safety boundary | [Execution Model](../decisioning/execution-model.md) |

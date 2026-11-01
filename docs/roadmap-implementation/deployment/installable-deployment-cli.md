@@ -260,6 +260,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-25 | implemented | Add the connected Hub-image artifact choice while preserving explicit source and offline deployment; distinguish signed images from checkout infrastructure/migrations/Console and request intake from success. | `current change`; [Hub-image design](../../roadmap/deployment/hub-image-deployment.md) and [delivery ledger](hub-image-deployment.md); final combined Hub/request selection: 119 passed; source/wrapper/productization: 92 passed; source mypy and new Hub source/test Ruff passed. | Retain publication/installation acceptance only under separate authorization; in-place channel upgrade and Hub teardown remain unsupported. |
 
+| 2026-11-01 | implemented | Registered `fdaictl trajectory validate` in the CLI parser and implemented offline dataset JSONL and manifest validation (`trajectory_cli.py`). | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py`; `packages/deployment-cli/src/fdai_deployment_cli/trajectory_cli.py`; `packages/deployment-cli/tests/test_trajectory_cli.py` (`6 passed`). | Remaining CLI security-audit and deploy-preflight facade items stay open below. |
+
 ### Remaining work
 
 - [ ] Build one complete signed offline kit from the current immutable revision and retain its

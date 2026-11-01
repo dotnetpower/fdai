@@ -1,0 +1,1 @@
+"""Operator conversation adapter namespace."""

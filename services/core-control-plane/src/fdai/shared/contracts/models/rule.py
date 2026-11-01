@@ -54,6 +54,7 @@ class RuleInterface(StrEnum):
 
 class SubmissionCriterionKind(StrEnum):
     RESOURCE_TYPE_REGISTERED = "resource_type_registered"
+    OBJECT_TYPE_REGISTERED = "object_type_registered"
     PROPERTY_EXISTS = "property_exists"
     LINK_EXISTS = "link_exists"
 
@@ -82,6 +83,7 @@ class Rule(_Base):
     severity: Severity
     category: Category
     resource_type: Annotated[str, Field(min_length=1)]
+    target_object_type: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")] | None = None
     check_logic: CheckLogic
     remediation: Remediation
     remediates: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_\.\-]{0,79}$")]

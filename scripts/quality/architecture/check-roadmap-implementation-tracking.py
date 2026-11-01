@@ -213,8 +213,10 @@ def _canonicalize_links(value: str, *, relative: str | None) -> str:
 
     def replace(match: re.Match[str]) -> str:
         target = match.group(2)
-        if target.startswith(("http://", "https://", "mailto:", "//", "#")):
+        if target.startswith(("http://", "https://", "mailto:", "//")):
             return match.group(0)
+        if target.startswith("#"):
+            return f"{match.group(1)}{PurePosixPath(relative)}{target}{match.group(3)}"
         path, marker, fragment = target.partition("#")
         if not path or ":" in path.split("/", 1)[0]:
             return match.group(0)

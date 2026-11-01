@@ -535,6 +535,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-31 | implemented | Documented the shared framework guidance/preference contracts, delivery source-pin validation, and detail-only Operator attachment without cross-service implementation imports. | `current change`; source commit `dc7c2309e6`; 308-pass backend batch and 18-pass final compatibility/source-pin checks; owning framework ledger. | Runtime and authenticated full-stack evidence remains separate from source ownership. |
 | 2026-10-31 | implemented | Linked the shared WARA corpus to its diagram wording contract after removing repeated per-node scope disclaimers in favor of authored relationship descriptions. | `current change`; source commit `5c12ef036e`; owning illustrated-guidance ledger and focused source/consumer evidence. | No module, assessment, execution, or ontology ownership boundary changes. |
 
+| 2026-11-01 | implemented | Added optional `target_object_type` and `object_type_registered` submission-criterion support to the shared `Rule` contract and schema without changing upstream composition or fork boundaries. | `current change`; `services/core-control-plane/src/fdai/shared/contracts/models/rule.py`; `services/core-control-plane/src/fdai/shared/contracts/rule/schema.json`; `services/core-control-plane/tests/rule_catalog/test_rule_target_object_type.py` (`6 passed`). | UI/assistive and deployed handover evidence remain open below. |
+
 ### Remaining work
 
 - [x] Preserve warning retention, concurrent appends, and newline repair while skipping unchanged

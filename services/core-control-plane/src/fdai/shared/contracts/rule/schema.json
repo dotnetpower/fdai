@@ -74,6 +74,11 @@
       "type": "string",
       "description": "Normalized CSP-neutral type, e.g. compute.vm, database.postgres, network.public_ip."
     },
+    "target_object_type": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z0-9]{0,63}$",
+      "description": "Optional ontology ObjectType name targeted by this rule (e.g. ChangeSummary, GovernanceProposal). Cross-referenced against registered ObjectTypes at load time."
+    },
     "check_logic": {
       "type": "object",
       "additionalProperties": false,
@@ -206,7 +211,7 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["resource_type_registered", "property_exists", "link_exists"]
+            "enum": ["resource_type_registered", "object_type_registered", "property_exists", "link_exists"]
           },
           "value": {"type": "string", "minLength": 1}
         }
