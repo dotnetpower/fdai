@@ -40,7 +40,9 @@ def cloud_reference_constraints(
             raise ValueError("cloud applicability requires bounded exact current-turn values")
         constraints.append(_PREFIX + field + "=" + target.value)
     modes = {
-        value for value in judgment.requested_facets if value in {"cloud_as_of", "cloud_current"}
+        normalized
+        for value in judgment.requested_facets
+        if (normalized := value.strip().replace("-", "_")) in {"cloud_as_of", "cloud_current"}
     }
     if len(modes) > 1:
         raise ValueError("cloud guidance purpose is ambiguous")
@@ -56,9 +58,9 @@ def cloud_reference_arguments(frame: SemanticProblemFrame) -> dict[str, object]:
         if not constraint.startswith(_PREFIX):
             continue
         field, separator, value = constraint.removeprefix(_PREFIX).partition("=")
-        if not separator or not value or field not in {*_FIELDS.values(), "guidance"}:
+        if not separator or not value.strip() or field not in {*_FIELDS.values(), "guidance"}:
             raise ValueError("cloud applicability frame constraint is invalid")
-        values.setdefault(field, []).append(value)
+        values.setdefault(field, []).append(value.strip())
     if not values:
         return {}
     guidance = values.pop("guidance", ["reference"])

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -26,7 +27,14 @@ class RemoteJwksConfig:
     def __post_init__(self) -> None:
         if not self.url.startswith("https://") or len(self.url) > 2_048:
             raise ValueError("JWKS URL MUST be bounded HTTPS")
-        if self.timeout_seconds <= 0 or self.max_response_bytes < 64:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or isinstance(self.max_response_bytes, bool)
+            or isinstance(self.max_keys, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+            or self.max_response_bytes < 64
+        ):
             raise ValueError("JWKS network limits are invalid")
         if not 1 <= self.max_keys <= 32:
             raise ValueError("JWKS key limit is invalid")
@@ -78,10 +86,10 @@ class AzureChannelTokenProvider:
 
     async def get_token(self, audience: str) -> ChannelAccessToken:
         """Acquire one secret token while retaining only its requested audience proof."""
-        if not audience or len(audience) > 2_048:
+        if not audience.strip() or len(audience) > 2_048:
             raise ValueError("channel token audience MUST be bounded and non-empty")
         access_token = await self._credential.get_token(audience)
-        if not isinstance(access_token.token, str) or not access_token.token:
+        if not isinstance(access_token.token, str) or not access_token.token.strip():
             raise RuntimeError("channel credential returned an invalid token")
         return ChannelAccessToken(token=access_token.token, audience=audience)
 

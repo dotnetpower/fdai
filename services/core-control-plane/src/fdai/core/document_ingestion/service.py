@@ -76,6 +76,8 @@ class DocumentIngestionService:
         id_factory: Callable[[], UUID] | None = None,
         upload_ttl: timedelta = timedelta(minutes=15),
     ) -> None:
+        if upload_ttl <= timedelta(0):
+            raise ValueError("upload_ttl MUST be positive")
         self._access = access
         self._metadata = metadata
         self._objects = objects

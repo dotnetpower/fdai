@@ -192,6 +192,10 @@ class IncidentRegistry:
         assignee_oid: str | None = None,
     ) -> IncidentOpenResult:
         """Open an incident and decide ``created`` inside the write lock."""
+        if not actor_oid.strip():
+            raise ValueError("incident open actor_oid MUST be non-empty")
+        if opened_at is not None and (opened_at.tzinfo is None or opened_at.utcoffset() is None):
+            raise ValueError("incident opened_at MUST be timezone-aware")
         keys = canonical_incident_correlation_keys(correlation_keys)
         members = tuple(member_event_ids)
         incident_id = incident_id_for(keys)

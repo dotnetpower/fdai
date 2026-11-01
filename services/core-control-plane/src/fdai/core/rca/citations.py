@@ -12,12 +12,13 @@ MAX_RCA_REFERENCE_CHARS = 1024
 
 def admitted_citations(citations: Sequence[Citation]) -> tuple[Citation, ...] | None:
     """Canonicalize complete evidence, holding invalid or conflicting identities."""
-    if not 1 <= len(citations) <= MAX_RCA_CITATIONS:
+    if not isinstance(citations, (list, tuple)) or not 1 <= len(citations) <= MAX_RCA_CITATIONS:
         return None
     by_identity: dict[tuple[CitationKind, str], Citation] = {}
     for citation in citations:
         if (
-            not citation.ref.strip()
+            not isinstance(citation, Citation)
+            or not citation.ref.strip()
             or citation.ref != citation.ref.strip()
             or len(citation.ref) > MAX_RCA_REFERENCE_CHARS
             or not citation.ref.isprintable()

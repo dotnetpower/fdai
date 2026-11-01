@@ -42,6 +42,17 @@ class RuleSemanticGenerationValidationReceipt:
     validator_artifact_digest: str
     receipt_digest: str
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.embedding_dimension, bool)
+            or isinstance(self.document_count, bool)
+            or self.embedding_dimension < 1
+            or self.document_count < 0
+        ):
+            raise ValueError(
+                "RuleSemanticGenerationValidationReceipt requires valid dimension and count"
+            )
+
 
 def build_rule_semantic_generation(
     *,

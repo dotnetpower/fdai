@@ -52,6 +52,10 @@ def compile_resource_condition_plan(
     )
     if not state_concepts or not health_concepts:
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource condition plan requires timezone-aware evaluation_time")
+    if not purpose.strip():
+        raise ValueError("resource condition plan purpose MUST be non-empty")
     definition = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,

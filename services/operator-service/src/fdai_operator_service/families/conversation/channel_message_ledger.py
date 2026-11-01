@@ -19,8 +19,14 @@ class PostgresChannelMessageLedgerConfig:
     connect_timeout_s: int = 10
 
     def __post_init__(self) -> None:
-        if not self.dsn:
+        if not self.dsn.strip():
             raise ValueError("channel message ledger dsn MUST NOT be empty")
+        if (
+            isinstance(self.lease_seconds, bool)
+            or isinstance(self.statement_timeout_ms, bool)
+            or isinstance(self.connect_timeout_s, bool)
+        ):
+            raise ValueError("channel message ledger numeric fields MUST NOT be booleans")
         if not 1 <= self.lease_seconds <= 3600:
             raise ValueError("channel message lease_seconds is outside the bounded range")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:

@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -85,7 +86,11 @@ class ManagedIdentityWorkloadIdentity:
             raise ManagedIdentityConfigurationError("IDENTITY_ENDPOINT MUST be an absolute URL")
         if cfg.federated_token_file is None and not cfg.header:
             raise ManagedIdentityConfigurationError("IDENTITY_HEADER MUST NOT be empty")
-        if cfg.timeout_seconds <= 0:
+        if (
+            type(cfg.timeout_seconds) is bool
+            or not math.isfinite(cfg.timeout_seconds)
+            or cfg.timeout_seconds <= 0
+        ):
             raise ManagedIdentityConfigurationError("timeout_seconds MUST be > 0")
         self._config = cfg
         self._http = http_client
@@ -137,20 +142,27 @@ class ManagedIdentityWorkloadIdentity:
             return lock
 
     async def get_token(self, audience: str) -> IdentityToken:
-        cached = self._cache.get(audience)
+        clean_audience = audience.strip() if isinstance(audience, str) else ""
+        if not clean_audience:
+            raise ValueError("audience MUST NOT be empty")
+        cached = self._cache.get(clean_audience)
         now = datetime.now(tz=UTC)
         if cached is not None and cached.expires_at > now + timedelta(seconds=_MIN_TTL_SECONDS):
             return cached
 
-        lock = await self._audience_lock(audience)
+        lock = await self._audience_lock(clean_audience)
         async with lock:
             # Re-check under the lock: another coroutine may have
             # populated the cache while we were awaiting the lock.
-            cached = self._cache.get(audience)
+            cached = self._cache.get(clean_audience)
             now = datetime.now(tz=UTC)
             if cached is not None and cached.expires_at > now + timedelta(seconds=_MIN_TTL_SECONDS):
                 return cached
-            return await self._fetch_and_cache(audience)
+            return await self._fetch_and_cache(clean_audience)
+
+    def invalidate_token(self, audience: str) -> None:
+        """Evict a cached token for ``audience`` on authentication failure."""
+        self._cache.pop(audience.strip(), None)
 
     async def _fetch_and_cache(self, audience: str) -> IdentityToken:
         if self._config.federated_token_file is not None:

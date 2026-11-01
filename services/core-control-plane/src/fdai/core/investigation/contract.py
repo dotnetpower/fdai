@@ -113,10 +113,14 @@ class AnalyzerFinding:
     assessment: FindingAssessment | None = None
 
     def __post_init__(self) -> None:
-        if not self.resource_ref:
+        if not self.resource_ref.strip():
             raise ValueError("AnalyzerFinding.resource_ref MUST be non-empty")
-        if not self.signal:
+        if not self.resource_kind.strip():
+            raise ValueError("AnalyzerFinding.resource_kind MUST be non-empty")
+        if not self.signal.strip():
             raise ValueError("AnalyzerFinding.signal MUST be non-empty")
+        if not self.observation.strip():
+            raise ValueError("AnalyzerFinding.observation MUST be non-empty")
 
 
 @dataclass(frozen=True, slots=True)
@@ -141,6 +145,10 @@ class FindingAssessment:
             raise ValueError("FindingAssessment.assessed_by MUST be non-empty")
         if not self.status.strip():
             raise ValueError("FindingAssessment.status MUST be non-empty")
+        if type(self.evidence_complete) is not bool or (
+            self.recovery_closed is not None and type(self.recovery_closed) is not bool
+        ):
+            raise ValueError("FindingAssessment boolean flags MUST be booleans")
         if self.recovery_closed is True and not self.evidence_complete:
             raise ValueError("FindingAssessment MUST NOT close recovery on incomplete evidence")
 
@@ -165,6 +173,16 @@ class TimelineEntry:
     description: str
     severity: Severity
 
+    def __post_init__(self) -> None:
+        if (
+            not self.resource_ref.strip()
+            or not self.resource_kind.strip()
+            or not self.description.strip()
+        ):
+            raise ValueError(
+                "TimelineEntry resource_ref, resource_kind, and description MUST be non-empty"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class Recommendation:
@@ -181,6 +199,10 @@ class Recommendation:
     resource_ref: str
     remediation_ref: str | None = None
     citations: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.title.strip() or not self.detail.strip() or not self.resource_ref.strip():
+            raise ValueError("Recommendation title, detail, and resource_ref MUST be non-empty")
 
 
 @dataclass(frozen=True, slots=True)

@@ -69,8 +69,12 @@ class QuestionReleaseAssuranceReceipt:
     execution_authority: bool = False
 
     def __post_init__(self) -> None:
-        if self.execution_authority:
+        if self.execution_authority or not isinstance(self.execution_authority, bool):
             raise ValueError("question release assurance MUST NOT carry execution authority")
+        if not isinstance(self.passed, bool) or not self.reason.strip():
+            raise ValueError(
+                "question release assurance requires boolean passed and non-empty reason"
+            )
         _require_digest("question release ontology release", self.ontology_release_digest)
         if self.passed and self.generated_campaign_id is None:
             raise ValueError("passed question release assurance requires a generated campaign")

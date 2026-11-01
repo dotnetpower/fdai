@@ -43,10 +43,20 @@ class AzureObservationContextIdentity:
             self.source_credential_lineage,
             self.verifier_identity,
         )
-        if any(not value.strip() or len(value) > 512 for value in values):
+        if any(not value.strip() or len(value.strip()) > 512 for value in values):
             raise ValueError(
                 "Azure observation credential identities MUST be bounded and non-empty"
             )
+        object.__setattr__(
+            self, "observer_credential_lineage", self.observer_credential_lineage.strip()
+        )
+        object.__setattr__(
+            self, "executor_credential_lineage", self.executor_credential_lineage.strip()
+        )
+        object.__setattr__(
+            self, "source_credential_lineage", self.source_credential_lineage.strip()
+        )
+        object.__setattr__(self, "verifier_identity", self.verifier_identity.strip())
         _require_distinct(
             "Azure configured observation credential lineages",
             (

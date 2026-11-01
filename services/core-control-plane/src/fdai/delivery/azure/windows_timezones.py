@@ -147,10 +147,17 @@ WINDOWS_TO_IANA: Final[dict[str, str]] = {
 }
 
 
+_FOLDED_WINDOWS_TO_IANA = {k.casefold(): v for k, v in WINDOWS_TO_IANA.items()}
+
+
 def windows_time_zone_to_iana(value: str) -> str:
     """Return the IANA name for an Azure Windows ID, or preserve an IANA input."""
-
-    return WINDOWS_TO_IANA.get(value, value)
+    clean = value.strip() if isinstance(value, str) else value
+    if clean in WINDOWS_TO_IANA:
+        return WINDOWS_TO_IANA[clean]
+    if isinstance(clean, str):
+        return _FOLDED_WINDOWS_TO_IANA.get(clean.casefold(), clean)
+    return value
 
 
 __all__ = ["WINDOWS_TO_IANA", "windows_time_zone_to_iana"]

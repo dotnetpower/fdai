@@ -87,7 +87,8 @@ _SOURCES: Final[dict[TelemetryMechanism, str]] = {
     ),
     TelemetryMechanism.CONTAINER_RESTARTS: (
         "KubePodInventory\n"
-        "| project at=TimeGenerated, resource_id=tostring(column_ifexists('_ResourceId', '')), "
+        "| project at=TimeGenerated, resource_id=tostring(coalesce("
+        "column_ifexists('_ResourceId', ''), column_ifexists('ClusterId', ''))), "
         "magnitude=todouble(column_ifexists('ContainerRestartCount', 0.0))\n"
         "| where magnitude > 0.0"
     ),

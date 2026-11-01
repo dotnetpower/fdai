@@ -22,7 +22,7 @@ async def read_bounded_response(response: httpx.Response, *, max_bytes: int | No
     response is checked without decoding it again; production callers stream raw
     responses. ``None`` retains ARG's explicit opt-out from a byte ceiling.
     """
-    if max_bytes is not None and max_bytes < 0:
+    if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 0):
         raise ValueError("response byte limit MUST be non-negative")
     if response.is_stream_consumed:
         if max_bytes is not None and len(response.content) > max_bytes:

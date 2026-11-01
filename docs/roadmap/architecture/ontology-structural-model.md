@@ -53,7 +53,7 @@ Typed [GitHub source provenance](../../runbooks/knowledge-github-sources.md) lik
 repository-ledger metadata: repository ID, observed commit, README digest, observation time, and
 credential reference do not create Resource, ObjectType, LinkType, or authority edges. A recorded
 read-access observation is neither current provider health nor indexed evidence. Knowledge read
-permission and independently approved scan permission remain separate from ontology meaning.
+permission and independently approved scan permission remain separate from ontology meaning. MSRC CSAF product-tree crosswalks (`rule_catalog/schema/msrc_csaf.py` and `scripts/catalog/import_msrc_csaf.py`, covering 268 SHA-512-verified 2026 advisories across 31 canonical ResourceTypes) likewise map advisory product identifiers onto existing neutral ResourceTypes without creating new ontology declarations or execution authority.
 
 ## Design at a glance
 

@@ -1,7 +1,14 @@
 {
   "label": "에이전트 trajectory",
-  "findPlaceholder": "correlation, 에이전트, 작업, 결과 또는 메시지",
+  "findPlaceholder": "메시지, 작업, 분석 결과...",
+  "correlation": "Correlation",
+  "allCorrelations": "모든 correlation",
   "clearFilters": "필터 지우기",
+  "evidenceDetails": "수집 및 출처 상세",
+  "evidenceDetailsBody": "감사와 운영 데이터는 서로 다른 권한 경계를 가집니다. 보존된 감사 레코드 최대 {records}건(운영 {operational}건)과 실시간 런타임 스트림을 함께 표시합니다.",
+  "selectionTrajectory": "{agent}: 이 에이전트가 참여한 trajectory를 표시하며 다른 에이전트의 단계도 맥락으로 함께 유지합니다.",
+  "selectionLog": "{agent}: 귀속된 작업과 대화 참여 내역을 필터링합니다.",
+  "roleDetails": "역할 상세",
   "count": "보존된 감사 레코드 {records}건에서 만든 trajectory {total}개 중 {shown}개",
   "uncorrelated": "correlation이 없는 레코드 {count}건은 활동 로그에만 표시됩니다",
   "uncorrelatedOne": "correlation이 없는 레코드 1건은 활동 로그에만 표시됩니다",
@@ -40,7 +47,7 @@
   "phasesLabel": "수명 주기 단계",
   "phase": {
     "intake": "수집",
-    "evidence": "근거",
+    "evidence": "조회",
     "judgment": "판단",
     "authorization": "승인",
     "execution": "실행",
@@ -65,7 +72,7 @@
   "transition": "다음 기록: {to}",
   "category": {
     "intake": "수집",
-    "evidence": "근거 조회",
+    "evidence": "상태 조회",
     "decision": "결정",
     "risk": "위험 평가",
     "approval": "승인",
@@ -78,10 +85,13 @@
   "block": {
     "received": "받은 입력",
     "produced": "만든 출력",
-    "decision": "판단 근거",
+    "decision": "분석 결과",
     "recorded": "기록된 필드",
+    "messages": "에이전트 메시지",
     "source": "감사 레코드"
   },
+  "provenance": "Trajectory 출처 정보",
+  "provenanceRecords": "보존된 감사 레코드 {count}건",
   "field": {
     "outcome": "결과",
     "decision": "결정",

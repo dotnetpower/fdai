@@ -46,6 +46,28 @@ class RuntimeCallEndpointWitness:
     observed_at: datetime
     evidence_ref: str
 
+    def __post_init__(self) -> None:
+        if self.endpoint_role not in {"caller", "target"}:
+            raise ValueError(
+                "RuntimeCallEndpointWitness.endpoint_role MUST be 'caller' or 'target'"
+            )
+        if self.observed_at.tzinfo is None:
+            raise ValueError("RuntimeCallEndpointWitness.observed_at MUST be timezone-aware")
+        if any(
+            not value.strip()
+            for value in (
+                self.observation_id,
+                self.caller_arm_id,
+                self.target_arm_id,
+                self.platform_revision_name,
+                self.platform_replica_name,
+                self.source_container_name,
+                self.source_container_id,
+                self.evidence_ref,
+            )
+        ):
+            raise ValueError("RuntimeCallEndpointWitness identity fields MUST be non-empty")
+
     @property
     def endpoint_arm_id(self) -> str:
         """Return the endpoint asserted by this witness role."""

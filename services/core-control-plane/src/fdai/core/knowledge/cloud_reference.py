@@ -60,6 +60,8 @@ def citation_times(
     collected_at: datetime, checked_at: datetime, *, status: str, korean: bool
 ) -> str:
     """Render only validated time values and server-owned freshness labels."""
+    if not isinstance(korean, bool):
+        raise ValueError("citation_times korean flag MUST be a boolean")
     if collected_at.utcoffset() is None or checked_at.utcoffset() is None:
         raise ValueError("citation timestamps MUST be timezone-aware")
     if checked_at < collected_at:

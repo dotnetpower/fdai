@@ -63,6 +63,8 @@ class ChannelCriterionObservation:
     evidence_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.passed, bool):
+            raise ValueError("channel criterion passed flag MUST be a boolean")
         if not self.reason_code.strip() or len(self.reason_code) > 256:
             raise ValueError("channel criterion reason_code MUST be bounded and non-empty")
         if len(self.evidence_refs) > 16:
@@ -77,6 +79,10 @@ class ChannelCriterionResult:
     score: int | None
     reason_code: str
     evidence_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.score, bool) or self.score not in {None, 0, 1}:
+            raise ValueError("channel criterion result score MUST be None, 0, or 1")
 
     @property
     def applicable(self) -> bool:

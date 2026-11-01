@@ -41,18 +41,18 @@ def project_source_records(
     for raw in records:
         identity = raw.get(binding.identity_field)
         watermark = raw.get(binding.watermark_field)
-        if not isinstance(identity, str) or not identity:
+        if not isinstance(identity, str) or not identity.strip():
             raise ValueError("projection record identity is missing")
         if identity in seen_ids:
             raise ValueError(f"projection {binding.binding_id!r} has duplicate identity")
         seen_ids.add(identity)
-        if not isinstance(watermark, str) or not watermark:
+        if not isinstance(watermark, str) or not watermark.strip():
             raise ValueError("projection record watermark is missing")
         try:
             parsed_watermark = datetime.fromisoformat(watermark.replace("Z", "+00:00"))
         except ValueError as exc:
             raise ValueError("projection record watermark MUST be RFC3339") from exc
-        if parsed_watermark.tzinfo is None:
+        if parsed_watermark.utcoffset() is None:
             raise ValueError("projection record watermark MUST be timezone-aware")
         if binding.delete_field is not None and binding.delete_field in raw:
             delete_marker = raw[binding.delete_field]
@@ -89,9 +89,9 @@ def reconcile_expected_effects(
     deadline: datetime,
     evidence_refs: tuple[str, ...],
 ) -> ReconciliationReceipt:
-    if observed_at.tzinfo is None:
+    if observed_at.utcoffset() is None:
         raise ValueError("reconciliation observed_at MUST be timezone-aware")
-    if deadline.tzinfo is None:
+    if deadline.utcoffset() is None:
         raise ValueError("reconciliation deadline MUST be timezone-aware")
     if observed_at > deadline:
         return ReconciliationReceipt(

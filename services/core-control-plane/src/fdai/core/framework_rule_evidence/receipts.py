@@ -32,6 +32,15 @@ def rule_requirement_outcome(
 ) -> _Outcome:
     """Return the outcome of the first matching row of the ordered outcome table."""
 
+    if (
+        evaluated_at.tzinfo is None
+        or evaluated_at.utcoffset() is None
+        or isinstance(freshness_ceiling_seconds, bool)
+        or freshness_ceiling_seconds < 1
+    ):
+        raise ValueError(
+            "rule requirement evaluation requires aware evaluated_at and positive ceiling"
+        )
     unknown = FrameworkSatisfactionStatus.UNKNOWN
     if coverage.scope_digest != profile_scope_digest:
         return unknown, RuleEvidenceLimitation.SCOPE_MISMATCH

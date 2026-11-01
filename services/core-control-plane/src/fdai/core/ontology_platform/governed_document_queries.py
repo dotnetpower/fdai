@@ -85,9 +85,11 @@ class GovernedDocumentExcerpt:
             raise ValueError("governed document evidence ref MUST be content-addressed")
         if _DOCUMENT_REVISION.fullmatch(self.document_revision) is None:
             raise ValueError("governed document revision MUST be immutable and content-addressed")
-        if not math.isfinite(self.score):
+        if isinstance(self.score, bool) or not math.isfinite(self.score):
             raise ValueError("governed document score MUST be finite")
-        if self.instruction_authority is not False:
+        if self.instruction_authority is not False or not isinstance(
+            self.applicability_verified, bool
+        ):
             raise ValueError("governed document excerpts MUST NOT have instruction authority")
 
 
@@ -113,7 +115,7 @@ class GovernedDocumentCollection:
             raise ValueError("governed document excerpts MUST be deterministically ordered")
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("governed document observation time MUST be timezone-aware")
-        if self.complete == (self.limitation is not None):
+        if not isinstance(self.complete, bool) or self.complete == (self.limitation is not None):
             raise ValueError("governed document completeness and limitation are inconsistent")
         for name, value in (
             ("index_generation", self.index_generation),

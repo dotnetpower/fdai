@@ -27,8 +27,13 @@ class IncidentOntologyProjector:
         updated_at: datetime,
     ) -> OntologyObjectRecord:
         """Upsert one audit-backed Incident without manufacturing revisions on replay."""
-        if updated_at.tzinfo is None or updated_at.utcoffset() is None:
-            raise ValueError("incident projection updated_at MUST be timezone-aware")
+        if (
+            updated_at.tzinfo is None
+            or updated_at.utcoffset() is None
+            or incident.opened_at.tzinfo is None
+            or incident.opened_at.utcoffset() is None
+        ):
+            raise ValueError("incident projection timestamps MUST be timezone-aware")
         if updated_at < incident.opened_at:
             raise ValueError("incident projection updated_at MUST NOT precede opened_at")
         incident_id = str(incident.incident_id)

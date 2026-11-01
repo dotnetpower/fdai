@@ -52,7 +52,7 @@ def _as_utc(dt: datetime) -> datetime:
     ``TypeError`` inside :func:`correlate_changes` when compared against the
     UTC-aware change timestamps.
     """
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+    return dt if dt.tzinfo is not None and dt.utcoffset() is not None else dt.replace(tzinfo=UTC)
 
 
 def _change_ref(correlation: ChangeCorrelation) -> str:
@@ -62,7 +62,10 @@ def _change_ref(correlation: ChangeCorrelation) -> str:
     identifier, never a secret or raw payload - so it is safe to surface
     in a citation, audit entry, or model prompt.
     """
-    return f"change:{correlation.change.change_id.strip()}"
+    change_id = correlation.change.change_id.strip()
+    if not change_id:
+        raise ValueError("correlated change_id MUST be non-empty")
+    return f"change:{change_id}"
 
 
 class ChangeEvidenceGatherer:

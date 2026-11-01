@@ -78,9 +78,13 @@ class ChannelAttachmentIngestor:
     ) -> None:
         if not principal_manifest_digest.startswith("sha256:"):
             raise ValueError("channel principal manifest digest is invalid")
-        if terminal_timeout <= timedelta(0) or poll_interval <= 0:
+        if (
+            terminal_timeout <= timedelta(0)
+            or isinstance(poll_interval, bool)
+            or poll_interval <= 0
+        ):
             raise ValueError("channel attachment polling bounds MUST be positive")
-        if not 1 <= max_content_bytes <= 1024 * 1024 * 1024:
+        if isinstance(max_content_bytes, bool) or not 1 <= max_content_bytes <= 1024 * 1024 * 1024:
             raise ValueError("channel attachment byte ceiling is invalid")
         self._intake = intake
         self._fetchers = dict(fetchers)

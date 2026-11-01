@@ -56,6 +56,8 @@ def cloud_target_from_arguments(arguments: Mapping[str, object]) -> Applicabilit
     }
     if not values:
         return None
+    if any(isinstance(val, str) and not val.strip() for val in values.values()):
+        raise ValueError("cloud applicability selector values MUST NOT be blank")
     if not _REQUIRED.issubset(values):
         raise ValueError("cloud applicability requires provider, resource type, and generation")
     return Applicability.model_validate(values)

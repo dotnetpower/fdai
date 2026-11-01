@@ -112,11 +112,11 @@ class InventoryProjectionSourceState:
         elif self.observed_at is not None or not self.reason or len(self.reason) > 128:
             raise ValueError("unavailable inventory projection source MUST have only a reason")
         if any(
-            not isinstance(key, str) or not isinstance(value, int) or value < 0
+            not isinstance(key, str) or not key.strip() or type(value) is not int or value < 0
             for key, value in self.coverage.items()
         ):
             raise ValueError("inventory projection source coverage MUST contain counts")
-        if not isinstance(self.additive, bool):
+        if type(self.additive) is not bool:
             raise ValueError("inventory projection source additive flag MUST be boolean")
 
     def to_metadata(self) -> dict[str, object]:
@@ -162,7 +162,7 @@ class InventoryRelationshipCoverage:
             raise ValueError(
                 "inventory relationship coverage total_candidates MUST equal its counted parts"
             )
-        if self.complete and self.unclassified != 0:
+        if type(self.complete) is not bool or (self.complete and self.unclassified != 0):
             raise ValueError(
                 "inventory relationship coverage complete MUST be false with unclassified drops"
             )

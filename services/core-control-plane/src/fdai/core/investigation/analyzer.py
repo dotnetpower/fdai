@@ -20,6 +20,7 @@ a healthy verdict.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -41,6 +42,7 @@ class Aggregation(StrEnum):
     AVG = "avg"
     SUM = "sum"
     LAST = "last"
+    P95 = "p95"
 
 
 def reduce_values(values: Sequence[float], how: Aggregation) -> float | None:
@@ -55,6 +57,10 @@ def reduce_values(values: Sequence[float], how: Aggregation) -> float | None:
         return sum(values)
     if how is Aggregation.AVG:
         return sum(values) / len(values)
+    if how is Aggregation.P95:
+        ordered = sorted(values)
+        idx = min(len(ordered) - 1, max(0, math.ceil(0.95 * len(ordered)) - 1))
+        return ordered[idx]
     return values[-1]  # LAST
 
 
@@ -100,6 +106,12 @@ class Threshold:
     aggregation: Aggregation = Aggregation.MAX
     remediation_ref: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.metric.strip() or not self.signal.strip() or not self.observation.strip():
+            raise ValueError("Threshold metric, signal, and observation MUST be non-empty")
+        if type(self.bound) is bool or not math.isfinite(self.bound):
+            raise ValueError("Threshold bound MUST be a finite number")
+
     def breached(self, value: float) -> bool:
         """True iff ``value`` breaches this threshold."""
         if self.compare is Comparison.GTE:
@@ -130,12 +142,14 @@ class ThresholdAnalyzer:
         label_key: str = _DEFAULT_LABEL_KEY,
         wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not resource_kind:
+        if not resource_kind.strip():
             raise ValueError("ThresholdAnalyzer.resource_kind MUST be non-empty")
-        self._kind = resource_kind
+        if not label_key.strip():
+            raise ValueError("ThresholdAnalyzer.label_key MUST be non-empty")
+        self._kind = resource_kind.strip()
         self._provider = provider
         self._thresholds = tuple(thresholds)
-        self._label_key = label_key
+        self._label_key = label_key.strip()
         self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
 
     @property
@@ -145,6 +159,8 @@ class ThresholdAnalyzer:
     async def analyze(
         self, *, resource_ref: str, window_seconds: float
     ) -> Sequence[AnalyzerFinding]:
+        if type(window_seconds) is bool or not math.isfinite(window_seconds) or window_seconds <= 0:
+            raise ValueError("ThresholdAnalyzer.window_seconds MUST be a positive finite number")
         until = self._wall_clock()
         since = until - timedelta(seconds=window_seconds)
         findings: list[AnalyzerFinding] = []

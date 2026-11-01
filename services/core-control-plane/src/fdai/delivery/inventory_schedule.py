@@ -43,16 +43,19 @@ def project_vm_shutdown_schedule(props: Mapping[str, Any]) -> dict[str, str] | N
     subscription_id = props.get("subscriptionId")
     if (
         not isinstance(status, str)
-        or status not in {"Enabled", "Disabled"}
+        or status.strip().capitalize() not in {"Enabled", "Disabled"}
         or not isinstance(shutdown_time, str)
-        or _TIME.fullmatch(shutdown_time) is None
+        or _TIME.fullmatch(shutdown_time.strip()) is None
         or not isinstance(time_zone, str)
-        or not 1 <= len(time_zone) <= 128
+        or not 1 <= len(time_zone.strip()) <= 128
         or not isinstance(target, str)
-        or (target_match := _TARGET.fullmatch(target)) is None
+        or (target_match := _TARGET.fullmatch(target.strip())) is None
         or not isinstance(subscription_id, str)
     ):
         raise ValueError("VM shutdown schedule properties are invalid")
+    status = status.strip().capitalize()
+    shutdown_time = shutdown_time.strip()
+    time_zone = time_zone.strip()
     try:
         target_subscription = str(UUID(target_match.group("subscription")))
         source_subscription = str(UUID(subscription_id))

@@ -593,3 +593,38 @@ async def test_promoted_inventory_needs_explicit_evidence_metadata(
         await PromotedInventoryObservationProbe(summary).collect(
             _spec("inventory", ObservationDomain.INVENTORY, "Huginn"), cursor=None
         )
+
+
+@pytest.mark.parametrize(
+    ("obs_kind", "expected_table"),
+    [
+        (AzureResourceGraphObservation.ADVISOR_RECOMMENDATIONS, "advisorresources"),
+        (AzureResourceGraphObservation.POLICY_COMPLIANCE, "policyresources"),
+        (AzureResourceGraphObservation.SECURITY_ASSESSMENTS, "securityresources"),
+        (AzureResourceGraphObservation.RESOURCE_CHANGES, "resourcechanges"),
+        (AzureResourceGraphObservation.MONITOR_ALERT_SUMMARY, "alertsmanagementresources"),
+    ],
+)
+async def test_arg_observation_probe_supports_extended_arg_tables(
+    obs_kind: AzureResourceGraphObservation,
+    expected_table: str,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert expected_table in body["query"].lower()
+        return httpx.Response(200, json={"data": [{"evidence_count": 4}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await AzureResourceGraphObservationProbe(
+            config=AzureObservationConfig(subscription_ids=(" sub-1 ", "sub-1")),
+            query=obs_kind,
+            identity=_identity(),
+            http_client=client,
+        ).collect(
+            _spec(obs_kind.value, ObservationDomain.INVENTORY, "Huginn"),
+            cursor=None,
+        )
+
+    assert result.coverage is ObservationCoverage.READY
+    assert result.evidence_count == 4
+    assert _subscription_cursor_key("SUB-1") == _subscription_cursor_key(" sub-1 ")

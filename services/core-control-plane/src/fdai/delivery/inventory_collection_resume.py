@@ -26,6 +26,10 @@ class ResumedInventoryCollection:
     resources: dict[str, ResourceRecord]
     seen: set[str] = field(default_factory=set)
 
+    def __post_init__(self) -> None:
+        if not self.attempt_id.strip():
+            raise ValueError("ResumedInventoryCollection.attempt_id MUST be non-empty")
+
     def revalidate(self, batch: InventoryBatch) -> tuple[InventoryBatch, InventoryBatch]:
         observed = []
         additional = []

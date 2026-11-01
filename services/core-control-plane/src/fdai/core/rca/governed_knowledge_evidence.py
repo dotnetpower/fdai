@@ -52,6 +52,8 @@ class GovernedDocumentAccessContext:
             not value.strip() for value in self.allowed_access_refs
         ):
             raise ValueError("governed document allowed access refs MUST be non-empty")
+        if any(not group.strip() for group in self.actor_groups):
+            raise ValueError("governed document actor groups MUST NOT contain blank entries")
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +88,8 @@ class GovernedKnowledgeEvidenceResult:
             raise ValueError("governed knowledge evidence cannot cite while held")
         if any(citation.kind is not CitationKind.KNOWLEDGE for citation in self.citations):
             raise ValueError("governed knowledge evidence emits only KNOWLEDGE citations")
+        if self.bundle_id is not None and not self.bundle_id.strip():
+            raise ValueError("governed knowledge evidence bundle_id MUST be non-empty when set")
 
     @property
     def hold_required(self) -> bool:

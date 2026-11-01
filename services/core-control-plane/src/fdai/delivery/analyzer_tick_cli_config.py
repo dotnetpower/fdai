@@ -42,6 +42,8 @@ def resolve_finding_topic(environ: Mapping[str, str]) -> str:
     topic = environ.get(TOPIC_ENV, "").strip() or environ.get(INGRESS_TOPIC_ENV, "").strip()
     if not topic:
         raise RuntimeError(f"{TOPIC_ENV} or {INGRESS_TOPIC_ENV} is required")
+    if len(topic) > 256 or any(char.isspace() for char in topic):
+        raise ValueError("finding topic MUST be bounded and contain no whitespace")
     return topic
 
 
@@ -74,7 +76,9 @@ def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
         target = AnalyzerTarget(
             resource_ref=resource_ref.strip(),
             resource_kind=resource_kind.strip(),
-            provider_query_ref=provider_ref.strip() if provider_ref is not None else None,
+            provider_query_ref=(
+                provider_ref.strip() if provider_ref is not None and provider_ref.strip() else None
+            ),
         )
         previous = targets_by_resource.get(target.resource_ref)
         if previous is not None:
@@ -145,7 +149,7 @@ def parse_window_seconds(raw: str) -> int:
         window = int(text)
     except ValueError as exc:
         raise ValueError(f"{WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
+    if not 1 <= window <= 86_400:
         raise ValueError(f"{WINDOW_ENV} MUST be a positive integer")
     return window
 
@@ -160,7 +164,7 @@ def resolve_trace_window_seconds(environ: Mapping[str, str], analyzer_window: in
         window = int(text)
     except ValueError as exc:
         raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer") from exc
-    if window <= 0:
+    if not 1 <= window <= 86_400:
         raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer")
     return window
 

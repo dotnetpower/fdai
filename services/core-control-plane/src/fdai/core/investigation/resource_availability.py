@@ -40,11 +40,11 @@ class ResourceAvailabilityAnalyzer:
         policy: ResourceAvailabilityPolicy,
         wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not resource_kind or not resource_type or not scope_ref:
+        if not resource_kind.strip() or not resource_type.strip() or not scope_ref.strip():
             raise ValueError("availability analyzer MUST bind kind, type and scope")
-        self._kind = resource_kind
-        self._type = resource_type
-        self._scope = scope_ref
+        self._kind = resource_kind.strip()
+        self._type = resource_type.strip()
+        self._scope = scope_ref.strip()
         self._source = source
         self._policy = policy
         self._clock = wall_clock or (lambda: datetime.now(UTC))

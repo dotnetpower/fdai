@@ -66,6 +66,8 @@ class InMemoryConversationPolicyCandidateStore:
         principal_scope: str,
         candidate_id: str,
     ) -> ChatPolicyCandidate | None:
+        if not principal_scope.strip() or not candidate_id.strip():
+            raise ValueError("principal_scope and candidate_id MUST be non-empty")
         candidate = self._candidates.get(candidate_id)
         if candidate is None or candidate.principal_scope != principal_scope:
             return None
@@ -77,6 +79,8 @@ class InMemoryConversationPolicyCandidateStore:
         principal_scope: str,
         transition: PolicyTransition,
     ) -> ChatPolicyCandidate:
+        if not principal_scope.strip():
+            raise ValueError("principal_scope MUST be non-empty")
         async with self._lock:
             candidate = self._candidates.get(transition.candidate_id)
             if candidate is None or candidate.principal_scope != principal_scope:
@@ -100,6 +104,8 @@ class InMemoryConversationPolicyCandidateStore:
         candidate_id: str,
         limit: int = 100,
     ) -> tuple[PolicyTransition, ...]:
+        if not principal_scope.strip() or not candidate_id.strip():
+            raise ValueError("principal_scope and candidate_id MUST be non-empty")
         _require_limit(limit)
         candidate = self._candidates.get(candidate_id)
         if candidate is None or candidate.principal_scope != principal_scope:

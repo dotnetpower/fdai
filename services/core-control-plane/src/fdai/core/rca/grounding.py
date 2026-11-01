@@ -65,7 +65,11 @@ def enforce_grounding(
             hypothesis=None,
             reason="invalid_confidence",
         )
-    if not valid_cause(hypothesis.cause) or admitted_citations(hypothesis.citations) is None:
+    if (
+        not valid_cause(hypothesis.cause)
+        or admitted_citations(hypothesis.citations) is None
+        or (hypothesis.remediation_ref is not None and not hypothesis.remediation_ref.strip())
+    ):
         return RcaResult(
             outcome=RcaOutcome.ABSTAINED,
             hypothesis=None,

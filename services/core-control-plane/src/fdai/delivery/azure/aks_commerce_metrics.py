@@ -18,10 +18,10 @@ _COSMOS_TYPE = "Microsoft.DocumentDB/databaseAccounts"
 
 def aks_commerce_service_bus_queries(queue_name: str) -> Mapping[str, MetricsApiTemplate]:
     """Return exact-queue Service Bus metric mappings for one deployment."""
-
-    if _ENTITY_NAME.fullmatch(queue_name) is None:
+    clean_queue = queue_name.strip() if isinstance(queue_name, str) else ""
+    if _ENTITY_NAME.fullmatch(clean_queue) is None:
         raise ValueError("AKS commerce queue name must be a bounded Azure entity name")
-    queue = (MetricsApiDimensionFilter("EntityName", queue_name),)
+    queue = (MetricsApiDimensionFilter("EntityName", clean_queue),)
     return MappingProxyType(
         {
             "stream.abandoned_messages": MetricsApiTemplate(
@@ -93,8 +93,37 @@ def aks_commerce_metrics_queries(queue_name: str) -> Mapping[str, MetricsApiTemp
     )
 
 
+def aks_commerce_cosmos_throttling_queries(
+    collection_name: str | None = None,
+) -> Mapping[str, MetricsApiTemplate]:
+    """Return Cosmos DB HTTP 429 throttling and RU consumption templates."""
+    extra_dims: tuple[MetricsApiDimensionFilter, ...] = ()
+    if collection_name is not None:
+        clean_coll = collection_name.strip()
+        if _ENTITY_NAME.fullmatch(clean_coll) is None:
+            raise ValueError("AKS commerce collection name must be a bounded Azure entity name")
+        extra_dims = (MetricsApiDimensionFilter("CollectionName", clean_coll),)
+    return MappingProxyType(
+        {
+            "database.throttled_requests": MetricsApiTemplate(
+                "TotalRequests",
+                "Total",
+                resource_type=_COSMOS_TYPE,
+                dimension_filters=(MetricsApiDimensionFilter("StatusCode", "429"), *extra_dims),
+            ),
+            "database.total_request_units": MetricsApiTemplate(
+                "TotalRequestUnits",
+                "Total",
+                resource_type=_COSMOS_TYPE,
+                dimension_filters=extra_dims,
+            ),
+        }
+    )
+
+
 __all__ = [
     "aks_commerce_cosmos_queries",
+    "aks_commerce_cosmos_throttling_queries",
     "aks_commerce_metrics_queries",
     "aks_commerce_service_bus_queries",
 ]

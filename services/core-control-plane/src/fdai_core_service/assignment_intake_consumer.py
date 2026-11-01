@@ -46,7 +46,10 @@ class AssignmentIntakeConsumer:
                     )
                     continue
                 try:
-                    result = await self.intake.receive(notice, at=self.clock())
+                    at = self.clock()
+                    if at.utcoffset() is None:
+                        raise ValueError("assignment intake clock MUST be timezone-aware")
+                    result = await self.intake.receive(notice, at=at)
                 except ValueError:
                     await bus.dead_letter(
                         ASSIGNMENT_REQUEST_TOPIC,

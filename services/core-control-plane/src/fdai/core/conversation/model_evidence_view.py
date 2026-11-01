@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -187,18 +188,18 @@ def adaptive_model_evidence_content(
     return content, tuple(dict.fromkeys(refs)), tuple(dict.fromkeys(authorities))
 
 
-def _allowed_cells(values: dict[str, Any]) -> dict[str, object]:
+def _allowed_cells(values: Mapping[str, Any]) -> dict[str, object]:
     if _is_link_row(values):
         return _scalar_cells(values, _LINK_EVIDENCE_ALLOWLIST)
     cells = _scalar_cells(values, _CELL_ALLOWLIST)
     group = values.get("group")
-    if isinstance(group, dict):
+    if isinstance(group, Mapping):
         for key, value in _scalar_cells(group, _CELL_ALLOWLIST).items():
             cells.setdefault(key, value)
     # An ObjectSet row nests its readable properties; allowlisted scalars are lifted, and
     # the provider bag inside them stays out because it is a provider body.
     nested = values.get("properties")
-    if isinstance(nested, dict):
+    if isinstance(nested, Mapping):
         for key, value in _scalar_cells(nested, _CELL_ALLOWLIST).items():
             cells.setdefault(key, value)
     object_type = values.get("object_type")
@@ -207,10 +208,10 @@ def _allowed_cells(values: dict[str, Any]) -> dict[str, object]:
     return cells
 
 
-def _scalar_cells(values: dict[str, Any], allowed: frozenset[str]) -> dict[str, object]:
+def _scalar_cells(values: Mapping[str, Any], allowed: frozenset[str]) -> dict[str, object]:
     cells: dict[str, object] = {}
     for key, value in values.items():
-        if key not in allowed or isinstance(value, (dict, list)):
+        if key not in allowed or isinstance(value, (Mapping, list, tuple)):
             continue
         try:
             json.dumps(value, allow_nan=False)
@@ -220,7 +221,7 @@ def _scalar_cells(values: dict[str, Any], allowed: frozenset[str]) -> dict[str, 
     return cells
 
 
-def _is_link_row(values: dict[str, Any]) -> bool:
+def _is_link_row(values: Mapping[str, Any]) -> bool:
     return bool(_LINK_MARKERS & set(values))
 
 

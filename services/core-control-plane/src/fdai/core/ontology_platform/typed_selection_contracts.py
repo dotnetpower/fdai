@@ -43,8 +43,8 @@ class ReadQualification(ReadRecord):
     @model_validator(mode="after")
     def _time(self) -> ReadQualification:
         if (
-            self.issued_at.tzinfo is None
-            or self.expires_at.tzinfo is None
+            self.issued_at.utcoffset() is None
+            or self.expires_at.utcoffset() is None
             or self.expires_at <= self.issued_at
         ):
             raise ValueError("read qualification requires an aware bounded validity interval")
@@ -81,8 +81,8 @@ class ReadSelectionEvidence(ReadRecord):
     @model_validator(mode="after")
     def _time(self) -> ReadSelectionEvidence:
         if (
-            self.issued_at.tzinfo is None
-            or self.expires_at.tzinfo is None
+            self.issued_at.utcoffset() is None
+            or self.expires_at.utcoffset() is None
             or not 0 < (self.expires_at - self.issued_at).total_seconds() <= 30
         ):
             raise ValueError("selection evidence requires an aware validity of at most 30 seconds")
@@ -107,3 +107,13 @@ class ReadDemotionCommand(ReadRecord):
     reason: Literal["revoked", "regression", "rollback"]
     issued_at: datetime
     expires_at: datetime
+
+    @model_validator(mode="after")
+    def _time(self) -> ReadDemotionCommand:
+        if (
+            self.issued_at.utcoffset() is None
+            or self.expires_at.utcoffset() is None
+            or self.expires_at <= self.issued_at
+        ):
+            raise ValueError("read demotion command requires an aware bounded validity interval")
+        return self

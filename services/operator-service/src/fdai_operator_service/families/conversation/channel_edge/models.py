@@ -84,6 +84,8 @@ class RenderedChannelMessage:
     degraded_to_text: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.degraded_to_text, bool):
+            raise ValueError("rendered message degraded_to_text MUST be a boolean")
         _bounded("rendered channel_id", self.channel_id, 200)
         if self.thread_id is not None:
             _bounded("rendered thread_id", self.thread_id, 200)
@@ -111,6 +113,8 @@ class ChannelDeliveryReceipt:
     degraded_to_text: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.degraded_to_text, bool):
+            raise ValueError("receipt degraded_to_text MUST be a boolean")
         _bounded("receipt channel_id", self.channel_id, 200)
         _bounded("receipt message_id", self.message_id, 200)
 
@@ -119,6 +123,8 @@ class ChannelDeliveryError(RuntimeError):
     """Classify provider failure without retaining provider response content."""
 
     def __init__(self, message: str, *, code: str, acknowledgement_ambiguous: bool) -> None:
+        if not code.strip() or not isinstance(acknowledgement_ambiguous, bool):
+            raise ValueError("channel delivery error code and ambiguity flag are invalid")
         super().__init__(message)
         self.code = code
         self.acknowledgement_ambiguous = acknowledgement_ambiguous

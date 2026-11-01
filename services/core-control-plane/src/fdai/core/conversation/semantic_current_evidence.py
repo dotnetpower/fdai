@@ -22,8 +22,10 @@ class SemanticCurrentEvidenceObservation:
     incomplete_reason: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.function_name.strip():
-            raise ValueError("semantic evidence function_name MUST be non-empty")
+        if not self.function_name.strip() or self.function_name != self.function_name.strip():
+            raise ValueError("semantic evidence function_name MUST be trimmed and non-empty")
+        if not isinstance(self.complete, bool):
+            raise ValueError("semantic evidence complete flag MUST be a boolean")
         if self.complete and self.incomplete_reason is not None:
             raise ValueError("complete semantic evidence MUST NOT carry an incomplete reason")
         if (

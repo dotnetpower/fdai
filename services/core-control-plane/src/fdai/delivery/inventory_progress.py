@@ -45,7 +45,14 @@ class InventoryProgressRecorder:
         publisher: InventoryProgressPublisher,
         clock: InventoryProgressClock,
     ) -> None:
-        if scopes_total < 1 or provider_types_total < 0 or pages_expected < 0:
+        if (
+            type(scopes_total) is not int
+            or type(provider_types_total) is not int
+            or type(pages_expected) is not int
+            or scopes_total < 1
+            or provider_types_total < 0
+            or pages_expected < 0
+        ):
             raise ValueError("inventory progress initial counters are invalid")
         if started_at.tzinfo is None or deadline_at.tzinfo is None or deadline_at <= started_at:
             raise ValueError("inventory progress attempt times are invalid")
@@ -112,7 +119,12 @@ class InventoryProgressRecorder:
     async def begin_source(self, *, provider_types: int, initial_pages: int) -> None:
         """Expand planned work when an ordered fallback source actually starts."""
 
-        if provider_types < 0 or initial_pages < 0:
+        if (
+            type(provider_types) is not int
+            or type(initial_pages) is not int
+            or provider_types < 0
+            or initial_pages < 0
+        ):
             raise ValueError("inventory progress source counters MUST be non-negative")
         async with self._lock:
             self._require_open()
@@ -143,7 +155,10 @@ class InventoryProgressRecorder:
     ) -> InventoryProgressRecord:
         """Advance one completed type shard using aggregate counts only."""
 
-        if min(resources, links, unmapped_objects, coverage_gaps) < 0:
+        if (
+            any(type(val) is not int for val in (resources, links, unmapped_objects, coverage_gaps))
+            or min(resources, links, unmapped_objects, coverage_gaps) < 0
+        ):
             raise ValueError("inventory progress shard counters MUST be non-negative")
         async with self._lock:
             self._require_open()

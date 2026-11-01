@@ -77,6 +77,8 @@ def compile_service_health_plan(
         or not _has_service_health_function(manifest.descriptors)
     ):
         return None
+    if not purpose.strip():
+        raise ValueError("service health plan purpose MUST be non-empty")
     selected_event_types = tuple(
         event_type
         for event_type, measure in SERVICE_HEALTH_EVENT_TYPE_MEASURES.items()
@@ -123,7 +125,8 @@ def compile_service_health_plan(
 def _has_service_health_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
     return any(
         descriptor.get("kind") == "function"
-        and descriptor.get("name") == SERVICE_HEALTH_FUNCTION_NAME
+        and isinstance(name := descriptor.get("name"), str)
+        and name.strip() == SERVICE_HEALTH_FUNCTION_NAME
         for descriptor in descriptors
     )
 

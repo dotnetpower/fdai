@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -86,7 +87,11 @@ class AzureBlobDecisionEvidenceProofConfig:
             raise ValueError(
                 "decision evidence proof container URL MUST identify one HTTPS container"
             )
-        if not 0 < self.request_timeout_seconds <= 30:
+        if (
+            type(self.request_timeout_seconds) is bool
+            or not math.isfinite(self.request_timeout_seconds)
+            or not 0 < self.request_timeout_seconds <= 30
+        ):
             raise ValueError("decision evidence proof timeout MUST be in (0, 30]")
 
 

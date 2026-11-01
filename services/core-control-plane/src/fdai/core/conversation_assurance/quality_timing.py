@@ -41,6 +41,8 @@ class CorrelationTraceCohortEvidence:
             character not in "0123456789abcdef" for character in self.trace_set_digest
         ):
             raise ValueError("trace cohort trace_set_digest MUST be a lowercase SHA-256 digest")
+        if any(not gap.strip() for gap in self.gaps):
+            raise ValueError("trace cohort gaps MUST be non-empty")
         if type(self.complete_trace) is not bool or self.complete_trace is not (not self.gaps):
             raise ValueError("trace cohort completeness does not match gaps")
         if self.complete_trace and self.trace_count < self.minimum_traces:
@@ -112,6 +114,11 @@ def bind_qualification_timing_evidence(
 ) -> QualificationEvidence:
     """Derive timing booleans only from matching evidence artifacts."""
 
+    if any(
+        not isinstance(flag, bool)
+        for flag in (frozen_blind_corpus, production_e2e, critical_safety_escape)
+    ):
+        raise ValueError("qualification timing flags MUST be booleans")
     if (
         latency.contract_version != CHATOPS_LATENCY_CONTRACT_V1.version
         or latency.contract_digest != CHATOPS_LATENCY_CONTRACT_V1.content_digest

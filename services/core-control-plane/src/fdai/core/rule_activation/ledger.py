@@ -76,7 +76,9 @@ class StateStoreRuleActivationLedger:
     async def result_for_request(self, request_id: str) -> RuleActivationResult | None:
         """Return the retained terminal for one validated request identity."""
 
-        raw = await self._store.read_state(self._result_key(request_id))
+        if not request_id.strip():
+            raise ValueError("Rule activation request_id MUST be non-empty")
+        raw = await self._store.read_state(self._result_key(request_id.strip()))
         return _parse_result(raw) if raw is not None else None
 
     async def apply(self, command: RuleActivationCommand) -> RuleActivationResult:

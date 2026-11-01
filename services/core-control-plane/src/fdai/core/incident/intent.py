@@ -50,6 +50,18 @@ class IncidentCreationProposal:
     requested_at: datetime
     expires_at: datetime
 
+    def __post_init__(self) -> None:
+        if not self.requested_by.strip() or not self.correlation_keys:
+            raise ValueError("incident proposal requires non-empty requested_by and keys")
+        if (
+            self.requested_at.tzinfo is None
+            or self.requested_at.utcoffset() is None
+            or self.expires_at.tzinfo is None
+            or self.expires_at.utcoffset() is None
+            or self.expires_at <= self.requested_at
+        ):
+            raise ValueError("incident proposal timestamps MUST be timezone-aware and ordered")
+
 
 @dataclass(frozen=True, slots=True)
 class IncidentChatTurn:

@@ -134,11 +134,12 @@ class VerifiedAnswerAuthoringService:
 
 
 def _valid_review(reviewed: object, answer: ComposedAnswer) -> bool:
-    if not isinstance(reviewed, EntailmentReview) or not isinstance(reviewed.claims, tuple):
+    if not isinstance(reviewed, EntailmentReview) or not isinstance(reviewed.claims, (list, tuple)):
         return False
     if any(
         not isinstance(item, EntailmentClaimReview)
         or not isinstance(item.claim_id, str)
+        or not item.claim_id.strip()
         or (item.reason is not None and not isinstance(item.reason, EntailmentReason))
         for item in reviewed.claims
     ):

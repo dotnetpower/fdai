@@ -15,7 +15,9 @@ _MAX_CORRELATION_KEY_CHARS = 1024
 
 def canonical_incident_correlation_keys(correlation_keys: Iterable[str]) -> tuple[str, ...]:
     """Return stable keys while rejecting ambiguous UUID5 delimiters."""
-    canonical = tuple(sorted({key for key in correlation_keys if key}))
+    canonical = tuple(
+        sorted({key.strip() for key in correlation_keys if isinstance(key, str) and key.strip()})
+    )
     if len(canonical) > _MAX_CORRELATION_KEYS or any(
         len(key) > _MAX_CORRELATION_KEY_CHARS for key in canonical
     ):
@@ -26,6 +28,8 @@ def canonical_incident_correlation_keys(correlation_keys: Iterable[str]) -> tupl
 
 
 def require_incident_operator(principal: IncidentOperatorPrincipal) -> None:
+    if not str(getattr(principal, "id", "")).strip():
+        raise IncidentWorkflowForbiddenError("incident workflow requires non-empty principal id")
     role_value = str(getattr(principal.role, "value", principal.role)).lower()
     if _ROLE_RANK.get(role_value, -1) < _ROLE_RANK[_CREATE_FLOOR]:
         raise IncidentWorkflowForbiddenError(

@@ -92,9 +92,13 @@ class HashedRuleEmbeddingIndex:
     _TOKEN_SPLIT_CHARS = " \t\n\r.,;:/_-()[]{}\"'"  # noqa: S105 - punctuation set
 
     def __init__(self, *, dim: int = 64) -> None:
-        if dim < 1:
+        if isinstance(dim, bool) or dim < 1:
             raise ValueError("dim MUST be >= 1")
         self._dim = dim
+
+    @property
+    def dim(self) -> int:
+        return self._dim
 
     def encode(self, text: str) -> tuple[float, ...]:
         vector = [0.0] * self._dim
@@ -170,6 +174,14 @@ class RagGroundingSource:
 
     def known_rule_ids(self) -> set[str]:
         return set(self._rules.keys())
+
+    @property
+    def known_rule_count(self) -> int:
+        return len(self._rules)
+
+    @property
+    def threshold(self) -> float:
+        return self._threshold
 
     def get(self, rule_id: str) -> Rule | None:
         return self._rules.get(rule_id)

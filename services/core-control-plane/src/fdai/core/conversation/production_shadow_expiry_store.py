@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,8 +15,10 @@ from .semantic_production_shadow import (
 
 PRODUCTION_SHADOW_KEY_PREFIX = "production_shadow:record:"
 MAX_CLEANUP_BATCH_LIMIT = 10_000
-_RECORD_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
-_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{8,64}$")
+_ALLOWED_RECORD_ID_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-"
+)
+_HEX_CHARS = frozenset("0123456789abcdef")
 _ALLOWED_DISPOSITIONS = frozenset(
     {
         PRODUCTION_SHADOW_ABSENT,
@@ -40,7 +41,12 @@ def _ensure_aware_timestamp(value: datetime, *, label: str) -> datetime:
 
 
 def _validate_digest_token(value: str, *, field_name: str) -> str:
-    if not isinstance(value, str) or _DIGEST_PATTERN.fullmatch(value) is None:
+    if not isinstance(value, str) or not value.startswith("sha256:"):
+        raise ValueError(
+            f"{field_name} MUST be a content-free sha256 digest (sha256:<hex>), got invalid value"
+        )
+    hex_part = value.removeprefix("sha256:")
+    if not (8 <= len(hex_part) <= 64 and all(ch in _HEX_CHARS for ch in hex_part)):
         raise ValueError(
             f"{field_name} MUST be a content-free sha256 digest (sha256:<hex>), got invalid value"
         )
@@ -48,7 +54,11 @@ def _validate_digest_token(value: str, *, field_name: str) -> str:
 
 
 def _validate_record_identifier(record_id: str) -> str:
-    if not isinstance(record_id, str) or _RECORD_ID_PATTERN.fullmatch(record_id) is None:
+    if (
+        not isinstance(record_id, str)
+        or not (1 <= len(record_id) <= 128)
+        or not all(ch in _ALLOWED_RECORD_ID_CHARS for ch in record_id)
+    ):
         raise ValueError(
             "production shadow record_id MUST be 1-128 ASCII identifier characters without colons"
         )

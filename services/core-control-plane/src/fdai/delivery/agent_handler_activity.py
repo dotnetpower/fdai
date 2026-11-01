@@ -33,6 +33,16 @@ class HandlerActivityContext:
     completed_at: str | None
     duration_ms: int | None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.activity_id.strip()
+            or not self.phase.strip()
+            or not self.topic.strip()
+            or not self.started_at.strip()
+            or (self.duration_ms is not None and isinstance(self.duration_ms, bool))
+        ):
+            raise ValueError("HandlerActivityContext fields are invalid")
+
     def to_payload(self) -> dict[str, object]:
         """Return additive flattened fields for the runtime-state payload."""
         return {

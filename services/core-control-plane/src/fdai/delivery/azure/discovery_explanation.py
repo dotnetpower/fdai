@@ -30,6 +30,16 @@ class RenderedAzureCommand:
     argv: tuple[str, ...]
     kql_template: str | None
 
+    def __post_init__(self) -> None:
+        if not self.command_id.strip():
+            raise ValueError("RenderedAzureCommand.command_id MUST be non-empty")
+        if not self.argv or any(not isinstance(arg, str) or not arg.strip() for arg in self.argv):
+            raise ValueError("RenderedAzureCommand.argv MUST be non-empty strings")
+        if self.command_id.startswith("azure.arg.") and (
+            self.kql_template is None or not self.kql_template.strip()
+        ):
+            raise ValueError("ARG RenderedAzureCommand requires a non-empty kql_template")
+
 
 def render_command_explanation(
     *,
@@ -39,7 +49,8 @@ def render_command_explanation(
     cli_version: str,
 ) -> CommandExplanation:
     """Build one digest-bound explanation from a matching registered operation."""
-
+    if validated_at.tzinfo is None:
+        raise ValueError("command explanation validated_at MUST be timezone-aware")
     if plan.operation_id != operation.operation_id:
         raise ValueError("discovery plan and operation profile MUST match")
     cli_pins = tuple(
@@ -100,6 +111,15 @@ def render_registered_azure_command(
         return _arg_command(template_id, plan=plan, kql=kql)
     if template_id == "azure.arg.resources.list.v1":
         kql = _render_kql(plan, table="Resources", resource_groups=False)
+        return _arg_command(template_id, plan=plan, kql=kql)
+    if template_id == "azure.arg.advisor-recommendations.list.v1":
+        kql = _render_kql(plan, table="AdvisorResources", resource_groups=False)
+        return _arg_command(template_id, plan=plan, kql=kql)
+    if template_id == "azure.arg.policy-states.list.v1":
+        kql = _render_kql(plan, table="PolicyResources", resource_groups=False)
+        return _arg_command(template_id, plan=plan, kql=kql)
+    if template_id == "azure.arg.health-resources.list.v1":
+        kql = _render_kql(plan, table="HealthResources", resource_groups=False)
         return _arg_command(template_id, plan=plan, kql=kql)
     if template_id == "azure.arm.resource-groups.list.v1":
         exact_group = plan.scope_kind is DiscoveryScopeKind.RESOURCE_GROUP
@@ -266,6 +286,8 @@ def _predicate_template(predicate: DiscoveryPredicate, *, index: int) -> str:
         "provider_type": "type",
         "resource_group": "resourceGroup",
         "location": "location",
+        "tag": "tags",
+        "tag_key": "tags",
     }.get(predicate.field.value)
     if field is None:
         raise ValueError("registered Azure command does not support this predicate field")

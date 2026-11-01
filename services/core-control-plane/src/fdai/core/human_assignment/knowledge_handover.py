@@ -46,7 +46,7 @@ class HandoverKnowledgeRetrieval:
     admission: GoalEvidenceAdmission | None = None
 
     def __post_init__(self) -> None:
-        if not 1 <= self.limit <= 20:
+        if isinstance(self.limit, bool) or not 1 <= self.limit <= 20:
             raise ValueError("handover knowledge retrieval limit MUST be in [1, 20]")
 
     async def search(
@@ -69,6 +69,8 @@ class HandoverKnowledgeRetrieval:
         question: str,
         access: HandoverKnowledgeAccessContext,
     ) -> tuple[KnowledgeChunk, ...]:
+        if not question.strip():
+            raise ValueError("handover knowledge question MUST be non-empty")
         if access.principal_ref != goal.subject_ref:
             raise PermissionError("handover knowledge principal does not own the goal")
         if self.admission is None or not await self.admission.verify_subject(

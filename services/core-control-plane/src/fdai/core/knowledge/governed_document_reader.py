@@ -86,7 +86,8 @@ class GovernedDocumentAccessScope:
 
     def digest_for(self, principal_ref: str) -> str:
         """Return a content-free identity for the principal-bound search scope."""
-
+        if not principal_ref.strip():
+            raise ValueError("governed document principal_ref MUST be non-empty")
         material = "\0".join(
             (
                 hashlib.sha256(principal_ref.encode()).hexdigest(),

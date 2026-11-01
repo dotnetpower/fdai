@@ -168,7 +168,7 @@ async def resolve_analyzer_targets(
     """
     if now.tzinfo is None:
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
-    if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
+    if type(max_discovered) is not int or not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
         raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
     availability_resources = availability_resources or {}
     analyzer_kinds = {
@@ -181,7 +181,7 @@ async def resolve_analyzer_targets(
     }
     hold_reasons = discovered_hold_reasons or {}
     if any(
-        resource_type not in analyzer_kinds or not reason or len(reason) > 128
+        resource_type not in analyzer_kinds or not reason.strip() or len(reason) > 128
         for resource_type, reason in hold_reasons.items()
     ):
         raise ValueError("discovered analyzer hold reasons MUST be mapped and bounded")

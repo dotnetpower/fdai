@@ -44,6 +44,8 @@ class CatalogRuleRevisionRegistry:
 
 
 def _bounded_json(path: Path, maximum_bytes: int) -> Mapping[str, Any]:
+    if isinstance(maximum_bytes, bool) or maximum_bytes < 1:
+        raise ValueError("maximum_bytes MUST be a positive integer")
     if not path.is_file() or path.is_symlink():
         raise ValueError(f"Rule revision registry artifact is unavailable: {path.name}")
     size = path.stat().st_size

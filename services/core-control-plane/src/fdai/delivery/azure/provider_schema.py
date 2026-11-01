@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import shutil
 import subprocess
@@ -41,7 +42,12 @@ class AzureBicepProviderSchemaParser:
     """Normalize all resource headings from one pinned generated Bicep corpus."""
 
     def __init__(self, *, min_type_count: int = 1, max_type_count: int = 10_000) -> None:
-        if min_type_count < 1 or max_type_count < min_type_count:
+        if (
+            type(min_type_count) is not int
+            or type(max_type_count) is not int
+            or min_type_count < 1
+            or max_type_count < min_type_count
+        ):
             raise ValueError("provider schema type bounds are invalid")
         self._min_type_count = min_type_count
         self._max_type_count = max_type_count
@@ -293,7 +299,7 @@ def _validate_git_source(repo_url: str, revision_ref: str, *, timeout_seconds: f
         raise ValueError("provider schema Git source MUST be credential-free HTTPS")
     if not revision_ref.strip() or not revision_ref.isascii():
         raise ValueError("provider schema Git revision ref MUST be non-empty ASCII")
-    if timeout_seconds <= 0:
+    if type(timeout_seconds) is bool or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
         raise ValueError("provider schema Git timeout MUST be positive")
 
 

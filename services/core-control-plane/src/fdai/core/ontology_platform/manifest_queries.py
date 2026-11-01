@@ -139,7 +139,9 @@ def ontology_manifest_function(
         )
         if manifest.release_digest != ontology_release.digest:
             raise ValueError("query manifest release does not match function release")
-        kinds = frozenset(str(item) for item in arguments["kinds"])
+        kinds = frozenset(str(item).strip() for item in arguments["kinds"] if str(item).strip())
+        if not kinds:
+            raise ValueError("ontology manifest kinds MUST be non-empty")
         matching = tuple(
             descriptor for descriptor in manifest.descriptors if descriptor.get("kind") in kinds
         )
@@ -148,7 +150,14 @@ def ontology_manifest_function(
             for item in manifest.unavailable
             if item["declaration_id"].partition(":")[0] in kinds
         )
-        limit = int(arguments["limit"])
+        raw_limit = arguments["limit"]
+        if (
+            isinstance(raw_limit, bool)
+            or not isinstance(raw_limit, int)
+            or not 1 <= raw_limit <= _MAX_ROWS
+        ):
+            raise ValueError(f"ontology manifest limit MUST be in [1, {_MAX_ROWS}]")
+        limit = raw_limit
         selected = matching[:limit]
         limited = len(selected) != len(matching)
         truncation_reason = (

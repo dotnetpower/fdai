@@ -20,8 +20,22 @@ def retry_after_seconds(raw: str | None) -> float | None:
     """Keep the existing finite numeric Retry-After parsing contract."""
     if raw is None:
         return None
+    text = raw.strip()
+    if ":" in text:
+        parts = text.split(":")
+        if len(parts) == 3:
+            try:
+                hours = int(parts[0])
+                minutes = int(parts[1])
+                seconds = float(parts[2])
+            except ValueError:
+                return None
+            if hours >= 0 and 0 <= minutes < 60 and isfinite(seconds) and 0 <= seconds < 60:
+                total = hours * 3600 + minutes * 60 + seconds
+                return total if isfinite(total) and total >= 0 else None
+        return None
     try:
-        delay = float(raw)
+        delay = float(text)
     except ValueError:
         return None
     return delay if isfinite(delay) and delay >= 0 else None

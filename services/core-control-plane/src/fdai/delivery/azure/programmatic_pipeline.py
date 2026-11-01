@@ -31,7 +31,10 @@ class AzureIsolatedPipelineRunnerConfig:
     max_submission_bytes: int = 1_000_000
 
     def __post_init__(self) -> None:
-        if not 1_024 <= self.max_submission_bytes <= 10_000_000:
+        if (
+            type(self.max_submission_bytes) is not int
+            or not 1_024 <= self.max_submission_bytes <= 10_000_000
+        ):
             raise ValueError("Azure pipeline max_submission_bytes MUST be in [1024, 10000000]")
 
 
@@ -73,7 +76,9 @@ class AzureIsolatedPipelineRunner:
         return await self._client.submit(spec, broker=broker)
 
     async def cancel(self, run_id: str) -> bool:
-        return await self._client.cancel(run_id)
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise ValueError("Azure pipeline run_id MUST be non-empty")
+        return await self._client.cancel(run_id.strip())
 
 
 __all__ = [

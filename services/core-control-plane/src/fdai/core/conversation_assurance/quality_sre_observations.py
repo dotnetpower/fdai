@@ -50,6 +50,8 @@ def observe_rca_scenario(
     """Measure triage, timeline, and supported cause without inventing RCA evidence."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip():
+        raise ValueError("RCA scenario case_id MUST be non-empty")
     outcome_matches = result.actual.outcome is result.expected_outcome
     contributions = [
         _contribution(result, item_id=16, correct=outcome_matches, reason="rca_outcome_match")
@@ -99,6 +101,8 @@ def observe_alternative_causes(
     """Measure item 19 from the RCA owner's grounded candidate set."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip():
+        raise ValueError("alternative cause scenario case_id MUST be non-empty")
     expected = tuple(sorted(set(result.expected_cause_digests)))
     if any(not _is_digest(value) for value in expected):
         raise ValueError("expected cause values MUST be SHA-256 digests")
@@ -128,6 +132,8 @@ def observe_impact_scenario(
     """Measure item 20 from the deterministic change impact assessment."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip() or not isinstance(result.expected_complete, bool):
+        raise ValueError("impact scenario case_id and expected_complete are invalid")
     expected = tuple(sorted(set(result.expected_resource_digests)))
     if any(not _is_digest(value) for value in expected):
         raise ValueError("expected resource values MUST be SHA-256 digests")

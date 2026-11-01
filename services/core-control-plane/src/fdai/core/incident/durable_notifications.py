@@ -31,6 +31,12 @@ class DurableNotificationResult:
     delivery_result: object | None = None
     delivered: bool = False
 
+    def __post_init__(self) -> None:
+        if not self.status.strip() or not isinstance(self.delivered, bool):
+            raise ValueError(
+                "DurableNotificationResult requires non-empty status and boolean delivered"
+            )
+
 
 class IncidentNotificationPendingError(RuntimeError):
     """At least one durable channel delivery still awaits a terminal observation."""
@@ -46,7 +52,7 @@ class DurableIncidentLifecycleNotifier:
         delivery_store: IncidentNotificationDeliveryStore,
         lease_seconds: int = 60,
     ) -> None:
-        if lease_seconds < 1:
+        if isinstance(lease_seconds, bool) or lease_seconds < 1:
             raise ValueError("incident notification lease_seconds MUST be >= 1")
         self._delegate = delegate
         self._delivery_store = delivery_store

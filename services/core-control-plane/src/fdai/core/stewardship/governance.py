@@ -53,6 +53,12 @@ class StewardshipGovernanceResult:
     idempotency_key: str
     reason: str | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.published, bool) or not self.idempotency_key.strip():
+            raise ValueError(
+                "StewardshipGovernanceResult requires boolean published and idempotency_key"
+            )
+
 
 def stewardship_idempotency_key(artifact: HandoverDraftArtifact) -> str:
     """Return the stable content-addressed key for one draft artifact."""

@@ -50,7 +50,11 @@ class AzureAuthorizationRoleAssignmentReader:
     role_definition_names: Mapping[str, str] | None = None
 
     async def read(self) -> VerifierOwnRoleReadback:
-        if not self.principal_id.strip() or not self.scopes:
+        if (
+            not self.principal_id.strip()
+            or not self.scopes
+            or any(not s.strip() for s in self.scopes)
+        ):
             raise VerifierOwnRoleReadbackError("role readback principal or scopes are unbound")
         token = await self.token_provider.get_token(_MANAGEMENT_AUDIENCE)
         if not token.token or token.oid != self.principal_id:

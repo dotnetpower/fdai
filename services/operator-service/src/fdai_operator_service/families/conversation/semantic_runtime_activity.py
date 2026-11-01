@@ -19,17 +19,20 @@ _MAX_EXECUTION_OUTPUT_CHARS = 64 * 1024
 
 def query_execution_target(capability: str) -> JsonObject:
     """Describe the fixed internal target for one registered query capability."""
-    operation = capability.removeprefix("query.").replace(".", "_")
+    normalized = capability.strip()
+    if not normalized:
+        raise ValueError("query capability MUST be non-empty")
+    operation = normalized.removeprefix("query.").replace(".", "_")
     return {
         "interface_kind": "internal_query",
         "service": "core-control-plane",
         "component": "OntologyQueryPlanExecutor",
         "operation": (
-            "object_set_materialization" if capability == "query.object_set" else operation
+            "object_set_materialization" if normalized == "query.object_set" else operation
         ),
         "source_kind": (
             "ontology_instance_store"
-            if capability == "query.object_set"
+            if normalized == "query.object_set"
             else "registered_query_handler"
         ),
         "transport": "event_bus",
@@ -48,8 +51,8 @@ def verified_query_activities(
     graph_goals = graph.get("goals") if isinstance(graph, Mapping) else None
     evidence_goals = evidence.get("goals") if isinstance(evidence, Mapping) else None
     if (
-        not isinstance(graph_goals, list)
-        or not isinstance(evidence_goals, list)
+        not isinstance(graph_goals, (list, tuple))
+        or not isinstance(evidence_goals, (list, tuple))
         or not 1 <= len(graph_goals) <= MAX_INTENT_GRAPH_GOALS
         or len(graph_goals) != len(evidence_goals)
     ):

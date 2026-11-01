@@ -10,7 +10,13 @@ from .query_execution import QueryNodeResult
 def argument_name(value: object) -> str:
     """Validate one bounded dot-separated function argument name."""
 
-    if not isinstance(value, str) or not value or len(value) > 256 or not value.isascii():
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or value != value.strip()
+        or len(value) > 256
+        or not value.isascii()
+    ):
         raise ValueError("function argument name MUST contain between 1 and 256 characters")
     parts = value.split(".")
     if any(

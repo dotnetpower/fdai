@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
@@ -33,6 +34,8 @@ def _leaf_values(value: object) -> tuple[object, ...]:
         return tuple(leaf for nested in value for leaf in _leaf_values(nested))
     if value is None or isinstance(value, bool):
         return ()
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError("contextual argument float values MUST be finite")
     return (value,)
 
 

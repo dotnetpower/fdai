@@ -52,6 +52,7 @@ class AzureActivityReadConfig:
             raise ValueError("subscription_id MUST be a canonical UUID") from exc
         if canonical != self.subscription_id.casefold():
             raise ValueError("subscription_id MUST be a canonical UUID")
+        object.__setattr__(self, "subscription_id", canonical)
         if (
             isinstance(self.timeout_seconds, bool)
             or not isinstance(self.timeout_seconds, (int, float))
@@ -102,6 +103,8 @@ class AzureActivityReadInvestigationProvider:
         lookback_seconds: int,
         limits: ReadToolLimits,
     ) -> ReadEvidenceAttempt:
+        if type(lookback_seconds) is not int or lookback_seconds < 1:
+            raise ValueError("lookback_seconds MUST be a positive integer")
         started = time.monotonic()
         observed_at = datetime.now(UTC)
         if resource.resource_group is None or not resource.resource_group.strip():
@@ -137,6 +140,7 @@ class AzureActivityReadInvestigationProvider:
                 params={"api-version": _ACTIVITY_API_VERSION, "$filter": filter_value},
                 headers={"Authorization": f"Bearer {token.token}"},
                 timeout=min(self._config.timeout_seconds, limits.timeout_seconds),
+                follow_redirects=False,
             )
         except (httpx.HTTPError, TimeoutError):
             return self._unavailable(
@@ -279,6 +283,7 @@ class AzureActivityReadInvestigationProvider:
                 params={"api-version": _RESOURCE_HEALTH_API_VERSION},
                 headers={"Authorization": f"Bearer {token.token}"},
                 timeout=min(self._config.timeout_seconds, limits.timeout_seconds),
+                follow_redirects=False,
             )
         except (httpx.HTTPError, TimeoutError):
             return self._unavailable(

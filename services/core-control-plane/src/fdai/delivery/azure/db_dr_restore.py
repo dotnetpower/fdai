@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -63,9 +64,19 @@ class AzurePostgresRestoreSettings:
             )
         if not self.audience.strip() or not self.api_version.strip():
             raise ValueError("Azure restore audience and api_version MUST be non-empty")
-        if self.poll_interval_seconds < 0:
+        if (
+            type(self.poll_interval_seconds) is bool
+            or not math.isfinite(self.poll_interval_seconds)
+            or self.poll_interval_seconds < 0
+        ):
             raise ValueError("poll_interval_seconds MUST be >= 0")
-        if self.max_poll_attempts < 1 or self.request_timeout_seconds <= 0:
+        if (
+            type(self.max_poll_attempts) is not int
+            or self.max_poll_attempts < 1
+            or type(self.request_timeout_seconds) is bool
+            or not math.isfinite(self.request_timeout_seconds)
+            or self.request_timeout_seconds <= 0
+        ):
             raise ValueError("Azure restore polling bounds MUST be positive")
 
 

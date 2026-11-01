@@ -29,7 +29,11 @@ def resolve_analyzer_run_id(environment: Mapping[str, str]) -> str | None:
     )
     if not run_id:
         return None
-    if len(run_id) > 256 or any(char.isspace() for char in run_id):
+    if (
+        len(run_id) > 256
+        or any(char.isspace() for char in run_id)
+        or any(ord(char) < 32 or ord(char) == 127 for char in run_id)
+    ):
         raise ValueError("analyzer run identity MUST be bounded and contain no whitespace")
     return run_id
 

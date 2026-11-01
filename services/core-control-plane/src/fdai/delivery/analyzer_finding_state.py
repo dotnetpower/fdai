@@ -31,6 +31,11 @@ _PRIORITY: dict[str, int] = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 @dataclass(frozen=True, slots=True)
 class AnalyzerFindingStateStore:
     state_store: StateStore
+    max_cas_attempts: int = 8
+
+    def __post_init__(self) -> None:
+        if type(self.max_cas_attempts) is not int or not 1 <= self.max_cas_attempts <= 64:
+            raise ValueError("AnalyzerFindingStateStore.max_cas_attempts MUST be 1..64")
 
     async def record(self, receipt: AnalyzerFindingReceipt) -> None:
         """CAS a derived projection; publication failure and missing data never resolve it.
@@ -65,7 +70,7 @@ class AnalyzerFindingStateStore:
         digest = hashlib.sha256(
             json.dumps(stable, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-        for _ in range(8):
+        for _ in range(self.max_cas_attempts):
             stored = await self.state_store.read_state(key)
             previous = FindingState.model_validate(stored) if stored is not None else None
             if previous is not None:
