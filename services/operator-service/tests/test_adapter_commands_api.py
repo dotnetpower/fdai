@@ -365,3 +365,24 @@ async def test_adapter_commands_enforces_adapter_scope_allowlist() -> None:
         )
     assert scope_exc.value.status_code == 403
     assert scope_exc.value.code == "adapter_scope_denied"
+
+
+@pytest.mark.parametrize(
+    "forbidden_key",
+    ["recipient", "user_id", "channel_id", "conversation_id", "webhook_url", "email"],
+)
+def test_delivery_panel_recursively_rejects_nested_forbidden_identifier_keys(
+    forbidden_key: str,
+) -> None:
+    from fdai_operator_service.conversation_delivery_panel_route import (
+        project_conversation_delivery_panel_payload,
+    )
+
+    empty_snapshot = ChannelDeliverySnapshot(
+        deliveries=(), attempts=(), acknowledgements=(), breakers=()
+    )
+    with pytest.raises(ValueError, match="MUST NOT expose identifier key"):
+        project_conversation_delivery_panel_payload(
+            empty_snapshot,
+            progressive={"nested": [{"deep": {forbidden_key: "leaked"}}]},
+        )

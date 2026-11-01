@@ -302,6 +302,10 @@ class GovernedMscpCeilingBinding:
             )
         if receipt.review.reviewed_at > now:
             raise GovernedCeilingBindingError("review timestamp cannot be in the future")
+        if now < self.current_snapshot.updated_at:
+            raise GovernedCeilingBindingError(
+                "activation timestamp MUST NOT precede current snapshot"
+            )
         next_rev = self._current_revision + 1
         snapshot = GovernedLifecycleSnapshot(
             self._candidate,
@@ -325,6 +329,10 @@ class GovernedMscpCeilingBinding:
         _require_text("actor", actor)
         _require_aware("now", now)
         cur = self.current_snapshot
+        if now < cur.updated_at:
+            raise GovernedCeilingBindingError(
+                "rollback timestamp MUST NOT precede current snapshot"
+            )
         next_rev = self._current_revision + 1
         snapshot = GovernedLifecycleSnapshot(
             self._candidate,

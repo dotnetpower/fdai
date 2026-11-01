@@ -75,6 +75,11 @@ def submit_reviewed_programmatic_pipeline(
             "authenticated principal is required",
             status_code=401,
         )
+    if any(ord(ch) < 32 for ch in principal_id):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_principal_id",
+            "principal_id must not contain control characters",
+        )
     normalized_roles = {r.strip().lower() for r in roles if r.strip()}
     if not (normalized_roles & _ALLOWED_SUBMISSION_ROLES):
         raise ProgrammaticPipelineSubmissionError(
@@ -89,6 +94,7 @@ def submit_reviewed_programmatic_pipeline(
             "submission payload must be a JSON object",
         )
     _reject_forbidden_boundary_fields(payload)
+    _validate_optional_submission_bounds(payload)
 
     run_id = _bounded_id(payload, "run_id")
     idempotency_key = _bounded_id(payload, "idempotency_key")
@@ -214,9 +220,39 @@ def _non_empty_text(payload: Mapping[str, Any], key: str) -> str:
     return value
 
 
+def _validate_optional_submission_bounds(payload: Mapping[str, Any]) -> None:
+    raw_corr = payload.get("correlation_id")
+    if raw_corr is not None and (
+        not isinstance(raw_corr, str)
+        or not raw_corr.strip()
+        or any(ord(ch) < 32 for ch in raw_corr)
+        or _BOUNDED_ID_RE.fullmatch(raw_corr) is None
+    ):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_correlation_id",
+            "correlation_id must be a bounded identifier without control characters",
+        )
+    raw_steps = payload.get("max_steps")
+    if raw_steps is not None and (
+        isinstance(raw_steps, bool) or not isinstance(raw_steps, int) or raw_steps < 1
+    ):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_max_steps",
+            "max_steps must be a positive integer and not a bool",
+        )
+    raw_wall = payload.get("max_wall_seconds")
+    if raw_wall is not None and (
+        isinstance(raw_wall, bool) or not isinstance(raw_wall, (int, float)) or raw_wall <= 0
+    ):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_max_wall_seconds",
+            "max_wall_seconds must be a positive number and not a bool",
+        )
+
+
 def _bounded_id(payload: Mapping[str, Any], key: str) -> str:
     value = _non_empty_text(payload, key)
-    if _BOUNDED_ID_RE.fullmatch(value) is None:
+    if any(ord(ch) < 32 for ch in value) or _BOUNDED_ID_RE.fullmatch(value) is None:
         raise ProgrammaticPipelineSubmissionError(
             f"invalid_{key}",
             f"{key} must be a bounded identifier",

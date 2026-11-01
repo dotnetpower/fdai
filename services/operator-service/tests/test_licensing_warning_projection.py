@@ -134,3 +134,29 @@ def test_rejects_raw_tokens_private_keys_and_signatures() -> None:
             observed_at=NOW,
             reason_code="entitlement_active",
         )
+
+
+@pytest.mark.parametrize(
+    "nested_metadata",
+    [
+        {"nested": {"private_key": "x"}},
+        {"items": [{"secret": "x"}]},
+        {"auth": [{"password": "x"}]},
+        {"nested": [{"raw_token": "x"}]},
+        {"nested": {"signature": "x"}},
+        {"nested": {"header": " ".join(("-----BEGIN", "PRIVATE KEY-----"))}},
+        {"nested": [{"auth_header": " ".join(("Bearer", "secret-token-value"))}]},
+    ],
+)
+def test_recursively_rejects_nested_forbidden_secret_keys_and_pem_or_bearer_strings(
+    nested_metadata: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="secret or token"):
+        build_licensing_warning_projection(
+            principal_id="operator-reader-1",
+            license_status="active",
+            acting_available=True,
+            observed_at=NOW,
+            now=NOW,
+            raw_metadata=nested_metadata,
+        )

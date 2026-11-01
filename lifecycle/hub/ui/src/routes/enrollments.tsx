@@ -14,6 +14,40 @@ export function isValidApprover(value: string): boolean {
   return APPROVER_PATTERN.test(value.trim());
 }
 
+export interface SortableEnrollment {
+  readonly installation_id: string;
+  readonly requested_at: string;
+  readonly request_id?: string | null;
+  readonly channel?: string;
+}
+
+export function sortEnrollments<T extends SortableEnrollment>(rows: readonly T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const byRequestedAt = a.requested_at.localeCompare(b.requested_at);
+    if (byRequestedAt !== 0) return byRequestedAt;
+    const byRequestId = (a.request_id ?? "").localeCompare(b.request_id ?? "");
+    if (byRequestId !== 0) return byRequestId;
+    return a.installation_id.localeCompare(b.installation_id);
+  });
+}
+
+export function filterAndSortEnrollments<T extends SortableEnrollment>(
+  rows: readonly T[],
+  query = "",
+): T[] {
+  const needle = query.trim().toLowerCase();
+  const filtered =
+    needle === ""
+      ? rows
+      : rows.filter(
+          (row) =>
+            row.installation_id.toLowerCase().includes(needle) ||
+            (row.request_id ?? "").toLowerCase().includes(needle) ||
+            (row.channel ?? "").toLowerCase().includes(needle),
+        );
+  return sortEnrollments(filtered);
+}
+
 export function EnrollmentsPage({ selectedId }: { selectedId: string | null }) {
   return selectedId === null ? (
     <EnrollmentsList />
@@ -50,7 +84,7 @@ function EnrollmentsList() {
                 </tr>
               </thead>
               <tbody>
-                {enrollments.map((request) => (
+                {filterAndSortEnrollments(enrollments).map((request) => (
                   <tr key={request.installation_id}>
                     <td>
                       <Link href={enrollmentPath(request.installation_id)}>

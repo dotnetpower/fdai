@@ -118,5 +118,37 @@ describe("task-workers.model", () => {
         workers: [{ ...SAMPLE_WORKER_ROW, trusted: true }],
       }),
     ).toThrow(/trusted MUST be false/);
+
+    expect(() =>
+      decodeTaskWorkerListProjection({
+        read_only: true,
+        execution_authority: "none",
+        workers: [SAMPLE_WORKER_ROW, SAMPLE_WORKER_ROW],
+      }),
+    ).toThrow(/duplicate worker_id/);
+
+    const truncatedDetail = decodeTaskWorkerDetailProjection({
+      read_only: true,
+      execution_authority: "none",
+      worker: {
+        ...SAMPLE_WORKER_ROW,
+        evidence_refs: ["inv:res-1"],
+        result: {
+          worker_id: "worker-1",
+          parent_trace_ref: "trace-1",
+          status: "succeeded",
+          summary: "Truncated summary...",
+          summary_truncated: true,
+          evidence_refs: ["inv:res-1"],
+          caveats: [],
+          usage: { tokens: 320, cost_microusd: 1200, tool_calls: 2 },
+          terminal_reason: "completed",
+          started_at: "2026-11-01T12:00:01Z",
+          finished_at: "2026-11-01T12:00:05Z",
+          trusted: false,
+        },
+      },
+    });
+    expect(truncatedDetail.worker.result?.summary_truncated).toBe(true);
   });
 });

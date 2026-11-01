@@ -22,9 +22,11 @@ class _FakeFirewallDriver:
     def __init__(
         self,
         *,
+        fail_grant: bool = False,
         fail_revoke: bool = False,
         lingering_rule_on_readback: bool = False,
     ) -> None:
+        self.fail_grant = fail_grant
         self.fail_revoke = fail_revoke
         self.lingering_rule_on_readback = lingering_rule_on_readback
         self.active_rules: dict[tuple[str, str], str] = {}
@@ -42,6 +44,8 @@ class _FakeFirewallDriver:
     ) -> None:
         del expires_at
         self.grant_calls += 1
+        if self.fail_grant:
+            raise RuntimeError("ARM network security rule creation rejected")
         self.active_rules[(target_resource_id, rule_id)] = caller_cidr
 
     def revoke_rule(
@@ -186,3 +190,31 @@ def test_readback_verification_failure_forces_incomplete_cleanup_failed() -> Non
     assert outcome.requires_operator_remediation is True
     assert outcome.phase2_audit.phase_status == "cleanup_failed"
     assert outcome.cleanup_error == "post-cleanup readback reported temporary rule still present"
+
+
+def test_closed_at_before_requested_at_is_rejected_and_grant_failure_still_cleans_up() -> None:
+    driver = _FakeFirewallDriver(fail_grant=True)
+    coordinator = TemporaryPublicAccessCoordinator(driver)
+    req = _request(correlation_id="corr-grant-fail")
+
+    with pytest.raises(TemporaryPublicAccessError, match="closed_at"):
+        coordinator.execute_with_temporary_access(
+            req,
+            lambda: "should-not-run",
+            closed_at=_NOW - timedelta(seconds=1),
+        )
+
+    outcome = coordinator.execute_with_temporary_access(
+        req,
+        lambda: "should-not-run",
+        closed_at=_NOW + timedelta(seconds=10),
+    )
+    assert outcome.operation_succeeded is False
+    assert outcome.cleanup_succeeded is True
+    assert outcome.readback_verified_absent is True
+    assert outcome.status == "operation_failed_cleaned_up"
+    assert outcome.phase2_audit.phase == "phase_2"
+    assert outcome.phase2_audit.phase_status == "closed_clean"
+    assert driver.grant_calls == 1
+    assert driver.revoke_calls == 1
+    assert driver.readback_calls == 1

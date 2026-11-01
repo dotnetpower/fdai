@@ -237,6 +237,16 @@ export function decodeDeclaredIntentReviewProjection(
   if (!OPERATIONS.has(operation)) throw panelContractError(`${label}.operation is invalid`);
   const rawChanges = panelArray(root["property_changes"], `${label}.property_changes`);
   if (rawChanges.length === 0) throw panelContractError(`${label}.property_changes MUST NOT be empty`);
+  const propertyChanges = rawChanges.map((item, idx) => decodePropertyChange(item, idx));
+  const seenFieldNames = new Set<string>();
+  for (const change of propertyChanges) {
+    if (seenFieldNames.has(change.field_name)) {
+      throw panelContractError(
+        `${label}.property_changes contains duplicate field_name ${change.field_name}`,
+      );
+    }
+    seenFieldNames.add(change.field_name);
+  }
   return {
     type: "declared-intent.review-projection",
     schema_version: "1.0.0",
@@ -265,7 +275,7 @@ export function decodeDeclaredIntentReviewProjection(
         ? null
         : decodeProperties(root["before_properties"], `${label}.before_properties`),
     after_properties: decodeProperties(root["after_properties"], `${label}.after_properties`),
-    property_changes: rawChanges.map((item, idx) => decodePropertyChange(item, idx)),
+    property_changes: propertyChanges,
   };
 }
 

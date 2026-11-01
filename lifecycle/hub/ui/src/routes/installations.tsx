@@ -23,6 +23,31 @@ function WindowCell({ installation }: { installation: InstallationSummary }) {
   return <>opens {formatRelative(installation.next_window_starts_at)}</>;
 }
 
+export function filterAndSortInstallations(
+  rows: readonly InstallationSummary[],
+  query: string,
+  sortBy: "id" | "channel" | "outcome" = "id",
+): InstallationSummary[] {
+  const needle = query.trim().toLowerCase();
+  return [...rows]
+    .filter((row) => needle === "" || row.installation_id.toLowerCase().includes(needle))
+    .sort((a, b) => {
+      if (sortBy === "channel") {
+        return (
+          a.channel.localeCompare(b.channel) ||
+          a.installation_id.localeCompare(b.installation_id)
+        );
+      }
+      if (sortBy === "outcome") {
+        return (
+          (a.outcome ?? "").localeCompare(b.outcome ?? "") ||
+          a.installation_id.localeCompare(b.installation_id)
+        );
+      }
+      return a.installation_id.localeCompare(b.installation_id);
+    });
+}
+
 export function InstallationsPage() {
   const installations = useAsync(() => hubApi.listInstallations(), []);
   const [query, setQuery] = useState("");
@@ -67,22 +92,7 @@ export function InstallationsPage() {
       </div>
       <AsyncBoundary state={installations} layout="table">
         {({ installations: rows }) => {
-          const visible = [...rows]
-            .filter((row) =>
-              row.installation_id.toLowerCase().includes(query.trim().toLowerCase()),
-            )
-            .sort((a, b) => {
-              if (sortBy === "channel") {
-                return a.channel.localeCompare(b.channel) || a.installation_id.localeCompare(b.installation_id);
-              }
-              if (sortBy === "outcome") {
-                return (
-                  (a.outcome ?? "").localeCompare(b.outcome ?? "") ||
-                  a.installation_id.localeCompare(b.installation_id)
-                );
-              }
-              return a.installation_id.localeCompare(b.installation_id);
-            });
+          const visible = filterAndSortInstallations(rows, query, sortBy);
           return rows.length === 0 ? (
             <p class="empty">No installations enrolled.</p>
           ) : visible.length === 0 ? (

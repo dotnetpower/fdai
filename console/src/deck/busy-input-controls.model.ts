@@ -27,6 +27,8 @@ export interface BusySessionProjection {
 export interface BusyInputControlViewModel {
   readonly sessionId: string;
   readonly isTurnActive: boolean;
+  readonly turnBusy: boolean;
+  readonly controlsDisabled: boolean;
   readonly mode: BusyInputMode;
   readonly modeLabel: string;
   readonly submitLabel: string;
@@ -83,7 +85,25 @@ export function decodeBusySessionProjection(raw: unknown): BusySessionProjection
   const activeTurnId = typeof obj.active_turn_id === "string" && obj.active_turn_id.trim()
     ? obj.active_turn_id.trim()
     : null;
+  if (obj.turn_busy === true && activeTurnId === null) {
+    throw new Error("busy session projection cannot have turn_busy=true without active_turn_id");
+  }
+  if (
+    typeof obj.queued_count === "number" &&
+    (!Number.isInteger(obj.queued_count) || obj.queued_count < 0 || obj.queued_count > 1000)
+  ) {
+    throw new Error("busy session projection queued_count must be between 0 and 1000");
+  }
+  if (
+    typeof obj.pending_count === "number" &&
+    (!Number.isInteger(obj.pending_count) || obj.pending_count < 0 || obj.pending_count > 1000)
+  ) {
+    throw new Error("busy session projection pending_count must be between 0 and 1000");
+  }
   const rawPending = Array.isArray(obj.pending) ? obj.pending : [];
+  if (rawPending.length > 1000) {
+    throw new Error("busy session projection pending items must not exceed 1000");
+  }
   const pending: PendingBusyInputItem[] = rawPending.map((entry) => {
     if (typeof entry !== "object" || entry === null) {
       throw new Error("pending busy input item must be an object");
@@ -129,6 +149,7 @@ export function decodeBusySessionProjection(raw: unknown): BusySessionProjection
 export function buildBusyInputControlViewModel(
   projection: BusySessionProjection,
   locale: BusyControlLocale = "en",
+  options?: { readonly controlsDisabled?: boolean },
 ): BusyInputControlViewModel {
   const isTurnActive = projection.activeTurnId !== null;
   const modeLabel = MODE_LABELS[locale][projection.mode];
@@ -152,6 +173,8 @@ export function buildBusyInputControlViewModel(
   return {
     sessionId: projection.sessionId,
     isTurnActive,
+    turnBusy: isTurnActive,
+    controlsDisabled: Boolean(options?.controlsDisabled),
     mode: projection.mode,
     modeLabel,
     submitLabel,

@@ -47,7 +47,7 @@ class BusyInputActiveTurnExecutor:
         coordinator: BusyInputCoordinator,
         max_steer_reruns: int = MAX_STEER_RERUNS,
     ) -> None:
-        if max_steer_reruns < 1:
+        if isinstance(max_steer_reruns, bool) or max_steer_reruns < 1:
             raise ValueError("max_steer_reruns must be >= 1")
         self._coordinator = coordinator
         self._max_steer_reruns = max_steer_reruns

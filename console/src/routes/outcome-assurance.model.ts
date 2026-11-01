@@ -179,6 +179,28 @@ export function decodeOutcomeAssuranceOperatorProjection(value: unknown): Outcom
   if (panelString(root, "authority", "OutcomeAssuranceOperatorProjection") !== "none") {
     throw panelContractError("OutcomeAssuranceOperatorProjection.authority MUST be none");
   }
+  if (Array.isArray(root["metrics"])) {
+    validateRawMetricsArray(root["metrics"], "OutcomeAssuranceOperatorProjection.metrics");
+  }
+  if (Array.isArray(root["guards"])) {
+    validateRawGuardsArray(root["guards"], "OutcomeAssuranceOperatorProjection.guards");
+  }
+  const projectionRaw = panelRecord(root["projection"], "OutcomeAssuranceOperatorProjection.projection");
+  if (Array.isArray(projectionRaw["outcomes"])) {
+    validateRawMetricsArray(projectionRaw["outcomes"], "OutcomeAssuranceOperatorProjection.projection.outcomes");
+  }
+  if (Array.isArray(projectionRaw["metrics"])) {
+    validateRawMetricsArray(projectionRaw["metrics"], "OutcomeAssuranceOperatorProjection.projection.metrics");
+  }
+  const projectionGuards = projectionRaw["guards"];
+  if (Array.isArray(projectionGuards)) {
+    validateRawGuardsArray(projectionGuards, "OutcomeAssuranceOperatorProjection.projection.guards");
+  } else if (projectionGuards !== null && typeof projectionGuards === "object") {
+    const pgRec = projectionGuards as Record<string, unknown>;
+    if (Array.isArray(pgRec["guard_evaluations"])) {
+      validateRawGuardsArray(pgRec["guard_evaluations"], "OutcomeAssuranceOperatorProjection.projection.guards.guard_evaluations");
+    }
+  }
   const projection = decodeOutcomeAssuranceProjection(root["projection"]);
   const state = panelString(root, "state", "OutcomeAssuranceOperatorProjection");
   if (state !== "complete" && state !== "stale" && state !== "unavailable") {
@@ -202,11 +224,11 @@ export function decodeOutcomeAssuranceOperatorProjection(value: unknown): Outcom
 }
 
 export function formatOutcomeAssuranceViewModel(
-  payload: OutcomeAssuranceOperatorProjectionPayload | null,
+  payload: OutcomeAssuranceOperatorProjectionPayload | null | undefined,
   locale: OutcomeAssuranceLocale = "en",
 ): OutcomeAssuranceViewModel {
   const unavailLabel = STATE_LABELS[locale]["unavailable"] ?? "Unavailable";
-  if (payload === null) {
+  if (payload === null || payload === undefined) {
     return {
       locale, readOnly: true, authority: "none", state: "unavailable",
       unavailableBanner: locale === "ko"
@@ -314,6 +336,9 @@ function decodeObjectiveDrilldown(
   if (state === "unavailable" && coverage !== null) {
     throw panelContractError(`${label} cannot carry synthetic coverage when unavailable`);
   }
+  if (Array.isArray(row["metrics"])) {
+    validateRawMetricsArray(row["metrics"], `${label}.metrics`);
+  }
   return {
     objective_ref: objectiveRef, state,
     workflow_refs: panelStringArray(row["workflow_refs"] ?? [], `${label}.workflow_refs`),
@@ -327,9 +352,66 @@ function decodeObjectiveDrilldown(
   };
 }
 
+function validateRawMetricsArray(items: readonly unknown[], label: string): void {
+  const seenIds = new Set<string>();
+  for (let idx = 0; idx < items.length; idx += 1) {
+    const m = panelRecord(items[idx], `${label}[${idx}]`);
+    const rawId = typeof m["metric_id"] === "string" && m["metric_id"].trim()
+      ? m["metric_id"].trim()
+      : typeof m["metric"] === "string" && m["metric"].trim()
+        ? `${typeof m["objective_ref"] === "string" ? m["objective_ref"] : ""}:${m["metric"].trim()}`
+        : null;
+    if (rawId !== null) {
+      if (seenIds.has(rawId)) {
+        throw panelContractError(`${label}[${idx}] contains duplicate metric_id ${rawId}`);
+      }
+      seenIds.add(rawId);
+    }
+    const val = typeof m["value"] === "number" ? m["value"] : typeof m["current_value"] === "number" ? m["current_value"] : undefined;
+    const ciObj = m["confidence_interval"] !== null && typeof m["confidence_interval"] === "object"
+      ? (m["confidence_interval"] as Record<string, unknown>)
+      : null;
+    const ciLow = typeof m["ci_low"] === "number"
+      ? m["ci_low"]
+      : ciObj && typeof ciObj["low"] === "number"
+        ? ciObj["low"]
+        : ciObj && typeof ciObj["ci_low"] === "number"
+          ? ciObj["ci_low"]
+          : undefined;
+    const ciHigh = typeof m["ci_high"] === "number"
+      ? m["ci_high"]
+      : ciObj && typeof ciObj["high"] === "number"
+        ? ciObj["high"]
+        : ciObj && typeof ciObj["ci_high"] === "number"
+          ? ciObj["ci_high"]
+          : undefined;
+    if (
+      (ciLow !== undefined && ciHigh !== undefined && ciLow > ciHigh) ||
+      (val !== undefined && ciLow !== undefined && ciLow > val) ||
+      (val !== undefined && ciHigh !== undefined && val > ciHigh)
+    ) {
+      throw panelContractError(`${label}[${idx}] has inverted confidence interval`);
+    }
+  }
+}
+
+function validateRawGuardsArray(items: readonly unknown[], label: string): void {
+  const seenGuardIds = new Set<string>();
+  for (let idx = 0; idx < items.length; idx += 1) {
+    const g = panelRecord(items[idx], `${label}[${idx}]`);
+    const guardId = panelNonEmptyString(g, "guard_id", `${label}[${idx}]`);
+    if (seenGuardIds.has(guardId)) {
+      throw panelContractError(`${label}[${idx}] contains duplicate guard_id ${guardId}`);
+    }
+    seenGuardIds.add(guardId);
+  }
+}
+
 function decodeGuardStatus(value: unknown): OutcomeAssuranceOperatorProjectionPayload["guard_status"] {
   const row = panelRecord(value, "guard_status");
-  const evals = panelArray(row["guard_evaluations"] ?? [], "guard_status.guard_evaluations").map((item, idx) => {
+  const rawEvals = panelArray(row["guard_evaluations"] ?? [], "guard_status.guard_evaluations");
+  validateRawGuardsArray(rawEvals, "guard_status.guard_evaluations");
+  const evals = rawEvals.map((item, idx) => {
     const g = panelRecord(item, `guard_evaluations[${idx}]`);
     return {
       guard_id: panelNonEmptyString(g, "guard_id", `guard_evaluations[${idx}]`),

@@ -226,3 +226,61 @@ async def test_proposals_are_role_gated_idempotent_authority_free_and_replayable
         "skill-source.approval-proposal",
         "skill-source.revocation-proposal",
     ]
+
+
+async def test_proposals_reject_nested_secret_keys_and_control_characters() -> None:
+    bridge = SkillSourceWorkflowBridge()
+    bridge.register_source(_source())
+    bridge.put_candidate(_candidate())
+
+    for nested_payload in (
+        {"candidate_id": "skill-update-1", "meta": {"private_key": "x"}},
+        {"candidate_id": "skill-update-1", "items": [{"access_token": "x"}]},
+    ):
+        with pytest.raises(SkillSourceProjectionError) as secret_exc:
+            await bridge.submit_proposal(
+                WorkflowProposal(
+                    operation=WorkflowOperation.SKILL_SOURCE_APPROVAL_PROPOSAL,
+                    principal_id="approver-user",
+                    idempotency_key="idem-sec-1",
+                    expected_revision="rev-1",
+                    request_source="operator-http:approve",
+                    path_parameters={"source_id": "operations-skills"},
+                    payload=nested_payload,
+                    principal_roles=("approver",),
+                ),
+                now=NOW,
+            )
+        assert secret_exc.value.code == "forbidden_secret_field"
+
+    with pytest.raises(SkillSourceProjectionError) as bad_cid:
+        await bridge.submit_proposal(
+            WorkflowProposal(
+                operation=WorkflowOperation.SKILL_SOURCE_APPROVAL_PROPOSAL,
+                principal_id="approver-user",
+                idempotency_key="idem-ctrl-1",
+                expected_revision="rev-1",
+                request_source="operator-http:approve",
+                path_parameters={"source_id": "operations-skills"},
+                payload={"candidate_id": "skill-update-\x001"},
+                principal_roles=("approver",),
+            ),
+            now=NOW,
+        )
+    assert bad_cid.value.code == "invalid_candidate_id"
+
+    with pytest.raises(SkillSourceProjectionError) as bad_reason:
+        await bridge.submit_proposal(
+            WorkflowProposal(
+                operation=WorkflowOperation.SKILL_SOURCE_REVOCATION_PROPOSAL,
+                principal_id="owner-user",
+                idempotency_key="idem-ctrl-2",
+                expected_revision="rev-1",
+                request_source="operator-http:revoke",
+                path_parameters={"source_id": "operations-skills"},
+                payload={"reason": "Compromised\nkey"},
+                principal_roles=("owner",),
+            ),
+            now=NOW,
+        )
+    assert bad_reason.value.code == "invalid_reason"

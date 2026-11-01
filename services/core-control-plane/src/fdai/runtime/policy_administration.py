@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import httpx
@@ -77,6 +78,26 @@ class VerifiedReleaseCapabilityMaximums:
     rollback_protected: bool
     capability_maximums: Mapping[str, PolicyMode]
     recalled_action_types: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(flag, bool)
+            for flag in (self.signature_verified, self.metadata_current, self.rollback_protected)
+        ):
+            raise TypeError("Release verification flags MUST be booleans")
+        frozen_map: dict[str, PolicyMode] = {}
+        for k, v in self.capability_maximums.items():
+            if not isinstance(k, str) or not k.strip() or not isinstance(v, PolicyMode):
+                raise ValueError(
+                    "capability_maximums requires non-empty ActionType keys and PolicyMode values"
+                )
+            frozen_map[k.strip()] = v
+        object.__setattr__(self, "capability_maximums", MappingProxyType(frozen_map))
+        object.__setattr__(
+            self,
+            "recalled_action_types",
+            frozenset(item.strip() for item in self.recalled_action_types if item.strip()),
+        )
 
     def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
         normalized_action = action_type.strip()

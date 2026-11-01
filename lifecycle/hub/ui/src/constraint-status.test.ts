@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { constraintVerdict, describeConstraintReason, isTimingReason } from "./constraint-status";
+import {
+  constraintVerdict,
+  describeConstraintReason,
+  isTimingReason,
+  normalizeConstraintOutcome,
+} from "./constraint-status";
 
 describe("isTimingReason", () => {
   test("a closed maintenance window and an active suppression are timing reasons", () => {
@@ -49,5 +54,15 @@ describe("constraintVerdict", () => {
       expect(describeConstraintReason("maintenance_window_unavailable")).toContain("maintenance window");
       expect(describeConstraintReason("data_residency_mismatch")).toContain("data-residency");
       expect(describeConstraintReason("custom_future_code")).toContain("custom future code");
+    });
+
+    test("normalizeConstraintOutcome maps unknown or unexpected values to blocking fail-closed", () => {
+      expect(normalizeConstraintOutcome("passed")).toBe("passed");
+      expect(normalizeConstraintOutcome("waiting")).toBe("waiting");
+      expect(normalizeConstraintOutcome("blocking")).toBe("blocking");
+      expect(normalizeConstraintOutcome("unexpected_outcome")).toBe("blocking");
+      expect(normalizeConstraintOutcome("")).toBe("blocking");
+      expect(normalizeConstraintOutcome(null)).toBe("blocking");
+      expect(normalizeConstraintOutcome(undefined)).toBe("blocking");
     });
 });

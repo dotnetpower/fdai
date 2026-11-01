@@ -33,20 +33,68 @@ import {
   type BackgroundTaskStatus,
 } from "./background-tasks.model";
 import {
-  buildTaskWorkersViewModel,
-  decodeTaskWorkerDetailProjection,
-  decodeTaskWorkerEventsProjection,
-  decodeTaskWorkerListProjection,
+  buildTaskWorkersViewModel as buildTaskWorkersCatalogViewModel,
+  decodeTaskWorkerDetailProjection as decodeTaskWorkerDetailCatalogProjection,
+  decodeTaskWorkerEventsProjection as decodeTaskWorkerEventsCatalogProjection,
+  decodeTaskWorkerListProjection as decodeTaskWorkerListCatalogProjection,
+  type TaskWorkerDetailProjection,
+  type TaskWorkerEventsProjection,
+  type TaskWorkerListProjection,
+  type TaskWorkerLocale,
   type TaskWorkersViewModel,
 } from "./task-workers.model";
 
-export {
-  buildTaskWorkersViewModel,
-  decodeTaskWorkerDetailProjection,
-  decodeTaskWorkerEventsProjection,
-  decodeTaskWorkerListProjection,
-  type TaskWorkersViewModel,
-};
+export type { TaskWorkersViewModel };
+
+export function decodeTaskWorkerListProjection(
+  value: unknown,
+): TaskWorkerListProjection | null {
+  if (value === null || value === undefined) return null;
+  return decodeTaskWorkerListCatalogProjection(value);
+}
+
+export function decodeTaskWorkerDetailProjection(
+  value: unknown,
+): TaskWorkerDetailProjection | null {
+  if (value === null || value === undefined) return null;
+  return decodeTaskWorkerDetailCatalogProjection(value);
+}
+
+export function decodeTaskWorkerEventsProjection(
+  value: unknown,
+): TaskWorkerEventsProjection | null {
+  if (value === null || value === undefined) return null;
+  return decodeTaskWorkerEventsCatalogProjection(value);
+}
+
+export function buildTaskWorkersViewModel(
+  list: TaskWorkerListProjection | null | undefined,
+  locale: TaskWorkerLocale = "en",
+  detail: TaskWorkerDetailProjection | null = null,
+  events: TaskWorkerEventsProjection | null = null,
+): TaskWorkersViewModel | null {
+  if (list === null || list === undefined) return null;
+  return buildTaskWorkersCatalogViewModel(list, locale, detail, events);
+}
+
+export function projectTaskWorkersPanel(
+  listValue: unknown,
+  locale: TaskWorkerLocale = "en",
+  detailValue: unknown = null,
+  eventsValue: unknown = null,
+): TaskWorkersViewModel | null {
+  if (listValue === null || listValue === undefined) return null;
+  return buildTaskWorkersCatalogViewModel(
+    decodeTaskWorkerListCatalogProjection(listValue),
+    locale,
+    detailValue === null || detailValue === undefined
+      ? null
+      : decodeTaskWorkerDetailCatalogProjection(detailValue),
+    eventsValue === null || eventsValue === undefined
+      ? null
+      : decodeTaskWorkerEventsCatalogProjection(eventsValue),
+  );
+}
 
 const PAGE_SIZE = 50;
 const EMPTY_CREATE_INPUT: BackgroundTaskCreateInput = {

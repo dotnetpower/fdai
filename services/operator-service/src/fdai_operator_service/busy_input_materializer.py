@@ -15,6 +15,10 @@ MAX_PENDING_ITEMS = 32
 MAX_CONTENT_BYTES = 4_000
 
 
+class BusyInputAuthorizationError(ConversationBoundaryError, PermissionError):
+    """Raised when a caller attempts to access or mutate another principal's busy session."""
+
+
 @dataclass(frozen=True, slots=True)
 class BusyInputItemProjection:
     input_id: str
@@ -67,7 +71,11 @@ class BusyInputOperatorMaterializer:
         existing = self._sessions.get(sid)
         if existing is not None:
             if existing.owner_principal_id != owner:
-                raise ConversationBoundaryError(404, "session_not_found", "session not found")
+                raise BusyInputAuthorizationError(
+                    403,
+                    "principal_ownership_violation",
+                    "session is already owned by another principal",
+                )
             return existing
         created = BusySessionRecord(
             session_id=sid,
@@ -78,6 +86,18 @@ class BusyInputOperatorMaterializer:
         )
         self._sessions[sid] = created
         return created
+
+    def read_session_state(
+        self,
+        *,
+        session_id: str,
+        principal_id: str,
+    ) -> dict[str, object]:
+        record = self._require_owned_session_strict(
+            session_id=session_id,
+            principal_id=principal_id,
+        )
+        return self._project(record)
 
     def inspect(
         self,
@@ -117,7 +137,10 @@ class BusyInputOperatorMaterializer:
         payload: Mapping[str, Any],
         now: datetime | None = None,
     ) -> dict[str, object]:
-        record = self._require_owned_session(session_id=session_id, principal_id=principal_id)
+        record = self._require_owned_session_strict(
+            session_id=session_id,
+            principal_id=principal_id,
+        )
         idempotency_key = _non_empty(payload.get("idempotency_key"), "idempotency_key")
         input_id = _non_empty(payload.get("input_id"), "input_id")
         content = _non_empty(payload.get("content"), "content")
@@ -205,6 +228,21 @@ class BusyInputOperatorMaterializer:
         )
         return response
 
+    def submit_busy_input(
+        self,
+        *,
+        session_id: str,
+        principal_id: str,
+        payload: Mapping[str, Any],
+        now: datetime | None = None,
+    ) -> dict[str, object]:
+        return self.submit(
+            session_id=session_id,
+            principal_id=principal_id,
+            payload=payload,
+            now=now,
+        )
+
     def cancel_current(
         self,
         *,
@@ -231,6 +269,22 @@ class BusyInputOperatorMaterializer:
             "session": self._project(updated),
             "execution_authority": "none",
         }
+
+    def _require_owned_session_strict(
+        self, *, session_id: str, principal_id: str
+    ) -> BusySessionRecord:
+        sid = _non_empty(session_id, "session_id")
+        principal = _non_empty(principal_id, "principal_id")
+        record = self._sessions.get(sid)
+        if record is None:
+            raise ConversationBoundaryError(404, "session_not_found", "session not found")
+        if record.owner_principal_id != principal:
+            raise BusyInputAuthorizationError(
+                403,
+                "principal_ownership_violation",
+                "session is already owned by another principal",
+            )
+        return record
 
     def _require_owned_session(self, *, session_id: str, principal_id: str) -> BusySessionRecord:
         sid = _non_empty(session_id, "session_id")

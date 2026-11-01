@@ -167,11 +167,16 @@ export function BusyInputControls({
     state.pending.length > 0 || feedback === "pending";
   if (!projectionConfirmed || !followUpRelevant) return null;
 
+  const viewModel = {
+    turnBusy: Boolean(turnActive || state?.active || working),
+    controlsDisabled: working,
+  };
+
   return (
-    <section class="deck-busy" aria-label={t("deck.busy.title")}>
+    <section class="deck-busy" aria-label={t("deck.busy.title")} aria-busy={viewModel.turnBusy}>
       <div class="deck-busy-heading">
         <span>{t("deck.busy.title")}</span>
-        <button type="button" class="deck-busy-link" disabled={working}
+        <button type="button" class="deck-busy-link" disabled={viewModel.controlsDisabled}
           onClick={() => void refresh()}>{t("deck.busy.inspect")}</button>
       </div>
       <p class="deck-busy-status" role="status" aria-live="polite">
@@ -193,17 +198,31 @@ export function BusyInputControls({
         <div class="deck-busy-actions">
           <label class="deck-busy-mode">
             {t("deck.busy.mode")}
-            <select value={state.mode} disabled={working}
+            <select value={state.mode} disabled={viewModel.controlsDisabled}
               onChange={(event) => changeMode((event.currentTarget as HTMLSelectElement).value as BusyMode)}>
               {(["queue", "interrupt", "steer"] as const).map((mode) =>
                 <option key={mode} value={mode}>{t(`deck.busy.modes.${mode}`)}</option>)}
             </select>
           </label>
+          <div class="deck-busy-mode-buttons" role="group" aria-label={t("deck.busy.mode")}>
+            {(["queue", "interrupt", "steer"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                class="deck-busy-link"
+                aria-pressed={state.mode === mode}
+                disabled={viewModel.controlsDisabled}
+                onClick={() => changeMode(mode)}
+              >
+                {t(`deck.busy.modes.${mode}`)}
+              </button>
+            ))}
+          </div>
           <button type="button" class="deck-busy-link"
-            disabled={working || !draft.trim() || new TextEncoder().encode(draft).length > 4_000}
+            disabled={viewModel.controlsDisabled || !draft.trim() || new TextEncoder().encode(draft).length > 4_000}
             onClick={submit}>{t("deck.busy.submit")}</button>
           <button type="button" class="deck-busy-link"
-            disabled={working || !state.active} onClick={cancel}>{t("deck.busy.cancel")}</button>
+            disabled={viewModel.controlsDisabled || !state.active} onClick={cancel}>{t("deck.busy.cancel")}</button>
         </div>
       ) : null}
       {state && state.pending.length > 0 && feedback === "ready"

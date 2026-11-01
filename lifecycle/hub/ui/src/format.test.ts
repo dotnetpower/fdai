@@ -43,4 +43,10 @@ describe("formatDurationMinutes", () => {
     expect(formatDurationMinutes(1)).toBe("1 minute");
     expect(formatDurationMinutes(35)).toBe("35 minutes");
   });
+
+  test("returns en-dash safely for negative or non-finite values", () => {
+    expect(formatDurationMinutes(Number.NaN)).toBe("\u2013");
+    expect(formatDurationMinutes(Number.POSITIVE_INFINITY)).toBe("\u2013");
+    expect(formatDurationMinutes(-10)).toBe("\u2013");
+  });
 });

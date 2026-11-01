@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import fdai_service_contracts as sc
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from fdai_operator_service.families.operations import ProjectionQuery, ProjectionUnavailableError
 
@@ -29,8 +30,47 @@ class OutcomeAssuranceSummaryCard(sc.ContractBase):
     available: bool
     headline_metric: float | None = None
     unit: str | None = Field(default=None, max_length=64)
+    sample_size: int | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
     reason: sc.OutcomeAssuranceUnavailableReason | None = None
     evidence_refs: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _validate_card_metrics(self) -> OutcomeAssuranceSummaryCard:
+        for val in (self.headline_metric, self.ci_low, self.ci_high):
+            if val is not None and not math.isfinite(val):
+                raise ValueError("Outcome Assurance card metric values MUST be finite")
+        if self.sample_size is not None and (
+            isinstance(self.sample_size, bool) or self.sample_size < 0
+        ):
+            raise ValueError("Outcome Assurance card sample_size MUST be non-negative")
+        if self.ci_low is not None and self.ci_high is not None and self.ci_low > self.ci_high:
+            raise ValueError("Outcome Assurance confidence interval is inverted")
+        if self.headline_metric is not None and (
+            (self.ci_low is not None and self.ci_low > self.headline_metric)
+            or (self.ci_high is not None and self.headline_metric > self.ci_high)
+        ):
+            raise ValueError("Outcome Assurance headline_metric is outside confidence interval")
+        return self
+
+
+def _validate_metric_item(metric: sc.OutcomeAssuranceMetric) -> None:
+    for val in (metric.current_value, metric.baseline_value, metric.target_value):
+        if val is not None and not math.isfinite(val):
+            raise ValueError("Outcome Assurance metric values MUST be finite")
+    if metric.sample_size is not None and (
+        isinstance(metric.sample_size, bool) or metric.sample_size < 0
+    ):
+        raise ValueError("Outcome Assurance sample_size MUST be non-negative")
+    ci = metric.confidence_interval
+    if ci is not None:
+        if not math.isfinite(ci.low) or not math.isfinite(ci.high) or ci.low > ci.high:
+            raise ValueError("Outcome Assurance confidence interval bounds are invalid")
+        if metric.current_value is not None and (
+            ci.low > metric.current_value or metric.current_value > ci.high
+        ):
+            raise ValueError("Outcome Assurance confidence interval is inverted relative to value")
 
 
 class ObjectiveAttributionDrilldown(sc.ContractBase):
@@ -86,6 +126,8 @@ async def read_outcome_assurance_projection(
         return _outcome_assurance_unavailable(scope, window, reason, now).model_dump(mode="json")
     try:
         projection = sc.OutcomeAssuranceProjection.model_validate(rows[0].get("value"))
+        for item in projection.outcomes:
+            _validate_metric_item(item)
     except (TypeError, ValueError):
         reason = sc.OutcomeAssuranceUnavailableReason.PROJECTION_MALFORMED
         return _outcome_assurance_unavailable(scope, window, reason, now).model_dump(mode="json")
@@ -250,6 +292,15 @@ def build_outcome_assurance_operator_projection(
             projection.scope, projection.window, reason, current_now
         )
         return _unavailable_operator_projection(principal_id, unavail, reason)
+    if projection.alignment.coverage is not None and not math.isfinite(
+        projection.alignment.coverage
+    ):
+        raise ValueError("Outcome Assurance alignment coverage MUST be finite")
+    for item in projection.outcomes:
+        _validate_metric_item(item)
+    for g in projection.guards.guard_evaluations:
+        if not math.isfinite(g.threshold) or not math.isfinite(g.observed_value):
+            raise ValueError("Outcome Assurance guard evaluation values MUST be finite")
     return OutcomeAssuranceOperatorProjection.model_validate(
         {
             "principal_id": principal_id,
@@ -286,14 +337,13 @@ def _card(
     reason: sc.OutcomeAssuranceUnavailableReason | None = None,
     refs: tuple[str, ...] = (),
 ) -> OutcomeAssuranceSummaryCard:
-    unit = "ratio" if metric is not None else None
     return OutcomeAssuranceSummaryCard.model_validate(
         {
             "card_id": card_id,
             "state": state,
             "available": available,
             "headline_metric": metric,
-            "unit": unit,
+            "unit": "ratio" if metric is not None else None,
             "reason": reason,
             "evidence_refs": refs,
         }
@@ -384,9 +434,8 @@ def _build_objective_drilldowns(
     items: list[ObjectiveAttributionDrilldown] = []
     for obj in sorted(set(align.objective_refs) | set(by_obj)):
         metrics = tuple(by_obj.get(obj, ()))
-        refs = tuple(
-            sorted(set(align.evidence_refs) | {r for m in metrics for r in m.evidence_refs})
-        )
+        m_refs = {r for m in metrics for r in m.evidence_refs}
+        refs = tuple(sorted(set(align.evidence_refs) | m_refs))
         items.append(
             ObjectiveAttributionDrilldown.model_validate(
                 {**base, "objective_ref": obj, "metrics": metrics, "evidence_refs": refs}

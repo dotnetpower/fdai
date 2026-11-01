@@ -26,18 +26,28 @@ import {
   panelStringArray,
 } from "./panel-decode";
 import {
-  decodeOutcomeAssuranceOperatorProjection,
-  formatOutcomeAssuranceViewModel,
+  decodeOutcomeAssuranceOperatorProjection as decodeOutcomeAssuranceOperatorProjectionModel,
+  formatOutcomeAssuranceViewModel as formatOutcomeAssuranceViewModelModel,
+  type OutcomeAssuranceLocale,
   type OutcomeAssuranceOperatorProjectionPayload,
   type OutcomeAssuranceViewModel,
 } from "./outcome-assurance.model";
 
-export {
-  decodeOutcomeAssuranceOperatorProjection,
-  formatOutcomeAssuranceViewModel,
-  type OutcomeAssuranceOperatorProjectionPayload,
-  type OutcomeAssuranceViewModel,
-};
+export type { OutcomeAssuranceOperatorProjectionPayload, OutcomeAssuranceViewModel };
+
+export function decodeOutcomeAssuranceOperatorProjection(
+  value: unknown,
+): OutcomeAssuranceOperatorProjectionPayload | null {
+  if (value === null || value === undefined) return null;
+  return decodeOutcomeAssuranceOperatorProjectionModel(value);
+}
+
+export function formatOutcomeAssuranceViewModel(
+  payload: OutcomeAssuranceOperatorProjectionPayload | null | undefined,
+  locale: OutcomeAssuranceLocale = "en",
+): OutcomeAssuranceViewModel {
+  return formatOutcomeAssuranceViewModelModel(payload ?? null, locale);
+}
 
 const SEVERITIES = ["low", "medium", "high", "critical"] as const;
 type Severity = (typeof SEVERITIES)[number];

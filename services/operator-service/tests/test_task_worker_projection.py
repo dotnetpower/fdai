@@ -232,3 +232,37 @@ async def test_workers_list_get_and_events_enforce_owner_predicates_and_404_equi
     assert isinstance(foreign_events.body, dict) and isinstance(missing_events.body, dict)
     assert foreign_events.body["error"]["code"] == missing_events.body["error"]["code"]
     assert all("cancellation_owner = %s" in sql for sql, _ in backend.queries)
+
+
+async def test_worker_projection_rejects_path_separators_control_chars_and_bool_limit() -> None:
+    import pytest
+    from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
+
+    backend = _RecordingSqlBackend()
+    store = SqlTaskWorkerProjectionStore(fetch_all=backend)
+    materializer = TaskWorkerProjectionMaterializer(store=store)
+    scope_a = PrincipalScope(subject_id="principal-a", roles=frozenset({"Reader"}))
+
+    for bad_id in ("../worker-1", "worker/1", "worker\\1", "worker-\x001", "worker-\n1"):
+        with pytest.raises(ConversationBoundaryError) as id_exc:
+            await materializer.read(
+                ConversationQuery(
+                    operation="workers.get",
+                    scope=scope_a,
+                    path_params={"worker_id": bad_id},
+                )
+            )
+        assert id_exc.value.status_code == 400
+        assert id_exc.value.code == "invalid_worker_id"
+
+    for bad_limit in (True, False):
+        with pytest.raises(ConversationBoundaryError) as limit_exc:
+            await materializer.read(
+                ConversationQuery(
+                    operation="workers.list",
+                    scope=scope_a,
+                    query={"limit": bad_limit},
+                )
+            )
+        assert limit_exc.value.status_code == 400
+        assert limit_exc.value.code == "invalid_limit"

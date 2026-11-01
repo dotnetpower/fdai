@@ -173,6 +173,7 @@ class ComponentSelfUpgradeController:
     def __init__(self) -> None:
         self._slots: dict[ComponentKind, dict[SlotId, ComponentSlotFence]] = {}
         self._current_epoch: dict[ComponentKind, int] = {}
+        self._rolled_back_digests: dict[ComponentKind, set[str]] = {}
         self._transition_log: list[SelfUpgradeTransitionRecord] = []
 
     @property
@@ -204,6 +205,11 @@ class ComponentSelfUpgradeController:
     ) -> dict[SlotId, ComponentSlotFence]:
         """Bootstrap dual-slot fences for a component with one active and one fenced slot."""
         _require_aware("now", now)
+        _require_aware("trial_anchor_at", trial_anchor_at)
+        if trial_anchor_at > now:
+            raise TrialContinuityViolationError(
+                "trial_anchor_at MUST NOT be in the future (trial_anchor_at <= now)"
+            )
         if lease_expires_at <= now:
             raise RoleFencingError("initial active slot lease_expires_at MUST be in the future")
         standby_slot = _other_slot(active_slot)
@@ -222,6 +228,7 @@ class ComponentSelfUpgradeController:
         other_fence = replace(active_fence, slot=standby_slot, role="fenced", lease_expires_at=now)
         self._slots[component] = {active_slot: active_fence, standby_slot: other_fence}
         self._current_epoch[component] = fencing_epoch
+        self._rolled_back_digests.setdefault(component, set())
         self._assert_single_active_invariant(component)
         self._append_transition(
             component,
@@ -272,6 +279,11 @@ class ComponentSelfUpgradeController:
     ) -> ComponentSlotFence:
         """Stage a standby candidate slot while enforcing schema and Trial/clock continuity."""
         _require_aware("now", now)
+        _require_aware("trial_anchor_at", trial_anchor_at)
+        if trial_anchor_at > now:
+            raise TrialContinuityViolationError(
+                "trial_anchor_at MUST NOT be in the future (trial_anchor_at <= now)"
+            )
         active = self._require_active_slot(component)
         if candidate_slot == active.slot:
             raise RoleFencingError("cannot stage candidate onto the currently active slot")
@@ -320,6 +332,7 @@ class ComponentSelfUpgradeController:
         now: datetime,
         monotonic_clock_floor_ns: int | None = None,
         interrupt_after_fence: bool = False,
+        allow_previously_rolled_back_digest: bool = False,
     ) -> ComponentSlotFence:
         """Fence the prior active slot first, bump epoch, and promote a verified standby slot."""
         _require_aware("now", now)
@@ -337,6 +350,13 @@ class ComponentSelfUpgradeController:
         if candidate.role != "standby":
             raise RoleFencingError(
                 f"only a 'standby' slot can be promoted (found role={candidate.role!r})"
+            )
+        if (
+            not allow_previously_rolled_back_digest
+            and candidate.binary_digest in self._rolled_back_digests.get(component, set())
+        ):
+            raise RoleFencingError(
+                "cannot promote standby slot with previously rolled-back binary_digest"
             )
         if candidate.schema_version < active.schema_version:
             raise SchemaDowngradeError("cannot promote standby slot with lower schema_version")
@@ -428,6 +448,7 @@ class ComponentSelfUpgradeController:
             floor_ns = monotonic_clock_floor_ns
 
         next_epoch = self._current_epoch[component] + 1
+        self._rolled_back_digests.setdefault(component, set()).add(active.binary_digest)
         self._slots[component][active.slot] = replace(
             active,
             role="fenced",

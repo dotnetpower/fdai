@@ -257,3 +257,84 @@ def test_clear_delete_and_issuer_authority_claims_are_rejected() -> None:
             recorded_at=_NOW,
             execution_authority="execute",  # type: ignore[arg-type]
         )
+
+
+def test_plan_id_rebinding_and_rotation_receipt_replay_are_rejected() -> None:
+    store = HubEntitlementHandoffStore()
+    store.stage_plan_handoff(_make_handoff(plan_id="plan-bound"))
+
+    with pytest.raises(EntitlementHandoffGovernanceError, match="plan_id is already bound"):
+        store.stage_plan_handoff(
+            _make_handoff(
+                handoff_id="handoff-other-inst",
+                installation_id="inst-beta",
+                deployment_id="deploy-beta",
+                plan_id="plan-bound",
+                carrier_digest=_DIGEST_A,
+            )
+        )
+
+    store.record_governed_rotation(
+        rotation_id="rot-unique-1",
+        installation_id="inst-alpha",
+        deployment_id="deploy-alpha",
+        prior_carrier_digest=_DIGEST_A,
+        next_carrier_digest=_DIGEST_B,
+        sequence=2,
+        approver_id="approver-2",
+        requester_id="requester-1",
+        approval_digest=_APPROVAL_DIGEST,
+        reason="first rotation",
+        approved_at=_NOW + timedelta(minutes=1),
+    )
+
+    with pytest.raises(EntitlementHandoffGovernanceError, match="plan_id is already bound"):
+        store.stage_plan_handoff(
+            _make_handoff(
+                handoff_id="handoff-rebind-plan",
+                plan_id="plan-bound",
+                carrier_digest=_DIGEST_B,
+                ciphertext_b64=_CIPHERTEXT_B,
+                sequence=2,
+            )
+        )
+
+    store.stage_plan_handoff(
+        _make_handoff(
+            handoff_id="handoff-2",
+            plan_id="plan-2",
+            carrier_digest=_DIGEST_B,
+            ciphertext_b64=_CIPHERTEXT_B,
+            sequence=2,
+        )
+    )
+
+    with pytest.raises(EntitlementHandoffGovernanceError, match="rotation_id"):
+        store.record_governed_rotation(
+            rotation_id="rot-unique-1",
+            installation_id="inst-alpha",
+            deployment_id="deploy-alpha",
+            prior_carrier_digest=_DIGEST_B,
+            next_carrier_digest=_DIGEST_C,
+            sequence=3,
+            approver_id="approver-2",
+            requester_id="requester-1",
+            approval_digest="sha256:" + "f" * 64,
+            reason="duplicate rotation_id",
+            approved_at=_NOW + timedelta(minutes=2),
+        )
+
+    with pytest.raises(EntitlementHandoffGovernanceError, match="approval_digest"):
+        store.record_governed_rotation(
+            rotation_id="rot-unique-2",
+            installation_id="inst-alpha",
+            deployment_id="deploy-alpha",
+            prior_carrier_digest=_DIGEST_B,
+            next_carrier_digest=_DIGEST_C,
+            sequence=3,
+            approver_id="approver-2",
+            requester_id="requester-1",
+            approval_digest=_APPROVAL_DIGEST,
+            reason="replayed approval_digest",
+            approved_at=_NOW + timedelta(minutes=2),
+        )

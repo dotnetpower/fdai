@@ -61,7 +61,10 @@ def load_allowlist(root: Path = ROOT) -> tuple[tuple[str, ...], list[str]]:
     if len(paths) != len(set(paths)):
         errors.append("conversation allowlist paths MUST not contain duplicates")
     for rel in paths:
-        if ".." in Path(rel).parts or not (root / rel).is_file():
+        allowed_prefix = any(
+            rel.startswith(f"{conv_root.as_posix()}/") for conv_root in CONVERSATION_ROOTS
+        )
+        if ".." in Path(rel).parts or not allowed_prefix or not (root / rel).is_file():
             errors.append(f"conversation allowlist path does not exist: {rel}")
     return tuple(paths), errors
 

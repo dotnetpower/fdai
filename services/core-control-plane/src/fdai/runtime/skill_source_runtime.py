@@ -105,6 +105,8 @@ class InMemorySkillSourceRunnerGuard:
         return self._active
 
     def release(self, runner_id: str) -> None:
+        if not isinstance(runner_id, str) or not runner_id.strip():
+            raise ValueError("runner_id MUST be a non-empty string")
         if self._active is not None and self._active.runner_id == runner_id:
             self._active = None
 
@@ -254,6 +256,15 @@ class CoordinatedSkillSourceRevoker:
     async def revoke_source(
         self, *, source_id: str, reason: str, revoked_at: datetime
     ) -> SkillSourceRevocationResult:
+        if revoked_at.tzinfo is None or revoked_at.utcoffset() is None:
+            raise ValueError("revoked_at MUST be timezone-aware")
+        cleaned_reason = reason.strip() if isinstance(reason, str) else ""
+        if (
+            not cleaned_reason
+            or len(cleaned_reason) > 512
+            or any(ord(ch) < 32 for ch in cleaned_reason)
+        ):
+            raise ValueError("revocation reason MUST be 1..512 printable characters")
         if await self._sources.get(source_id) is None:
             raise LookupError("skill source not found")
         await self._sources.set_enabled(source_id, enabled=False, now=revoked_at)

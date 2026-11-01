@@ -86,7 +86,7 @@ class OriginScopedOutboundDeliveryDeleter:
         clock: Callable[[], datetime] | None = None,
         snapshot_limit: int = 500,
     ) -> None:
-        if not 1 <= snapshot_limit <= 500:
+        if isinstance(snapshot_limit, bool) or not 1 <= snapshot_limit <= 500:
             raise ValueError("snapshot_limit MUST be between 1 and 500")
         self._store = store
         self._audit = audit

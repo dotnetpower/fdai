@@ -273,7 +273,10 @@ class ExpiringProductionShadowStore:
         raw = self._backing.get(key)
         if not isinstance(raw, Mapping):
             return None
-        stored = SemanticProductionShadowRecord.from_state(raw)
+        try:
+            stored = SemanticProductionShadowRecord.from_state(raw)
+        except ValueError:
+            return None
         if stored.expires_at <= check_time:
             return None
         return stored
@@ -293,7 +296,10 @@ class ExpiringProductionShadowStore:
             _validate_shadow_storage_key(key)
             if not isinstance(raw, Mapping):
                 continue
-            stored = SemanticProductionShadowRecord.from_state(raw)
+            try:
+                stored = SemanticProductionShadowRecord.from_state(raw)
+            except ValueError:
+                continue
             if stored.expires_at > check_time:
                 active.append(stored)
         active.sort(key=lambda item: (item.expires_at, item.record_id))
@@ -324,8 +330,13 @@ class ExpiringProductionShadowStore:
             _validate_shadow_storage_key(key)
             scanned_shadow_keys += 1
             if not isinstance(raw, Mapping):
+                expired_candidates.append((datetime.min.replace(tzinfo=UTC), key))
                 continue
-            stored = SemanticProductionShadowRecord.from_state(raw)
+            try:
+                stored = SemanticProductionShadowRecord.from_state(raw)
+            except ValueError:
+                expired_candidates.append((datetime.min.replace(tzinfo=UTC), key))
+                continue
             if stored.expires_at <= check_time:
                 expired_candidates.append((stored.expires_at, key))
             else:

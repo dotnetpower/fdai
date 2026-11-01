@@ -289,6 +289,7 @@ class AssuranceTwinRemediationProposalBridge:
         self._what_if_producer = what_if_producer
         self._compiler_revision = compiler_revision.strip()
         self._blast_radius_limit = blast_radius_limit
+        self._submitted_by_idempotency: dict[str, GovernedRemediationProposalEnvelope] = {}
 
     async def forward_abstained_query(
         self,
@@ -434,6 +435,14 @@ class AssuranceTwinRemediationProposalBridge:
             intake_key,
             envelope_digest,
         )
+        prior = self._submitted_by_idempotency.get(norm_idem)
+        if prior is not None:
+            if prior.envelope_digest != envelope.envelope_digest:
+                raise RemediationBridgeError(
+                    f"idempotency_key {norm_idem!r} reused with conflicting remediation proposal"
+                )
+            return prior
+        self._submitted_by_idempotency[norm_idem] = envelope
         await self._action_sink.submit_remediation(envelope)
         return envelope
 

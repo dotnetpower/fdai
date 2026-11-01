@@ -86,4 +86,39 @@ describe("busy-input-controls.model", () => {
       expected_revision: 3,
     });
   });
+
+  it("rejects turn_busy=true without active_turn_id and queued_count > 1000", () => {
+    expect(() =>
+      decodeBusySessionProjection({
+        session_id: "sess-42",
+        mode: "queue",
+        revision: 1,
+        turn_busy: true,
+        active_turn_id: null,
+        pending: [],
+      }),
+    ).toThrow(/turn_busy=true without active_turn_id/);
+
+    expect(() =>
+      decodeBusySessionProjection({
+        session_id: "sess-42",
+        mode: "queue",
+        revision: 1,
+        turn_busy: true,
+        active_turn_id: "   ",
+        pending: [],
+      }),
+    ).toThrow(/turn_busy=true without active_turn_id/);
+
+    expect(() =>
+      decodeBusySessionProjection({
+        session_id: "sess-42",
+        mode: "queue",
+        revision: 1,
+        active_turn_id: "turn-1",
+        queued_count: 1001,
+        pending: [],
+      }),
+    ).toThrow(/queued_count/);
+  });
 });

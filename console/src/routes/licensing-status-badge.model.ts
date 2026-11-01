@@ -73,6 +73,8 @@ const FORBIDDEN_KEYS = new Set([
   "private_key",
   "signing_key",
   "signature",
+  "secret",
+  "password",
   "document_bytes",
 ]);
 const SECRET_PATTERN =
@@ -137,13 +139,37 @@ const WARNING_COPY: Record<
   },
 };
 
+function scanNestedSecrets(value: unknown): void {
+  if (value === null || typeof value !== "object") {
+    if (typeof value === "string" && SECRET_PATTERN.test(value)) {
+      throw panelContractError("LicensingWarningProjection contains secret-like material");
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      scanNestedSecrets(item);
+    }
+    return;
+  }
+  const record = value as Record<string, unknown>;
+  for (const [key, child] of Object.entries(record)) {
+    if (FORBIDDEN_KEYS.has(key) || FORBIDDEN_KEYS.has(key.toLowerCase())) {
+      throw panelContractError(`LicensingWarningProjection MUST NOT expose secret field ${key}`);
+    }
+    scanNestedSecrets(child);
+  }
+}
+
 export function decodeLicensingWarningProjection(
   value: unknown,
 ): LicensingWarningProjectionPayload {
   const root = panelRecord(value, "LicensingWarningProjection");
-  for (const key of Object.keys(root)) {
-    if (FORBIDDEN_KEYS.has(key)) {
-      throw panelContractError(`LicensingWarningProjection MUST NOT expose secret field ${key}`);
+  scanNestedSecrets(root);
+  if (root["days_remaining"] !== undefined && root["days_remaining"] !== null) {
+    const rawDays = root["days_remaining"];
+    if (typeof rawDays !== "number" || !Number.isFinite(rawDays) || rawDays < 0) {
+      throw panelContractError("LicensingWarningProjection.days_remaining MUST NOT be negative");
     }
   }
   if (panelString(root, "type", "LicensingWarningProjection") !== "licensing.warning-projection") {
@@ -209,10 +235,10 @@ export function decodeLicensingWarningProjection(
 }
 
 export function formatLicensingStatusBadge(
-  payload: LicensingWarningProjectionPayload | null,
+  payload: LicensingWarningProjectionPayload | null | undefined,
   locale: LicensingLocale = "en",
 ): LicensingStatusBadgeViewModel {
-  if (payload === null) {
+  if (payload === null || payload === undefined) {
     const copy = WARNING_COPY[locale].read_only_trial;
     return {
       locale,

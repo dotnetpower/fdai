@@ -173,24 +173,40 @@ export function decodeSkillSourceProjection(value: unknown): SkillSourceCatalogP
   if (panelString(root, "execution_authority", "SkillSourceProjection") !== "none") {
     throw panelContractError("SkillSourceProjection.execution_authority MUST be none");
   }
+  const seenSourceIds = new Set<string>();
   const sources = panelArray(root.sources, "SkillSourceProjection.sources").map(
     (entry, idx): SkillSourceProjectionItem => {
       const label = `SkillSourceProjection.sources[${idx}]`;
       const row = panelRecord(entry, label);
       rejectForbiddenKeys(row, label);
+      const sourceId = panelNonEmptyString(row, "source_id", label);
+      if (seenSourceIds.has(sourceId)) {
+        throw panelContractError(`${label}.source_id ${sourceId} is duplicated`);
+      }
+      seenSourceIds.add(sourceId);
       const policy = panelNonEmptyString(row, "refresh_policy", label);
       if (policy !== "manual" && policy !== "scheduled") {
         throw panelContractError(`${label}.refresh_policy is invalid`);
       }
+      const refreshIntervalSeconds = panelNonNegativeInteger(
+        row,
+        "refresh_interval_seconds",
+        label,
+      );
+      if (refreshIntervalSeconds < 300 || refreshIntervalSeconds > 604800) {
+        throw panelContractError(
+          `${label}.refresh_interval_seconds MUST be between 300 and 604800`,
+        );
+      }
       return {
-        source_id: panelNonEmptyString(row, "source_id", label),
+        source_id: sourceId,
         kind: panelNonEmptyString(row, "kind", label),
         location: panelNonEmptyString(row, "location", label),
         trust_tier: panelNonEmptyString(row, "trust_tier", label),
         owner: panelNonEmptyString(row, "owner", label),
         allowed_path: panelNonEmptyString(row, "allowed_path", label),
         refresh_policy: policy,
-        refresh_interval_seconds: panelNonNegativeInteger(row, "refresh_interval_seconds", label),
+        refresh_interval_seconds: refreshIntervalSeconds,
         enabled: panelBoolean(row, "enabled", label),
         revision: panelNonEmptyString(row, "revision", label),
         last_refresh_at: panelNullableString(row, "last_refresh_at", label),
@@ -204,11 +220,17 @@ export function decodeSkillSourceProjection(value: unknown): SkillSourceCatalogP
     },
   );
 
+  const seenCandidateIds = new Set<string>();
   const candidates = panelArray(root.candidates, "SkillSourceProjection.candidates").map(
     (entry, idx) => {
       const label = `SkillSourceProjection.candidates[${idx}]`;
       const row = panelRecord(entry, label);
       rejectForbiddenKeys(row, label);
+      const candidateId = panelNonEmptyString(row, "candidate_id", label);
+      if (seenCandidateIds.has(candidateId)) {
+        throw panelContractError(`${label}.candidate_id ${candidateId} is duplicated`);
+      }
+      seenCandidateIds.add(candidateId);
       if (panelBoolean(row, "disabled", label) !== true) {
         throw panelContractError(`${label}.disabled MUST remain true`);
       }
@@ -217,7 +239,7 @@ export function decodeSkillSourceProjection(value: unknown): SkillSourceCatalogP
         throw panelContractError(`${label}.artifact_digest MUST be lowercase SHA-256`);
       }
       return {
-        candidate_id: panelNonEmptyString(row, "candidate_id", label),
+        candidate_id: candidateId,
         source_id: panelNonEmptyString(row, "source_id", label),
         quarantine_id: panelNonEmptyString(row, "quarantine_id", label),
         artifact_digest: digest,

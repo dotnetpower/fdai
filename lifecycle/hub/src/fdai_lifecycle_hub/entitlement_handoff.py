@@ -254,6 +254,17 @@ class HubEntitlementHandoffStore:
                 "handoff MUST be an OpaqueEntitlementCarrierHandoff instance"
             )
 
+        bound_plan = self._by_plan_id.get(candidate.plan_id)
+        if bound_plan is not None and (
+            bound_plan.installation_id != candidate.installation_id
+            or bound_plan.deployment_id != candidate.deployment_id
+            or bound_plan.carrier_digest != candidate.carrier_digest
+        ):
+            raise EntitlementHandoffGovernanceError(
+                "plan_id is already bound to a different "
+                "(installation_id, deployment_id, carrier_digest)"
+            )
+
         existing = self._active_by_installation.get(candidate.installation_id)
         if existing is None:
             self._active_by_installation[candidate.installation_id] = candidate
@@ -349,6 +360,17 @@ class HubEntitlementHandoffStore:
                 "governed rotation sequence MUST strictly exceed "
                 "current handoff and prior rotations"
             )
+        for recorded_list in self._rotation_history.values():
+            for prior in recorded_list:
+                if prior.rotation_id == validated.rotation_id:
+                    raise EntitlementHandoffGovernanceError(
+                        f"governed rotation_id {validated.rotation_id!r} has already been recorded"
+                    )
+                if prior.approval_digest == validated.approval_digest:
+                    raise EntitlementHandoffGovernanceError(
+                        "governed rotation approval_digest has already been used "
+                        "and cannot be replayed"
+                    )
 
         self._pending_rotation_by_installation[validated.installation_id] = validated
         self._rotation_history.setdefault(validated.installation_id, []).append(validated)

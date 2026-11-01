@@ -48,18 +48,28 @@ import {
 import { TeamsA1OnboardingGuide } from "./settings-teams-a1-onboarding";
 import { DocumentOcrSettingsPanel } from "./document-ocr-settings";
 import {
-  decodeLicensingWarningProjection,
-  formatLicensingStatusBadge,
+  decodeLicensingWarningProjection as decodeLicensingWarningProjectionModel,
+  formatLicensingStatusBadge as formatLicensingStatusBadgeModel,
+  type LicensingLocale,
   type LicensingStatusBadgeViewModel,
   type LicensingWarningProjectionPayload,
 } from "./licensing-status-badge.model";
 
-export {
-  decodeLicensingWarningProjection,
-  formatLicensingStatusBadge,
-  type LicensingStatusBadgeViewModel,
-  type LicensingWarningProjectionPayload,
-};
+export type { LicensingStatusBadgeViewModel, LicensingWarningProjectionPayload };
+
+export function decodeLicensingWarningProjection(
+  value: unknown,
+): LicensingWarningProjectionPayload | null {
+  if (value === null || value === undefined) return null;
+  return decodeLicensingWarningProjectionModel(value);
+}
+
+export function formatLicensingStatusBadge(
+  payload: LicensingWarningProjectionPayload | null | undefined,
+  locale: LicensingLocale = "en",
+): LicensingStatusBadgeViewModel {
+  return formatLicensingStatusBadgeModel(payload ?? null, locale);
+}
 /**
  * A1 approvals, A2/A4 notifications, and A3 conversations use separate
  * transports and separate trust. Grouping them here keeps an operator from
