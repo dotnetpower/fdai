@@ -681,6 +681,18 @@ const COLLECTED_POLICY_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
   [/vulnerability assessment should be enabled/i, "취약점 평가 활성화 필요"],
   [/disk encryption should be applied/i, "디스크 암호화 적용 필요"],
   [/flow logs should be enabled/i, "NSG 흐름 로그 활성화 필요"],
+  [/allowlisted/i, "허용 목록(Allowlist) 기반 리소스 유형 제한"],
+  [/outside of the allowlist/i, "허용 목록 외 리소스 유형 생성 차단"],
+  [/do not allow creation of/i, "비인가 리소스 유형 생성 금지"],
+  [/do not allow deletion of/i, "핵심 리소스 유형 무단 삭제 금지"],
+  [/virtual machine scale sets/i, "가상 머신 확장 집합(VMSS) 보안·가용성 구성"],
+  [/log analytics/i, "Log Analytics 워크스페이스 연동 구성"],
+  [/defender for/i, "Microsoft Defender 위협 보호 구성"],
+  [/key vault/i, "Key Vault 비밀·키 보호 구성"],
+  [/container registry/i, "컨테이너 레지스트리(ACR) 보안 구성"],
+  [/kubernetes/i, "Kubernetes 클러스터 보안·거버넌스 구성"],
+  [/backup/i, "백업 및 복구 보호 구성"],
+  [/tag/i, "거버넌스 필수 태그 구성"],
 ];
 
 const COLLECTED_KUBE_BENCH_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
@@ -696,7 +708,22 @@ const COLLECTED_KUBE_BENCH_PHRASES_KO: readonly (readonly [RegExp, string])[] = 
   [/file ownership/i, "파일 소유권(root:root) 설정 준수"],
   [/admission control plugin/i, "어드미션 컨트롤 플러그인 활성화"],
   [/minimize the admission of/i, "컨테이너 고위험 권한 허용 최소화"],
+  [/encryption-provider-config/i, "etcd 비밀 데이터 저장 암호화 구성"],
+  [/tls-cert-file|tls-private-key-file|tls-cipher-suites/i, "TLS 인증서·암호 스위트 보안 설정"],
+  [/service-account/i, "서비스 계정(ServiceAccount) 토큰 보안 설정"],
+  [/kubeconfig/i, "kubeconfig 설정 파일 권한·소유권 보안 준수"],
+  [/etcd/i, "etcd 데이터 디렉터리·통신 보안 설정 준수"],
+  [/network-policy|cni/i, "클러스터 네트워크 정책(CNI) 격리 설정 준수"],
 ];
+
+/** Normalize malformed upstream parameter resource_type slugs into clean canonical names. */
+export function formatRuleResourceType(resourceType: string): string {
+  const trimmed = resourceType.trim();
+  if (!trimmed || /^-+current-+resourcetype-+$/i.test(trimmed) || trimmed.startsWith("-")) {
+    return "azure.resource";
+  }
+  return trimmed;
+}
 
 export function ruleDisplayTitle(
   rule: Pick<RuleDto, "id" | "title" | "title_ko">,
@@ -739,48 +766,76 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
   const expDetails = data.explanation.details ?? {};
   const detailTitleKo = typeof expDetails["title_ko"] === "string" ? expDetails["title_ko"] : undefined;
   const detailDescKo = typeof expDetails["description_ko"] === "string" ? expDetails["description_ko"] : undefined;
+  const displayResourceType = formatRuleResourceType(data.resource_type);
 
   const titleEn = data.explanation.title?.trim() || data.id;
   const titleKo = detailTitleKo || activeSpec?.titleKo || ruleDisplayTitle(data, "ko");
   const title = text(titleEn, titleKo);
 
+  const kubeAudit = typeof data.parameters["kube_bench_audit"] === "string"
+    ? data.parameters["kube_bench_audit"].trim()
+    : "";
+  const kubeRuleset = typeof data.parameters["kube_bench_ruleset"] === "string"
+    ? data.parameters["kube_bench_ruleset"].trim()
+    : "";
+  const kubeCheckId = typeof data.parameters["kube_bench_id"] === "string"
+    ? data.parameters["kube_bench_id"].trim()
+    : "";
+  const policyEffect = typeof data.parameters["azure_policy_effect_default"] === "string"
+    ? data.parameters["azure_policy_effect_default"].trim()
+    : "";
+  const policyCategory = typeof data.parameters["azure_policy_category"] === "string"
+    ? data.parameters["azure_policy_category"].trim()
+    : "";
+
   const summaryEn = data.explanation.description?.trim()
-    || `Evaluates ${data.check_logic.kind} check (${data.check_logic.reference}) on ${data.resource_type} (${data.category}, ${data.severity} severity) and links violations to ${data.remediates}.`;
+    || (kubeRuleset
+      ? `Evaluates CIS Kubernetes Benchmark (${kubeRuleset}${kubeCheckId ? ` ${kubeCheckId}` : ""}) on ${displayResourceType} and links non-compliant configurations to ${data.remediates}.`
+      : `Evaluates ${data.check_logic.kind} check (${data.check_logic.reference}) on ${displayResourceType} (${data.category}, ${data.severity} severity) and links violations to ${data.remediates}.`);
   const summaryKo = detailDescKo
     || activeSpec?.summaryKo
-    || `대상 리소스(${data.resource_type})에 대해 ${data.check_logic.kind} 검사(${data.check_logic.reference})를 수행하여 ${titleKo} 준수 여부를 평가하고 위반 시 ${data.remediates} 조치를 제안합니다.`;
+    || (kubeRuleset
+      ? `대상 리소스(${displayResourceType})에 대해 CIS Kubernetes 보안 벤치마크(${kubeRuleset}${kubeCheckId ? ` ${kubeCheckId}` : ""}) 구성을 점검하여 '${titleKo}' 준수 여부를 평가하고 위반 시 ${data.remediates} 조치를 제안합니다.`
+      : policyCategory
+        ? `대상 리소스(${displayResourceType})에 대해 Azure Policy(${policyCategory}${policyEffect ? `, 기본 효과: ${policyEffect}` : ""}) 기준을 평가하여 '${titleKo}' 준수 여부를 확인하고 위반 시 ${data.remediates} 교정 후보를 제안합니다.`
+        : `대상 리소스(${displayResourceType})에 대해 ${data.check_logic.kind} 검사(${data.check_logic.reference})를 수행하여 ${titleKo} 준수 여부를 평가하고 위반 시 ${data.remediates} 조치를 제안합니다.`);
 
   const benefits = activeSpec
     ? text(activeSpec.benefitEn, activeSpec.benefitKo)
     : text(
-        `Detects ${data.category} drift on ${data.resource_type} deterministically and bounds remediation through ${data.remediates}.`,
-        `${data.resource_type} 리소스의 ${data.category} 기준 이탈을 결정론적으로 탐지하고 ${data.remediates} 조치를 통해 위험을 완화합니다.`,
+        `Detects ${data.category} drift on ${displayResourceType} deterministically and bounds remediation through ${data.remediates}.`,
+        `${displayResourceType} 리소스의 ${data.category} 기준 이탈을 결정론적으로 탐지하고 ${data.remediates} 조치를 통해 위험을 완화합니다.`,
       );
 
   const before = activeSpec
     ? text(activeSpec.beforeEn, activeSpec.beforeKo)
     : text(
-        `${data.resource_type} violates ${data.id} (${titleEn}), triggering a ${data.severity}-severity finding under ${data.check_logic.reference}.`,
-        `${data.resource_type} 리소스 구성이 '${titleKo}' 기준을 충족하지 못하여 ${data.check_logic.reference} 평가에서 ${data.severity} 심각도 위반이 발생합니다.`,
+        `${displayResourceType} violates ${data.id} (${titleEn}), triggering a ${data.severity}-severity finding under ${data.check_logic.reference}.`,
+        `${displayResourceType} 리소스 구성이 '${titleKo}' 기준을 충족하지 못하여 ${data.check_logic.reference} 평가에서 ${data.severity} 심각도 위반이 발생합니다.`,
       );
 
   const after = activeSpec
     ? text(activeSpec.afterEn, activeSpec.afterKo)
     : text(
-        `Bring ${data.resource_type} into compliance with ${data.id} using ${data.remediates} (${data.remediation.template_ref}).`,
-        `${data.remediates}(${data.remediation.template_ref}) 교정 절차를 통해 ${data.resource_type} 구성을 '${titleKo}' 기준에 맞게 전환합니다.`,
+        `Bring ${displayResourceType} into compliance with ${data.id} using ${data.remediates} (${data.remediation.template_ref}).`,
+        `${data.remediates}(${data.remediation.template_ref}) 교정 절차를 통해 ${displayResourceType} 구성을 '${titleKo}' 기준에 맞게 전환합니다.`,
       );
 
   const verify = activeSpec
     ? text(activeSpec.verifyEn, activeSpec.verifyKo)
-    : text(
-        `Re-evaluate ${data.check_logic.reference} on the next complete inventory generation and confirm zero active violations for ${data.id}.`,
-        `다음 완전한 인벤토리 세대에서 ${data.check_logic.reference} 검사를 다시 평가하여 ${data.id} 위반 리소스가 0개인지 검증합니다.`,
-      );
+    : kubeAudit
+      ? text(
+          `Run audit check (${kubeAudit}) and re-evaluate ${data.check_logic.reference} on the next inventory generation.`,
+          `감사 명령어(${kubeAudit})를 실행하고 다음 인벤토리 세대에서 ${data.check_logic.reference} 검사를 재평가하여 준수 여부를 검증합니다.`,
+        )
+      : text(
+          `Re-evaluate ${data.check_logic.reference} on the next complete inventory generation and confirm zero active violations for ${data.id}.`,
+          `다음 완전한 인벤토리 세대에서 ${data.check_logic.reference} 검사를 다시 평가하여 ${data.id} 위반 리소스가 0개인지 검증합니다.`,
+        );
 
   const evaluatesList = Array.isArray(data.applies_to?.["resource_types"])
-    ? (data.applies_to["resource_types"] as unknown[]).map(String).join(", ")
-    : data.resource_type;
+    ? (data.applies_to["resource_types"] as unknown[]).map((item) => formatRuleResourceType(String(item))).join(", ")
+    : displayResourceType;
   const evaluatedProps = typeof expDetails["evaluated_properties"] === "string"
     ? expDetails["evaluated_properties"]
     : data.check_logic.reference;
@@ -791,7 +846,7 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
   const nodes: readonly GuidanceNode[] = [
     {
       id: "subject",
-      label: text(`Target resource (${data.resource_type})`, `평가 대상 리소스 (${data.resource_type})`),
+      label: text(`Target resource (${displayResourceType})`, `평가 대상 리소스 (${displayResourceType})`),
       detail: before,
       role: "subject",
     },
@@ -824,7 +879,7 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     },
   ];
 
-  const referenceImage = resolveControlReferenceImage("rule", data.id, data.resource_type);
+  const referenceImage = resolveControlReferenceImage("rule", data.id, displayResourceType);
   const sourceUrl = data.provenance.source_url?.startsWith("https://")
     ? data.provenance.source_url
     : "https://learn.microsoft.com/en-us/azure/governance/policy/overview";
@@ -839,8 +894,8 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     ),
     applicability: [
       text(
-        `Applies to canonical resource type ${data.resource_type} (${evaluatesList}) when evaluated by ${data.origin === "active" ? "the active T0 deterministic engine" : "collected reference catalog analysis"}.`,
-        `${data.origin === "active" ? "활성 T0 결정론적 엔진" : "수집된 참조 코퍼스 분석"}에서 정규 리소스 유형 ${data.resource_type}(${evaluatesList})을 평가할 때 적용됩니다.`,
+        `Applies to canonical resource type ${displayResourceType} (${evaluatesList}) when evaluated by ${data.origin === "active" ? "the active T0 deterministic engine" : "collected reference catalog analysis"}.`,
+        `${data.origin === "active" ? "활성 T0 결정론적 엔진" : "수집된 참조 코퍼스 분석"}에서 정규 리소스 유형 ${displayResourceType}(${evaluatesList})을 평가할 때 적용됩니다.`,
       ),
       text(
         "Missing or unobserved resource properties abstain to unknown/HIL rather than assuming compliance.",
@@ -865,8 +920,8 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     },
     implementation_steps: [
       text(
-        `Inspect affected ${data.resource_type} resources and confirm ${data.id} activation membership and scope.`,
-        `영향받는 ${data.resource_type} 리소스 목록과 ${data.id} 규칙의 T0 활성화 멤버십 및 적용 범위를 확인합니다.`,
+        `Inspect affected ${displayResourceType} resources and confirm ${data.id} activation membership and scope.`,
+        `영향받는 ${displayResourceType} 리소스 목록과 ${data.id} 규칙의 T0 활성화 멤버십 및 적용 범위를 확인합니다.`,
       ),
       after,
       text(
@@ -886,8 +941,8 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
         : typeof data.parameters["azure_policy_effect_default"] === "string" && data.parameters["azure_policy_effect_default"].trim()
           ? [
               text(
-                `Verify Azure Policy assignment default effect (\`${data.parameters["azure_policy_effect_default"].trim()}\`) and compliance state on \`${data.resource_type}\`.`,
-                `\`${data.resource_type}\` 범위에서 Azure Policy 할당 기본 효과(\`${data.parameters["azure_policy_effect_default"].trim()}\`) 및 정책 준수 상태를 확인합니다.`,
+                `Verify Azure Policy assignment default effect (\`${data.parameters["azure_policy_effect_default"].trim()}\`) and compliance state on \`${displayResourceType}\`.`,
+                `\`${displayResourceType}\` 범위에서 Azure Policy 할당 기본 효과(\`${data.parameters["azure_policy_effect_default"].trim()}\`) 및 정책 준수 상태를 확인합니다.`,
               ),
             ]
           : []),

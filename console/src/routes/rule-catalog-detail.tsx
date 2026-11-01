@@ -14,7 +14,7 @@ import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { RuleActivationPanel } from "./rule-catalog-activation-panel";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
-import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import { EMPTY_MSRC_CSAF_FILTERS, PINNED_MSRC_CSAF_CATALOG, msrcCsafHref } from "./msrc-csaf-controls.model";
 import { computeCvePriorityTier, msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import { frameworkDisplayTitle } from "./reference-images.catalog";
@@ -184,13 +184,21 @@ function RuleDetailContent({
 }) {
   const guidance = useMemo(() => buildRuleGuidance(data), [data]);
   const locale = getLocale();
+  const formattedResourceType = formatRuleResourceType(data.resource_type);
+  const coverageHref = `${routeHref("detection-readiness", { params: { type: formattedResourceType } })}#detection-resources`;
   return (
     <div class="stack">
-      <div class="pill-row">
+      <div class="pill-row rule-detail-pill-bar">
         <StatusPill kind={data.origin === "active" ? "enforce" : "neutral"} label={displayValue("origin", data.origin)} />
         <StatusPill kind={SEVERITY_PILL[data.severity] ?? "neutral"} label={displayValue("severity", data.severity)} />
         <StatusPill kind="info" label={displayValue("category", data.category)} />
         <StatusPill kind="neutral" label={displayValue("ruleSource", data.source)} />
+        <StatusPill kind="neutral" label={formattedResourceType} />
+        {data.origin === "active" ? (
+          <a class="btn secondary btn-sm rule-coverage-jump" href={coverageHref}>
+            {locale === "ko" ? `${formattedResourceType} 감지 커버리지 보기` : `View ${formattedResourceType} coverage`}
+          </a>
+        ) : null}
       </div>
 
       <IllustratedGuidanceContent
@@ -226,7 +234,7 @@ function RuleDetailContent({
 
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.detail.source")} value={displayValue("ruleSource", data.source)} />
-        <DetailRow label={t("governance.rules.detail.resourceType")} value={data.resource_type} mono />
+        <DetailRow label={t("governance.rules.detail.resourceType")} value={formattedResourceType} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
         <DetailRow label={t("governance.rules.detail.remediates")} value={data.remediates} mono />
         {data.alternatives.length > 0 ? (
@@ -296,7 +304,15 @@ function RuleDetailContent({
 
       {Object.keys(data.parameters).length > 0 ? (
         <DetailSection title={t("governance.rules.detail.parameters")}>
-          <pre class="mono small entry-json">{JSON.stringify(data.parameters, null, 2)}</pre>
+          <dl class="detail-grid">
+            {Object.entries(data.parameters).map(([key, val]) => (
+              <DetailRow key={key} label={displayValue("ruleDetailKey", key)} value={String(val)} mono />
+            ))}
+          </dl>
+          <details class="rule-raw-parameters">
+            <summary class="muted small">JSON</summary>
+            <pre class="mono small entry-json">{JSON.stringify(data.parameters, null, 2)}</pre>
+          </details>
         </DetailSection>
       ) : null}
 
@@ -308,7 +324,15 @@ function RuleDetailContent({
           />
           <DetailRow label={t("governance.rules.detail.license")} value={data.provenance.license} />
           <DetailRow label={t("governance.rules.detail.redistribution")} value={displayValue("redistribution", data.provenance.redistribution)} />
-          <DetailRow label={t("governance.rules.detail.contentHash")} value={data.provenance.content_hash} mono />
+          <DetailRow
+            label={t("governance.rules.detail.contentHash")}
+            value={
+              <span class="rule-hash-row">
+                <code>{data.provenance.content_hash}</code>
+                <CopyButton text={data.provenance.content_hash} />
+              </span>
+            }
+          />
           <DetailRow label={t("governance.rules.detail.resolvedRef")} value={data.provenance.resolved_ref} mono />
           <DetailRow label={t("governance.rules.detail.retrievedAt")} value={data.provenance.retrieved_at} mono />
         </dl>
@@ -319,30 +343,18 @@ function RuleDetailContent({
 
 function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
   const { explanation } = data;
-  const locale = getLocale();
   const expDetails = explanation.details ?? {};
-  const heading = locale === "ko"
-    ? ruleDisplayTitle(data, "ko")
-    : (explanation.title ?? data.id);
-  const desc = locale === "ko" && typeof expDetails["description_ko"] === "string" && expDetails["description_ko"]
-    ? expDetails["description_ko"]
-    : explanation.description;
   const detailEntries = Object.entries(expDetails).filter(([key]) => key !== "title_ko" && key !== "description_ko");
   return (
     <section class="rule-overview">
-      <h4 class="rule-overview-title">{heading}</h4>
-      <p class={`risk-line risk-${data.severity}`}>
-        {t(`governance.rules.severityRisk.${data.severity}`) === `governance.rules.severityRisk.${data.severity}`
-          ? t("governance.rules.detail.severityFallback", { severity: data.severity })
-          : t(`governance.rules.severityRisk.${data.severity}`)}
-      </p>
-      {desc ? (
-        <p class="rule-overview-desc">{desc}</p>
-      ) : (
-        <p class="muted footnote">
-          {t("governance.rules.detail.noDescription")}
+      <div class="rule-overview-head">
+        <h4 class="rule-overview-title">{data.id}</h4>
+        <p class={`risk-line risk-${data.severity}`}>
+          {t(`governance.rules.severityRisk.${data.severity}`) === `governance.rules.severityRisk.${data.severity}`
+            ? t("governance.rules.detail.severityFallback", { severity: data.severity })
+            : t(`governance.rules.severityRisk.${data.severity}`)}
         </p>
-      )}
+      </div>
       {detailEntries.length > 0 ? (
         <dl class="detail-grid">
           {detailEntries.map(([key, value]) => {

@@ -13,7 +13,7 @@ import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetSelect } from "./rule-catalog-components";
-import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import { PINNED_MSRC_CSAF_CATALOG } from "./msrc-csaf-controls.model";
 import { RulesCatalogRail } from "./rule-catalog-rail";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
@@ -267,7 +267,11 @@ export function RuleCatalogBody({
       {
         key: "resource_type",
         header: t("governance.rules.column.resource"),
-        render: (rule) => rule.resource_type,
+        render: (rule) => (
+          <span title={rule.resource_type !== formatRuleResourceType(rule.resource_type) ? rule.resource_type : undefined}>
+            {formatRuleResourceType(rule.resource_type)}
+          </span>
+        ),
         cellClass: "mono",
       },
       {
@@ -295,7 +299,9 @@ export function RuleCatalogBody({
             <Tooltip content={t("tooltip.affectedResources", { count })}>
               <span class="affected-badge">{count}</span>
             </Tooltip>
-          ) : null;
+          ) : (
+            <span class="muted rule-affected-empty" aria-hidden="true">-</span>
+          );
         },
       },
       {

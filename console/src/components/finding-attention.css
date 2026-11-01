@@ -1,27 +1,91 @@
 .finding-attention { display: flex; align-items: center; }
 .finding-toast {
   position: fixed;
-  top: 72px;
+  bottom: 52px;
   right: 24px;
   z-index: 80;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   max-width: min(440px, calc(100vw - 32px));
-  padding: 16px;
+  padding: 12px 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-elevated);
+  box-shadow: var(--cs-shadow);
   color: var(--fg);
   overflow-wrap: anywhere;
 }
 .finding-toast button { min-width: 44px; min-height: 44px; }
-.current-findings { min-width: 0; overflow-wrap: anywhere; gap: 16px; }
-.current-findings h2, .current-findings p { margin: 0; }
+.current-findings,
+.console-inbox {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+}
+.current-findings h2,
+.current-findings p,
+.console-inbox h2,
+.console-inbox p {
+  margin: 0;
+}
+.current-findings h2,
+.console-inbox h2 {
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
 .finding-list { list-style: none; padding: 0; margin: 0; }
-.finding-list > li { display: grid; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.finding-list > li { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.finding-list > li:last-child { border-bottom: 0; padding-bottom: 0; }
 .finding-list > li > a, .finding-list summary { display: flex; align-items: center; min-height: 44px; }
-.finding-list summary { display: list-item; align-content: center; }
+.finding-list summary { display: list-item; align-content: center; cursor: pointer; color: var(--accent); font-size: var(--cs-type-compact-size); font-weight: 600; }
 .finding-list strong { display: block; }
-.current-findings nav button { min-width: 44px; min-height: 44px; }
-@media (max-width: 640px) { .finding-toast { right: 16px; } }
+.current-findings nav button,
+.console-inbox-pager button { min-width: 44px; min-height: 44px; }
+.console-inbox-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.console-inbox-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.console-inbox-item-body {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.inbox-code-chip {
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--cs-shade);
+  font-size: 0.92em;
+}
+.console-inbox-details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: var(--cs-type-compact-size);
+  font-weight: 600;
+}
+.console-inbox-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+}
+@media (max-width: 640px) { .finding-toast { right: 16px; bottom: 52px; } }

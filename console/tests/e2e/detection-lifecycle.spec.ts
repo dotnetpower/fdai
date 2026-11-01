@@ -324,9 +324,9 @@ test("renders the coverage funnel, comparison, and drill-down at desktop width",
   await expect(coverage).toContainText("Kubernetes cluster");
   await expect(coverage).toContainText("MySQL server");
   await expect(coverage.locator(".coverage-type-table tbody tr")).toHaveCount(3);
-  await expect(page.getByRole("link", { name: /Candidate resources/ })).toContainText("3");
-  await expect(page.getByRole("link", { name: /Evaluated resources/ })).toContainText("2");
-  await expect(page.getByRole("link", { name: /Findings/ })).toContainText("1");
+  await expect(coverage.getByRole("link", { name: /Candidate resources/ })).toContainText("3");
+  await expect(coverage.getByRole("link", { name: /Evaluated resources/ })).toContainText("2");
+  await expect(coverage.getByRole("link", { name: /Findings/ })).toContainText("1");
   await expect(page.getByRole("region", { name: "Attempt comparison" }))
     .toContainText("22");
   await expect(page.getByRole("region", { name: "Attempt comparison" }))
@@ -524,4 +524,179 @@ test("keeps collapsed scopes, restored selection, and zero overflow at 320px", a
     ".detection-readiness-route",
     ".detection-record-workspace",
   ]);
+});
+
+test("keeps VM scale set resource evaluations on the first screen above retained inbox alerts", async ({ page }) => {
+  const vmssRef = "scope-0000000000000000/resource-group/rg-example-wus3/providers/microsoft.compute/virtualmachinescalesets/aks-runtime-example-vmss";
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const handle = async (route: Route): Promise<void> => {
+    if (route.request().resourceType() === "document") {
+      await route.continue();
+      return;
+    }
+    const path = new URL(route.request().url()).pathname.replace(/^\/api(?=\/)/, "");
+    if (path === "/system/data-sources") {
+      await json(route, { surface: "read-data-sources", sources: [] });
+      return;
+    }
+    if (path === "/findings") {
+      await json(route, { source: "runtime-observed", total_count: 0, next_cursor: null, items: [] });
+      return;
+    }
+    if (path === "/notifications/inbox") {
+      const items = Array.from({ length: 20 }, (_, index) => ({
+        inbox_id: (index + 1).toString(16).padStart(32, "0"),
+        category: "operational_alert",
+        severity: "info",
+        title: "Observer deployment proposal: needs_evidence",
+        body: "Observer deployment proposal `sha256:0000000000000000000000000000000000000000000000000000000000000000` is `needs_evidence`.",
+        correlation_id: `corr-${index}`,
+        recorded_at: "2026-08-31T07:00:00Z",
+        execution_authority: false,
+      }));
+      await json(route, {
+        source: "runtime-observed",
+        total_count: items.length,
+        items,
+        execution_authority: false,
+      });
+      return;
+    }
+    if (path === "/detection-coverage" || path === "/detection-readiness") {
+      await json(route, {
+        source: "postgresql:state_kv:detection-readiness",
+        observed_at: "2026-08-31T07:00:00Z",
+        target_count: 1,
+        counts: { ready: 0, partial: 1, blocked: 0, stale: 0, unauthorized: 0, unknown: 0 },
+        targets: [{
+          resource_ref: vmssRef,
+          generated_at: "2026-08-31T07:00:00Z",
+          decision: "partial",
+          authority_ceiling: "shadow",
+          observations: [
+            { dimension: "discovered", status: "passed" },
+            { dimension: "collector_configured", status: "passed" },
+            { dimension: "detector_bound", status: "passed" },
+            { dimension: "pipeline_observed", status: "passed" },
+            { dimension: "action_governed", status: "passed" },
+          ],
+          missing_dimensions: ["telemetry_observed"],
+          stale_dimensions: [],
+        }],
+        analyzer_coverage: {
+          schema_version: "1.1.0",
+          status: "available",
+          unavailable_reason: null,
+          source: "postgresql:state_kv:analyzer-tick-receipt",
+          recorded_at: "2026-08-31T07:00:00Z",
+          run_attempt_id: "vmss-test-attempt",
+          candidate_count: 1,
+          selected_count: 1,
+          evaluated_count: 1,
+          held_count: 0,
+          finding_count: 1,
+          unsupported_count: 0,
+          error_count: 0,
+          unattributed_error_count: 0,
+          unattributed_error_codes: [],
+          publication_counts: { ...noPublications, published: 1 },
+          resource_types: [{
+            resource_type: "compute.vm-scale-set",
+            candidate_count: 1,
+            selected_count: 1,
+            evaluated_count: 1,
+            held_count: 0,
+            held_reason_counts: {},
+            finding_count: 1,
+            unsupported_count: 0,
+            error_count: 0,
+            error_codes: [],
+            publication_counts: { ...noPublications, published: 1 },
+          }],
+          resources: [{
+            resource_ref: vmssRef,
+            resource_type: "compute.vm-scale-set",
+            resource_kind: "virtual_machine_scale_set",
+            evaluation_state: "finding",
+            finding_count: 1,
+            unsupported_count: 0,
+            error_count: 0,
+            error_codes: [],
+            publication_counts: { ...noPublications, published: 1 },
+          }],
+          cause_claim_supported: false,
+          execution_authority: false,
+        },
+        lifecycle: {
+          source: "postgresql:state_kv:analyzer-finding-receipt",
+          observed_at: "2026-08-31T07:00:00Z",
+          retained_from: "2026-08-31T06:45:05Z",
+          receipt_count: 1,
+          receipt_limit: 500,
+          target_count: 1,
+          assessment_count: 1,
+          evidence_counts: { complete: 0, incomplete: 1, conflicting: 0, missed: 0 },
+          targets: [{
+            resource_ref: vmssRef,
+            current: {
+              idempotency_key: "analyzer:vmss:host_cpu:1",
+              resource_ref: vmssRef,
+              resource_kind: "virtual_machine_scale_set",
+              signal: "host_cpu",
+              occurred_at: "2026-08-31T06:59:55Z",
+              recorded_at: "2026-08-31T07:00:00Z",
+              current_state: "metrics_missing",
+              detection_latency_seconds: 3.837924,
+              evidence_complete: false,
+              evidence_state: "incomplete",
+              publication: {
+                current: "published",
+                attempts: ["published"],
+                duplicate_observed: false,
+              },
+              recovery_state: "unknown",
+              evidence_refs: ["host-cpu-observation:sha256:0000000000000000"],
+              cause_claim_supported: false,
+              execution_authority: false,
+            },
+            history: [],
+          }],
+        },
+      });
+      return;
+    }
+    await json(route, { detail: "unmocked" }, 404);
+  };
+  await page.route("**/api/**", handle);
+  await page.route("**/system/data-sources", handle);
+  await page.route(
+    (url) => ["/detection-coverage", "/detection-readiness", "/findings", "/notifications/inbox"].includes(url.pathname),
+    handle,
+  );
+
+  await page.goto(
+    `/detection-coverage?data=live&type=compute.vm-scale-set&resource=${encodeURIComponent(vmssRef)}#detection-resources`,
+  );
+
+  const resourcesSection = page.locator("#detection-resources");
+  await expect(resourcesSection).toBeVisible();
+  const box = await resourcesSection.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeLessThan(350);
+
+  const listButton = resourcesSection.locator(".detection-record-list button").first();
+  await expect(listButton).toContainText("aks-runtime-example-vmss");
+  await expect(listButton).toContainText("Virtual machine scale set (VMSS)");
+  const buttonBox = await listButton.boundingBox();
+  expect(buttonBox).not.toBeNull();
+  expect(buttonBox!.height).toBeLessThan(130);
+
+  const detail = resourcesSection.locator("#detection-resource-detail");
+  await expect(detail).toContainText("aks-runtime-example-vmss");
+  await expect(detail).toContainText("Virtual machine scale set (VMSS)");
+  await expect(detail).toContainText("Latest retained finding evidence");
+  await expect(detail).toContainText("Metrics missing");
+  await expect(detail).toContainText("Host CPU threshold");
+  await expect(detail).toContainText("3.84 seconds");
+  await expectNoHorizontalOverflow(page, ["html", "main", "#detection-resources"]);
 });

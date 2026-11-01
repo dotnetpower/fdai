@@ -1301,6 +1301,60 @@ async def test_detection_readiness_includes_latest_analyzer_tick(
     assert detection["analyzer_coverage"]["unavailable_reason"] == "legacy_receipt"  # type: ignore[index]
 
 
+def test_detection_helpers_exclude_non_pod_lifecycle_and_reflect_incomplete_telemetry() -> None:
+    from fdai_operator_service.runtime_projection_operations_helpers import (
+        derive_detection_targets_from_coverage,
+        derive_pod_lifecycle_from_analyzer_lifecycle,
+    )
+
+    vmss_ref = (
+        "scope-1/resource-group/rg-1/providers/microsoft.compute/virtualmachinescalesets/vmss-1"
+    )
+    coverage = {
+        "status": "available",
+        "recorded_at": "2026-11-01T20:00:00+00:00",
+        "resources": [
+            {
+                "resource_ref": vmss_ref,
+                "resource_type": "compute.vm-scale-set",
+                "resource_kind": "virtual_machine_scale_set",
+                "evaluation_state": "finding",
+            }
+        ],
+    }
+    lifecycle = {
+        "observed_at": "2026-11-01T20:00:00+00:00",
+        "targets": [
+            {
+                "resource_ref": vmss_ref,
+                "current": {
+                    "idempotency_key": "analyzer:1",
+                    "resource_ref": vmss_ref,
+                    "resource_kind": "virtual_machine_scale_set",
+                    "signal": "host_cpu",
+                    "occurred_at": "2026-11-01T19:59:55+00:00",
+                    "recorded_at": "2026-11-01T20:00:00+00:00",
+                    "current_state": "metrics_missing",
+                    "detection_latency_seconds": 5.0,
+                    "evidence_complete": False,
+                    "evidence_state": "incomplete",
+                    "publication": {"current": "published"},
+                    "recovery_state": "unknown",
+                    "evidence_refs": ["host-cpu:1"],
+                },
+                "history": [],
+            }
+        ],
+    }
+
+    assert derive_pod_lifecycle_from_analyzer_lifecycle(lifecycle) is None
+    targets, counts = derive_detection_targets_from_coverage(coverage, lifecycle)
+    assert counts["partial"] == 1
+    assert targets[0]["decision"] == "partial"
+    assert targets[0]["missing_dimensions"] == ["telemetry_observed"]
+    assert all(obs["dimension"] != "telemetry_observed" for obs in targets[0]["observations"])
+
+
 async def test_unknown_operation_delegates_unchanged() -> None:
     fallback = RecordingFallback()
     reader = RuntimeProjectionReader(

@@ -3,6 +3,7 @@ import type { ComponentChildren, JSX } from "preact";
 import { architectureHref } from "../components/architecture-map.model";
 import { Tooltip } from "../components/tooltip";
 import {
+  CopyButton,
   DataTable,
   EmptyState,
   StatusPill,
@@ -10,6 +11,7 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   filterCoverageResources,
@@ -24,10 +26,64 @@ import type {
 } from "./detection-readiness.analyzer-run";
 import { t } from "./i18n/detection-readiness";
 
+export interface ParsedResourceRefDisplay {
+  readonly fullRef: string;
+  readonly shortName: string;
+  readonly resourceGroup: string | null;
+  readonly scopeId: string | null;
+  readonly providerType: string | null;
+  readonly hasStructuredScope: boolean;
+}
+
+/** Extract readable short name and scope segments from canonical Azure/scope resource refs. */
+export function parseResourceRefDisplay(resourceRef: string): ParsedResourceRefDisplay {
+  const scopeMatch = /^(scope-[^/]+)\/resource-group\/([^/]+)\/providers\/([^/]+\/[^/]+)\/(.+)$/i.exec(
+    resourceRef,
+  );
+  if (scopeMatch) {
+    const [, scopeId = "", resourceGroup = "", providerType = "", tail = ""] = scopeMatch;
+    const segments = tail.split("/").filter(Boolean);
+    const shortName = segments[segments.length - 1] ?? tail;
+    return {
+      fullRef: resourceRef,
+      shortName,
+      resourceGroup,
+      scopeId,
+      providerType,
+      hasStructuredScope: true,
+    };
+  }
+  const armMatch = /^\/?subscriptions\/([^/]+)\/resourcegroups\/([^/]+)\/providers\/([^/]+\/[^/]+)\/(.+)$/i.exec(
+    resourceRef,
+  );
+  if (armMatch) {
+    const [, scopeId = "", resourceGroup = "", providerType = "", tail = ""] = armMatch;
+    const segments = tail.split("/").filter(Boolean);
+    const shortName = segments[segments.length - 1] ?? tail;
+    return {
+      fullRef: resourceRef,
+      shortName,
+      resourceGroup,
+      scopeId,
+      providerType,
+      hasStructuredScope: true,
+    };
+  }
+  return {
+    fullRef: resourceRef,
+    shortName: resourceRef,
+    resourceGroup: null,
+    scopeId: null,
+    providerType: null,
+    hasStructuredScope: false,
+  };
+}
+
 /** Render compact attempt context and drillable resource-type coverage. */
 export function CoverageOverview({
   coverage,
   successfulRun,
+  selectedResourceType,
   resourcesHref,
   findingsHref,
   onOpenResources,
@@ -36,6 +92,7 @@ export function CoverageOverview({
 }: {
   readonly coverage: AnalyzerCoverageView;
   readonly successfulRun: AnalyzerRunView | null;
+  readonly selectedResourceType?: string;
   readonly resourcesHref: string;
   readonly findingsHref: string;
   readonly onOpenResources: () => void;
@@ -71,6 +128,11 @@ export function CoverageOverview({
             candidates: row.candidate_count,
             percent: coveragePercent(row),
           })}</small>
+          <span
+            class="coverage-type-progress coverage-table-progress"
+            style={`--coverage-percent:${coveragePercent(row)}%`}
+            aria-hidden="true"
+          />
         </span>
       ),
     },
@@ -97,7 +159,12 @@ export function CoverageOverview({
       header: t("coverage.column.held"),
       render: (row) => (
         <Tooltip content={heldReasonSummary(row)}>
-          <span>{row.held_count}</span>
+          <span class="coverage-cell-stack">
+            <span>{row.held_count}</span>
+            {row.held_count > 0 ? (
+              <small class="coverage-cell-detail">{heldReasonSummary(row)}</small>
+            ) : null}
+          </span>
         </Tooltip>
       ),
       cellClass: "num",
@@ -113,7 +180,12 @@ export function CoverageOverview({
       header: t("coverage.column.errors"),
       render: (row) => (
         <Tooltip content={errorCodeSummary(row.error_codes)}>
-          <span>{row.error_count}</span>
+          <span class="coverage-cell-stack">
+            <span>{row.error_count}</span>
+            {row.error_count > 0 ? (
+              <small class="coverage-cell-detail">{errorCodeSummary(row.error_codes)}</small>
+            ) : null}
+          </span>
         </Tooltip>
       ),
       cellClass: "num",
@@ -130,10 +202,23 @@ export function CoverageOverview({
           <h3 id="detection-coverage-title" class="section-title">{t("coverage.title")}</h3>
           <p class="section-description">{t("coverage.description")}</p>
         </div>
-        <span class="coverage-freshness">
-          {t("coverage.observed", { age: relativeAge(coverage.recorded_at) })}
-        </span>
+        <div class="coverage-heading-actions">
+          <span class="coverage-freshness">
+            {t("coverage.observed", { age: relativeAge(coverage.recorded_at) })}
+          </span>
+          <a class="btn secondary btn-sm" href={routeHref("rules", { params: { origin: "active" } })}>
+            {t("coverage.openRulesCatalog")}
+          </a>
+        </div>
       </div>
+      {coverage.unattributed_error_count > 0 ? (
+        <p class="state-block state-unavailable" role="status">
+          {t("coverage.unattributedErrors", {
+            count: coverage.unattributed_error_count,
+            codes: errorCodeSummary(coverage.unattributed_error_codes),
+          })}
+        </p>
+      ) : null}
       <CoverageFunnel
         coverage={coverage}
         resourcesHref={resourcesHref}
@@ -183,6 +268,7 @@ export function CoverageOverview({
           empty={t("coverage.emptyTypes")}
           caption={t("coverage.typeCaption")}
           onRowClick={(row) => onSelectResourceType(row.resource_type)}
+          isRowActive={(row) => selectedResourceType === row.resource_type}
           rowActionLabel={(row) => t("coverage.openType", {
             resourceType: resourceTypeLabel(row.resource_type),
           })}
@@ -231,15 +317,15 @@ function CoverageFunnel({
     onActivate();
   };
   const steps = [
-    [t("coverage.candidates"), coverage.candidate_count, "#detection-coverage-summary"],
-    [t("coverage.selected"), coverage.selected_count, resourcesHref],
-    [t("coverage.evaluated"), coverage.evaluated_count, resourcesHref],
-    [t("coverage.findings"), coverage.finding_count, findingsHref],
+    [t("coverage.candidates"), coverage.candidate_count, "#detection-coverage-summary", t("coverage.candidatesHint")],
+    [t("coverage.selected"), coverage.selected_count, resourcesHref, null],
+    [t("coverage.evaluated"), coverage.evaluated_count, resourcesHref, t("coverage.evaluatedHint")],
+    [t("coverage.findings"), coverage.finding_count, findingsHref, t("coverage.findingsHint")],
   ] as const;
   return (
     <div class="coverage-funnel-shell">
       <ol class="coverage-funnel" aria-label={t("coverage.funnelLabel")}>
-        {steps.map(([label, value, href]) => {
+        {steps.map(([label, value, href, hint]) => {
           const onActivate = href === findingsHref
             ? onOpenFindings
             : href === resourcesHref
@@ -253,15 +339,18 @@ function CoverageFunnel({
                   ? undefined
                   : (event) => activate(event, onActivate)}
               >
-              <span>{label}</span>
-              <strong>{value}</strong>
+                <span class="coverage-funnel-copy">
+                  <span>{label}</span>
+                  {hint ? <small class="coverage-funnel-hint">{hint}</small> : null}
+                </span>
+                <strong>{value}</strong>
               </a>
             </li>
           );
         })}
       </ol>
       <div class="coverage-attention-summary">
-        <a href="#detection-coverage-summary">
+        <a href="#detection-coverage-summary" title={t("coverage.heldHint")}>
           {t("coverage.held")} <strong>{coverage.held_count}</strong>
         </a>
         <a
@@ -307,7 +396,9 @@ function AttemptComparison({
         <article>
           <span>{t("successfulRun.latestAttempt")}</span>
           <strong>{relativeAge(coverage.recorded_at)}</strong>
-          <small>{t("coverage.selected")} {coverage.selected_count} / {t("coverage.errors")} {coverage.error_count}</small>
+          <small>
+            {t("coverage.selected")} {coverage.selected_count} / {t("coverage.held")} {coverage.held_count} / {t("coverage.errors")} {coverage.error_count}
+          </small>
         </article>
         <article>
           <span>{t("successfulRun.title")}</span>
@@ -316,7 +407,9 @@ function AttemptComparison({
           ) : (
             <>
               <strong>{relativeAge(successfulRun.recorded_at)}</strong>
-              <small>{t("successfulRun.targets")} {successfulRun.targets} / {t("successfulRun.findings")} {successfulRun.findings}</small>
+              <small>
+                {t("successfulRun.targets")} {successfulRun.targets} / {t("successfulRun.findings")} {successfulRun.findings} / {t("successfulRun.sourceCompleteness")}: {successfulRun.source_complete ? t("successfulRun.complete") : t("successfulRun.incomplete")}
+              </small>
             </>
           )}
         </article>
@@ -343,6 +436,8 @@ export function CoverageResources({
   coverage,
   controls,
   onControlsChange,
+  onOpenResourceFindings,
+  renderPrimaryFindingDetail,
   renderResourceDetail,
   renderScopeDetail,
 }: {
@@ -352,6 +447,10 @@ export function CoverageResources({
     controls: CoverageResourceControls,
     historyMode: "push" | "replace",
   ) => void;
+  readonly onOpenResourceFindings?: (resourceRef: string) => void;
+  readonly renderPrimaryFindingDetail?: (
+    resource: AnalyzerCoverageResourceView,
+  ) => ComponentChildren;
   readonly renderResourceDetail: (
     resource: AnalyzerCoverageResourceView,
   ) => ComponentChildren;
@@ -497,39 +596,70 @@ export function CoverageResources({
                 <p class="muted small detection-list-empty">{t("resources.noMatches")}</p>
               ) : (
                 <ul>
-                  {filtered.map((resource) => (
-                    <li key={resource.resource_ref}>
-                      <button
-                        type="button"
-                        aria-pressed={selected?.resource_ref === resource.resource_ref}
-                        aria-controls="detection-resource-detail"
-                        onClick={() => update({ selectedRef: resource.resource_ref })}
-                      >
-                        <span class="detection-resource-row-head">
-                          <strong class="mono">{resource.resource_ref}</strong>
-                          <StatusPill
-                            kind={evaluationKind(resource.evaluation_state)}
-                            label={t(`resources.state.${resource.evaluation_state}`)}
-                          />
-                        </span>
-                        <span>
-                          {resourceTypeLabel(resource.resource_type)}
-                          {resource.finding_count > 0
-                            ? ` / ${t("coverage.findings")} ${resource.finding_count}`
-                            : ""}
-                          {resource.error_count > 0
-                            ? ` / ${t("coverage.errors")} ${resource.error_count}`
-                            : ""}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
+                  {filtered.map((resource, index) => {
+                    const parsed = parseResourceRefDisplay(resource.resource_ref);
+                    return (
+                      <li key={resource.resource_ref}>
+                        <button
+                          type="button"
+                          aria-pressed={selected?.resource_ref === resource.resource_ref}
+                          aria-controls="detection-resource-detail"
+                          onClick={() => update({ selectedRef: resource.resource_ref })}
+                          onKeyDown={(event) => {
+                            const nextIndex = event.key === "ArrowDown"
+                              ? Math.min(index + 1, filtered.length - 1)
+                              : event.key === "ArrowUp"
+                                ? Math.max(index - 1, 0)
+                                : event.key === "Home"
+                                  ? 0
+                                  : event.key === "End"
+                                    ? filtered.length - 1
+                                    : null;
+                            if (nextIndex === null || nextIndex === index) return;
+                            event.preventDefault();
+                            const targetResource = filtered[nextIndex];
+                            if (!targetResource) return;
+                            update({ selectedRef: targetResource.resource_ref });
+                            const list = event.currentTarget.closest("ul");
+                            list?.querySelectorAll<HTMLButtonElement>("button")[nextIndex]?.focus();
+                          }}
+                        >
+                          <span class="detection-resource-row-head">
+                            <strong class="mono">
+                              {parsed.hasStructuredScope ? parsed.shortName : resource.resource_ref}
+                            </strong>
+                            <StatusPill
+                              kind={evaluationKind(resource.evaluation_state)}
+                              label={t(`resources.state.${resource.evaluation_state}`)}
+                            />
+                          </span>
+                          <span>
+                            {resourceTypeLabel(resource.resource_type)}
+                            {resource.finding_count > 0
+                              ? ` / ${t("coverage.findings")} ${resource.finding_count}`
+                              : ""}
+                            {resource.error_count > 0
+                              ? ` / ${t("coverage.errors")} ${resource.error_count}`
+                              : ""}
+                          </span>
+                          {parsed.hasStructuredScope ? (
+                            <small class="detection-resource-row-scope mono">
+                              {parsed.resourceGroup} · {parsed.scopeId}
+                              <span class="sr-only"> {resource.resource_ref}</span>
+                            </small>
+                          ) : null}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </aside>
             {selected ? (
               <ResourceDetail
                 resource={selected}
+                onOpenResourceFindings={onOpenResourceFindings}
+                renderPrimaryFindingDetail={renderPrimaryFindingDetail}
                 renderResourceDetail={renderResourceDetail}
               />
             ) : null}
@@ -548,34 +678,78 @@ export function CoverageResources({
 
 function ResourceDetail({
   resource,
+  onOpenResourceFindings,
+  renderPrimaryFindingDetail,
   renderResourceDetail,
 }: {
   readonly resource: AnalyzerCoverageResourceView;
+  readonly onOpenResourceFindings: ((resourceRef: string) => void) | undefined;
+  readonly renderPrimaryFindingDetail: ((
+    resource: AnalyzerCoverageResourceView,
+  ) => ComponentChildren) | undefined;
   readonly renderResourceDetail: (
     resource: AnalyzerCoverageResourceView,
   ) => ComponentChildren;
 }) {
+  const parsed = parseResourceRefDisplay(resource.resource_ref);
+  const primaryFindingDetail = renderPrimaryFindingDetail?.(resource) ?? null;
   const exactDetail = renderResourceDetail(resource);
   return (
     <article id="detection-resource-detail" class="detection-record-detail">
       <div class="detection-resource-detail-head">
-        <div>
+        <div class="detection-resource-title-stack">
+          {parsed.hasStructuredScope ? (
+            <strong class="detection-resource-short-title mono">{parsed.shortName}</strong>
+          ) : null}
           <h4 class="panel-title">
             <a class="mono" href={architectureHref(resource.resource_ref)}>
               {resource.resource_ref}
             </a>
           </h4>
-          <span class="muted small">{resourceTypeLabel(resource.resource_type)}</span>
+          <span class="muted small">
+            {resourceTypeLabel(resource.resource_type)}
+            {resourceKindLabel(resource.resource_kind) !== resource.resource_kind
+              ? ` · ${resourceKindLabel(resource.resource_kind)}`
+              : ""}
+          </span>
         </div>
-        <StatusPill
-          kind={evaluationKind(resource.evaluation_state)}
-          label={t(`resources.state.${resource.evaluation_state}`)}
-        />
+        <div class="detection-resource-detail-actions">
+          <StatusPill
+            kind={evaluationKind(resource.evaluation_state)}
+            label={t(`resources.state.${resource.evaluation_state}`)}
+          />
+          <CopyButton text={resource.resource_ref} label={t("resources.copyResourceId")} />
+        </div>
+      </div>
+      <div class="detection-resource-quick-links">
+        <a class="btn secondary btn-sm" href={architectureHref(resource.resource_ref)}>
+          {t("resources.openArchitectureMap")}
+        </a>
+        <a class="btn secondary btn-sm" href={routeHref("rules", { params: { q: resource.resource_type } })}>
+          {t("resources.openResourceRules", {
+            resourceType: resourceTypeLabel(resource.resource_type),
+          })}
+        </a>
+        {resource.finding_count > 0 && onOpenResourceFindings ? (
+          <button
+            type="button"
+            class="btn secondary btn-sm"
+            onClick={() => onOpenResourceFindings(resource.resource_ref)}
+          >
+            {t("resources.openResourceFindings", { count: resource.finding_count })}
+          </button>
+        ) : null}
       </div>
       <dl class="details-list">
         <div><dt>{t("coverage.findings")}</dt><dd>{resource.finding_count}</dd></div>
         <div><dt>{t("coverage.errors")}</dt><dd>{resource.error_count}</dd></div>
         <div><dt>{t("resources.delivery")}</dt><dd>{publicationSummary(resource)}</dd></div>
+        {parsed.hasStructuredScope && parsed.resourceGroup ? (
+          <div><dt>{t("resources.resourceGroup")}</dt><dd><code class="mono">{parsed.resourceGroup}</code></dd></div>
+        ) : null}
+        {parsed.hasStructuredScope && parsed.scopeId ? (
+          <div><dt>{t("resources.scope")}</dt><dd><code class="mono">{parsed.scopeId}</code></dd></div>
+        ) : null}
       </dl>
       {resource.error_codes.length > 0 ? (
         <div class="detection-error-codes">
@@ -588,11 +762,34 @@ function ResourceDetail({
       {resource.evaluation_state === "evaluated_no_finding" ? (
         <p class="muted small">{t("resources.noHealthClaim")}</p>
       ) : null}
+      {primaryFindingDetail}
       <details class="detection-technical-details">
         <summary>{t("resources.technicalDetails")}</summary>
         <dl>
-          <div><dt>{t("resources.kind")}</dt><dd><code>{resource.resource_kind}</code></dd></div>
-          <div><dt>{t("resources.canonicalType")}</dt><dd><code>{resource.resource_type}</code></dd></div>
+          <div>
+            <dt>{t("resources.kind")}</dt>
+            <dd>
+              {resourceKindLabel(resource.resource_kind) !== resource.resource_kind ? (
+                <span>{resourceKindLabel(resource.resource_kind)} </span>
+              ) : null}
+              <code>{resource.resource_kind}</code>
+            </dd>
+          </div>
+          <div>
+            <dt>{t("resources.canonicalType")}</dt>
+            <dd>
+              {resourceTypeLabel(resource.resource_type) !== resource.resource_type ? (
+                <span>{resourceTypeLabel(resource.resource_type)} </span>
+              ) : null}
+              <code>{resource.resource_type}</code>
+            </dd>
+          </div>
+          {parsed.hasStructuredScope && parsed.providerType ? (
+            <div>
+              <dt>{t("resources.providerType")}</dt>
+              <dd><code>{parsed.providerType}</code></dd>
+            </div>
+          ) : null}
         </dl>
       </details>
       {exactDetail ? (
@@ -610,13 +807,41 @@ export function resourceTypeLabel(resourceType: string): string {
   const keys: Readonly<Record<string, string>> = {
     "api-gateway": "apiGateway",
     "kubernetes-cluster": "kubernetesCluster",
+    "kubernetes-node-pool": "kubernetesNodePool",
     "llm-endpoint": "llmEndpoint",
     "mysql-server": "mysqlServer",
+    "postgresql-server": "postgresqlServer",
+    "sql-database": "sqlDatabase",
     "network.application-gateway": "applicationGateway",
+    "compute.vm-scale-set": "computeVmScaleSet",
+    "compute.vm": "computeVm",
+    "object-storage": "objectStorage",
+    "secret-store": "secretStore",
+    cache: "cache",
+    disk: "disk",
+    "managed-identity": "managedIdentity",
+    "network.nsg": "networkNsg",
+    "network.vnet": "networkVnet",
+    "resource-group": "resourceGroup",
+    subscription: "subscription",
     unclassified: "unclassified",
   };
   const key = keys[resourceType];
   return key === undefined ? resourceType : t(`resourceType.${key}`);
+}
+
+export function resourceKindLabel(resourceKind: string): string {
+  const known = new Set([
+    "virtual_machine_scale_set",
+    "virtual_machine",
+    "aks_cluster",
+    "kubernetes_pod",
+    "api_management",
+    "mysql_flexible_server",
+    "llm_endpoint",
+    "application_gateway",
+  ]);
+  return known.has(resourceKind) ? t(`resourceKind.${resourceKind}`) : resourceKind;
 }
 
 export function heldReasonSummary(row: AnalyzerCoverageResourceTypeView): string {

@@ -326,7 +326,22 @@ def derive_detection_targets_from_coverage(
     resources = analyzer_coverage.get("resources")
     if analyzer_coverage.get("status") != "available" or not isinstance(resources, list):
         return [], {key: 0 for key in decision_keys}
-    del lifecycle
+    incomplete_refs: set[str] = set()
+    lifecycle_targets = lifecycle.get("targets")
+    if isinstance(lifecycle_targets, list):
+        for item in lifecycle_targets:
+            if not isinstance(item, Mapping):
+                continue
+            ref = str(item.get("resource_ref") or "")
+            current = item.get("current")
+            if not ref or not isinstance(current, Mapping):
+                continue
+            if current.get("evidence_complete") is False or current.get("evidence_state") in {
+                "incomplete",
+                "missed",
+                "conflicting",
+            }:
+                incomplete_refs.add(ref)
     recorded_at = str(analyzer_coverage.get("recorded_at") or datetime.now(UTC).isoformat())
     dimensions = (
         "discovered",
@@ -346,11 +361,17 @@ def derive_detection_targets_from_coverage(
         eval_state = str(
             res.get("evaluation_state") or res.get("coverage_state") or "evaluated_no_finding"
         )
+        has_telemetry_gap = target_id in incomplete_refs or eval_state in {
+            "evaluation_error",
+            "unsupported",
+            "partial_signal",
+            "held",
+        }
         decision = (
-            "ready"
+            "partial"
+            if has_telemetry_gap and eval_state in {"finding", "partial_signal", "held"}
+            else "ready"
             if eval_state in {"evaluated_no_finding", "finding", "covered"}
-            else "partial"
-            if eval_state in {"partial_signal", "held"}
             else "unknown"
         )
         missing_dims = ["telemetry_observed"] if decision != "ready" else []
@@ -361,8 +382,9 @@ def derive_detection_targets_from_coverage(
                 "decision": decision,
                 "authority_ceiling": "shadow",
                 "observations": [
-                    {"dimension": dim, "status": "missing" if dim in missing_dims else "passed"}
+                    {"dimension": dim, "status": "passed"}
                     for dim in dimensions
+                    if dim not in missing_dims
                 ],
                 "missing_dimensions": missing_dims,
                 "stale_dimensions": [],
@@ -399,6 +421,9 @@ def derive_pod_lifecycle_from_analyzer_lifecycle(
         ref = str(item.get("resource_ref") or item.get("target") or "")
         current = item.get("current")
         if not ref or not isinstance(current, Mapping):
+            continue
+        resource_kind = str(current.get("resource_kind") or "").strip()
+        if resource_kind and resource_kind != "kubernetes_pod":
             continue
         rec_state = str(current.get("recovery_state") or "verified")
         is_verified = rec_state == "verified"
