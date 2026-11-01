@@ -36,7 +36,13 @@ def reground_constraint_slots(
 
     if not proposal.constraint_slots:
         return proposal
-    catalogs = concept_catalogs(manifest.descriptors, property_reads=manifest.property_reads)
+    raw_labels = getattr(manifest, "object_labels", ())
+    object_labels = dict(raw_labels) if isinstance(raw_labels, (list, tuple)) else None
+    catalogs = concept_catalogs(
+        manifest.descriptors,
+        object_labels=object_labels,
+        property_reads=manifest.property_reads,
+    )
     allowed = {
         role: frozenset(
             value for candidate in catalogs.get(domain, ()) for value in candidate.values

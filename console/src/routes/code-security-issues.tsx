@@ -3,11 +3,13 @@ import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
+  CopyButton,
   ExternalLink,
   StatusPill,
   type AsyncState,
   type PillKind,
 } from "../components/ui";
+import { routeHref } from "../router";
 import { t } from "./i18n/code-security";
 import { formatConsoleTimestamp } from "../time-format";
 import {
@@ -543,6 +545,27 @@ export function issueReference(issue: CodeSecurityIssueSummary): string {
   return issue.package === null ? advisories || "-" : `${issue.package} ${advisories}`.trim();
 }
 
+export function formatCodeSecurityReviewMarkdownBrief(
+  repositoryAlias: string,
+  revision: string,
+  reviewDigest: string,
+  data: CodeSecurityIssuesResponse,
+): string {
+  const topIssues = data.issues.slice(0, 10).map(
+    (issue) =>
+      `- **[${issue.priority} / ${severityLabel(issue)}]** \`${issue.issue_id}\` (${issue.weakness_class}) -- ${issueReference(issue)} @ \`${issueLocation(issue)}\` (confidence: ${issue.confidence}, KEV: ${issue.known_exploited})`,
+  );
+  return [
+    `# Code Security Review: ${repositoryAlias} (${revision.slice(0, 12)})`,
+    `- **Review Digest:** \`${reviewDigest}\``,
+    `- **Coverage:** ${data.coverage.complete ? "complete" : "incomplete"}`,
+    `- **Findings:** ${data.review_summary.recorded_total} total (${data.review_summary.recorded_determined} determined, ${data.review_summary.recorded_needs_review} needs review)`,
+    `- **Scorecard:** critical=${data.scorecard.critical}, high=${data.scorecard.high}, medium=${data.scorecard.medium}, low=${data.scorecard.low}`,
+    `- **Execution Authority:** \`false\` (read-only projection)`,
+    ...(topIssues.length > 0 ? ["", "## Top Findings", ...topIssues] : []),
+  ].join("\n");
+}
+
 export function ReviewIssuesPanel({
   client,
   repositoryAlias,
@@ -637,7 +660,20 @@ export function ReviewIssuesPanel({
         <h3 id="code-security-issues-title">
           {`${t("codeSecurity.issues.title")}: ${repositoryAlias} ${revision.slice(0, 12)}`}
         </h3>
-        <button type="button" class="btn subtle" onClick={onClose}>{t("codeSecurity.issues.close")}</button>
+        <div class="row" style="gap: 8px;">
+          {state.status === "ready" ? (
+            <CopyButton
+              text={formatCodeSecurityReviewMarkdownBrief(
+                repositoryAlias,
+                revision,
+                reviewDigest,
+                state.data,
+              )}
+              label={t("codeSecurity.issues.copyBrief")}
+            />
+          ) : null}
+          <button type="button" class="btn subtle" onClick={onClose}>{t("codeSecurity.issues.close")}</button>
+        </div>
       </div>
       <p class="muted">{t("codeSecurity.issues.body")}</p>
       <dl class="code-security-review-provenance" aria-label={t("codeSecurity.issues.provenance")}>
@@ -1057,6 +1093,14 @@ export function ReviewIssuesPanel({
                           <div><dt>{t("codeSecurity.issues.column.producers")}</dt><dd>{selectedIssue.producers.join(", ")}</dd></div>
                           <div><dt>{t("codeSecurity.issues.due")}</dt><dd>{t("codeSecurity.issues.dueDays", { count: selectedIssue.due_days })}</dd></div>
                         </dl>
+                        <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+                          <a class="btn subtle" href={`${routeHref("rules")}?view=controls&framework=msrc-csaf`}>
+                            {t("codeSecurity.issues.viewInMsrcCsaf")}
+                          </a>
+                          <a class="btn subtle" href={`${routeHref("rules")}?view=controls&framework=azure-mcsb`}>
+                            {t("codeSecurity.issues.viewInMcsb")}
+                          </a>
+                        </div>
                       </article>
                     )}
                 </div>

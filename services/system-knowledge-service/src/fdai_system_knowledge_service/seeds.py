@@ -88,7 +88,7 @@ REFERENCE_SEEDS = (
         knowledge_id="behavior-knowledge",
         subject_id="behavior-knowledge",
         title="Structured behavior knowledge",
-        status=SystemKnowledgeStatus.IN_PROGRESS,
+        status=SystemKnowledgeStatus.IMPLEMENTED,
         owner="Muninn and Bragi",
         question_aliases=(
             "How does FDAI explain its own behavior?",
@@ -99,10 +99,10 @@ REFERENCE_SEEDS = (
             "Implemented evidence outranks designed-only evidence, while stale or conflicting records are held.",
         ),
         implemented_behavior=(
-            "The provider contracts and in-memory retrieval with tracked-source freshness validation are present.",
+            "The provider contracts, 13 reference seeds, OperatorBehaviorKnowledgeResolver, and PostgresBehaviorKnowledgeIndex are implemented.",
         ),
         limitations=(
-            "Reference seeds, an Operator answer path, persistence, and current runtime evidence are not restored.",
+            "Reference citations describe repository contracts and are never treated as live tenant observations.",
         ),
         sources=(
             _doc(
@@ -476,6 +476,131 @@ REFERENCE_SEEDS = (
             _code(
                 "services/operator-service/src/fdai_operator_service/families/conversation/channel_edge/teams_ingress.py",
                 "TeamsIngressVerifier",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="console-web-security",
+        subject_id="console-web-security",
+        title="FDAI Console web security boundary",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Operator Service and Console SPA",
+        question_aliases=(
+            "Is the FDAI Console web application secure?",
+            "FDAI 콘솔웹이 보안상 문제가 없나?",
+        ),
+        designed_behavior=(
+            "The Console SPA holds zero cloud or executor credentials, enforces Entra ID with server-verified GET /iam/self RBAC, and keeps all views read-only (execution_authority=false).",
+            "Guidance assets are SHA-256 digest-verified, arbitrary HTML/SVG/JS execution is forbidden, and state changes require the 5-role ActionType pipeline with 7 safeguards.",
+        ),
+        implemented_behavior=(
+            "OperatorAuthenticator, RBAC projections, digest-pinned framework guidance, and /code-security plus /rules posture views are implemented.",
+        ),
+        limitations=(
+            "Architectural SPA isolation does not substitute for live tenant TLS, network, or IAM verification in a deployed environment.",
+        ),
+        sources=(
+            _doc(
+                ".github/instructions/app-shape.instructions.md",
+                "Layer Boundaries (security)",
+                SystemKnowledgeAuthorityRole.DESIGN,
+            ),
+            _code(
+                "services/operator-service/src/fdai_operator_service/auth.py",
+                "OperatorAuthenticator",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="code-security-review",
+        subject_id="code-security-review",
+        title="Code Security Review and verification packs",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Heimdall, Forseti, and Saga",
+        question_aliases=(
+            "How does FDAI Code Security Review work?",
+            "FDAI 코드 보안 검토는 어떻게 동작하나요?",
+        ),
+        designed_behavior=(
+            "SARIF findings from deterministic, LLM-lens, and external scanners collapse into canonical issues with P0-P4 priorities and Ed25519-signed remediation packs.",
+            "Operator projections on /code-security expose bounded triage counts and opaque issue IDs without leaking source code or scanner prose.",
+        ),
+        implemented_behavior=(
+            "Review signal validation, Heimdall drift publication, pack signing, and Operator /code-security projections are implemented.",
+        ),
+        limitations=(
+            "Code security scan projections never auto-merge code or grant execution authority.",
+        ),
+        sources=(
+            _code(
+                "services/core-control-plane/src/fdai/core/security/code_findings/review_signal.py",
+                "build_review_package",
+            ),
+            _code(
+                "services/operator-service/src/fdai_operator_service/code_security_review_projection.py",
+                "code_security_reviews_projection",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="rules-and-framework-governance",
+        subject_id="rules-and-framework-governance",
+        title="Detection Rules and Framework Assessments governance",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Mimir, Forseti, and Operator Service",
+        question_aliases=(
+            "How are FDAI detection rules and framework assessments governed?",
+            "FDAI 규칙 화면과 WARA/WAF/CAF/MCSB 평가는 안전한가요?",
+        ),
+        designed_behavior=(
+            "52 active T0 Rego rules, 8,517 collected reference rules, and WARA, WAF, CAF, MCSB v1/v2, and MSRC CSAF 2.0 controls evaluate in shadow mode with execution_authority=false.",
+            "Rule activation generation pointer changes require distinct requester and approver principals.",
+        ),
+        implemented_behavior=(
+            "Catalog projections, bidirectional MSRC CSAF CVE citations, illustrated 5-node diagrams, and catalog.search_rules retrieval are implemented.",
+        ),
+        limitations=(
+            "Collected reference rules remain inert until promoted and activated through dual-principal governance.",
+        ),
+        sources=(
+            _code(
+                "services/operator-service/src/fdai_operator_service/workflow_rule_projection.py",
+                "rule_activation_status_payload",
+            ),
+            _code(
+                "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py",
+                "catalog_search_rules_function_type",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="msrc-csaf-and-ai-security",
+        subject_id="msrc-csaf-and-ai-security",
+        title="MSRC CSAF 2.0 vulnerability and AI security guardrails",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Heimdall, Bragi, QualityGate, and RiskGate",
+        question_aliases=(
+            "How does FDAI govern MSRC CSAF vulnerabilities and AI prompt security?",
+            "MSRC CSAF 취약점 평가와 AI 보안 가드레일은 어떻게 동작하나요?",
+        ),
+        designed_behavior=(
+            "MSRC CSAF 2.0 advisories and CISA KEV status are evaluated deterministically against resource version windows to assign P0-P3 remediation SLA tiers.",
+            "Untrusted prompts and documents are isolated from system instructions, checked by V-CLAIM and multi-model QualityGate consensus, and aligned with MCSB v2 AI-1..AI-7, OWASP LLM Top 10, and MITRE ATLAS.",
+        ),
+        implemented_behavior=(
+            "MsrcCsafAssessmentRuntime, Heimdall CSAF drift projection, and QualityGate grounding verification are implemented.",
+        ),
+        limitations=(
+            "Missing or stale resource version telemetry is reported as unknown rather than assumed patched.",
+        ),
+        sources=(
+            _code(
+                "services/core-control-plane/src/fdai/core/security/csaf/runtime.py",
+                "MsrcCsafAssessmentRuntime",
+            ),
+            _code(
+                "services/core-control-plane/src/fdai/core/quality_gate/gate.py",
+                "QualityGate",
             ),
         ),
     ),

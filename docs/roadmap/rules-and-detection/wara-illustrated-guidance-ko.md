@@ -1,7 +1,7 @@
 ---
 title: 도표를 포함한 WARA 설명
 translation_of: wara-illustrated-guidance.md
-translation_source_sha: 68b966b465b75f4fda88746dd52f1fbfd216868e
+translation_source_sha: e09f4be53c7fa629f74b80907bf23c2b60a1a458
 translation_revised: 2026-11-01
 ---
 # 도표를 포함한 WARA 설명
@@ -225,6 +225,7 @@ CC-BY-4.0 Microsoft Learn 공식 참조 도해 16종을 통해 패키지된 WAF,
 컨트롤), MSRC CSAF 2.0(`P0`-`P3` 악용 우선순위 등급 및 CVSS 공격 표면 요약이 포함된 9,058개 CVE),
 활성 및 수집 탐지 규칙(활성 52개 및 수집 8,517개) 도해 설명과 마크다운 요약 복사
 (`formatGuidanceMarkdownBrief`), 역방향 MSRC CSAF CVE 인용(`MsrcCsafRuleCitations`),
+`selected_implementation_steps_count`·`selected_verification_steps_count` 스냅샷 필드,
 `SECURITY_AND_RULES_GLOSSARY`를 함께 렌더링합니다.
 
 ## 관련 문서

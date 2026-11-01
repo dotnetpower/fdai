@@ -490,6 +490,49 @@ def test_local_narrator_rejects_oversized_artifact_and_candidate_pool(tmp_path: 
         )
 
 
+async def test_local_narrator_grounds_console_security_question_with_verified_citations(
+    tmp_path: Path,
+) -> None:
+    client = RecordingHttpClient(
+        answer="FDAI 콘솔 웹은 클라우드 자격 증명을 보유하지 않는 읽기 전용 SPA입니다."
+    )
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=lambda _audience: _token(),
+        http_client=client,
+    )
+    source = await adapter.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Owner"})),
+            body={
+                "prompt": "FDAI 콘솔웹이 보안상 문제가 없나?",
+                "view_context": {"headline": "Overview"},
+            },
+        )
+    )
+    events = [event async for event in source]
+
+    assert [event.event for event in events] == ["token", "done"]
+    verification = events[1].data["verification"]
+    assert isinstance(verification, dict)
+    assert verification["status"] == "verified"
+    assert verification["authority"] == "behavior-knowledge"
+    assert verification["reason_code"] == "behavior_knowledge_verified"
+    assert verification["checks_completed"] == 1
+    assert verification["checks_total"] == 1
+    assert verification["evidence_refs"] == [
+        ".github/instructions/app-shape.instructions.md:1-60#Layer Boundaries (security)"
+    ]
+    _, kwargs = client.calls[0]
+    screen_ctx = kwargs["json"]["messages"][1]["content"]  # type: ignore[index]
+    assert "_verified_behavior_contract" in screen_ctx
+    assert "architecture.console-web-security-posture" in screen_ctx
+
+
 def test_narrator_latency_pool_bounds_independent_timing_windows() -> None:
     first = NarratorTarget("https://first.openai.azure.com", "first", "v1")
     second = NarratorTarget("https://second.openai.azure.com", "second", "v1")

@@ -85,4 +85,28 @@ export const ROUTE_ACTION_HINTS: Readonly<Record<string, string>> = {
   provision:
     "Provision: watch a bootstrap pipeline (plan/apply); progress streams live; " +
     "no privileged action runs from the console (executor holds the only identity).",
+  architecture:
+    "Architecture (/architecture): inspect the live cloud resource topology, dependency edges, " +
+    "and layer health projections without mutating infrastructure (execution_authority=false).",
+  agents:
+    "Agents (/agents): inspect the fixed 15-agent Pantheon charters, owned ObjectTypes, and " +
+    "single-writer pub/sub boundaries (execution_authority=false).",
+  onboarding:
+    "Onboarding (/onboarding): verify read-only target subscription prerequisites, RBAC roles, " +
+    "and telemetry readiness before enabling observation loops.",
+  capabilities:
+    "Capabilities (/capabilities): review available vs enabled capabilities and their shadow/enforce " +
+    "promotion mode without bypassing governance gates.",
+  "configuration-baselines":
+    "Configuration baselines (/configuration-baselines): inspect golden configuration baselines and " +
+    "Heimdall drift checks in shadow mode (execution_authority=false).",
+  chaos:
+    "Chaos (/chaos): review Loki chaos scenarios, blast-radius guards, and steady-state hypotheses " +
+    "in shadow mode.",
+  "slo-burn":
+    "SLO burn (/slo-burn): inspect error-budget burn rates, multi-window alerts, and linked " +
+    "ControlObjectives (execution_authority=false).",
+  finops:
+    "FinOps (/finops): inspect Njord and Freyr right-sizing and cost-anomaly projections " +
+    "(execution_authority=false).",
 };

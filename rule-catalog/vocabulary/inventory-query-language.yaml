@@ -18,7 +18,7 @@ signals:
   read:
     terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
   state_inspection:
-    terms: [status, health state, current state, 상태, 상태 확인, 현재 상태, 정상인가]
+    terms: [status, health state, current state, 상태, 상태 확인, 현재 상태, 정상인가, 정상인가요, 이상이 없나, 문제가 없나, 문제 없나, 안전한가]
   bounded_read:
     terms: [show, where, 보여줘, 어디, 어느 위치]
   mutation:
@@ -176,7 +176,7 @@ states:
     evidence_authority: subscription_health
     labels: {en: Unavailable, ko: 사용 불가}
   unhealthy:
-    terms: [unhealthy, not healthy, abnormal, 비정상, 비정상 상태, 상태가 좋지 않은, 상태가 나쁜, 문제가 있는, 이상한]
+    terms: [unhealthy, not healthy, abnormal, security issue, security issues, 비정상, 비정상 상태, 상태가 좋지 않은, 상태가 나쁜, 문제가 있는, 이상한, 보안 문제, 보안상 문제]
     values: [stopped, failed, degraded, unavailable, unknown]
     description: A broad grouped state for resources that are not demonstrably healthy.
     examples: [resources showing an abnormal condition, resources that are not healthy, 비정상 징후를 보이는 리소스, 상태가 좋지 않은 리소스가 있는지]

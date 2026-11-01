@@ -26,6 +26,7 @@ import {
 import {
   decodeCodeSecurityIssues,
   findingResultCount,
+  formatCodeSecurityReviewMarkdownBrief,
   issueReference,
 } from "./code-security-issues";
 import {
@@ -596,6 +597,11 @@ describe("code-security route", () => {
       "python-ast": "1.1.0",
     });
     expect(secondIssue.analysis_evidence).toBeNull();
+    const brief = formatCodeSecurityReviewMarkdownBrief("example-app", "a".repeat(40), "4".repeat(64), data);
+    expect(brief).toContain("# Code Security Review: example-app (aaaaaaaaaaaa)");
+    expect(brief).toContain("`FDAI-SEC-0123456789ab` (command_injection) -- CWE-78 @ `Location unavailable`");
+    expect(brief).toContain("`FDAI-SEC-ba9876543210` (vulnerable_dependency) -- flask CVE-2026-0001");
+    expect(brief).toContain("**Execution Authority:** `false`");
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
   });
 

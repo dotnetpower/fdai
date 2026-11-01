@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 406630688b007e2e899dea2b5ee1254ae5023e30
-translation_revised: 2026-10-20
+translation_source_sha: d0e760c0e98611508e9c80e235dab6031d7b4fbe
+translation_revised: 2026-11-01
 ---
 
 # 계층형 대화 계획
@@ -122,7 +122,8 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 대체하지 않습니다.
 
 공통 대화 정책, 서버가 소유한 Pantheon 역할 하나, 언어, 검증된 담당 관계를 바탕으로 크기가 제한된
-단계별 프롬프트를 조립합니다. 사용자 문장, 이전 대화, 첨부, 도구 결과는 시스템 지침이 아닌 데이터로
+단계별 프롬프트를 조립하며, 여기에는 `rule-catalog/prompts/base/adaptive-common.v1.yaml`의 아키텍처
+보안 기준선이 포함됩니다. 사용자 문장, 이전 대화, 첨부, 도구 결과는 시스템 지침이 아닌 데이터로
 유지합니다. 사용자와 에이전트의 매핑은 관련 맥락만 바꾸며 RBAC, 승인, 실행기 신원을 바꾸지 않습니다.
 명시적 대상과 영속 세션 연결이 담당 관계의 추천보다 우선합니다.
 
@@ -188,6 +189,7 @@ Operator의 초기 레이블은 모든 턴에 조사 계획이 필요하다고 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-01 | implemented | `rule-catalog/prompts/base/adaptive-common.v1.yaml`에 FDAI 아키텍처 보안 기준선을 추가하고, `semantic_slot_grounding.py` 및 `semantic_type_grounding.py`에서 `object_labels`를 `concept_catalogs`로 전달하며, `rule-catalog/vocabulary/inventory-query-language.yaml`의 한국어·영어 보안 및 상태 점검 어휘를 확장했습니다. | `current change`; `test_adaptive_prompt_profiles.py`, `test_semantic_grounding_helpers.py` (`24 passed`) | 통제된 운영 인증은 열린 상태로 남습니다. |
 | 2026-10-20 | implemented | 정확한 #2307 trace는 올바른 typed form과 compiled goal을 만들었지만 blind review가 필드 라벨 cue 두 개를 다루지 않은 이름으로 판단했습니다. 이제 Core는 domain-valid typed filter cue가 mention과 전혀 겹치지 않을 때만 names-only receipt를 발급하고, 활성 prompt는 field label을 context가 아닌 filter cue에 두도록 요구합니다. | `current change`, #2307, content-free dev-discuss form shape와 `review_uncovered:names` 사유 두 개, 정확한 cue positive와 mention-overlap negative, prompt composition 계약, 정규화 coverage 98.91% | filter-cue receipt를 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 다른 공백이 남으면 다시 중단합니다. |
 | 2026-10-20 | implemented | 정확한 #2306 trace는 typed resource operand를 만들지 않고 `type`과 `location`을 PROPERTY/INSTANCE value로 선언해 `filter_domain`, `operand_dropped`, 미사용 mention을 남겼습니다. 이제 활성 Azure question-form pack이 field-label/value 계약을 직접 명시합니다. 보수적 추정값은 16,452 token이며 gate를 우회하지 않고 프로필의 명시적 예약량을 256 늘려 16,640으로 설정했습니다. | `current change`, #2306, content-free dev-discuss form shape, 활성 prompt 조립 계약, prompt registry·budget·assembly·masking 테스트 330개 | prompt 수정을 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 다른 model-form 공백이 나타나면 캠페인을 중단합니다. |
 | 2026-10-20 | implemented | 정확한 #2305 trace에서 blind review는 faithful이 됐지만 form이 `resource_type` mention을 컬렉션 subject, 일반 `object_type` mention을 type filter에 배치해 개념 근거화가 보류됐습니다. 이제 Core는 다른 참조가 없는 이 두 역할의 conjunction만 더 넓은 subject와 더 좁은 filter의 정규 순서로 교환합니다. | `current change`, #2305, content-free dev-discuss form shape와 `concept_disagreement:object_type`, 정확한 한국어 positive와 multi-goal·경쟁 참조·relation·measure negative, 정규화 branch coverage 98.78% | type-role 정규화를 게시하고 정확한 병합 소스로 다시 시작한 뒤 한국어 positive 재시도를 한 번 실행합니다. 근거화나 검토에서 다른 공백이 나타나면 다시 중단합니다. |

@@ -21,6 +21,10 @@ from fdai_operator_service.adapters.narrator_token_budget import (
     chat_request_tokens,
     fit_text,
 )
+from fdai_operator_service.behavior_knowledge_resolver import (
+    BehaviorResolutionResult,
+    resolve_security_behavior_sync,
+)
 from fdai_operator_service.families.conversation.inline_images import inline_images_present
 
 _MAX_CANDIDATES = 8
@@ -76,6 +80,26 @@ def narrator_messages(prompt: str, body: Mapping[str, Any]) -> list[dict[str, An
     return narrator_message_plan(prompt, body, model="gpt-5").messages
 
 
+def resolve_narrator_behavior_grounding(
+    prompt: str, locale: str = "en"
+) -> BehaviorResolutionResult | None:
+    """Return a verified behavior-knowledge resolution for bounded narrator turns, or None."""
+    cleaned = prompt.strip()
+    if not cleaned or len(cleaned) > 4_000:
+        return None
+    try:
+        resolved = resolve_security_behavior_sync(cleaned, locale=locale)
+    except ValueError:
+        return None
+    if (
+        not resolved.handled
+        or not resolved.verification.verified
+        or not resolved.verification.citations
+    ):
+        return None
+    return resolved
+
+
 def narrator_message_plan(
     prompt: str,
     body: Mapping[str, Any],
@@ -84,7 +108,30 @@ def narrator_message_plan(
 ) -> NarratorMessagePlan:
     """Fit screen context and newest history into the narrator request budget."""
 
-    context = body.get("view_context")
+    raw_context = body.get("view_context")
+    locale_hint = str(body.get("locale") or "en")
+    if any("가" <= ch <= "힣" for ch in prompt):
+        locale_hint = "ko"
+    behavior_grounding = resolve_narrator_behavior_grounding(prompt, locale_hint)
+    if behavior_grounding is not None:
+        base_ctx = dict(raw_context) if isinstance(raw_context, Mapping) else {}
+        base_ctx["_verified_behavior_contract"] = {
+            "behavior_id": (
+                behavior_grounding.behavior_ids[0] if behavior_grounding.behavior_ids else ""
+            ),
+            "owner": behavior_grounding.sections.get("owner", ""),
+            "status": behavior_grounding.sections.get("status", "implemented"),
+            "rendered_answer": behavior_grounding.rendered_text,
+            "citations": [
+                f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}"
+                for c in behavior_grounding.verification.citations
+            ],
+            "result_digest": behavior_grounding.result_digest,
+            "execution_authority": False,
+        }
+        context: object = base_ctx
+    else:
+        context = raw_context
     history = body.get("history")
     declared_history_count = body.get("history_total_count")
     context_text, context_shortened = bounded_json(
@@ -336,6 +383,7 @@ __all__ = [
     "narrator_message_plan",
     "narrator_messages",
     "narrator_targets",
+    "resolve_narrator_behavior_grounding",
     "stream_delta",
     "stream_payload",
     "vision_probe_content",
