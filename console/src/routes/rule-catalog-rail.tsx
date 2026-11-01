@@ -1,4 +1,4 @@
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { t } from "./i18n/governance";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 
@@ -61,7 +61,12 @@ export function RulesCatalogRail({
           <a
             class={selection === "controls" ? "is-active" : undefined}
             aria-current={selection === "controls" ? "page" : undefined}
-            href={routeHref("rules", { params: { view: "controls" } })}
+            href={routeHref("rules", {
+              params: {
+                view: "controls",
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              },
+            })}
           >
             <strong>{t("governance.rules.view.controls")}</strong>
             <small>{t("governance.rules.rail.controlsHint")}</small>

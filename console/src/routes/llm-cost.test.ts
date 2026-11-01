@@ -98,6 +98,28 @@ describe("LLM usage provenance", () => {
     expect(decoded.latest_occurred_at).toBe("2026-07-10T09:00:00+00:00");
     expect(decoded.range_start).toBe("2026-07-04T00:00:00+00:00");
     expect(decoded.chat.total_tokens).toBe(15);
+    expect(() => decodeLlmCost({
+      source: "metering",
+      range_start: null,
+      range_end: null,
+      latest_occurred_at: null,
+      invocations: 1,
+      total: { ...summary, total_tokens: 12 },
+      chat: summary,
+      by_scope: [],
+      by_model: [],
+      chat_by_model: [],
+      by_mode: [],
+      by_conversation: [],
+      by_conversation_truncated: false,
+      conversation_count: 0,
+      by_hour: [],
+      by_day: [],
+      by_month: [],
+      records: [],
+      records_truncated: false,
+      record_count: 0,
+    })).toThrow(/total tokens MUST be >= prompt plus completion/);
     expect(decoded.by_model[0]?.key).toBe("gpt-4.1-mini");
     expect(decoded.total).not.toHaveProperty("cost");
     expect(decoded.records[0]?.usage_scope).toBe("operator_chat");

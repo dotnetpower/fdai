@@ -660,6 +660,32 @@ describe("agents.model engagement helpers", () => {
     const s = makeInitialState();
     expect(engagedGroups(s)).toEqual([]);
   });
+
+  it("tracks completed handler counts and last duration per agent", async () => {
+    const { completedHandlerCountForAgent, lastHandlerDurationMsForAgent } = await import(
+      "./agents.model"
+    );
+    let s = makeInitialState();
+    s = reducer(s, {
+      kind: "message",
+      msg: {
+        ...stateMsg("Forseti", "idle"),
+        detail: "Processed object.event",
+        activity_id: "handler:forseti-1",
+        phase: "completed",
+        topic: "object.event",
+        event_id: "evt-1",
+        event_type: "metric.anomaly",
+        started_at: "2026-07-12T00:00:00Z",
+        completed_at: "2026-07-12T00:00:00.015Z",
+        duration_ms: 15,
+      },
+    });
+    expect(completedHandlerCountForAgent(s, "Forseti")).toBe(1);
+    expect(lastHandlerDurationMsForAgent(s, "Forseti")).toBe(15);
+    expect(completedHandlerCountForAgent(s, "Odin")).toBe(0);
+    expect(lastHandlerDurationMsForAgent(s, "Odin")).toBeNull();
+  });
 });
 
 describe("agents.model org chart + agent events", () => {

@@ -284,7 +284,7 @@ function OntologyCatalogView({
 }) {
   const initialPathSelection = ontologyPathSelection(currentRoute().segments);
   const initialName = useMemo(() => {
-    const requested = new URLSearchParams(window.location.search).get("type");
+    const requested = currentRoute().search.get("type");
     if (requested && data.nodes?.some((node) => node.name === requested)) return requested;
     if (requested) return null;
     return data.nodes?.[0]?.name ?? null;
@@ -332,7 +332,7 @@ function OntologyCatalogView({
     };
   }, [actionTypes, data.link_types, data.nodes]);
   const selectType = (name: string | null): void => {
-    if (name !== null) navigate(ontologyDeclarationHref("object-types", name));
+    if (name !== null) navigate(ontologyDeclarationHref("object-types", name, currentRoute().search));
   };
   usePublishViewContext(
     () => {

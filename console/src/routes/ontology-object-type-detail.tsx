@@ -8,7 +8,9 @@ import {
   UnavailableState,
   type AsyncState,
 } from "../components/ui";
-import { navigate } from "../router";
+import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
+import { currentRoute, navigate, routeHref } from "../router";
 import { t } from "./i18n/ontology";
 import { ontologyReleaseHref } from "./ontology-release-detail";
 import {
@@ -44,9 +46,11 @@ interface WorkbenchData {
 export function ontologyDeclarationHref(
   kind: "object-types" | "link-types" | "action-types",
   name: string,
+  search?: URLSearchParams,
 ): string {
   const identity = encodeURIComponent(name).replaceAll("_", "%5F");
-  return `/ontology/${kind}/${identity}`;
+  const base = `/ontology/${kind}/${identity}`;
+  return search?.get("data") === "sample" ? `${base}?data=sample` : base;
 }
 
 export function OntologyObjectTypeDetailRoute({ client, name }: Props) {
@@ -133,7 +137,15 @@ export function OntologyObjectTypeDetailRoute({ client, name }: Props) {
         title={name}
         subtitle={t("ontology.detail.subtitle")}
         actions={(
-          <a class="button button-secondary" href="/ontology?view=objects">
+          <a
+            class="button button-secondary"
+            href={routeHref("ontology", {
+              params: {
+                view: "objects",
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              },
+            })}
+          >
             {t("ontology.detail.back")}
           </a>
         )}
@@ -168,6 +180,34 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
   const provenance = declaration.provenance;
   const properties = Object.entries(declaration.properties);
   const graphAvailable = summary.nodes !== undefined && summary.edges !== undefined;
+  usePublishViewContext(
+    () => ({
+      routeId: "ontology",
+      routeLabel: declaration.name,
+      purpose: t("ontology.detail.subtitle"),
+      glossary: composeGlossary([TERMS.actionType]),
+      headline: `${declaration.name} v${declaration.version} (${properties.length} properties)`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "object_type", value: declaration.name, group: "declaration" },
+        { key: "version", value: declaration.version, group: "declaration" },
+        { key: "key_property", value: declaration.key, group: "declaration" },
+        { key: "property_count", value: properties.length, group: "declaration" },
+        { key: "release_digest", value: summary.ontology_release_digest, group: "declaration" },
+      ],
+      records: {
+        properties: properties.map(([propertyName, property]) => ({
+          name: propertyName,
+          type: property.type,
+          required: property.required,
+          access_scope: property.access_scope,
+        })),
+        relationships: detail.relationships.map((item) => ({ ...item })),
+        related_actions: detail.related_actions.map((item) => ({ ...item })),
+      },
+    }),
+    [declaration, detail.related_actions, detail.relationships, properties, summary.ontology_release_digest],
+  );
   return (
     <article class="ontology-detail-workbench">
       <section class="ontology-detail-identity" aria-labelledby="ontology-detail-identity-title">

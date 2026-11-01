@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import Callable, Mapping
+from dataclasses import replace
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -13,6 +15,8 @@ from fdai.core.decision_case import (
 )
 from fdai.core.impact_analysis import ChangeAssessment, ChangeGraphEvidenceReceipt
 from fdai.core.operational_context import SourceFreshness
+from fdai.core.operational_context.test_context import TestContextDecision
+from fdai.core.operational_evidence.owner_outcome import OperationalEvidenceAttempt
 from fdai.core.operational_planning import SpecialistPlanningProjection
 
 _DecisionProjection = DomainDecisionProjection | SpecialistPlanningProjection
@@ -210,3 +214,48 @@ def _evidence_refs(raw: object) -> tuple[str, ...]:
     if all(ref.startswith(_SPECIALIST_MARKER_PREFIX) for ref in refs):
         raise ValueError("domain_evidence MUST carry lineage beyond the specialist marker")
     return tuple(dict.fromkeys(refs))
+
+
+async def resolve_advised_action(
+    event: Mapping[str, Any],
+    *,
+    t1_advisor: Callable[[dict[str, Any]], Any] | None,
+    t2_advisor: Callable[[dict[str, Any]], Any] | None,
+    record_behavior: Callable[[str], None],
+) -> tuple[str | None, str | None]:
+    """Consult optional T1 and T2 advisors when T0 rule matching abstains."""
+    for advisor, tier, hit_key, err_key in (
+        (t1_advisor, "T1", "t1:reused", "t1:advisor_error"),
+        (t2_advisor, "T2", "t2:proposed", "t2:advisor_error"),
+    ):
+        if advisor is None:
+            continue
+        try:
+            candidate = advisor(dict(event))
+            if asyncio.iscoroutine(candidate):
+                candidate = await candidate
+            if isinstance(candidate, str) and candidate.strip():
+                record_behavior(hit_key)
+                return candidate.strip(), tier
+        except Exception:  # noqa: BLE001 - advisor boundary fails closed
+            record_behavior(err_key)
+    return None, None
+
+
+def classified_hold(
+    result: TestContextDecision,
+    context_attempt: OperationalEvidenceAttempt,
+    observation_attempt: OperationalEvidenceAttempt,
+) -> TestContextDecision:
+    """Name an explicit rejection class and cite its record; unavailable keeps the generic hold."""
+    attempt = {
+        "context_admission_required": context_attempt,
+        "observation_admission_required": observation_attempt,
+    }.get(result.reason)
+    if attempt is None:
+        return result
+    return replace(
+        result,
+        reason=attempt.hold_reason(result.reason),
+        evidence_rejection_ref=attempt.rejection_digest,
+    )

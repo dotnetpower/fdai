@@ -38,7 +38,7 @@ from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
 _MAX_CLAIMS = 3
 _MAX_PARTICIPANTS = 3
 _MAX_T2_CONCLUSION_CHARS = 4_000
-_T2_SYNTHESIS_TIMEOUT_SECONDS = 1.2
+_T2_SYNTHESIS_TIMEOUT_SECONDS = 8.0
 _FIXED_ASSURANCE_SCENARIO_ID = "conversation-assurance-census-v1"
 #: Same rough tokenizer the prompt composer uses, so an estimate here and
 #: a layer budget there speak in one unit.
@@ -208,11 +208,18 @@ class ConversationDeliberator:
         metering: MeteringSink | None = None,
         t2_model_key: str = "",
         synthesis_verifier: ConversationSynthesisVerifier | None = None,
+        synthesis_timeout_seconds: float = _T2_SYNTHESIS_TIMEOUT_SECONDS,
     ) -> None:
         if not specs:
             raise ValueError("conversation deliberator requires agent specs")
         if synthesis_verifier is not None and id(synthesis_verifier) == id(t2_synthesizer):
             raise ValueError("conversation synthesis requires an independent verifier")
+        if (
+            isinstance(synthesis_timeout_seconds, bool)
+            or not isinstance(synthesis_timeout_seconds, int | float)
+            or synthesis_timeout_seconds <= 0
+        ):
+            raise ValueError("synthesis_timeout_seconds MUST be positive")
         self._specs = {spec.name: spec for spec in specs}
         self._semantic_router = semantic_router
         self._t2_synthesizer = t2_synthesizer
@@ -230,6 +237,7 @@ class ConversationDeliberator:
         )
         self._t2_model_key = t2_model_key
         self._synthesis_verifier = synthesis_verifier
+        self._synthesis_timeout_seconds = float(synthesis_timeout_seconds)
 
     async def deliberate(
         self,
@@ -551,7 +559,7 @@ class ConversationDeliberator:
         try:
             outcome = await asyncio.wait_for(
                 synthesizer.synthesize(request),
-                timeout=_T2_SYNTHESIS_TIMEOUT_SECONDS,
+                timeout=self._synthesis_timeout_seconds,
             )
         except TimeoutError:
             _LOG.warning("pantheon_t2_deliberation_timeout")
@@ -589,7 +597,7 @@ class ConversationDeliberator:
         else:
             try:
                 verification = await asyncio.wait_for(
-                    verifier.verify(request, outcome), timeout=_T2_SYNTHESIS_TIMEOUT_SECONDS
+                    verifier.verify(request, outcome), timeout=self._synthesis_timeout_seconds
                 )
             except TimeoutError:
                 result["t2_status"] = "verification_timeout"
@@ -780,16 +788,7 @@ __all__ = [
 
 
 def _budget_key(correlation_id: str, *, question: str, primary: str) -> str:
-    """Return the unit of work a deliberation charges its budget to.
-
-    A correlation id is the right key when the caller supplies one. When
-    it does not, every deliberation would otherwise share the empty
-    string, so one synthesis would spend the budget of every unrelated
-    question that followed it. Fall back to a stable digest of what the
-    round is actually about: re-asking the same question of the same
-    owner still costs nothing more, and a different question gets its own
-    ceiling. Deterministic, so a recorded conversation replays.
-    """
+    """Return the unit of work a deliberation charges its budget to."""
     if correlation_id:
         return correlation_id
     digest = hashlib.sha256(f"{primary}\n{question}".encode()).hexdigest()

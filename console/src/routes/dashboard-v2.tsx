@@ -109,14 +109,14 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   }, [client, revision]);
   return <div class="stack dashboard-v2-page">
     <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<>
-      <a class="cs-control-button" href={routeHref("dashboard")}>{t("original")}</a>
+      <a class="cs-control-button" href={dashboardOriginalHref()}>{t("original")}</a>
       <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading" || refreshInFlight}>{t("refresh")}</button>
     </>} />
     {refreshInFlight && !refreshDelayed && <p class="dv2-notice" role="status">{t("refreshing")}</p>}
     {refreshDelayed && visibleState.status === "ready" && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
     {(recoveryState === "exhausted" || recoveryState === "deployment-required") && <p class="dv2-notice" role="status">
       {visibleState.status === "ready" && t(recoveryState === "deployment-required" ? "releaseMismatch" : "recoveryExhausted")}
-      {" "}<a href="/settings/diagnostics">{t("diagnostics")}</a>
+      {" "}<a href={routeHref("settings-diagnostics")}>{t("diagnostics")}</a>
     </p>}
     {visibleState.status !== "ready" && <DashboardPendingContext status={recoveryState ?? visibleState.status} />}
     {visibleState.status === "loading" && recoveryState === "synchronizing" && <p class="dv2-notice">{t("synchronizingDetail")}</p>}
@@ -154,8 +154,27 @@ function StateBadge({ value, text }: { readonly value: DashboardState; readonly 
   return <span class="dv2-state" data-tone={style.tone}>{style.symbol} {text ?? stateText(value)}</span>;
 }
 
+export function dashboardOriginalHref(search: URLSearchParams = currentRoute().search): string {
+  return routeHref("dashboard", {
+    params: { data: search.get("data") === "sample" ? "sample" : null },
+  });
+}
+
+export function dashboardResourceHref(
+  resource?: DashboardResource,
+  search: URLSearchParams = currentRoute().search,
+): string {
+  return routeHref("ontology", {
+    params: {
+      view: "instances",
+      instance: resource?.id,
+      data: search.get("data") === "sample" ? "sample" : null,
+    },
+  });
+}
+
 function resourceHref(resource?: DashboardResource): string {
-  return routeHref("ontology", { params: { view: "instances", instance: resource?.id } });
+  return dashboardResourceHref(resource);
 }
 
 export function dashboardSummaryHref(

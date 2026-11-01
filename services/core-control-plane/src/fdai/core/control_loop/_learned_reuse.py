@@ -52,6 +52,7 @@ async def record_learned_reuse_advisory(
         "producer_principal": "Forseti",
         "action_kind": "control_loop.t1_reuse_advisory",
         "mode": Mode.SHADOW.value,
+        "tier": "t1",
         "decision": "abstain",
         "reason": GOVERNED_EXECUTION_UNSELECTED_REASON,
         "citing_rule_ids": list(citing),

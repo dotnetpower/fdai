@@ -32,20 +32,10 @@ suite plus the P1 e2e replay when a T2 stage is exercised.
 
 Wave 4.5 delta-2b: the gate accepts an optional
 :class:`~fdai.core.quality_gate.debate.DebateOrchestrator` and a
-:class:`~fdai.core.quality_gate.debate_router.DebateRouterConfig`.
-When cross-check quorum disagrees AND both are wired AND the router
-returns :attr:`DebateRoute.DEBATE`, the gate runs the debate and:
-
-- treats ``DebateOutcome(verdict=PROCEED)`` as audit evidence only. It
-  does NOT clear the disagreement. ``cross_check_below_quorum`` stays in
-  ``reasons``, so the outcome stays ``DISAGREE`` and the candidate still
-  reaches a human. A debate cannot buy back mixed-model quorum;
-- keeps the disagreement on ``DebateOutcome(verdict=ABORT)`` and adds
-  the orchestrator's ``reason`` string to the audit trail.
-
-The router / orchestrator MUST be provided together (both, or neither);
-half-wiring raises :class:`ValueError` at construction so a fork bug is
-caught at build time.
+:class:`~fdai.core.quality_gate.debate_router.DebateRouterConfig` (provided
+together or neither). When cross-check quorum disagrees and the router selects
+:attr:`DebateRoute.DEBATE`, ``PROCEED`` is recorded as audit evidence only and
+``ABORT`` appends the orchestrator reason; disagreement still routes to HIL.
 """
 
 from __future__ import annotations
@@ -429,6 +419,14 @@ class QualityGate:
             else None
         )
         self._evidence_clock = evidence_clock or (lambda: datetime.now(tz=UTC))
+
+    @property
+    def has_debate(self) -> bool:
+        return self._debate_orchestrator is not None and self._debate_router_config is not None
+
+    @property
+    def has_rubric(self) -> bool:
+        return self._rubric_evaluator is not None
 
     def _rubric_mode(self, action_type: str) -> tuple[bool, str | None]:
         """Return whether the rubric leg shadows this candidate, and the resolver's reason.

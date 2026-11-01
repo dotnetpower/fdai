@@ -98,6 +98,10 @@ class LiveStageKafkaRelay:
             window_seconds=_LIVE_REPLAY_WINDOW_SECONDS,
         )
         self._agent_hub = agent_hub
+        self._agent_hub.enable_recent_replay(
+            capacity=_LIVE_REPLAY_CAPACITY,
+            window_seconds=_LIVE_REPLAY_WINDOW_SECONDS,
+        )
         self._agent_projector = AgentActivityProjector()
         self._credential = credential
         host = config.bootstrap_servers.split(",", 1)[0].split(":", 1)[0]

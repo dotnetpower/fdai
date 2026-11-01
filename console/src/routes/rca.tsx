@@ -40,9 +40,17 @@ function correlationFromLocation(): string {
   return normalizeRcaCorrelationId(currentRoute().search.get("correlation"));
 }
 
-export function rcaCorrelationHref(correlationId: string): string {
+export function rcaCorrelationHref(
+  correlationId: string,
+  search?: URLSearchParams,
+): string {
   const normalized = normalizeRcaCorrelationId(correlationId);
-  return routeHref("rca", { params: { correlation: normalized || null } });
+  return routeHref("rca", {
+    params: {
+      correlation: normalized || null,
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
+  });
 }
 
 export function RcaRoute({ client }: Props) {
@@ -168,7 +176,11 @@ export function RcaRoute({ client }: Props) {
                 setLookupFocusRequest((current) => current + 1);
                 void fetchRca(selectedCorrelationId);
               } else {
-                navigate(rcaCorrelationHref(normalized), false, { fdaiRcaLookupFocus: true });
+                navigate(
+                  rcaCorrelationHref(normalized, currentRoute().search),
+                  false,
+                  { fdaiRcaLookupFocus: true },
+                );
               }
             }
           }}
@@ -284,7 +296,7 @@ function consumeLookupFocusState(): boolean {
   window.history.replaceState(
     nextState,
     "",
-    `${route.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    `${route.canonicalPathname}${query ? `?${query}` : ""}${window.location.hash}`,
   );
   return true;
 }

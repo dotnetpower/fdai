@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { StatusPill } from "../components/ui";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
 import type {
@@ -71,7 +71,10 @@ export function RuleTraceWorkspace({
     ?? data.steps.at(-1)
     ?? null;
   const auditHref = routeHref("audit", {
-    params: { correlation: data.correlation_id },
+    params: {
+      data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+      correlation: data.correlation_id,
+    },
   });
 
   return (
@@ -309,7 +312,11 @@ function TraceStepDetail({
             <p class="trace-no-reason">
               {t("evidence.trace.noReasonGuidance")}
               <a href={routeHref("audit", {
-                params: { correlation: correlationId, entry: step.seq },
+                params: {
+                  data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                  correlation: correlationId,
+                  entry: step.seq,
+                },
               })}>
                 {t("evidence.trace.openRawEntry")}
               </a>

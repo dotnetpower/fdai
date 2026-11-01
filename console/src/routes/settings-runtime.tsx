@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
@@ -37,6 +38,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef(0);
+  useSettingsDirtyState("settings-runtime", Object.keys(changes).length > 0);
 
   const applyView = (next: RuntimeSettingsView) => {
     setView(next);
@@ -65,6 +67,11 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   };
 
   useEffect(() => {
+    setView(null);
+    setDraft({});
+    setChanges({});
+    setSaving(false);
+    setNotice(null);
     void load();
     return () => {
       generation.current += 1;

@@ -147,6 +147,7 @@ export function AgentsRoute({ client }: Props) {
   ): void => {
     navigate(routeHref(nextLayout === "org" ? "pantheon" : "agents", {
       params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
         agent,
         layer: rosterLayer === "all" ? null : rosterLayer,
         state: rosterState === "all" ? null : rosterState,
@@ -163,6 +164,7 @@ export function AgentsRoute({ client }: Props) {
   ): void => {
     const href = routeHref("agents", {
       params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
         view: layout === "roster" ? null : layout,
         agent: selectedAgent,
         layer: layer === "all" ? null : layer,

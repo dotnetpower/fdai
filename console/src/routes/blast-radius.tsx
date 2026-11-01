@@ -16,7 +16,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import { currentRoute, navigate, replaceRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import {
   BlastImpact,
@@ -137,16 +137,20 @@ export function BlastRadiusRoute({ client }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
   function syncDraft(next: BlastRadiusQuery): void {
     requestGeneration.current += 1;
     setState({ status: "idle" });
-    replaceRouteState(blastRadiusHref(next, currentRoute().search.get("result")));
+    replaceRouteState(
+      blastRadiusHref(next, currentRoute().search.get("result"), currentRoute().search),
+    );
   }
 
   function toggleLink(name: string): void {
@@ -245,7 +249,7 @@ export function BlastRadiusRoute({ client }: Props) {
               depth,
               links: [...linkSet],
               architectureView,
-            }));
+            }, null, currentRoute().search));
           }}
         >
           <ImpactResourcePicker
@@ -325,10 +329,24 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
     depth: data.traversal_depth,
     links: data.traversal_links,
     architectureView,
-  }, "table");
+  }, "table", currentRoute().search);
   const [view, setView] = useState<"impact" | "map" | "table">(
     initialResult === "map" || initialResult === "table" ? initialResult : "impact",
   );
+  useEffect(() => {
+    const syncResult = () => {
+      const next = currentRoute().search.get("result");
+      setView(next === "map" || next === "table" ? next : "impact");
+    };
+    window.addEventListener("popstate", syncResult);
+    window.addEventListener("fdai:route-changed", syncResult);
+    window.addEventListener(ROUTE_STATE_EVENT, syncResult);
+    return () => {
+      window.removeEventListener("popstate", syncResult);
+      window.removeEventListener("fdai:route-changed", syncResult);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncResult);
+    };
+  }, []);
   const sourceCoverage = data.relationship_source_coverage;
   const sourceFullyMaterialized = sourceCoverage !== null
     && sourceCoverage.complete

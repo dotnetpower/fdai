@@ -12,7 +12,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { presentationLabel, t } from "./i18n/evidence";
 import {
   panelBoolean,
@@ -46,7 +46,6 @@ export function ConversationDeliveryRoute({ client }: { readonly client: Operato
   const [state, setState] = useState<AsyncState<ConversationDeliveryResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
-    setState({ status: "loading" });
     setState({ status: "loading" });
     client.panel<unknown>("/conversation-delivery")
       .then((value) => {
@@ -123,6 +122,14 @@ function nullableMetric(value: Readonly<Record<string, unknown>>, key: string): 
   return panelNonNegativeNumber(value, key, "conversation delivery.delivery_latency_ms");
 }
 
+export function conversationDeliveryEvidenceHref(
+  search: URLSearchParams = currentRoute().search,
+): string {
+  return `${routeHref("conversation-delivery", {
+    params: { data: search.get("data") === "sample" ? "sample" : null },
+  })}#conversation-delivery-evidence`;
+}
+
 function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse }) {
   usePublishViewContext(
     () => ({
@@ -150,7 +157,7 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
     [data],
   );
   const breakerEntries = Object.entries(data.breaker_states);
-  const evidenceHref = `${routeHref("conversation-delivery")}#conversation-delivery-evidence`;
+  const evidenceHref = conversationDeliveryEvidenceHref();
   return (
     <div class="stack">
       <div class="governance-readonly-banner"><strong>{t("evidence.delivery.bannerTitle")}</strong><span>{t("evidence.delivery.bannerBody")}</span></div>

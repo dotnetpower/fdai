@@ -57,7 +57,7 @@ export function OnboardingRoute({
       const nextState = await loadOnboardingState(client);
       if (request !== generation.current) return;
       setState(nextState);
-      if (nextState.status === "ready") setCheckedAt(new Date().toISOString());
+      setCheckedAt(nextState.status === "ready" ? new Date().toISOString() : null);
     } finally {
       if (request === generation.current) setRefreshing(false);
     }
@@ -65,7 +65,7 @@ export function OnboardingRoute({
   useEffect(() => {
     void load(true);
     return () => { generation.current += 1; };
-  }, [client]);
+  }, [client, dataMode]);
   const refreshAction = (
     <button
       type="button"

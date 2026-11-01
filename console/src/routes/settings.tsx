@@ -1,5 +1,6 @@
 import type { OperatorApiClient } from "../api";
 import { PageHeader } from "../components/ui";
+import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { t } from "../i18n";
 import { SettingsContextSections } from "./settings.context";
 import { useSettingsController } from "./settings.controller";
@@ -30,6 +31,7 @@ interface Props { readonly client: OperatorApiClient }
 
 export function SettingsGeneralRoute({ client }: Props) {
   const controller = useSettingsController(client);
+  useSettingsDirtyState("settings-general-context", controller.contextDirty);
   return (
     <div class="stack settings-route">
       <PageHeader title={t("route.settingsGeneral")} subtitle={settingsGeneralText("subtitle")} />

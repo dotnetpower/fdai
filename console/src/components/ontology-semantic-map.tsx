@@ -1,4 +1,4 @@
-import { useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { formatNumber, t } from "../routes/i18n/ontology";
 import type { OntologyEdge, OntologyNode } from "./ontology-graph";
 import {
@@ -36,6 +36,11 @@ export function OntologySemanticMap({
   const [selectedName, setSelectedName] = useState<string | null>(preferred ?? first);
   const [lens, setLens] = useState<OntologySemanticLens>("relationship");
   const selected = nodes.find((node) => node.name === selectedName) ?? null;
+  useEffect(() => {
+    if (selectedName !== null && selected === null) {
+      setSelectedName(preferred ?? first);
+    }
+  }, [first, preferred, selected, selectedName]);
   const selectedRelations = relationshipsForSemanticNode(projection.relations, selectedName);
   const relationCountByNode = useMemo(() => {
     const counts = new Map<string, number>();
