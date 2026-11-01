@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
@@ -11,12 +13,17 @@ from fdai_operator_service.families.conversation.contracts import ConversationBo
 
 ALLOWED_MODES = frozenset({"queue", "interrupt", "steer"})
 ALLOWED_KINDS = frozenset({"prose", "approval", "denial", "emergency_stop"})
-MAX_PENDING_ITEMS = 32
+MAX_QUEUED_BUSY_INPUTS = 32
+MAX_PENDING_ITEMS = MAX_QUEUED_BUSY_INPUTS
 MAX_CONTENT_BYTES = 4_000
 
 
 class BusyInputAuthorizationError(ConversationBoundaryError, PermissionError):
     """Raised when a caller attempts to access or mutate another principal's busy session."""
+
+
+class BusyInputCapacityError(ConversationBoundaryError, ValueError):
+    """Raised when a busy session reaches `MAX_QUEUED_BUSY_INPUTS` queued items."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +47,14 @@ class BusySessionRecord:
     revision: int
     active_turn_id: str | None
     pending: tuple[BusyInputItemProjection, ...] = ()
+
+    def __post_init__(self) -> None:
+        if len(self.pending) > MAX_QUEUED_BUSY_INPUTS:
+            raise BusyInputCapacityError(
+                429,
+                "queue_capacity_exceeded",
+                "busy-input pending queue capacity reached",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,8 +185,8 @@ class BusyInputOperatorMaterializer:
                 "execution_authority": "none",
             }
 
-        if len(record.pending) >= MAX_PENDING_ITEMS:
-            raise ConversationBoundaryError(
+        if len(record.pending) >= MAX_QUEUED_BUSY_INPUTS:
+            raise BusyInputCapacityError(
                 429,
                 "queue_capacity_exceeded",
                 "busy-input pending queue capacity reached",
@@ -296,7 +311,7 @@ class BusyInputOperatorMaterializer:
 
     @staticmethod
     def _project(record: BusySessionRecord) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "session_id": record.session_id,
             "mode": record.mode,
             "revision": record.revision,
@@ -319,6 +334,9 @@ class BusyInputOperatorMaterializer:
             "read_only_projection": True,
             "execution_authority": "none",
         }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        payload["state_digest"] = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+        return payload
 
 
 def _non_empty(value: object, name: str) -> str:
@@ -330,7 +348,11 @@ def _non_empty(value: object, name: str) -> str:
 __all__ = [
     "ALLOWED_KINDS",
     "ALLOWED_MODES",
+    "BusyInputAuthorizationError",
+    "BusyInputCapacityError",
     "BusyInputItemProjection",
     "BusyInputOperatorMaterializer",
     "BusySessionRecord",
+    "MAX_PENDING_ITEMS",
+    "MAX_QUEUED_BUSY_INPUTS",
 ]

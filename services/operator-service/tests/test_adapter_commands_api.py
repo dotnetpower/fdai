@@ -98,6 +98,9 @@ async def test_adapter_commands_status_pause_resume_rbac_and_audit_receipts() ->
     assert initial_status.can_send is True
     assert initial_status.execution_authority == "none"
     assert initial_status.mounted_in_console_api is False
+    assert initial_status.state_digest.startswith("sha256:")
+    assert len(initial_status.state_digest) == 71
+    assert initial_status.to_json()["state_digest"] == initial_status.state_digest
 
     # Reader cannot pause or resume.
     with pytest.raises(AdapterCommandError) as forbidden_exc:
@@ -386,3 +389,64 @@ def test_delivery_panel_recursively_rejects_nested_forbidden_identifier_keys(
             empty_snapshot,
             progressive={"nested": [{"deep": {forbidden_key: "leaked"}}]},
         )
+
+
+async def test_adapter_commands_expected_revision_cas_and_panel_digest_and_negative_counts() -> (
+    None
+):
+    from fdai_operator_service.conversation_delivery_panel_route import (
+        project_conversation_delivery_panel_payload,
+    )
+
+    store = InMemoryAdapterCommandBreakerStore()
+    controller = AdapterCommandController(store=store, clock=lambda: NOW)
+    owner = AdapterCommandPrincipal(principal_id="operator:owner-1", roles=frozenset({"Owner"}))
+
+    with pytest.raises(AdapterCommandError) as pause_cas_exc:
+        await controller.pause(
+            principal=owner,
+            adapter_id="slack",
+            reason="maintenance",
+            expected_revision=5,
+        )
+    assert pause_cas_exc.value.status_code == 409
+    assert pause_cas_exc.value.code == "revision_conflict"
+
+    paused = await controller.pause(
+        principal=owner,
+        adapter_id="slack",
+        reason="maintenance",
+        expected_revision=0,
+    )
+    assert paused.revision == 0
+
+    with pytest.raises(AdapterCommandError) as resume_cas_exc:
+        await controller.resume(
+            principal=owner,
+            adapter_id="slack",
+            reason="recovered",
+            expected_revision=99,
+        )
+    assert resume_cas_exc.value.status_code == 409
+    assert resume_cas_exc.value.code == "revision_conflict"
+
+    resumed = await controller.resume(
+        principal=owner,
+        adapter_id="slack",
+        reason="recovered",
+        expected_revision=0,
+    )
+    assert resumed.revision == 1
+    assert resumed.state_digest != paused.state_digest
+
+    empty_snapshot = ChannelDeliverySnapshot(
+        deliveries=(), attempts=(), acknowledgements=(), breakers=()
+    )
+    panel = project_conversation_delivery_panel_payload(empty_snapshot)
+    assert str(panel["panel_digest"]).startswith("sha256:")
+    assert len(str(panel["panel_digest"])) == 71
+
+    with pytest.raises(ValueError, match="dead_letter_count"):
+        project_conversation_delivery_panel_payload(empty_snapshot, dead_letter_count=-1)
+    with pytest.raises(ValueError, match="breaker_open_count"):
+        project_conversation_delivery_panel_payload(empty_snapshot, breaker_open_count=-1)

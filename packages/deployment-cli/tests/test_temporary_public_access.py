@@ -109,6 +109,17 @@ def test_successful_bounded_host_cidr_execution_cleanup_readback_and_idempotent_
     assert outcome.phase2_audit.phase == "phase_2"
     assert outcome.phase2_audit.phase_status == "closed_clean"
     assert outcome.receipt_digest.startswith("sha256:")
+    summary = outcome.to_dict()
+    assert summary["status"] == "closed_clean"
+    assert summary["terminal_success"] is True
+    assert summary["requires_operator_remediation"] is False
+    assert summary["correlation_id"] == req.correlation_id
+    assert summary["rule_id"] == req.rule_id
+    assert summary["caller_cidr"] == "203.0.113.42/32"
+    assert summary["ttl_seconds"] == 600
+    assert summary["phase1_receipt_digest"] == outcome.phase1_audit.receipt_digest
+    assert summary["phase2_receipt_digest"] == outcome.phase2_audit.receipt_digest
+    assert summary["receipt_digest"] == outcome.receipt_digest
     assert driver.grant_calls == 1
     assert driver.revoke_calls == 1
     assert driver.readback_calls == 1

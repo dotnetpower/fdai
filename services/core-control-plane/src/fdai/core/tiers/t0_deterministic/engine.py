@@ -173,6 +173,17 @@ class T0Engine:
         that rule's outcome to an abstain and continues, so a single
         broken rule cannot silence the rest of the catalog.
         """
+        for field_name, field_val in (
+            ("event_id", event_id),
+            ("signal_id", signal_id),
+            ("resource_id", resource_id),
+        ):
+            if (
+                not isinstance(field_val, str)
+                or not field_val.strip()
+                or any(ord(ch) < 32 for ch in field_val)
+            ):
+                raise ValueError(f"{field_name} MUST be non-empty printable text")
         candidates = self._index.rules_for_signal(
             resource_type=resource_type,
             signal_type=signal_type,

@@ -90,6 +90,8 @@ describe("task-workers.model", () => {
     expect(enView.canCreateWorker).toBe(false);
     expect(enView.canCancelWorker).toBe(false);
     expect(enView.canApproveOrExecute).toBe(false);
+    expect(enView.activeWorkerCount).toBe(0);
+    expect(enView.terminalWorkerCount).toBe(1);
     expect(enView.workers[0]?.statusLabel).toBe("Succeeded");
     expect(enView.workers[0]?.untrustedBadgeLabel).toBe("Untrusted contribution");
     expect(enView.selectedSummary).toBe("Observed resource state is healthy.");

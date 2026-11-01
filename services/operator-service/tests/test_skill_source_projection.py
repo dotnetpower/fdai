@@ -112,6 +112,8 @@ async def test_sources_register_disabled_by_default_and_reads_require_reader_rol
     )
     assert browse.payload["read_only"] is True
     assert browse.payload["execution_authority"] == "none"
+    assert browse.payload["source_count"] == 1
+    assert browse.payload["candidate_count"] == 1
     sources = browse.payload["sources"]
     assert isinstance(sources, list) and sources[0]["enabled"] is False
 
@@ -284,3 +286,20 @@ async def test_proposals_reject_nested_secret_keys_and_control_characters() -> N
             now=NOW,
         )
     assert bad_reason.value.code == "invalid_reason"
+
+    with pytest.raises(SkillSourceProjectionError) as missing_cand:
+        await bridge.submit_proposal(
+            WorkflowProposal(
+                operation=WorkflowOperation.SKILL_SOURCE_APPROVAL_PROPOSAL,
+                principal_id="approver-user",
+                idempotency_key="idem-missing-cand",
+                expected_revision="rev-1",
+                request_source="operator-http:approve",
+                path_parameters={"source_id": "operations-skills"},
+                payload={"candidate_id": "nonexistent-candidate"},
+                principal_roles=("approver",),
+            ),
+            now=NOW,
+        )
+    assert missing_cand.value.status_code == 404
+    assert missing_cand.value.code == "candidate_not_found"

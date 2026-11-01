@@ -236,6 +236,27 @@ class TemporaryPublicAccessOutcome(Generic[T_co]):
     phase2_audit: TemporaryAccessAuditRecord
     receipt_digest: str
 
+    def to_dict(self) -> dict[str, object]:
+        """Return a canonical JSON-safe summary of this temporary public-access outcome."""
+        return {
+            "status": self.status,
+            "terminal_success": self.terminal_success,
+            "requires_operator_remediation": self.requires_operator_remediation,
+            "correlation_id": self.correlation_id,
+            "rule_id": self.rule_id,
+            "target_resource_id": self.target_resource_id,
+            "caller_cidr": self.caller_cidr,
+            "ttl_seconds": self.ttl_seconds,
+            "operation_succeeded": self.operation_succeeded,
+            "cleanup_succeeded": self.cleanup_succeeded,
+            "readback_verified_absent": self.readback_verified_absent,
+            "operation_error": self.operation_error,
+            "cleanup_error": self.cleanup_error,
+            "phase1_receipt_digest": self.phase1_audit.receipt_digest,
+            "phase2_receipt_digest": self.phase2_audit.receipt_digest,
+            "receipt_digest": self.receipt_digest,
+        }
+
 
 class TemporaryPublicAccessCoordinator:
     """Coordinate bounded ``/32`` temporary public access, cleanup, readback, and two-phase audit."""

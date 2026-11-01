@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Final, Literal, Protocol, runtime_checkable
 
 RETRIEVAL_FLOOR: Final[float] = 0.05
@@ -201,6 +203,46 @@ class BehaviorResolutionResult:
     verification: BehaviorVerificationMetadata = field(
         default_factory=lambda: BehaviorVerificationMetadata(verified=False)
     )
+    total_candidates: int = 0
+    result_digest: str = ""
+
+    def __post_init__(self) -> None:
+        material = {
+            "behavior_ids": list(self.behavior_ids),
+            "fallback_reason": self.fallback_reason,
+            "fallback_to_next_authority": self.fallback_to_next_authority,
+            "handled": self.handled,
+            "locale": self.locale,
+            "outcome": self.outcome,
+            "rendered_text": self.rendered_text,
+            "total_candidates": self.total_candidates,
+            "verified": self.verification.verified,
+            "reasons": list(self.verification.reasons),
+        }
+        canonical = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        expected = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+        if not self.result_digest:
+            object.__setattr__(self, "result_digest", expected)
+        elif self.result_digest != expected:
+            raise ValueError("BehaviorResolutionResult.result_digest mismatch")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "handled": self.handled,
+            "fallback_to_next_authority": self.fallback_to_next_authority,
+            "outcome": self.outcome,
+            "fallback_reason": self.fallback_reason,
+            "locale": self.locale,
+            "behavior_ids": list(self.behavior_ids),
+            "sections": {k: list(v) for k, v in self.sections.items()},
+            "rendered_text": self.rendered_text,
+            "verification": asdict(self.verification),
+            "total_candidates": self.total_candidates,
+            "result_digest": self.result_digest,
+        }
+
+    def to_json(self) -> dict[str, object]:
+        return self.to_dict()
 
 
 def normalize_behavior_tokens(raw_text: str) -> tuple[str, ...]:
@@ -340,9 +382,10 @@ class OperatorBehaviorKnowledgeResolver:
         if fallback_reason is not None:
             return self._fallback_result(request.locale, fallback_reason, stripped, stripped_count)
         results = await self._index.search(request.raw_text, k=effective_k)
+        cand_count = len(results)
         if not results or results[0].score < RETRIEVAL_FLOOR:
             return self._fallback_result(
-                request.locale, "below_retrieval_floor", stripped, stripped_count
+                request.locale, "below_retrieval_floor", stripped, stripped_count, cand_count
             )
         is_comparison = any(
             tok in request.raw_text.casefold()
@@ -363,6 +406,7 @@ class OperatorBehaviorKnowledgeResolver:
                 count=stripped_count,
                 stale_cnt=stale_cnt,
                 reason="comparison_requires_two_fresh_contracts",
+                total_candidates=cand_count,
             )
         if (
             not is_comparison
@@ -379,6 +423,7 @@ class OperatorBehaviorKnowledgeResolver:
                 stripped=stripped,
                 count=stripped_count,
                 reason="conflicting_exact_contracts",
+                total_candidates=cand_count,
             )
         top = results[0]
         if top.stale:
@@ -397,6 +442,7 @@ class OperatorBehaviorKnowledgeResolver:
                 stale_cnt=len(top.stale_sources),
                 reindex=True,
                 reason="stale_or_untracked_source",
+                total_candidates=cand_count,
             )
         citations = tuple(
             BehaviorCitationRecord(
@@ -426,6 +472,7 @@ class OperatorBehaviorKnowledgeResolver:
             sections,
             rendered,
             meta,
+            total_candidates=cand_count,
         )
 
     @staticmethod
@@ -440,6 +487,7 @@ class OperatorBehaviorKnowledgeResolver:
         stale_cnt: int = 0,
         reindex: bool = False,
         reason: str,
+        total_candidates: int = 0,
     ) -> BehaviorResolutionResult:
         meta = BehaviorVerificationMetadata(
             verified=False,
@@ -450,12 +498,24 @@ class OperatorBehaviorKnowledgeResolver:
             reasons=(reason,),
         )
         return BehaviorResolutionResult(
-            True, False, outcome, None, locale, ids, rendered_text=msg, verification=meta
+            True,
+            False,
+            outcome,
+            None,
+            locale,
+            ids,
+            rendered_text=msg,
+            verification=meta,
+            total_candidates=total_candidates,
         )
 
     @staticmethod
     def _fallback_result(
-        locale: Literal["en", "ko"], reason: str, stripped: bool, count: int
+        locale: Literal["en", "ko"],
+        reason: str,
+        stripped: bool,
+        count: int,
+        total_candidates: int = 0,
     ) -> BehaviorResolutionResult:
         meta = BehaviorVerificationMetadata(
             verified=False,
@@ -464,7 +524,13 @@ class OperatorBehaviorKnowledgeResolver:
             reasons=(reason,),
         )
         return BehaviorResolutionResult(
-            False, True, "authority_fallback", reason, locale, verification=meta
+            False,
+            True,
+            "authority_fallback",
+            reason,
+            locale,
+            verification=meta,
+            total_candidates=total_candidates,
         )
 
     @staticmethod

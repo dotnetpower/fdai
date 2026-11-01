@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -98,6 +100,26 @@ class VerifiedReleaseCapabilityMaximums:
             "recalled_action_types",
             frozenset(item.strip() for item in self.recalled_action_types if item.strip()),
         )
+
+    def is_action_recalled(self, action_type: str) -> bool:
+        """Return whether ``action_type`` is explicitly recalled in the Release manifest."""
+        return isinstance(action_type, str) and action_type.strip() in self.recalled_action_types
+
+    def manifest_digest(self) -> str:
+        """Compute a canonical SHA-256 commitment over the verified Release maximums."""
+        payload = {
+            "installed_release_id": self.installed_release_id.strip(),
+            "manifest_release_id": self.manifest_release_id.strip(),
+            "signature_verified": self.signature_verified,
+            "metadata_current": self.metadata_current,
+            "rollback_protected": self.rollback_protected,
+            "capability_maximums": {
+                k: v.value for k, v in sorted(self.capability_maximums.items())
+            },
+            "recalled_action_types": sorted(self.recalled_action_types),
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
     def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
         normalized_action = action_type.strip()

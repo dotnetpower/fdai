@@ -76,6 +76,8 @@ describe("skill-sources.model", () => {
     expect(enView.executionAuthority).toBe("none");
     expect(enView.canApproveInConsole).toBe(false);
     expect(enView.canRevokeInConsole).toBe(false);
+    expect(enView.enabledSourceCount).toBe(1);
+    expect(enView.revokedSourceCount).toBe(0);
     expect(enView.sources[0]?.status).toBe("disabled_by_default");
     expect(enView.sources[0]?.statusLabel).toBe("Disabled by default");
     expect(enView.sources[1]?.status).toBe("ready");

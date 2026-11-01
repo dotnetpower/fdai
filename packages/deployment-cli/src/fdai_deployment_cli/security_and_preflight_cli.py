@@ -266,7 +266,8 @@ def evaluate_deploy_preflight_plan(
     if not isinstance(payload, Mapping):
         raise ValueError("preflight plan JSON must be an object")
 
-    plan_digest = f"sha256:{hashlib.sha256(raw_bytes).hexdigest()}"
+    plan_sha256 = "sha256:" + hashlib.sha256(raw_bytes).hexdigest()
+    plan_digest = plan_sha256
     changes = payload.get("resource_changes", [])
     if not isinstance(changes, list):
         raise ValueError("preflight plan resource_changes must be a list")
@@ -294,6 +295,7 @@ def evaluate_deploy_preflight_plan(
         "schema_version": "fdai.deploy-preflight.v1",
         "mode": mode,
         "plan_digest": plan_digest,
+        "plan_sha256": plan_sha256,
         "passed": passed,
         "create_count": create_count,
         "update_count": update_count,

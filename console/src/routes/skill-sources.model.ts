@@ -90,8 +90,12 @@ export interface SkillSourcesViewModel {
   readonly subtitle: string;
   readonly governanceNotice: string;
   readonly emptyMessage: string;
+  readonly enabledSourceCount: number;
+  readonly revokedSourceCount: number;
   readonly sources: readonly SkillSourceCardViewModel[];
 }
+
+export type SkillSourceCatalogViewModel = SkillSourcesViewModel;
 
 const FORBIDDEN_KEYS = new Set([
   "access_token",
@@ -316,6 +320,9 @@ export function buildSkillSourcesViewModel(
     };
   });
 
+  const enabledSourceCount = cards.filter((card) => card.enabled).length;
+  const revokedSourceCount = cards.filter((card) => card.status === "revoked").length;
+
   return {
     locale,
     readOnly: true,
@@ -326,6 +333,8 @@ export function buildSkillSourcesViewModel(
     subtitle: copy.subtitle,
     governanceNotice: copy.governanceNotice,
     emptyMessage: copy.emptyMessage,
+    enabledSourceCount,
+    revokedSourceCount,
     sources: cards,
   };
 }

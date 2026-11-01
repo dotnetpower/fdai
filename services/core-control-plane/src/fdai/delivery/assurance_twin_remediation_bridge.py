@@ -230,6 +230,31 @@ class GovernedRemediationProposalEnvelope:
     intake_key: str | None
     envelope_digest: str
 
+    def to_audit_dict(self) -> dict[str, object]:
+        return {
+            "proposal_id": self.proposal_id,
+            "finding_id": self.finding_id,
+            "rule_id": self.rule_id,
+            "action_type": self.proposal.action_type,
+            "action_type_version": self.proposal.action_type_version,
+            "proposal_digest": self.proposal.proposal_digest,
+            "effect_digest": self.effect_digest,
+            "review_ref": self.review_ref,
+            "risk_tier": self.risk_tier,
+            "mode": "shadow",
+            "twin_execution_authority": "none",
+            "execution_authority": False,
+            "requires_risk_gate": True,
+            "requires_hil_approval": self.requires_hil_approval,
+            "rollback_contract": self.rollback_contract,
+            "stop_condition": self.stop_condition,
+            "blast_radius_limit": self.blast_radius_limit,
+            "idempotency_key": self.idempotency_key,
+            "correlation_id": self.correlation_id,
+            "intake_key": self.intake_key,
+            "envelope_digest": self.envelope_digest,
+        }
+
 
 class RiskGatedRemediationSink(Protocol):
     """Normal risk-gated action pipeline intake receiving shadow remediation proposals."""
@@ -290,6 +315,15 @@ class AssuranceTwinRemediationProposalBridge:
         self._compiler_revision = compiler_revision.strip()
         self._blast_radius_limit = blast_radius_limit
         self._submitted_by_idempotency: dict[str, GovernedRemediationProposalEnvelope] = {}
+
+    @property
+    def submitted_count(self) -> int:
+        return len(self._submitted_by_idempotency)
+
+    def submitted_envelope(
+        self, idempotency_key: str
+    ) -> GovernedRemediationProposalEnvelope | None:
+        return self._submitted_by_idempotency.get(idempotency_key.strip())
 
     async def forward_abstained_query(
         self,

@@ -17,8 +17,38 @@ ALLOWED_IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "
 FORBIDDEN_SCRIPT_IMAGE_MEDIA_TYPES = frozenset(
     {"image/svg+xml", "text/html", "application/xhtml+xml"}
 )
+_FORBIDDEN_POLYGLOT_PREFIXES = (
+    b"<svg",
+    b"<!doctype",
+    b"<html",
+    b"<script",
+    b"<?xml",
+)
 _IMAGE_ID_RE = re.compile(r"^att-[A-Za-z0-9-]{1,124}$")
 _SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _contains_forbidden_markup_payload(data: bytes) -> bool:
+    head = data[:512].lstrip(b" \t\r\n\xef\xbb\xbf").lower()
+    return head.startswith(_FORBIDDEN_POLYGLOT_PREFIXES) or any(
+        token in head for token in (b"<svg", b"<script", b"<!doctype html", b"<html")
+    )
+
+
+def verify_raster_magic_bytes(mime_type: str, data: bytes) -> bool:
+    """Verify raster magic-byte header and reject SVG/HTML/XML/script polyglots."""
+    if not data or _contains_forbidden_markup_payload(data):
+        return False
+    normalized = mime_type.strip().lower().split(";", 1)[0].strip()
+    if normalized == "image/png":
+        return data.startswith(b"\x89PNG\r\n\x1a\n")
+    if normalized == "image/jpeg":
+        return data.startswith(b"\xff\xd8\xff")
+    if normalized == "image/gif":
+        return data.startswith((b"GIF87a", b"GIF89a"))
+    if normalized == "image/webp":
+        return len(data) >= 12 and data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +64,7 @@ class ResolvedNarratorImage:
     width: int = 512
     height: int = 512
     sha256_digest: str | None = None
+    verify_magic_bytes: bool = False
 
     def __post_init__(self) -> None:
         if _IMAGE_ID_RE.fullmatch(self.image_id) is None:
@@ -47,6 +78,14 @@ class ResolvedNarratorImage:
             raise ValueError("resolved narrator image media_type is unsupported")
         if not (1 <= len(self.content) <= MAX_RESOLVED_IMAGE_BYTES):
             raise ValueError("resolved narrator image content exceeds byte bounds")
+        if _contains_forbidden_markup_payload(self.content):
+            raise ValueError(
+                "resolved narrator image content contains forbidden SVG/HTML/script markup"
+            )
+        if self.verify_magic_bytes and not verify_raster_magic_bytes(self.media_type, self.content):
+            raise ValueError(
+                "resolved narrator image content does not match declared raster magic bytes"
+            )
         expected_sha = hashlib.sha256(self.content).hexdigest()
         if (
             _SHA256_HEX_RE.fullmatch(self.content_sha256) is None
@@ -146,6 +185,15 @@ def _validate_stored_image_record(record: ResolvedNarratorImage) -> None:
             "unsupported_image_media_type",
             "script-capable or unsupported image media_type is forbidden",
         )
+    if _contains_forbidden_markup_payload(record.content) or (
+        getattr(record, "verify_magic_bytes", False)
+        and not verify_raster_magic_bytes(record.media_type, record.content)
+    ):
+        raise ConversationBoundaryError(
+            400,
+            "invalid_image_payload",
+            "stored image content contains forbidden markup or mismatched magic bytes",
+        )
     expected_sha = hashlib.sha256(record.content).hexdigest()
     if (
         _SHA256_HEX_RE.fullmatch(record.content_sha256) is None
@@ -238,4 +286,5 @@ __all__ = [
     "NarratorImageResolver",
     "ResolvedNarratorImage",
     "resolve_turn_images_from_body",
+    "verify_raster_magic_bytes",
 ]

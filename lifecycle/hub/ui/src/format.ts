@@ -16,7 +16,7 @@ export function formatTimestamp(iso: string | null, originZone?: string): string
 
 /** A short "N unit ago" / "in N unit" string, relative to `now` (defaults to the current time). */
 export function formatRelative(iso: string | null, now: Date = new Date()): string {
-  if (iso === null) return "\u2013";
+  if (iso === null || Number.isNaN(now.getTime())) return "\u2013";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
   const diffSeconds = Math.round((date.getTime() - now.getTime()) / 1000);

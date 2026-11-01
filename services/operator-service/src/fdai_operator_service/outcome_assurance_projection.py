@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -73,6 +74,20 @@ def _validate_metric_item(metric: sc.OutcomeAssuranceMetric) -> None:
             raise ValueError("Outcome Assurance confidence interval is inverted relative to value")
 
 
+def _validate_metric_and_guard_uniqueness(
+    outcomes: Sequence[sc.OutcomeAssuranceMetric],
+    guards: Sequence[sc.OutcomeAssuranceGuardEvaluation],
+) -> None:
+    metric_keys = [getattr(m, "metric_id", None) or m.metric for m in outcomes]
+    if len(metric_keys) != len(set(metric_keys)):
+        raise ValueError("Outcome Assurance outcomes MUST NOT contain duplicate metric_id entries")
+    guard_ids = [g.guard_id for g in guards]
+    if len(guard_ids) != len(set(guard_ids)):
+        raise ValueError(
+            "Outcome Assurance guard_evaluations MUST NOT contain duplicate guard_id entries"
+        )
+
+
 class ObjectiveAttributionDrilldown(sc.ContractBase):
     """Objective-scoped attribution and metric evidence drill-down."""
 
@@ -87,6 +102,11 @@ class ObjectiveAttributionDrilldown(sc.ContractBase):
     metrics: tuple[sc.OutcomeAssuranceMetric, ...] = ()
     evidence_refs: tuple[str, ...] = ()
     reason: sc.OutcomeAssuranceUnavailableReason | None = None
+
+    @model_validator(mode="after")
+    def _validate_drilldown_metrics(self) -> ObjectiveAttributionDrilldown:
+        _validate_metric_and_guard_uniqueness(self.metrics, ())
+        return self
 
 
 class OutcomeAssuranceOperatorProjection(sc.ContractBase):
@@ -105,6 +125,30 @@ class OutcomeAssuranceOperatorProjection(sc.ContractBase):
     objective_drilldowns: tuple[ObjectiveAttributionDrilldown, ...]
     guard_status: sc.OutcomeAssuranceControlSummary
     projection: sc.OutcomeAssuranceProjection
+    projection_digest: str = Field(default="")
+
+    @model_validator(mode="after")
+    def _validate_and_finalize_digest(self) -> OutcomeAssuranceOperatorProjection:
+        _validate_metric_and_guard_uniqueness(
+            self.projection.outcomes, self.guard_status.guard_evaluations
+        )
+        _validate_metric_and_guard_uniqueness(
+            self.projection.outcomes, self.projection.guards.guard_evaluations
+        )
+        material = self.model_dump(mode="json", exclude={"projection_digest"})
+        canonical = json.dumps(material, sort_keys=True, separators=(",", ":"))
+        expected = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+        if not self.projection_digest:
+            object.__setattr__(self, "projection_digest", expected)
+        elif self.projection_digest != expected:
+            raise ValueError("Outcome Assurance projection_digest mismatch")
+        return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
+
+    def to_json(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
 
 
 async def read_outcome_assurance_projection(
@@ -126,6 +170,9 @@ async def read_outcome_assurance_projection(
         return _outcome_assurance_unavailable(scope, window, reason, now).model_dump(mode="json")
     try:
         projection = sc.OutcomeAssuranceProjection.model_validate(rows[0].get("value"))
+        _validate_metric_and_guard_uniqueness(
+            projection.outcomes, projection.guards.guard_evaluations
+        )
         for item in projection.outcomes:
             _validate_metric_item(item)
     except (TypeError, ValueError):
@@ -296,6 +343,7 @@ def build_outcome_assurance_operator_projection(
         projection.alignment.coverage
     ):
         raise ValueError("Outcome Assurance alignment coverage MUST be finite")
+    _validate_metric_and_guard_uniqueness(projection.outcomes, projection.guards.guard_evaluations)
     for item in projection.outcomes:
         _validate_metric_item(item)
     for g in projection.guards.guard_evaluations:

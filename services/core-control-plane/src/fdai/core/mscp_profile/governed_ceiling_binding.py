@@ -246,6 +246,26 @@ class AuthorityCeilingResult:
     audit_fields: Mapping[str, object]
     receipt_digest: str
 
+    def to_audit_dict(self) -> dict[str, object]:
+        return {
+            "decision_id": self.decision_id,
+            "profile_mode": self.profile_mode,
+            "lifecycle_revision": self.lifecycle_revision,
+            "fdai_decision": self.fdai_decision,
+            "mscp_ceiling": self.mscp_ceiling,
+            "shadow_projected_decision": self.shadow_projected_decision,
+            "effective_decision": self.effective_decision,
+            "lowered": self.lowered,
+            "shadow_would_lower": self.shadow_would_lower,
+            "risk_tier": self.risk_tier,
+            "approval_required": self.approval_required,
+            "executor_identity": self.executor_identity,
+            "audit_owner": self.audit_owner,
+            "readiness_digest": self.readiness_digest,
+            "review_id": self.review_id,
+            "receipt_digest": self.receipt_digest,
+        }
+
 
 class GovernedMscpCeilingBinding:
     """Compose governed MSCP lifecycle transitions with the never-raising authority ceiling."""
@@ -286,6 +306,10 @@ class GovernedMscpCeilingBinding:
     @property
     def revision(self) -> int:
         return self._current_revision
+
+    def history(self) -> tuple[GovernedLifecycleSnapshot, ...]:
+        """Return the ordered history of lifecycle snapshots from revision 1 to current."""
+        return tuple(self._revisions[rev] for rev in sorted(self._revisions))
 
     def activate(
         self, receipt: GovernedReadinessWindowReceipt, *, now: datetime
