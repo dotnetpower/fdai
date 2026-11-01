@@ -235,7 +235,9 @@ so one completed Core update cannot block a later exact repair or be mistaken fo
 
 `postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
-recovery, and upgrade evidence.
+recovery, and upgrade evidence. The local Bootstrap wizard also exposes explicit `runtime_platform`
+(`aks` or `container-apps`) and `database_placement` (`postgres-flex` or `postgres-aks`) choices
+and enforces the same compatibility constraint before planning.
 
 When a deployment binds bounded temporal series, every product surface gets the same causal
 evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor

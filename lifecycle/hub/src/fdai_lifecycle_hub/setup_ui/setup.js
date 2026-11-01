@@ -76,6 +76,30 @@
     invalidKey: "Provide only a public PEM key, no larger than 4 KiB. Private keys and credentials are not accepted.",
     invalidCost: "Enter a positive whole-number monthly cost ceiling in USD.",
     keyRead: "The public key file could not be read. Choose a readable public PEM file.",
+    themeToggle: "Dark / Light",
+    railRuntime: "Runtime", railDb: "Database", railRegion: "Region", railWorkload: "Workload",
+    permVerified: "✓ Account & required permissions",
+    permSummaryDefault: "Subscription Owner/Contributor, UAMI RBAC delegation, Entra ID apps/groups, and 18 Azure resource providers",
+    showPermDetails: "Permission details ⌄", hidePermDetails: "Hide details ⌃",
+    permSubTitle: "Subscription provisioning",
+    permSubDesc: "Create ops/app resource groups, VNet, Bastion, AKS/ACA, PostgreSQL, and Key Vault (Owner or Contributor)",
+    permUamiTitle: "Managed Identity RBAC delegation",
+    permUamiDesc: "Assign Reader, AcrPull, and Key Vault Secrets User roles to workload identities (Owner or User Access Admin)",
+    permEntraTitle: "Entra ID apps & RBAC groups",
+    permEntraDesc: "Configure fdai-api, fdai-console-spa, and 5 role groups (aw-owners, aw-approvers, aw-contributors, aw-readers, aw-break-glass)",
+    permRpTitle: "Azure Policy & 18 Resource Providers",
+    permRpDesc: "No blocking Deny assignments; Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault registered",
+    permStateReady: "✓ Required", permStateVerified: "✓ Verified",
+    runtimePlatformLabel: "Deployment runtime platform",
+    runtimeAksTitle: "AKS (Azure Kubernetes Service)", recommendedTag: "Recommended",
+    runtimeAksDesc: "Isolated executor, NetworkPolicy, full observability topology, and production baseline",
+    runtimeAcaTitle: "ACA (Azure Container Apps)", compatTag: "Compatibility",
+    runtimeAcaDesc: "Serverless managed Container Apps and Jobs without Kubernetes cluster management",
+    databasePlacement: "Database placement",
+    dbPostgresFlex: "PostgreSQL Flexible Server (recommended)",
+    dbPostgresAks: "In-cluster AKS PostgreSQL (non-production)",
+    dbHelp: "Managed PostgreSQL Flexible Server with pgvector and per-service roles.",
+    stageColTitle: "STAGE", stageColTiming: "START ~ END · DURATION",
   };
   const ko = {
     skip: "설정으로 이동", local: "로컬 설치 설정", language: "언어", eyebrow: "설치",
@@ -148,6 +172,30 @@
     invalidKey: "최대 4 KiB의 공개 PEM 키만 입력하세요. 개인 키와 자격 증명은 허용되지 않습니다.",
     invalidCost: "월 비용 상한을 양의 정수로 입력하세요. 단위는 USD입니다.",
     keyRead: "공개 키 파일을 읽을 수 없습니다. 읽을 수 있는 공개 PEM 파일을 선택하세요.",
+    themeToggle: "다크 / 라이트",
+    railRuntime: "배포 런타임", railDb: "데이터베이스", railRegion: "대상 리전", railWorkload: "워크로드",
+    permVerified: "✓ 로그인 계정 및 필요 권한 안내",
+    permSummaryDefault: "구독 Owner/Contributor · UAMI RBAC 위임 · Entra ID 앱/그룹 · 18개 Azure 리소스 공급자",
+    showPermDetails: "권한 상세 보기 ⌄", hidePermDetails: "상세 접기 ⌃",
+    permSubTitle: "구독 리소스 프로비저닝 권한",
+    permSubDesc: "운영/앱 리소스 그룹, VNet, Bastion, AKS/ACA, PostgreSQL, Key Vault 생성 (Owner 또는 Contributor)",
+    permUamiTitle: "Managed Identity RBAC 위임 권한",
+    permUamiDesc: "워크로드 UAMI에 Reader, AcrPull, Key Vault Secrets User 등 최소 권한 할당 (Owner 또는 User Access Admin)",
+    permEntraTitle: "Entra ID 앱 및 5개 RBAC 그룹",
+    permEntraDesc: "fdai-api, fdai-console-spa 등록 및 aw-owners·approvers·contributors·readers·break-glass 구성",
+    permRpTitle: "Azure Policy 및 18개 리소스 공급자",
+    permRpDesc: "차단 Deny 정책 없음 · Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault 등록",
+    permStateReady: "✓ 필수", permStateVerified: "✓ 검증 완료",
+    runtimePlatformLabel: "배포 런타임 아키텍처 (AKS vs ACA)",
+    runtimeAksTitle: "AKS (Azure Kubernetes Service)", recommendedTag: "권장 · 기본값",
+    runtimeAksDesc: "격리된 실행기, NetworkPolicy, 전체 관측 토폴로지 및 프로덕션 표준 구성",
+    runtimeAcaTitle: "ACA (Azure Container Apps)", compatTag: "호환성 모드",
+    runtimeAcaDesc: "클러스터 관리 없이 서버리스 컨테이너 앱 및 Job으로 경량 실행",
+    databasePlacement: "데이터베이스 배치",
+    dbPostgresFlex: "PostgreSQL Flexible Server (권장)",
+    dbPostgresAks: "AKS 클러스터 내부 PostgreSQL (비프로덕션)",
+    dbHelp: "pgvector 및 서비스별 최소 권한 역할이 분리된 관리형 PostgreSQL Flexible Server입니다.",
+    stageColTitle: "단계 (STAGE)", stageColTiming: "시작 ~ 완료 · 소요 시간",
   };
   const $ = id => document.getElementById(id);
   let savedLocale = "";
@@ -337,22 +385,89 @@
     const queuedCount = total - completedCount - activeCount;
     return { currentIdx, completedCount, activeCount, queuedCount, elapsed, states };
   }
+  function renderTelemetryAndArch() {
+    const tel = status?.telemetry || null;
+    const formEditable = !$("configuration-fields")?.disabled;
+    const checkedRuntime = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
+    const runtimeVal = formEditable ? checkedRuntime : (tel?.runtime_platform || checkedRuntime);
+    const dbSelectVal = $("database-placement")?.value || "postgres-flex";
+    const dbVal = formEditable ? dbSelectVal : (tel?.database_placement || dbSelectVal);
+    const regionVal = ($("region")?.value || "").trim() || tel?.region || "westus3";
+    const workloadVal = ($("workload")?.value || "").trim() || tel?.workload || "fdai";
+    const runtimeLabel = runtimeVal === "container-apps" ? "ACA" : "AKS";
+    const dbLabel = dbVal === "postgres-aks" ? "In-cluster PG" : "Postgres Flex";
+    if ($("header-arch-tag")) setText("header-arch-tag", `${runtimeLabel} · ${dbLabel}`);
+    if ($("rail-runtime-val")) setText("rail-runtime-val", runtimeLabel);
+    if ($("rail-db-val")) setText("rail-db-val", dbLabel);
+    if ($("rail-region-val")) setText("rail-region-val", regionVal);
+    if ($("rail-workload-val")) setText("rail-workload-val", workloadVal);
+    if ($("rg-preview-text")) {
+      const opsRg = tel?.ops_rg || `rg-${workloadVal}-ops`;
+      const devRg = tel?.dev_rg || `rg-${workloadVal}-dev`;
+      setText("rg-preview-text", locale === "ko"
+        ? `생성될 리소스 그룹: ${opsRg}, ${devRg}`
+        : `Target resource groups: ${opsRg}, ${devRg}`);
+    }
+    const opPill = $("operator-pill");
+    if (opPill) {
+      const user = tel?.operator_user || "";
+      opPill.hidden = !user;
+      if (user) {
+        setText("operator-user", user);
+        const initials = user.slice(0, 2).toUpperCase();
+        setText("operator-avatar", initials);
+      }
+    }
+    const perms = tel?.permissions || null;
+    if (perms) {
+      const isVer = Boolean(perms.verified);
+      const verifiedText = text("permStateVerified");
+      if ($("perm-sub-state") && (isVer || perms.subscription_role === "verified")) setText("perm-sub-state", verifiedText);
+      if ($("perm-uami-state") && (isVer || perms.rbac_delegation === "verified")) setText("perm-uami-state", verifiedText);
+      if ($("perm-entra-state") && (isVer || perms.entra_directory === "verified")) setText("perm-entra-state", verifiedText);
+      if ($("perm-rp-state") && (isVer || perms.policy_and_providers === "verified")) {
+        setText("perm-rp-state", locale === "ko"
+          ? `✓ ${perms.registered_providers || 18}/18 등록됨`
+          : `✓ ${perms.registered_providers || 18}/18 RP`);
+      }
+      if (tel?.operator_user && $("perm-summary-text")) {
+        setText("perm-summary-text", locale === "ko"
+          ? `${tel.operator_user} · 구독 Owner/Contributor · UAMI RBAC 위임 · Entra ID 앱/그룹 · ${perms.registered_providers || 18}개 RP 확인됨`
+          : `${tel.operator_user} · Subscription RBAC · UAMI delegation · Entra ID apps/groups · ${perms.registered_providers || 18} RPs verified`);
+      }
+    }
+  }
+  let stageRenderKey = "";
   function renderProvisionStages() {
     const prog = resolveStageProgress();
     const total = STAGE_CATALOG.length;
-    const hasRun = prog.currentIdx >= 0 || (status?.phase === "ready" && status?.deployment_ready);
+    const tel = status?.telemetry || null;
+    const timings = Array.isArray(tel?.stage_timings) ? tel.stage_timings : [];
+    const hasRun = prog.currentIdx >= 0 || (status?.phase === "ready" && status?.deployment_ready) || timings.some(t => t && t.start_time);
+    const nextStageKey = JSON.stringify([locale, status?.phase, prog, timings, tel?.total_duration, tel?.region, tel?.ops_rg, tel?.dev_rg, tel?.runtime_platform, tel?.started_at, tel?.completed_at]);
+    if (stageRenderKey === nextStageKey) return;
+    stageRenderKey = nextStageKey;
     const bar = $("provision-progress");
     if (bar) {
       bar.hidden = !hasRun;
       if (hasRun) {
-        const curNum = Math.min(total, prog.currentIdx + 1);
-        const curStage = STAGE_CATALOG[prog.currentIdx] || STAGE_CATALOG[0];
+        const curNum = Math.min(total, Math.max(1, prog.currentIdx + 1));
+        const curStage = STAGE_CATALOG[Math.max(0, prog.currentIdx)] || STAGE_CATALOG[0];
         const curTitle = locale === "ko" ? curStage.koTitle : curStage.enTitle;
         const pct = Math.min(100, Math.round((prog.completedCount / total) * 1000) / 10);
         setText("stage-progress-label", locale === "ko"
           ? `전체 ${total}단계 중 ${curNum}단계 (${curTitle})`
           : `Stage ${curNum} of ${total} (${curTitle})`);
         setText("stage-progress-percent", `${pct.toFixed(1)}%`);
+        if ($("deploy-sub-meta")) {
+          const runtimeLabel = (tel?.runtime_platform === "container-apps") ? "ACA" : "AKS";
+          const metaParts = [];
+          if (tel?.region) metaParts.push(tel.region);
+          if (tel?.ops_rg && tel?.dev_rg) metaParts.push(`${tel.ops_rg} / ${tel.dev_rg}`);
+          metaParts.push(runtimeLabel);
+          if (tel?.started_at && tel?.completed_at) metaParts.push(`${tel.started_at} ~ ${tel.completed_at}`);
+          setText("deploy-sub-meta", metaParts.join(" · "));
+        }
         const meter = $("provision-meter");
         if (meter) {
           meter.className = `provision-meter${["failed", "blocked"].includes(status?.phase) ? " is-failed" : ""}${status?.phase === "ready" && status?.deployment_ready ? " is-done" : ""}`;
@@ -369,7 +484,8 @@
         $("fact-queued").replaceChildren();
         const qStrong = document.createElement("strong"); qStrong.textContent = String(prog.queuedCount);
         $("fact-queued").append(qStrong, locale === "ko" ? " 남은 단계" : " remaining");
-        setText("fact-elapsed", prog.elapsed ? (locale === "ko" ? `경과 ${prog.elapsed}` : `elapsed ${prog.elapsed}`) : "");
+        const elapsedStr = tel?.total_duration || prog.elapsed;
+        setText("fact-elapsed", elapsedStr ? (locale === "ko" ? `총 소요 ${elapsedStr}` : `elapsed ${elapsedStr}`) : "");
       }
     }
     setText("stages-summary", locale === "ko"
@@ -380,6 +496,7 @@
     const labels = stageStateLabels[locale === "ko" ? "ko" : "en"];
     list.replaceChildren(...STAGE_CATALOG.map((stage, idx) => {
       const st = prog.states[idx];
+      const timing = timings[idx] || null;
       const li = document.createElement("li");
       li.className = `provision-stage provision-stage--${st}`;
       if (idx === prog.currentIdx) li.setAttribute("aria-current", "step");
@@ -395,15 +512,33 @@
       desc.className = "provision-stage-desc";
       desc.textContent = locale === "ko" ? stage.koDesc : stage.enDesc;
       body.append(title, desc);
+      const right = document.createElement("div");
+      right.className = "stage-right";
+      if (timing && (timing.start_time || timing.end_time)) {
+        const tSpan = document.createElement("span");
+        tSpan.className = "stage-timing";
+        const sTime = timing.start_time || "--:--:--";
+        const eTime = timing.end_time || (st === "active" ? (locale === "ko" ? "진행중" : "running") : "--:--:--");
+        tSpan.textContent = `${sTime} ~ ${eTime}`;
+        right.append(tSpan);
+      }
+      if (timing && timing.duration) {
+        const dSpan = document.createElement("span");
+        dSpan.className = "stage-dur";
+        dSpan.textContent = timing.duration;
+        right.append(dSpan);
+      }
       const pill = document.createElement("span");
       pill.className = "provision-stage-state";
       pill.textContent = labels[st] || st;
-      li.append(num, body, pill);
+      right.append(pill);
+      li.append(num, body, right);
       return li;
     }));
   }
   function setText(id, value) {
-    if ($(id).textContent !== value) $(id).textContent = value;
+    const el = $(id);
+    if (el && el.textContent !== value) el.textContent = value;
   }
   function notice(key, detail = "") {
     noticeKey = key;
@@ -419,6 +554,7 @@
     if (noticeKey) notice(noticeKey, noticeDetail);
     if ($("subscription").options[0]) $("subscription").options[0].textContent = text("noAccounts");
     if (status) render();
+    else renderTelemetryAndArch();
   }
   function artifactFields() {
     const source = document.querySelector('input[name="artifact"]:checked').value === "source";
@@ -553,6 +689,7 @@
     if (url) $("console-link").href = url;
     $("console-unavailable").hidden = Boolean(url);
     controls();
+    renderTelemetryAndArch();
   }
   function validStatus(value) {
     const nullableString = item => item === null || typeof item === "string";
@@ -659,6 +796,10 @@
     }
     const approvalMode = $("approval-mode")?.value || "continuous";
     if (approvalMode === "stepwise") payload.approval_mode = "stepwise";
+    const runtimePlatform = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
+    if (runtimePlatform !== "aks") payload.runtime_platform = runtimePlatform;
+    const dbPlacement = $("database-placement")?.value || "postgres-flex";
+    if (dbPlacement !== "postgres-flex") payload.database_placement = dbPlacement;
     if (!Number.isSafeInteger(payload.monthly_cost_ceiling) || payload.monthly_cost_ceiling < 1) return notice("invalidCost");
     if (payload.artifact_source === "source") payload.source_root = $("source-root").value;
     else {
@@ -683,6 +824,39 @@
         setTimeout(() => { $("copy-console-url").textContent = text("copyConsoleUrl"); }, 1800);
       } catch { /* ignore */ }
     });
+  }
+  if ($("toggle-perm-btn") && $("perm-drawer")) {
+    $("toggle-perm-btn").addEventListener("click", () => {
+      const drawer = $("perm-drawer");
+      const open = !drawer.hidden;
+      drawer.hidden = open;
+      $("toggle-perm-btn").setAttribute("aria-expanded", String(!open));
+      const key = open ? "showPermDetails" : "hidePermDetails";
+      $("toggle-perm-btn").dataset.i18n = key;
+      $("toggle-perm-btn").textContent = text(key);
+    });
+  }
+  if ($("theme-toggle")) {
+    $("theme-toggle").addEventListener("click", () => {
+      const isDark = document.body.dataset.theme === "dark";
+      if (isDark) delete document.body.dataset.theme;
+      else document.body.dataset.theme = "dark";
+    });
+  }
+  document.querySelectorAll('input[name="runtime-platform"]').forEach(node => {
+    node.addEventListener("change", () => {
+      const val = document.querySelector('input[name="runtime-platform"]:checked')?.value || "aks";
+      if ($("card-runtime-aks")) $("card-runtime-aks").classList.toggle("is-selected", val === "aks");
+      if ($("card-runtime-aca")) $("card-runtime-aca").classList.toggle("is-selected", val === "container-apps");
+      if (val === "container-apps" && $("database-placement")?.value === "postgres-aks") {
+        $("database-placement").value = "postgres-flex";
+      }
+      renderTelemetryAndArch();
+    });
+  });
+  for (const id of ["database-placement", "region", "workload"]) {
+    if ($(id)) $(id).addEventListener("input", renderTelemetryAndArch);
+    if ($(id)) $(id).addEventListener("change", renderTelemetryAndArch);
   }
   if ($("toggle-completed-stages")) {
     $("toggle-completed-stages").addEventListener("click", () => {

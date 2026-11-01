@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 429a3d142b1262b773d08cd320578104b7204542
+translation_source_sha: 8d5b728ba1b9b9a1108759569176fc8f60b5831f
 translation_revised: 2026-11-01
 ---
 # 런타임 배포 프로파일
@@ -497,7 +497,7 @@ DB, 네트워크, 레지스트리, 저장소, 모니터링, 메시지, 모델, �
 | AKS 워크로드 및 예약 작업 | `fdai-<environment>-aks-workloads.tfstate` |
 | 클러스터 내부 PostgreSQL | `fdai-<environment>-aks-database.tfstate` |
 
-공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다.
+공유 플랫폼은 Event Hubs, Key Vault, Azure Container Registry, 모니터링, 워크로드 신원, case-history 저장소 및 `postgres-flex`를 계속 소유합니다. 로컬 Bootstrap 위자드 역시 `runtime_platform`(`aks` 또는 `container-apps`)과 `database_placement`(`postgres-flex` 또는 `postgres-aks`) 선택을 제공하며 계획 수립 전에 동일한 호환성 제약을 검증합니다.
 Foundation은 구독 역할 할당을 Reader, Monitoring Reader, Cost Management Reader 역할과 서비스 주체로만 제한해 위임하며, 일치하는 Terraform 역할 할당은
 `principal_type = "ServicePrincipal"`을 선언해 위임한 역할 집합을 넓히지 않고 공급자 요청이 해당 조건을 충족하게 합니다. 같은 apply에서 만드는 관리 ID에 대한 역할 할당도 모두 `principal_type = "ServicePrincipal"`을 선언하므로, Entra ID가 새 ID를 아직 복제하는 중에도 Azure가 할당을 받아들입니다. 공개 개발 경로에서는 사용자가 배포 주체가 되므로 배포 주체의 할당에는 유형을 지정하지 않으며, `test_role_assignment_principal_type.py`가 이 규칙을 강제합니다. Case-history 콘텐츠의 활성, 삭제 예정,
 이전 버전 및 변경 피드 기간 기본값은 30일이며 운영 이력과 의사 결정 근거 메타데이터는 별도 일정을 유지합니다. AKS 기반 상태는 클러스터, 노드 풀, 클러스터 신원,

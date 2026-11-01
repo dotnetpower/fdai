@@ -338,3 +338,65 @@ test("constrained and mobile viewports retain controls, Korean scope and no over
     }
   }
 });
+
+test("minimal wizard displays operator permissions, AKS/ACA runtime selector, and per-stage timings", async ({ page }) => {
+  const stageTimings = Array.from({ length: 15 }, (_, idx) => ({
+    index: idx + 1,
+    start_time: idx === 0 ? "03:54:04" : idx === 1 ? "03:54:05" : null,
+    end_time: idx === 0 ? "03:54:05" : idx === 1 ? "03:56:15" : null,
+    duration: idx === 0 ? "1s" : idx === 1 ? "2m 10s" : null,
+  }));
+  const app = await fixture(page, {
+    ...idle(),
+    accounts: [account],
+    telemetry: {
+      operator_user: "operator@example.com",
+      runtime_platform: "aks",
+      database_placement: "postgres-flex",
+      region: "westus3",
+      workload: "fdaiboot",
+      ops_rg: "rg-fdaiboot-ops",
+      dev_rg: "rg-fdaiboot-dev",
+      started_at: "03:54:04",
+      completed_at: "06:09:42",
+      total_duration: "2h 15m 38s",
+      permissions: {
+        subscription_role: "verified",
+        rbac_delegation: "verified",
+        entra_directory: "verified",
+        policy_and_providers: "verified",
+        registered_providers: 18,
+      },
+      stage_timings: stageTimings,
+    },
+  });
+  await app.open();
+  await expect(page.locator("#operator-pill")).toBeVisible();
+  await expect(page.locator("#operator-user")).toHaveText("operator@example.com");
+  await expect(page.locator("#perm-drawer")).toBeHidden();
+  await page.locator("#toggle-perm-btn").click();
+  await expect(page.locator("#perm-drawer")).toBeVisible();
+  await expect(page.locator("#provision-stages")).toContainText("03:54:04 ~ 03:54:05");
+  await expect(page.locator("#provision-stages")).toContainText("2m 10s");
+
+  await page.locator("#card-runtime-aca").click();
+  await expect(page.locator("#header-arch-tag")).toHaveText("ACA · Postgres Flex");
+  await expect(page.locator("#rail-runtime-val")).toHaveText("ACA");
+  await page.locator("#region").fill("westus3");
+  await page.locator("#cost").fill("450");
+  await page.locator('input[name="artifact"][value="source"]').check();
+  await page.locator("#source-root").fill("/workspace/fdai");
+  await page.locator("#install").click();
+  await expect.poll(() => app.posts.length).toBeGreaterThanOrEqual(1);
+  expect(app.posts.at(-1)?.body).toEqual({
+    action: "install",
+    payload: {
+      subscription_id: account.id,
+      region: "westus3",
+      monthly_cost_ceiling: 450,
+      artifact_source: "source",
+      source_root: "/workspace/fdai",
+      runtime_platform: "container-apps",
+    },
+  });
+});

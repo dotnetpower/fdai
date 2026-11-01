@@ -28,6 +28,8 @@ INSTALL_FIELDS = {
     "hub_public_key",
     "approval_mode",
     "workload",
+    "runtime_platform",
+    "database_placement",
 }
 
 
@@ -241,6 +243,16 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
         workload = payload.get("workload")
         if not isinstance(workload, str) or re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
             raise ValueError("Choose a valid lowercase workload token (2-12 alphanumeric chars)")
+    if "runtime_platform" in payload:
+        rt = payload.get("runtime_platform")
+        if not isinstance(rt, str) or rt not in {"aks", "container-apps"}:
+            raise ValueError("Runtime platform must be aks or container-apps")
+    if "database_placement" in payload:
+        db = payload.get("database_placement")
+        if not isinstance(db, str) or db not in {"postgres-flex", "postgres-aks"}:
+            raise ValueError("Database placement must be postgres-flex or postgres-aks")
+        if payload.get("runtime_platform") == "container-apps" and db != "postgres-flex":
+            raise ValueError("Container Apps requires postgres-flex database placement")
     if not isinstance(result["artifact_source"], str) or result["artifact_source"] not in {
         "hub",
         "source",

@@ -158,12 +158,15 @@ def create_setup_app(
     async def status(request: Request) -> Response:
         try:
             result = await run_in_threadpool(read_status, state_dir)
+            from fdai_deployment_cli.bootstrap_support import read_setup_telemetry
+
+            telemetry = await run_in_threadpool(read_setup_telemetry, state_dir)
         except (ValueError, OSError):
             return JSONResponse(
                 {"error": "Setup state is unavailable; preserve it and inspect local diagnostics."},
                 409,
             )
-        return JSONResponse({**result, "csrf_token": csrf})
+        return JSONResponse({**result, "telemetry": telemetry, "csrf_token": csrf})
 
     async def action(request: Request) -> Response:
         try:

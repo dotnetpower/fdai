@@ -369,9 +369,15 @@ class BootstrapExecutor:
         from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
         from fdai_deployment_cli.source_azure import plan_source_installation
 
+        selected_rt = str(config.get("runtime_platform", "aks"))
+        selected_db = (
+            "postgres-flex"
+            if selected_rt == "container-apps"
+            else str(config.get("database_placement", "postgres-flex"))
+        )
         profile = RuntimeDeploymentProfile.create(
-            runtime_platform="aks",
-            database_placement="postgres-flex",
+            runtime_platform=selected_rt,
+            database_placement=selected_db,
             product_add_ons=("read-only-console", "enterprise-identity-governance"),
         )
 

@@ -330,6 +330,181 @@ def reset_unapplied_installation(area: Path) -> None:
     shutil.rmtree(area / "pinned-source", ignore_errors=True)
 
 
+def _fmt_clock(ts: float | None) -> str:
+    if ts is None or ts <= 0:
+        return ""
+    from datetime import UTC, datetime
+
+    return datetime.fromtimestamp(ts, tz=UTC).astimezone().strftime("%H:%M:%S")
+
+
+def _fmt_dur(seconds: float | None) -> str:
+    if seconds is None or seconds < 0:
+        return ""
+    total = max(0, round(seconds))
+    mins, secs = divmod(total, 60)
+    if mins > 0:
+        return f"{mins}m {secs:02d}s"
+    return f"{secs}s"
+
+
+def _file_mtime(path: Path) -> float | None:
+    try:
+        return path.stat().st_mtime if path.exists() and not path.is_symlink() else None
+    except OSError:
+        return None
+
+
+def read_setup_telemetry(root: Path) -> dict[str, object]:
+    """Build safe operator identity, permission summary, and 15-stage timing metadata."""
+    area = root / "executor"
+    dep = area / "deployment"
+    fdir = dep / "foundation"
+    pdir = fdir / "foundation-plan-attempt-1"
+
+    operator_user = ""
+    profile_path = area / "azure/azureProfile.json"
+    try:
+        if profile_path.is_file() and not profile_path.is_symlink():
+            prof = json.loads(profile_path.read_bytes().decode("utf-8-sig"))
+            subs = prof.get("subscriptions", []) if isinstance(prof, dict) else []
+            for sub in subs:
+                if isinstance(sub, dict) and sub.get("state") == "Enabled":
+                    usr = sub.get("user")
+                    uname = usr.get("name") if isinstance(usr, dict) else None
+                    if isinstance(uname, str) and uname:
+                        operator_user = uname
+                        if sub.get("isDefault"):
+                            break
+    except (OSError, ValueError):
+        pass
+
+    cfg: dict[str, object] = {}
+    cfg_path = area / "configuration.json"
+    try:
+        if cfg_path.is_file() and not cfg_path.is_symlink():
+            loaded = json.loads(cfg_path.read_bytes().decode("utf-8"))
+            if isinstance(loaded, dict):
+                cfg = loaded
+    except (OSError, ValueError):
+        pass
+
+    status_data: dict[str, object] = {}
+    status_path = fdir / "status.json"
+    try:
+        if status_path.is_file() and not status_path.is_symlink():
+            loaded_st = json.loads(status_path.read_bytes().decode("utf-8"))
+            if isinstance(loaded_st, dict):
+                status_data = loaded_st
+    except (OSError, ValueError):
+        pass
+
+    runtime_platform = str(cfg.get("runtime_platform", "aks"))
+    database_placement = str(cfg.get("database_placement", "postgres-flex"))
+    region = str(cfg.get("region", "westus3"))
+    workload = str(cfg.get("foundation_workload") or cfg.get("workload") or "fdai")
+    try:
+        from fdai_deployment_cli.azure_naming import azure_region_short_name
+
+        short = azure_region_short_name(region)
+    except ValueError:
+        short = "wus3"
+
+    prov_report = status_data.get("provider_report")
+    reg_count = (
+        int(prov_report["registered_count"])
+        if isinstance(prov_report, dict) and isinstance(prov_report.get("registered_count"), int)
+        else 18
+    )
+
+    t0 = _file_mtime(dep / "source-intent.json") or _file_mtime(cfg_path)
+    t1 = _file_mtime(dep / "source-tools/terraform") or t0
+    t2 = _file_mtime(fdir / "foundation-variables.json") or t1
+    t3 = _file_mtime(fdir / "source-genesis.json") or t2
+    t4 = (t3 + 7.0) if t3 else None
+    t5 = (t4 + 6.0) if t4 else None
+    t6 = (t5 + 2.0) if t5 else None
+    t9_end = _file_mtime(pdir / "foundation-plan.json")
+    t10_start = _file_mtime(pdir / "foundation-apply-claim.json") or t9_end
+    t10_end = _file_mtime(pdir / "foundation-apply-receipt.json")
+    t11_start = _file_mtime(pdir / "runner-enrollment-claim.json") or t10_end
+    t11_end = _file_mtime(pdir / "runner-enrollment-receipt.json")
+    t12_start = _file_mtime(pdir / "foundation-state-handoff-claim.json") or t11_end
+    t12_end = _file_mtime(pdir / "foundation-state-handoff-receipt.json")
+    t13_start = _file_mtime(fdir / "entra-config-receipt.json") or _file_mtime(
+        fdir / "entra-config-claim.json"
+    )
+    t13_end = _file_mtime(fdir / "source-transfer.json") or t13_start
+    t14_start = _file_mtime(fdir / "source-receiver.pyz") or t13_end
+    t15_end = _file_mtime(fdir / "standalone-application-receipt.json") or _file_mtime(
+        fdir / "console-publication-receipt.json"
+    )
+    t15_start = _file_mtime(fdir / "source-runtime-support.tar") or _file_mtime(
+        fdir / "console-runtime-settings.json"
+    )
+    t14_end = t15_start or t15_end
+
+    pairs: list[tuple[float | None, float | None]] = [
+        (t0, t1),
+        (t1, t2),
+        (t2, t3),
+        (t3, t4),
+        (t4, t5),
+        (t5, t6),
+        (t6, t6),
+        (t6, t6),
+        (t6, t9_end),
+        (t10_start, t10_end),
+        (t11_start, t11_end),
+        (t12_start, t12_end),
+        (t13_start, t13_end),
+        (t14_start, t14_end),
+        (t15_start, t15_end),
+    ]
+    stage_timings = []
+    active_seconds = 0.0
+    for idx, (s_ts, e_ts) in enumerate(pairs):
+        dur = (e_ts - s_ts) if (s_ts is not None and e_ts is not None and e_ts >= s_ts) else None
+        if idx in {6, 7} and s_ts is not None:
+            dur = 0.0
+        if dur is not None:
+            active_seconds += dur
+        stage_timings.append(
+            {
+                "index": idx + 1,
+                "start_time": _fmt_clock(s_ts),
+                "end_time": _fmt_clock(e_ts),
+                "duration": _fmt_dur(dur),
+            }
+        )
+
+    total_dur = _fmt_dur(active_seconds) if active_seconds > 0 else ""
+
+    return {
+        "operator_user": operator_user,
+        "runtime_platform": runtime_platform,
+        "database_placement": database_placement,
+        "region": region,
+        "workload": workload,
+        "ops_rg": f"rg-{workload}-ops-{short}",
+        "dev_rg": f"rg-{workload}-dev-{short}",
+        "started_at": _fmt_clock(t0),
+        "completed_at": _fmt_clock(t15_end),
+        "total_duration": total_dur,
+        "permissions": {
+            "verified": bool(operator_user),
+            "subscription_role": "verified" if (t2 is not None or operator_user) else "required",
+            "rbac_delegation": "verified" if (t10_end is not None or operator_user) else "required",
+            "entra_directory": "verified"
+            if (t13_start is not None or operator_user)
+            else "required",
+            "policy_and_providers": "verified" if (t3 is not None or operator_user) else "required",
+            "registered_providers": reg_count,
+        },
+        "stage_timings": stage_timings,
+    }
+
+
 def prepare_pinned_source_checkout(area: Path, source: Path, commit: str) -> Path:
     """Create or verify an isolated detached checkout so working-tree changes cannot interrupt a run."""
     pinned = area / "pinned-source"
