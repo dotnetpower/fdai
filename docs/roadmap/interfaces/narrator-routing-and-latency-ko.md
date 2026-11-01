@@ -1,17 +1,13 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 5eae45f6b3818265843f773409fe8ecaf52f3600
-translation_revised: 2026-10-28
+translation_source_sha: 95edf124b2d27a9e3f7a919575506b9413b7d872
+translation_revised: 2026-11-01
 ---
 # 서술기 라우팅과 지연 시간
 
 이 문서는 대화 표현을 위한 배포 선택, 지연 시간 측정, 운영자 선호 설정, 공개 웹 검색 풀의
 동작을 정의합니다. T1 경량 모델의 작성과 독립 검토를 시스템이 통제하는 T2 추론과 구분합니다.
-
-> **구현 상태:** Core 소유 mini 라우팅은 구현되었으며 집중 검사를 통과했습니다. 로컬 합성 탐색과
-> 인증된 Console DOM 근거를 아래에 기록했습니다. 통합 런타임, 시각적 상호작용 및 전체 턴 지연
-> 시간 검증은 아직 일부만 완료되었습니다. 탐색 처리 시간만으로 대화가 빨라졌다고 볼 수 없습니다.
 
 ## 서술기 지연 시간 라우팅
 
@@ -497,126 +493,11 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
   기준 커밋과 같았습니다. 공유 작업 트리의 무관한 `auth.py` 변경은 `idtyp`이 없는 기존 토큰을
   거부하며, 이번 작업은 그 소스를 수정하지 않았습니다. 격리 환경 결과는 미커밋 변경이 있는 전체
   작업 트리를 검증하지 않습니다. 이번 작업에서는 커밋하거나 푸시하지 않았습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 공유 IAM 안전 명령 분리 | implemented | Operator IAM 조립과 비상 정지 경로, 집중 Operator IAM 테스트 | 공유 IAM 조립은 서명된 전역 비상 정지 게시자를 연결할 수 있지만 이 경로는 narrator 후보, 모델 설정, T1/T2 선택기, 프롬프트, 모델 토큰을 사용하지 않습니다. Var를 통해 공유 자율성 상한을 낮출 수만 있습니다. |
-| 추측 기반 질문 구조화 시작과 단일 샤드 개념 카탈로그 | implemented | `semantic_runtime_speculation.py`; `semantic_planning_speculation.py`; `semantic_query_type_grounding.py`; `scripts/deployment/local/run-console-service.sh`; `test_semantic_runtime_speculation.py`, `test_semantic_compiled_planning.py`, `test_semantic_query_second_reader.py` | 로컬의 컴파일된 답변 턴은 사전 분류 옆에서 질문 구조화 경로를 시작하고 32KiB 이하 카탈로그를 샤드 하나로 제시합니다. 사전 분류는 라우팅 권한을 유지하며 모든 후보는 여전히 한 번씩 제시됩니다. [2026-10-06 근거](#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06)를 참고하세요. |
-| 요청 내부 근거화 재사용 및 무손실 카탈로그 프롬프트 | implemented | `semantic_planning.py`; `semantic_reasoning_shadow.py`; `semantic_question_form.py`; 집중 근거화, 컴파일러, 카탈로그 및 마스킹 테스트 | `typed_only` 계획은 사용하지 않는 기존 근거화를 생략합니다. 정확히 같은 입력에 대해 스키마를 통과한 동일 판독기의 개념 선택만 한 처리 안에서 재사용하며, 모든 카탈로그 후보와 독립 검토를 유지합니다. 실제 속도 향상이나 청구액 감소를 주장하지 않습니다. |
-| 대화 시간 및 사용량 표시 | implemented | `console/src/deck/conversation-trajectory-{presentation,view}.ts*`; `conversation-trajectory-presentation.test.ts`; `conversation-entry.spec.ts`의 이중 언어 성능 시나리오 | 서버 경과 시간, 모델 누적 시간, 입력/출력/전체 토큰, 기록된 호출 수를 구분합니다. 없는 측정값은 미기록으로 둡니다. 데스크톱, 좁은 데스크톱, 모바일 합성 검사가 통과했습니다. |
-| Core mini 라우팅 및 턴별 모델 선택 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_latency.py`; `services/core-control-plane/src/fdai/composition/wire_t1_routing.py`; `wire_adaptive_conversation.py`; [집중 검사 근거](#로컬-mini-라우팅-근거-2026-09-06) | Python 229개 통과, PostgreSQL 사례 2개 실행 제외이며 명시적 활성화 구성 검사 6개도 추가로 통과했습니다. 검증된 mini 신원, 변경 불가능한 작성/검토 모델 선택 및 기존 T2/작업 품질 검사 연결을 유지합니다. |
-| Core가 관리하는 명시적 선택형 탐색 | implemented | `services/core-control-plane/src/fdai/delivery/azure/llm/t1_probe.py`; `services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py`; 집중 TTFT 및 벤치마크 검사 | 고정 요청은 비어 있지 않은 첫 토큰과 전체 지연 시간을 따로 기록합니다. 명시적 벤치마크는 고정된 표본 및 동시성 상한에서 같은 요청을 재사용하고 용량을 변경하지 않으며 압력 또는 프로바이더 실패를 재시도하지 않습니다. |
-| 의미 처리 상태의 라우팅 변환 결과 및 Console 배지 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/t1_model_health.py`; `console/src/deck/backend-health.ts`; `console/src/deck/backend-health-presentation.ts`; 집중 Operator 및 Console 검사 | Operator는 범위가 제한된 TTFT 필드를 전체 지연 시간과 별도로 검증합니다. Console은 두 p50/p95 구간과 표본 개수를 표시하며 TTFT가 없거나 오래됐을 때 전체 지연 시간을 대신 사용하지 않습니다. 런타임 시각적 검증은 아직 불완전합니다. |
-| 합성 대화 및 인라인 프롬프트 확인 | implemented | `mocks/ui/deck.html`; `mocks/ui/assets/deck-sources.js`; `mocks/ui/assets/deck-forms.js`; `console/tests/e2e/{deck-forms-mock,deck-prompt-mock,neutral-chat-mock}.spec.ts`; 집중 Playwright 검사 | 시안에만 적용되는 표현입니다. 실행 기록은 합성 프롬프트 예제를 열며 프로덕션의 수집과 권한 확인은 바꾸지 않습니다. |
-| 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
-| 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
-| 직접 Key Vault 해석 모델 출처 어댑터 | implemented | `adapters/resolved_models_key_vault.py`; 집중 Operator 테스트 | 비동기 어댑터는 주입된 토큰 공급자와 HTTP 클라이언트를 사용하고 신뢰할 수 없는 origin, redirect, 불일치 secret 신원, 비활성 또는 만료 값, 과도한 크기나 중첩, secret을 포함한 표현을 거부합니다. 시작 조립과 통제된 런타임 근거는 열려 있습니다. |
-| 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; `narrator_token_budget.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. 요청은 화면과 최근 턴 맥락을 모델 인식 8,192 토큰 예산에 맞추고 본문 없는 제외 수를 제공하며, 공급자 사용량을 제한된 형태로 캡처하고 합성 탐색이 성공할 때까지 실패 후보를 제외합니다. |
-| 기존 서술기의 주기적 갱신 소유자 | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; 집중 스케줄러 및 조립 테스트 | Operator 수명 주기는 기존 로컬 Azure 서술기에서만 즉시 및 주기적 실행 하나를 소유하며, 의미 Kafka와 함께 실행하지 않습니다. 이 검사는 새 Core mini 탐색 소유자를 검증하지 않습니다. |
-| 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
-| 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | implemented | `services/operator-service/src/fdai_operator_service/{postgres_iam_configuration,model_lifecycle_startup}.py`; `services/operator-service/tests/test_narrator_preference_persistence.py`; `tests/integration/services/test_narrator_preference_postgres.py`; `scripts/lib/design-routes.json`; 로컬 PostgreSQL 재시작 및 동시 쓰기 검사 | 인증된 설정 경로는 시작 시 다이제스트가 고정된 해석 모델의 서술기 후보로 선택을 검증하고, principal별 상태와 실행 권한이 없는 제안을 하나의 개정 번호 보호 PostgreSQL 트랜잭션으로 기록합니다. 어댑터를 다시 만들어도 저장된 선택을 읽으며 배포가 제거되면 선택을 지우지 않고 실효 선택을 `Auto`로 되돌립니다. 집중 경로 및 원자적 상태 검사가 통과했고 서비스 소유 loopback PostgreSQL fixture가 새 연결을 통한 감사 영속성과 재시작 readback을 검증했습니다. T2 연결은 시스템이 관리하며 배포 및 지연 시간 근거는 남아 있습니다. |
-| 대화별 T1/T2 선택 | validated | `packages/service-contracts/src/fdai_service_contracts/semantic_turn.py`; `services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn.py`; `services/core-control-plane/src/fdai/core/conversation/{conversation_preflight,semantic_runtime}.py`; `console/src/deck/conversation-model-selection.ts`; 집중 계약, Core, Operator 및 Console 검사와 범위가 제한된 로컬 라이브 진단 1회 | Command Deck은 대화별로 `Auto`, `T1`, `T2`를 저장합니다. 스키마 1.7은 허용된 등급만 `execution_authority=false`와 함께 전달합니다. 일반 T2 턴은 낮은 추론 수준의 preflight 1회에 구성된 기본 모델을 사용하고 adaptive 계획/검토/개선/확인 없이 범위가 제한된 답변을 반환합니다. 로컬 진단은 `gpt-5.6-sol`로 4.286초에 완료됐습니다. 표본 1개는 SLA를 입증하지 않습니다. 장치 간 서버 영속성과 인증된 화면 표시 브라우저 근거는 남아 있습니다. |
-| 환경 T1/T2 바인딩 초안 및 보호된 계획 | implemented | 공통 `ModelBindingPolicy`; Operator IAM 경로 및 PostgreSQL 어댑터; Console 모델 편집기; 보호된 해석기 및 배포 워크플로; 집중 테스트 | Owner 전용 초안은 리비전 및 멱등성 제한과 함께 영속화됩니다. 평가 및 계획 요청에는 권한이 없고 활성 산출물 다이제스트를 결합하며 보호된 배포 워크플로를 통해서만 활성화에 도달합니다. 공급자 및 롤백 증적은 남아 있습니다. |
-| 답변 연속성 및 프롬프트 ablation 설정 | implemented | Operator 런타임 설정 경로 및 PostgreSQL 어댑터, Core 시작 스냅샷, 콘솔 런타임 정책, 집중 Core, Operator 및 콘솔 검사 | Owner 변경은 비활성 제안과 리비전으로 보호된 Core 정책 레코드를 하나의 트랜잭션으로 영속화합니다. 두 설정은 재시작 후 적용되고, 프롬프트 ablation은 정보만 줄이며, 연속성은 보류 또는 미지원 표현만 변경합니다. |
-| 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
-| 5단계 qualification 지연 시간 계약 | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), [`chatops_quality_latency.py`](../../../scripts/evaluation/chatops_quality_latency.py), 집중 검사 | 버전이 지정된 계약은 PR 회귀, 라이브 카나리, 릴리스 단계를 분리합니다. 축약 결과는 모든 단계, 하한, 상한, 통과 여부, 공백 및 타임스탬프 권위 출처 불변식을 다시 검증합니다. 라이브 또는 릴리스 벤치마크 증적을 주장하지 않습니다. |
-| 단계 소유자 timing 증적 adapter | implemented | [`quality_latency.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_latency.py), 집중 Core 검사 | Adapter는 monotonic 단계 소유자 값에서 기간을 파생하고 설치된 계약과 다른 환경을 차단합니다. Runtime 연결은 미완료 상태입니다. |
-| 8단계 상관관계 추적 계약 | implemented | [`quality_trace.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_trace.py), [`chatops_quality_trace.py`](../../../scripts/evaluation/chatops_quality_trace.py), 집중 검사 | 축약기는 하나의 correlation digest, 이전 레코드 연결, 권위 있는 타임스탬프, 출처 이력 약속값을 갖는 세션부터 감사까지의 순서가 지정된 연결을 요구합니다. 생성된 근거는 완전성 또는 권위 출처 상태와 모순될 수 없습니다. 라이브 완전 추적 증적을 주장하지 않습니다. |
-| Timing 근거 연결 | implemented | [`quality_timing.py`](../../../services/core-control-plane/src/fdai/core/conversation_assurance/quality_timing.py), 집중 검사 | 완전한 집합에는 고유 추적 500개 이상이 있어야 하며 latency 산출물의 설치된 계약, 출처 리비전, 추적 수, 추적 집합 약속값 및 산출물 콘텐츠 다이제스트 쌍과 일치해야 합니다. 이전 입력에는 timing 상한을 계속 적용합니다. |
-| 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-10-22 | implemented | 서버가 해석한 ID, 크기 및 detail을 사용하는 프로바이더 중립 이미지 토큰 예약을 추가하고 턴당 이미지 4개와 8,192 토큰 상한을 적용했습니다. | `current change`; `delivery/conversation_images.py`; 집중 이미지 저장소 테스트. | 비전 프로바이더를 호출하기 전에 기존 서버 소유 이미지 해석기를 연결합니다. 클라이언트 크기 정보는 계속 허용하지 않습니다. |
-| 2026-10-22 | implemented | 고정 문자 수로 자르던 로컬 서술기 맥락을 모델 인식 요청 맞춤으로 바꾸고, 명시적인 대화 이력 제외 수와 공급자 사용량 캡처를 추가했습니다. Console 대화 이력을 의미 계약의 12개 턴 및 항목별 8,000자 제한에 맞추고, 실패 후보는 탐색이 성공할 때까지 제외합니다. | `current change`; Operator 서술기 및 Console backend-context 경로; 집중 Python 집합 `712 passed`, Console 검사 `31 passed`, Console typecheck, strict mypy 및 Ruff. | 실제 토큰, 비용, 캐시 적중 또는 지연 개선을 주장하기 전에 승인된 로컬 및 배포 증적을 보존합니다. 이미지 토큰 예약은 서버 소유 이미지 해석기가 구현될 때까지 보류합니다. |
-| 2026-10-15 | implemented | 공유 IAM 조립에 서명된 전역 비상 정지 게시자를 연결했습니다. narrator 선호, 후보 선택, T1/T2 라우팅, 프롬프트, 모델 호출, timing 근거는 바꾸지 않았습니다. | `0398357455`; 집중 Operator IAM 테스트 60개 통과. | 이 안전 명령 연결에는 남은 narrator 작업이 없습니다. 배포된 비상 정지 근거는 보안 원장에서 계속 추적합니다. |
-| 2026-10-06 | implemented | Core 진단에 호출 시작 오프셋과 캐시된 프롬프트 토큰을 추가하고, 개념 샤드 크기 설정과 사전 분류 옆에서 시작하는 추측 기반 질문 구조화 경로를 추가했습니다. 로컬 실행기는 32KiB 샤드와 추측 시작을 켭니다. 변형마다 한국어 턴 여덟 개를 인증된 로컬 환경에서 제한적으로 비교한 결과, 답변된 목록 턴은 약 10초에서 약 5초로, 답변된 개수 턴은 11.7~27.4초에서 5.4~9.9초로 줄었고 답변은 같았습니다. | `current change`; 집중 Core 테스트(`4920 passed`); 변경 모듈의 mypy와 ruff; [측정 근거](#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06) | 질문 구조화가 이름 조각을 값으로 읽는 문제로 변형마다 목록 턴 다섯 개 중 두세 개가 여전히 보류됩니다. |
-| 2026-10-02 | implemented | 확인된 `typed_only` 읽기 재사용, 불투명한 전체 카탈로그 표현, 기록된 호출 계측, 제한된 두 샤드 동시 처리를 완료하고 고정 질문 네 개와 최종 이중 언어 목록 한 쌍을 재평가했습니다. | `0cd7ab82c1`, `32833c7dea`; 최종 측정 소스 `66a49cb735`; [제한된 결과](#제한된-최적화-근거-2026-10-02); 집중 런타임 918개와 Console 계측 66개 검사 통과. | 한글 전체 지연은 변동이 있고 영문 개수의 개념 불일치는 보류 상태입니다. 일괄 속도, 금액, SLO 개선을 주장하기 전에 통제된 전후 비교 집합을 보존합니다. |
-| 2026-10-02 | implemented | `typed_only`에서 사용하지 않는 기존 근거화를 제거하고, 한 처리 안에서 정확히 같은 닫힌 개념 선택을 재사용하며, 전체 카탈로그 프롬프트를 무손실 압축하고, 실행 기록에서 경과/누적 시간과 입력/출력 토큰을 분리했습니다. | `current change`; 근거화, 질문 구조, 개념, 마스킹, 컴파일 답변 검사 380개 통과; Console 성능 표시 검사 11개 통과; 이중 언어 집중 Playwright 시나리오 2개가 1440, 993, 390 CSS 픽셀 폭에서 통과했습니다. | 측정된 지연 시간, 청구 대상 토큰, 비용 개선을 주장하기 전에 명시적으로 승인된 동일 소스의 실제 비교를 보존합니다. 새 모델 요청이나 모델 설정 변경은 하지 않았습니다. |
-| 2026-10-01 | implemented | Operator composition이 service-owned route를 추가하는 동안 narrator preference route assembly를 preference 소유자 안에 유지했습니다. Settings projection은 계속 sanitized 상태이며 `personalizes_t2_bindings`는 false로 남습니다. | `current change`; `fdai_operator_service/composition_routes.py`; focused Operator route-count 근거. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 보존합니다. |
-| 2026-09-29 | implemented | 합성 대화와 프롬프트 확인을 하나의 Command deck 시안으로 옮겼습니다. 적응형 응답과 인시던트 대화 주소는 이제 이 시안의 변경 형태와 인시던트 형태를 열며, 인라인 프롬프트 파일은 별도의 서술 행이 아니라 실행 기록에서 캡처된 각 모델 호출 아래에서 열립니다. | `current change`; `mocks/ui/deck.html`; `mocks/ui/assets/deck-sources.js`; `mocks/ui/assets/deck-forms.js`; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-forms-mock.spec.ts tests/e2e/deck-prompt-mock.spec.ts tests/e2e/neutral-chat-mock.spec.ts` (`12 passed`) | 시안에는 남은 작업이 없습니다. 프로덕션의 프롬프트 수집과 권한 확인은 바뀌지 않습니다. |
-| 2026-09-27 | implemented | 비공개 SQLAlchemy DSN을 psycopg fixture 형식으로 내부 정규화한 뒤 서비스 소유 loopback PostgreSQL 검증 데이터베이스에서 개정 번호로 제한된 서술기 선호 설정 쓰기, 감사 기록 및 재시작 readback을 검증했습니다. | `current change`; 준비된 로컬 검증 데이터베이스에서 `test_narrator_preference_commits_with_audit_and_survives_new_connection` 통과, PR #1458의 소스 및 required CI 근거는 변경되지 않았습니다. | 이 영역을 `validated`로 높이기 전에 배포 시작 출처와 런타임 지연 시간 증적을 별도로 보존합니다. |
-| 2026-09-27 | in-progress | 서술기 선호 설정의 구현 경로만 자체 설계 문서에 연결하면서 공유 파일에 적용되는 기존 경로와 문서 소유 요건은 모두 유지했습니다. 선호 설정 동작과 실행 권한이 없는 경계는 바뀌지 않았습니다. | `current change`; `scripts/lib/design-routes.json`; 집중 Operator, 경로 및 영속성 검사 305개 통과(선택적 PDF 검사와 실제 PostgreSQL 검사 각 1개 건너뜀); `check-design-routes.py`, 스테이징된 `check-design-doc-impact.py`, 로드맵 및 지역화 검사 통과. 승인된 로컬 전용 PostgreSQL DSN은 이 세션에서 가려져 있습니다. | 승인된 로컬 전용 DSN을 사용할 수 있을 때 실제 PostgreSQL 재시작 및 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 및 지연 시간 증적을 별도로 보존합니다. |
-| 2026-09-26 | in-progress | 인증된 principal별 서술기 선호 설정 경로를 시작 시 다이제스트로 고정된 선택과 원자적 제안/상태 개정 번호 비교 및 교환에 연결했습니다. 제거된 배포의 저장된 선택은 보존하고 실효 선택만 `Auto`로 되돌립니다. 공개 설정 응답은 정제된 형태를 유지하며 T2 연결을 개인화하지 않습니다. | `current change`; `postgres_iam_configuration.py`, `model_lifecycle_startup.py`, IAM 조립 및 집중 선호 설정 검사; `uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py` (305개 통과, 선택적 PDF 검사와 `FDAI_ASSIGNMENT_TEST_DSN`이 없는 PostgreSQL 검사 각 1개 건너뜀); Ruff와 strict mypy 통과. | 지원되는 로컬 PostgreSQL 환경에서 실제 재시작 조회와 동시 쓰기 비교 및 교환을 검증하고, 배포 시작 출처와 런타임 지연 시간의 정확한 근거를 보존합니다. |
-| 2026-09-17 | implemented | 전체 Models 변환 결과에 포인터 및 키보드 선조회와 인증 클라이언트별 60초 메모리 캐시를 추가했습니다. 겹치는 조회는 하나로 합치고 실패는 폐기하며, 명시적인 카탈로그 새로고침, 충돌 복구, 변경 뒤 재조회는 최신 결과를 가져옵니다. | `current change`; `console/src/api.ts`; `console/src/components/settings-overlay.tsx`; `console/src/routes/settings-models.tsx`; 집중 캐시 및 Playwright 검사. | 측정된 지연 시간 개선을 주장하기 전에 인증된 cold 및 warm 로드의 시간 분포를 보존합니다. |
-| 2026-09-14 | implemented | Qualification timing이 하드 상한을 해제하기 전에 콘텐츠 주소 기반 latency 및 trace-cohort 연결을 요구하고 생성된 축약 결과의 불변식을 다시 검증하도록 했습니다. | `current change`; 집중 scorecard, timing 및 CLI 검사(`69 passed`), Ruff 통과 | 권위 있는 단계 소유자를 연결하고 일치하는 500개 이상 추적 통제 집합 하나를 보존합니다. |
-| 2026-09-08 | implemented | Core mini 탐색에 비어 있지 않은 실제 첫 토큰 TTFT 측정을 추가하고, Operator와 Console을 통해 TTFT 및 전체 처리 시간 구간을 별도로 변환했으며, TPM을 변경하거나 압력 실패를 재시도할 수 없는 범위가 제한된 동일 요청 용량 벤치마크를 추가했습니다. | `current change`, 집중 Core/Operator TTFT 및 벤치마크 검사 41개, Console 라우팅 및 툴팁 검사 66개, Ruff 및 strict mypy 통과 | 실제 벤치마크는 일관된 깨끗한 커밋 스냅샷에서만 실행합니다. 런타임 검증 상태를 높이기 전에 인증된 화면 표시 브라우저 처리 시간 근거를 보존합니다. |
-| 2026-09-07 | validated | 선택된 T2 일반 지식 턴이 분류와 범위가 제한된 답변 작성을 하나의 T2 preflight에서 함께 수행하도록 연결했습니다. GPT-5 preflight 요청은 낮은 추론 수준을 사용하며 이 조언 경로에서는 adaptive 계획/검토/개선/확인을 실행하지 않습니다. | `current change`; 집중 preflight/조립 검사 162개, Ruff, strict mypy, 서비스 경계 검사와 로컬 라이브 진단 1회가 4.286초 만에 `model=gpt-5.6-sol`의 `advisory_response`로 완료됐습니다. | 지연 시간 목표를 주장하기 전에 인증된 화면 표시 브라우저 스트리밍 근거와 측정 분포를 보존합니다. |
-| 2026-09-07 | implemented | 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다. T2는 모델이 작성하는 대화 단계에 구성된 기본 모델을 사용하며 독립 검토 모델과 권한 없는 요청 경계를 유지합니다. | `current change`; 집중 서비스 계약, Operator, Core 라우팅, Console 요청 본문, 영속성, 지역화, 타입 검사, 빌드 검사입니다. | 인증된 화면 표시 브라우저 근거를 보존하고 장치 간 연속성이 필요해지면 서버 쪽 선호 설정 영속성을 추가합니다. |
-| 2026-09-07 | implemented | Semantic consumer와 heartbeat marker 사이에 로그가 회전해도 잘못된 timeout이 발생하지 않도록 범위가 제한된 Core readiness가 `core-runtime.log.1`과 현재 로그를 함께 읽습니다. | `current change`; 집중 rotation 경계 회귀 테스트 통과 | 1MiB 전체 회전을 두 번 넘으면 범위가 제한된 사용 불가 결과를 유지합니다. |
-| 2026-09-07 | implemented | 자세한 시작 출력으로 semantic consumer marker가 기존 64KiB tail 밖으로 밀려난 뒤, 범위가 제한된 Core readiness 로그 window를 1MiB로 늘렸습니다. | `current change`; 64KiB를 넘는 중간 출력에서도 marker 순서를 보존하는 회귀 테스트를 추가했습니다. | 시작 출력이 새 상한에 가까워지면 구조화된 readiness projection을 권장합니다. |
-| 2026-09-07 | implemented | 수락하는 새로운 Pantheon heartbeat가 시작 이후 semantic consumer marker보다 뒤에 오도록 재시작 readiness 순서를 결속했습니다. | `current change`; 집중 developer-workflow 테스트에서 시작 이후지만 consumer보다 이른 heartbeat와 이후의 유효한 heartbeat를 확인했습니다. | 이중 언어 지연 분포를 보존합니다. |
-| 2026-09-07 | implemented | 이전 프로세스의 heartbeat를 수락하는 대신 Core 재시작 readiness가 시작 이후의 semantic consumer와 새로운 Pantheon heartbeat를 요구하도록 했습니다. | `current change`; 집중 launcher/workflow 테스트 46개 통과, 보존된 재시작이 두 marker 뒤 `ready`를 보냈고 첫 F2 답변 token은 3.948초였습니다. | 이중 언어 지연 분포를 보존합니다. 표본 하나는 SLO 검증이 아닙니다. |
-| 2026-09-07 | in-progress | 정확한 schema 이름을 유지하면서 preflight 본문을 추정 약 654토큰으로 줄였습니다. 준비된 F1/F2 변형은 preflight를 한 번 호출하고 5초 답변 token gate를 충족했습니다. | 표준 Browser Entra F1/F2 시간은 3.810/4.254초였습니다. | 이중 언어 분포를 보존하고 `control_loop_ready`보다 약 28초 늦게 시작한 semantic consumer를 Core readiness에 포함합니다. |
-| 2026-09-07 | implemented | Multiplex된 모든 물리 이벤트마다 commit하는 대신 기존 레코드 및 시간 상한으로 로컬 PLAINTEXT Kafka consumer commit을 일괄 처리했습니다. 처리 후 commit과 처리 도중 닫힐 때의 재전달을 보존했습니다. | `current change`; 집중 Event Bus 및 multiplex 테스트 통과 | 표준 Core를 다시 시작하고 논리 consumer가 backlog를 따라잡은 뒤 F1-F4 답변 token TTFT를 보존합니다. |
-| 2026-09-07 | implemented | 첫 `onToken` callback을 상태 및 최종 timing과 별도로 측정하고 5초를 넘으면 실패하는 실제 운영 대화 qualification gate를 추가했습니다. | `current change`; Console 타입 검사가 통과했습니다. | 전체 표준 스택을 하나의 정확한 소스 리비전에서 시작한 뒤 gate를 실행합니다. |
-| 2026-09-07 | implemented | 첫 번째 턴의 명시적 및 맥락 의존 운영 신호에서 Compact preflight를 Adaptive 계획보다 먼저 실행하고, 의미 판단 뒤 의도 범위 서술자와 전용 제한 frame 프롬프트를 선택하도록 했습니다. | `current change`; 집중 구성 요소 테스트 1,237개, 대상 Ruff, strict mypy가 통과했습니다. | 하나의 일관된 표준 스택 SHA에서 검증된 첫 답변 토큰 지연 시간을 측정합니다. 상태 frame은 5초 TTFT 목표를 충족하지 않습니다. |
-| 2026-09-06 | implemented | 대화 응답 묶음에 바이너리 본문과 본문 없음이 추가된 뒤 T1 상태 경계를 바로잡았습니다. 상태 파서는 알 수 없는 입력을 받고 객체가 아닌 값을 거부하며, 의미 런타임 facade는 Operator 조립이 이미 사용하는 판독기를 명시적으로 내보냅니다. | `current change`; `t1_model_health.py`, `semantic_turn_runtime.py`, `test_t1_model_health.py` 및 집중 strict mypy, Operator, 서비스 suite 검사입니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
-| 2026-09-06 | implemented | T1 상태 판독기를 기존 의미 런타임 facade를 통해 가져오도록 구성해 로컬 및 배포 Operator 조립이 같은 바인딩을 유지하면서 최상위 모듈이 검토된 fanout 상한 아래에 머물게 했습니다. | `current change`; Operator 경계 검사에서 고유 가져오기 39개를 확인했고 조립 및 T1 상태 집중 검사 92개와 Ruff가 통과했습니다. | 엔드투엔드 지연 시간 검증을 보고하기 전에 실제 브라우저 및 통제된 배포 런타임 근거를 보존합니다. |
-| 2026-09-05 | implemented | 인시던트 및 적응형 답변을 개선하고 완료 후에도 조사 기록을 유지하며, 대화를 막지 않는 인라인 합성 Markdown 프롬프트 보기를 추가했습니다. | `current change`; 위에 나열한 시안 Playwright 파일 세 개의 집중 시나리오, 공용 스타일 검사, Console 타입 검사를 통과했습니다. | 프로덕션 도입에는 별도 검토와 인증 및 권한 범위에 맞는 근거가 필요합니다. 런타임 프롬프트 수집을 구현했다고 주장하지 않습니다. |
-| 2026-09-02 | implemented | T2를 개인화하거나 작업 권한을 부여하지 않으면서 리비전으로 보호된 답변 연속성 및 프롬프트 ablation 설정, 시작 시 일관된 Core 스냅샷, 지역화된 콘솔 control을 추가했습니다. | `current change`, 프롬프트 조립 구현 기록의 집중 Core, Operator 및 콘솔 검사입니다. | 런타임 검증을 주장하기 전에 통제된 shadow 캠페인을 보존합니다. |
-| 2026-08-28 | implemented | Benchmark 기간을 호출자가 작성하지 못하게 하고 PR/카나리/릴리스 환경 불일치를 차단하는 단계 소유자 증적 adapter를 추가했습니다. | `current change`; 집중 Core latency 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 단계 소유자에 증적을 연결하고 통제 근거를 보존해야 합니다. |
-| 2026-08-28 | implemented | Qualification timing 상태를 파생하기 전에 latency 산출물과 완전 추적 집합을 연결했습니다. | `current change`; 집중 연결 검사(`4 passed`); 결합 latency/trace/timing 검사(`23 passed`). | Runtime 생산자를 연결하고 일치하는 통제 근거 집합 하나를 보존해야 합니다. |
-| 2026-08-28 | implemented | 8단계 콘텐츠 없는 상관관계 추적 축약기와 `--require-complete` CLI를 추가했습니다. | `current change`; 집중 Core 및 CLI 검사(`8 passed`); Ruff 및 strict mypy. | 권위 있는 레코드 생산자를 연결하고 완전한 PR/카나리/릴리스 추적 증적 하나를 보존해야 합니다. |
-| 2026-08-28 | implemented | 5단계 `chatops-latency-v1` SLO 계약, 결정론 백분위수 축약기 및 콘텐츠가 없는 벤치마크 CLI를 추가했습니다. | `current change`; 집중 Core 및 CLI 검사(`11 passed`); Ruff 및 strict mypy. | 지연 시간 qualification을 주장하기 전에 권위 있는 단계 생산자를 연결하고 PR/카나리/릴리스 증적을 보존하며 완전한 상관관계 추적을 검증해야 합니다. |
-| 2026-08-14 | in-progress | 구현 ledger를 도입하고 어떤 지연 시간 및 선호 설정 동작이 대상 설계로 남는지 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 로컬 narrator, 해석기, 웹 검색 source 및 focused 검사입니다. | 독립 service 지연 시간 창과 선호 설정을 구현한 뒤 관리되는 로컬 및 배포 근거를 보존해야 합니다. |
-| 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 선택적 PDF report 등록을 동일하게 유지했습니다. | `current change`; service-local optional loader, package-extra 계약, composition binding 및 focused 경로/composition 테스트입니다. | Package availability를 실행 권한으로 취급하지 않고 별도의 인증된 Incident report 증적을 보존해야 합니다. |
-| 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 authoritative Incident RCA report materialization을 동일하게 유지했습니다. | `current change`; service-local audit-backed report reader, composition binding 및 focused reader/family 테스트입니다. | 별도의 인증된 Incident report 증적을 보존해야 합니다. |
-| 2026-08-14 | implemented | 범위가 제한되고 coalescing된 text 및 vision probe, 측정된 장애 조치, 엄격한 SSE 및 출력 제한, 범위가 제한된 Azure CLI credential 획득을 갖춘 service-local 이동 text latency 및 TTFT 라우팅을 추가했습니다. | `current change`; narrator adapter 모듈; focused local narrator 및 credential 테스트 `21 passed`; 통합 Operator 및 Core narrator 검사가 통과했습니다. | 주기적 refresh와 서버 소유 image resolver를 binding한 뒤 관리되는 local 및 deployed timing 근거를 보존합니다. |
-| 2026-08-14 | implemented | 검증된 interval 구성, 실패 격리, duplicate-start 억제 및 종료 cleanup을 갖춘 하나의 즉시 및 주기적 narrator refresh loop를 Operator lifecycle에 binding했습니다. | `current change`; scheduler, environment, composition, local narrator cleanup 및 focused 테스트 `66 passed`. | 서버 소유 image resolver를 binding하고 관리되는 local 및 deployed timing 근거를 보존합니다. |
-| 2026-08-16 | in-progress | 개정 번호 기반 principal별 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 추가했습니다. `Auto` 와 허용된 배포만 허용하고, 오래된 개정 번호는 충돌하며, principal은 격리되고, 제거된 배포는 저장된 선택을 유지한 채 `Auto` 로 저하됩니다. T2 연결은 개인화되지 않습니다. | `current change`; `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `pytest services/operator-service/tests/test_narrator_preferences.py` (14 passed). | 영속 저장과 인증된 Settings 경로를 binding한 뒤 관리되는 timing 증적을 보존합니다. |
-| 2026-08-19 | implemented | 보호된 해석기의 정확한 인라인 JSON과 SHA를 Operator 시작에 연결하고 제안 전용 주간 조정기를 추가했습니다. 다이제스트가 다르면 서술기 구성을 차단하며, 공급자 실패는 정제된 판단 보류를 만들고 PR을 열지 않습니다. | `current change`; 집중 서술기, 수명 주기, 계획 검증기, Terraform 및 권한 workflow 테스트. | 통제된 로컬/배포 timing 및 조정기 실행 근거를 보존하며 직접 Key Vault 읽기는 계속 연기합니다. |
-| 2026-08-23 | implemented | 해석 모델 JSON을 위한 서비스 소유 비동기 Key Vault 출처 어댑터를 추가했습니다. 어댑터는 토큰 및 HTTP 공급자를 주입 상태로 유지하고, 일치하는 cloud audience를 가진 현재 Azure Key Vault DNS suffix만 허용하며, 응답 신원을 요청한 secret 및 버전에 결합하고, 하나의 전체 마감 안에서 실패 시 차단 처리합니다. | `current change`; 집중 Key Vault 출처 테스트와 15회의 비평 및 하드닝 라운드입니다. | 현재 파일 또는 인라인 출처를 교체하기 전에 비동기 시작 소유자, 변경 불가능한 출처 개정 발행, Core/Operator parity 바인딩 및 통제된 로컬/배포 근거를 추가합니다. |
-| 2026-08-24 | implemented | 프로비저닝된 SKU와 PTU 용량, 정확한 활성 다이제스트 제한, 분리된 초안, 평가 및 보호된 계획 요청을 포함해 T1/T2 `auto`, `pinned`, `hil-only` 모드를 위한 환경 전체 정책 편집기를 추가했습니다. | `current change`; 공통 계약, Operator 경로 및 저장소, Console 정책 편집기, 해석기, 워크플로 및 Terraform 검사. | 보호된 공급자 평가, 적용, 독립 검증 및 롤백 증적을 보존합니다. |
-| 2026-09-05 | implemented | 서비스 소유 출처를 Operator 애플리케이션 수명 주기의 첫 위치에 연결했습니다. 이 소유자는 한 번만 로드하고 JSON을 검증하며 `LLM_RESOLVED_MODELS_SHA256` 불일치를 거부한 뒤 후속 서비스를 시작합니다. 직접 Key Vault는 배포 출처 seam으로 유지하고 구성된 파일 또는 인라인 콘텐츠는 로컬 호환성을 보존합니다. | `current change`; 집중 Operator 운영 조립 및 Key Vault 출처 테스트입니다. | 정확한 출처 리비전에 대한 통제된 배포 시작 영수증 하나를 보존합니다. |
-| 2026-09-06 | in-progress | Core 소유의 명시적 선택형 mini 탐색, 최신성을 반영한 라우팅, 변경 불가능한 턴별 독립 검토, 읽기 전용 Operator/Console 상태 변환 결과를 기존 서술기와 구분해 정의했습니다. | `current change`; 새 구현 범위 세 행의 소스 경로와 이 이중 언어 설계 변경입니다. 집중 구현 및 문서 검증은 아직 완료되지 않았으며, 커밋이나 런타임 증적은 주장하지 않습니다. | 한도, 실패, 턴별 격리, 변환 결과 검증 및 표시 중 상태 갱신을 입증하고, 대화가 빨라졌다고 주장하기 전에 승인된 측정을 보존합니다. |
-| 2026-09-06 | implemented | T2와 독립 검토를 유지하면서 mini 라우팅, 한도 있는 탐색, 상태 변환 결과 및 배지 최신성/숨겨진 브라우저 처리를 완료했습니다. | `current change`; [범위가 제한된 근거](#로컬-mini-라우팅-근거-2026-09-06): Python 229개 통과, PostgreSQL 사례 2개 실행 제외, 중복되는 Console 검사 집합 각각 147개와 48개 통과, 타입 검사/빌드 통과, 격리된 Operator 152개 통과, 예정된 mini 탐색 8회 및 인증된 DOM 표시 확인입니다. | PostgreSQL, 통합 런타임 및 표시되는 브라우저의 근거를 완료합니다. 전체 턴의 속도 개선, 시각 검사 통과, 새 커밋 또는 푸시된 리비전은 주장하지 않습니다. |
-| 2026-09-06 | implemented | 변환 결과 발행을 35초 주기에 포함하고 별도의 5초 쓰기 한도를 적용했으며 발행은 재시도하지 않습니다. | `current change`; 명시적 활성화 구성 검사 6개와 최종 Console 160개/타입 검사/빌드를 통과했습니다. 세 번째/네 번째 예정 주기에서 가장 빠른 mini가 바뀌었고 인증된 일반/화면 맥락 DOM 배지와 도구 설명이 일치했습니다. Console 검사 집합은 중복됩니다. | PostgreSQL, 통합 런타임, 화면 이미지/포인터 검증 및 전체 턴 비교는 남아 있습니다. 약 1068 ms인 합성 p50은 대화 속도 개선 주장이 아닙니다. |
-
-### 남은 작업
-
-- [x] 집중 Python 라우팅/탐색 검사 229개 통과와 PostgreSQL 사례 2개 실행 제외를
-  [로컬 근거](#로컬-mini-라우팅-근거-2026-09-06)에 기록했습니다.
-- [x] 추가 명시적 활성화 구성 검사 6개, 최종 Console 160개/타입 검사/빌드 통과를 기록했습니다.
-  앞선 147/48개 집합과 중복됩니다. 격리된 Operator 검사 152개도 통과했습니다.
-- [x] Core의 예정된 주기 4회와 가장 빠른 mini의 변경을 관측했고, T2 없이 인증된 일반 및
-  화면 맥락 DOM 배지와 도구 설명이 합성 측정값에 일치함을 확인했습니다.
-- [ ] 실행 대상에서 제외한 PostgreSQL 사례 2개를 완료하고 조정된 단일 소스 스냅샷의 통합 런타임
-  근거를 보존합니다. 격리된 Operator 결과는 무관한 인증 변경을 검증하지 않습니다.
-- [ ] 화면에 표시되는 브라우저에서 모델 배지와 도구 설명을 화면 이미지 및 포인터 검사로
-  검증합니다. 숨겨진 Electron의 DOM 근거만으로는 시각적 수락 조건을 충족하지 않습니다.
-- [ ] 실제 지연 시간 개선을 주장하기 전에 명시적으로 승인된 한도 있는 대화 비교를 보존합니다.
-  합성 `OK` 처리 시간만으로는 충분하지 않습니다.
-- [ ] 질문 구조화가 이름 조각을 값으로 분류하는 판독(`anchor_form_unsupported:value`)을 어휘 규칙이
-  아니라 타입이 있는 구조화 계약으로 고칩니다. 이 판독은 2026-10-06의 각 변형에서 한국어 목록 턴
-  다섯 개 중 두세 개를 보류했습니다.
-- [ ] 직접 응답으로 취소된 추측 티켓의 공급자 호출을 턴의 호출 집계에 기록합니다. 지금은 채택된
-  티켓만 관찰 결과에 포함됩니다.
-- [x] 위의 집중 Playwright 파일 세 개에서 시안 전용 대화 및 인라인 프롬프트 시나리오를 검증했습니다. 프로덕션 도입은 이번 변경 범위에 포함하지 않습니다.
-- [x] 독립 텍스트 및 비전 후보 탐색, 별도 이동 지연 시간 및 TTFT 창, 범위가 제한된 갱신, 장애 조치 및 사용 불가 동작을 구현하고 focused 테스트를 추가합니다.
-- [x] 검증된 interval, 실패 격리, duplicate-start 억제 및 종료 cleanup을 갖춘 주기적 refresh owner를 binding합니다.
-- [ ] 이미지 턴 라우팅을 완료로 표시하기 전에 서버 소유 conversation-image resolver를 binding합니다.
-- [x] principal별 `Auto` 또는 허용된 서술기 선호 설정 검증과 정제된 변환 결과가 `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`에 있으며 집중 선호 설정 검사가 이를 뒷받침합니다. 변환 결과는 `personalizes_t2_bindings: false`를 선언하고 엔드포인트나 자격 증명을 담지 않습니다.
-- [ ] 지원되는 로컬 전용 `FDAI_ASSIGNMENT_TEST_DSN`으로 `uv run pytest -q --no-cov tests/integration/services/test_narrator_preference_postgres.py`를 실행하고, 정확한 시작 시 고정 출처에 대해 실제 PostgreSQL 재시작 조회, 원자적 감사/상태 기록, 동시 개정 번호 비교 및 교환의 통과 근거를 남긴 뒤 principal별 영속 선호 설정 작업을 완료합니다.
-- [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
-- [x] 신뢰할 수 있는 origin, 신원, 범위, 만료, timeout 및 secret-redaction 검사를 갖춘 service-owned 비동기 직접 Key Vault 모델 해석 결과 출처 어댑터를 구현하고 집중 테스트합니다.
-- [x] 비동기 Operator 시작 소유자를 통해 Key Vault 출처를 연결하고, Core가 자체 리비전을 수명 주기 보류 평가 및 기능 바인딩과 공유하는 동안 Core/Operator 출처 리비전 parity를 보존합니다.
-- [x] 시작 실패 시 획득한 모든 수명 주기 서비스의 정리를 시도하고 원래 출처 리비전 경계를 숨기지 않은 채 정리 실패를 보고합니다.
-- [ ] 통제된 제안 전용 조정기 실행 하나와 정확한 출처 리비전에 대한 배포 Operator 시작 영수증 하나를 보존합니다.
-- [ ] 런타임이 봉인된 정책과 모델 버전을 로드했음을 독립 검증하는 근거를 포함해 정확한 환경 정책 평가 및 보호된 PTU 계획, 적용, 롤백 캠페인 하나를 보존합니다.
-- [x] 스키마 1.7에서 허용된 등급을 보내고 모델이 작성하는 단계에 구성된 T2 기본 모델을 사용하며 독립 검토 모델과 `execution_authority=false`를 유지하는 대화별 `Auto`/`T1`/`T2` 선택기를 추가했습니다.
-- [ ] T1에서 T2로 전환, 새로 고침 후 유지, 사용 불가 시 비활성 상태, T1으로 몰래 전환하지 않는 명시적 T2 프로바이더 실패에 대한 인증된 화면 표시 브라우저 근거를 보존합니다.
-
 ## 관련 문서
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/narrator-routing-and-latency.md) |
 | T1/T2 기능과 품질 게이트 정책 | [LLM 전략](../architecture/llm-strategy-ko.md) |
 | Operator API 런타임 모델과 의존성 주입 경계 | [오퍼레이터 콘솔 런타임 모델](operator-console-runtime-model-ko.md) |
 | 로컬 및 배포 환경의 모델 해석 | [개발과 배포의 동등성](../deployment/dev-and-deploy-parity-ko.md) |

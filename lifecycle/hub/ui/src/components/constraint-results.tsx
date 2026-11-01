@@ -1,5 +1,5 @@
 import type { CandidateCheck } from "../api";
-import { constraintVerdict } from "../constraint-status";
+import { constraintVerdict, describeConstraintReason } from "../constraint-status";
 
 export function ConstraintResults({ checks }: { checks: readonly CandidateCheck[] }) {
   if (checks.length === 0) {
@@ -24,7 +24,8 @@ export function ConstraintResults({ checks }: { checks: readonly CandidateCheck[
                 <ul class="constraint-reasons">
                   {check.blocks.map((block, index) => (
                     <li key={`${block.reason_code}-${index}`}>
-                      <code>{block.reason_code}</code>
+                      <div>{describeConstraintReason(block.reason_code)}</div>
+                      <code class="soft">{block.reason_code}</code>
                       {block.details.length > 0 && <div class="soft">{block.details.join("; ")}</div>}
                     </li>
                   ))}

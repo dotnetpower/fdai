@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 926873d49f045811732675a57811ca6228f44df6
-translation_revised: 2026-10-18
+translation_source_sha: 50a983f9ecc839d88de862e85d195916bd310f08
+translation_revised: 2026-11-01
 ---
 # 결과 Assurance
 
@@ -30,53 +30,6 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 3. **통제 보증:** 결과가 정책, 승인, 롤백, 승격 guardrail 안에 머물렀습니까?
 
 ![한눈에 보는 설계. 주요 단계는 BusinessService and Workload, Operational Objective, DecisionCase and ExpectedEffect, ActionRun, ObservedOutcome, Measured outcome, Readiness evidence, Outcome Assurance projection, Guard and promotion evidence, Read-only console입니다.](../../diagrams/generated/fdai-roadmap-architecture-outcome-assurance-01.ko.svg)
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 스칼라 Dynamic 피드백 출처의 신뢰성 | implemented | `8d423a8145`; `core/assurance_twin/model_registry.py`; `core/measurement/runners.py`; 집중 피드백 검사와 실제 PostgreSQL 트랜잭션 검사 | 출처는 알 수 없는 결과를 유지하고, 수락한 피드백을 모델 처리 증적 및 감사와 함께 저장하며, 재시도 가능한 작업을 보존합니다. 이는 권위 있는 `OutcomeAssuranceProjection` 생산자나 운영 복구 개선 증거가 아닙니다. |
-| 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
-| 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 0보다 큰 절감액에는 정확한 작업 계보, 하나의 통화, 비교 가능한 기준/처리 구간, 수요 정규화 및 실행 요율 또는 청구서 근거 등급도 필요합니다. 청구서 배부에는 확정 청구 및 배부 증적도 필요합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
-| 단계 4 측정 정책 출처 | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; 집중 Core 및 전달 테스트 | 완전한 홀드아웃이 shadow 패턴 쓰기를 제한하며, `core/measurement/pattern_evidence.py`와 `delivery/measurement/pattern_evidence.py`는 검증된 enforce 모드 결과에서만 그 홀드아웃 근거와 측정 성공률을 산출합니다. 롤백은 실패 분모에서 제외하고, 롤백 보고가 없는 미검증 결과는 실패로 세며, 최소 결과 수에 못 미치는 관측 패턴은 미검증 상태로 되돌립니다. 루프백 PostgreSQL 체인 테스트가 이를 검증합니다. 짝지은 모델 근거는 검토 전용 권고를 만들고 계층별 지연 시간은 서버 소유 예산, 보고값, 처리량, 백분위수 및 사용 불가 상태를 보존합니다. 잘못된 형식의 근거는 한 번 거부되고 이후 묶음을 막지 않습니다. 영속 처리는 승격 또는 실행 권한을 부여하지 않습니다. |
-| 보호된 코호트 준비 상태 점검 | implemented | `.github/workflows/cohort-readiness.yml`; `delivery/measurement/cohort_inventory.py`; 집중 워크플로 및 인벤토리 테스트 | 정확한 보호된 `main` 리비전 하나가 비공개 상태 저장소의 baseline 및 treatment 가용성을 집계해서 점검하고 권한이 없는 증적을 보존할 수 있습니다. 상태 저장소 연결 수준 실패는 명시적인 `unavailable` 증적이 되고 query 및 schema 실패는 계속 실행을 실패시킵니다. 이 워크플로는 관측값을 가져오거나 승격 상태를 바꾸거나 누락된 표본을 적격 상태로 바꾸지 않습니다. |
-| ActionType 정규 내용 다이제스트 | implemented | `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트 | `action_type_digest`는 provenance를 제외한 ActionType의 결정론적 SHA-256 내용 다이제스트를 계산하는 공개 함수입니다. 평가기는 이 다이제스트를 사용하여 봉인된 배치와 현재 ActionType 정의 사이의 스키마 변이를 감지합니다. |
-| 운영 승격 정책 ID | implemented | `core/measurement/operational_promotion.py`, `operational_promotion_runner.py`, 검토된 replay 및 영속 승격 어댑터, 집중 O7 검사 | 모든 O7 증적과 승격 판정은 표본, recurrence, rollback, simulation-review, escape, causal-grade 임계값 전체의 정확한 다이제스트를 지정합니다. 검토, 저장, 전달, 영속 적용, 재시작 readback은 정책 drift를 차단합니다. |
-| `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | implemented | [변환 결과 계약](#변환-결과-계약); `core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 | 타입이 지정된 범위, 기간, 준비 상태, 귀속, 결과, 가드, 근거 모델이 이제 존재하며 결정론적 JSON 재현과 최신 권위 관측 correction 축소를 제공합니다. 이 계약은 읽기 전용으로 남고 권한 객체를 추가하지 않습니다. |
-| 목표 귀속과 집계 평가 | implemented | [목표 귀속](#목표-귀속), `core/measurement/outcome_assurance.py`, 집중 Outcome Assurance 테스트 | 순수 reducer는 명시적인 finalized 이벤트 집합을 입력받고 decision, objective, workflow, action, run, outcome 및 measurement의 완전한 체인을 요구합니다. 최신 권위 observation만 사용하고 해결되지 않은 모든 이벤트를 분모에 유지합니다. 권위 있는 출처 연결은 열린 상태입니다. |
-| 인증된 Operator API와 Console 경험 | in-progress | [Operator API와 console](#operator-api와-console); `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest 및 typecheck 결과 | 공유 `1.0.0` 계약, 인증된 principal 범위 `/kpi/outcome-assurance` 읽기 패널, Console 상세 화면이 쓰기 경로나 권한 필드 없이 complete, stale, unavailable 상태를 표시합니다. 현재 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없으므로, 권위 출처 연결은 아래 남은 작업으로 유지합니다. |
-| 변경 안전성 파일럿과 버티컬 확장 | not-started | [전달 순서](#전달-순서) | 비합성 OA3 파일럿 또는 OA4 확장이 근거를 생성하려면 OA0-OA2가 먼저 구현돼야 합니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-10-17 | implemented | 운영 승격 측정 및 적용을 전체 임계값 정책 다이제스트에 결속했습니다. 같은 근거 배치는 임계값 변경 후 이전 검토 또는 영속 권한을 다시 사용할 수 없습니다. | `current change`, O7 측정, 학습, 영속성, 승격 집중 검사 155개, 엄격한 mypy | 배포 환경의 액션별 실제 코호트와 인증된 효과 증적을 보존합니다. |
-| 2026-10-04 | in-progress | 공유 Outcome Assurance `1.0.0` 읽기 계약, 인증된 principal 범위 `/kpi/outcome-assurance` Operator 읽기 패널, complete, stale, unavailable 출처 상태를 합성값이나 0 채움 없이 표시하는 Console 상세 화면을 추가했습니다. 저장소 검색 결과 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없었습니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest, typecheck, Ruff 및 strict mypy 검사. | Core 소유 producer를 추가한 뒤 구성된 권위 있는 보존 변환 결과 출처에 대해 읽기 패널의 실제 인증 배포 증적을 기록합니다. |
-| 2026-09-27 | implemented | 비공개 PostgreSQL 연결에 실패한 보호된 코호트 준비 상태 시도를 attested unavailable 증적으로 보존하고 query/schema 오류와 `require_ready=true`는 계속 fail-closed로 유지했습니다. | `current change`; 실패한 exact-main 실행 `36290118007`; 집중 워크플로 계약 및 shell 검사. | 검증된 비공개 runner 연결을 복구한 뒤 집계 가용성과 실제 dual-arm cohort를 보존합니다. |
-| 2026-09-26 | implemented | 실제 관측을 가져오거나 승격하지 않으면서 비공개 집계 근거를 읽고 내용 주소 방식으로 증적을 발행하며 준비 상태가 필수일 때 안전하게 차단할 수 있는 보호된 정확한 리비전 코호트 준비 상태 점검을 추가했습니다. | `current change`; 코호트 준비 상태 워크플로, 집중 계약 테스트, CI 계약 검사 및 라우팅된 설계 맥락. | 검토된 baseline 및 treatment exporter를 추가하고 각 arm의 모든 필수 측정값에 대해 독립 관측값을 30개 이상 보존합니다. |
-| 2026-09-09 | implemented | 각 필수 코호트 지표를 검토된 95% 구간 계산법에 연결했습니다. 자동 해결률은 Wilson을 사용하고 연속값 및 횟수 평균은 결정론적 부트스트랩을 사용하므로 정책이 MTTR, 변경 리드 타임, 비용 또는 사람 접점을 베르누이 비율로 다시 해석할 수 없습니다. | `current change`; 코호트 정책 로더와 집중 정책 테스트. | 실제 운영 코호트를 보존하고 독립적으로 승인합니다. |
-| 2026-09-01 | implemented | `_action_type_digest`를 공개 `action_type_digest` 함수로 승격하고 `core/measurement/__init__.py`에서 내보냈습니다. 정규 내용 다이제스트는 provenance를 제외하고 승격 평가 시 ActionType 일관성 검증을 외부 호출자가 수행할 수 있게 합니다. | `current change`; `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
-| 2026-08-31 | implemented | 예약 측정 조립에 영속 단계 4 홀드아웃, 모델 교체 및 지연 시간 출처 처리를 추가했습니다. 재시작, 중복, 부분, 오래됨, 미래 시점, 롤백 및 사용 불가 근거는 명시적으로 남고 긍정적 모델 비교에는 별도 승격 검토가 필요합니다. | `current change`; 측정 집약기, 전달 러너, CLI 조립 및 집중 Core, 전달, CLI 검사. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
-| 2026-08-29 | implemented | 예상 절감과 독립적으로 검증된 효과 정산을 분리하고 실패, 검열됨, 점수화 불가 및 롤백 결과를 보존하는 비용 거버넌스 출처를 추가했습니다. | `current change`; 집중 비용 거버넌스 정산, 보존 및 캠페인 테스트. | 아직 열려 있는 `OutcomeAssuranceProjection` 작업을 통해 이 출처를 결합합니다. |
-| 2026-10-18 | implemented | 검증된 운영 효과가 비교 가능한 구간, 수요 정규화, 정확한 작업, 통화 및 근거 등급 계보 없이 절감액을 만들 수 없도록 비용 거버넌스 출처를 강화했습니다. 같은 기준선의 중복 귀속은 안전하게 차단합니다. | `current change`; 집중 정산, 학습, 시나리오, 영구 다이제스트 및 격리된 migration 검사. | 설치 소유 정산 실행 요율 및 확정 청구 증적을 보존해야 합니다. 더 넓은 변환 결과 작업은 바뀌지 않았습니다. |
-| 2026-08-29 | implemented | 권한 객체를 도입하지 않고 OA0 타입 읽기 모델, 범위가 제한된 근거 상태, 결정론적 재현 JSON 및 최신 권위 관측 correction 축소를 추가했습니다. | `current change`; `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 그리고 집중 `uv run --extra dev python -m pytest -q --no-cov --noconftest services/core-control-plane/tests/core/measurement/test_outcome_assurance.py` (`7 passed`) 및 대상 Ruff 검사입니다. | OA1을 통해 권위 있는 준비 상태, 가드 및 측정 출처를 연결합니다. |
-| 2026-08-29 | implemented | 명시적인 finalized 이벤트 집합을 사용하는 목표 귀속 reducer를 추가했습니다. 중복 이벤트 identity와 해당 집합 밖의 observation을 거부하고, 이름에서 목표를 추론하지 않으며, 완전한 타입 체인만 최신 일치 observation에 연결하고 불완전하거나 일치하지 않는 이벤트를 커버리지에 유지합니다. | `current change`, `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 집중 Outcome Assurance 테스트 13개, 대상 Ruff 및 strict mypy 검사 통과 | 읽기 모델을 노출하기 전에 인증된 finalized 이벤트, objective, audit 및 measurement 출처를 연결합니다. |
-| 2026-08-14 | not-started | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 부분적으로 구현된 출처 시스템 위의 설계 전용 변환 결과로 기록했습니다. | `current change`; 계약, API 경로, Console 표면에 대한 저장소 검색과 위에 인용한 출처 소유 문서입니다. | 파일럿과 버티컬 확장을 시작하기 전에 OA0부터 OA2까지 전달합니다. |
-
-### 남은 작업
-
-- [x] 새 권한 객체를 추가하지 않고 타입이 지정된 `OutcomeAssuranceProjection`, 범위가 제한된 근거 상태, correction 규칙 및 결정론적 재현을 정의하고 테스트합니다 (`core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 `7 passed`).
-- [x] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다 (`summarize_objective_attribution`, 집중 Outcome Assurance 테스트 13개 통과).
-- [x] claim 적격성이나 승격 권한을 부여하지 않고 누락된 측정값 집계를 노출하는 정확한
-  `main` 읽기 전용 보호 코호트 인벤토리 증적을 추가합니다.
-- [x] 읽기 전용 Operator API와 Console 상세 화면을 추가하고, 보존 변환 결과 데이터가 없거나 stale하면 synthetic이 아니라 사용 불가로 표시됨을 검증합니다(`/kpi/outcome-assurance`; 집중 계약, Operator 경로, Console Vitest, typecheck, Ruff 및 strict mypy 검사).
-- [ ] 권위 있는 측정 출처에서 `OutcomeAssuranceProjection`을 만들어 shared reader key 아래에 보존하는 Core 소유 producer를 추가합니다. 종료 조건: 집중 producer-to-reader 왕복 테스트가 complete, stale, unavailable 상태를 반환합니다.
-- [ ] 구성된 권위 있는 보존 변환 결과 출처에 대해 `/kpi/outcome-assurance`의 실제 인증 배포 증적을 기록합니다. 증적은 complete 응답 하나와 누락 또는 stale 출처 응답 하나가 synthetic이 아니라 사용 불가로 남는 것을 포함해야 합니다.
-- [ ] 하나의 고정된 서비스와 시나리오 집합에서 변경 안전성 파일럿을 실행한 다음 수락 기준에 권위 있는 비합성 근거가 생긴 후에만 확장합니다.
-
 ## 범위 경계
 
 이 프레임은 FDAI의 도메인 경계를 유지하면서 고객이 이해할 수 있는 언어를 사용합니다.
@@ -318,6 +271,7 @@ business 값을 순위하거나 결정을 변경하지 않습니다. 목표 prio
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/outcome-assurance.md) |
 | KPI 권한과 기준선 규칙 | [goals-and-metrics-ko.md](goals-and-metrics-ko.md) |
 | 기존 목표와 결과 모델 | [operating-ontology-ko.md](operating-ontology-ko.md) |
 | 액션 안전성과 승격 계약 | [action-ontology-ko.md](../decisioning/action-ontology-ko.md) |

@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 766d73ef2dfac08850b93a6fd1a5ada28a11a68e
-translation_revised: 2026-10-04
+translation_source_sha: 870558be18109a3bfa261e47f64a44b96b5df71e
+translation_revised: 2026-11-01
 ---
 # 영구 대화 전송
 
@@ -62,96 +62,6 @@ Rollback은 완료 consumer와 Core publisher를 비활성화하고 마지막 �
 호환성을 복원한 뒤 이 영속 기록에서 replay를 재개합니다. Rollback은 최종 결과를 삭제하거나,
 수락된 Operator transaction 이전으로 broker offset을 되돌리거나, Core에 Operator database
 writer를 부여하지 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 검증된 연결 및 전달 맥락 | 구현됨 | `channel_delivery_models.py`, `postgres_channel_binding.py`, live PostgreSQL 검사 | Operator-local store가 exact idempotent create, active-endpoint uniqueness, revocation CAS, principal 범위 listing 및 runtime role을 통한 restart persistence를 강제합니다. 독립 edge가 store를 연결하고 기한이 된 전송마다 binding 상태와 신원을 다시 검증합니다. |
-| 불변 전달 원장 및 복구 조정기 | 구현됨 | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | 메모리 내 저장소와 조정기는 집중 테스트에서 안정적인 멱등성, CAS 점유, 제한된 재시도, 최종 모호성 및 오래된 임차 조정을 강제합니다. 이 행은 재시작 내구성을 주장하지 않습니다. |
-| 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
-| 교차 채널 읽기 쉬운 의미 행 | 구현됨 | Operator `presentation_rows.py`, v1/v2 artifact compiler, focused Operator 표현 검사(`94 passed`) | Web, Slack, Teams 및 replay가 읽기 쉬운 리소스 필드를 앞세우고 중첩 provider bag을 표시 block에서 제외하는 범위 제한 projection 하나를 받습니다. Immutable response는 exact 기술 근거를 계속 보존하고 delivery는 retry 중 projection을 다시 만들지 않습니다. |
-| 의미 요청 및 최종 변환 결과 신뢰성 | implemented | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, 집중 Operator 의미 bridge 검사 | Operator는 게시 전에 영속화하고 불투명한 session 참조로 요청을 partition하며 첫 최종 결과를 고정하고 뒤늦게 도착한 경쟁 변환 결과를 차단합니다. 실제 대체 시각에 시간 초과 보류를 기록하고 영속 순서로 재생하며 저장된 검증 최종 결과에서만 증적에 결속된 확정 구간을 내보냅니다. 전송이 없으면 권한 없는 타입 기반 보류를 유지합니다. |
-| PostgreSQL schema 및 운영 영속성 | 구현됨 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, Operator store module, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Concrete Operator store는 immutable response JSON, claim/attempt 및 finish/ack transaction 경계, process-loss ambiguity, breaker CAS 및 terminal retention cleanup을 보존합니다. |
-| Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 텍스트 전달 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. 첨부가 있는 레코드는 메시지 점유 또는 의미 게시 전에 실패하므로 메타데이터가 텍스트 전용 응답에서 사라질 수 없습니다. |
-| Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정합니다. 첨부 지원은 기본적으로 꺼져 있고 지원되지 않는 활성화는 의존성을 할당하기 전에 실패합니다. |
-| 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
-| 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`continuation_delivery.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py), [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`test_continuation_delivery.py`](../../../services/core-control-plane/tests/core/scheduler/test_continuation_delivery.py) | `ScheduledContinuationDeliveryCoordinator`가 저장된 예약 결과 하나를 앵커 id를 출처로 사용해 영속 outbound ledger로 재생하고, fence가 걸렸거나 없거나 만료되었거나 외부가 아니거나 다시 쓰인 출처를 거부하며, 반복 제출을 합칩니다. `purge_origin`은 출처 보존 fence가 삭제 의도를 기록한 경우에만 해당 결과의 메모리 내 원장 복사본을 삭제합니다. 어댑터 명령 경로와 운영 시작 조립은 여전히 현재 트리에 없습니다. |
-| 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 읽기 조사 최종 완료 수신 | implemented | `read-investigation-completion` `1.0.0`, Core 완료 publisher, Operator 완료 저장소, consumer, 보존 worker, 채널 outbound enqueue 및 migration grant, 집중 완료 및 권한 검사(`18 passed, 1 skipped`), loopback service-migrated PostgreSQL enqueue 테스트(`1 passed`) | Core는 변경할 수 없는 최종 작업 결과 하나를 publish합니다. Operator 운영 조립은 exact 제안을 검증하고 영속 inbox 행 하나와 멱등적인 Web assistant turn 하나 또는 활성 검증 principal binding에서 해석된 Operator 소유 Slack/Teams outbound delivery 행 하나를 원자적으로 씁니다. 검증되지 않았거나 취소됐거나 모호하거나 충돌하는 binding은 타입이 지정된 이유와 함께 실패 시 닫힙니다. 통제된 재시작 및 process-loss 근거는 열린 상태입니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-14 | 구현됨 | 지원되지 않는 A3 첨부를 유입 queue 전에 중단하고 영속 점유 또는 의미 게시 전 파이프라인 차단을 추가했습니다. 운영 인제스트기가 없는 동안 엄격한 활성화는 시작에 실패합니다. | `current change`, 집중 Operator 환경, 조립, Slack, Teams 및 파이프라인 검사 | 버전이 지정된 에이전트 소유 인제스트 전달을 연결하고 첨부 재시작, 시간 초과 및 인용 근거를 보존합니다. |
-| 2026-09-11 | 구현됨 | 독립 Operator API와 채널 경계에 서로 다른 고정 semantic outbox namespace를 할당해 각 런타임이 자체 내구성 요청만 claim하도록 했습니다. | `infra/services/operator-service/modules/operator-service/main.tf`, 집중 Terraform semantic transport 검사, 공유 빈 namespace에서 관측한 live target-only 증표 | 독립 Operator 서비스 전환을 적용하고 새로 짝지어진 런타임 호출 증표를 보존합니다. |
-| 2026-09-09 | implemented | 의미 Kafka partitioning을 불투명한 session 참조에 결속하고 로컬 physical topic을 배포 환경과 같은 최소 두 partition으로 조정했습니다. | `current change`, 집중 Operator bridge 및 로컬 시작 검사 | 이슈 #151에 필요한 통제된 인증 구독 증적을 보존합니다. |
-| 2026-09-08 | implemented | 스트리밍 변경 뒤 의미 요청 점유, 지연된 변환 결과 대기, 첫 최종 결과 고정, 뒤늦은 변환 결과 차단, 시간 초과 보류, 재생 cursor, 잘못된 레코드 격리 및 증적에 결속된 확정 전달을 다시 검증했습니다. | `current change`, 집중 Operator 의미 bridge 테스트 151개 통과 | 통제된 재시작 및 외부 broker 근거는 별도 검증 작업으로 유지합니다. |
-| 2026-09-05 | 구현됨 | 기존 의미 기반 영속 경계 전에 주체, 목표, 에이전트, 세션을 검증하는 웹 전용 인수인계 제안 데코레이터를 추가했습니다. Slack, Teams, 외부 전달, 공급자 승인 상태는 변경하지 않습니다. | `current change`; 집중 Operator 인수인계 및 경로 조립 테스트가 통과했습니다. | 별도로 필요한 채널 및 배포 증적을 보존합니다. |
-| 2026-08-13 | 진행 중 | 구현 장부를 도입하고 운영 영속성, 시작, 명령, 예약 전달 및 운영 화면 주장을 현재 서비스 트리에 맞게 수정했습니다. | 구현 범위 표에 나열한 집중 테스트 76개가 통과했습니다. 저장소 검색에서 현재 운영 저장소, 런타임 조립, 명령 경로, 예약 전달 조정기 또는 읽기 패널을 찾지 못했습니다. | 누락된 운영 표면을 구현하고 연결하며 데이터베이스 기반 검사를 실행하고 통제된 런타임 증적을 확보해야 합니다. |
-| 2026-08-16 | 진행 중 | 범위가 제한된 지연 시간 백분위수, 차단기 및 상태 개수, 선택적 progressive 계수기를 갖추고 변경 제어나 식별자 표면이 없는 GET 전용 `ConversationDeliveryPanel` 집계 투영을 구현했습니다. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py`가 읽기 전용 선언, 식별자 없는 페이로드, 변경 경로 거부를 포함한 집중 테스트 11개를 통과했습니다. | 패널을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결한 뒤 통제된 런타임 증적을 확보해야 합니다. |
-| 2026-08-19 | 구현됨 | 변경하지 않은 revision 0047 위에 구체적인 PostgreSQL principal binding 및 outbound delivery store를 추가하고 additive revision 0087과 lease-aware inbound message ledger를 추가했습니다. Gateway는 direct acknowledgement 또는 durable delivery ownership 이후에만 inbound claim을 완료로 표시합니다. | `current change`, loopback PostgreSQL 실제 검사 9개 건너뛰기 없이 통과, in-memory/gateway parity 36개, migration 검사 183개 및 Ruff, formatting, strict mypy 통과 | Fail-closed 운영 A3 lifespan에 모든 store를 binding하고 runtime restart 근거를 보존합니다. |
-| 2026-08-19 | 철회됨 | Operator Service가 conversation table을 소유하고 root Alembic lineage가 동결되어 있으므로 Core 소유 PostgreSQL adapter와 root revision 0087을 철회했습니다. | Root migration head를 `20260819_0086`으로 복원했고 legacy inventory를 revision 88개와 table 105개로 복원했습니다. 집중 Core migration 검사 200개와 service-migration 검사 47개를 통과했습니다. | Operator 소유권 아래에서 store를 다시 구현합니다. |
-| 2026-08-19 | 진행 중 | Inbound claim table과 정확한 6개 table grant를 Operator service migration branch에 추가했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, ownership manifest, service-migration 검사 47개 통과, loopback Operator branch를 새 head로 upgrade | Operator-local store를 구현하고 binding한 뒤 restart 및 process-loss 근거를 보존합니다. |
-| 2026-08-19 | 구현됨 | 동결된 legacy table과 Operator service migration 위에 Operator-local binding, inbound claim, outbound delivery, attempt, acknowledgement, retention 및 breaker store를 추가했습니다. | `current change`, Operator runtime role을 통한 live loopback PostgreSQL 검사 9개 건너뛰기 없이 통과, Ruff, formatting 및 strict mypy 통과 | Production edge에 store를 binding하고 restart 및 외부 provider 근거를 보존합니다. |
-| 2026-08-19 | 구현됨 | Operator-local 의미 최종 전달, 정확한 binding replay, 즉시 및 기한 도래 프로바이더 claim, 원자적 확인 응답 종결, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | `current change`, 집중 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 edge lifespan에 worker와 store를 연결하고 restart 및 외부 프로바이더 근거를 보존합니다. |
-| 2026-08-20 | 구현됨 | 세 Operator store, 의미 bridge, 복구 worker, 프로바이더 adapter 및 readiness probe를 독립 fail-closed edge lifespan에 연결했습니다. | `current change`, 집중 edge 검사 74개, live channel PostgreSQL 검사 10개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
-| 2026-08-20 | 구현됨 | 기한 도래 전달 권한과 lifecycle 복구를 hardening했습니다. Claim된 모든 재시도는 활성 principal, scope, conversation 및 channel binding을 다시 검증하고, known Teams JWKS key는 범위가 제한된 TTL 뒤 갱신하며, runtime과 credential 종료는 멱등적입니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
-| 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
-| 2026-08-23 | 시작 전 | 전송 스키마를 만들거나 Core에 Operator 대화 table 접근 권한을 부여하지 않고 교차 서비스 최종 읽기 조사 완료 수신을 명시적 소유권 선행 작업으로 등록했습니다. | `current change`; 구현 범위 행에 연결된 세 owner 문서가 열린 경계에 동의합니다. | 버전이 지정된 계약을 정의하고 검토한 뒤 Operator 소유 영속 수락, 멱등 projection, 전달 재시도, 보존 및 롤백 테스트를 구현합니다. |
-| 2026-08-26 | 진행 중 | 버전이 지정된 완료 codec, Core publisher, Operator inbox 및 Web 대화 materializer를 구현했습니다. Operator migration은 대화 쓰기를 부여하고 하나의 writable CTE가 영속 제안, assistant turn 및 inbox 행을 dedupe하며 rollback은 inbox를 drop하기 전에 쓰기 권한을 제거합니다. | `current change`; 집중 Operator readiness, 완료 저장소 및 migration 권한 검사가 통과했습니다. | 검증된 채널 binding 해석과 outbound enqueue, 보존 정리 및 통제된 재시작/process-loss 증적을 추가합니다. |
-| 2026-08-29 | 구현됨 | 감독되는 Operator 수명 주기에 제한된 완료 inbox 보존 정리를 추가했습니다. 저장소는 `SKIP LOCKED`를 사용해 기한이 지난 행만 기한 순서대로 삭제합니다. 후속 migration은 Operator 소유 inbox에만 삭제 권한을 부여하고 정리가 반복해서 실패하면 준비 상태를 닫습니다. | `current change`, Operator 완료 저장소 및 런타임, `operator_completion_retention_20260829`, 집중 완료, 조립, 권한 및 서비스 migration 검사 | 검증된 Slack 및 Teams binding 해석과 outbound enqueue를 추가한 뒤 통제된 재시작 및 process-loss 증적을 보존합니다. |
-| 2026-09-08 | 구현됨 | 정확한 의미 ObjectSet 입력과 행 수 출력을 최종 Operator 변환 결과부터 재생된 Command Deck 실행 기록까지 함께 유지합니다. 완료 증적으로 뒷받침되는 활동만 범위가 제한된 정의를 표시하고, 진행 상황은 기능 이름만 유지하며, 표시되는 모든 기록은 `execution_authority=false`를 고정합니다. | `current change`, [Issue #241](https://github.com/dotnetpower/fdai/issues/241), 집중 Operator 재생 테스트, Console 타입 검사 및 인증된 데스크톱, 제약된 데스크톱, 모바일 시나리오 통과 | Web 실행 기록 전달에는 남은 작업이 없습니다. 통제된 Slack 및 Teams 전달 근거 범위는 변경되지 않습니다. |
-| 2026-09-12 | implemented | Versioned Core-to-Operator 읽기 조사 완료 수신, 멱등적 Web writeback 및 범위가 제한된 inbox 보존을 정합화하면서 채널 및 통제된 재시작 gap을 유지했습니다. | `current change`; 완료 transport, Operator runtime/store 및 writer-grant test(`24 passed`, skip 없음). | 검증된 채널 outbound enqueue를 추가하고 통제된 재시작 근거를 보존합니다. |
-| 2026-09-26 | implemented | 영속 outbound ledger 위에 `ScheduledContinuationDeliveryCoordinator`를 구현했습니다. 저장된 앵커만 재생하고 고정된 앵커 id를 출처로 사용하며, 보존 삭제 fence, 없거나 만료된 앵커, 외부가 아닌 채널, 다시 쓰인 저장 내용에서 닫힘 실패합니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py`가 111개 사례를 통과했고 focused Ruff와 strict mypy도 통과했습니다. | 조정기를 운영 채널 어댑터와 시작 조립에 연결하고 통제된 Slack 및 Teams 전달 증적을 보존해야 합니다. |
-| 2026-09-27 | implemented | 조정기의 채널 렌더링을 강화했습니다. 상한을 넘는 저장 요약은 결정적으로 잘라 내고 기록 데이터에 표시하며, 채널 봉투 한도를 넘는 식별자는 앵커 id가 전달 신원을 담기 때문에 타입 없는 오류로 빠져나가지 않고 `ContinuationRenderingError`를 발생시킵니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `pytest services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py` 106개 사례 통과이며 2026-09-26에 기록한 개수를 정정합니다. Focused Ruff 및 엄격 mypy 통과입니다. | `ScheduledContinuationDeliveryCoordinator`를 운영 채널 어댑터와 시작 조립에 연결한 다음 통제된 Slack 및 Teams 전달 증적을 보존합니다. |
-| 2026-09-26 | 진행 중 | Core의 메모리 내 전달 저장소에 출처 범위 삭제를 추가했습니다. 전달 기록은 출처 참조를 별도 필드로 저장하며, 프로세스 범위 tombstone이 저장소의 수명 동안 늦은 쓰기를 차단합니다. `ScheduledContinuationDeliveryCoordinator.purge_origin`은 출처 삭제 fence가 기록된 경우에만 호출할 수 있습니다. | `current change`; [Issue #1025](https://github.com/dotnetpower/fdai/issues/1025); `services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py`, `services/core-control-plane/src/fdai/core/scheduler/continuation_delivery.py` 및 `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler services/core-control-plane/tests/providers/test_conversation_delivery.py services/core-control-plane/tests/conversation/test_outbound_delivery.py services/core-control-plane/tests/persistence/test_scheduled_continuation.py services/core-control-plane/tests/persistence/test_scheduled_continuation_retention.py services/operator-service/tests/test_channel_delivery_postgres.py` (149건 통과, 환경 조건부 7건 건너뜀), 변경 파일 Ruff 검사와 형식 검사 및 엄격한 mypy 통과. | Operator PostgreSQL 원장에 영속 출처 삭제, 원자적인 늦은 쓰기 차단과 독립 재확인을 구현하고 보존 작업자에 연결해야 합니다. 재시작 후에도 안전한 물리 삭제는 아직 증명하지 못했습니다. |
-| 2026-10-04 | 구현됨 | Operator 소유 읽기 조사 완료 outbound enqueue를 Slack 및 Teams에 추가했습니다. Enqueue 경로는 정확히 하나의 활성 검증 principal binding을 해석하고, 검증되지 않았거나 취소됐거나 모호하거나 충돌하는 binding을 타입이 지정된 이유로 거절하며, provider I/O 없이 `conversation_outbound_delivery`에 멱등적인 pending 행 하나를 씁니다. | `current change`; `services/operator-service/src/fdai_operator_service/postgres_read_investigation_completion.py`; `services/operator-service/tests/test_read_investigation_completion_store.py`; `tests/integration/services/test_operator_completion_writer_grants.py`; `uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py tests/integration/services/test_operator_completion_writer_grants.py` (18 passed, 1 skipped); disposable loopback PostgreSQL에 root Alembic 및 service-owned migration을 적용한 뒤 `FDAI_SERVICE_MIGRATIONS_READY=1 uv run --extra dev pytest -q --no-cov services/operator-service/tests/test_read_investigation_completion_store.py::test_postgres_external_completion_enqueue_replay_and_binding_rejections` (1 passed). | Operator 완료 enqueue를 검증됨으로 표시하기 전에 통제된 재시작 및 process-loss 증적을 보존합니다. |
-
-### 남은 작업
-
-- [x] Operator-local PostgreSQL delivery, binding, breaker 및 inbound claim adapter를 구현하고
-     실제 database 집중 테스트를 통과합니다.
-- [x] 결정적 replay, 전송 전 영속 소유권, 차단기 유입 제어 및 live database 연결을 갖춘
-     Operator-local 의미 전달 파이프라인과 감독되는 복구 worker를 구현합니다.
-- [x] 세 PostgreSQL store를 운영 조립에 binding합니다.
-- [x] 소비자보다 먼저 시작 조정을 호출하고 필수 첨부 또는 채널 종속성을 사용할 수 없을 때
-     실패 시 닫히는 운영 채널 런타임을 조립합니다.
-- [ ] 버전이 지정된 서비스 전달을 통해 운영 첨부 인제스트기를 연결합니다. 그전까지 queue
-     유입 전에 첨부를 차단하고 영속 전달 경로를 사용할 수 없는 상태로 유지합니다.
-- [ ] 권한 확인, 감사 및 일시 중지, 재개, 상태 집중 테스트를 갖춘 별도 인증
-     `/commands/adapters/*` 애플리케이션을 추가합니다.
-- [x] 안정적인 앵커 출처, 저장된 결과 재생, 삭제 fence 거부 테스트를 갖춘 Slack 및 Teams용
-     `ScheduledContinuationDeliveryCoordinator`를 구현합니다.
-- [ ] `ScheduledContinuationDeliveryCoordinator`를 운영 채널 어댑터와 시작 조립에 연결하고
-     통제된 Slack 및 Teams 예약 전달 증적을 보존합니다.
-- [x] 출처 삭제 fence 아래에서 Core 메모리 내 전달 저장소의 출처 범위 삭제를 구현합니다.
-     관련 없는 출처와 시도 및 확인 응답 계보를 보존하고 남은 본문을 확인하지만, 재시작 후에도
-     안전한 물리 삭제는 증명하지 못했습니다.
-- [ ] 동일한 출처 범위 삭제, 출처 tombstone, 재확인을 Operator 소유 PostgreSQL 전달 ledger에
-     구현하고, 이 삭제를 예약 결과 보존 worker의 삭제 순서에 연결해 한 번의 조정된 수행이 모든
-     보존 복사본을 처리하도록 합니다.
-- [x] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
-- [ ] `ConversationDeliveryPanel`을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결하고
-     범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
-- [x] 버전이 지정된 최종 완료 계약을 정의하고 Core publisher, Operator 소유 영속 inbox,
-     poison 처리, 범위가 제한된 재시도, rollback grant 및 멱등적인 Web assistant turn을 연결합니다.
-- [x] 기한 순서, `SKIP LOCKED`, Operator 전용 삭제 권한 및 실패 시 닫히는 준비 상태 검사를
-     갖춘 제한된 완료 inbox 보존 정리를 구현합니다.
-- [x] provider I/O 없이 Operator 소유 outbound delivery ledger에 검증된 Slack 및 Teams
-     binding 해석과 outbound enqueue를 추가합니다.
-- [ ] read-investigation Slack/Teams 완료 enqueue의 통제된 재시작 및 process-loss 증적을
-     보존하고, process restart 뒤 replay가 outbound 행을 중복 생성하지 않음을 증명합니다.
-- [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
-     외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
-     런타임 증적을 기록합니다.
-
 ## 설계 개요
 
 FDAI는 프로바이더 호출 전에 완전하고 제한된 응답을 저장합니다. 워커는 compare-and-set
@@ -331,6 +241,7 @@ storm, Slack/Teams 게시, 편집, 스트림, reaction 성능 저하, 삭제 fen
 
 | 학습 항목 | 문서 |
 |-----------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/interfaces/durable-conversation-delivery.md) |
 | 대화 조정기 및 도구 권한 | [Operator 콘솔](operator-console-ko.md) |
 | 채널 trust 및 rich 전달 | [채널 및 notification](channels-and-notifications-ko.md) |
 | Exact scheduled-run anchor | [Scheduled 결과 이어가기](scheduled-result-continuations-ko.md) |

@@ -8,6 +8,12 @@ import { formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
 import { enrollmentPath, enrollmentsPath, navigate } from "../router";
 
+const APPROVER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._@-]{0,127}$/;
+
+export function isValidApprover(value: string): boolean {
+  return APPROVER_PATTERN.test(value.trim());
+}
+
 export function EnrollmentsPage({ selectedId }: { selectedId: string | null }) {
   return selectedId === null ? (
     <EnrollmentsList />
@@ -270,10 +276,21 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
                   class="input"
                   value={approver}
                   required
-                  placeholder="name or email"
+                  pattern="[A-Za-z0-9][A-Za-z0-9._@-]{0,127}"
+                  maxLength={128}
+                  aria-describedby="approver-help"
+                  placeholder="name or email (e.g. operator@example.com)"
                   onInput={(event) => setApprover(event.currentTarget.value)}
                 />
               </div>
+              <p class="note" id="approver-help">
+                Use 1-128 ASCII letters, digits, dots, underscores, hyphens, or @ (must start with a letter or digit).
+              </p>
+              {approver.trim().length > 0 && !isValidApprover(approver) && (
+                <p class="banner fail" role="alert">
+                  Approver must match [A-Za-z0-9][A-Za-z0-9._@-]&#123;0,127&#125;.
+                </p>
+              )}
               <div class="form-row">
                 <label class="lbl" for="key-id">
                   Verified key id
@@ -309,7 +326,7 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
               <button
                 type="button"
                 class="btn"
-                disabled={busy !== null || approver.trim().length === 0 || reason.trim().length === 0}
+                disabled={busy !== null || !isValidApprover(approver) || reason.trim().length === 0}
                 onClick={() =>
                   decide("reject", (who) => hubApi.rejectEnrollment(installationId, who, reason.trim()))
                 }
@@ -320,7 +337,7 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
               <button
                 type="button"
                 class="btn primary"
-                disabled={busy !== null || approver.trim().length === 0 || keyId.trim().length === 0}
+                disabled={busy !== null || !isValidApprover(approver) || keyId.trim().length === 0}
                 onClick={() =>
                   decide("accept", (who) => hubApi.approveEnrollment(installationId, who, keyId.trim()))
                 }

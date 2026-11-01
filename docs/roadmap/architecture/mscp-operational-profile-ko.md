@@ -1,8 +1,8 @@
 ---
 title: MSCP Operational Profile
 translation_of: mscp-operational-profile.md
-translation_source_sha: 28f401922cf3fa880434c21706826b3c2c3f5842
-translation_revised: 2026-10-04
+translation_source_sha: bcc79fccd97ad78596faceada09e5a138ab418e9
+translation_revised: 2026-11-01
 ---
 # MSCP Operational 프로파일
 
@@ -29,44 +29,6 @@ MSCP 레벨을 구현하거나 전체 MSCP conformance를 충족한다고 주장
 
 런타임 식별자에는 의도적으로 MSCP 레벨을 넣지 않습니다. FDAI는 여러 레벨에서 선택한 개념을
 결합하며, 각 모듈 docstring과 아래 대응에서 수준별 설계 출처 이력을 유지합니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| HIL 효과 조정 조립 경계 | implemented | `runtime/control_loop.py`; `core/hil_resume/coordinator.py`; 집중 HIL 조정 검사 | 런타임은 일반 조정 싱크를 선택적 MSCP 관측기 쌍과 독립적으로 HIL 재개에 제공합니다. 수락 또는 대기 중인 전달은 권위 있는 관측이 닫기 전까지 검증되지 않은 상태로 남습니다. |
-| 프로파일 신원과 결정론적 정책 기본 요소 | implemented | `core/mscp_profile/profile.py`; `cycle_guard.py`; `runtime_integrity.py`; `tests/core/mscp_profile/` 아래의 집중 테스트 | 출처 이력, 비준수 선언, 범위가 제한된 순환 검사 및 런타임 매니페스트 비교를 순수 정책으로 구현했습니다. |
-| 선택적 효과 관측과 `ResponseOutcome` 변환 결과 | implemented | `core/mscp_profile/effect_verification.py`; `response_outcome.py`; `test_control_loop_shadow.py`; `test_response_outcome.py` | 쌍으로만 구성되는 조립은 실행기 결과를 유지하고 권한을 추가하지 않는 shadow 근거를 기록합니다. |
-| 권한을 높이지 않는 상한 | implemented | `core/mscp_profile/authority_ceiling.py`; `test_authority_ceiling.py` | 유한 도메인 전체를 검사하는 테스트는 프로파일이 기존 FDAI 결정을 유지하거나 낮출 수만 있음을 입증합니다. 이 상한은 강제 적용 경로에 연결되지 않았습니다. |
-| 충돌 인식 권한 낮추기 | implemented | `core/ontology_platform/evidence_conflict.py`, 컨트롤 루프 및 HIL 재개 검사 | 정본 Property 의미 규칙 교집합은 권한을 높이지 않는 상한을 재사용해 관련 ActionType만 보류합니다. 충돌 상태를 읽을 수 없으면 실행기 I/O 전에 안전하게 차단합니다. |
-| 룰 거버넌스 공존 | implemented | `runtime/control_loop.py`; `core/control_loop/_process.py`; 집중 거버넌스 안전 경로 테스트 | 배정 관찰과 exemption 보류는 전달 전에 발생합니다. MSCP 효과 관측을 활성화하거나 `ResponseOutcome`을 만들거나 프로파일 수명 주기를 변경하지 않습니다. |
-| 불변 결정 맥락 변환 및 재현 | implemented | `core/mscp_profile/decision_context.py`; `decision_context_store.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); MSCP 소유 테스트 (`140 passed`) | 소유자가 주입한 읽기 전용 관측 네 가지를 하나의 후보, 결정, 대상, 기준 시점에 한해서 결합합니다. 누락, 충돌, 불완전, 기한 경과, 미래 시각, 검증 실패 및 접근 불가 상태에서는 보류합니다. 내용 다이제스트와 최초 기록 시 원자적 감사 경계가 재시작 후에도 유지되며 새 권한을 만들지 않습니다. 실제 런타임 소유자 연결은 남아 있습니다. |
-| 통제된 프로파일 게이팅 | implemented | [활성화 및 런타임 동작](#활성화-및-런타임-동작); `core/mscp_profile/readiness.py`; `profile_lifecycle.py`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`) | 선택적 ControlLoop 수명 주기 게이트는 이제 정확한 후보 해석기와 수명 주기 읽기 구성 요소를 모두 요구하고, 수명 주기 상태가 없거나 잘못되었거나 검토되지 않았으면 안전하게 `shadow`로 낮추며, 검토된 위험 결정을 보존하고 활성화 권한을 부여하지 않습니다. 측정된 근거 구간과 운영 후보 활성화는 별도의 열린 작업으로 남아 있습니다. |
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-22 | implemented | 완전한 판단 사이에서 활성 Rule 멤버십을 교체할 수 있게 하면서 MSCP 프로파일 경계를 보존했습니다. 세대 변경은 효과 관측을 활성화하지 않으며 `ResponseOutcome`, 권한 상한, 승인 또는 실행을 변경하지 않습니다. | `current change`; 컨트롤 루프 세대 교체와 집중 T0 및 활성화 테스트. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
-| 2026-09-14 | implemented | MSCP를 활성화하거나 권한 상한을 바꾸지 않고 기존 효과 조정 요청 싱크를 HIL 재개에 연결했습니다. | `current change`; 이슈 #962; 집중 HIL 조정 및 런타임 배선 검사입니다. | HIL 승인 액션 하나의 배포된 독립 관측 근거를 보존합니다. |
-| 2026-08-31 | implemented | 아직 기록되지 않은 관측을 버리기만 하지 않고 보류하도록 만들고, 액션 수명 주기를 주입 가능한 시계 위에 올렸습니다. 이전 변환 결과는 계약이 표현할 수 없는 관측을 버리면서도 판정을 `verified`로 남겨 두었기 때문에, 실제 `verify_effect` 결과의 관측 시각이 `recorded_at`보다 뒤일 때 여전히 발송 내부에서 계약 검증 오류가 발생했습니다. 이제 허용성 판단이 결정, shadow 감사 항목, 변환 결과보다 먼저 실행되어 그런 근거를 `observation_not_yet_recorded` 사유의 `hold`로 낮추며, 이미 보류된 판정은 사유를 유지합니다. shadow 효과 항목은 액션 생성과 전달 구간을 추가로 기록하고, `ControlLoop`와 `ActionBuilder`는 하나의 공유 시계를 받아 고정 재생이 생성, 예측, 전달, 관측, 기록을 벽시계가 아닌 시나리오 시간선 위에서 정렬합니다. | `current change`; `core/mscp_profile/effect_verification.py`; `core/mscp_profile/response_outcome.py`; `core/mscp_profile/shadow_effect.py`; `core/control_loop/_execution.py`; `core/executor/action_builder.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 `not_yet_recorded` 사례는 보류를 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/core/executor services/core-control-plane/tests/pipeline`가 통과했습니다. | 근거는 여전히 shadow에서 실행한 프로세스 내 고정 재생이므로, 배포 환경에 고정된 shadow 근거 관측 구간은 열려 있습니다. |
-| 2026-08-31 | implemented | 계약이 표현할 수 없는 관측에 대해 `ResponseOutcome` 변환 결과가 실패 시 차단하도록 만들었습니다. 효과 창을 벗어났거나 아직 기록되지 않은 관측은 이전에는 발송 내부에서 계약 검증 오류를 일으켜, 부족한 효과 근거가 shadow `hold` 근거가 아니라 발송 시점 오류가 되었습니다. 이제 변환 결과는 그런 관측을 버리고 `unscorable`로 기록하며, shadow 효과 감사 항목이 원본 값을 보존하고 계약 불변 조건 자체는 그대로입니다. | `current change`; `core/mscp_profile/response_outcome.py`; `tests/core/mscp_profile/test_response_outcome.py`; `tests/scenarios/test_v2026_07_replay.py::test_sre_full_loop_fails_closed_on_deficient_effect_evidence`의 기한 초과 사례는 변환 결과 수정을 되돌리면 계약 검증 오류로 실패합니다; `uv run pytest -q --no-cov services/core-control-plane/tests/scenarios services/core-control-plane/tests/core/mscp_profile services/core-control-plane/tests/contracts/test_response_outcome.py`가 통과했습니다. | 근거는 shadow에서 실행한 프로세스 내 고정 재생에서 나오므로, 배포 환경에 고정된 shadow 근거 관측 구간은 여전히 열려 있습니다. |
-| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 구현된 shadow 관측과 구현되지 않은 게이팅을 분리했습니다. | `current change`; 구현 범위 표의 프로파일 소스와 집중 테스트입니다. | 측정된 준비 상태 구간을 보존하고 아래의 범위가 제한된 결정 맥락 및 게이팅 작업을 구현합니다. |
-| 2026-08-23 | implemented | 불변 룰 거버넌스와 전달 후 선택적 MSCP 효과 관측 사이의 순서 경계를 기록했습니다. | `current change`; 집중 거버넌스 및 MSCP 조립 검사입니다. | 기존 측정 준비 상태 및 통제된 게이팅 작업은 변경되지 않습니다. |
-| 2026-09-27 | implemented | 범위가 제한되고 내용으로 주소를 정하는 네 소유자의 결정 맥락과 감사 항목을 함께 기록하는 최초 쓰기 및 재시작 후 재현을 추가했습니다. 누락, 충돌, 기한 경과, 검증 실패, 접근 불가 근거는 보류합니다. 이전에 결합된 상태 행을 바로잡았습니다. 기본 shadow 수명 주기 기본 요소는 이미 있지만 프로파일이 활성화된 것은 아닙니다. | `current change`; `core/mscp_profile/{decision_context,decision_context_store}.py`; `tests/core/mscp_profile/test_decision_context.py` (`20 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`140 passed`); 집중 Ruff 및 mypy 검사입니다. | 실제 정본 읽기 경로를 런타임에 연결하고, 측정된 shadow 구간을 보존하고, 게이팅 통합은 별도로 통제해야 합니다. |
-| 2026-10-04 | implemented | 통제된 MSCP 수명 주기 읽기 구성 요소와 권한을 높이지 않는 상한을 선택적 전부 아니면 전무 게이트로 ControlLoop 위험 평가에 연결했습니다. 프로파일 상태가 없거나 잘못되었거나 검토되지 않았으면 `shadow`로 낮추고, 검토된 `gating` 수명 주기는 기존 unified risk 결정을 보존하며 위험, 승인, 실행기 및 감사 소유권을 그대로 유지합니다. | `current change`; `core/control_loop/_execution.py`; `core/control_loop/orchestrator.py`; `core/mscp_profile/{__init__,profile_lifecycle}.py`; `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); 변경된 소스의 집중 Ruff format/check 및 strict mypy가 통과했습니다. | 배포된 활성화를 주장하기 전에 고정된 측정 shadow 구간과 운영 후보 훈련을 보존합니다. |
-
-### 남은 작업
-
-- [x] 소유자가 제공한 온톨로지, 인시던트, 작업 흐름 및 감사 관측을 불변의 원자적 감사 기록을 가진 결정 맥락으로 변환합니다. 집중 테스트는 누락되거나 충돌하는 입력이 보류되고 재시도가 영속 기록을 바꾸지 못함을 입증합니다(`20 passed`).
-- [ ] 운영 단계에서 맥락을 사용할 수 있다고 주장하기 전에 실제 정본 소유자 읽기 경로 네 가지를 통제된 런타임에 연결하고 고정된 결정 증적을 보존합니다.
-- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 선택된 비운영 후보 `ops.start-vm@1.0.0`에 대해 프로파일 일치, 불일치, 보류, 감사 실패 및 변경되지 않은 실행기 결과를 측정하고 초기 준비도 기준을 통과하는 고정된 shadow 근거 구간을 보존합니다.
-- [x] [#53](https://github.com/dotnetpower/fdai/issues/53): 집중 테스트가 롤백, 재현 및 변경되지 않은 risk, 승인, 실행, 감사 소유권을 입증한 뒤에만 기존 프로파일 수명 주기와 권한을 높이지 않는 상한을 ControlLoop gating에 연결합니다. 근거: `core/control_loop/_execution.py`, `core/control_loop/orchestrator.py`, `core/mscp_profile/{__init__,profile_lifecycle}.py`, `tests/core/mscp_profile/test_profile_gate_control_loop.py`; `uv run --extra dev pytest -q --no-cov services/core-control-plane/tests/core/mscp_profile` (`146 passed`); 변경된 소스의 집중 Ruff format/check 및 strict mypy가 통과했습니다.
-- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): 해당 후보에 대해 통과하는 롤백 및 gating에서 shadow로의 강등 훈련을 실행하고 감사 근거를 보존합니다.
-- [ ] [#53](https://github.com/dotnetpower/fdai/issues/53): gating을 연결한 뒤 활성화, 운영, 강등 및 인시던트 대응을 설명하는 영어와 한국어 운영자 안내를 게시합니다.
-
 ## 프로파일 계약
 
 | 필드 | 값 | 의미 |
@@ -272,6 +234,7 @@ unified risk 결정 위의 권한을 높이지 않는 전달 전 상한으로도
 
 | 알아볼 내용 | 읽을 문서 |
 |-------------|-----------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/architecture/mscp-operational-profile.md) |
 | Control-loop 및 모듈 경계 | [프로젝트 구조](project-structure-ko.md) |
 | 안전 및 신원 불변식 | [보안과 아이덴티티](security-and-identity-ko.md) |
 | 승격 근거 및 가드 메트릭 | [목표와 메트릭](goals-and-metrics-ko.md) |

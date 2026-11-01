@@ -1,0 +1,107 @@
+"""Focused tests for the Operator API busy-input materializer."""
+
+from __future__ import annotations
+
+import pytest
+from fdai_operator_service.busy_input_materializer import BusyInputOperatorMaterializer
+from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
+
+
+def test_busy_input_materializer_enforces_principal_scope_and_404_equivalence() -> None:
+    mat = BusyInputOperatorMaterializer()
+    mat.ensure_session(
+        session_id="sess-1",
+        owner_principal_id="owner-a",
+        mode="steer",
+        active_turn_id="turn-1",
+    )
+
+    projected = mat.inspect(session_id="sess-1", principal_id="owner-a")
+    assert projected["mode"] == "steer"
+    assert projected["active_turn_id"] == "turn-1"
+
+    # Foreign principal receives the exact same 404 as a non-existent session
+    with pytest.raises(ConversationBoundaryError) as foreign_exc:
+        mat.inspect(session_id="sess-1", principal_id="owner-b")
+    with pytest.raises(ConversationBoundaryError) as missing_exc:
+        mat.inspect(session_id="sess-missing", principal_id="owner-b")
+    assert foreign_exc.value.status_code == 404
+    assert missing_exc.value.status_code == 404
+    assert foreign_exc.value.code == missing_exc.value.code == "session_not_found"
+
+
+def test_busy_input_materializer_submit_idempotency_and_revision_conflicts() -> None:
+    mat = BusyInputOperatorMaterializer()
+    mat.ensure_session(
+        session_id="sess-1",
+        owner_principal_id="owner-a",
+        mode="steer",
+        active_turn_id="turn-1",
+    )
+
+    first = mat.submit(
+        session_id="sess-1",
+        principal_id="owner-a",
+        payload={
+            "input_id": "in-1",
+            "idempotency_key": "idem-1",
+            "content": "focus on koreacentral",
+            "kind": "prose",
+        },
+    )
+    assert first["duplicate"] is False
+    assert first["submitted"]["disposition"] == "steered"
+
+    replay = mat.submit(
+        session_id="sess-1",
+        principal_id="owner-a",
+        payload={
+            "input_id": "in-1",
+            "idempotency_key": "idem-1",
+            "content": "focus on koreacentral",
+            "kind": "prose",
+        },
+    )
+    assert replay["duplicate"] is True
+
+    with pytest.raises(ConversationBoundaryError) as idem_conflict:
+        mat.submit(
+            session_id="sess-1",
+            principal_id="owner-a",
+            payload={
+                "input_id": "in-1",
+                "idempotency_key": "idem-1",
+                "content": "different text",
+                "kind": "prose",
+            },
+        )
+    assert idem_conflict.value.status_code == 409
+    assert idem_conflict.value.code == "busy_input_idempotency_conflict"
+
+    # Stale revision conflict on mode change and cancel_current
+    with pytest.raises(ConversationBoundaryError) as rev_conflict:
+        mat.set_mode(
+            session_id="sess-1",
+            principal_id="owner-a",
+            mode="interrupt",
+            expected_revision=1,
+        )
+    assert rev_conflict.value.status_code == 409
+
+    mode_changed = mat.set_mode(
+        session_id="sess-1",
+        principal_id="owner-a",
+        mode="interrupt",
+        expected_revision=2,
+    )
+    assert mode_changed["mode"] == "interrupt"
+    assert mode_changed["revision"] == 3
+
+    cancelled = mat.cancel_current(
+        session_id="sess-1",
+        principal_id="owner-a",
+        expected_revision=3,
+    )
+    assert cancelled["cancelled"] is True
+    assert cancelled["session"]["active_turn_id"] is None
+    assert cancelled["session"]["revision"] == 4

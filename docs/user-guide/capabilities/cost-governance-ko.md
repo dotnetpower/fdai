@@ -2,8 +2,8 @@
 title: 비용 거버넌스
 description: FDAI가 비용 이상을 감지하고 리소스 규모 조정을 권장하며, 저위험 정리는 자동화하고 위험한 변경은 승인 대기로 보내는 방법을 알아봅니다.
 translation_of: cost-governance.md
-translation_source_sha: 34461c12e35ca6b7dc2800c159349ab187f9bc32
-translation_revised: 2026-10-22
+translation_source_sha: e99059981984310a6b1baecd124254a1fc85387d
+translation_revised: 2026-11-01
 ---
 
 # 비용 거버넌스

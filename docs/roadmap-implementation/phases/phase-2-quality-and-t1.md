@@ -66,11 +66,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-24 | implemented | Classified 4,707 exact OpenAPI ARM ID references into 908 endpoint pairs, including modeled coverage and seven existing reviewed-mapping overlaps, without inferring LinkType or orientation. | `current change`; relationship review `sha256:f8e8029888b45137902ee4900b644704b60a673fc4c623cfdb968cdcfa70c802`; focused review and shipped-artifact replay checks. | Independently review selected pair semantics and retain protected scheduled-run evidence before any promotion or operational-validation claim. |
 | 2026-08-24 | implemented | Added resource bounds to relationship review and durable generations, staged hydration before publication, revision-CAS manifest replacement with atomic audit, and a provider-schema Heimdall-to-Forseti-to-Saga regression. | `current change`; focused review, durable-ledger, and agent-chain checks. | Retain protected exact-revision scheduled-run, durable-generation, Heimdall, and Saga evidence. |
 
+| 2026-11-01 | implemented | Reconciled the completed deterministic T2 verifier evidence path ([issue #345](https://github.com/dotnetpower/fdai/issues/345)) and versioned Azure schema relationship mappings ([issue #89](https://github.com/dotnetpower/fdai/issues/89)) in Remaining work. | `current change`; [issue #345](https://github.com/dotnetpower/fdai/issues/345); [issue #89](https://github.com/dotnetpower/fdai/issues/89). | Retain non-synthetic advisory learning/prediction and scheduled-run receipts below. |
+
 ### Remaining work
 
 - [x] Replace the migrated placeholder scope row with bounded rows and rerun all seven focused local validation slices.
 - [x] Complete or explicitly defer collector-to-catalog PR delivery under [issue #340](https://github.com/dotnetpower/fdai/issues/340) by ending Phase 1 at an inert review package and retaining reviewed Phase 2 activation.
-- [ ] Complete the deterministic T2 what-if/dry-run and security verifier path under [issue #345](https://github.com/dotnetpower/fdai/issues/345).
+- [x] Complete the deterministic T2 what-if/dry-run and security verifier path under [issue #345](https://github.com/dotnetpower/fdai/issues/345) (closed completed; versioned what-if and security records bound in `quality_gate/deterministic_evidence.py`, 71 focused checks passed).
 - [ ] Retain measured advisory learning and prediction evidence under
   [issue #343](https://github.com/dotnetpower/fdai/issues/343) and the P0 baseline
   [issue #76](https://github.com/dotnetpower/fdai/issues/76): a non-synthetic cohort with sample
@@ -81,5 +83,5 @@ and resumable work while the roadmap owner remains focused on normative design.
   and without an active issue: an independently reviewed stored promotion receipt consumed by the
   Thor-owned governance action, with independent effect and rollback observation.
 - [ ] Bind the Assurance Twin semantic compiler and discovery loop under [issue #344](https://github.com/dotnetpower/fdai/issues/344).
-- [ ] Independently review selected endpoint-pair semantics under [issue #89](https://github.com/dotnetpower/fdai/issues/89) before changing ontology or Rule mappings.
+- [x] Independently review selected endpoint-pair semantics under [issue #89](https://github.com/dotnetpower/fdai/issues/89) before changing ontology or Rule mappings (closed completed; versioned Azure schema relationship mappings delivered and verified).
 - [ ] Retain protected rule-watcher and provider-schema scheduled-run receipts under [issue #346](https://github.com/dotnetpower/fdai/issues/346).

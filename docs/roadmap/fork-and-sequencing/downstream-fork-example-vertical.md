@@ -282,7 +282,8 @@ version: "1.0.0"
 source: custom
 severity: medium
 category: compliance
-resource_type: governance.proposal   # see the caveat below
+resource_type: governance.proposal
+target_object_type: GovernanceProposal
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/assign_reviewers.rego
@@ -299,23 +300,14 @@ provenance:
   retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
-**The `resource_type` caveat**: the shipped rule loader validates
-`resource_type` against the ResourceType registry (a subtype registry
-of the built-in `Resource` ObjectType). Until the upstream loader is
-generalised to accept any registered ObjectType, a fork has two
-options:
-
-1. **Model proposal subtypes as ResourceType entries** in the fork's
-   own vocabulary extension (`fork/vocabulary/resource-types-fork.yaml`
-   loaded via a separate `load_resource_type_registry_from_mapping`
-   call and concatenated with upstream). The name is misleading -
-   these are not cloud resources - but the mechanism works.
-2. **Open an upstream issue** to add a `Rule.target_object_type` field.
-   Do not fork-patch the rule loader; the cross-reference is the load-
-   time typo guard.
-
-Option 1 is what a first pass ships with; option 2 is the cleaner
-long-term direction and blocks on an upstream design pass.
+**Targeting a custom `ObjectType` (`Rule.target_object_type`)**: the rule loader validates
+`target_object_type` against the registered `ObjectType` catalog (`load_object_type_catalog`)
+when `object_types` (or `object_type_names`) is supplied to `load_rule_catalog` /
+`load_rule_from_mapping`. When `target_object_type` names a registered non-`Resource`
+`ObjectType` (such as `GovernanceProposal` or `ChangeSummary`), `resource_type` carries the
+domain dispatch key (for example `governance.proposal`) and `submission_criteria` may use
+`object_type_registered` without requiring a synthetic `ResourceType` entry. The legacy
+`ResourceType` extension path remains supported for backward compatibility.
 
 ### 5.2 Decision publication (T0)
 
