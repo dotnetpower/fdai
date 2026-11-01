@@ -66,9 +66,19 @@ class EffectModel:
             raise ValueError("effect model causal evidence receipt MUST be SHA-256")
         if _SEMVER.fullmatch(self.version) is None:
             raise ValueError("effect model version MUST use MAJOR.MINOR.PATCH")
-        if self.revision < 1 or self.sample_count < 0:
+        if (
+            isinstance(self.revision, bool)
+            or isinstance(self.sample_count, bool)
+            or self.revision < 1
+            or self.sample_count < 0
+        ):
             raise ValueError("effect model revision and sample count MUST be non-negative")
-        if self.learned_at.tzinfo is None or self.learned_through.tzinfo is None:
+        if (
+            self.learned_at.tzinfo is None
+            or self.learned_at.utcoffset() is None
+            or self.learned_through.tzinfo is None
+            or self.learned_through.utcoffset() is None
+        ):
             raise ValueError("effect model timestamps MUST be timezone-aware")
         if self.learned_through < self.learned_at:
             raise ValueError("effect model learned_through MUST NOT precede learned_at")

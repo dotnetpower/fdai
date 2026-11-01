@@ -339,3 +339,70 @@ def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
         query_execution_target("   ")
     with pytest.raises(ValueError, match="non-empty"):
         work_progress_detail_fields({}, locale="   ")
+
+
+def test_campaign_6_h55_to_h60_operator_trend_invariants() -> None:
+    import pytest
+    from fdai_operator_service.families.conversation.post_turn_review import (
+        NonBlockingPostTurnReviewQueue,
+        PostTurnReviewQueueSnapshot,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_domains import (
+        _resource_condition_artifact,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_renderers import (
+        _compile_block,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+        assemble_presentation_artifact_v3,
+    )
+    from fdai_operator_service.families.conversation.presentation_planner import (
+        PresentationKind,
+        analyze_evidence_shape,
+    )
+    from fdai_operator_service.families.conversation.subscription_scope_presentation import (
+        subscription_scope_artifact,
+    )
+
+    assert (
+        _resource_condition_artifact(
+            outputs=[],
+            context={},
+            evidence_refs=[],
+            locale="   ",
+            verified=True,
+        )
+        is None
+    )
+    shape = analyze_evidence_shape({}, verified=True)
+    assert (
+        _compile_block(
+            PresentationKind.CALLOUT,
+            reason_code="   ",
+            shape=shape,
+            locale="ko",
+            evidence_refs=[],
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="locale"):
+        assemble_presentation_artifact_v3(
+            layout="operational_brief",
+            blocks=[{"kind": "callout"}],
+            evidence_refs=["ref:1"],
+            locale="   ",
+            input_kinds=["verified_semantic_result"],
+        )
+    assert (
+        subscription_scope_artifact(
+            output={"source_complete": True, "rows": ()},
+            evidence_refs=[],
+            locale="   ",
+            verified=True,
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="non-negative"):
+        PostTurnReviewQueueSnapshot(enqueued=True)
+    with pytest.raises(ValueError, match="positive"):
+        NonBlockingPostTurnReviewQueue(source=None, publisher=None, max_size=True)  # type: ignore[arg-type]

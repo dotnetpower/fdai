@@ -32,6 +32,8 @@ class _ShapeDepthError(ValueError):
 
 def bound_procedure_projection(projection: dict[str, object], *, maximum_bytes: int) -> int:
     """Omit only optional procedure metadata if it would exceed the existing wire budget."""
+    if isinstance(maximum_bytes, bool) or maximum_bytes < 1:
+        raise ValueError("maximum_bytes MUST be a positive integer")
     size = _projection_size(projection)
     payload = projection.get("payload")
     details = payload.get("technical_details") if isinstance(payload, Mapping) else None

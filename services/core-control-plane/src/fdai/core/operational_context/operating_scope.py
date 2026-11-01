@@ -26,6 +26,10 @@ class ResourceScopeCoverage:
     service_ids: tuple[str, ...]
     service_ref: str
 
+    def __post_init__(self) -> None:
+        if not self.resource_id.strip() or not self.service_ref.strip():
+            raise ValueError("ResourceScopeCoverage requires non-empty resource_id and service_ref")
+
     @property
     def mapped(self) -> bool:
         return self.service_ref != UNMAPPED_SERVICE_REF
@@ -41,6 +45,10 @@ class OperatingScopeCoverage:
 
     source_revision: str
     resources: tuple[ResourceScopeCoverage, ...]
+
+    def __post_init__(self) -> None:
+        if not self.source_revision.strip():
+            raise ValueError("OperatingScopeCoverage source_revision MUST be non-empty")
 
     @property
     def unmapped_resource_ids(self) -> tuple[str, ...]:

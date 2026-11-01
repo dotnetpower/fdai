@@ -53,9 +53,11 @@ class BackgroundTaskService:
         now: datetime | None = None,
         retention_days: int = 30,
     ) -> tuple[BackgroundTaskAttempt, bool]:
-        if not 1 <= retention_days <= 90:
+        if isinstance(retention_days, bool) or not 1 <= retention_days <= 90:
             raise ValueError("retention_days MUST be in [1, 90]")
         created_at = now or self._clock()
+        if created_at.tzinfo is None or created_at.utcoffset() is None:
+            raise ValueError("background task created_at MUST be timezone-aware")
         task = BackgroundTask(
             task_id=_task_id(owner_principal_id, idempotency_key),
             owner_principal_id=owner_principal_id,

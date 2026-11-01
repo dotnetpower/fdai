@@ -20,7 +20,13 @@ def _identity_key(snapshot: EffectPredictionSnapshot) -> str:
 async def retain_prediction(
     store: StateStore, snapshot: EffectPredictionSnapshot, *, recorded_at: datetime
 ) -> None:
-    if recorded_at.tzinfo is None or recorded_at < snapshot.predicted_at:
+    if (
+        recorded_at.tzinfo is None
+        or recorded_at.utcoffset() is None
+        or snapshot.predicted_at.tzinfo is None
+        or snapshot.predicted_at.utcoffset() is None
+        or recorded_at < snapshot.predicted_at
+    ):
         raise ValueError("prediction retention time MUST follow prediction creation")
     value: dict[str, Any] = {
         "schema_version": "1.0.0",

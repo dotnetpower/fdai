@@ -83,6 +83,17 @@ class BackgroundTaskBudget:
     max_progress_events: int = 32
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool)
+            for value in (
+                self.max_wall_seconds,
+                self.max_tokens,
+                self.max_cost_microusd,
+                self.max_tool_calls,
+                self.max_progress_events,
+            )
+        ):
+            raise ValueError("BackgroundTaskBudget fields MUST NOT be booleans")
         if not 1 <= self.max_wall_seconds <= 3_600:
             raise ValueError("max_wall_seconds MUST be in [1, 3600]")
         if not 1 <= self.max_tokens <= 32_768:

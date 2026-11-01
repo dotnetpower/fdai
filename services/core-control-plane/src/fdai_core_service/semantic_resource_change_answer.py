@@ -38,7 +38,11 @@ def render_resource_change_answer(
     if rows is None:
         verified_rows: list[Mapping[str, object]] = []
         returned_rows = output.get("returned_rows")
-        unresolved = returned_rows if isinstance(returned_rows, int) else 1
+        unresolved = (
+            returned_rows
+            if isinstance(returned_rows, int) and not isinstance(returned_rows, bool)
+            else 1
+        )
     else:
         verified_rows = [row for row in rows if verified_resource_change_row(row)]
         unresolved = len(rows) - len(verified_rows)

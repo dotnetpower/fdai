@@ -45,6 +45,19 @@ class MemoryCompactionCandidate:
     reviewed_at: datetime | None = None
     promoted_entry_id: UUID | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.candidate_id.strip()
+            or not self.scope_ref.strip()
+            or not self.body.strip()
+            or not self.proposed_by_agent.strip()
+            or self.created_at.tzinfo is None
+            or self.created_at.utcoffset() is None
+        ):
+            raise ValueError(
+                "MemoryCompactionCandidate requires non-empty fields and aware created_at"
+            )
+
 
 class MemoryCompactionRepository(Protocol):
     async def create(self, candidate: MemoryCompactionCandidate) -> MemoryCompactionCandidate: ...

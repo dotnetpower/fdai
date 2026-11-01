@@ -16,6 +16,18 @@ class SemanticAssuranceClaims:
     fact_kinds: tuple[str, ...] = ()
     limitation_kinds: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "fact_kinds",
+            tuple(item.strip() for item in self.fact_kinds if item.strip()),
+        )
+        object.__setattr__(
+            self,
+            "limitation_kinds",
+            tuple(item.strip() for item in self.limitation_kinds if item.strip()),
+        )
+
     @property
     def claim_kinds(self) -> tuple[str, ...]:
         """Return the complete ordered claim set backed by this output."""
@@ -32,7 +44,7 @@ def project_function_claims(
 ) -> SemanticAssuranceClaims:
     """Project claims only through the registry for the verified FunctionType."""
 
-    projector = _FUNCTION_CLAIM_REGISTRY.get(function_name)
+    projector = _FUNCTION_CLAIM_REGISTRY.get(function_name.strip())
     return projector(value) if projector is not None else SemanticAssuranceClaims()
 
 

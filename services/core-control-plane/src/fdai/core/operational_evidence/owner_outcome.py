@@ -52,6 +52,8 @@ class OperationalEvidenceRejectedError(PermissionError):
     """
 
     def __init__(self, message: str, *, attempt: OperationalEvidenceAttempt) -> None:
+        if not message.strip():
+            raise ValueError("OperationalEvidenceRejectedError message MUST be non-empty")
         citation = f" ({attempt.rejection_digest})" if attempt.rejection_digest else ""
         super().__init__(f"{message}: {attempt.hold_reason('unavailable')}{citation}")
         self.attempt = attempt
@@ -81,9 +83,10 @@ class OperationalEvidenceAttempt:
 
     def hold_reason(self, generic: str) -> str:
         """Return the owner's reason: the generic hold unless a class was proven."""
-
+        if not generic.strip():
+            raise ValueError("generic hold reason MUST be non-empty")
         if self.rejection is None:
-            return generic
+            return generic.strip()
         return f"operational_evidence_{self.rejection.rejection_class.value}"
 
     def hold_reasons(self, generic: str) -> tuple[str, ...]:

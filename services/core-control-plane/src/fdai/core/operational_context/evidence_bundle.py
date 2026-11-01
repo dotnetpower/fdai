@@ -81,7 +81,12 @@ def build_operational_evidence_bundle(
     typed values. Citation, freshness, completeness, and budget failures produce hold evidence.
     """
 
-    if cutoff.tzinfo is None or trusted_recorded_at.tzinfo is None:
+    if (
+        cutoff.tzinfo is None
+        or cutoff.utcoffset() is None
+        or trusted_recorded_at.tzinfo is None
+        or trusted_recorded_at.utcoffset() is None
+    ):
         raise ValueError("bundle timestamps MUST be timezone-aware")
     if cutoff > trusted_recorded_at:
         raise ValueError("bundle cutoff MUST NOT exceed trusted recorded time")

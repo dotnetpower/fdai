@@ -52,8 +52,10 @@ class ReadbackRejection:
     conflict_evidence_digests: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.reason_codes:
+        if not self.reason_codes or any(not code.strip() for code in self.reason_codes):
             raise ValueError("readback rejection requires at least one reason code")
+        if any(not digest.strip() for digest in self.conflict_evidence_digests):
+            raise ValueError("readback conflict digests MUST be non-empty")
         if (self.rejection_class is OperationalEvidenceRejectionClass.CONFLICTING) != bool(
             self.conflict_evidence_digests
         ):

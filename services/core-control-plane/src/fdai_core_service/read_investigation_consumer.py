@@ -72,6 +72,12 @@ class ReadInvestigationConsumerBinding:
     coordinator: ReadInvestigationCoordinatorControl
     interactive: InteractiveReadInvestigationControl | None = None
 
+    def __post_init__(self) -> None:
+        if not self.request_topic.strip() or not self.group_id.strip():
+            raise ValueError(
+                "ReadInvestigationConsumerBinding topic and group_id MUST be non-empty"
+            )
+
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Consume until the shared Core stop event is set."""
 

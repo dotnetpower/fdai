@@ -34,6 +34,8 @@ def applied_context_receipts(
     stages. ``Auto`` is the absence of a preference, so it yields no receipt.
     """
 
+    if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+        raise ValueError("applied_context_receipts observed_at MUST be timezone-aware")
     tier = request.conversation_model_tier
     if tier is None:
         return ()
@@ -49,6 +51,8 @@ def work_progress_payload(
 ) -> Mapping[str, object]:
     """Return the additive payload fields in the wire shape the Console parses."""
 
+    if as_of.tzinfo is None or as_of.utcoffset() is None:
+        raise ValueError("work_progress_payload as_of MUST be timezone-aware")
     fields: dict[str, object] = {}
     if shape is not None:
         fields["work_progress_shape"] = shape.model_dump(mode="json")

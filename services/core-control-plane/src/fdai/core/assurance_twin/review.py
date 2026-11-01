@@ -83,13 +83,13 @@ async def publish_review(
     or retry on a later change signal. Never raises.
     """
 
-    if not pr_ref:
+    if not pr_ref.strip():
         raise ValueError("pr_ref MUST be non-empty")
-    if not review_key:
+    if not review_key.strip():
         raise ValueError("review_key MUST be non-empty")
-    if not verdict:
+    if not verdict.strip():
         raise ValueError("verdict MUST be non-empty")
-    if not generated_at:
+    if not generated_at.strip():
         raise ValueError("generated_at MUST be non-empty")
 
     review = IacReview(

@@ -77,6 +77,8 @@ def build_busy_input_active_turn_executor(
     max_steer_reruns: int = 3,
 ) -> BusyInputActiveTurnExecutor:
     """Bind BusyInputActiveTurnExecutor over a session BusyInputCoordinator."""
+    if isinstance(max_steer_reruns, bool) or max_steer_reruns < 0:
+        raise ValueError("max_steer_reruns MUST be a non-negative integer")
     return BusyInputActiveTurnExecutor(
         coordinator=coordinator,
         max_steer_reruns=max_steer_reruns,

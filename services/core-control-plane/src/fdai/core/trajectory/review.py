@@ -18,7 +18,7 @@ class TrajectoryLearningAggregate:
     tool_request_counts: tuple[tuple[str, int], ...]
 
     def __post_init__(self) -> None:
-        if self.record_count < 1:
+        if isinstance(self.record_count, bool) or self.record_count < 1:
             raise ValueError("reviewed trajectory aggregate record_count MUST be positive")
         _ordered_counts("outcome_counts", self.outcome_counts)
         _ordered_counts("tool_request_counts", self.tool_request_counts)
@@ -38,11 +38,11 @@ class ReviewedTrajectoryDataset:
     aggregate: TrajectoryLearningAggregate
 
     def __post_init__(self) -> None:
-        if not all((self.dataset_id, self.reviewed_by, self.review_ref)):
+        if not all((self.dataset_id.strip(), self.reviewed_by.strip(), self.review_ref.strip())):
             raise ValueError("reviewed trajectory identity fields MUST be non-empty")
         if _DIGEST.fullmatch(self.manifest_checksum) is None:
             raise ValueError("reviewed trajectory manifest_checksum MUST be SHA-256")
-        if self.reviewed_at.tzinfo is None:
+        if self.reviewed_at.tzinfo is None or self.reviewed_at.utcoffset() is None:
             raise ValueError("reviewed trajectory reviewed_at MUST be timezone-aware")
 
 
@@ -50,7 +50,7 @@ def _ordered_counts(name: str, values: tuple[tuple[str, int], ...]) -> None:
     keys = tuple(key for key, _ in values)
     if keys != tuple(sorted(keys)) or len(keys) != len(set(keys)):
         raise ValueError(f"reviewed trajectory {name} MUST use unique sorted keys")
-    if any(not key or count < 0 for key, count in values):
+    if any(not key.strip() or isinstance(count, bool) or count < 0 for key, count in values):
         raise ValueError(f"reviewed trajectory {name} MUST contain non-negative counts")
 
 

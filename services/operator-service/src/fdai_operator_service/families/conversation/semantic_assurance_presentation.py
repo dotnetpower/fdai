@@ -39,7 +39,7 @@ def pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
         or not valid_evaluator_models(evaluator_models)
         or not isinstance(trace, Mapping)
         or not isinstance(observations, Mapping)
-        or not isinstance(reviews, list)
+        or not isinstance(reviews, (list, tuple))
         or not isinstance(diagnostic, Mapping)
         or not valid_pantheon_prompt_profiles(prompt_profiles)
         or (turn_timing is not None and not isinstance(turn_timing, Mapping))
@@ -48,7 +48,7 @@ def pantheon_done_event_data(assurance: Mapping[str, object]) -> JsonObject:
             and (not isinstance(latency_ms, int) or isinstance(latency_ms, bool) or latency_ms < 0)
         )
         or assessment_state not in {"completed", "deferred", "held", "unavailable"}
-        or not isinstance(assessment_reasons, list)
+        or not isinstance(assessment_reasons, (list, tuple))
         or any(not isinstance(reason, str) or not reason for reason in assessment_reasons)
         or assurance.get("execution_authority") is not False
     ):

@@ -44,7 +44,7 @@ def verified_scalar_count(output: Mapping[str, object]) -> int | None:
     if output.get("source_complete") is not True or output.get("display_truncated") is True:
         return None
     rows = output.get("rows")
-    if not isinstance(rows, list) or len(rows) != 1:
+    if not isinstance(rows, (list, tuple)) or len(rows) != 1:
         return None
     row = rows[0]
     values = row.get("values") if isinstance(row, Mapping) else None
@@ -71,7 +71,7 @@ def verified_rows_table(
     rows = output.get("rows")
     values = [
         row["values"]
-        for row in (rows if isinstance(rows, list) else [])
+        for row in (rows if isinstance(rows, (list, tuple)) else [])
         if isinstance(row, Mapping) and isinstance(row.get("values"), Mapping)
     ]
     if not values:

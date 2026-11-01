@@ -16,6 +16,9 @@ def render_untrusted_document_evidence(bundle: OperationalEvidenceBundle) -> str
     """Render document excerpts in one delimited data channel with no instruction authority."""
 
     manifest = {entry.evidence_ref: entry for entry in bundle.citation_manifest}
+    for item in bundle.documents:
+        if item.instruction_authority is not False or item.evidence_ref not in manifest:
+            raise ValueError("untrusted document evidence requires manifest-bound non-authority")
     payload = {
         "documents": tuple(
             {

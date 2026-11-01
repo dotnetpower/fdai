@@ -22,6 +22,16 @@ class ResourceNameSuggestion:
     resource_type: str | None
     similarity: float
 
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValueError("ResourceNameSuggestion name MUST be non-empty")
+        if (
+            isinstance(self.similarity, bool)
+            or not isinstance(self.similarity, (int, float))
+            or not (0.0 <= float(self.similarity) <= 1.0)
+        ):
+            raise ValueError("ResourceNameSuggestion similarity MUST be in [0.0, 1.0]")
+
 
 def resource_name_suggestions(
     requested_name: str,

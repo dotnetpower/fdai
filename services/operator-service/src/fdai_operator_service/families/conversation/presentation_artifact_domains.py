@@ -56,7 +56,13 @@ def _resource_condition_artifact(
     locale: str,
     verified: bool,
 ) -> JsonObject | None:
-    if len(outputs) != 2:
+    if (
+        not isinstance(verified, bool)
+        or not isinstance(locale, str)
+        or not locale.strip()
+        or not isinstance(outputs, (list, tuple))
+        or len(outputs) != 2
+    ):
         return None
     by_node = {
         node_id: output

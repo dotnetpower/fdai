@@ -52,7 +52,7 @@ def result_handle_from_technical_details(
         result.disposition is not SemanticTurnDisposition.ANSWERED
         or result.ontology_release_digest is None
         or result.principal_manifest_digest is None
-        or not isinstance(outputs, list)
+        or not isinstance(outputs, (list, tuple))
     ):
         return None
     row_keys: list[TypedRowKey] = []

@@ -45,6 +45,8 @@ def assemble_presentation_artifact_v3(
 
     if layout not in _LAYOUTS:
         raise ValueError("presentation layout is unsupported")
+    if not locale.strip():
+        raise ValueError("presentation locale MUST be non-empty")
     if not blocks or len(blocks) > 8:
         raise ValueError("presentation artifact blocks are outside the bounded range")
     ordered_inputs = [kind for kind in _INPUT_ORDER if kind in input_kinds]
@@ -96,8 +98,8 @@ def verify_presentation_artifact_v3(artifact: Mapping[str, object]) -> None:
     evidence_refs = artifact.get("evidence_refs")
     assembly = artifact.get("assembly")
     if (
-        not isinstance(blocks, list)
-        or not isinstance(evidence_refs, list)
+        not isinstance(blocks, (list, tuple))
+        or not isinstance(evidence_refs, (list, tuple))
         or any(not isinstance(ref, str) or not ref.strip() for ref in evidence_refs)
         or not isinstance(assembly, Mapping)
     ):

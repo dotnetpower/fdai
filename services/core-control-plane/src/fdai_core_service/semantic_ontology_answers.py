@@ -90,7 +90,7 @@ def _render_declaration_list(
     if (
         output is None
         or declaration_kind is None
-        or not isinstance(rows, list)
+        or not isinstance(rows, (list, tuple))
         or not rows
         or not isinstance(total, int)
         or isinstance(total, bool)

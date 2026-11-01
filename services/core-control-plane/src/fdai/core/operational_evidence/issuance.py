@@ -63,6 +63,10 @@ class VerifierIdentity:
     verifier_id: str
     verifier_version: str
 
+    def __post_init__(self) -> None:
+        if not self.verifier_id.strip() or not self.verifier_version.strip():
+            raise ValueError("VerifierIdentity requires non-empty verifier_id and verifier_version")
+
 
 @dataclass(frozen=True, slots=True)
 class IssuedEvidence:
@@ -87,6 +91,10 @@ class StoredAttempt:
     status: OperationalEvidenceIssuanceStatus
     lookup_digest: str
     record_digest: str
+
+    def __post_init__(self) -> None:
+        if not self.lookup_digest.strip() or not self.record_digest.strip():
+            raise ValueError("StoredAttempt requires non-empty lookup_digest and record_digest")
 
 
 class ProofStoreWriter(Protocol):

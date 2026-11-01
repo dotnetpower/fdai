@@ -42,6 +42,21 @@ class TrajectoryProjectionRequest:
     catalog_tool_ids: tuple[str, ...]
     filters: TrajectoryBatchFilters = TrajectoryBatchFilters()
 
+    def __post_init__(self) -> None:
+        if any(
+            not value.strip()
+            for value in (
+                self.principal_id,
+                self.access_scope,
+                self.purpose,
+                self.environment,
+                self.evidence_profile,
+                self.model_capability_id,
+                self.redaction_policy_version,
+            )
+        ):
+            raise ValueError("TrajectoryProjectionRequest string fields MUST be non-empty")
+
 
 class TrajectoryProjectionError(ValueError):
     """Raised when immutable sources cannot form a complete trajectory."""

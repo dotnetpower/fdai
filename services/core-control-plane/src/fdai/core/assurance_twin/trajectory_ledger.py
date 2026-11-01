@@ -46,7 +46,7 @@ class StateStoreTrajectoryEpisodeLedger:
     """Open and close trajectory episodes with StateStore atomic writes."""
 
     def __init__(self, store: StateStore, *, max_retries: int = 3) -> None:
-        if max_retries < 1:
+        if isinstance(max_retries, bool) or max_retries < 1:
             raise ValueError("trajectory ledger max_retries MUST be >= 1")
         self._store = store
         self._max_retries = max_retries
@@ -94,7 +94,7 @@ class StateStoreTrajectoryEpisodeLedger:
         return False
 
     async def list_open(self, *, limit: int = 256) -> tuple[OpenTrajectoryEpisode, ...]:
-        if not 1 <= limit <= 1000:
+        if isinstance(limit, bool) or not 1 <= limit <= 1000:
             raise ValueError("trajectory open-episode limit MUST be in [1, 1000]")
         rows = await self._store.read_states(f"{_PREFIX}:", limit=limit)
         episodes = []

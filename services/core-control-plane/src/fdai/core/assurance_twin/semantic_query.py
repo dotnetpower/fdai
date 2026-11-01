@@ -35,6 +35,17 @@ class AssuranceTwinQueryGap:
     code: AbstainCode
     grants_authority: bool = False
 
+    def __post_init__(self) -> None:
+        if (
+            self.grants_authority is not False
+            or not self.schema_version.strip()
+            or not self.question_digest.strip()
+            or not self.compiler_revision.strip()
+        ):
+            raise ValueError(
+                "AssuranceTwinQueryGap MUST NOT grant authority and requires non-empty fields"
+            )
+
 
 @runtime_checkable
 class AssuranceTwinDiscoverySink(Protocol):

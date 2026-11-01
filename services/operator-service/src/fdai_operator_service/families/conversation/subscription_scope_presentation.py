@@ -28,7 +28,10 @@ def subscription_scope_artifact(
 
     rows = output.get("rows")
     if (
-        output.get("source_complete") is not True
+        not isinstance(verified, bool)
+        or not isinstance(locale, str)
+        or not locale.strip()
+        or output.get("source_complete") is not True
         or not isinstance(rows, (list, tuple))
         or len(rows) != 1
     ):

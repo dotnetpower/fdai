@@ -63,9 +63,9 @@ class SimulationFidelityLedger:
     evicted: int = 0
 
     def __post_init__(self) -> None:
-        if not 0.0 < self.tolerance <= 1.0:
+        if isinstance(self.tolerance, bool) or not 0.0 < self.tolerance <= 1.0:
             raise ValueError("tolerance MUST be in (0, 1]")
-        if self.max_pending < 1:
+        if isinstance(self.max_pending, bool) or self.max_pending < 1:
             raise ValueError("max_pending MUST be >= 1")
 
     def record_prediction(self, prediction_id: str, *, key: str, predicted: float) -> None:
@@ -75,7 +75,12 @@ class SimulationFidelityLedger:
         dropped: joining it would permanently poison the key's MAE / MAPE
         so a healthy predictor could never regain reliability.
         """
-        if not prediction_id or not math.isfinite(predicted):
+        if (
+            not prediction_id.strip()
+            or not key.strip()
+            or isinstance(predicted, bool)
+            or not math.isfinite(predicted)
+        ):
             return
         existing = self._pending.get(prediction_id)
         if existing is not None and existing[0] == "actual":

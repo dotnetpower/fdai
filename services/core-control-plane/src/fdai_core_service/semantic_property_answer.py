@@ -56,7 +56,7 @@ def render_property_value_answer(
     if output_shape != _SHAPE or len(outputs) != 1 or len(measure_concepts) != 2:
         return None
     rows = outputs[0].get("rows")
-    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], Mapping):
+    if not isinstance(rows, (list, tuple)) or len(rows) != 1 or not isinstance(rows[0], Mapping):
         return None
     values = rows[0].get("values")
     if not isinstance(values, Mapping):
@@ -74,7 +74,7 @@ def render_property_value_answer(
             if korean
             else f"- {label}: the value is too large to show here."
         )
-    elif isinstance(value, Mapping | list) and not value:
+    elif isinstance(value, (Mapping, list, tuple)) and not value:
         line = f"- {label}: 없음" if korean else f"- {label}: none"
     elif value is None:
         line = (

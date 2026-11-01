@@ -40,9 +40,11 @@ class TrajectoryVersionPolicy:
 
 def _parts(version: str) -> tuple[int, int]:
     try:
-        major, minor = version.split(".", maxsplit=1)
-        return int(major), int(minor)
-    except (TypeError, ValueError) as exc:
+        major_str, minor_str = version.strip().split(".", maxsplit=1)
+        if not major_str.isdigit() or not minor_str.isdigit():
+            raise ValueError("non-digit version")
+        return int(major_str), int(minor_str)
+    except (AttributeError, TypeError, ValueError) as exc:
         raise ValueError("trajectory schema version MUST use major.minor integers") from exc
 
 

@@ -83,6 +83,16 @@ class OperationalEvidenceReadResult:
     execution_authority: bool = False
     mutation_authority: bool = False
 
+    def __post_init__(self) -> None:
+        if (
+            not self.principal_ref.strip()
+            or self.execution_authority is not False
+            or self.mutation_authority is not False
+        ):
+            raise ValueError(
+                "OperationalEvidenceReadResult MUST NOT carry execution or mutation authority"
+            )
+
 
 class OperationalEvidenceReadService:
     """Rebuild one bounded source response under server-owned read limits."""
@@ -96,7 +106,12 @@ class OperationalEvidenceReadService:
         max_bytes: int = 1_048_576,
         receipt_validator: ReceiptValidator | None = None,
     ) -> None:
-        if not 1 <= max_items <= 2_048 or not 1 <= max_bytes <= 16 * 1024 * 1024:
+        if (
+            isinstance(max_items, bool)
+            or isinstance(max_bytes, bool)
+            or not 1 <= max_items <= 2_048
+            or not 1 <= max_bytes <= 16 * 1024 * 1024
+        ):
             raise ValueError("operational evidence read limits are out of bounds")
         self._source = source
         self._clock = clock
