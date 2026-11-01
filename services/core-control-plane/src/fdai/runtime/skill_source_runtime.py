@@ -9,8 +9,18 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
+from fdai.composition import (
+    SkillDisclosureStartupBinding,
+    compose_runtime_skill_disclosure_startup,
+)
+from fdai.core.skills import SkillBundleTrustVerifier, SkillTrustVerifier
 from fdai.core.skills.catalog import SkillCatalog
 from fdai.core.skills.source_registry import SkillSource, SkillSourceRefreshPolicy, SkillSourceStore
+from fdai.core.supply_chain import (
+    SkillBundleTrustVerifierFactory,
+    SkillTrustVerifierFactory,
+    TrustedArtifactStore,
+)
 from fdai.core.supply_chain.artifacts import (
     TrustedArtifactKind,
     TrustedArtifactRecord,
@@ -439,3 +449,32 @@ def build_skill_source_runtime_bundle(
         orchestrator,
         runner_guard or InMemorySkillSourceRunnerGuard(),
     )
+
+
+async def bootstrap_runtime_skill_disclosure(
+    *,
+    store: TrustedArtifactStore,
+    skill_verifier_factory: SkillTrustVerifierFactory,
+    bundle_verifier_factory: SkillBundleTrustVerifierFactory,
+    skill_verifier: SkillTrustVerifier,
+    bundle_verifier: SkillBundleTrustVerifier,
+    available_tools: frozenset[str],
+    known_agents: frozenset[str],
+    agent: str = "Bragi",
+    on_ready: Callable[[SkillDisclosureStartupBinding], None] | None = None,
+) -> SkillDisclosureStartupBinding:
+    """Compose RuntimeSkillDisclosure and publish verified snapshots before serving traffic."""
+
+    binding = await compose_runtime_skill_disclosure_startup(
+        store=store,
+        skill_verifier_factory=skill_verifier_factory,
+        bundle_verifier_factory=bundle_verifier_factory,
+        skill_verifier=skill_verifier,
+        bundle_verifier=bundle_verifier,
+        available_tools=available_tools,
+        known_agents=known_agents,
+        agent=agent,
+    )
+    if on_ready is not None:
+        on_ready(binding)
+    return binding

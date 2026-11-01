@@ -95,21 +95,7 @@ def _local_fake_llm_bindings() -> LlmBindings:
 
 
 def default_container(config: AppConfig) -> Container:
-    """Return the upstream default binding of every seam.
-
-    The caller MUST hand in an already-validated :class:`AppConfig`. Building
-    one from the process environment is the entry point's job - see
-    :func:`default_container_from_env`.
-
-    A fork MAY:
-
-    - construct a :class:`Container` with a different :class:`SchemaRegistry`
-      (e.g. a remote registry adapter),
-    - or wrap :func:`default_container` and override individual fields via
-      :func:`dataclasses.replace`.
-
-    This function MUST NOT be called from within ``core/``.
-    """
+    """Return the upstream default binding of every seam (caller supplies validated AppConfig)."""
     registry: SchemaRegistry = PackageResourceSchemaRegistry()
     contract_v: ContractValidator = JsonSchemaContractValidator(registry)
     event_v: EventValidator = JsonSchemaEventValidator(contract_v)
@@ -348,6 +334,12 @@ from .wire_semantic_query import (  # noqa: E402
     build_semantic_query_runtime,
     compose_azure_semantic_query_runtime,
 )
+from .wire_skill_disclosure import (  # noqa: E402, F401 - public re-export
+    SkillDisclosureStartupBinding,
+    SkillDisclosureStartupReadiness,
+    compose_runtime_skill_disclosure_startup,
+    publish_trusted_skill_disclosure_snapshots,
+)
 from .wire_t1_routing import build_t1_mini_probe  # noqa: E402
 from .wire_trajectory import TrajectoryRuntime, wire_trajectory_runtime  # noqa: E402
 
@@ -358,6 +350,8 @@ __all__ = [
     "LlmBindingsUnavailableError",
     "OperationalReadinessService",
     "SemanticQueryRuntimeComposition",
+    "SkillDisclosureStartupBinding",
+    "SkillDisclosureStartupReadiness",
     "TrajectoryRuntime",
     "attach_metric_provider",
     "attach_observation_providers",
@@ -379,11 +373,13 @@ __all__ = [
     "build_t1_mini_probe",
     "compose_azure_semantic_query_runtime",
     "compose_resource_state_shadow_hook",
+    "compose_runtime_skill_disclosure_startup",
     "default_container",
     "default_container_from_env",
     "install_capability_bundle",
     "load_pricing_table",
     "load_execution_backend_registry_file",
+    "publish_trusted_skill_disclosure_snapshots",
     "wire_azure_container",
     "wire_trajectory_runtime",
 ]

@@ -11,6 +11,10 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Literal
 
+from fdai.core.architecture_review.owned_stage_records import (
+    build_owned_architecture_review_stage_records,
+)
+
 
 class ArchitectureReviewStage(StrEnum):
     """Ordered owner boundaries in the observation-only ARB vertical slice."""
@@ -65,7 +69,15 @@ _TOPIC_STAGES = {
 }
 _SNAPSHOT_STAGE_HINTS = {
     "architecture_review_context": ArchitectureReviewStage.CONTEXT,
+    "operational_context_snapshot": ArchitectureReviewStage.CONTEXT,
     "architecture_review_evidence_bundle": ArchitectureReviewStage.EVIDENCE_BUNDLE,
+    "operational_evidence_bundle": ArchitectureReviewStage.EVIDENCE_BUNDLE,
+}
+_VERDICT_STAGE_HINTS = {
+    "architecture_review_scenario_branch": ArchitectureReviewStage.SCENARIO_BRANCH,
+    "architecture_review_decision_case": ArchitectureReviewStage.DECISION_CASE,
+    "architecture_review_impact_envelope": ArchitectureReviewStage.IMPACT_ENVELOPE,
+    "architecture_review_recommendation": ArchitectureReviewStage.RECOMMENDATION,
 }
 _DEFAULT_TRACE_DEADLINE = timedelta(minutes=5)
 _TERMINAL_OBSERVER_STATES = frozenset({"gave_up", "halted"})
@@ -288,7 +300,13 @@ class ArchitectureReviewTraceObserver:
             return ArchitectureReviewStage.CHANGE if intent_kind == "planned" else None
         if topic == "object.state-snapshot":
             snapshot_type = str(payload.get("snapshot_type") or payload.get("kind") or "")
-            return _SNAPSHOT_STAGE_HINTS.get(snapshot_type)
+            if (stage := _SNAPSHOT_STAGE_HINTS.get(snapshot_type)) is not None:
+                return stage
+            if isinstance(payload.get("context_snapshot"), Mapping):
+                return ArchitectureReviewStage.CONTEXT
+            if isinstance(payload.get("evidence_bundle"), Mapping):
+                return ArchitectureReviewStage.EVIDENCE_BUNDLE
+            return None
         if correlation_id not in self._contexts and _review_case_id_hint(payload) is None:
             return None
         if topic == "object.anomaly":
@@ -300,10 +318,39 @@ class ArchitectureReviewTraceObserver:
         if topic == "object.chaos-experiment":
             return ArchitectureReviewStage.RECOVERY
         if topic == "object.verdict":
-            if isinstance(payload.get("decision_case"), Mapping):
+            verdict_kind = str(payload.get("kind") or "")
+            if (verdict_stage := _VERDICT_STAGE_HINTS.get(verdict_kind)) is not None:
+                if verdict_stage is ArchitectureReviewStage.RECOMMENDATION and (
+                    not _is_conformant_recommendation(payload)
+                    or not _has_valid_projection_payload(payload, correlation_id=correlation_id)
+                ):
+                    return None
+                return verdict_stage
+            if isinstance(payload.get("impact_envelope"), Mapping) and not isinstance(
+                payload.get("decision_case"), Mapping
+            ):
+                return ArchitectureReviewStage.IMPACT_ENVELOPE
+            if (
+                isinstance(payload.get("decision_case"), Mapping)
+                and verdict_kind != "architecture_review"
+            ):
                 return ArchitectureReviewStage.DECISION_CASE
-            if "change_assessment" in payload or "operational_context" in payload:
+            if (
+                isinstance(payload.get("scenario_branch"), Mapping)
+                or "change_assessment" in payload
+                or "operational_context" in payload
+            ):
                 return ArchitectureReviewStage.SCENARIO_BRANCH
+            if (
+                (
+                    verdict_kind == "architecture_review"
+                    or isinstance(payload.get("review_case_projection"), Mapping)
+                    or _non_empty_string(payload.get("derived_review_case_id")) is not None
+                )
+                and _is_conformant_recommendation(payload)
+                and _has_valid_projection_payload(payload, correlation_id=correlation_id)
+            ):
+                return ArchitectureReviewStage.RECOMMENDATION
             return None
         if topic == "object.audit-entry" and payload.get("audited_topic") == "object.verdict":
             return ArchitectureReviewStage.AUDIT
@@ -586,13 +633,41 @@ def _looks_like_sha256(value: str) -> bool:
 
 def _is_conformant_recommendation(payload: Mapping[str, object]) -> bool:
     risk_verdict = str(payload.get("risk_verdict") or "")
-    decision = str(payload.get("decision") or payload.get("outcome") or "")
+    decision = str(
+        payload.get("decision") or payload.get("outcome") or payload.get("recommendation") or ""
+    )
     return risk_verdict == "auto" or decision in {
         "approved",
         "conditional",
         "conformant",
+        "conformant_observation",
         "ready",
     }
+
+
+def _has_valid_projection_payload(
+    payload: Mapping[str, object],
+    *,
+    correlation_id: str,
+) -> bool:
+    del correlation_id
+    projection = payload.get("review_case_projection")
+    if projection is None:
+        return True
+    if not isinstance(projection, Mapping):
+        return False
+    expected_case_id = _review_case_id_hint(payload) or _non_empty_string(
+        payload.get("derived_review_case_id")
+    )
+    if expected_case_id is not None and str(projection.get("id") or "") != expected_case_id:
+        return False
+    derived_id = _non_empty_string(payload.get("derived_review_case_id"))
+    if derived_id is not None and str(projection.get("id") or "") != derived_id:
+        return False
+    expected_target = _non_empty_string(payload.get("target_ref"))
+    if expected_target is not None and str(projection.get("scope_ref") or "") != expected_target:
+        return False
+    return _is_conformant_recommendation({"decision": str(projection.get("status") or "")})
 
 
 def _json_ready(value: object) -> object:
@@ -614,5 +689,6 @@ __all__ = [
     "ArchitectureReviewTraceObserver",
     "ArchitectureReviewStage",
     "ArchitectureReviewTraceEvent",
+    "build_owned_architecture_review_stage_records",
     "replay_architecture_review_trace",
 ]

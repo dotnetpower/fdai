@@ -100,6 +100,7 @@ separately rolled-back Core or Operator reads them without digest mismatches.
 | 2026-08-31 | implemented | Added provider-neutral strict compiler and discovery seams with explicit unavailable defaults, exact replay identity, evidence citations, result limits, and no mutation authority. | `current change`; 50 focused query and runtime composition checks passed. | Bind governed implementations and retain one authenticated runtime receipt. |
 | 2026-09-12 | implemented | Reconciled the integrated authenticated Operator and Console Assurance Twin read surfaces while preserving the unbound ambient publisher and remediation bridge. | `current change`; integrated commits `970bab837` and `7d680e53d`; focused Core and Operator tests (`138 passed`); focused Console tests (`25 passed`). | Compose a trusted authoritative producer and transactional review publication, then retain one governed runtime receipt. |
 | 2026-11-01 | implemented | Added `assurance_twin_remediation_bridge.py` with reviewed `ActionType` property-effect models, `TypedPipelineWhatIfProducer`, and `AssuranceTwinRemediationProposalBridge` routing abstained questions to discovery and remediation proposals into the normal risk-gated action path (`default_mode="shadow"`, `twin_execution_authority="none"`); migrated the owner status to this authoritative ledger. | `current change`; `services/core-control-plane/src/fdai/delivery/assurance_twin_remediation_bridge.py`; `services/core-control-plane/tests/assurance_twin/test_remediation_proposal_bridge.py` (`4 passed`). | Concrete model compiler, ambient change-event publisher, and governed runtime receipts remain open below. |
+| 2026-11-02 | implemented | Reconciled the duplicate unchecked authoritative `Inventory` projection task item with the completed `test_inventory_source.py` and `test_projection.py` evidence. | `current change`; `services/core-control-plane/tests/assurance_twin/test_inventory_source.py`; `services/core-control-plane/tests/assurance_twin/test_projection.py`. | Concrete model compiler, ambient change-event publisher, and governed runtime receipts remain open below. |
 
 ### Remaining work
 
@@ -115,8 +116,9 @@ separately rolled-back Core or Operator reads them without digest mismatches.
 - [ ] Bind frozen model/unit/horizon/episode provenance to real predictor and observer sources.
   Retain time- and episode-separated paired operational evaluation of error, coverage, width,
   abstention, recovery and guard costs without scoring unexecuted actions.
-- [ ] Bind an authoritative `Inventory` source to the projection and prove freshness, bounded delta
-  handling, and deterministic replay in a focused integration test.
+- [x] Bind an authoritative `Inventory` source to the projection and prove freshness, bounded delta
+  handling, and deterministic replay in a focused integration test (`test_inventory_source.py`,
+  `test_projection.py`).
 - [x] Implement the provider-neutral semantic compilation and discovery seams, with tests proving
   every accepted query is bounded, evidence-cited, exact-input-bound, and read-only while unsupported
   questions remain explicit unavailable or ambiguity outcomes.

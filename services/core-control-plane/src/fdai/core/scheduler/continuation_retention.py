@@ -35,14 +35,18 @@ class RetentionTarget(StrEnum):
 
     PROJECTED_TURN = "projected_turn"
     SOURCE_RESULT = "source_result"
+    SUBMITTED_DELIVERY = "submitted_delivery"
     ANCHOR = "anchor"
 
 
 RETENTION_ORDER: tuple[RetentionTarget, ...] = (
     RetentionTarget.PROJECTED_TURN,
     RetentionTarget.SOURCE_RESULT,
+    RetentionTarget.SUBMITTED_DELIVERY,
     RetentionTarget.ANCHOR,
 )
+
+RETENTION_ORDER_WITH_DELIVERY: tuple[RetentionTarget, ...] = RETENTION_ORDER
 
 
 class RetentionOutcome(StrEnum):
@@ -382,6 +386,7 @@ class ScheduledContinuationRetentionWorker:
         audit: RetentionAuditSink,
         fence: ContinuationDeletionFence,
         grace: timedelta = timedelta(days=30),
+        include_submitted_delivery: bool = True,
     ) -> None:
         if grace < timedelta(0):
             raise ValueError("grace MUST NOT be negative")
@@ -391,6 +396,15 @@ class ScheduledContinuationRetentionWorker:
         self._audit = audit
         self._fence = fence
         self._grace = grace
+        self._order = (
+            RETENTION_ORDER
+            if include_submitted_delivery
+            else (
+                RetentionTarget.PROJECTED_TURN,
+                RetentionTarget.SOURCE_RESULT,
+                RetentionTarget.ANCHOR,
+            )
+        )
 
     async def purge(self, *, anchor_id: str, now: datetime) -> RetentionResult:
         if now.tzinfo is None:
@@ -403,7 +417,7 @@ class ScheduledContinuationRetentionWorker:
             return RetentionResult(
                 anchor_id=anchor_id,
                 outcome=RetentionOutcome.PURGED,
-                completed_targets=RETENTION_ORDER,
+                completed_targets=self._order,
             )
         if anchor.state is not ContinuationAnchorState.EXPIRED:
             raise RetentionNotExpiredError("an active continuation anchor is never deleted")
@@ -432,7 +446,7 @@ class ScheduledContinuationRetentionWorker:
             )
 
         completed: list[RetentionTarget] = []
-        for target in RETENTION_ORDER:
+        for target in self._order:
             try:
                 await self._deleter.delete(target=target, anchor=anchor)
             except Exception:  # noqa: BLE001 - a partial failure stays resumable

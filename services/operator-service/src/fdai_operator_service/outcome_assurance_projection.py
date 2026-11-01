@@ -169,7 +169,10 @@ async def read_outcome_assurance_projection(
         reason = sc.OutcomeAssuranceUnavailableReason.PROJECTION_MISSING
         return _outcome_assurance_unavailable(scope, window, reason, now).model_dump(mode="json")
     try:
-        projection = sc.OutcomeAssuranceProjection.model_validate(rows[0].get("value"))
+        raw_value = rows[0].get("value")
+        if isinstance(raw_value, Mapping) and "revision" in raw_value:
+            raw_value = {k: v for k, v in raw_value.items() if k != "revision"}
+        projection = sc.OutcomeAssuranceProjection.model_validate(raw_value)
         _validate_metric_and_guard_uniqueness(
             projection.outcomes, projection.guards.guard_evaluations
         )

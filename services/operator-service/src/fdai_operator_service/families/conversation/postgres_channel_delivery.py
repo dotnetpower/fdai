@@ -17,10 +17,14 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
     ChannelBreakerMode,
     ChannelDeliveryAcknowledgement,
     ChannelDeliveryAttempt,
+    ChannelDeliveryReadbackError,
     ChannelDeliveryRecord,
     ChannelDeliverySnapshot,
     ChannelDeliveryState,
     ChannelKind,
+    ChannelOriginDeletionResult,
+    ChannelOriginPurgedError,
+    origin_tombstone_key,
 )
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from psycopg.rows import dict_row
@@ -82,9 +86,25 @@ class PostgresChannelDeliveryStore:
 
     async def put(self, record: ChannelDeliveryRecord) -> ChannelDeliveryRecord:
         """Insert one pending response or return its exact idempotent replay."""
+        tombstone_keys = tuple(sorted({origin_tombstone_key(ref) for ref in record.origin_refs}))
         try:
             async with await self._connect() as connection, connection.transaction():
                 await self._set_timeout(connection)
+                if tombstone_keys:
+                    for tkey in tombstone_keys:
+                        await connection.execute(
+                            "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                            (tkey,),
+                        )
+                    tombstone_cursor = await connection.execute(
+                        "SELECT 1 FROM conversation_adapter_breaker "
+                        "WHERE adapter_id = ANY(%s) AND reason = 'origin_purged' LIMIT 1",
+                        (list(tombstone_keys),),
+                    )
+                    if await tombstone_cursor.fetchone() is not None:
+                        raise ChannelOriginPurgedError(
+                            "channel delivery origin was purged and MUST NOT be restored"
+                        )
                 cursor = await connection.execute(
                     "INSERT INTO conversation_outbound_delivery ("
                     f"{_DELIVERY_COLUMNS}) VALUES ("
@@ -331,6 +351,7 @@ class PostgresChannelDeliveryStore:
             )
             breakers = await connection.execute(
                 f"SELECT {_BREAKER_COLUMNS} FROM conversation_adapter_breaker "
+                "WHERE adapter_id NOT LIKE 'origin-tombstone:%%' "
                 "ORDER BY updated_at DESC, adapter_id LIMIT %s",
                 (limit,),
             )
@@ -361,8 +382,95 @@ class PostgresChannelDeliveryStore:
             )
             return len(await cursor.fetchall())
 
+    async def delete_by_origin(
+        self,
+        *,
+        origin_ref: str,
+        at: datetime,
+        principal_id: str | None = None,
+    ) -> ChannelOriginDeletionResult:
+        """Record an origin tombstone, delete matching delivery rows, and verify readback."""
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("origin purge timestamp MUST be timezone-aware")
+        tombstone = origin_tombstone_key(origin_ref)
+        cleaned_origin = origin_ref.strip()
+        cleaned_principal = principal_id.strip() if principal_id is not None else None
+        if principal_id is not None and not cleaned_principal:
+            raise ValueError("principal_id MUST be non-empty when supplied")
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_timeout(connection)
+            await connection.execute(
+                "SELECT pg_advisory_xact_lock(hashtext(%s))",
+                (tombstone,),
+            )
+            await connection.execute(
+                "INSERT INTO conversation_adapter_breaker ("
+                "adapter_id, channel_kind, mode, failure_timestamps, revision, "
+                "updated_at, updated_by, reason"
+                ") VALUES (%s, 'web', 'paused', '[]'::jsonb, 0, %s, 'origin-retention', "
+                "'origin_purged') ON CONFLICT (adapter_id) DO UPDATE SET "
+                "updated_at = EXCLUDED.updated_at, reason = 'origin_purged'",
+                (tombstone, at),
+            )
+            cursor = await connection.execute(
+                "DELETE FROM conversation_outbound_delivery "
+                "WHERE (%s::text IS NULL OR principal_id = %s) "
+                "AND (response->>'origin_ref' = %s OR response->>'anchor_id' = %s) "
+                "RETURNING delivery_id",
+                (
+                    cleaned_principal,
+                    cleaned_principal,
+                    cleaned_origin,
+                    cleaned_origin,
+                ),
+            )
+            deleted_ids = tuple(sorted(str(row["delivery_id"]) for row in await cursor.fetchall()))
+        async with await self._connect() as readback:
+            await self._set_timeout(readback)
+            tombstone_check = await readback.execute(
+                "SELECT 1 FROM conversation_adapter_breaker "
+                "WHERE adapter_id = %s AND reason = 'origin_purged' LIMIT 1",
+                (tombstone,),
+            )
+            if await tombstone_check.fetchone() is None:
+                raise ChannelDeliveryReadbackError(
+                    "channel delivery origin tombstone did not survive readback"
+                )
+            survivor_check = await readback.execute(
+                "SELECT 1 FROM conversation_outbound_delivery "
+                "WHERE (%s::text IS NULL OR principal_id = %s) "
+                "AND (response->>'origin_ref' = %s OR response->>'anchor_id' = %s) LIMIT 1",
+                (
+                    cleaned_principal,
+                    cleaned_principal,
+                    cleaned_origin,
+                    cleaned_origin,
+                ),
+            )
+            if await survivor_check.fetchone() is not None:
+                raise ChannelDeliveryReadbackError("channel delivery rows survived origin deletion")
+        return ChannelOriginDeletionResult(
+            origin_ref=cleaned_origin,
+            tombstone_key=tombstone,
+            deleted_delivery_ids=deleted_ids,
+        )
+
+    async def is_origin_purged(self, *, origin_ref: str) -> bool:
+        """Return whether the durable tombstone for ``origin_ref`` is recorded."""
+        tombstone = origin_tombstone_key(origin_ref)
+        async with await self._connect() as connection:
+            await self._set_timeout(connection)
+            cursor = await connection.execute(
+                "SELECT 1 FROM conversation_adapter_breaker "
+                "WHERE adapter_id = %s AND reason = 'origin_purged' LIMIT 1",
+                (tombstone,),
+            )
+            return await cursor.fetchone() is not None
+
     async def get_breaker(self, adapter_id: str) -> ChannelAdapterBreaker | None:
         """Read one provider-adapter breaker by stable adapter id."""
+        if adapter_id.startswith("origin-tombstone:"):
+            return None
         async with await self._connect() as connection:
             await self._set_timeout(connection)
             cursor = await connection.execute(

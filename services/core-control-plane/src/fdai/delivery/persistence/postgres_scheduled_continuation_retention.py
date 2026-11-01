@@ -12,8 +12,9 @@ reporting completed deletion.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 import psycopg
 from psycopg.rows import dict_row
@@ -27,6 +28,12 @@ from fdai.shared.providers.scheduled_continuation import (
     ScheduledConversationAnchor,
     projected_turn_id_for_anchor,
 )
+
+
+class SubmittedDeliveryRetentionDeleter(Protocol):
+    """Delete the submitted outbound delivery copy through its owning store boundary."""
+
+    async def __call__(self, anchor: ScheduledConversationAnchor) -> None: ...
 
 
 class RetentionReadbackError(RuntimeError):
@@ -53,12 +60,15 @@ _ANCHOR_PREDICATE: Final = "FROM scheduled_conversation_anchor WHERE anchor_id =
 def retention_statement(
     *, target: RetentionTarget, anchor: ScheduledConversationAnchor
 ) -> RetentionStatement:
-    """Return the scoped deletion and readback for one target.
+    """Return the scoped Core-database deletion and readback for one Core-owned target.
 
     Every predicate is bound to this anchor's principal, conversation, run, or anchor id,
     so unrelated scopes and unrelated turns in the same conversation are never touched.
     The anchor delete additionally requires the `expired` state, which fences a late
     writer that reactivated the row between the worker's read and this statement.
+    `RetentionTarget.SUBMITTED_DELIVERY` is owned by the outbound delivery store boundary
+    and is delegated by `PostgresScheduledContinuationDeleter` rather than issuing direct
+    Core SQL against Operator-owned tables.
     """
     match target:
         case RetentionTarget.PROJECTED_TURN:
@@ -92,8 +102,15 @@ def retention_statement(
 class PostgresScheduledContinuationDeleter:
     """Delete one retained copy and prove its absence on an independent connection."""
 
-    def __init__(self, *, config: PostgresScheduledContinuationStoreConfig) -> None:
+    def __init__(
+        self,
+        *,
+        config: PostgresScheduledContinuationStoreConfig,
+        submitted_delivery_deleter: Callable[[ScheduledConversationAnchor], Awaitable[Any]]
+        | None = None,
+    ) -> None:
         self._config: Final = config
+        self._submitted_delivery_deleter = submitted_delivery_deleter
 
     async def delete(self, *, target: RetentionTarget, anchor: ScheduledConversationAnchor) -> None:
         """Delete the target, then fail when an independent read still finds it.
@@ -101,6 +118,13 @@ class PostgresScheduledContinuationDeleter:
         Deleting an absent copy is a successful no-op. A surviving row raises
         `RetentionReadbackError`, which the worker records as a resumable partial purge.
         """
+        if target is RetentionTarget.SUBMITTED_DELIVERY:
+            if self._submitted_delivery_deleter is None:
+                raise RetentionReadbackError(
+                    "scheduled continuation submitted_delivery deleter is not bound"
+                )
+            await self._submitted_delivery_deleter(anchor)
+            return
         statement = retention_statement(target=target, anchor=anchor)
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)

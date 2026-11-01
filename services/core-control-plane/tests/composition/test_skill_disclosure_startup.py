@@ -7,7 +7,13 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
-from fdai.composition.wire_skill_disclosure import publish_trusted_skill_disclosure_snapshots
+from fdai.composition.wire_skill_disclosure import (
+    compose_runtime_skill_disclosure_startup,
+    publish_trusted_skill_disclosure_snapshots,
+)
+from fdai.core.conversation.session import Principal, Role
+from fdai.core.conversation.skill_discovery import ListRuntimeSkillBundlesTool
+from fdai.core.rpc.skill_discovery import skill_discovery_rpc_methods
 from fdai.core.skills import (
     RuntimeSkill,
     RuntimeSkillBundle,
@@ -24,6 +30,7 @@ from fdai.core.supply_chain import (
     TrustedArtifactState,
     TrustedSkillBundleLoadError,
 )
+from fdai.runtime.skill_source_runtime import bootstrap_runtime_skill_disclosure
 
 _NOW = datetime(2026, 9, 29, 10, 0, tzinfo=UTC)
 
@@ -197,3 +204,54 @@ async def test_tampered_bundle_record_fails_closed_before_snapshot_publication()
     inspection = disclosure.inspect()
     assert inspection["installed_count"] == 0
     assert inspection["installed_bundle_count"] == 0
+
+
+async def test_core_startup_bootstrap_publishes_both_snapshots_before_serving_turns() -> None:
+    events: list[str] = []
+    store = _Store(_bundle_record(), _skill_record())
+
+    binding = await bootstrap_runtime_skill_disclosure(
+        store=store,
+        skill_verifier_factory=_SkillVerifierFactory(),
+        bundle_verifier_factory=_BundleVerifierFactory(),
+        skill_verifier=_SkillVerifier(),
+        bundle_verifier=_BundleVerifier(),
+        available_tools=frozenset({"query_inventory"}),
+        known_agents=frozenset({"Bragi"}),
+        agent="Bragi",
+        on_ready=lambda b: events.append(
+            f"ready:{b.readiness.enabled_skill_count}:{b.readiness.enabled_bundle_count}"
+        ),
+    )
+
+    assert events == ["ready:1:1"]
+    disclosure = binding.require_ready_disclosure()
+    principal = Principal(id="reader-1", role=Role.READER, display_name="Reader")
+    bragi_result = ListRuntimeSkillBundlesTool(disclosure).call(
+        arguments={"query": "incident"},
+        principal=principal,
+    )
+    assert bragi_result.status == "ok"
+    assert bragi_result.data["bundles"][0]["name"] == "incident-evidence-pack"
+    rpc_methods = {m.name: m.handler for m in skill_discovery_rpc_methods(disclosure)}
+    rpc_list = await rpc_methods["skill_bundles.list"]({"query": "incident"})
+    assert rpc_list["bundles"][0]["name"] == "incident-evidence-pack"
+    loaded_bundle = disclosure.load_bundle("incident-evidence-pack")
+    assert loaded_bundle["name"] == "incident-evidence-pack"
+
+
+async def test_core_startup_bootstrap_fails_closed_before_readiness_on_corrupt_artifact() -> None:
+    events: list[str] = []
+    tampered_skill = replace(_skill_record(), signature=b"x" * 64)
+
+    with pytest.raises(ValueError, match="skill signature is not trusted"):
+        await compose_runtime_skill_disclosure_startup(
+            store=_Store(tampered_skill, _bundle_record()),
+            skill_verifier_factory=_SkillVerifierFactory(),
+            bundle_verifier_factory=_BundleVerifierFactory(),
+            skill_verifier=_SkillVerifier(),
+            bundle_verifier=_BundleVerifier(),
+            available_tools=frozenset({"query_inventory"}),
+            known_agents=frozenset({"Bragi"}),
+        )
+    assert events == []

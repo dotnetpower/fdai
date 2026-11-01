@@ -4,11 +4,33 @@ from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from fdai.core.architecture_review import (
+    ArchitectureReviewEvidence,
+    ArchitectureReviewObservation,
     ArchitectureReviewObservationTrace,
+    ArchitectureReviewProjector,
     ArchitectureReviewStage,
     ArchitectureReviewTraceEvent,
     ArchitectureReviewTraceObserver,
+    OntologyArchitectureReviewLoop,
+    build_owned_architecture_review_stage_records,
     replay_architecture_review_trace,
+)
+from fdai.core.impact_analysis import AffectedSet
+from fdai.core.ontology_platform import OntologyScenarioChangeSet
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.operational_context import (
+    AuthenticatedPrincipalContext,
+    OperationalContextSnapshot,
+    OperationalEvidenceMaterial,
+    OperationalEvidenceReadRequest,
+    OperationalEvidenceReadService,
+)
+from fdai.shared.contracts.models import Autonomy
+from fdai.shared.providers.ontology_instance import (
+    OntologyGraphSnapshot,
+    OntologyLinkRecord,
+    OntologyObjectRecord,
 )
 
 _NOW = datetime(2026, 8, 29, 3, 0, tzinfo=UTC)
@@ -268,3 +290,265 @@ def test_runtime_observer_holds_late_or_degraded_topics_without_authority() -> N
     assert "topic_degraded:object.audit-entry:gave_up" in trace.hold_reasons
     assert trace.mutation_authority is False
     assert trace.execution_authority is False
+
+
+async def _build_sample_conformant_observation() -> tuple[
+    ArchitectureReviewObservation, dict[str, object]
+]:
+    release = "sha256:" + "a" * 64
+    objects: dict[str, OntologyObjectRecord] = {}
+    links: list[OntologyLinkRecord] = []
+
+    class _Store:
+        async def upsert_object(self, record: OntologyObjectRecord, **_kwargs: object) -> None:
+            objects[record.id] = record
+
+        async def upsert_link(self, record: OntologyLinkRecord) -> None:
+            links.append(record)
+
+        async def get_object(self, object_id: str) -> OntologyObjectRecord | None:
+            return objects.get(object_id)
+
+        async def query_objects(
+            self,
+            *,
+            object_types: tuple[str, ...] = (),
+            limit: int = 100,
+        ) -> OntologyGraphSnapshot:
+            del limit
+            return OntologyGraphSnapshot(
+                objects=tuple(
+                    record
+                    for record in objects.values()
+                    if not object_types or record.object_type in object_types
+                )
+            )
+
+    class _ContextSource:
+        async def resolve(self, *, change: dict[str, object]) -> OperationalContextSnapshot:
+            target = str(change["target_ref"])
+            return OperationalContextSnapshot(
+                snapshot_id=f"context:{target}",
+                target_resource_id=target,
+                cutoff=_NOW,
+                recorded_at=_NOW,
+                catalog_versions=(
+                    ("catalog", "catalog-r1"),
+                    ("generation", "generation-1"),
+                    ("ontology", release),
+                ),
+                service_ids=(),
+                workload_ids=(),
+                objective_ids=("objective:availability",),
+                service_objective_ids=(),
+                recovery_objective_ids=(),
+                cost_objective_ids=(),
+                constraint_ids=(),
+                ownership_ids=(),
+                dependency_ids=(),
+                source_freshness=(),
+                evidence_links=(),
+                evidence_paths=(),
+                temporal_exclusions=(),
+                stale_sources=(),
+                conflicts=(),
+                autonomy_ceiling=Autonomy.ENFORCE_AUTO,
+            )
+
+    class _EvidenceSource:
+        async def collect(
+            self,
+            *,
+            change: dict[str, object],
+            context: OperationalContextSnapshot,
+        ) -> ArchitectureReviewEvidence:
+            del change
+
+            class _BundleSource:
+                async def collect(
+                    self,
+                    request: OperationalEvidenceReadRequest,
+                ) -> OperationalEvidenceMaterial:
+                    return OperationalEvidenceMaterial(
+                        ontology_release_digest=request.ontology_release_digest,
+                        catalog_revision=request.catalog_revision,
+                        purpose=request.purpose,
+                        scope=request.scope,
+                        cutoff=request.cutoff,
+                    )
+
+            authority = SecuredQueryReceiptAuthority(now=lambda: _NOW)
+            auth_ctx = AuthenticatedPrincipalContext(
+                principal_ref="principal-example",
+                principal_scope_digest="sha256:" + "d" * 64,
+                purpose="architecture-review",
+                receipt_authority=authority,
+                invocation_context=FunctionInvocationContext(
+                    caller_agent="Forseti",
+                    caller_role="reader",
+                    purposes=("architecture-review",),
+                ),
+                verification_context=authority.verification_context,
+            )
+            bundle = (
+                await OperationalEvidenceReadService(
+                    source=_BundleSource(),
+                    clock=lambda: _NOW,
+                ).read(
+                    OperationalEvidenceReadRequest(
+                        ontology_release_digest=release,
+                        catalog_revision="catalog-r1",
+                        purpose="architecture-review",
+                        scope=(context.target_resource_id,),
+                        cutoff=context.cutoff,
+                    ),
+                    authenticated_context=auth_ctx,
+                )
+            ).bundle
+            return ArchitectureReviewEvidence(
+                bundle=bundle,
+                base_graph=OntologyGraphSnapshot(source_generation="generation-1"),
+                object_types=(),
+                link_types=(),
+                scenario_changes=OntologyScenarioChangeSet(),
+                affected_set=AffectedSet(
+                    direct_targets=(context.target_resource_id,),
+                    runtime_dependents=(),
+                    protected_services=(),
+                    protected_objectives=(),
+                    control_dependencies=(),
+                    graph_revision="sha256:" + "b" * 64,
+                ),
+            )
+
+    store = _Store()
+    projector = ArchitectureReviewProjector(store, {"architecture_review": {}})  # type: ignore[arg-type]
+    loop = OntologyArchitectureReviewLoop(
+        context_source=_ContextSource(),  # type: ignore[arg-type]
+        evidence_source=_EvidenceSource(),  # type: ignore[arg-type]
+        observation_sink=projector,
+        clock=lambda: _NOW,
+    )
+    change = {
+        "id": "change-arb-slice-1",
+        "idempotency_key": "change-arb-slice-key-1",
+        "correlation_id": _CORRELATION_ID,
+        "target_ref": "resource-example",
+        "intent_kind": "planned",
+        "change_kind": "planned_change",
+        "source_kind": "git",
+        "actor_ref": "actor:example",
+        "status": "proposed",
+        "occurred_at": _NOW,
+        "evidence_ref": "change-evidence:1",
+        "desired_state_digest": "sha256:" + "c" * 64,
+        "plan_receipt_ref": "plan:1",
+    }
+    observation = await loop.evaluate(change)
+    projected = await store.get_object(f"arb-review:{observation.change_id}")
+    assert projected is not None
+    return observation, dict(projected.properties)
+
+
+async def test_owned_stage_records_from_observation_and_projection_close_complete_arb2_trace() -> (
+    None
+):
+    observation, projected_review_case = await _build_sample_conformant_observation()
+    records = build_owned_architecture_review_stage_records(
+        observation,
+        projected_review_case=projected_review_case,
+        specialist_records={
+            ArchitectureReviewStage.RELIABILITY: {"resource_id": observation.target_ref},
+            ArchitectureReviewStage.COST: {
+                "resource_id": observation.target_ref,
+                "scope": "scope-1",
+            },
+            ArchitectureReviewStage.CAPACITY: {
+                "resource_id": observation.target_ref,
+                "forecast_util": 0.72,
+                "recommendation": "hold_ steady",
+            },
+            ArchitectureReviewStage.RECOVERY: {
+                "resource_id": observation.target_ref,
+                "experiment_id": "exp-arb-1",
+            },
+        },
+        audit_record={"mode": "shadow"},
+    )
+    assert len(records) == len(ArchitectureReviewStage)
+    for _topic, payload in records:
+        assert "architecture_review_trace" not in payload
+
+    observer = ArchitectureReviewTraceObserver(clock=lambda: _NOW)
+    for topic, payload in records:
+        observer.observe(topic, payload)
+
+    trace = observer.trace_for(
+        observation.correlation_id,
+        review_case_id=f"arb-review:{observation.change_id}",
+    )
+    assert trace is not None
+    assert trace.outcome == "conformant"
+    assert trace.hold_reasons == ()
+    assert tuple(event.stage for event in trace.events) == tuple(ArchitectureReviewStage)
+    assert trace.mutation_authority is False
+    assert trace.execution_authority is False
+
+    rec_payload = dict(records[-2][1])
+    assert rec_payload["derived_review_case_id"] == f"arb-review:{observation.change_id}"
+    assert rec_payload["review_case_projection"]["status"] == "conformant_observation"
+
+
+async def test_missing_or_mismatched_review_case_projection_holds_recommendation_stage() -> None:
+    observation, projected_review_case = await _build_sample_conformant_observation()
+    specialist = {
+        ArchitectureReviewStage.RELIABILITY: {"resource_id": observation.target_ref},
+        ArchitectureReviewStage.COST: {
+            "resource_id": observation.target_ref,
+            "scope": "scope-1",
+        },
+        ArchitectureReviewStage.CAPACITY: {
+            "resource_id": observation.target_ref,
+            "forecast_util": 0.72,
+            "recommendation": "hold_steady",
+        },
+        ArchitectureReviewStage.RECOVERY: {
+            "resource_id": observation.target_ref,
+            "experiment_id": "exp-arb-1",
+        },
+    }
+
+    without_projection = build_owned_architecture_review_stage_records(
+        observation,
+        projected_review_case=None,
+        specialist_records=specialist,
+        audit_record={"mode": "shadow"},
+    )
+    observer_missing = ArchitectureReviewTraceObserver(clock=lambda: _NOW)
+    for topic, payload in without_projection:
+        observer_missing.observe(topic, payload)
+    held_missing = observer_missing.trace_for(
+        observation.correlation_id,
+        review_case_id=f"arb-review:{observation.change_id}",
+    )
+    assert held_missing is not None
+    assert held_missing.outcome == "hold"
+    assert "missing_stage:recommendation" in held_missing.hold_reasons
+
+    mismatched_projection = {**projected_review_case, "id": "arb-review:other-change"}
+    with_mismatch = build_owned_architecture_review_stage_records(
+        observation,
+        projected_review_case=mismatched_projection,
+        specialist_records=specialist,
+        audit_record={"mode": "shadow"},
+    )
+    observer_mismatch = ArchitectureReviewTraceObserver(clock=lambda: _NOW)
+    for topic, payload in with_mismatch:
+        observer_mismatch.observe(topic, payload)
+    held_mismatch = observer_mismatch.trace_for(
+        observation.correlation_id,
+        review_case_id=f"arb-review:{observation.change_id}",
+    )
+    assert held_mismatch is not None
+    assert held_mismatch.outcome == "hold"
+    assert "missing_stage:recommendation" in held_mismatch.hold_reasons

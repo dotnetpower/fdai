@@ -22,3 +22,5 @@ ef893b9f1e4e6effabf02a17f3384a4023cbe034:console/src/routes/conversation-deliver
 # Replaced synthetic forbidden-field fixture with single-character value; ignore only these historical PR fingerprints.
 b6b9a831d4005a70155a9b21291bbfa8e85f72f2:console/src/routes/licensing-status-badge.model.test.ts:generic-api-key:90
 b6b9a831d4005a70155a9b21291bbfa8e85f72f2:services/operator-service/tests/test_licensing_warning_projection.py:generic-api-key:112
+# Shortened synthetic idempotency_key fixture to idem-1; ignore only this historical PR fingerprint.
+9250c8a6c8f676311e6dda12c979e123bbd337fb:services/core-control-plane/tests/core/architecture_review/test_effect_closure.py:generic-api-key:31

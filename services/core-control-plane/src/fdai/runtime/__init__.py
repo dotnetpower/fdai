@@ -15,6 +15,7 @@ from fdai.runtime.programmatic_pipeline_runtime import (
 )
 from fdai.runtime.skill_source_runtime import (
     SkillSourceRuntimeBundle,
+    bootstrap_runtime_skill_disclosure,
     build_skill_source_runtime_bundle,
 )
 
@@ -22,6 +23,7 @@ __all__ = [
     "DEFAULT_PIPELINE_SANDBOX_PROFILES",
     "ProgrammaticPipelineRuntimeBundle",
     "SkillSourceRuntimeBundle",
+    "bootstrap_runtime_skill_disclosure",
     "build_assurance_twin_remediation_bridge",
     "build_assurance_twin_semantic_query",
     "build_programmatic_pipeline_runtime",
