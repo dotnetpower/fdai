@@ -414,7 +414,6 @@ async def write_t1_audit(
             "producer_principal": "Forseti",
             "action_kind": "control_loop.t1_evaluate",
             "mode": Mode.SHADOW.value,
-            "tier": "t1",
             "stage": "t1_similarity",
             "t1_outcome": t1.outcome.value,
             "t1_threshold": t1.threshold,
