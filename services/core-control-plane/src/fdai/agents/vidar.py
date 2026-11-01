@@ -187,6 +187,10 @@ class Vidar(
         """Bind or replace the non-mutating rollback rehearsal port."""
         self._rollback_rehearsal_port = port
 
+    @property
+    def validated_contract_count(self) -> int:
+        return len(self._rollback_contracts_by_action_type)
+
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()
         self._validate_rollback_paths()

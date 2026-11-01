@@ -126,6 +126,10 @@ class RcaCausalChain:
     confidence: float
     ambiguity: int
 
+    @property
+    def hop_count(self) -> int:
+        return len(self.hops)
+
     def to_dict(self) -> dict[str, object]:
         """Return the append-only audit representation."""
         return {
@@ -166,6 +170,10 @@ class RootCauseHypothesis:
             isinstance(c.ref, str) and bool(c.ref.strip()) for c in self.citations
         )
 
+    @property
+    def citation_kinds(self) -> tuple[CitationKind, ...]:
+        return tuple(dict.fromkeys(c.kind for c in self.citations))
+
 
 class RcaOutcome(StrEnum):
     """Terminal outcome of the grounding gate."""
@@ -189,6 +197,14 @@ class RcaResult:
     @property
     def is_grounded(self) -> bool:
         return self.outcome is RcaOutcome.GROUNDED
+
+    @property
+    def tier_value(self) -> str | None:
+        return self.hypothesis.tier.value if self.hypothesis is not None else None
+
+    @property
+    def citation_count(self) -> int:
+        return len(self.hypothesis.citations) if self.hypothesis is not None else 0
 
 
 __all__ = [

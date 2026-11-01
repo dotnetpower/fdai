@@ -305,19 +305,33 @@ describe("agentOf attribution", () => {
   });
 
   test("maps specialist action kinds and infers T1/T2 tier and summary from evaluation rows", async () => {
-    const { summaryOf, tierOf } = await import("./agent-activity-semantics");
+    const { citedRulesOf, rcaOutcomeOf, summaryOf, tierOf } = await import(
+      "./agent-activity-semantics"
+    );
     const t1Eval = makeItem({
       action_kind: "control_loop.t1_evaluate",
       entry: { stage: "t1_similarity", t1_outcome: "abstain", t1_reason: "no_neighbour_found" },
     });
     const t2Eval = makeItem({
       action_kind: "control_loop.t2_evaluate",
-      entry: { stage: "t2_reasoning", t2_outcome: "proposed", t2_reason: "quality_gate_eligible" },
+      entry: {
+        stage: "t2_reasoning",
+        t2_outcome: "proposed",
+        t2_reason: "quality_gate_eligible",
+        t2_candidate: { cited_rule_ids: ["rule-t2-1"] },
+      },
+    });
+    const rcaRow = makeItem({
+      action_kind: "rca.hypothesis",
+      entry: { rca_outcome: "grounded", rca_cause: "Database pool saturation", rule_id: "rule-db" },
     });
     expect(tierOf(t1Eval)).toBe("T1");
     expect(summaryOf(t1Eval)).toBe("T1 abstain (no_neighbour_found)");
     expect(tierOf(t2Eval)).toBe("T2");
     expect(summaryOf(t2Eval)).toBe("T2 proposed (quality_gate_eligible)");
+    expect(citedRulesOf(t2Eval)).toEqual(["rule-t2-1"]);
+    expect(rcaOutcomeOf(rcaRow)).toBe("grounded");
+    expect(citedRulesOf(rcaRow)).toEqual(["rule-db"]);
     expect(agentOf(makeItem({ action_kind: "executor.dispatched", entry: {} }))).toBe("Thor");
     expect(agentOf(makeItem({ action_kind: "rollback.completed", entry: {} }))).toBe("Vidar");
     expect(agentOf(makeItem({ action_kind: "arbitration.resolved", entry: {} }))).toBe("Odin");

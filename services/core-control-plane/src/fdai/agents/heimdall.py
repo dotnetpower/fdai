@@ -418,6 +418,10 @@ class Heimdall(
             unit="percent",
         )
 
+    @property
+    def watched_resource_count(self) -> int:
+        return len({episode_key[0] for episode_key in self._recent_events})
+
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Observation answers rest on a populated window of signals.
 

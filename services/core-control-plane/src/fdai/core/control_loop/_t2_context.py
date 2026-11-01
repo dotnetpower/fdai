@@ -31,6 +31,10 @@ async def resolve_t2_context(
         )
         if isinstance(candidate_ref, str) and candidate_ref:
             target_ref = candidate_ref
+    if not target_ref and isinstance(event.payload.get("resource_ref"), str):
+        flat_ref = str(event.payload["resource_ref"]).strip()
+        if flat_ref:
+            target_ref = flat_ref
     allowed_rules = tuple(
         rule
         for rule_id in decision.candidate_rule_ids

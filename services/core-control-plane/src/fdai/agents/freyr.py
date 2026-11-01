@@ -140,6 +140,10 @@ class Freyr(
     def bind_utilization_sampler(self, sampler: CapacityUtilizationSampler | None) -> None:
         self._utilization_sampler = sampler
 
+    @property
+    def tracked_resource_count(self) -> int:
+        return len(self._samples)
+
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":
             if require_topic_owner(
