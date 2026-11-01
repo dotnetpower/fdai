@@ -4,10 +4,12 @@ import { agentOf } from "./agent-activity-semantics";
 import {
   buildAgentTrajectories,
   filterAgentTrajectories,
+  formatOutcomeLabel,
   outcomeTone,
   stepCategory,
   trajectoryPhases,
   trajectoryScale,
+  trajectorySubtitle,
   trajectoryTitle,
   uncorrelatedAuditCount,
 } from "./agent-activity-trajectory-model";
@@ -126,9 +128,51 @@ describe("agent trajectory projection", () => {
     expect(outcomeTone("failed")).toBe("bad");
     expect(outcomeTone("timed_out")).toBe("bad");
     expect(outcomeTone("hil_pending")).toBe("attention");
+    expect(outcomeTone("degraded")).toBe("attention");
     expect(outcomeTone("verified")).toBe("good");
+    expect(outcomeTone("compliant")).toBe("good");
     expect(outcomeTone("recorded")).toBe("neutral");
     expect(outcomeTone(null, null)).toBe("neutral");
+  });
+
+  test("extracts nested payload summaries, outcomes, and resources and prioritizes multi-step trajectories", () => {
+    const mirror = item(10, "Saga", "audit.record", "2026-07-15T10:10:00Z", {
+      principal: "Saga",
+      topic: "object.audit-entry",
+      payload_digest: "sha256:one",
+      payload: {
+        kind: "normalized_ingress_retention",
+        event_type: "inventory.resource_observed",
+        resource_id: "scope-1/resource-group/rg-1/providers/microsoft.compute/virtualmachines/vm-alpha",
+        judgment_state: "retained_for_replay",
+      },
+    }, "inventory-snapshot:alpha");
+    const analyzer = [
+      item(11, "Forseti", "control_loop.compliant", "2026-07-15T10:05:00Z", {
+        reason: "no_rule_denied",
+        resource_type: "compute.vm-scale-set",
+      }, "analyzer:one"),
+      item(12, "Heimdall", "measurement.control_loop.v1", "2026-07-15T10:05:01Z", {
+        event_type: "analyzer.host_cpu.observed",
+        resource_type: "compute.vm-scale-set",
+        terminal_outcome: "compliant",
+        tier: "t0",
+      }, "analyzer:one"),
+    ];
+    const trajectories = buildAgentTrajectories([mirror, ...analyzer], agentOf);
+
+    expect(trajectories.map((entry) => entry.correlationId)).toEqual([
+      "analyzer:one",
+      "inventory-snapshot:alpha",
+    ]);
+    expect(trajectories[0]!.title).toBe("No rule denied \u00b7 compute.vm-scale-set");
+    expect(trajectories[0]!.latestOutcome).toBe("compliant");
+    expect(trajectories[0]!.tone).toBe("good");
+    expect(trajectorySubtitle(trajectories[0]!)).toContain("Control loop \u00b7 compliant");
+    expect(trajectories[1]!.title).toBe("Inventory \u00b7 resource observed \u00b7 vm-alpha");
+    expect(trajectories[1]!.latestOutcome).toBe("retained_for_replay");
+    expect(formatOutcomeLabel("hil_pending")).toBe("HIL pending");
+    expect(formatOutcomeLabel("retained_for_replay")).toBe("Retained for replay");
   });
 
   test("filters by participating agent, conversation recipient, and recorded text", () => {

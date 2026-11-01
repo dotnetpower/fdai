@@ -108,8 +108,8 @@ const PHASE_CATEGORIES: ReadonlyArray<readonly [TrajectoryPhaseId, readonly Traj
 ];
 
 const BAD_OUTCOME = /\b(fail|failed|failure|error|errored|reject|rejected|deny|denied|timeout|timed_out)\b/;
-const ATTENTION_OUTCOME = /\b(hil|await|awaiting|pending|escalat\w*|abstain\w*|partial|hold|held|blocked)\b/;
-const GOOD_OUTCOME = /\b(completed|succeeded|success|verified|approved|passed|resolved)\b/;
+const ATTENTION_OUTCOME = /\b(hil|await|awaiting|pending|escalat\w*|abstain\w*|partial|hold|held|blocked|degraded)\b/;
+const GOOD_OUTCOME = /\b(completed|succeeded|success|verified|approved|passed|resolved|compliant)\b/;
 
 /** Groups durable audit records into correlation trajectories, newest activity first. */
 export function buildAgentTrajectories(
@@ -139,8 +139,19 @@ export function buildAgentTrajectories(
     if (steps.length === 0) continue;
     trajectories.push(trajectoryOf(correlationId, steps));
   }
-  return trajectories.sort((left, right) => right.endMs - left.endMs ||
-    left.correlationId.localeCompare(right.correlationId));
+  return trajectories.sort((left, right) => {
+    const leftBucket = trajectorySortBucket(left);
+    const rightBucket = trajectorySortBucket(right);
+    return leftBucket - rightBucket ||
+      right.endMs - left.endMs ||
+      left.correlationId.localeCompare(right.correlationId);
+  });
+}
+
+function trajectorySortBucket(trajectory: AgentTrajectory): number {
+  if (trajectory.steps.length > 1) return 0;
+  if (trajectory.steps[0]?.actionKind !== "audit.record") return 1;
+  return 2;
 }
 
 /** Count of retained audit records that cannot join a trajectory because they lack a correlation. */
@@ -271,16 +282,41 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
   const startMs = durationMs !== null
     ? endMs - durationMs
     : explicitStart !== null && explicitStart <= endMs ? explicitStart : endMs;
-  const outcome = entryStr(item, "outcome");
-  const decision = entryStr(item, "decision");
+  const payload = nestedRecord(item.entry["payload"]);
+  const outcome = entryStr(item, "outcome")
+    ?? entryStr(item, "terminal_outcome")
+    ?? entryStr(item, "t1_outcome")
+    ?? entryStr(item, "t2_outcome")
+    ?? entryStr(item, "status")
+    ?? recordStr(payload, "outcome")
+    ?? recordStr(payload, "terminal_outcome")
+    ?? recordStr(payload, "judgment_state")
+    ?? (item.action_kind.endsWith(".timeout") || entryStr(item, "reason") === "approval_expired"
+      ? "timed_out"
+      : null)
+    ?? (recordStr(payload, "aggregate_type") ? "aggregated" : null);
+  const decision = entryStr(item, "decision")
+    ?? entryStr(item, "gate_route")
+    ?? recordStr(payload, "decision");
+  const reason = entryStr(item, "reason")
+    ?? entryStr(item, "t1_reason")
+    ?? entryStr(item, "t2_reason")
+    ?? recordStr(payload, "reason");
+  const resource = entryStr(item, "resource_ref")
+    || entryStr(item, "target_resource_ref")
+    || entryStr(item, "resource_id")
+    || entryStr(item, "target_ref")
+    || entryStr(item, "resource_type")
+    || recordStr(payload, "resource_id")
+    || recordStr(payload, "resource_ref")
+    || recordStr(payload, "resource_type");
   return {
     seq: item.seq,
     eventId: item.event_id,
     agent: agentOf(item),
     category: stepCategory(item),
     actionKind: item.action_kind,
-    summary: entryStr(item, "summary") || entryStr(item, "detail") || entryStr(item, "reason") ||
-      item.action_kind,
+    summary: deriveStepSummary(item, payload),
     recordedAt: item.recorded_at,
     startMs,
     endMs,
@@ -289,8 +325,8 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
     tier: tierOf(item),
     outcome,
     decision,
-    reason: entryStr(item, "reason"),
-    resource: entryStr(item, "resource_ref") || entryStr(item, "target_resource_ref"),
+    reason,
+    resource,
     inputs: entryMap(item, "inputs"),
     outputs: entryMap(item, "outputs"),
     conversation: entryConversation(item),
@@ -303,6 +339,90 @@ function stepOf(item: AuditItem, agentOf: (item: AuditItem) => string): Trajecto
   };
 }
 
+function nestedRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function recordStr(record: Record<string, unknown> | null, key: string): string | null {
+  if (!record) return null;
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function shortResourceLabel(value: string | null): string | null {
+  if (!value) return null;
+  const parts = value.split("/").filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1]! : value;
+}
+
+function humanizeMachineToken(token: string): string {
+  const readable = token
+    .split(".")
+    .map((part) => part.replace(/[-_]+/g, " ").trim())
+    .filter(Boolean)
+    .join(" \u00b7 ");
+  return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : token;
+}
+
+function deriveStepSummary(
+  item: AuditItem,
+  payload: Record<string, unknown> | null,
+): string {
+  const direct = entryStr(item, "summary") || entryStr(item, "detail");
+  if (direct) return direct;
+  if (payload) {
+    const payloadSummary = recordStr(payload, "summary") || recordStr(payload, "detail");
+    if (payloadSummary) return payloadSummary;
+    const eventType = recordStr(payload, "event_type");
+    const shortRes = shortResourceLabel(
+      recordStr(payload, "resource_id") ?? recordStr(payload, "resource_ref"),
+    );
+    if (eventType) {
+      return shortRes
+        ? `${humanizeMachineToken(eventType)} \u00b7 ${shortRes}`
+        : humanizeMachineToken(eventType);
+    }
+    const aggregateType = recordStr(payload, "aggregate_type");
+    if (aggregateType) {
+      const count = payload["count"];
+      return typeof count === "number"
+        ? `${humanizeMachineToken(aggregateType)} (${count})`
+        : humanizeMachineToken(aggregateType);
+    }
+    const kind = recordStr(payload, "kind");
+    if (kind) {
+      return shortRes
+        ? `${humanizeMachineToken(kind)} \u00b7 ${shortRes}`
+        : humanizeMachineToken(kind);
+    }
+  }
+  const eventType = entryStr(item, "event_type");
+  const resourceType = entryStr(item, "resource_type");
+  if (eventType) {
+    return resourceType
+      ? `${humanizeMachineToken(eventType)} \u00b7 ${resourceType}`
+      : humanizeMachineToken(eventType);
+  }
+  if (item.action_kind === "observation-campaign.source-transition") {
+    const sourceId = entryStr(item, "source_id") ?? entryStr(item, "domain");
+    if (sourceId) {
+      return `Observation campaign \u00b7 ${sourceId}`;
+    }
+  }
+  const reason = entryStr(item, "reason")
+    ?? entryStr(item, "t1_reason")
+    ?? entryStr(item, "t2_reason");
+  if (reason) {
+    const readableReason = /\s/.test(reason.trim()) ? reason : humanizeMachineToken(reason);
+    return resourceType
+      ? `${readableReason} \u00b7 ${resourceType}`
+      : readableReason;
+  }
+  return item.action_kind;
+}
+
 function trajectoryOf(correlationId: string, steps: readonly TrajectoryStep[]): AgentTrajectory {
   const agents: string[] = [];
   let handoffs = 0;
@@ -310,7 +430,11 @@ function trajectoryOf(correlationId: string, steps: readonly TrajectoryStep[]): 
     if (!agents.includes(step.agent)) agents.push(step.agent);
     if (index > 0 && steps[index - 1]!.agent !== step.agent) handoffs += 1;
   });
-  const latestWithOutcome = [...steps].reverse().find((step) => step.outcome !== null || step.decision !== null);
+  const nonMirrorSteps = steps.filter((step) => step.actionKind !== "audit.record");
+  const outcomePool = nonMirrorSteps.some((step) => step.outcome !== null || step.decision !== null)
+    ? nonMirrorSteps
+    : steps;
+  const latestWithOutcome = [...outcomePool].reverse().find((step) => step.outcome !== null || step.decision !== null);
   const latestOutcome = latestWithOutcome?.outcome ?? latestWithOutcome?.decision ?? null;
   return {
     correlationId,
@@ -336,6 +460,29 @@ export function trajectoryTitle(steps: readonly TrajectoryStep[]): string {
   const machine = steps[0]!.summary;
   const readable = machine.split(".").map((part) => part.replace(/[-_]+/g, " ").trim()).filter(Boolean).join(" \u00b7 ");
   return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : machine;
+}
+
+export function trajectorySubtitle(trajectory: AgentTrajectory): string {
+  const first = trajectory.steps[0];
+  if (!first) return "";
+  const parts: string[] = [humanizeMachineToken(first.actionKind)];
+  const shortRes = shortResourceLabel(first.resource);
+  if (shortRes && !trajectory.title.includes(shortRes)) {
+    parts.push(shortRes);
+  }
+  if (trajectory.modes.length > 0) {
+    parts.push(trajectory.modes.join(" / "));
+  }
+  return parts.join(" \u00b7 ");
+}
+
+export function formatOutcomeLabel(outcome: string): string {
+  const normalized = outcome.trim().replace(/[-_]+/g, " ");
+  if (!normalized) return outcome;
+  if (/^hil\b/i.test(normalized)) {
+    return `HIL${normalized.slice(3)}`;
+  }
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function unique(values: readonly (string | null)[]): readonly string[] {
