@@ -14,39 +14,10 @@ from typing import Any, Final, Literal, Protocol, runtime_checkable
 RETRIEVAL_FLOOR: Final[float] = 0.05
 _WORD_RE: Final[re.Pattern[str]] = re.compile(r"[a-z0-9]+")
 _HANGUL_RE: Final[re.Pattern[str]] = re.compile(r"[가-힣]+")
-_SECTION_KEYS: Final[tuple[str, ...]] = (
-    "trigger",
-    "preconditions",
-    "steps",
-    "outcomes",
-    "exclusions",
-    "safety",
-    "owner",
-    "status",
-    "citations",
-)
-_EN_HEADINGS: Final[Mapping[str, str]] = {
-    "trigger": "Trigger",
-    "preconditions": "Preconditions",
-    "steps": "Processing steps",
-    "outcomes": "Outcomes",
-    "exclusions": "Exclusions",
-    "safety": "Safety and fallback",
-    "owner": "Owner",
-    "status": "Implementation status",
-    "citations": "Citations",
-}
-_KO_HEADINGS: Final[Mapping[str, str]] = {
-    "trigger": "트리거",
-    "preconditions": "사전 조건",
-    "steps": "처리 단계",
-    "outcomes": "결과",
-    "exclusions": "제외 사항",
-    "safety": "안전 및 폴백 동작",
-    "owner": "책임 주체",
-    "status": "구현 상태",
-    "citations": "근거 출처",
-}
+# fmt: off
+_SECTION_KEYS: Final[tuple[str, ...]] = ("trigger", "preconditions", "steps", "outcomes", "exclusions", "safety", "owner", "status", "citations")
+_EN_HEADINGS: Final[Mapping[str, str]] = {"trigger": "Trigger", "preconditions": "Preconditions", "steps": "Processing steps", "outcomes": "Outcomes", "exclusions": "Exclusions", "safety": "Safety and fallback", "owner": "Owner", "status": "Implementation status", "citations": "Citations"}
+_KO_HEADINGS: Final[Mapping[str, str]] = {"trigger": "트리거", "preconditions": "사전 조건", "steps": "처리 단계", "outcomes": "결과", "exclusions": "제외 사항", "safety": "안전 및 폴백 동작", "owner": "책임 주체", "status": "구현 상태", "citations": "근거 출처"}
 _SUBJECT_TOKENS: Final[frozenset[str]] = frozenset(
     "incident id odin forseti saga issue fingerprint deduplication trust routing tier t0 t1 t2 "
     "quality gate risk var promotion shadow executor event ingest vidar rollback console identity "
@@ -67,32 +38,10 @@ _MECHANISM_TOKENS: Final[frozenset[str]] = frozenset(
     "어떻게 언제 왜 동작 작동 생성 병합 중재 라우팅 검증 롤백 분리 비교 차이 "
     "보안 안전 문제 없나 있나 취약점 위험 보호 방어 격리 차단 권한 유출 노출 감사 평가 점검 스캔 확인 보유 실행 인증 검역 서명 변조".split()
 )
-_OPERATIONAL_READ_PATTERNS: Final[tuple[str, ...]] = (
-    "how many incidents",
-    "list active incidents",
-    "current incident count",
-    "on this screen",
-    "이 화면에",
-    "현재 열린 인시던트 건수",
-    "활성 인시던트 목록",
-)
-_ACTION_REQUEST_PATTERNS: Final[tuple[str, ...]] = (
-    "approve action",
-    "execute rollback now",
-    "restart the cluster",
-    "scale out the deployment",
-    "지금 롤백 실행해줘",
-    "클러스터 재시작해줘",
-)
-BehaviorOutcome = Literal[
-    "rendered",
-    "comparison_rendered",
-    "stale_abstained",
-    "comparison_incomplete",
-    "conflict_hold",
-    "authority_fallback",
-    "no_evidence",
-]
+_OPERATIONAL_READ_PATTERNS: Final[tuple[str, ...]] = ("how many incidents", "list active incidents", "current incident count", "on this screen", "이 화면에", "현재 열린 인시던트 건수", "활성 인시던트 목록")
+_ACTION_REQUEST_PATTERNS: Final[tuple[str, ...]] = ("approve action", "execute rollback now", "restart the cluster", "scale out the deployment", "지금 롤백 실행해줘", "클러스터 재시작해줘")
+BehaviorOutcome = Literal["rendered", "comparison_rendered", "stale_abstained", "comparison_incomplete", "conflict_hold", "authority_fallback", "no_evidence"]
+# fmt: on
 
 
 def _validate_query_text(raw_text: str) -> str:
@@ -739,7 +688,6 @@ DEFAULT_SECURITY_BEHAVIOR_SPECS: Final[tuple[BehaviorSpecLike, ...]] = (
         ("services/core-control-plane/src/fdai/core/conversation/adaptive_prompt.py", "compose_adaptive_prompt", 145, 210, "a1" * 20),
     ),
 )
-# fmt: on
 
 
 class _EmptyBehaviorIndex:
@@ -748,13 +696,9 @@ class _EmptyBehaviorIndex:
         return ()
 
 
-def resolve_security_behavior_sync(
-    raw_text: str, *, locale: str = "en", top_k: int = 5
-) -> BehaviorResolutionResult:
+def resolve_security_behavior_sync(raw_text: str, *, locale: str = "en", top_k: int = 5) -> BehaviorResolutionResult:
     """Synchronously resolve security and architecture behavior questions over built-in specs."""
-    resolver = OperatorBehaviorKnowledgeResolver(
-        _EmptyBehaviorIndex(), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS
-    )
+    resolver = OperatorBehaviorKnowledgeResolver(_EmptyBehaviorIndex(), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS)
     loc: Literal["en", "ko"] = "ko" if locale.startswith("ko") else "en"
     req = BehaviorTurnRequest(raw_text=raw_text, locale=loc, top_k=top_k)
     _validate_query_text(req.raw_text)
@@ -764,39 +708,12 @@ def resolve_security_behavior_sync(
         return resolver._fallback_result(req.locale, fallback_reason, False, 0)
     results = list(resolver._search_registered_seeds(req.raw_text, k=effective_k))
     if not results or results[0].score < RETRIEVAL_FLOOR:
-        return resolver._fallback_result(
-            req.locale, "below_retrieval_floor", False, 0, len(results)
-        )
+        return resolver._fallback_result(req.locale, "below_retrieval_floor", False, 0, len(results))
     top = results[0]
-    citations = tuple(
-        BehaviorCitationRecord(
-            s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit
-        )
-        for s in top.spec.sources
-    )
-    sections, rendered = resolver._renderer.render_single(
-        top.spec, locale=req.locale, citations=citations
-    )
-    meta = resolver._verifier.verify(
-        sections=sections,
-        rendered_text=rendered,
-        citations=citations,
-        stale_sources=top.stale_sources,
-        client_evidence_stripped=False,
-        stripped_claim_count=0,
-    )
-    return BehaviorResolutionResult(
-        True,
-        False,
-        "rendered",
-        None,
-        req.locale,
-        (top.spec.behavior_id,),
-        sections,
-        rendered,
-        meta,
-        total_candidates=len(results),
-    )
+    citations = tuple(BehaviorCitationRecord(s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit) for s in top.spec.sources)
+    sections, rendered = resolver._renderer.render_single(top.spec, locale=req.locale, citations=citations)
+    meta = resolver._verifier.verify(sections=sections, rendered_text=rendered, citations=citations, stale_sources=top.stale_sources, client_evidence_stripped=False, stripped_claim_count=0)
+    return BehaviorResolutionResult(True, False, "rendered", None, req.locale, (top.spec.behavior_id,), sections, rendered, meta, total_candidates=len(results))
 
 
 def grounded_behavior_code_artifacts(raw_text: str, *, locale: str = "en") -> list[dict[str, str]]:
@@ -807,30 +724,15 @@ def grounded_behavior_code_artifacts(raw_text: str, *, locale: str = "en") -> li
         resolved = resolve_security_behavior_sync(raw_text, locale=locale)
     except Exception:  # noqa: BLE001 - optional artifact grounding must never fail presentation
         return []
-    if (
-        not resolved.handled
-        or resolved.outcome != "rendered"
-        or not resolved.rendered_text
-        or not resolved.verification.citations
-    ):
+    if not resolved.handled or resolved.outcome != "rendered" or not resolved.rendered_text or not resolved.verification.citations:
         return []
-    citations = [
-        f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}" for c in resolved.verification.citations
-    ]
+    citations = [f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}" for c in resolved.verification.citations]
     content = resolved.rendered_text[:64_000]
     sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
     behavior_id = resolved.behavior_ids[0] if resolved.behavior_ids else "security.behavior"
     detail = f"{behavior_id} ({', '.join(citations)})"[:4_096]
-    return [
-        {
-            "artifact_ref": f"code:sha256:{sha256}",
-            "language": "markdown",
-            "content": content,
-            "sha256": sha256,
-            "validation_status": "valid",
-            "validation_detail": detail,
-        }
-    ]
+    return [{"artifact_ref": f"code:sha256:{sha256}", "language": "markdown", "content": content, "sha256": sha256, "validation_status": "valid", "validation_detail": detail}]
+# fmt: on
 
 
 __all__ = [
