@@ -15,7 +15,8 @@ import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { RuleActivationPanel } from "./rule-catalog-activation-panel";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
 import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
-import { IllustratedGuidanceContent } from "./wara-guidance";
+import { frameworkDisplayTitle } from "./reference-images.catalog";
+import { IllustratedGuidanceContent, formatGuidanceMarkdownBrief } from "./wara-guidance";
 import {
   type ActivationHistoryState,
   type ActivationState,
@@ -57,6 +58,11 @@ export function RuleDetailDrawer({
     panelRef.current?.focus();
     return () => previouslyFocused?.focus?.();
   }, []);
+  const selectedRuleId = detail.status === "ready" ? detail.data.id : "";
+  useEffect(() => {
+    const body = panelRef.current?.querySelector<HTMLElement>(".rule-drawer-body");
+    if (body) body.scrollTop = 0;
+  }, [selectedRuleId]);
 
   function trapFocus(e: KeyboardEvent): void {
     if (e.key === "Escape") {
@@ -106,6 +112,12 @@ export function RuleDetailDrawer({
             {detail.status === "ready" ? detail.data.id : t("governance.rules.detail.title")}
           </h3>
           <div class="rule-drawer-actions">
+            {detail.status === "ready" ? (
+              <>
+                <CopyButton text={detail.data.id} label={t("governance.common.copyId")} />
+                <CopyButton text={formatGuidanceMarkdownBrief(detail.data.id, buildRuleGuidance(detail.data), getLocale())} label={t("governance.common.copyBrief")} />
+              </>
+            ) : null}
             <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
             <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>
               {t("governance.common.close")}
@@ -307,9 +319,28 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
       )}
       {detailEntries.length > 0 ? (
         <dl class="detail-grid">
-          {detailEntries.map(([key, value]) => (
-            <DetailRow key={key} label={displayValue("ruleDetailKey", key)} value={String(value)} mono />
-          ))}
+          {detailEntries.map(([key, value]) => {
+            const textValue = String(value);
+            const isChipList = (key === "evaluated_properties" || key === "trigger_signals") && textValue.includes(",");
+            return (
+              <DetailRow
+                key={key}
+                label={displayValue("ruleDetailKey", key)}
+                value={
+                  isChipList ? (
+                    <span class="pill-row">
+                      {textValue.split(",").map((part) => (
+                        <code key={part.trim()}>{part.trim()}</code>
+                      ))}
+                    </span>
+                  ) : (
+                    textValue
+                  )
+                }
+                mono={!isChipList}
+              />
+            );
+          })}
         </dl>
       ) : null}
     </section>
@@ -356,7 +387,7 @@ function ControlCitations({ citations }: { readonly citations: ControlCitationSt
           <li key={control.id}>
             <a href={bestPracticeHref({ pillar: "", status: "", q: "" }, control.id)}>
               <code>{control.control_id}</code>
-              <span>{control.title}</span>
+              <span>{frameworkDisplayTitle("azure-waf", control, getLocale())}</span>
             </a>
             <StatusPill kind={CONTROL_STATUS_PILL[control.status]} label={displayValue("controlStatus", control.status)} />
           </li>

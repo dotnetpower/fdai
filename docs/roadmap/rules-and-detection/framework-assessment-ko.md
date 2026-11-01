@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: a1fb0f31b0f4cb7438ef49629de00d314f5f7e78
+translation_source_sha: 6648b64e6ba35edc601658f633e3de10aa86e17c
 translation_revised: 2026-11-01
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -342,9 +342,11 @@ UTF-8이어야 합니다. 유효하지 않은 내용은 replacement 문자로 pr
 여러 개이면 프로바이더 관측 전에 실패합니다. Terraform apply는 실행하지 않습니다.
 
 Operator 대화 상태 snapshot과 요청 필드는 평가 출처, 발견 사항, 프레임워크 매핑을 추가하지 않습니다.
-패키지된 WAF, CAF, MCSB v1 컨트롤과 MCSB v2-preview 컨트롤, MSRC CSAF 권고, 탐지 규칙은 평가 판정이나
-충족 상태 또는 실행 권한을 바꾸지 않고 한국어/영어 제목(`title_ko`), 5노드 관계 다이어그램, 검토된 공식 참조
-아키텍처 이미지, Command Deck 화면 맥락을 표현 메타데이터로 연결합니다.
+패키지된 WAF, CAF, MCSB v1 컨트롤과 MCSB v2-preview 컨트롤(`AI-1..AI-7`에 대한 OWASP LLM Top 10 및
+MITRE ATLAS 참조 포함), MSRC CSAF 권고(`P0`-`P3` 우선순위 등급 및 공격 표면 요약 포함), 탐지 규칙은 평가
+판정이나 충족 상태 또는 실행 권한을 바꾸지 않고 한국어/영어 제목(`title_ko`), 5노드 관계 다이어그램,
+검토된 공식 참조 아키텍처 이미지, Command Deck 화면 맥락(`selected_diagram_flow`,
+`selected_verification`, `selected_caution`)을 표현 메타데이터로 연결합니다.
 
 ## 관련 문서
 

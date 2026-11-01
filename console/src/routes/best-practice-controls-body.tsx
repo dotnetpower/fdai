@@ -182,6 +182,13 @@ export function BestPracticeControlsBody({
                       { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
                       { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
                       { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                      { key: "selected_verification", value: guidanceText(guidance.verification_steps[0]!, locale), group: "selection" },
+                      { key: "selected_caution", value: guidanceText(guidance.cautions[0]!, locale), group: "selection" },
+                      {
+                        key: "selected_diagram_flow",
+                        value: guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> "),
+                        group: "selection",
+                      },
                     ]
                   : []),
               ]
@@ -231,6 +238,18 @@ export function BestPracticeControlsBody({
             <span class="sr-only">{t("governance.rules.controls.filter.searchAria")}</span>
             <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.controls.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
+          {Boolean(filters.pillar || filters.status || filters.q || searchInput) ? (
+            <button
+              type="button"
+              class="btn"
+              onClick={() => {
+                onSearch("");
+                onFilter(EMPTY_FILTERS);
+              }}
+            >
+              {t("governance.common.clearFilter")}
+            </button>
+          ) : null}
         </div>
         <div class="table-toolbar">
           <p class="muted">{t("governance.rules.controls.result.showing", { filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>

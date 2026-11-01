@@ -341,10 +341,12 @@ from the private runner. Zero or multiple candidates fail before provider observ
 never runs Terraform apply.
 
 The Operator dialogue-state snapshot and request field add no assessment source, finding, or framework mapping.
-Packaged WAF, CAF, and MCSB v1 controls, MCSB v2-preview controls, MSRC CSAF advisories, and
-Detection Rules attach bilingual titles (`title_ko`), 5-node relationship diagrams, reviewed
-reference architecture images, and Command Deck view context as presentation metadata without
-changing assessment evaluation, satisfaction, or execution authority.
+Packaged WAF, CAF, and MCSB v1 controls, MCSB v2-preview controls (with OWASP LLM Top 10 and MITRE
+ATLAS references for `AI-1..AI-7`), MSRC CSAF advisories (with `P0`-`P3` priority tiers and attack
+surface summaries), and Detection Rules attach bilingual titles (`title_ko`), 5-node relationship
+diagrams, reviewed reference architecture images, and Command Deck view context (`selected_diagram_flow`,
+`selected_verification`, `selected_caution`) as presentation metadata without changing assessment
+evaluation, satisfaction, or execution authority.
 
 ## Related docs
 

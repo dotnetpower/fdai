@@ -73,7 +73,7 @@ def _caf_catalog_payload(
                 [
                     *(
                         str(item.get(field, ""))
-                        for field in ("control_id", "title", "description", "area")
+                        for field in ("control_id", "title", "description", "area", "owner_slot")
                     ),
                     korean_titles.get(str(item.get("control_id", "")), ""),
                 ]

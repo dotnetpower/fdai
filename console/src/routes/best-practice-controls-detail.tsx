@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ErrorState, LoadingState, type PillKind, StatusPill, UnavailableState } from "../components/ui";
+import { CopyButton, ErrorState, LoadingState, type PillKind, StatusPill, UnavailableState } from "../components/ui";
 import { CONTROL_STATUS_PILL } from "./best-practice-controls-body";
 import type { BestPracticeDetailState } from "./best-practice-controls";
 import type {
@@ -31,6 +31,11 @@ export function BestPracticeDrawer({
     panelRef.current?.focus();
     return () => previous?.focus?.();
   }, []);
+  const selectedControlId = detail.status === "ready" ? detail.data.control_id : "";
+  useEffect(() => {
+    const body = panelRef.current?.querySelector<HTMLElement>(".rule-drawer-body");
+    if (body) body.scrollTop = 0;
+  }, [selectedControlId]);
 
   function trapFocus(event: KeyboardEvent): void {
     if (event.key === "Escape") {
@@ -64,7 +69,11 @@ export function BestPracticeDrawer({
       <aside id="best-practice-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.controls.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.controls.detail.title")}</h3>
-          <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          <div class="rule-drawer-actions">
+            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
+            <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          </div>
         </header>
         <div class="rule-drawer-body">
           {detail.status === "loading" ? <LoadingState label={t("governance.rules.controls.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.controls.detail.loadFailed", { message: detail.message })} /> : <BestPracticeDetailContent data={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />}
@@ -162,7 +171,7 @@ function BestPracticeDetailContent({ data, expanded, onExpand }: { readonly data
       <DetailSection title={t("governance.rules.detail.provenance")}>
         <dl class="detail-grid">
           {Object.entries(provenance).map(([key, value]) => (
-            <DetailRow key={key} label={key.replace(/_/g, " ")} value={value} mono />
+            <DetailRow key={key} label={displayValue("provenanceKey", key)} value={value} mono />
           ))}
         </dl>
       </DetailSection>
