@@ -105,7 +105,9 @@ export function CommandDeckHeader({
           </svg>
         </span>
         <span class="deck-header-copy">
-          <strong class="deck-header-conversation-title" title={conversationTitle}>{conversationTitle}</strong>
+          <Tooltip content={conversationTitle}>
+            <strong class="deck-header-conversation-title">{conversationTitle}</strong>
+          </Tooltip>
           <span class="deck-header-route">{routeLabel}</span>
         </span>
         {sessionLabel && (
