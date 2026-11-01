@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 88656ef3e9d02623c482767db97e78b2950601d4
+translation_source_sha: b68388fff28139d833818d47d1e89e40305f533f
 translation_revised: 2026-11-01
 ---
 
@@ -27,7 +27,7 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 
 프레임워크 컨트롤 상세 화면은 서버가 소유한 활성화 설정을 평가된 충족 상태 및 원래 출처
 정보와 분리합니다. 공통 영어와 한국어 안내 렌더러는 기존 WARA 보기와 함께 WAF, MCSB, CAF를
-제공하며, 컨트롤 카탈로그는 버전이 고정된 2019-2026년 MSRC CSAF 2.0 교차표 9,058건 전체를 연도, 위협, 공격 표면, KEV SLA 및 런타임 노출 필터, 헌법 7대 안전장치 준비 상태 조회(`Z01`-`Z60`, `Q001`-`Q100`), 수식 안전 CSV/JSON 내보내기와 함께 50행 단위로 페이지네이션해 표시하는 읽기 전용 `MSRC CSAF`(`framework=msrc-csaf`, `GET /msrc-csaf-controls`) 탭도 제공합니다. 안내가 없거나 원본 핀이 일치하지 않으면 그 상태를 명시합니다. 실행되지 않는
+제공하며, 컨트롤 카탈로그는 버전이 고정된 2019-2026년 MSRC CSAF 2.0 교차표 9,058건 전체를 연도, 위협, 공격 표면, KEV SLA 및 런타임 노출 필터, 헌법 7대 안전장치 및 Codename MDASH 5단계 준비 상태 조회(`Z01`-`Z60`, `Q001`-`Q100`, `M001`-`M100`), 수식 안전 CSV/JSON 내보내기와 함께 50행 단위로 페이지네이션해 표시하는 읽기 전용 `MSRC CSAF`(`framework=msrc-csaf`, `GET /msrc-csaf-controls`) 탭도 제공합니다. 안내가 없거나 원본 핀이 일치하지 않으면 그 상태를 명시합니다. 실행되지 않는
 Rule/ActionType 참조는 기존 Rule 상세로 연결할 뿐 실행 컨트롤을 추가하지 않습니다. 검토된
 프로필 재정의, `medium` 이상 기본 활성화, 원본 핀 수락은 브라우저 추론이나 별도 권한 경로가
 아니라 [프레임워크 평가](../rules-and-detection/framework-assessment-ko.md#컨트롤-활성화와-구현-안내)가 소유합니다.

@@ -21,9 +21,11 @@ import {
   buildMsrcCsafFacets,
   buildSevenSafeguardPlan,
   evaluateCatalogZeroRiskAssurance,
+  evaluateMdashHarnessReadiness,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
+  isMdashCohortCve,
   mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
@@ -837,6 +839,31 @@ function MsrcCsafDrawer({
                   mono
                 />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.effectVerification")} value={safeguardPlan.effect_verification_contract} />
+              </dl>
+            </DetailSection>
+
+            <DetailSection title={t("governance.rules.msrcCsaf.detail.mdashSection")}>
+              <dl class="detail-grid">
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.mdashPipeline")}
+                  value="prepare -> scan -> validate (auditor/debater/counterpoint) -> dedupe -> prove"
+                  mono
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.mdashLanguages")}
+                  value={`${evaluateMdashHarnessReadiness([row]).total_languages} languages (5 specialist + 9 generalist) · ${evaluateMdashHarnessReadiness([row]).specialized_auditors_count} specialized auditors · ${evaluateMdashHarnessReadiness([row]).proving_plugins_count} domain proving plugins`}
+                  mono
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.mdashBenchmarks")}
+                  value="StorageDrive 21/21 TP (0 FP) · clfs.sys 96.4% · tcpip.sys 100.0% · CyberGym 88.45%"
+                  mono
+                />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.mdashCohort")}
+                  value={`cohort_match=${String(isMdashCohortCve(row.cve_id))} (16 CVEs: 10 kernel / 6 usermode) · regions=US,EU,UK,AUS,IND,CH,UAE(CLI-only)`}
+                  mono
+                />
               </dl>
             </DetailSection>
 

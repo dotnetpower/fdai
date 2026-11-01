@@ -27,12 +27,20 @@ limits:
   quorum: 2
   line_tolerance: 2
 languages:
-  python: [".py"]
-  javascript: [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"]
+  python: [".py", ".pyw"]
+  javascript: [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts"]
   java: [".java"]
   go: [".go"]
   csharp: [".cs"]
-  c: [".c", ".h", ".cc", ".cpp", ".hpp"]
+  c: [".c", ".h", ".c.in", ".cc", ".cpp", ".cxx", ".hh", ".hpp"]
+  rust: [".rs"]
+  kotlin: [".kt", ".k", ".kts"]
+  ruby: [".rb"]
+  php: [".php", ".phtml", ".inc", ".module", ".install", ".theme"]
+  swift: [".swift"]
+  objective_c: [".m"]
+  objective_cpp: [".mm"]
+  zig: [".zig"]
 lenses:
   missing-authorization:
     weakness_class: missing_authorization
@@ -100,11 +108,29 @@ lenses:
       Find deserialization of data that callers can influence into objects with behavior.
   memory-safety:
     weakness_class: memory_safety
-    cwe: [120, 125, 787]
-    languages: [c]
+    cwe: [120, 125, 415, 416, 476, 787]
+    languages: [c, rust, zig, objective_c, objective_cpp]
     sink_hints:
-      - '\b(memcpy|memmove|strcpy|strcat|sprintf|gets|alloca|read|recv)\s*\('
+      - '\b(memcpy|memmove|strcpy|strcat|sprintf|gets|alloca|read|recv|free|ExFreePool\w*|ObDereferenceObject\w*)\s*\('
       - '\[[^\]]*\]\s*='
     focus: >-
-      Find buffer reads or writes whose length or index depends on caller-influenced values
-      without a bound check against the real allocation size.
+      Find buffer reads, writes, shallow copies, or post-release pointer uses whose length,
+      index, or object lifetime depends on caller-influenced values without a bound or refcount check.
+  xml-external-entity:
+    weakness_class: xml_external_entity
+    cwe: [611, 776]
+    languages: [python, javascript, java, csharp, php, ruby]
+    sink_hints:
+      - '\b(DocumentBuilderFactory|SAXParserFactory|XMLInputFactory|etree\.fromstring|parseString|XmlDocument)\b'
+    focus: >-
+      Find XML parsers that process caller-supplied XML without disabling DTDs and external
+      entity resolution.
+  weak-cryptography:
+    weakness_class: weak_cryptography
+    cwe: [326, 327, 328, 330]
+    languages: [python, javascript, java, go, csharp, rust, kotlin]
+    sink_hints:
+      - '\b(md5|sha1|DES|RC4|ECB|Math\.random|random\.randint|Random\()\b'
+    focus: >-
+      Find broken or weak cryptographic algorithms and non-cryptographic random generators used
+      for security-sensitive tokens, keys, or digests.

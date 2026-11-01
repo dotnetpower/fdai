@@ -1111,3 +1111,77 @@ export function evaluateCatalogZeroRiskAssurance(
     execution_authority: false,
   };
 }
+
+export const MDASH_PATCH_TUESDAY_COHORT_CVE_IDS: readonly string[] = [
+  "CVE-2026-33827",
+  "CVE-2026-40413",
+  "CVE-2026-40405",
+  "CVE-2026-33824",
+  "CVE-2026-40406",
+  "CVE-2026-35422",
+  "CVE-2026-32209",
+  "CVE-2026-35424",
+  "CVE-2026-35423",
+  "CVE-2026-40414",
+  "CVE-2026-40401",
+  "CVE-2026-40415",
+  "CVE-2026-33096",
+  "CVE-2026-40399",
+  "CVE-2026-41089",
+  "CVE-2026-41096",
+] as const;
+
+export interface MdashHarnessReadinessSummary {
+  readonly pipeline_stages: readonly ["prepare", "scan", "validate", "dedupe", "prove"];
+  readonly specialist_languages: 5;
+  readonly generalist_languages: 9;
+  readonly total_languages: 14;
+  readonly specialized_auditors_count: 105;
+  readonly proving_plugins_count: 5;
+  readonly patch_tuesday_cohort_total: 16;
+  readonly patch_tuesday_kernel_cves: 10;
+  readonly patch_tuesday_usermode_cves: 6;
+  readonly catalog_matched_cohort_cves: number;
+  readonly storagedrive_benchmark_tp: 21;
+  readonly storagedrive_benchmark_fp: 0;
+  readonly clfs_retrospective_recall_pct: 96.4;
+  readonly tcpip_retrospective_recall_pct: 100.0;
+  readonly cybergym_benchmark_score_pct: 88.45;
+  readonly supported_regions: readonly ["US", "EU", "UK", "AUS", "IND", "CH", "UAE"];
+  readonly execution_authority: false;
+}
+
+export function isMdashCohortCve(cveId: string): boolean {
+  const normalized = cveId.trim().toUpperCase();
+  return MDASH_PATCH_TUESDAY_COHORT_CVE_IDS.some((id) => id === normalized);
+}
+
+export function evaluateMdashHarnessReadiness(
+  rows: readonly MsrcCsafControlRow[],
+): MdashHarnessReadinessSummary {
+  let matchedCohort = 0;
+  for (const row of rows) {
+    if (isMdashCohortCve(row.cve_id)) {
+      matchedCohort += 1;
+    }
+  }
+  return {
+    pipeline_stages: ["prepare", "scan", "validate", "dedupe", "prove"],
+    specialist_languages: 5,
+    generalist_languages: 9,
+    total_languages: 14,
+    specialized_auditors_count: 105,
+    proving_plugins_count: 5,
+    patch_tuesday_cohort_total: 16,
+    patch_tuesday_kernel_cves: 10,
+    patch_tuesday_usermode_cves: 6,
+    catalog_matched_cohort_cves: matchedCohort,
+    storagedrive_benchmark_tp: 21,
+    storagedrive_benchmark_fp: 0,
+    clfs_retrospective_recall_pct: 96.4,
+    tcpip_retrospective_recall_pct: 100.0,
+    cybergym_benchmark_score_pct: 88.45,
+    supported_regions: ["US", "EU", "UK", "AUS", "IND", "CH", "UAE"],
+    execution_authority: false,
+  };
+}

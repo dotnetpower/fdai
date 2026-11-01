@@ -594,6 +594,15 @@ def _msrc_csaf_catalog_payload(
                 ),
             )
         response["zero_risk_assurance"] = zra
+    # M084-M085: Preserve validated MDASH 5-stage harness readiness summary when present
+    if isinstance(stored.get("mdash_harness"), Mapping):
+        mdash = dict(cast(Mapping[str, object], stored["mdash_harness"]))
+        if mdash.get("execution_authority") is not False:
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative MSRC CSAF mdash_harness MUST NOT carry execution_authority",
+            )
+        response["mdash_harness"] = mdash
     if isinstance(stored.get("last_workload_id"), str):
         response["last_workload_id"] = stored["last_workload_id"]
     if isinstance(stored.get("last_evaluated_at"), str):

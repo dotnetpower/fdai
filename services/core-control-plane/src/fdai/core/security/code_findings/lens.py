@@ -30,6 +30,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from fdai.core.security.code_findings.mdash_harness import (
+    is_minified_javascript,
+    score_file_for_mdash_prepare,
+)
 from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.sarif import clean_text
 from fdai.rule_catalog.code_security_lenses import Lens, LensCatalog
@@ -94,7 +98,13 @@ class LensLaneReport:
         )
 
 
-def _iter_files(root: Path, catalog: LensCatalog, report: LensLaneReport) -> list[Path]:
+def _iter_files(
+    root: Path,
+    catalog: LensCatalog,
+    report: LensLaneReport,
+    *,
+    prioritize_by_risk: bool = False,
+) -> list[Path]:
     files: list[Path] = []
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root)
@@ -102,10 +112,25 @@ def _iter_files(root: Path, catalog: LensCatalog, report: LensLaneReport) -> lis
             continue
         if not path.is_file() or catalog.language_for(path.name) is None:
             continue
+        if is_minified_javascript(relative.as_posix()):
+            report.files_skipped += 1
+            continue
         if len(files) >= catalog.limits.max_files:
             report.files_skipped += 1
             continue
         files.append(path)
+    if prioritize_by_risk and len(files) > 1:
+
+        def _risk_key(item: Path) -> tuple[float, str]:
+            rel = item.relative_to(root).as_posix()
+            try:
+                text = item.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                return (0.0, rel)
+            ranked = score_file_for_mdash_prepare(rel, text)
+            return (-(ranked.composite_risk_score if ranked else 0.0), rel)
+
+        files.sort(key=_risk_key)
     return files
 
 
@@ -121,7 +146,11 @@ def _excerpt(lines: Sequence[str], center: int, catalog: LensCatalog) -> tuple[i
 
 
 def select_candidates(
-    root: Path, catalog: LensCatalog, report: LensLaneReport
+    root: Path,
+    catalog: LensCatalog,
+    report: LensLaneReport,
+    *,
+    prioritize_by_risk: bool = False,
 ) -> list[LensCandidate]:
     """Return lens candidates in deterministic order, bounded per lens."""
     per_lens: dict[str, list[LensCandidate]] = {lens_id: [] for lens_id in catalog.lenses}
@@ -129,18 +158,22 @@ def select_candidates(
         lens_id: [re.compile(hint) for hint in lens.sink_hints]
         for lens_id, lens in catalog.lenses.items()
     }
-    for path in _iter_files(root, catalog, report):
+    for path in _iter_files(root, catalog, report, prioritize_by_risk=prioritize_by_risk):
         data = path.read_bytes()
         if len(data) > catalog.limits.max_file_bytes or b"\x00" in data[:8_192]:
             report.files_skipped += 1
             continue
         try:
-            lines = data.decode("utf-8").splitlines()
+            decoded = data.decode("utf-8")
+            lines = decoded.splitlines()
         except UnicodeDecodeError:
             report.files_skipped += 1
             continue
-        report.files_scanned += 1
         relative = path.relative_to(root).as_posix()
+        if is_minified_javascript(relative, decoded):
+            report.files_skipped += 1
+            continue
+        report.files_scanned += 1
         language = catalog.language_for(path.name) or ""
         for lens_id, lens in catalog.lenses.items():
             if language not in lens.languages:
