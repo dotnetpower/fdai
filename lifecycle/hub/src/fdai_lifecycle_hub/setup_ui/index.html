@@ -112,6 +112,21 @@
                 <p id="cost-help" class="hint" data-i18n="costHelp">A planning limit, not a billing cap or a cost estimate.</p>
               </div>
             </div>
+            <div class="field-grid">
+              <div class="field">
+                <label for="workload" data-i18n="workload">Workload token (optional)</label>
+                <input id="workload" name="workload" pattern="[a-z][a-z0-9]{1,11}" maxlength="12" autocomplete="off" spellcheck="false" placeholder="fdai" aria-describedby="workload-help">
+                <p id="workload-help" class="hint" data-i18n="workloadHelp">Leave blank to auto-select a non-colliding name (such as fdai or fdaiboot).</p>
+              </div>
+              <div class="field">
+                <label for="approval-mode" data-i18n="approvalMode">Checkpoint approval mode</label>
+                <select id="approval-mode" name="approval-mode" aria-describedby="approval-mode-help">
+                  <option value="continuous" data-i18n="approvalContinuous">Continuous non-destructive (recommended)</option>
+                  <option value="stepwise" data-i18n="approvalStepwise">Review every checkpoint manually</option>
+                </select>
+                <p id="approval-mode-help" class="hint" data-i18n="approvalModeHelp">Destructive changes always pause for explicit confirmation.</p>
+              </div>
+            </div>
             <fieldset class="artifact-options">
               <legend data-i18n="artifacts">Installation artifacts</legend>
               <label class="radio-option"><input type="radio" name="artifact" value="hub" checked><span><strong data-i18n="hubMode">Signed prebuilt images</strong><span class="hint" data-i18n="hubHelp">Default. Verify Release Hub artifacts using an independently trusted public key. No source-build fallback.</span></span></label>
@@ -178,7 +193,11 @@
         <section id="ready-section" aria-labelledby="ready-heading" hidden>
           <h2 id="ready-heading" data-i18n="readyTitle">Installation verified ready</h2>
           <p data-i18n="readyHelp">The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.</p>
-          <a id="console-link" class="button-link" rel="noopener noreferrer" hidden data-i18n="openConsole">Open FDAI Console</a>
+          <p id="console-origin-text" class="exact-value" hidden></p>
+          <div class="button-row">
+            <a id="console-link" class="button-link" target="_blank" rel="noopener noreferrer" hidden data-i18n="openConsole">Open FDAI Console</a>
+            <button id="copy-console-url" type="button" class="secondary" hidden data-i18n="copyConsoleUrl">Copy Console URL</button>
+          </div>
           <p id="console-unavailable" class="warning" hidden data-i18n="consoleUnavailable">A safe HTTPS Console destination is unavailable. Inspect the deployment before continuing.</p>
         </section>
         <section id="stages-section" class="provision-panel" aria-labelledby="stages-heading">
@@ -188,6 +207,7 @@
               <h2 id="stages-heading" data-i18n="stagesTitle">Setup stages</h2>
               <p id="stages-summary" class="muted"></p>
             </div>
+            <button id="toggle-completed-stages" type="button" class="quiet" aria-expanded="true" data-i18n="hideCompletedStages">Hide completed</button>
           </div>
           <ol id="provision-stages" class="provision-stages"></ol>
         </section>

@@ -116,16 +116,26 @@ def start(args: argparse.Namespace) -> int:
     stop = Event()
     with launcher_lock(state_dir), _shutdown_signals(stop):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        launch_path = state_dir / "launch.url"
+        cookie_path = state_dir / "session.cookie"
         try:
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            listener.bind(("127.0.0.1", args.port))
+            try:
+                listener.bind(("127.0.0.1", args.port))
+            except OSError:
+                if args.port == 0 or getattr(args, "strict_port", False):
+                    raise
+                listener.bind(("127.0.0.1", 0))
+                print(
+                    f"Requested port {args.port} is in use; bound to free loopback port.",
+                    flush=True,
+                )
             listener.listen(128)
             port = listener.getsockname()[1]
             origin = f"http://127.0.0.1:{port}"
             launch_token = secrets.token_urlsafe(32)
             launch_url = f"{origin}/setup#session={launch_token}"
             prepare_directory(state_dir)
-            launch_path = state_dir / "launch.url"
             launch_path.unlink(missing_ok=True)
             fd = os.open(launch_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
             try:
@@ -151,6 +161,8 @@ def start(args: argparse.Namespace) -> int:
                 _worker_ready(worker, state_dir, started_ns=started_ns, stop=stop)
                 print(f"Lifecycle Hub Bootstrap: {origin}/setup", flush=True)
                 print("Azure access stays in the customer executor. Keep this process running.")
+                if getattr(args, "print_launch_url", False):
+                    print(f"Launch URL: {launch_url}", flush=True)
                 if args.no_browser:
                     print(
                         f"Browser launch disabled; private launch URL saved in {launch_path}",
@@ -175,8 +187,27 @@ def start(args: argparse.Namespace) -> int:
             finally:
                 _stop_worker(worker)
         finally:
+            launch_path.unlink(missing_ok=True)
+            cookie_path.unlink(missing_ok=True)
             listener.close()
     return 0
+
+
+def stop_running_bootstrap(state_dir: Path) -> dict[str, object]:
+    """Stop the local Bootstrap worker process group recorded in heartbeat.json."""
+    heartbeat = state_dir / "heartbeat.json"
+    stopped = False
+    if heartbeat.is_file() and not heartbeat.is_symlink():
+        try:
+            record = json.loads(heartbeat.read_bytes())
+        except (OSError, ValueError):
+            record = None
+        pid = record.get("pid") if isinstance(record, dict) else None
+        if isinstance(pid, int) and pid > 1:
+            stopped = _signal_worker_group(pid, signal.SIGTERM)
+    (state_dir / "launch.url").unlink(missing_ok=True)
+    (state_dir / "session.cookie").unlink(missing_ok=True)
+    return {"state_dir": str(state_dir), "stopped": stopped}
 
 
 @contextmanager

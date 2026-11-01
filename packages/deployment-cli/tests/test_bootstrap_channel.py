@@ -190,3 +190,16 @@ def test_symlinks_hardlinks_and_unsafe_permissions_are_rejected(tmp_path):
     root.chmod(0o755)
     with pytest.raises(ValueError):
         channel.prepare_directory(root)
+
+
+def test_install_accepts_optional_approval_mode_and_workload_tokens(tmp_path):
+    validated = channel.validate_request(
+        "install",
+        install_payload(approval_mode="stepwise", workload="fdaiboot"),
+    )
+    assert validated["approval_mode"] == "stepwise"
+    assert validated["workload"] == "fdaiboot"
+    with pytest.raises(ValueError, match="Approval mode"):
+        channel.validate_request("install", install_payload(approval_mode="invalid"))
+    with pytest.raises(ValueError, match="workload token"):
+        channel.validate_request("install", install_payload(workload="BAD-NAME"))

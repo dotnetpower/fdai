@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 92fb6b4a0b9e229198dc546d30a36694638a4bad
-translation_revised: 2026-10-31
+translation_source_sha: 429a3d142b1262b773d08cd320578104b7204542
+translation_revised: 2026-11-01
 ---
 # 런타임 배포 프로파일
 
@@ -509,7 +509,9 @@ AKS를 선택하면 상세 비공개 네트워킹이 꺼져 있어도 애플리�
 엔드포인트, 허브 피어링 및 비공개 DNS를 제어합니다.
 집중 문서 복구는 Foundation 소유 운영 Blob 영역 링크를 하나로 유지하고 문서 엔드포인트 A
 레코드를 해당 영역에 씁니다. 애플리케이션 VNet은 애플리케이션 영역 링크를 유지하며 DFS 영역은
-필요한 두 VNet에 독립적으로 연결됩니다.
+필요한 두 VNet에 독립적으로 연결됩니다. 문서 저장소의 Defender `StorageDataScanner` 프라이빗 링크
+접근 규칙은 `local.document_storage_private_access`를 따르므로 집중 비공개 접근 경로에서도 두 번째
+Terraform 플랜이 변경 없음 상태를 유지합니다.
 기본적으로 비활성화되는 개발 환경 알림 과다 수신 파일럿은 어느 런타임을 선택하더라도 운영자가
 로컬에서 수행하는 배포 선행 조건으로 유지됩니다. 기존 FDAI Core Container App을 읽기 전용 `Replicas` 메트릭 범위로 고정하고 전용 Action Group 하나와 메트릭 경보 하나만 만듭니다. Core 앱을 변경하지 않으며
 애플리케이션 데이터, 자격 증명, 연결 문자열 또는 Key Vault 내용을 읽지 않습니다. 런타임 선택은
@@ -1001,10 +1003,10 @@ drift를 범위 안으로 끌어오지 않아야 하기 때문입니다. 애플�
 배포 영수증은 다시 읽은 기간이 신뢰할 수 있는 시계 기준으로 열려 있을 때만
 `license_mode=trial`을 보고합니다.
 
-초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. 최종 실패는 변경하지 않고
-보존하며 같은 호출 안에서는 다시 실행하지 않습니다. 이후 명시적인 소스 호출만 다음 attempt로
-진행할 수 있고, attempt는 최대 3회로 제한됩니다. 진행 중이거나 결과가 불명확한 attempt는 같은
-식별자를 유지한 채 검증 전용 복구를 수행합니다.
+초기 인벤토리 one-shot은 content-addressed attempt를 사용합니다. `retry-1` 및 `retry-2` 후속 Job이
+모두 실패해 종료된 경우를 포함한 최종 실패는 변경하지 않고 보존하며 같은 호출 안에서는 다시 실행하지
+않습니다. 이후 명시적인 소스 호출만 다음 attempt로 진행할 수 있고, attempt는 최대 3회로 제한됩니다.
+진행 중이거나 결과가 불명확한 attempt는 같은 식별자를 유지한 채 검증 전용 복구를 수행합니다.
 
 독립 closure가 one-shot Job 종료 후 예약된 재조정이 더 새로운 세대를 승격했다는 이유로만
 (`active_generation`) 실패하면, Job 자체의 세대는 정상이지만 더 이상 활성 세대가 아니므로

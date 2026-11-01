@@ -301,14 +301,22 @@ class BootstrapExecutor:
             self._az("account", "set", "--subscription", subscription)
             config.update(self._target(subscription))
             if self.run is subprocess.run and self.planner is None:
+                preferred_wl = (
+                    str(config["workload"])
+                    if isinstance(config.get("workload"), str) and config.get("workload")
+                    else None
+                )
                 try:
                     config["foundation_workload"] = select_available_workload(
                         self.area,
                         str(config["region"]),
                         self._az("group", "list", "--query", "[].{name:name}"),
+                        preferred=preferred_wl,
                     )
                 except ValueError as exc:
                     raise BootstrapBlocked(str(exc)) from exc
+            elif isinstance(config.get("workload"), str) and config.get("workload"):
+                config["foundation_workload"] = str(config["workload"])
             _write(self.area, config, "configuration.json")
         if (self.area / "native-ownership.json").exists():
             raise BootstrapBlocked(
@@ -372,9 +380,11 @@ class BootstrapExecutor:
             if (self.area / "native-ownership.json").exists():
                 raise BootstrapBlocked("Native lifecycle ownership superseded Bootstrap.")
             required = str(review.get("confirmation_required", ""))
+            approval_mode = str(config.get("approval_mode", "continuous"))
             if (
                 self.run is subprocess.run
                 and self.planner is None
+                and approval_mode != "stepwise"
                 and not required.endswith("-destructive")
             ):
                 return {

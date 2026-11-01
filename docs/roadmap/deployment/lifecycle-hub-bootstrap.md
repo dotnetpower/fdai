@@ -37,32 +37,41 @@ Hub wheel and its declared dependencies from your approved package source, then 
 fdai-lifecycle-hub start
 ```
 
-The command selects a free IPv4 loopback port and opens `/setup` in the browser. The short-lived
-launch link is exchanged once for an HTTP-only, same-site session cookie. The link is not printed
-or retained. `--state-dir` selects the private retained installation directory; `--port` selects a
-specific loopback port. `--no-browser` starts diagnostics only and does not print an authentication
-link. Remote Hub configuration cannot enable this local mode.
+The command selects a free IPv4 loopback port (or falls back to a free port when a requested
+`--port` is busy unless `--strict-port` is passed) and opens `/setup` in the browser. On WSL hosts
+without `wslview`, the launcher opens the Windows default browser via `powershell.exe`. On headless
+or SSH terminals without a browser, the server stays running and saves the owner-only `launch.url`
+(`0600`, or prints it when `--print-launch-url` is passed). `fdai-lifecycle-hub status` and
+`fdai-lifecycle-hub stop` inspect or stop the local session. Remote Hub configuration cannot enable
+this local mode.
 
 This source change does not publish to PyPI. A package name or a locally built wheel alone does
 not prove that all required dependency versions are available from an external package index.
 
 ## Complete installation
 
-1. Select **Azure sign-in**. The executor uses a private Azure CLI profile, separate from the
-   operator's default profile. Microsoft handles authentication; no token is sent to the Hub.
-2. Select an accessible subscription, region and monthly cost ceiling. The current supported
-   runtime is the existing AKS baseline with its Console profile, not an inexpensive Lite topology.
+1. Select **Azure sign-in**. The executor synchronizes the operator's local `~/.azure` cache into
+   its private profile, supports an optional tenant ID or domain input and device-code sign-in for
+   headless terminals, and filters out tenant-level placeholder accounts. Microsoft handles
+   authentication; no token is sent to the Hub.
+2. Select an accessible subscription, region, monthly cost ceiling, optional workload token, and
+   checkpoint approval mode (`continuous` non-destructive default or `stepwise` manual review).
+   When no workload token is supplied, the executor automatically selects a non-colliding workload
+   name in the target region.
 3. Select signed Release Hub images and provide an independently approved Ed25519 public key.
    The executor can retrieve the exact support checkout identified by the verified Release.
    Fetching Terraform and migration support does not authorize service image builds.
-   Explicit source mode instead uses the selected clean checkout and its existing source contract.
-4. Request preparation. The existing engine checks the target, policies, capacity, costs and
-   dependencies. Preparation can include provider registration under the selected setup request;
-   it is not advertised as a no-effect Terraform preview.
-5. Review each actual required checkpoint. Decisions bind to the current request, review digest
-   and expiry. Deletion or replacement retains its exact confirmation, and denial grants no authority.
-6. Wait for application initialization and independent verification. The UI shows ready only when
-   the existing engine reports `deployment_ready=true`, not when Terraform or a dispatcher exits.
+   Explicit source mode instead pins the selected clean checkout in an isolated work directory so
+   concurrent repository edits cannot interrupt a running deployment.
+4. Request preparation. The 15-stage ordered lifecycle panel and progress bar track real-time
+   checkpoint and sub-phase progress from the customer executor.
+5. Review required checkpoints. In default `continuous` mode, non-destructive checkpoints advance
+   automatically once preparation is authorized, while any plan that deletes or replaces resources
+   pauses for explicit confirmation. Before any Azure resource mutation occurs, `Reset setup` can
+   clear the retained pre-apply configuration so the operator can select another region or target.
+6. Wait for application initialization and independent verification. The UI shows ready and enables
+   the verified HTTPS Console link only when the existing engine reports `deployment_ready=true`
+   and the publication receipt digest matches.
 
 Missing Azure CLI, source tools, trust, permissions, capacity or artifacts produce explicit
 blockers. The interface does not acquire subscription privileges, create an Entra application

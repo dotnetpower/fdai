@@ -22,6 +22,13 @@
     region: "Azure region",
     regionHelp: "Enter the supported Azure location name for your target, using lowercase letters and digits.",
     cost: "Monthly cost ceiling (USD)", costHelp: "A planning limit, not a billing cap or a cost estimate.",
+    workload: "Workload token (optional)",
+    workloadHelp: "Leave blank to auto-select a non-colliding name (such as fdai or fdaiboot).",
+    approvalMode: "Checkpoint approval mode",
+    approvalContinuous: "Continuous non-destructive (recommended)",
+    approvalStepwise: "Review every checkpoint manually",
+    approvalModeHelp: "Destructive changes always pause for explicit confirmation.",
+    invalidWorkload: "Enter a lowercase alphanumeric workload token (2-12 characters).",
     artifacts: "Installation artifacts", hubMode: "Signed prebuilt images",
     hubHelp: "Default. Verify Release Hub artifacts using an independently trusted public key. No source-build fallback.",
     sourceMode: "Build from a clean source checkout",
@@ -44,6 +51,10 @@
     inspect: "Inspect retained state", resume: "Resume explicitly", reset: "Reset setup", readyTitle: "Installation verified ready",
     readyHelp: "The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.",
     openConsole: "Open FDAI Console",
+    copyConsoleUrl: "Copy Console URL",
+    copiedConsoleUrl: "Copied!",
+    hideCompletedStages: "Hide completed",
+    showCompletedStages: "Show all",
     consoleUnavailable: "A safe HTTPS Console destination is unavailable. Inspect the deployment before continuing.",
     next: "Review, apply, verify",
     nextReview: "Review the actual plan, immutable digest, scope, and confirmation.",
@@ -86,6 +97,13 @@
     subscriptionHelp: "인증된 Azure 세션에서 조회한 구독만 표시됩니다.",
     region: "Azure 지역", regionHelp: "대상에서 지원하는 Azure 위치 이름을 영문 소문자와 숫자로 입력하세요.",
     cost: "월 비용 상한 (USD)", costHelp: "계획 수립용 한도입니다. 청구 한도나 예상 비용이 아닙니다.",
+    workload: "워크로드 토큰 (선택 사항)",
+    workloadHelp: "비워 두면 충돌하지 않는 이름(fdai, fdaiboot 등)을 자동으로 선택합니다.",
+    approvalMode: "체크포인트 승인 모드",
+    approvalContinuous: "비파괴 단계 자동 연속 실행 (권장)",
+    approvalStepwise: "모든 단계마다 수동 검토 및 승인",
+    approvalModeHelp: "리소스 삭제·교체가 포함된 계획은 항상 별도 확인을 위해 일시 중지됩니다.",
+    invalidWorkload: "영문 소문자와 숫자로 된 2~12자 워크로드 이름을 입력하세요.",
     artifacts: "설치 아티팩트", hubMode: "서명된 사전 빌드 이미지",
     hubHelp: "기본 방식입니다. 별도로 신뢰를 확인한 공개 키로 Release Hub 아티팩트를 검증합니다. 실패해도 소스 빌드로 자동 전환하지 않습니다.",
     sourceMode: "정리된 소스 체크아웃에서 빌드",
@@ -107,6 +125,10 @@
     inspect: "저장된 상태 점검", resume: "작업 재개", reset: "설정 초기화 (다시 선택)", readyTitle: "설치 준비 완료 검증됨",
     readyHelp: "백엔드에서 배포 준비 완료를 보고했습니다. 아래의 검증된 HTTPS 주소로만 Console을 여세요.",
     openConsole: "FDAI Console 열기",
+    copyConsoleUrl: "콘솔 주소 복사",
+    copiedConsoleUrl: "복사됨!",
+    hideCompletedStages: "완료 단계 접기",
+    showCompletedStages: "전체 단계 보기",
     consoleUnavailable: "안전한 HTTPS Console 주소가 없습니다. 진행하기 전에 배포 상태를 점검하세요.",
     next: "검토, 적용, 검증", nextReview: "실제 계획, 변경 불가능한 다이제스트, 범위, 확인 문구를 검토합니다.",
     nextApply: "각 단계를 별도로 승인하고 보고된 진행 상황을 확인합니다.",
@@ -491,6 +513,10 @@
       } else if (status.accounts.length > 0) {
         $("subscription").value = status.accounts[0].id;
       }
+      const chosenAcc = status.accounts.find(a => a.id === $("subscription").value);
+      if (chosenAcc && $("tenant") && !$("tenant").value) {
+        $("tenant").placeholder = chosenAcc.tenant_id;
+      }
       accountKey = accounts;
     }
     const review = phase === "review" ? status.review : null;
@@ -519,6 +545,11 @@
     $("recovery-section").hidden = !recovery && !(ready && !url);
     $("console-link").removeAttribute("href");
     $("console-link").hidden = !url;
+    if ($("console-origin-text")) {
+      $("console-origin-text").hidden = !url;
+      $("console-origin-text").textContent = url || "";
+    }
+    if ($("copy-console-url")) $("copy-console-url").hidden = !url;
     if (url) $("console-link").href = url;
     $("console-unavailable").hidden = Boolean(url);
     controls();
@@ -621,6 +652,13 @@
       monthly_cost_ceiling: Number($("cost").value),
       artifact_source: document.querySelector('input[name="artifact"]:checked').value,
     };
+    const workload = ($("workload")?.value || "").trim();
+    if (workload) {
+      if (!/^[a-z][a-z0-9]{1,11}$/.test(workload)) return notice("invalidWorkload");
+      payload.workload = workload;
+    }
+    const approvalMode = $("approval-mode")?.value || "continuous";
+    if (approvalMode === "stepwise") payload.approval_mode = "stepwise";
     if (!Number.isSafeInteger(payload.monthly_cost_ceiling) || payload.monthly_cost_ceiling < 1) return notice("invalidCost");
     if (payload.artifact_source === "source") payload.source_root = $("source-root").value;
     else {
@@ -629,6 +667,33 @@
     }
     action("install", payload);
   });
+  $("subscription").addEventListener("change", () => {
+    const chosenAcc = (status?.accounts || []).find(a => a.id === $("subscription").value);
+    if (chosenAcc && $("tenant") && !$("tenant").value) {
+      $("tenant").placeholder = chosenAcc.tenant_id;
+    }
+  });
+  if ($("copy-console-url")) {
+    $("copy-console-url").addEventListener("click", async () => {
+      const url = safeConsole(status?.console_url);
+      if (!url || !navigator.clipboard) return;
+      try {
+        await navigator.clipboard.writeText(url);
+        $("copy-console-url").textContent = text("copiedConsoleUrl");
+        setTimeout(() => { $("copy-console-url").textContent = text("copyConsoleUrl"); }, 1800);
+      } catch { /* ignore */ }
+    });
+  }
+  if ($("toggle-completed-stages")) {
+    $("toggle-completed-stages").addEventListener("click", () => {
+      const list = $("provision-stages");
+      const hidden = list.dataset.hideCompleted === "true";
+      list.dataset.hideCompleted = String(!hidden);
+      $("toggle-completed-stages").setAttribute("aria-expanded", String(hidden));
+      $("toggle-completed-stages").dataset.i18n = !hidden ? "showCompletedStages" : "hideCompletedStages";
+      $("toggle-completed-stages").textContent = text(!hidden ? "showCompletedStages" : "hideCompletedStages");
+    });
+  }
   function decide(approved) {
     if (!reviewCurrent()) return;
     const review = status.review;

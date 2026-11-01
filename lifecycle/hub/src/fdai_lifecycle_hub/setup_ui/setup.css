@@ -54,7 +54,10 @@ input[type="radio"], input[type="checkbox"] { width: 20px; min-height: 20px; fle
 .provision-progress-facts { flex-wrap: wrap; margin-top: 8px; }
 .provision-progress-facts strong { color: var(--setup-text); font-weight: 650; }
 .provision-progress-facts span:last-child:not(:first-child) { margin-left: auto; }
+.provision-section-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .provision-stages { list-style: none; margin: 14px 0 0; padding: 0; border-top: 1px solid var(--setup-rule); display: grid; grid-template-columns: 1fr; }
+.provision-stages[data-hide-completed="true"] .provision-stage--completed,
+.provision-stages[data-hide-completed="true"] .provision-stage--skipped { display: none; }
 .provision-stage { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 48px; padding: 8px 6px; border-bottom: 1px solid var(--setup-rule); }
 .provision-stage[aria-current="step"] { border-radius: 6px; background: #f3f6f9; padding-inline: 10px; border-color: #c7d5e4; }
 .provision-stage-index { font-family: var(--setup-mono); font-size: 12px; color: var(--setup-muted); font-variant-numeric: tabular-nums; }
@@ -154,7 +157,12 @@ dd { margin: 0; overflow-wrap: anywhere; font-family: var(--setup-mono); }
 .exact-value { font-family: var(--setup-mono); white-space: pre-wrap; background: var(--setup-shade); padding: 12px; border-radius: 6px; cursor: pointer; }
 #notice { margin-bottom: 24px; padding: 16px; border: 1px solid var(--setup-danger); border-radius: 6px; color: var(--setup-danger); background: var(--setup-surface); white-space: pre-wrap; }
 .warning { color: var(--setup-warning); }
-.button-link { display: inline-block; text-decoration: none; margin-top: 20px; }
+.button-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+#console-origin-text { margin-top: 14px; overflow-wrap: anywhere; }
+@media (forced-colors: active) {
+  .provision-meter, .step-item, .badge, .provision-stage-state { border: 1px solid CanvasText; }
+  .provision-meter-fill { background: Highlight; }
+}
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; margin-top: 56px; padding-block: 24px; border-top: 1px solid var(--setup-rule); color: var(--setup-muted); font-size: 13px; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 1; background: var(--setup-surface); padding: 12px; }
 .skip-link:focus { top: 16px; }

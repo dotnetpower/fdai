@@ -23,6 +23,15 @@ from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.source_input import inspect_source
 
 OFFICIAL_SOURCE = "https://github.com/dotnetpower/fdai.git"
+RECOMMENDED_REGIONS = (
+    "westus3",
+    "eastus2",
+    "centralus",
+    "westeurope",
+    "japaneast",
+    "koreacentral",
+    "southeastasia",
+)
 _SYNC_FILES = (
     "azureProfile.json",
     "msal_token_cache.json",
@@ -49,8 +58,9 @@ def configure_wsl_browser(area: Path, environment: dict[str, str]) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write(
                 "#!/bin/sh\n"
+                "safe_url=$(printf '%s' \"$1\" | sed \"s/'/''/g\")\n"
                 "exec powershell.exe -NoProfile -NonInteractive "
-                "-Command \"Start-Process '$1'\" >/dev/null 2>&1\n"
+                "-Command \"Start-Process '$safe_url'\" >/dev/null 2>&1\n"
             )
         environment["BROWSER"] = str(helper)
 
@@ -105,7 +115,13 @@ def sync_local_azure_profile(source_azure: Path, target_azure: Path) -> None:
             continue
 
 
-def select_available_workload(area: Path, region: str, query_groups: object) -> str:
+def select_available_workload(
+    area: Path,
+    region: str,
+    query_groups: object,
+    *,
+    preferred: str | None = None,
+) -> str:
     """Select 'fdai' or the first non-colliding workload token in the target region."""
     variables = area / "deployment/foundation/foundation-variables.json"
     if variables.is_file() and not variables.is_symlink():
@@ -117,15 +133,28 @@ def select_available_workload(area: Path, region: str, query_groups: object) -> 
             pass
     from fdai_deployment_cli.azure_naming import azure_region_short_name
 
+    default_token = (
+        preferred
+        if isinstance(preferred, str) and re.fullmatch(r"[a-z][a-z0-9]{1,11}", preferred)
+        else "fdai"
+    )
     try:
         short = azure_region_short_name(region)
     except ValueError:
-        return "fdai"
+        return default_token
     if not isinstance(query_groups, list):
-        return "fdai"
+        return default_token
     existing = {
         str(item.get("name", "")).lower() for item in query_groups if isinstance(item, dict)
     }
+    if preferred and re.fullmatch(r"[a-z][a-z0-9]{1,11}", preferred):
+        ops_rg, dev_rg = f"rg-{preferred}-ops-{short}", f"rg-{preferred}-dev-{short}"
+        if ops_rg in existing or dev_rg in existing:
+            raise ValueError(
+                f"Existing FDAI resource groups ({ops_rg}, {dev_rg}) already exist in region '{region}'. "
+                "Leave the workload blank for automatic selection or choose another region."
+            )
+        return preferred
     for candidate in ("fdai", "fdaiboot", "fdaiboot2", "fdaiboot3", "fdaiboot4", "fdaiboot5"):
         if (
             f"rg-{candidate}-ops-{short}" not in existing
@@ -145,9 +174,10 @@ def format_nonready_message(result: dict[str, object]) -> str:
         region = result.get("region", "")
         if isinstance(blockers, list) and blockers:
             joined = ", ".join(str(item) for item in blockers)
+            recommended = ", ".join(r for r in RECOMMENDED_REGIONS[:4] if r != region)
             return (
                 f"Azure region '{region}' preflight blocked ({joined}). "
-                "Reset setup and choose a region with available VM SKU/quota (such as westus3)."
+                f"Reset setup and choose a region with available VM SKU/quota (such as {recommended})."
             )
     if result.get("state") == "blocked" and isinstance(result.get("reason"), str):
         return f"Preparation blocked ({result['reason']}). Reset setup to adjust inputs."

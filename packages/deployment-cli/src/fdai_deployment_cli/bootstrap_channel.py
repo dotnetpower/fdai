@@ -26,6 +26,8 @@ INSTALL_FIELDS = {
     "artifact_source",
     "source_root",
     "hub_public_key",
+    "approval_mode",
+    "workload",
 }
 
 
@@ -231,6 +233,14 @@ def validate_request(action: str, payload: dict[str, object]) -> dict[str, objec
     if type(ceiling) is not int or ceiling <= 0 or ceiling > 1_000_000_000:
         raise ValueError("Monthly cost ceiling must be a positive bounded integer")
     result = {**payload, "artifact_source": payload.get("artifact_source", "hub")}
+    if "approval_mode" in payload:
+        mode = payload.get("approval_mode")
+        if not isinstance(mode, str) or mode not in {"continuous", "stepwise"}:
+            raise ValueError("Approval mode must be continuous or stepwise")
+    if "workload" in payload:
+        workload = payload.get("workload")
+        if not isinstance(workload, str) or re.fullmatch(r"[a-z][a-z0-9]{1,11}", workload) is None:
+            raise ValueError("Choose a valid lowercase workload token (2-12 alphanumeric chars)")
     if not isinstance(result["artifact_source"], str) or result["artifact_source"] not in {
         "hub",
         "source",
