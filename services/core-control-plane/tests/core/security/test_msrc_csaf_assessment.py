@@ -245,7 +245,7 @@ def test_review_package_and_security_assessment_integration_preserve_multi_resou
     )
     assert security_report.verdict in {SecurityVerdict.ATTENTION, SecurityVerdict.CRITICAL}
     assert security_report.blocks_action is False
-    assert security_report.cve_count == 268
+    assert security_report.cve_count == 9058
     assert security_report.affected_resource_count >= 3
 
     package = build_csaf_review_package(result)

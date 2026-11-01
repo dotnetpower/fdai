@@ -24,7 +24,7 @@ _WORKLOAD_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _REVISION_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,255}$")
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
-_CVE_RE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,7}$")
+_CVE_RE = re.compile(r"^(?:CVE-[0-9]{4}-[0-9]{4,7}|ADV[0-9]{6})$")
 _ACTION_TYPE_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,255}$")
 
 _SEVERITIES: tuple[str, ...] = tuple(item.value for item in Severity)

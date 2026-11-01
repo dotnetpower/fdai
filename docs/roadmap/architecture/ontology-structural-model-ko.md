@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 12c859abd88ad21644975aec045c16d9fd5ec073
+translation_source_sha: 3d5d2666831814e72ce2b42d8210038363964fa3
 translation_revised: 2026-11-01
 ---
 # 온톨로지 구조 모델
@@ -57,7 +57,7 @@ translation_revised: 2026-11-01
 메타데이터로 유지됩니다. 저장소 ID, 관측 커밋, README 다이제스트, 관측 시각 및 자격 증명
 참조는 Resource, ObjectType, LinkType 또는 권한 관계를 만들지 않습니다. 기록된 읽기 접근
 관측은 현재 공급자 상태나 색인된 근거가 아닙니다. 지식 읽기 권한과 독립적으로 승인된
-스캔 권한은 온톨로지 의미와 계속 분리됩니다. MSRC CSAF 제품 트리 교차표(`rule_catalog/schema/msrc_csaf.py` 및 `scripts/catalog/import_msrc_csaf.py`, 정규 ResourceType 31종에 걸친 SHA-512 검증 완료 2026년 권고 268건)도 권고문 제품 식별자를 기존 중립 ResourceType에 연결할 뿐 새 온톨로지 선언이나 실행 권한을 만들지 않습니다.
+스캔 권한은 온톨로지 의미와 계속 분리됩니다. MSRC CSAF 제품 트리 교차표(`rule_catalog/schema/msrc_csaf.py` 및 `scripts/catalog/import_msrc_csaf.py`, 다이제스트 검증 샤드 20개와 정규 ResourceType 35종에 걸친 2019-2026년 공식 MSRC CSAF 권고 9,055건 및 기준선 테스트 레코드 3건 전체)도 권고문 제품 식별자를 기존 중립 ResourceType에 연결할 뿐 새 온톨로지 선언이나 실행 권한을 만들지 않습니다.
 
 ## 설계 요약
 
