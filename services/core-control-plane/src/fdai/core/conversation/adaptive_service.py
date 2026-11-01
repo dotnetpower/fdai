@@ -39,6 +39,9 @@ _LOGGER = logging.getLogger(__name__)
 _Candidate = TypeVar("_Candidate", bound=BaseModel)
 EvidenceReader = Callable[[str], Awaitable[AdaptiveEvidence]]
 ProfileResolver = Callable[[str, str, Mapping[str, object] | None], ConversationProfile]
+RepositoryContextReader = Callable[[str, str], Awaitable[Sequence[Mapping[str, object]]]]
+_MAX_REPOSITORY_CONTEXT_ITEMS = 3
+_MAX_REPOSITORY_CONTEXT_CHARS = 2_400
 
 
 @lru_cache(maxsize=8)
@@ -211,6 +214,7 @@ class AdaptiveConversationService:
         policy: AdaptivePolicy = DEFAULT_ADAPTIVE_POLICY,
         clock: Callable[[], float] = time.monotonic,
         model_factory: Callable[[], AdaptiveModel | None] | None = None,
+        repository_context_reader: RepositoryContextReader | None = None,
     ) -> None:
         if any(
             not prompts.get(stage) for stage in ("plan", "answer", "review", "refine", "verify")
@@ -222,6 +226,7 @@ class AdaptiveConversationService:
         self._prompts = dict(prompts)
         self._policy = policy
         self._clock = clock
+        self._repository_context_reader = repository_context_reader
 
     def social_profile(
         self,
@@ -263,6 +268,21 @@ class AdaptiveConversationService:
             "utterance": utterance,
             "history": list(history[-8:]),
         }
+        if self._repository_context_reader is not None:
+            try:
+                raw_context = await self._repository_context_reader(utterance, profile.locale)
+                bounded_items = [
+                    dict(item) for item in list(raw_context)[:_MAX_REPOSITORY_CONTEXT_ITEMS]
+                ]
+                while bounded_items and (
+                    len(json.dumps(bounded_items, separators=(",", ":"), ensure_ascii=False))
+                    > _MAX_REPOSITORY_CONTEXT_CHARS
+                ):
+                    bounded_items.pop()
+                if bounded_items:
+                    payload["verified_repository_context"] = bounded_items
+            except Exception:  # noqa: BLE001 - optional repository grounding must not fail turn
+                _LOGGER.debug("adaptive_repository_context_unavailable", exc_info=True)
         plan = await self._stage("plan", AdaptivePlan, profile, payload, budget, cancelled)
         if plan is None:
             return AdaptiveUnavailable("adaptive_planning_unavailable", tuple(budget.observations))

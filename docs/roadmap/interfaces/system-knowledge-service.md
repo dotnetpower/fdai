@@ -177,9 +177,11 @@ operational authority.
 When a design owner's inline implementation status moves to its mirrored delivery ledger, the
 verification source moves to that ledger's `Implementation status` heading. The refresh changes
 source pins and the catalog digest only; it claims no new implementation or runtime evidence.
-The catalog also includes four reviewed security and governance records (`console-web-security`,
-`code-security-review`, `rules-and-framework-governance`, and `msrc-csaf-and-ai-security`, bringing
-the total to 18 records) with `execution_authority=false`.
+The catalog also includes seven reviewed security and governance records (`console-web-security`,
+`code-security-review`, `rules-and-framework-governance`, `msrc-csaf-and-ai-security`,
+`iam-rbac-and-jwt-boundary`, `seven-safeguard-execution-boundary`, and
+`audit-chain-and-tamper-evidence`, bringing the total to 21 records) with
+`execution_authority=false`.
 
 The compiled catalog rejects duplicate identifiers, duplicate exact aliases, untracked paths,
 invalid source ranges, digest mismatch, and records without sources. Source bodies are not part of

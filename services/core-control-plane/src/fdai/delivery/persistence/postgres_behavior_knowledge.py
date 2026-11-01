@@ -23,7 +23,10 @@ from fdai.core.knowledge.behavior_index import (
     InMemoryBehaviorKnowledgeIndex,
     TrackedSourceFreshnessValidator,
 )
-from fdai.delivery.behavior_knowledge.behavior_seed_generation import build_seed_behavior_specs
+from fdai.delivery.behavior_knowledge.behavior_seed_generation import (
+    build_all_seed_behavior_specs,
+    build_seed_behavior_specs,
+)
 from fdai.shared.providers.behavior_knowledge import (
     EMBEDDING_DIM,
     BehaviorContent,
@@ -377,12 +380,26 @@ async def sync_behavior_knowledge_seeds(
     )
 
 
+def build_default_behavior_validator(
+    root: Path | None = None,
+) -> TrackedSourceFreshnessValidator:
+    """Build a TrackedSourceFreshnessValidator over all 18 verified seed source blobs."""
+    resolved_root = root or Path(__file__).resolve().parents[6]
+    try:
+        specs = build_all_seed_behavior_specs(resolved_root)
+        blobs = {source.path: source.blob_sha for spec in specs for source in spec.sources}
+    except Exception:  # noqa: BLE001 - fail closed with empty blob map if sources are unavailable
+        blobs = {}
+    return TrackedSourceFreshnessValidator(blobs)
+
+
 __all__ = [
     "BehaviorSeedSyncReceipt",
     "BehaviorSqlStorePort",
     "InProcessPostgresBehaviorStore",
     "PostgresBehaviorKnowledgeConfig",
     "PostgresBehaviorKnowledgeIndex",
+    "build_default_behavior_validator",
     "deserialize_behavior_spec",
     "encode_behavior_vector",
     "serialize_behavior_spec",

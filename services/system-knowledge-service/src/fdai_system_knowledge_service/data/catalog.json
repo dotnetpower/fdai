@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:3a812a060d8de3d3a5f23b954f591d58dc58a97c02381902973b89aa166d44f3",
+  "catalog_digest": "sha256:da91afcc0525935b5b5482fbca7f0f6c4171782daf72dd73c577630c96f079ee",
   "execution_authority": false,
-  "generated_at": "2026-11-01T13:36:45.389281Z",
+  "generated_at": "2026-11-01T14:52:05.043694Z",
   "records": [
     {
       "designed_behavior": [
@@ -45,6 +45,49 @@
       "status": "implemented",
       "subject_id": "action-safety",
       "title": "Action safety and authority"
+    },
+    {
+      "designed_behavior": [
+        "Saga chains every audit entry to its predecessor SHA-256 digest and recovers canonical audit windows by committed head-hash ancestry rather than sequence-only selection.",
+        "Code-security remediation packs are signed with Ed25519 DSSE envelopes and checked against the revocation registry before export."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "read_audit_chain_window, read_audit_chain_entries, and DSSE build_envelope / verify_envelope are implemented."
+      ],
+      "knowledge_id": "audit-chain-and-tamper-evidence",
+      "limitations": [
+        "Audit verification and DSSE signature checks are read-only integrity guarantees with execution_authority=false."
+      ],
+      "owner": "Saga and Heimdall",
+      "question_aliases": [
+        "How does FDAI prevent audit log tampering and verify DSSE remediation packs?",
+        "감사 로그 위변조 방지와 Saga 해시 체인 및 DSSE 서명 검증은 어떻게 동작하나요?"
+      ],
+      "record_digest": "sha256:d3c29cee70b38d00805c48806fb766235b396ed9d1dfded82d71c70f32db4c6c",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "7c74dfb00fd243e5783e447e9b074c2c6efdf5b0",
+          "line_end": 41,
+          "line_start": 41,
+          "path": "services/core-control-plane/src/fdai/core/security/code_findings/signing.py",
+          "source_kind": "code",
+          "symbol": "verify_envelope"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "d311d704f27b0fd886290e6a0bff175dcdb83685",
+          "line_end": 62,
+          "line_start": 62,
+          "path": "services/core-control-plane/src/fdai/delivery/persistence/postgres_audit_history.py",
+          "source_kind": "code",
+          "symbol": "read_audit_chain_window"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "audit-chain-and-tamper-evidence",
+      "title": "Saga hash-chained audit ledger and DSSE pack verification"
     },
     {
       "designed_behavior": [
@@ -372,6 +415,49 @@
     },
     {
       "designed_behavior": [
+        "Every Operator API route verifies Entra ID JWT issuer, audience, signature, and expiry and resolves group claims into Reader, Contributor, Approver, Owner, or BreakGlass.",
+        "GET /iam/self projects the server-verified role set with execution_authority=false; client-supplied role headers are rejected."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "EntraJwtVerifier and OperatorFamilyAuthorizer enforce route-level role floors and fail closed on missing or expired credentials."
+      ],
+      "knowledge_id": "iam-rbac-and-jwt-boundary",
+      "limitations": [
+        "An Operator RBAC role never grants direct cloud-provider or executor credentials to the browser."
+      ],
+      "owner": "Operator Service",
+      "question_aliases": [
+        "How does FDAI enforce Entra ID authentication and RBAC JWT security?",
+        "FDAI에서 권한이나 RBAC, Entra ID 토큰 보안은 어떻게 검증하나요?"
+      ],
+      "record_digest": "sha256:f52eea14dc19de2221c9f85c6a06e5758a070b427c215f81afc86da763882549",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "1fea8d7fc4ad4b84bc23906d82126410fc1a9701",
+          "line_end": 56,
+          "line_start": 56,
+          "path": "services/operator-service/src/fdai_operator_service/auth.py",
+          "source_kind": "code",
+          "symbol": "EntraJwtVerifier"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "b5624e1f7a3849b5a513833ae9e4ec8f970c3037",
+          "line_end": 38,
+          "line_start": 38,
+          "path": "services/operator-service/src/fdai_operator_service/family_authorization.py",
+          "source_kind": "code",
+          "symbol": "OperatorFamilyAuthorizer"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "iam-rbac-and-jwt-boundary",
+      "title": "Entra ID JWT verification and five-role RBAC boundary"
+    },
+    {
+      "designed_behavior": [
         "MSRC CSAF 2.0 advisories and CISA KEV status are evaluated deterministically against resource version windows to assign P0-P3 remediation SLA tiers.",
         "Untrusted prompts and documents are isolated from system instructions, checked by V-CLAIM and multi-model QualityGate consensus, and aligned with MCSB v2 AI-1..AI-7, OWASP LLM Top 10, and MITRE ATLAS."
       ],
@@ -620,11 +706,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:dce463ca6e7128cd7f3061cd779e48fcfa62c3039eb76e22ef598bcf2a248a50",
+      "record_digest": "sha256:0add59dbec29cdb94f0ea22b68596a94ac539ae8a17281a0ad9b03039cc8e536",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "d6df56397b2d830d098540dc5c7aead7a19308c4",
+          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -647,6 +733,49 @@
     },
     {
       "designed_behavior": [
+        "State-changing actions require all seven safeguards: stop condition, tested rollback, blast-radius limit, dry-run success, logical-target lock, idempotency key, and two-phase audit.",
+        "Actions are classified into A1-A4 risk tiers where A4 is denied and new capabilities start in shadow mode."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "ShadowExecutor and _missing_safety_invariant enforce durable pre-dispatch audit intent, idempotency deduplication, and safeguard completeness before publication."
+      ],
+      "knowledge_id": "seven-safeguard-execution-boundary",
+      "limitations": [
+        "Natural-language utterances and Console UI interactions never grant execution authority."
+      ],
+      "owner": "Forseti, Var, Thor, Vidar, and Saga",
+      "question_aliases": [
+        "What are FDAI's seven constitutional execution safeguards?",
+        "FDAI 자율 실행의 7대 안전장치와 위험 등급 관문은 무엇인가요?"
+      ],
+      "record_digest": "sha256:7be42fca0cbbe5c46c0eea6133d8f15c30e68fe416108d59eb8ef3d2eb870676",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "3d037843d046f6b0d7a77393fdd621fc7d77a1c7",
+          "line_end": 137,
+          "line_start": 137,
+          "path": "services/core-control-plane/src/fdai/core/executor/executor.py",
+          "source_kind": "code",
+          "symbol": "ExecutorConfig"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "3d037843d046f6b0d7a77393fdd621fc7d77a1c7",
+          "line_end": 634,
+          "line_start": 634,
+          "path": "services/core-control-plane/src/fdai/core/executor/executor.py",
+          "source_kind": "code",
+          "symbol": "_missing_safety_invariant"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "seven-safeguard-execution-boundary",
+      "title": "Seven constitutional execution safeguards and risk gating"
+    },
+    {
+      "designed_behavior": [
         "A dedicated Teams bot verifies direct mentions and searches a release-bound catalog in a separate process.",
         "The service exposes no operational provider, approval, or execution capability."
       ],
@@ -663,11 +792,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:757ebdf8878b55c002cfcc20ee0de97d832e7af9d338641ba08ed9e51f0002a9",
+      "record_digest": "sha256:46cb5f9cee5d156f6cb39fd17260f017e4e21395f3b3116bc05ba400ce2ca1b9",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "d6df56397b2d830d098540dc5c7aead7a19308c4",
+          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -725,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "ac3ab16cd41c42aa64e385904d2dbf7d6fa4b9f3"
+  "source_revision": "0d4b5b7d32e47f78cefc993efc3ddf66621c549f"
 }

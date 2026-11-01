@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 831480536f0b225699d185dc60317ce93498cc36
+translation_source_sha: cbcbb32dba57aca7510cb59e70819a0caa37fcf7
 translation_revised: 2026-11-01
 ---
 
@@ -258,8 +258,9 @@ Resource 목록이나 선언 목록이 불완전하면 제한 문장은 알려�
 Operator의 PostgreSQL 제품군 facade도 변경 불가능한 레코드, 행 변환 및 근거 디코딩을 위임하며
 조회 매개 변수, 제안 claim, 재생 순서 또는 wire 필드를 바꾸지 않습니다.
 Operator terminal 표현은 Pantheon 품질 보증, 현지화된 Incident 블록 및 내용이 제거된 읽기
-trajectory를 전용 renderer에 위임하며 필드, 상한, 로케일, 근거 권위 또는 고정된 실행 권한 없음
-계약을 바꾸지 않습니다.
+trajectory를 전용 renderer에 위임하며, 프롬프트가 `DEFAULT_SECURITY_BEHAVIOR_SPECS`와 일치할 때
+필드, 상한, 로케일, 근거 권위 또는 고정된 실행 권한 없음 계약을 바꾸지 않고 근거가 결합된
+`code_artifacts`(`grounded_behavior_code_artifacts`)를 첨부합니다.
 
 - **인시던트 초안**: 검증된 `incident_create` 판정은 범위가 제한된 심각도와 대상,
   대화 `session_id`, 요청 범위 멱등성 키를 포함한 권한 없는 `incident.create`

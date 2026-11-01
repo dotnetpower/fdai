@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 68cf00bfef0cd37a2ffa0944f1fac2c9df49303f
+translation_source_sha: 1ea988d306bcc90ccedbb085bf18560c85bccaaf
 translation_revised: 2026-11-01
 ---
 
@@ -337,7 +337,8 @@ SARIF를 수집합니다. 조치 지침과 규칙은 FDAI가 직접 작성합니
 포함), 결과 거부 사유, 임시 git 저장소에서의 종단 간 도우미 세션을 다룹니다. 평가 테스트는 평가
 도구가 잘못된 분리, 수정 위치 누락, 등급 불일치를 찾아낸다는 것을 입증합니다.
 Console 경로(`code-security.tsx` 및 `code-security-issues.tsx`)는 승인이나 실행 권한을 부여하지 않고
-`SECURITY_AND_RULES_GLOSSARY`, 집계 및 리뷰별 심각도·우선순위·노출 수량, `console_web_security_boundary`,
+`SECURITY_AND_RULES_GLOSSARY`(22개 용어), 집계 및 리뷰별 심각도·우선순위·노출 수량,
+`security_behavior_contracts_count`(15), `remediation_pack_signing`, `console_web_security_boundary`,
 `execution_authority=false`를 `usePublishViewContext`로 발행하며 마크다운 리뷰 브리프
 (`formatCodeSecurityReviewMarkdownBrief`)와 MSRC CSAF / MCSB 교차 링크를 제공합니다.
 

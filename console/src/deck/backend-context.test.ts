@@ -11,6 +11,7 @@ import { askBackend } from "./backend";
 import { healthUrl, requestHeaders } from "./backend-endpoints";
 import { createBackendHealthProbe } from "./backend-health";
 import {
+  citationsForAdvisoryResponse,
   citationsForVerification,
   createBackendRequestPayload,
   snapshotCitations,
@@ -494,6 +495,74 @@ describe("snapshotCitations", () => {
 
   test("uses screen context only when no server verification result exists", () => {
     expect(citationsForVerification(liveSnap(), undefined)).toEqual(snapshotCitations(liveSnap()));
+  });
+
+  test("preserves goal evidence_refs and grounded code_artifacts on advisory responses", () => {
+    const pureGeneral = citationsForAdvisoryResponse({
+      answer: "General explanation.",
+      goals: [
+        {
+          goal_id: "general-knowledge",
+          kind: "knowledge",
+          status: "answered",
+          required: true,
+          evidence_refs: [],
+          limitation: null,
+        },
+      ],
+      role_agent: "Bragi",
+      quality_status: "limited",
+      refinements: 0,
+      execution_authority: false,
+    });
+    expect(pureGeneral).toEqual([]);
+
+    const groundedAdvisory = citationsForAdvisoryResponse(
+      {
+        answer: "FDAI Console Web is a zero-secret read-only SPA.",
+        goals: [
+          {
+            goal_id: "security-posture",
+            kind: "knowledge",
+            status: "answered",
+            required: true,
+            evidence_refs: [],
+            limitation: null,
+          },
+          {
+            goal_id: "live-example",
+            kind: "environment_example",
+            status: "answered",
+            required: false,
+            evidence_refs: ["code_security:fdai:latest"],
+            limitation: null,
+          },
+        ],
+        role_agent: "Bragi",
+        quality_status: "passed",
+        refinements: 0,
+        execution_authority: false,
+      },
+      [
+        {
+          artifact_ref: `code:sha256:${"a".repeat(64)}`,
+          language: "markdown",
+          content: "# Console Web Security Boundary",
+          sha256: "a".repeat(64),
+          validation_status: "valid",
+          validation_detail:
+            "architecture.console-web-security-posture (.github/instructions/app-shape.instructions.md:1-60#Layer Boundaries (security))",
+        },
+      ],
+    );
+    expect(groundedAdvisory).toEqual([
+      { label: "evidence.1", value: "code_security:fdai:latest" },
+      {
+        label: "behavior.1",
+        value:
+          "architecture.console-web-security-posture (.github/instructions/app-shape.instructions.md:1-60#Layer Boundaries (security))",
+      },
+    ]);
   });
 });
 

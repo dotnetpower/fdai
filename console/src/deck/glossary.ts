@@ -323,6 +323,41 @@ export const TERMS = {
     tech: "known_exploited",
     seeAlso: "code-security",
   },
+  xssAndActiveContentRejection: {
+    term: "active-content & XSS rejection",
+    plain:
+      "persistence and projection guards that reject script tags, data:text/html, meta refresh, and CSS @import before any code-security or operational artifact reaches the browser",
+    tech: "active_content_rejection",
+    seeAlso: "code-security",
+  },
+  dsseRemediationPack: {
+    term: "DSSE Ed25519 remediation pack",
+    plain:
+      "an RFC 8032 Ed25519 DSSE-signed remediation bundle verified against the state-store revocation registry before export; importing a pack never produces fixed_verified without a rescan",
+    tech: "dsse_remediation_pack",
+    seeAlso: "code-security",
+  },
+  sagaHashChainAudit: {
+    term: "Saga SHA-256 audit chain",
+    plain:
+      "the append-only SHA-256 hash-chained audit ledger with committed head-hash ancestry verification and two-phase execution receipts",
+    tech: "saga_audit_chain",
+    seeAlso: "audit",
+  },
+  msalSessionStorageBoundary: {
+    term: "MSAL session & CORS boundary",
+    plain:
+      "browser token isolation with credentials: omit on chat/stream fetches and strict FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS origin enforcement",
+    tech: "cors_session_boundary",
+    seeAlso: "settings-iam",
+  },
+  promptInjectionIsolation: {
+    term: "prompt-injection & V-CLAIM defense",
+    plain:
+      "strict separation of untrusted user prose/attachments from system prompts combined with schema-constrained outputs, deterministic V-CLAIM checks, and independent AdaptiveReview",
+    tech: "prompt_injection_defense",
+    seeAlso: "governance",
+  },
 } as const satisfies Record<string, GlossaryTerm>;
 
 export const SECURITY_AND_RULES_GLOSSARY: readonly GlossaryTerm[] = [
@@ -344,6 +379,11 @@ export const SECURITY_AND_RULES_GLOSSARY: readonly GlossaryTerm[] = [
   TERMS.entraRbac,
   TERMS.governedDocumentRag,
   TERMS.cisaKev,
+  TERMS.xssAndActiveContentRejection,
+  TERMS.dsseRemediationPack,
+  TERMS.sagaHashChainAudit,
+  TERMS.msalSessionStorageBoundary,
+  TERMS.promptInjectionIsolation,
   TERMS.tier,
   TERMS.mode,
   TERMS.hil,

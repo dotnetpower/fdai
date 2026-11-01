@@ -335,11 +335,37 @@ async def test_resolver_rejects_control_chars_invalid_top_k_and_duplicate_seed_i
             "ko",
             "architecture.operator-transport-and-webhook-security",
         ),
+        (
+            "콘솔 브라우저 스토리지와 CORS·XSS 보안은 어떻게 처리되나요?",
+            "ko",
+            "architecture.cors-csp-and-browser-storage-boundary",
+        ),
+        (
+            "오픈소스 의존성 취약점과 DSSE 서명 수정 팩은 어떻게 검증하나요?",
+            "ko",
+            "architecture.supply-chain-and-dependency-security",
+        ),
+        (
+            "감사 로그 위변조 방지와 Saga 해시 체인은 어떻게 동작하나요?",
+            "ko",
+            "architecture.audit-chain-and-tamper-evidence",
+        ),
+        (
+            "시크릿 유출 방지와 Key Vault·데이터베이스 권한 분리는 어떻게 되어 있나요?",
+            "ko",
+            "architecture.secret-isolation-and-key-vault-boundary",
+        ),
+        (
+            "LLM 프롬프트 인젝션이나 탈옥(Jailbreak) 공격은 어떻게 방어하나요?",
+            "ko",
+            "architecture.ai-model-and-prompt-injection-defense",
+        ),
     ],
 )
 async def test_default_security_behavior_specs_resolve_console_and_rules_security_questions(
     query_text: str, locale: str, expected_behavior_id: str
 ) -> None:
+    assert len(DEFAULT_SECURITY_BEHAVIOR_SPECS) == 15
     resolver = OperatorBehaviorKnowledgeResolver(
         _StaticIndex(()), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS
     )
@@ -351,3 +377,56 @@ async def test_default_security_behavior_specs_resolve_console_and_rules_securit
     assert result.verification.verified is True
     assert result.verification.authority == "none"
     assert "execution_authority=false" in result.rendered_text
+
+
+def test_grounded_behavior_code_artifacts_and_advisory_done_event_data() -> None:
+    from fdai_operator_service.behavior_knowledge_resolver import (
+        grounded_behavior_code_artifacts,
+    )
+    from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+        semantic_done_event_data,
+    )
+
+    artifacts = grounded_behavior_code_artifacts("FDAI 콘솔웹이 보안상 문제가 없나?", locale="ko")
+    assert len(artifacts) == 1
+    assert str(artifacts[0]["artifact_ref"]).startswith("code:sha256:")
+    assert artifacts[0]["validation_status"] == "valid"
+    assert "architecture.console-web-security-posture" in str(artifacts[0]["validation_detail"])
+
+    done = semantic_done_event_data(
+        {
+            "request_id": "00000000-0000-0000-0000-000000000000",
+            "semantic_result": {
+                "disposition": "advisory_response",
+                "reason_code": "semantic_advisory_response",
+                "semantic_route": "semantic_advisory_response",
+                "session_id": "session-1",
+                "turn_id": "turn-1",
+                "turn_sequence": 1,
+                "answer": "콘솔 웹은 Zero-Secret 읽기 전용 SPA입니다.",
+                "execution_authority": False,
+                "adaptive_answer": {
+                    "answer": "콘솔 웹은 Zero-Secret 읽기 전용 SPA입니다.",
+                    "goals": [
+                        {
+                            "goal_id": "security-posture",
+                            "kind": "knowledge",
+                            "status": "answered",
+                            "required": True,
+                            "evidence_refs": [],
+                            "limitation": None,
+                        }
+                    ],
+                    "role_agent": "Bragi",
+                    "quality_status": "passed",
+                    "refinements": 0,
+                    "execution_authority": False,
+                },
+            },
+        },
+        locale="ko",
+        utterance="FDAI 콘솔웹이 보안상 문제가 없나?",
+    )
+    assert done["status"] == "advisory_response"
+    assert isinstance(done.get("code_artifacts"), list)
+    assert len(done["code_artifacts"]) == 1  # type: ignore[arg-type]

@@ -512,10 +512,11 @@ The implementation session reported the following bounded evidence for the curre
   `idtyp`; this task left that source untouched. The isolated result does not validate the full
   dirty checkout. This task created no commit or push.
 - **Behavior-knowledge narrator grounding:** `narrator_payloads.py` (`resolve_narrator_behavior_grounding`)
-  and `LocalAzureNarratorAdapters.open` (`local_narrator.py`) attach verified citations and
-  `_verified_behavior_contract` context when a prompt matches one of the 10 built-in
-  `DEFAULT_SECURITY_BEHAVIOR_SPECS`, while Console `backend-context.ts` attaches
-  `_console_security_posture` with `execution_authority=false`.
+  and `LocalAzureNarratorAdapters.open` (`local_narrator.py`) attach verified citations,
+  `code_artifacts` (`grounded_behavior_code_artifacts`), and `_verified_behavior_contract` context
+  when a prompt matches one of the 15 built-in `DEFAULT_SECURITY_BEHAVIOR_SPECS`, while Console
+  `backend-context.ts` attaches `_console_security_posture` and preserves advisory/artifact citations
+  with `execution_authority=false`.
 ## Related docs
 
 | To learn about | Read |

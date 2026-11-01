@@ -545,7 +545,11 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         # projection exists. Settling it here keeps the timeline from holding a
         # step that already ended, whatever the disposition turned out to be.
         self._settle_pending_activities(result.sequence)
-        done = _done_event_data(result.data, locale=self._request.locale)
+        done = _done_event_data(
+            result.data,
+            locale=self._request.locale,
+            utterance=self._request.utterance,
+        )
         document_answer_replaced = await _apply_document_answer(
             done,
             projection=result.data,

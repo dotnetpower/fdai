@@ -52,6 +52,7 @@ from fdai.delivery.operational_activity import EventBusOperationalActivityPublis
 from fdai.delivery.persistence.postgres_behavior_knowledge import (
     PostgresBehaviorKnowledgeConfig,
     PostgresBehaviorKnowledgeIndex,
+    build_default_behavior_validator,
     sync_behavior_knowledge_seeds,
 )
 from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
@@ -582,6 +583,13 @@ async def build_semantic_runtime(
     model_identity_probes = (
         (model_identity_readiness,) if model_identity_readiness is not None else ()
     )
+    behavior_knowledge_index = build_behavior_knowledge_index(
+        dsn=state_store_dsn,
+        validator=build_default_behavior_validator(catalog_root.parent)
+        if state_store_dsn
+        else None,
+        embedder=llm_bindings.embedding_model,
+    )
     return SemanticRuntime(
         semantic_turn_binding=semantic_turn_binding,
         read_investigation_hook=read_investigation_hook,
@@ -593,6 +601,7 @@ async def build_semantic_runtime(
         readiness_probes=(*semantic_probes, *catalog_probes, *model_identity_probes),
         t1_mini_probe=t1_mini_probe,
         ontology_index_runtime=ontology_index_runtime,
+        behavior_knowledge_index=behavior_knowledge_index,
     )
 
 

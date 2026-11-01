@@ -7,6 +7,9 @@ import json
 from collections.abc import Mapping
 from typing import cast
 
+from fdai_operator_service.behavior_knowledge_resolver import (
+    grounded_behavior_code_artifacts,
+)
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
     compile_presentation_artifact_v2,
@@ -93,6 +96,7 @@ def semantic_done_event_data(
     projection: Mapping[str, object],
     *,
     locale: str = "en",
+    utterance: str | None = None,
 ) -> JsonObject:
     """Compile one bounded terminal event from a validated durable projection."""
     pantheon = _pantheon_assurance_payload(projection)
@@ -102,7 +106,7 @@ def semantic_done_event_data(
     if not isinstance(semantic, Mapping):
         raise ValueError("stored semantic projection is missing semantic_result")
     if semantic.get("disposition") == "advisory_response":
-        return _advisory_done_event_data(projection, semantic, locale=locale)
+        return _advisory_done_event_data(projection, semantic, locale=locale, utterance=utterance)
     semantic_receipt = _semantic_receipt(projection, semantic)
     answer = semantic.get("answer")
     disposition = semantic.get("disposition")
@@ -299,6 +303,13 @@ def semantic_done_event_data(
             ),
             **({"trajectory_detail": trajectory_detail} if trajectory_detail is not None else {}),
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
+            **(
+                {"code_artifacts": code_artifacts}
+                if not direct_response
+                and isinstance(utterance, str)
+                and (code_artifacts := grounded_behavior_code_artifacts(utterance, locale=locale))
+                else {}
+            ),
         },
     )
 
@@ -308,6 +319,7 @@ def _advisory_done_event_data(
     semantic: Mapping[str, object],
     *,
     locale: str,
+    utterance: str | None = None,
 ) -> JsonObject:
     """Preserve bounded advisory metadata without minting whole-answer verification."""
     result = SemanticTurnResult.model_validate(semantic)
@@ -324,6 +336,11 @@ def _advisory_done_event_data(
         if isinstance(payload, Mapping)
         else {}
     )
+    code_artifacts = (
+        grounded_behavior_code_artifacts(utterance, locale=locale)
+        if isinstance(utterance, str) and utterance.strip()
+        else []
+    )
     return cast(
         JsonObject,
         {
@@ -337,6 +354,7 @@ def _advisory_done_event_data(
             "request_id": projection.get("request_id"),
             "execution_authority": False,
             "locale": "ko" if locale.lower().startswith("ko") else "en",
+            **({"code_artifacts": code_artifacts} if code_artifacts else {}),
             **metadata,
         },
     )

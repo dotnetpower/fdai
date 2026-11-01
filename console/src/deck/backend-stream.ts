@@ -2,6 +2,7 @@ import type { Answer } from "./answerer";
 import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse } from "./adaptive-answer";
 import { parseTestContextDraft } from "./test-context";
 import {
+  citationsForAdvisoryResponse,
   citationsForVerification,
   createBackendRequestPayload,
   snapshotCitations,
@@ -751,7 +752,11 @@ export async function askBackendStream(
   }
   const base: Answer & { readonly source: string } = {
     text: finalText,
-    citations: directResponse || advisoryAnswer ? [] : citationsForVerification(snapshot, verification),
+    citations: directResponse
+      ? []
+      : advisoryAnswer
+        ? citationsForAdvisoryResponse(advisoryAnswer, codeArtifacts)
+        : citationsForVerification(snapshot, verification, codeArtifacts),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),

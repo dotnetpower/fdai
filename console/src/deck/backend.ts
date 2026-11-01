@@ -18,6 +18,7 @@ import { hasAdvisoryResponse, parseActionDraftExplanation, parseAdvisoryResponse
 import { parseActionDraft } from "./backend-stream";
 import { parseTestContextDraft } from "./test-context";
 import {
+  citationsForAdvisoryResponse,
   citationsForVerification,
   createBackendRequestPayload,
 } from "./backend-context";
@@ -274,7 +275,11 @@ export async function askBackend(
     text: answerText,
     // LLM replies do not carry structured citations; the deck grounds the
     // reply on the snapshot the model was given (see snapshotCitations).
-    citations: directResponse || advisoryAnswer ? [] : citationsForVerification(snapshot, verification),
+    citations: directResponse
+      ? []
+      : advisoryAnswer
+        ? citationsForAdvisoryResponse(advisoryAnswer, codeArtifacts)
+        : citationsForVerification(snapshot, verification, codeArtifacts),
     followUps: [],
     source,
     ...(verification ? { verification } : {}),
