@@ -32,6 +32,9 @@ from fdai.core.prompts import (
 from fdai.delivery.azure.llm.adaptive_answer import (
     AzureOpenAIAdaptiveModel,
 )
+from fdai.delivery.behavior_knowledge.behavior_seed_generation import (
+    lookup_repository_behavior_context,
+)
 from fdai.rule_catalog.schema.llm_resolver import ResolvedModels
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -170,6 +173,7 @@ def build_adaptive_conversation_service(
             config,
             stage_prompt_manifests=MappingProxyType(prompt_manifests),
         )
+        repo_root = catalog_root.parent
         service = AdaptiveConversationService(
             model=AzureOpenAIAdaptiveModel(
                 identity=identity, http_client=http_client, config=config
@@ -182,6 +186,9 @@ def build_adaptive_conversation_service(
                 refinement_enabled=(
                     DEFAULT_ADAPTIVE_POLICY.refinement_enabled and config.escalation is not None
                 ),
+            ),
+            repository_context_reader=lambda utterance, locale: lookup_repository_behavior_context(
+                utterance, locale=locale, root=repo_root
             ),
         )
         _LOGGER.info(

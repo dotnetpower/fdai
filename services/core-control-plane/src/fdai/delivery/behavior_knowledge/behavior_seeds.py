@@ -490,3 +490,180 @@ SEEDS: tuple[Seed, ...] = (
         ),
     ),
 )
+
+SECURITY_SEEDS: tuple[Seed, ...] = (
+    Seed(
+        "security.code-security-review-projection",
+        "Heimdall.CodeSecurity.Review.Console.SARIF.CVE.KEV.Remediation",
+        "implemented",
+        "Heimdall / Operator API",
+        (
+            "Is the FDAI Console web free of code security issues?",
+            "FDAI 콘솔웹이 보안상 문제가 없나요?",
+        ),
+        _text(
+            "An operator asks whether FDAI Console Web or a repository has code security issues.",
+            "Immutable SARIF/CVE review rows and zero-secret SPA boundaries are evaluated.",
+            "Heimdall projects the newest UTC review per repository with P0/Critical/KEV counters and rejects active HTML.",
+            "Console /code-security renders read-only findings, DSSE-signed pack status, and MSRC CSAF / MCSB links.",
+            "A code-security review row never executes a patch or grants substrate mutation authority.",
+            "Active HTML, script tags, data:text/html, meta refresh, and CSS @import are rejected at persistence and projection.",
+        ),
+        _text(
+            "운영자가 FDAI 콘솔웹이나 저장소에 보안상 문제가 없는지 질문하면 시작합니다.",
+            "불변 SARIF/CVE 리뷰 레코드와 Zero-Secret SPA 보안 경계가 함께 확인됩니다.",
+            "Heimdall은 저장소별 최신 UTC 리뷰와 P0/Critical/KEV 집계를 프로젝션하고 활성 HTML을 차단합니다.",
+            "Console /code-security 화면은 읽기 전용 취약점 요약, DSSE 서명 팩 상태, MSRC CSAF·MCSB 연계를 표시합니다.",
+            "코드 보안 리뷰 레코드는 패치를 자동 실행하거나 인프라 변경 권한을 부여하지 않습니다.",
+            "스크립트, data:text/html, meta refresh, CSS @import 등 활성 콘텐츠는 저장과 프로젝션 경계에서 모두 차단됩니다.",
+        ),
+        (
+            _code(
+                "agents/_framework/heimdall_code_security.py",
+                "HeimdallCodeSecurityMixin.code_security_facts",
+            ),
+            _test(
+                "agents/test_code_security_drift.py",
+                "test_heimdall_publishes_code_security_review_on_owned_drift_topic",
+            ),
+        ),
+    ),
+    Seed(
+        "governance.rules-and-framework-crosswalk",
+        "Mimir.RuleCatalog.WARA.WAF.CAF.MCSB.MSRC.Crosswalk",
+        "implemented",
+        "Mimir / Forseti",
+        (
+            "How does FDAI verify WARA, WAF, CAF, and MCSB rules?",
+            "FDAI 규칙 화면의 WARA, WAF, CAF, MCSB 탐지 규칙은 어떻게 검증되나요?",
+        ),
+        _text(
+            "An operator inspects detection rules or framework guidance in /rules.",
+            "Active and collected rule catalogs and framework crosswalks must match their SHA-256 digests.",
+            "Bind exact rule revisions and overlay WARA/WAF/CAF/MCSB/MSRC CSAF guidance without inferring compliance.",
+            "The Console renders bilingual illustrated guidance, architecture diagrams, and reverse CVE citations.",
+            "Collected catalog rules and framework guides are read-only reference metadata until promoted.",
+            "Activation drift or version mismatch yields unknown rather than a false compliance receipt.",
+        ),
+        _text(
+            "운영자가 /rules 화면에서 탐지 규칙이나 프레임워크 가이드를 조회하면 시작합니다.",
+            "활성 및 수집 규칙 카탈로그와 프레임워크 교차매핑이 SHA-256 다이제스트와 일치해야 합니다.",
+            "정확한 규칙 리비전을 결합하고 준수 여부를 임의 추론하지 않은 채 WARA·WAF·CAF·MCSB·MSRC CSAF 가이드를 연결합니다.",
+            "Console은 한·영 도식화 설명, 참조 아키텍처 다이어그램, 역방향 CVE 인용을 읽기 전용으로 표시합니다.",
+            "수집 카탈로그 규칙과 프레임워크 가이드는 승격 전까지 실행 권한이 없는 참조 메타데이터로 유지됩니다.",
+            "활성화 드리프트나 버전 불일치가 발생하면 거짓 충족 판정 대신 unknown 상태를 유지합니다.",
+        ),
+        (
+            _code("delivery/wara_rule_evidence.py", "with_wara_rule_evidence"),
+            _test(
+                "delivery/test_wara_rule_evidence.py",
+                "test_release_overlay_binds_only_the_exactly_equivalent_recommendation",
+            ),
+        ),
+    ),
+    Seed(
+        "security.msrc-csaf-vulnerability-drift",
+        "Heimdall.MsrcCsaf.CVE.Crosswalk.DriftProjector",
+        "implemented",
+        "Heimdall / Forseti / Saga",
+        (
+            "How does FDAI track MSRC CSAF CVEs and known exploited vulnerabilities?",
+            "MSRC CSAF 보안 권고와 CVE 취약점 드리프트는 어떻게 추적하나요?",
+        ),
+        _text(
+            "A workload assessment or MSRC CSAF advisory review reaches Heimdall.",
+            "The MSRC CSAF crosswalk and advisory digests must be verified against the catalog.",
+            "Heimdall projects affected resources, critical/KEV counts, and posture scores onto object.drift.",
+            "Forseti evaluates the drift package for human review and Saga records the audit trail.",
+            "CSAF vulnerability drift projection never mutates a cluster or applies a patch directly.",
+            "Any package that claims grants_authority=True is rejected before event-bus publication.",
+        ),
+        _text(
+            "워크로드 평가나 MSRC CSAF 보안 권고 리뷰가 Heimdall에 도착하면 시작합니다.",
+            "MSRC CSAF 교차매핑과 권고 다이제스트가 카탈로그와 일치하는지 먼저 검증합니다.",
+            "Heimdall은 영향받는 리소스, Critical/KEV 건수, 보안 태세 점수를 object.drift 토픽으로 프로젝션합니다.",
+            "Forseti는 드리프트 패키지를 사람 검토(HIL) 대상으로 판정하고 Saga는 감사 체인에 기록합니다.",
+            "CSAF 취약점 드리프트 프로젝션은 클러스터를 직접 변경하거나 패치를 자동 적용하지 않습니다.",
+            "grants_authority=True를 주장하는 패키지는 이벤트 버스 발행 전에 즉시 거부됩니다.",
+        ),
+        (
+            _code(
+                "agents/_framework/heimdall_code_security.py",
+                "HeimdallCodeSecurityMixin.msrc_csaf_facts",
+            ),
+            _test(
+                "agents/test_msrc_csaf_drift.py",
+                "test_heimdall_publishes_msrc_csaf_drift_to_forseti_and_saga",
+            ),
+        ),
+    ),
+    Seed(
+        "execution.seven-safeguard-boundary",
+        "ShadowExecutor.SevenSafeguards.StopCondition.Rollback.BlastRadius.DryRun.Audit",
+        "implemented",
+        "ShadowExecutor / Thor",
+        (
+            "What are FDAI's seven execution safeguards?",
+            "FDAI 자율 실행의 7대 안전장치는 무엇인가요?",
+        ),
+        _text(
+            "An approved or shadow ActionRun is prepared for execution.",
+            "All seven constitutional safeguards must be present on the Action and Rule.",
+            "Verify stop condition, rollback, blast radius, dry-run, target lock, idempotency key, and two-phase audit.",
+            "Durable audit intent is recorded before publication and missing safeguards block execution.",
+            "Natural language, UI clicks, and unverified drafts cannot bypass the seven safeguards.",
+            "Publisher failure closes an explicit unknown outcome without silently deduping or retrying.",
+        ),
+        _text(
+            "승인되었거나 shadow 모드인 ActionRun 실행이 준비되면 시작합니다.",
+            "액션과 규칙에 헌법상 7대 안전장치가 모두 선언되어 있어야 합니다.",
+            "중단 조건, 롤백 경로, 영향 범위 상한, 드라이런, 대상 잠금, 멱등성 키, 2단계 감사를 검증합니다.",
+            "발행 전에 영속 감사 의도를 먼저 기록하며 안전장치가 하나라도 누락되면 실행을 차단합니다.",
+            "자연어 요청, UI 버튼 클릭, 미검증 초안은 7대 안전장치를 우회할 수 없습니다.",
+            "발행 실패 시 임의 재시도나 은폐 없이 명시적 unknown 상태로 종료합니다.",
+        ),
+        (
+            _code("core/executor/executor.py", "_missing_safety_invariant"),
+            _test(
+                "core/executor/test_executor.py",
+                "test_audit_intent_is_durable_before_publisher_call",
+            ),
+        ),
+    ),
+    Seed(
+        "document.governed-rag-isolation",
+        "GovernedDocumentReader.RAG.Isolation.Authorization.Citations",
+        "implemented",
+        "Mimir / Operator API",
+        (
+            "How does FDAI isolate governed documents and RAG citations?",
+            "FDAI는 업로드된 문서와 RAG 참조 보안을 어떻게 격리하나요?",
+        ),
+        _text(
+            "A semantic turn requests governed document evidence.",
+            "The principal must be authorized for each request-bound document version.",
+            "Execute governed_document_function over the authorized collection and return bounded excerpts with SHA-256 digests.",
+            "Only verified document citations and context digests reach the terminal projection.",
+            "Document text is treated as untrusted data and never becomes system instructions or execution authority.",
+            "Unavailable or incomplete document reads hold or degrade explicitly without fabricating citations.",
+        ),
+        _text(
+            "의미 턴이 거버넌스 문서 근거 조회를 요청하면 시작합니다.",
+            "인증된 주체가 요청에 결합된 각 문서 버전에 대해 읽기 권한을 가져야 합니다.",
+            "권한이 확인된 컬렉션에서 governed_document_function을 실행하고 SHA-256 다이제스트가 포함된 발췌만 반환합니다.",
+            "검증된 문서 인용과 컨텍스트 다이제스트만 최종 프로젝션에 도달합니다.",
+            "문서 본문은 신뢰할 수 없는 데이터로 취급되며 시스템 프롬프트나 실행 권한으로 승격되지 않습니다.",
+            "문서 조회가 불가능하거나 불완전하면 인용을 꾸며내지 않고 명시적으로 보류하거나 제한 상태를 기록합니다.",
+        ),
+        (
+            _code(
+                "core/ontology_platform/governed_document_queries.py",
+                "governed_document_function",
+            ),
+            _test(
+                "conversation/test_semantic_governed_document_planning.py",
+                "test_document_only_plan_uses_original_utterance_and_bound_function",
+            ),
+        ),
+    ),
+)

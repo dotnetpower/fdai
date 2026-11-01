@@ -637,9 +637,9 @@ evidence an operator is looking at just as surely as overstating it would.
 A direction, endpoint, cardinality, or persisted-identity correction still requires a LinkType
 major version or explicit graph migration. No rollout rewrites historical context snapshots.
 Semantic slot and type grounding (`semantic_slot_grounding.py`, `semantic_type_grounding.py`) also
-forward `object_labels` into `concept_catalogs`, and `rule-catalog/vocabulary/inventory-query-language.yaml`
-includes Korean and English security-issue and state-inspection terms without changing ontology
-identity or authority.
+forward `object_labels` into `concept_catalogs`, `rule-catalog/vocabulary/inventory-query-language.yaml`
+includes Korean and English security-issue and state-inspection terms, and `bootstrap_semantics.py`
+binds `behavior_knowledge_index` without changing ontology identity or authority.
 ## Related docs
 
 | To learn about | Read |

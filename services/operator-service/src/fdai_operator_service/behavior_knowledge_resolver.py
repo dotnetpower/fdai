@@ -14,83 +14,34 @@ from typing import Any, Final, Literal, Protocol, runtime_checkable
 RETRIEVAL_FLOOR: Final[float] = 0.05
 _WORD_RE: Final[re.Pattern[str]] = re.compile(r"[a-z0-9]+")
 _HANGUL_RE: Final[re.Pattern[str]] = re.compile(r"[가-힣]+")
-_SECTION_KEYS: Final[tuple[str, ...]] = (
-    "trigger",
-    "preconditions",
-    "steps",
-    "outcomes",
-    "exclusions",
-    "safety",
-    "owner",
-    "status",
-    "citations",
-)
-_EN_HEADINGS: Final[Mapping[str, str]] = {
-    "trigger": "Trigger",
-    "preconditions": "Preconditions",
-    "steps": "Processing steps",
-    "outcomes": "Outcomes",
-    "exclusions": "Exclusions",
-    "safety": "Safety and fallback",
-    "owner": "Owner",
-    "status": "Implementation status",
-    "citations": "Citations",
-}
-_KO_HEADINGS: Final[Mapping[str, str]] = {
-    "trigger": "트리거",
-    "preconditions": "사전 조건",
-    "steps": "처리 단계",
-    "outcomes": "결과",
-    "exclusions": "제외 사항",
-    "safety": "안전 및 폴백 동작",
-    "owner": "책임 주체",
-    "status": "구현 상태",
-    "citations": "근거 출처",
-}
+# fmt: off
+_SECTION_KEYS: Final[tuple[str, ...]] = ("trigger", "preconditions", "steps", "outcomes", "exclusions", "safety", "owner", "status", "citations")
+_EN_HEADINGS: Final[Mapping[str, str]] = {"trigger": "Trigger", "preconditions": "Preconditions", "steps": "Processing steps", "outcomes": "Outcomes", "exclusions": "Exclusions", "safety": "Safety and fallback", "owner": "Owner", "status": "Implementation status", "citations": "Citations"}
+_KO_HEADINGS: Final[Mapping[str, str]] = {"trigger": "트리거", "preconditions": "사전 조건", "steps": "처리 단계", "outcomes": "결과", "exclusions": "제외 사항", "safety": "안전 및 폴백 동작", "owner": "책임 주체", "status": "구현 상태", "citations": "근거 출처"}
 _SUBJECT_TOKENS: Final[frozenset[str]] = frozenset(
     "incident id odin forseti saga issue fingerprint deduplication trust routing tier t0 t1 t2 "
     "quality gate risk var promotion shadow executor event ingest vidar rollback console identity "
     "thor bragi narrator web spa browser ui security vulnerability cve csaf waf caf mcsb wara "
     "rule policy rego secret token credential rbac entra xss code prompt ai llm iam jwt document "
-    "rag upload webhook sse ssrf safeguard lock blast dryrun crosswalk "
+    "rag upload webhook sse ssrf safeguard lock blast dryrun crosswalk cors csp msal storage "
+    "sessionstorage sbom dsse ed25519 dependency supplychain audit ancestry keyvault jailbreak "
     "인시던트 오딘 포르세티 사가 이슈 중복 신뢰 라우팅 품질 게이트 승인 프로모션 실행기 롤백 콘솔 브라기 "
     "웹 브라우저 화면 보안 취약점 규칙 정책 프레임워크 비밀 토큰 자격 권한 계정 코드 프롬프트 인증 역할 "
-    "문서 업로드 웹훅 스트리밍 안전장치 교차매핑 자율 실행 액션".split()
+    "문서 업로드 웹훅 스트리밍 안전장치 교차매핑 자율 실행 액션 스토리지 공급망 의존성 패키지 서명 "
+    "감사 위변조 시크릿 키볼트 인젝션 탈옥".split()
 )
 _MECHANISM_TOKENS: Final[frozenset[str]] = frozenset(
     "how when why work behave created generated deduplicate arbitrate route verify fallback "
     "rollback separate compare difference vs safe secure security issue problem vulnerable "
     "vulnerability risk protect prevent guard isolate block check audit assess evaluate scan "
-    "review hold expose leak enforce mutate authenticate authorize quarantine sign "
+    "review hold expose leak enforce mutate authenticate authorize quarantine sign tamper "
     "어떻게 언제 왜 동작 작동 생성 병합 중재 라우팅 검증 롤백 분리 비교 차이 "
-    "보안 안전 문제 없나 있나 취약점 위험 보호 방어 격리 차단 권한 유출 노출 감사 평가 점검 스캔 확인 보유 실행 인증 검역 서명".split()
+    "보안 안전 문제 없나 있나 취약점 위험 보호 방어 격리 차단 권한 유출 노출 감사 평가 점검 스캔 확인 보유 실행 인증 검역 서명 변조".split()
 )
-_OPERATIONAL_READ_PATTERNS: Final[tuple[str, ...]] = (
-    "how many incidents",
-    "list active incidents",
-    "current incident count",
-    "on this screen",
-    "이 화면에",
-    "현재 열린 인시던트 건수",
-    "활성 인시던트 목록",
-)
-_ACTION_REQUEST_PATTERNS: Final[tuple[str, ...]] = (
-    "approve action",
-    "execute rollback now",
-    "restart the cluster",
-    "scale out the deployment",
-    "지금 롤백 실행해줘",
-    "클러스터 재시작해줘",
-)
-BehaviorOutcome = Literal[
-    "rendered",
-    "comparison_rendered",
-    "stale_abstained",
-    "comparison_incomplete",
-    "conflict_hold",
-    "authority_fallback",
-    "no_evidence",
-]
+_OPERATIONAL_READ_PATTERNS: Final[tuple[str, ...]] = ("how many incidents", "list active incidents", "current incident count", "on this screen", "이 화면에", "현재 열린 인시던트 건수", "활성 인시던트 목록")
+_ACTION_REQUEST_PATTERNS: Final[tuple[str, ...]] = ("approve action", "execute rollback now", "restart the cluster", "scale out the deployment", "지금 롤백 실행해줘", "클러스터 재시작해줘")
+BehaviorOutcome = Literal["rendered", "comparison_rendered", "stale_abstained", "comparison_incomplete", "conflict_hold", "authority_fallback", "no_evidence"]
+# fmt: on
 
 
 def _validate_query_text(raw_text: str) -> str:
@@ -701,8 +652,42 @@ DEFAULT_SECURITY_BEHAVIOR_SPECS: Final[tuple[BehaviorSpecLike, ...]] = (
         ("HTTP 요청, SSE 스트림, 웹훅, 이미지·웹 근거가 Operator Service 경계에 도달할 때 시작합니다.", "엄격한 페이로드 크기 상한, HMAC 서명 검증기, SSRF·매직 바이트 차단기가 활성화되어 있습니다.", ("JSON·SSE 프레임 크기 상한(256 KiB), nosniff 헤더, 유니코드 양방향(bidi)·제어 문자 제거를 강제합니다.", "수신 웹훅의 HMAC 서명을 검증하고 루프백·사설망·클라우드 IMDS(169.254.169.254) URL을 차단해 SSRF를 방어합니다.", "첨부 이미지에서 폴리글랏 SVG·HTML·스크립트 매직 바이트를 사전 차단합니다."), "전송·웹훅 경계는 XSS, SSRF, 재전송, 대용량 페이로드 공격에 대해 안전하게 차단(Fail-closed)하며 실행 권한(execution_authority=false)을 부여하지 않습니다.", "웹훅이나 스트림 수락이 Core의 의미 검증이나 액션 승인 관문을 우회할 수 없습니다.", "비정상 프레임, 유효하지 않은 HMAC, 사설망 URL은 즉시 거부되고 감사 코드로 기록됩니다."),
         ("services/operator-service/src/fdai_operator_service/families/conversation/transport.py", "read_json_body", 31, 80, "5" * 40),
     ),
+    _sec_spec(
+        "architecture.cors-csp-and-browser-storage-boundary", "Console.Browser.CORS.CSP.SessionStorage.XSS.ActiveContentRejection", "Operator Service / Console SPA",
+        ("콘솔 브라우저 스토리지와 CORS·XSS 보안은 어떻게 처리되나요?", "How does the Console protect browser storage, CORS, and XSS boundaries?"),
+        ("A browser session loads the Console SPA or renders projected code-security and operational artifacts.", "Explicit CORS origin allowlists, credentials: omit fetch policy, and active-content validators are active.", ("Restrict cross-origin API calls to FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS and omit cookies on chat/stream fetches.", "Reject script tags, data:text/html, meta refresh, and CSS @import at both persistence and Operator projection boundaries."), "Browser storage and rendered views stay free of active HTML/JS injection and cross-origin credential leakage with execution_authority=false.", "Browser-side origin checks do not replace server-side Entra JWT verification.", "Any projected artifact containing active HTML, meta refresh, or CSS @import is withheld fail-closed."),
+        ("브라우저 세션이 Console SPA를 로드하거나 프로젝션된 보안·운영 아티팩트를 렌더링할 때 시작합니다.", "명시적 CORS 오리진 허용 목록, credentials: omit 호출 정책, 활성 콘텐츠 차단기가 적용됩니다.", ("교차 출처 API 호출을 FDAI_OPERATOR_API_CORS_ALLOW_ORIGINS 허용 목록으로만 제한하고 채팅·스트림 요청에서 쿠키 전송을 생략합니다.", "스크립트 태그, data:text/html, meta refresh, CSS @import를 저장소와 Operator 프로젝션 양쪽 경계에서 모두 차단합니다."), "브라우저 스토리지와 화면 렌더링은 활성 HTML·JS 인젝션 및 자격 증명 유출로부터 격리되며 실행 권한(execution_authority=false)을 갖지 않습니다.", "브라우저 측 오리진 제한이 서버 측 Entra JWT 검증을 대체하지는 않습니다.", "활성 HTML, meta refresh, CSS @import가 포함된 아티팩트는 즉시 차단(Fail-closed)됩니다."),
+        ("services/operator-service/src/fdai_operator_service/code_security_issue_projection.py", "project_code_security_issues", 1, 90, "6" * 40),
+    ),
+    _sec_spec(
+        "architecture.supply-chain-and-dependency-security", "CodeSecurity.SupplyChain.Dependency.DSSE.Ed25519.RevocationGate", "Heimdall / Operator Service",
+        ("오픈소스 의존성 취약점과 DSSE 서명 수정 팩은 어떻게 검증하나요?", "How does FDAI verify supply-chain dependency vulnerabilities and DSSE remediation packs?"),
+        ("A dependency advisory (CVE/GHSA/OSV) or remediation pack export is evaluated.", "Curated advisory catalogs, CISA KEV flags, and Ed25519 DSSE signing/revocation registries are configured.", ("Ingest dependency findings, separate root-cause severity from KEV/exposure priority, and sign remediation manifests with Ed25519 DSSE.", "Verify RFC 8032 signatures and check the state-store revocation registry before any pack export."), "Supply-chain findings and remediation packs remain verifiable and revocable with execution_authority=false.", "Exporting or importing a remediation pack never produces fixed_verified without an independent rescan.", "Unsigned, tampered, or revoked remediation packs fail closed at the export gate."),
+        ("오픈소스 의존성 보안 권고(CVE·GHSA·OSV)나 수정 팩(Remediation Pack) 내보내기가 평가될 때 시작합니다.", "검토된 보안 권고 카탈로그, CISA KEV 악용 여부, Ed25519 DSSE 서명·폐기 레지스트리가 구성되어 있습니다.", ("의존성 취약점을 수집해 근본 심각도와 KEV·노출도 기반 우선순위를 분리하고 수정 매니페스트에 Ed25519 DSSE 서명을 적용합니다.", "팩 내보내기 전 RFC 8032 서명을 검증하고 상태 저장소 폐기(Revocation) 레지스트리를 확인합니다."), "공급망 취약점과 수정 팩은 서명·폐기 검증이 보장되며 직접 실행 권한(execution_authority=false)을 부여하지 않습니다.", "수정 팩을 가져오거나 내보내는 것만으로 독립 재스캔 없이 fixed_verified 판정을 만들지 않습니다.", "미서명·위변조·폐기된 수정 팩은 내보내기 게이트에서 즉시 거부됩니다."),
+        ("services/core-control-plane/src/fdai/core/security/code_findings/signing.py", "sign_pack_manifest", 1, 90, "7" * 40),
+    ),
+    _sec_spec(
+        "architecture.audit-chain-and-tamper-evidence", "Saga.AuditChain.SHA256.HeadHashAncestry.TwoPhaseReceipt", "Saga / Operator Service",
+        ("감사 로그 위변조 방지와 Saga 해시 체인은 어떻게 동작하나요?", "How does Saga prevent audit log tampering with hash-chained receipts?"),
+        ("Every control-loop verdict, drift review, or two-phase execution intent reaches Saga.", "Append-only SHA-256 hash chaining and committed head-hash ancestry verification are active.", ("Chain each audit record to its predecessor SHA-256 digest and persist durable pre-dispatch and terminal receipts.", "Recover canonical audit windows by committed head-hash ancestry rather than sequence-only selection."), "Audit trails are tamper-evident and inspectable on /audit with execution_authority=false.", "Reading or verifying the audit chain never grants replay or mutation authority.", "Detached or hash-mismatched audit records fail integrity verification and trigger explicit alerts."),
+        ("모든 제어 루프 판정, 드리프트 리뷰, 2단계 실행 의도가 Saga에 도달할 때 시작합니다.", "추가 전용(Append-only) SHA-256 해시 체인과 커밋된 헤드 해시 계보(Ancestry) 검증이 활성화되어 있습니다.", ("각 감사 레코드를 직전 SHA-256 다이제스트에 연쇄 결합하고 실행 전 의도와 최종 결과 영수증을 영속 기록합니다.", "단순 시퀀스 번호가 아닌 커밋된 헤드 해시 계보를 따라 정본 감사 윈도우를 복원합니다."), "감사 추적은 위변조 탐지가 가능하며 /audit 화면에서 읽기 전용(execution_authority=false)으로 점검할 수 있습니다.", "감사 체인을 조회하거나 검증하는 것은 재실행이나 상태 변경 권한을 부여하지 않습니다.", "분리된 이력이나 해시 불일치 레코드는 무결성 검증에서 즉시 거부됩니다."),
+        ("services/core-control-plane/src/fdai/delivery/persistence/postgres_audit_history.py", "recover_canonical_audit_window", 1, 90, "8" * 40),
+    ),
+    _sec_spec(
+        "architecture.secret-isolation-and-key-vault-boundary", "Config.Lifecycle.SecretIsolation.KeyVault.DatabaseRoleSeparation", "Operator Service / Deployment CLI",
+        ("시크릿 유출 방지와 Key Vault·데이터베이스 권한 분리는 어떻게 되어 있나요?", "How does FDAI isolate secrets, Key Vault references, and database roles?"),
+        ("Lifecycle configuration, deployment plans, or database connections are validated.", "Literal-secret scanners, private Key Vault references, and separated PostgreSQL roles (fdai_operator vs fdai_core) are enforced.", ("Reject literal secrets or tokens in lifecycle configuration, Terraform plans, chat turns, and logs.", "Bind versionless private Key Vault secret references and enforce least-privilege database roles."), "Configuration and persistence layers remain free of literal secrets with execution_authority=false.", "Holding a configuration reference or digest never exposes the underlying secret value.", "Any literal secret candidate or role mismatch is rejected before persistence or deployment."),
+        ("수명 주기 설정, 배포 계획, 데이터베이스 연결이 검증될 때 시작합니다.", "리터럴 시크릿 차단기, 비공개 Key Vault 참조, 분리된 PostgreSQL 역할(fdai_operator 및 fdai_core)이 강제됩니다.", ("수명 주기 설정, Terraform 계획, 채팅 턴, 로그에 평문 시크릿이나 토큰이 포함되면 즉시 거부합니다.", "버전 없는 비공개 Key Vault 시크릿 참조만 결합하고 최소 권한 데이터베이스 역할을 강제합니다."), "설정 및 영속 계층은 평문 시크릿을 보유하지 않으며 실행 권한(execution_authority=false)을 부여하지 않습니다.", "설정 참조나 다이제스트를 조회해도 원본 시크릿 값은 절대 노출되지 않습니다.", "평문 시크릿 후보나 데이터베이스 역할 불일치는 저장 및 배포 전에 즉시 차단됩니다."),
+        ("packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py", "validate_lifecycle_configuration", 250, 300, "9" * 40),
+    ),
+    _sec_spec(
+        "architecture.ai-model-and-prompt-injection-defense", "Conversation.Adaptive.PromptInjectionDefense.VClaim.IndependentReview", "Bragi / Forseti / Mimir",
+        ("LLM 프롬프트 인젝션이나 탈옥(Jailbreak) 공격은 어떻게 방어하나요?", "How does FDAI defend against LLM prompt injection and jailbreak attacks?"),
+        ("An operator utterance, prior turn, or attachment enters the semantic or adaptive conversation pipeline.", "Strict system/data separation, schema-constrained model outputs, and independent review/V-CLAIM gates are active.", ("Keep untrusted user prose and attachments in structured data payloads, never in system prompt instructions.", "Validate every model output against strict JSON schemas, deterministic V-CLAIM evidence checks, and an independent AdaptiveReview pass."), "Prompt-injection, fabricated citations, and authority-escalation attempts are blocked with execution_authority=false.", "Model confidence scores or persuasive prose never grant operational or execution authority.", "Unsafe drafts or upstream HTTP 422 content/jailbreak blocks terminate safely without unverified output."),
+        ("사용자 발화, 이전 대화 이력, 첨부 데이터가 의미 해석 또는 적응형 대화 파이프라인에 진입할 때 시작합니다.", "엄격한 시스템·데이터 분리, 스키마 제약 모델 출력, 독립 검토(AdaptiveReview)·V-CLAIM 검증 게이트가 활성화되어 있습니다.", ("신뢰할 수 없는 사용자 문장과 첨부 데이터를 시스템 프롬프트 지침과 분리된 구조화 데이터 페이로드로만 전달합니다.", "모든 모델 출력을 엄격한 JSON 스키마, 결정론적 V-CLAIM 근거 대조, 독립 검토(AdaptiveReview) 단계로 검증합니다."), "프롬프트 인젝션, 거짓 인용, 권한 상승 시도는 안전하게 차단되며 실행 권한(execution_authority=false)을 부여하지 않습니다.", "모델의 확신도 점수나 자연어 문장은 어떤 운영·실행 권한도 부여하지 않습니다.", "안전하지 않은 초안이나 업스트림 HTTP 422 콘텐츠·탈옥 필터 차단은 미검증 출력 없이 즉시 안전 종료됩니다."),
+        ("services/core-control-plane/src/fdai/core/conversation/adaptive_prompt.py", "compose_adaptive_prompt", 145, 210, "a1" * 20),
+    ),
 )
-# fmt: on
 
 
 class _EmptyBehaviorIndex:
@@ -711,13 +696,9 @@ class _EmptyBehaviorIndex:
         return ()
 
 
-def resolve_security_behavior_sync(
-    raw_text: str, *, locale: str = "en", top_k: int = 5
-) -> BehaviorResolutionResult:
+def resolve_security_behavior_sync(raw_text: str, *, locale: str = "en", top_k: int = 5) -> BehaviorResolutionResult:
     """Synchronously resolve security and architecture behavior questions over built-in specs."""
-    resolver = OperatorBehaviorKnowledgeResolver(
-        _EmptyBehaviorIndex(), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS
-    )
+    resolver = OperatorBehaviorKnowledgeResolver(_EmptyBehaviorIndex(), seeds=DEFAULT_SECURITY_BEHAVIOR_SPECS)
     loc: Literal["en", "ko"] = "ko" if locale.startswith("ko") else "en"
     req = BehaviorTurnRequest(raw_text=raw_text, locale=loc, top_k=top_k)
     _validate_query_text(req.raw_text)
@@ -727,39 +708,31 @@ def resolve_security_behavior_sync(
         return resolver._fallback_result(req.locale, fallback_reason, False, 0)
     results = list(resolver._search_registered_seeds(req.raw_text, k=effective_k))
     if not results or results[0].score < RETRIEVAL_FLOOR:
-        return resolver._fallback_result(
-            req.locale, "below_retrieval_floor", False, 0, len(results)
-        )
+        return resolver._fallback_result(req.locale, "below_retrieval_floor", False, 0, len(results))
     top = results[0]
-    citations = tuple(
-        BehaviorCitationRecord(
-            s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit
-        )
-        for s in top.spec.sources
-    )
-    sections, rendered = resolver._renderer.render_single(
-        top.spec, locale=req.locale, citations=citations
-    )
-    meta = resolver._verifier.verify(
-        sections=sections,
-        rendered_text=rendered,
-        citations=citations,
-        stale_sources=top.stale_sources,
-        client_evidence_stripped=False,
-        stripped_claim_count=0,
-    )
-    return BehaviorResolutionResult(
-        True,
-        False,
-        "rendered",
-        None,
-        req.locale,
-        (top.spec.behavior_id,),
-        sections,
-        rendered,
-        meta,
-        total_candidates=len(results),
-    )
+    citations = tuple(BehaviorCitationRecord(s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit) for s in top.spec.sources)
+    sections, rendered = resolver._renderer.render_single(top.spec, locale=req.locale, citations=citations)
+    meta = resolver._verifier.verify(sections=sections, rendered_text=rendered, citations=citations, stale_sources=top.stale_sources, client_evidence_stripped=False, stripped_claim_count=0)
+    return BehaviorResolutionResult(True, False, "rendered", None, req.locale, (top.spec.behavior_id,), sections, rendered, meta, total_candidates=len(results))
+
+
+def grounded_behavior_code_artifacts(raw_text: str, *, locale: str = "en") -> list[dict[str, str]]:
+    """Build schema-valid ``code_artifacts`` for a matched security/behavior contract."""
+    if not isinstance(raw_text, str) or not raw_text.strip():
+        return []
+    try:
+        resolved = resolve_security_behavior_sync(raw_text, locale=locale)
+    except Exception:  # noqa: BLE001 - optional artifact grounding must never fail presentation
+        return []
+    if not resolved.handled or resolved.outcome != "rendered" or not resolved.rendered_text or not resolved.verification.citations:
+        return []
+    citations = [f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}" for c in resolved.verification.citations]
+    content = resolved.rendered_text[:64_000]
+    sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    behavior_id = resolved.behavior_ids[0] if resolved.behavior_ids else "security.behavior"
+    detail = f"{behavior_id} ({', '.join(citations)})"[:4_096]
+    return [{"artifact_ref": f"code:sha256:{sha256}", "language": "markdown", "content": content, "sha256": sha256, "validation_status": "valid", "validation_detail": detail}]
+# fmt: on
 
 
 __all__ = [
@@ -777,6 +750,7 @@ __all__ = [
     "BehaviorVerificationMetadata",
     "DeterministicBehaviorRenderer",
     "OperatorBehaviorKnowledgeResolver",
+    "grounded_behavior_code_artifacts",
     "normalize_behavior_tokens",
     "resolve_security_behavior_sync",
 ]

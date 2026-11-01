@@ -373,6 +373,16 @@ export function buildCodeSecurityViewSnapshot(
         group: "security_boundary",
       },
       {
+        key: "security_behavior_contracts_count",
+        value: 15,
+        group: "security_boundary",
+      },
+      {
+        key: "remediation_pack_signing",
+        value: "DSSE Ed25519 + state-store revocation gate",
+        group: "security_boundary",
+      },
+      {
         key: "related_security_routes",
         value: "/rules?view=controls&framework=msrc-csaf, /rules?view=controls&framework=azure-mcsb, /rules?category=security",
         group: "navigation",

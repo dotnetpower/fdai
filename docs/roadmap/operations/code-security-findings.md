@@ -351,10 +351,11 @@ exposure isolation from severity, pack determinism and digests, minimized mode, 
 helper imports, guard rules (including renames, quoted paths, and option-shaped references),
 result rejection reasons, and an end-to-end helper session in a temporary git repository. The evaluation tests prove the harness detects false splits, fix-site misses, and band disagreement.
 The Console route (`code-security.tsx` and `code-security-issues.tsx`) also publishes
-`SECURITY_AND_RULES_GLOSSARY`, aggregated and per-review severity/priority/exposure counts,
-`console_web_security_boundary`, and `execution_authority=false` to `usePublishViewContext` and
-offers Markdown review briefs (`formatCodeSecurityReviewMarkdownBrief`) and MSRC CSAF / MCSB
-cross-links without granting approval or execution authority.
+`SECURITY_AND_RULES_GLOSSARY` (22 terms), aggregated and per-review severity/priority/exposure counts,
+`security_behavior_contracts_count` (15), `remediation_pack_signing`, `console_web_security_boundary`,
+and `execution_authority=false` to `usePublishViewContext` and offers Markdown review briefs
+(`formatCodeSecurityReviewMarkdownBrief`) and MSRC CSAF / MCSB cross-links without granting approval
+or execution authority.
 
 ## Related docs
 

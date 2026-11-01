@@ -380,6 +380,58 @@ async def test_review_issues_require_refinement_even_when_coverage_is_complete()
 
 
 @pytest.mark.asyncio
+async def test_repository_context_reader_attaches_bounded_verified_repository_context() -> None:
+    model = _Model(
+        plan=_plan(),
+        answer=_draft("FDAI Console Web is a zero-secret read-only SPA."),
+        review=_review(),
+    )
+
+    async def repo_reader(utterance: str, locale: str) -> tuple[dict[str, object], ...]:
+        assert utterance == "FDAI 콘솔웹이 보안상 문제가 없나?"
+        assert locale == "ko"
+        return (
+            {
+                "behavior_id": "security.code-security-review-projection",
+                "status": "implemented",
+                "owner": "Heimdall / Operator API",
+                "citations": [
+                    "services/core-control-plane/src/fdai/agents/_framework/heimdall_code_security.py:183-260#HeimdallCodeSecurityMixin.code_security_facts"
+                ],
+                "execution_authority": False,
+            },
+        )
+
+    service = AdaptiveConversationService(
+        model=model,
+        profile_resolver=_profile,
+        prompts=_PROMPTS,
+        repository_context_reader=repo_reader,
+    )
+    outcome = await service.respond(
+        utterance="FDAI 콘솔웹이 보안상 문제가 없나?",
+        history=(),
+        locale="ko",
+        target_agent="Bragi",
+        relationship=None,
+        read_evidence=_unavailable,
+    )
+    assert outcome is not None
+    assert hasattr(outcome, "answer")
+    assert model.calls[0]["payload"]["verified_repository_context"] == [
+        {
+            "behavior_id": "security.code-security-review-projection",
+            "status": "implemented",
+            "owner": "Heimdall / Operator API",
+            "citations": [
+                "services/core-control-plane/src/fdai/agents/_framework/heimdall_code_security.py:183-260#HeimdallCodeSecurityMixin.code_security_facts"
+            ],
+            "execution_authority": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_no_t2_profile_preserves_a_safe_but_incomplete_answer() -> None:
     model = _Model(plan=_plan(), answer=_draft(), review=_review(complete=False), refine=_draft())
     result = await _run(model, allow_refinement=False)

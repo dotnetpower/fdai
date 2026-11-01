@@ -695,7 +695,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   one; a run that performs no live turn is reported as `interrupted` and never carries release
   authority, so it can never report a production-ready artifact.
 
-The development-only local narrator can run the T1 dialogue-state proposer off the answer path when `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` is set. It is bounded by the narrator timeout, degrades to the typed T0 fallback on any failure, and is not a diagnostic-channel capability or a source of development evidence.
+The development-only local narrator can run the T1 dialogue-state proposer off the answer path when `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED` is set. It is bounded by the narrator timeout, degrades to the typed T0 fallback on any failure, and is not a diagnostic-channel capability or a source of development evidence. `semantic_turn_runtime.py` also forwards the request utterance to `semantic_done_event_data` so read-only behavior `code_artifacts` attach without changing the diagnostic channel.
 
 ## Related docs
 

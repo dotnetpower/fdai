@@ -274,8 +274,9 @@ last segment of its reference. Wire rows and technical details keep the exact pr
 Operator's PostgreSQL family facade similarly delegates immutable records, row projection, and
 evidence decoding without changing query parameters, proposal claims, replay order, or wire fields.
 Operator terminal presentation delegates Pantheon assurance, localized Incident blocks, and
-content-redacted read trajectories to focused renderers without changing fields, bounds, locale,
-evidence authority, or the fixed no-execution contract.
+content-redacted read trajectories to focused renderers and attaches grounded `code_artifacts`
+(`grounded_behavior_code_artifacts`) when a prompt matches `DEFAULT_SECURITY_BEHAVIOR_SPECS` without
+changing fields, bounds, locale, evidence authority, or the fixed no-execution contract.
 
 - **Incident draft**: A verified `incident_create` judgment returns an
   authority-free `incident.create` draft with bounded severity and target,

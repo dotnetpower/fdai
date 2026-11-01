@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: d3698aa3fae2cceae4389e5a5af507e7e6fe8991
-translation_revised: 2026-10-31
+translation_source_sha: f9e22bcb5278d8bbe55fc375a04ea0041a5cbea8
+translation_revised: 2026-11-01
 ---
 
 # 개발 워크플로 보증
@@ -681,7 +681,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   `interrupted`로 보고되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수
   없습니다.
 
-개발 전용 로컬 내레이터는 `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`가 설정되면 응답 경로 밖에서 T1 dialogue-state proposer를 실행할 수 있습니다. 내레이터 시간 제한을 받고, 어떤 실패에서도 typed T0 fallback으로 내려가며, 진단 채널 기능이나 개발 근거의 출처가 아닙니다.
+개발 전용 로컬 내레이터는 `FDAI_NARRATOR_DIALOGUE_STATE_T1_ENABLED`가 설정되면 응답 경로 밖에서 T1 dialogue-state proposer를 실행할 수 있습니다. 내레이터 시간 제한을 받고, 어떤 실패에서도 typed T0 fallback으로 내려가며, 진단 채널 기능이나 개발 근거의 출처가 아닙니다. 또한 `semantic_turn_runtime.py`는 진단 채널을 바꾸지 않고 요청 발화를 `semantic_done_event_data`로 전달해 읽기 전용 동작 `code_artifacts`를 첨부합니다.
 
 ## 관련 문서
 
