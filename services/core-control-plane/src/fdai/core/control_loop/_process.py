@@ -24,6 +24,15 @@ from fdai.core.control_loop._helpers import (
     apply_governance_override_to_rule,
 )
 from fdai.core.control_loop._measurement import TerminalMeasurementRecorder
+from fdai.core.control_loop._notification_helpers import (
+    active_gate_subjects,
+    build_gate_stage_detail,
+    clear_resource_gate_subjects,
+    gate_subject_key,
+    is_hil_request_suppressed,
+    remember_gate_subject,
+    request_unified_hil_approval,
+)
 from fdai.core.control_loop.change_safety_evidence import (
     ChangeSafetyPreAuthorityDecision,
     evaluate_change_safety_pre_authority,
@@ -312,6 +321,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             else "t0_no_match"
         )
         if t0_reason == NO_RULE_DENIED:
+            clear_resource_gate_subjects(active_gate_subjects(host), resource_id)
             # Every candidate rule evaluated and none denied, so the deterministic
             # tier decided. Escalating a compliant resource would spend the
             # adaptive tiers on a question that is already answered.
@@ -385,6 +395,8 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
     exec_results: list[ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult] = []
     routed: list[str] = []
     pre_authority_evidence: list[ChangeSafetyPreAuthorityDecision] = []
+    active_subjects = active_gate_subjects(host)
+    has_fresh_alertable_finding = False
     for finding in verdict.findings:
         rule = host._rules_by_id.get(finding.rule_id)
         if rule is None:  # pragma: no cover - index/catalog inconsistency
@@ -523,19 +535,28 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                 ExecutionAuthorizationStatus.POLICY_CONFLICT,
                 ExecutionAuthorizationStatus.UNCONFIGURED,
             }
-            routed.append("deny" if denied else "hil")
+            auth_decision = "deny" if denied else "hil"
+            subject = gate_subject_key(action=action, rule=rule)
+            repeated_observation = remember_gate_subject(
+                active_subjects, (finding.resource_id, finding.rule_id), (subject, auth_decision)
+            )
+            if not repeated_observation:
+                has_fresh_alertable_finding = True
+            routed.append(auth_decision)
             await host._emit_stage(
                 event_id=event_id,
                 correlation_id=correlation_id,
                 stage=StageName.GATE,
                 phase=StagePhase.DONE,
-                detail={
-                    "rule_id": finding.rule_id,
-                    "action_type": action.action_type,
-                    "gate_decision": "deny" if denied else "hil",
-                    "authorization_status": authorization.status.value,
-                    "mode": action.mode.value,
-                },
+                detail=build_gate_stage_detail(
+                    rule_id=finding.rule_id,
+                    action_type=action.action_type,
+                    gate_decision=auth_decision,
+                    mode=action.mode.value,
+                    subject=subject,
+                    repeated_observation=repeated_observation,
+                    authorization_status=authorization.status.value,
+                ),
             )
             continue
         action = host._bind_authorized_identity(action, authorization)
@@ -550,18 +571,6 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             if unified is not None and unified.requires_hil
             else "auto"
         )
-        await host._emit_stage(
-            event_id=event_id,
-            correlation_id=correlation_id,
-            stage=StageName.GATE,
-            phase=StagePhase.DONE,
-            detail={
-                "rule_id": finding.rule_id,
-                "action_type": action.action_type,
-                "gate_decision": gate_decision,
-                "mode": action.mode.value,
-            },
-        )
         if unified is not None and (unified.is_denied or unified.requires_hil):
             if unified.requires_hil and not unified.is_denied:
                 commitment_error = await host._prepare_workflow_safeguard_commitment(
@@ -570,6 +579,18 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                 )
                 if commitment_error is not None:
                     routed.append("abstain")
+                    await host._emit_stage(
+                        event_id=event_id,
+                        correlation_id=correlation_id,
+                        stage=StageName.GATE,
+                        phase=StagePhase.DONE,
+                        detail=build_gate_stage_detail(
+                            rule_id=finding.rule_id,
+                            action_type=action.action_type,
+                            gate_decision="abstain",
+                            mode=action.mode.value,
+                        ),
+                    )
                     await host._audit_store.append_audit_entry(
                         {
                             "event_id": event_id,
@@ -583,36 +604,58 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
                     )
                     continue
             routed.append("deny" if unified.is_denied else "hil")
-            if (
-                unified.requires_hil
-                and not unified.is_denied
-                and host._hil_resume_coordinator is not None
-            ):
-                await host._request_hil_approval(
-                    action=action,
-                    rule=rule,
-                    correlation_id=correlation_id,
-                    event=event,
-                    approval_profile=(
-                        unified.authority.approval_profile.as_audit_dict()
-                        if unified.authority is not None
-                        and unified.authority.approval_profile is not None
-                        else None
-                    ),
-                    operator_policy=(
-                        unified.authority.operator_policy.as_audit_dict()
-                        if unified.authority is not None
-                        and unified.authority.operator_policy is not None
-                        else None
-                    ),
-                    original_quorum_required=(
-                        unified.authority.original_quorum
-                        if unified.authority is not None
-                        else unified.quorum
-                    ),
-                    effective_quorum_required=unified.quorum,
-                )
+            operator_policy_dict = (
+                unified.authority.operator_policy.as_audit_dict()
+                if unified.authority is not None and unified.authority.operator_policy is not None
+                else None
+            )
+            subject = gate_subject_key(
+                action=action, rule=rule, operator_policy=operator_policy_dict
+            )
+            repeated_observation = remember_gate_subject(
+                active_subjects, (finding.resource_id, finding.rule_id), (subject, gate_decision)
+            )
+            hil_result = await request_unified_hil_approval(
+                host,
+                action=action,
+                rule=rule,
+                unified=unified,
+                correlation_id=correlation_id,
+                event=event,
+                reopen_on_expiry=not (
+                    _deterministic_inventory_baseline(event) or repeated_observation
+                ),
+            )
+            if not repeated_observation and not is_hil_request_suppressed(hil_result):
+                has_fresh_alertable_finding = True
+            await host._emit_stage(
+                event_id=event_id,
+                correlation_id=correlation_id,
+                stage=StageName.GATE,
+                phase=StagePhase.DONE,
+                detail=build_gate_stage_detail(
+                    rule_id=finding.rule_id,
+                    action_type=action.action_type,
+                    gate_decision=gate_decision,
+                    mode=action.mode.value,
+                    subject=subject,
+                    repeated_observation=repeated_observation,
+                    hil_result=hil_result,
+                ),
+            )
             continue
+        await host._emit_stage(
+            event_id=event_id,
+            correlation_id=correlation_id,
+            stage=StageName.GATE,
+            phase=StagePhase.DONE,
+            detail=build_gate_stage_detail(
+                rule_id=finding.rule_id,
+                action_type=action.action_type,
+                gate_decision=gate_decision,
+                mode=action.mode.value,
+            ),
+        )
         result = await host._dispatch_action(
             action=action,
             rule=rule,
@@ -664,26 +707,37 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         ControlLoopOutcome.EXECUTION_PENDING: "hold",
         ControlLoopOutcome.EXECUTION_NOT_ATTEMPTED: "no-op",
     }.get(overall, "abstain")
+    suppress_decision_notification = (
+        overall in {ControlLoopOutcome.HIL, ControlLoopOutcome.DENIED}
+        and not has_fresh_alertable_finding
+        and not any(
+            result.audit_context.get("action_build_failed") is True for result in exec_results
+        )
+    )
+    audit_stage_detail: dict[str, Any] = {
+        "outcome": overall.value,
+        "decision": decision_word,
+        "gate_decision": decision_word,
+        "mode": event.mode.value,
+    }
+    if suppress_decision_notification:
+        audit_stage_detail["repeated_observation"] = True
     await host._emit_stage(
         event_id=event_id,
         correlation_id=correlation_id,
         stage=StageName.AUDIT,
         phase=StagePhase.DONE,
-        detail={
-            "outcome": overall.value,
-            "decision": decision_word,
-            "gate_decision": decision_word,
-            "mode": event.mode.value,
-        },
+        detail=audit_stage_detail,
     )
-    await host._notify_decision(
-        event=event,
-        correlation_id=correlation_id,
-        overall=overall,
-        decision_word=decision_word,
-        resource_type=decision.resource_type,
-        citing_rule_ids=tuple(finding.rule_id for finding in verdict.findings),
-    )
+    if not suppress_decision_notification:
+        await host._notify_decision(
+            event=event,
+            correlation_id=correlation_id,
+            overall=overall,
+            decision_word=decision_word,
+            resource_type=decision.resource_type,
+            citing_rule_ids=tuple(finding.rule_id for finding in verdict.findings),
+        )
     return ControlLoopResult(
         outcome=overall,
         tier="t0",

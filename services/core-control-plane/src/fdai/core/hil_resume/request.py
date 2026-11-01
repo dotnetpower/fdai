@@ -101,6 +101,7 @@ class HilRequestMixin:
         operator_policy: Mapping[str, Any] | None = None,
         original_quorum_required: int | None = None,
         effective_quorum_required: int | None = None,
+        reopen_on_expiry: bool = True,
     ) -> RequestApprovalResult:
         """Park ``action`` before dispatching its approval request.
 
@@ -157,6 +158,7 @@ class HilRequestMixin:
                 candidate_approval_id=aid,
                 event_id=str(action.event_id),
                 now=parked_at,
+                reopen_on_expiry=reopen_on_expiry,
             )
             if admission.admission is SubjectAdmission.OPEN_REQUEST:
                 return RequestApprovalResult(

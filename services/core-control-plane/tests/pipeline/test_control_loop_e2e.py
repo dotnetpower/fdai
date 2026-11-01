@@ -90,10 +90,12 @@ from fdai.shared.providers.notifications.base import (
     Severity,
     TrustTier,
 )
+from fdai.shared.providers.stage_publisher import StageName
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingDirectApiExecutor,
     RecordingRemediationPrPublisher,
+    RecordingStagePublisher,
 )
 from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
 from fdai_service_contracts.control_loop_measurement import (
@@ -161,6 +163,7 @@ def _make_loop(
     with_opa: bool = True,
     risk_table: Any = None,
     risk_gate: Any = None,
+    stage_publisher: Any = None,
     notification_router: NotificationRouter | None = None,
     rca_coordinator: RcaCoordinator | None = None,
     event_correlator: EventCorrelator | None = None,
@@ -218,6 +221,7 @@ def _make_loop(
         ),
         risk_gate=risk_gate,
         direct_api_executor=direct_api_executor,
+        stage_publisher=stage_publisher,
         notification_router=notification_router,
         rca_coordinator=rca_coordinator,
         event_correlator=event_correlator,
@@ -1690,6 +1694,62 @@ async def test_process_abstain_does_not_push(shipped_catalog: tuple[Any, Any]) -
     )
     assert result.outcome is ControlLoopOutcome.ABSTAINED_ROUTING
     assert spy.messages == []
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_repeated_resource_observations_do_not_spam_notifications_or_stage_alerts(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """Repeated observations of the same non-compliant resource notify once until compliant."""
+    from fdai.core.risk_gate.gate import ActionPromotionRegistry, RiskGate
+    from fdai.core.risk_gate.risk_table import load_risk_table
+
+    table = load_risk_table(REPO_ROOT / "rule-catalog" / "risk-classification.yaml")
+    gate = RiskGate(registry=ActionPromotionRegistry())
+    spy = _SpyRouter()
+    stages = RecordingStagePublisher()
+    loop, _, _ = _make_loop(
+        shipped_catalog,
+        risk_table=table,
+        risk_gate=gate,
+        notification_router=spy,
+        stage_publisher=stages,
+    )
+    first = await loop.process(
+        _make_event(
+            event_id="00000000-0000-0000-0000-000000000092",
+            idempotency_key="e-repeat-notify-1",
+            resource_type="object-storage",
+            resource_id="r-repeat-notify",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+    second = await loop.process(
+        _make_event(
+            event_id="00000000-0000-0000-0000-000000000093",
+            idempotency_key="e-repeat-notify-2",
+            resource_type="object-storage",
+            resource_id="r-repeat-notify",
+            props={"public_access": "enabled", "tags": {"owner": "team-a"}},
+        )
+    )
+
+    assert first.outcome is ControlLoopOutcome.HIL
+    assert second.outcome is ControlLoopOutcome.HIL
+    assert len(spy.messages) == 1
+    assert spy.messages[0].audit_id is not None
+    assert spy.messages[0].audit_id.startswith("control-loop-decision:")
+    gate_events = stages.by_stage(StageName.GATE)
+    first_gates = [e for e in gate_events if e.event_id == "00000000-0000-0000-0000-000000000092"]
+    second_gates = [e for e in gate_events if e.event_id == "00000000-0000-0000-0000-000000000093"]
+    assert first_gates
+    assert second_gates
+    assert all(not e.detail.get("repeated_observation") for e in first_gates)
+    assert all(e.detail.get("repeated_observation") is True for e in second_gates)
+    assert [e.detail.get("subject_key") for e in first_gates] == [
+        e.detail.get("subject_key") for e in second_gates
+    ]
 
 
 # ---------------------------------------------------------------------------

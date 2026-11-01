@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 23a77c13732fb6d19f13fc075b2404fabecdee6d
-translation_revised: 2026-10-31
+translation_source_sha: ab63c486c1f0a2f09542e8698409be1004f9743e
+translation_revised: 2026-11-02
 ---
 # FDAI Console 대화
 
@@ -705,12 +705,9 @@ FDAI 자체를 MCP 서버로 게시하는 기능도 아직 제공하지 않습�
 
 - **OD-C1 resolved** - strict 코어 서술기 프롬프트는 delivery 계층 Azure OpenAI narrator adapter가 소유하고,
   broader 프롬프트 카탈로그는 `rule-catalog/prompts/base`, `packs`, `scenarios`, `tools` 구조를 사용합니다.
-- **OD-C2 resolved** - principal 범위로 한정된 user 기억/선호 설정과 별도 통제된 운영자 기억 스키마,
-  출처 이력, consent, 보존 경로가 구현되어 있습니다.
-- **OD-C3 residual** - §7.3처럼 persistent BreakGlass 권한 부여/권한 상승은 아직 구현되지 않았습니다.
-  향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
-- **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다.
-  Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다.
+- **OD-C2 resolved** - principal 범위로 한정된 user 기억/선호 설정과 별도 통제된 운영자 기억 스키마, 출처 이력, consent, 보존 경로가 구현되어 있습니다.
+- **OD-C3 residual** - §7.3처럼 persistent BreakGlass 권한 부여/권한 상승은 아직 구현되지 않았습니다. 향후 설계는 no-self-approval을 유지하고 서로 다른 승인자 요구사항을 별도로 승인해야 합니다.
+- **OD-C4 현재 행동** - CLI 이력은 프로세스 기억에서만 범위가 제한된 탐색을 제공합니다. Persistent 이력 파일과 보존/민감정보 제거 계약은 shipped 기능이나 현재 CLI의 blocker가 아닙니다. 클라이언트 로컬 `console-web` 알림은 반복되거나 이미 열려 있는 HIL 단계 프레임을 무시하고, 확인되지 않은 전달 완료 태그의 중복 제거 상태를 보존 기간 동안 유지하며, 승인이나 실행 권한을 바꾸지 않고 동일 유형 알림 폭주를 병합합니다.
 ## 16. 추가 참고 자료
 
 - [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -

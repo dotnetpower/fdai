@@ -52,6 +52,7 @@ interface Props {
 type ControlState = "off" | "enabling" | "on" | "blocked" | "unsupported" | "error";
 const COMPACT_STATUS_QUERY = "(max-width: 640px)";
 const EMPTY_FINDINGS: readonly CurrentFinding[] = [];
+const LIVE_ALERT_KIND_COOLDOWN_MS = 60_000;
 
 const CONTROL_LABEL_KEYS: Readonly<Record<ControlState, BrowserNotificationTextKey>> = {
   off: "off",
@@ -108,6 +109,8 @@ export function BrowserNotificationControl({
   const [compactStatus, setCompactStatus] = useState(isCompactNotificationStatus);
   const [workerReady, setWorkerReady] = useState(false);
   const [receiverKind, setReceiverKind] = useState<BrowserNotificationTransport["kind"] | null>(null);
+  const inFlightAlertKindsRef = useRef<Set<BrowserAlertKind>>(new Set());
+  const lastDeliveredKindAtRef = useRef<Map<BrowserAlertKind, number>>(new Map());
 
   useEffect(() => {
     const media = window.matchMedia(COMPACT_STATUS_QUERY);
@@ -118,6 +121,8 @@ export function BrowserNotificationControl({
   }, []);
 
   useEffect(() => {
+    inFlightAlertKindsRef.current.clear();
+    lastDeliveredKindAtRef.current.clear();
     setWorkerReady(false);
     setSelected(readBrowserNotificationPreference(principalId));
     setState(initialState(supported, principalId));
@@ -255,7 +260,7 @@ export function BrowserNotificationControl({
     };
   }, [principalId]);
 
-  const streamEnabled = state === "on" && workerReady;
+  const streamEnabled = presentation === "header" && state === "on" && workerReady;
   const streamLeader = useExclusiveBrowserStreamLeader(
     streamEnabled,
     "browser-notifications",
@@ -266,9 +271,10 @@ export function BrowserNotificationControl({
     },
   );
 
-  const deliverAlert = async (alert: BrowserAlert): Promise<"delivered" | "deferred"> => {
+  const deliverAlert = async (alert: BrowserAlert): Promise<"delivered" | "duplicate" | "deferred"> => {
     const claim = await claimBrowserAlertDelivery(alert.tag, principalId);
-    if (claim === "duplicate" || claim === "rate-limited") return "deferred";
+    if (claim === "duplicate") return "duplicate";
+    if (claim === "rate-limited") return "deferred";
     if (claim === "unavailable") throw new Error("Browser notification claim is unavailable");
     const acknowledgementToken = readBrowserAlertAcknowledgementToken(alert.tag, principalId);
     if (acknowledgementToken === null) throw new Error("Browser notification claim has no token");
@@ -303,12 +309,13 @@ export function BrowserNotificationControl({
     let cancelled = false;
     const deliver = async () => {
       try {
-        for (const finding of findings) {
-          if (cancelled || activePrincipal.current !== principalId || !document.hidden) return;
-          if (!findingNeedsAttention(finding, principalId)) continue;
-          markFindingPending(finding, principalId);
-          const result = await deliverAlert(findingBrowserAlert(finding));
-          if (result === "delivered") rememberFinding(finding, principalId);
+        if (cancelled || activePrincipal.current !== principalId || !document.hidden) return;
+        const unseen = findings.filter((finding) => findingNeedsAttention(finding, principalId));
+        if (unseen.length === 0) return;
+        for (const finding of unseen) markFindingPending(finding, principalId);
+        const result = await deliverAlert(findingBrowserAlert(unseen[0]!));
+        if (result === "delivered" || result === "duplicate") {
+          for (const finding of unseen) rememberFinding(finding, principalId);
         }
       } catch {
         if (!cancelled) setState("error");
@@ -334,7 +341,25 @@ export function BrowserNotificationControl({
       }
       const alert = browserAlertForLiveEvent(event);
       if (alert === null) return;
-      void deliverAlert(alert).catch(() => setState("error"));
+      const now = Date.now();
+      const lastDeliveredAt = lastDeliveredKindAtRef.current.get(alert.kind);
+      if (
+        inFlightAlertKindsRef.current.has(alert.kind)
+        || (lastDeliveredAt !== undefined && now - lastDeliveredAt < LIVE_ALERT_KIND_COOLDOWN_MS)
+      ) {
+        return;
+      }
+      inFlightAlertKindsRef.current.add(alert.kind);
+      void deliverAlert(alert)
+        .then((result) => {
+          if (result === "delivered") {
+            lastDeliveredKindAtRef.current.set(alert.kind, Date.now());
+          }
+        })
+        .catch(() => setState("error"))
+        .finally(() => {
+          inFlightAlertKindsRef.current.delete(alert.kind);
+        });
     },
   });
 

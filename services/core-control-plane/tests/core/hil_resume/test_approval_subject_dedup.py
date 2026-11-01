@@ -240,3 +240,46 @@ async def test_per_event_values_never_split_a_subject(field: str) -> None:
     assert field in _observation(1).model_dump()
     assert result.outcome is RequestOutcome.ALREADY_OPEN
     assert len(await _parks(store)) == 1
+
+
+async def test_baseline_sweep_does_not_reopen_expired_or_timed_out_subject() -> None:
+    coordinator, _, store, channel = _coordinator()
+    _at(coordinator, _T0)
+    first = await coordinator.request_approval(
+        action=_observation(0),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="corr-0",
+        ttl_seconds=1800,
+        reopen_on_expiry=False,
+    )
+    assert first.outcome is RequestOutcome.PARKED
+
+    _at(coordinator, _T0 + timedelta(minutes=45))
+    expired_repeat = await coordinator.request_approval(
+        action=_observation(1),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="corr-1",
+        ttl_seconds=1800,
+        reopen_on_expiry=False,
+    )
+    assert expired_repeat.outcome is RequestOutcome.ALREADY_OPEN
+    assert expired_repeat.approval_id == first.approval_id
+
+    await coordinator.resolve(
+        approval_id=first.approval_id, decision=HilDecision.TIMEOUT, approver_oid="system"
+    )
+    _at(coordinator, _T0 + timedelta(minutes=47))
+    timed_out_repeat = await coordinator.request_approval(
+        action=_observation(2),
+        rule=_rule(),
+        submitter_oid=_SUBMITTER,
+        correlation_id="corr-2",
+        ttl_seconds=1800,
+        reopen_on_expiry=False,
+    )
+    assert timed_out_repeat.outcome is RequestOutcome.ALREADY_OPEN
+    assert timed_out_repeat.approval_id == first.approval_id
+    assert len(await _parks(store)) == 1
+    assert len(channel.sent) == 1
