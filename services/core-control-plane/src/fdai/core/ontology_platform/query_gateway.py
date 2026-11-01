@@ -120,7 +120,7 @@ class SecuredObjectSetQueryReceipt(ContractBase):
             raise ValueError("an exact population exceeds its page over a complete source")
         if self.complete and self.truncated:
             raise ValueError("object-set query receipt completeness is inconsistent")
-        if self.observation_cutoff.tzinfo is None:
+        if self.observation_cutoff.tzinfo is None or self.observation_cutoff.utcoffset() is None:
             raise ValueError("object-set query observation_cutoff MUST be timezone-aware")
         if self.source_generation is not None and not self.source_generation.strip():
             raise ValueError("object-set query source generation MUST be non-empty")
@@ -189,12 +189,14 @@ class SecuredOntologyInstancePathReceipt(ContractBase):
             EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
         ):
             raise ValueError("ontology instance path receipt has invalid component authorities")
-        if self.observation_cutoff.tzinfo is None:
+        if self.observation_cutoff.tzinfo is None or self.observation_cutoff.utcoffset() is None:
             raise ValueError("ontology instance path observation cutoff MUST be timezone-aware")
         if self.path_count and self.empty_at_step is not None:
             raise ValueError("non-empty ontology instance path cannot have an empty step")
         if not self.path_count and self.empty_at_step is None:
             raise ValueError("empty ontology instance path MUST identify its empty step")
+        if self.source_generation is not None and not self.source_generation.strip():
+            raise ValueError("ontology instance path source generation MUST be non-empty")
         if self.path_count and self.source_generation is None:
             raise ValueError("non-empty ontology instance path requires a source generation")
         return self

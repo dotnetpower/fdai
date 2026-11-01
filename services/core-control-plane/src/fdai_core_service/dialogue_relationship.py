@@ -18,13 +18,18 @@ def runtime_relationship(request: SemanticTurnRequest, *, now: datetime) -> dict
     """Recheck the transported observation against the current request and clock."""
     proof = request.relationship_proof
     if proof is None:
+        reason = (request.relationship_unknown_reason or "").strip()
         return _unknown(
             request,
-            request.relationship_unknown_reason or "relationship_proof_unavailable",
+            reason or "relationship_proof_unavailable",
         )
     if (
         now.tzinfo is None
         or now.utcoffset() is None
+        or proof.verified_at.tzinfo is None
+        or proof.verified_at.utcoffset() is None
+        or proof.expires_at.tzinfo is None
+        or proof.expires_at.utcoffset() is None
         or request.principal.principal_kind is not OperatorPrincipalKind.HUMAN
         or proof.principal_id != request.principal.subject_id
         or proof.target_agent != request.target_agent

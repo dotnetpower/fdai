@@ -636,7 +636,11 @@ export function blastRadiusQueryFromSearch(search: string): BlastRadiusQuery {
   };
 }
 
-export function blastRadiusHref(query: BlastRadiusQuery, result: string | null = null): string {
+export function blastRadiusHref(
+  query: BlastRadiusQuery,
+  result: string | null = null,
+  search?: URLSearchParams,
+): string {
   return routeHref("blast-radius", {
     params: {
       target: query.target,
@@ -644,6 +648,7 @@ export function blastRadiusHref(query: BlastRadiusQuery, result: string | null =
       links: query.links.length > 0 ? query.links.join(",") : "none",
       view: query.architectureView,
       result,
+      data: search?.get("data") === "sample" ? "sample" : null,
     },
   });
 }

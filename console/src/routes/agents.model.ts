@@ -463,14 +463,17 @@ function applyTicket(
 ): AgentsState {
   const existing = state.incidents[msg.correlation_id];
   const rca = msg.rca ?? existing?.rca ?? null;
+  const involved = [...(existing?.involved ?? []), ...msg.involved_agents].filter(
+    (name, index, names) => state.agents[name] !== undefined && names.indexOf(name) === index,
+  );
   if (
     existing !== undefined &&
     existing.ticketId === msg.ticket_id &&
     existing.title === msg.title &&
     existing.severity === msg.severity &&
     existing.status === msg.status &&
-    existing.involved.length === msg.involved_agents.length &&
-    existing.involved.every((agent, index) => agent === msg.involved_agents[index]) &&
+    existing.involved.length === involved.length &&
+    existing.involved.every((agent, index) => agent === involved[index]) &&
     existing.rca === rca &&
     existing.updatedAt === msg.ts
   ) return state;
@@ -480,7 +483,7 @@ function applyTicket(
     title: msg.title,
     severity: msg.severity,
     status: msg.status,
-    involved: msg.involved_agents,
+    involved,
     rca,
     turns: existing?.turns ?? [],
     updatedAt: msg.ts,
@@ -1014,6 +1017,35 @@ export function incidentsForAgent(state: AgentsState, agent: string): Incident[]
   return state.incidentOrder
     .map((id) => state.incidents[id])
     .filter((inc): inc is Incident => inc !== undefined && inc.involved.includes(agent));
+}
+
+export function completedHandlerCountForAgent(state: AgentsState, agent: string): number {
+  let count = 0;
+  for (const event of state.liveActivity) {
+    if (
+      (event.agent === agent || event.agents.includes(agent)) &&
+      (event.activityPhase === "completed" || event.operationalKind !== null)
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function lastHandlerDurationMsForAgent(
+  state: AgentsState,
+  agent: string,
+): number | null {
+  for (const event of state.liveActivity) {
+    if (
+      (event.agent === agent || event.agents.includes(agent)) &&
+      typeof event.durationMs === "number" &&
+      Number.isFinite(event.durationMs)
+    ) {
+      return event.durationMs;
+    }
+  }
+  return null;
 }
 
 /**

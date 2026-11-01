@@ -142,6 +142,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
                 "producer_principal": "Forseti",
                 "action_kind": f"control_loop.{tier}_routing_hold",
                 "mode": Mode.SHADOW.value,
+                "tier": tier,
                 "decision": "hil",
                 "reason": reason,
                 "citing_rule_ids": list(citing_rule_ids),

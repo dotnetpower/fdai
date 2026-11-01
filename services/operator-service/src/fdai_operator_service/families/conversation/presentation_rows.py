@@ -85,7 +85,9 @@ def _redact_scalar(field: str, value: object) -> object:
     folded_value = value.casefold()
     if (
         folded_field in _SENSITIVE_FIELDS
-        or folded_field.endswith(("_token", "_secret", "_credential"))
+        or folded_field.endswith(
+            ("_token", "_secret", "_credential", "_password", "_api_key", "_account_key")
+        )
         or any(marker in folded_value for marker in _SENSITIVE_VALUE_MARKERS)
     ):
         return _REDACTED_VALUE

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from typing import Literal
 
 from fdai_service_contracts.ontology_query import (
@@ -30,6 +31,12 @@ def build_intent_graph(
 ) -> IntentGraph:
     """Build one replay-stable presentation graph from a verified query DAG."""
 
+    if (
+        isinstance(confidence, bool)
+        or not math.isfinite(confidence)
+        or not 0.0 <= confidence <= 1.0
+    ):
+        raise ValueError("conversation intent graph confidence MUST be in [0, 1]")
     if len(plan.nodes) > MAX_INTENT_GRAPH_GOALS:
         raise ValueError(f"conversation intent graph exceeds {MAX_INTENT_GRAPH_GOALS} goals")
     goal_ids = {node.node_id: f"goal-{index}" for index, node in enumerate(plan.nodes, start=1)}

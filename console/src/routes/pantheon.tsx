@@ -14,7 +14,7 @@ import { agentStreamDescriptor, useAgentStream, type AgentStreamStatus } from ".
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import { t } from "../i18n";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import {
   activeAgentCount,
   makeInitialState,
@@ -87,9 +87,18 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
-export function pantheonAgentHref(agent: string, correlation?: string | null): string {
+export function pantheonAgentHref(
+  agent: string,
+  correlation?: string | null,
+  search?: URLSearchParams,
+): string {
   return routeHref("agents", {
-    params: { view: "org", agent, correlation: correlation || null },
+    params: {
+      view: "org",
+      agent,
+      correlation: correlation || null,
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
   });
 }
 
@@ -209,6 +218,34 @@ export function decodePantheonGraph(value: unknown): PantheonGraphResponse {
       throw panelContractError(`pantheon graph reporting chain for ${agent.name} MUST terminate at Odin`);
     }
   }
+  const hardDependencyAgents = panelStringArray(
+    root["hard_dependency_agents"],
+    "pantheon graph.hard_dependency_agents",
+  );
+  const hotPathLlmAgents = panelStringArray(
+    root["hot_path_llm_agents"],
+    "pantheon graph.hot_path_llm_agents",
+  );
+  const expectedHard = agents.filter((agent) => agent.hard_dependency).map((agent) => agent.name);
+  const expectedHotPath = agents.filter((agent) => agent.hot_path_llm).map((agent) => agent.name);
+  if (
+    hardDependencyAgents.length !== expectedHard.length ||
+    new Set(hardDependencyAgents).size !== hardDependencyAgents.length ||
+    expectedHard.some((name) => !hardDependencyAgents.includes(name))
+  ) {
+    throw panelContractError(
+      "pantheon graph.hard_dependency_agents MUST match agents where hard_dependency is true",
+    );
+  }
+  if (
+    hotPathLlmAgents.length !== expectedHotPath.length ||
+    new Set(hotPathLlmAgents).size !== hotPathLlmAgents.length ||
+    expectedHotPath.some((name) => !hotPathLlmAgents.includes(name))
+  ) {
+    throw panelContractError(
+      "pantheon graph.hot_path_llm_agents MUST match agents where hot_path_llm is true",
+    );
+  }
   return {
     agents,
     org_edges: panelArray(root["org_edges"], "pantheon graph.org_edges").map((value, index) => {
@@ -219,8 +256,8 @@ export function decodePantheonGraph(value: unknown): PantheonGraphResponse {
       };
     }),
     agent_count: agentCount,
-    hard_dependency_agents: panelStringArray(root["hard_dependency_agents"], "pantheon graph.hard_dependency_agents"),
-    hot_path_llm_agents: panelStringArray(root["hot_path_llm_agents"], "pantheon graph.hot_path_llm_agents"),
+    hard_dependency_agents: hardDependencyAgents,
+    hot_path_llm_agents: hotPathLlmAgents,
     mermaid: panelString(root, "mermaid", "pantheon graph"),
   };
 }
@@ -257,6 +294,9 @@ export function decodePantheonWorkflows(value: unknown): PantheonWorkflowsRespon
     ) {
       throw panelContractError(`pantheon workflow ${workflow.id} participants MUST be fixed agents and include primary_agent`);
     }
+    if (workflow.default_mode !== "shadow" && workflow.default_mode !== "enforce") {
+      throw panelContractError(`pantheon workflow ${workflow.id} default_mode MUST be shadow or enforce`);
+    }
   }
   return { workflows, count };
 }
@@ -287,9 +327,26 @@ function PantheonBody({
   const active = activeAgentCount(runtime);
   const [view, setView] = useState<PantheonView>(pantheonViewFromRoute);
 
+  useEffect(() => {
+    const syncView = () => setView(pantheonViewFromRoute());
+    window.addEventListener("popstate", syncView);
+    window.addEventListener("fdai:route-changed", syncView);
+    window.addEventListener(ROUTE_STATE_EVENT, syncView);
+    return () => {
+      window.removeEventListener("popstate", syncView);
+      window.removeEventListener("fdai:route-changed", syncView);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncView);
+    };
+  }, []);
+
   const openView = (next: PantheonView): void => {
     setView(next);
-    navigate(routeHref("pantheon", { params: { view: next === "directory" ? null : next } }));
+    navigate(routeHref("pantheon", {
+      params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+        view: next === "directory" ? null : next,
+      },
+    }));
   };
   usePublishViewContext(
     () => ({
@@ -453,7 +510,7 @@ function PantheonBody({
                   <td class="mono">{w.id}</td>
                   <td>{w.name}</td>
                   <td class="mono">
-                    <a href={pantheonAgentHref(w.primary_agent, runtime.agents[w.primary_agent]?.correlationId)}>
+                    <a href={pantheonAgentHref(w.primary_agent, runtime.agents[w.primary_agent]?.correlationId, currentRoute().search)}>
                       {w.primary_agent}
                     </a>
                   </td>
@@ -499,7 +556,7 @@ function PantheonAgentCard({
       <header class="pt-card-head">
         <span class={`pt-avatar is-${agent.layer}`}>{agent.name.slice(0, 2)}</span>
         <div>
-          <h4><a href={pantheonAgentHref(agent.name, runtime?.correlationId)}>{agent.name}</a></h4>
+          <h4><a href={pantheonAgentHref(agent.name, runtime?.correlationId, currentRoute().search)}>{agent.name}</a></h4>
           <p>{agentRoleTitle(agent.name) ?? titleCase(agent.layer)}</p>
         </div>
         <span class={`pt-runtime state-${state}`}>
@@ -535,7 +592,7 @@ function ReportingTree({ agents }: { readonly agents: readonly AgentDto[] }) {
   }
   const branch = (agent: AgentDto) => (
     <li key={agent.name}>
-      <a class="pt-tree-name" href={pantheonAgentHref(agent.name)}>{agent.name}</a>{" "}
+      <a class="pt-tree-name" href={pantheonAgentHref(agent.name, null, currentRoute().search)}>{agent.name}</a>{" "}
       <span class="pt-tree-role">- {agentRoleTitle(agent.name) ?? titleCase(agent.layer)}</span>
       {(byParent.get(agent.name)?.length ?? 0) > 0 ? (
         <ul>{byParent.get(agent.name)!.map(branch)}</ul>
@@ -563,7 +620,7 @@ function ChipList({
     <ul class="type-chip-list">
       {items.map((name) => (
         <li key={name} class="type-chip mono">
-          <a href={pantheonAgentHref(name, runtime?.agents[name]?.correlationId)}>{name}</a>
+          <a href={pantheonAgentHref(name, runtime?.agents[name]?.correlationId, currentRoute().search)}>{name}</a>
         </li>
       ))}
     </ul>

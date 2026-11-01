@@ -7,6 +7,7 @@ composition root; an unbound contract fails closed.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -81,13 +82,25 @@ class Vidar(
     ) -> None:
         if claim_lease <= timedelta(0) or claim_lease > _MAX_CLAIM_LEASE:
             raise ValueError("claim_lease MUST be greater than zero and at most one hour")
-        if rollback_executor_timeout_seconds is not None and rollback_executor_timeout_seconds <= 0:
+        if rollback_executor_timeout_seconds is not None and (
+            isinstance(rollback_executor_timeout_seconds, bool)
+            or not math.isfinite(rollback_executor_timeout_seconds)
+            or rollback_executor_timeout_seconds <= 0
+        ):
             raise ValueError("rollback_executor_timeout_seconds MUST be positive")
         if rollback_rehearsal_cadence <= timedelta(0):
             raise ValueError("rollback_rehearsal_cadence MUST be positive")
-        if rollback_rehearsal_timeout_seconds <= 0:
+        if (
+            isinstance(rollback_rehearsal_timeout_seconds, bool)
+            or not math.isfinite(rollback_rehearsal_timeout_seconds)
+            or rollback_rehearsal_timeout_seconds <= 0
+        ):
             raise ValueError("rollback_rehearsal_timeout_seconds MUST be positive")
-        if max_rehearsals_per_tick < 1 or max_rehearsals_per_tick > 128:
+        if (
+            isinstance(max_rehearsals_per_tick, bool)
+            or max_rehearsals_per_tick < 1
+            or max_rehearsals_per_tick > 128
+        ):
             raise ValueError("max_rehearsals_per_tick MUST be between 1 and 128")
         if rollback_contracts_by_action_type is not None and (
             len(rollback_contracts_by_action_type) > self._MAX_RECORDS
@@ -169,6 +182,10 @@ class Vidar(
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    def bind_rollback_rehearsal_port(self, port: RollbackRehearsalPort | None) -> None:
+        """Bind or replace the non-mutating rollback rehearsal port."""
+        self._rollback_rehearsal_port = port
 
     async def maintenance_tick(self) -> None:
         await super().maintenance_tick()

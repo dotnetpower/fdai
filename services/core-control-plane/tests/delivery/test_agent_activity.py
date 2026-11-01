@@ -187,3 +187,65 @@ async def test_periodic_snapshot_publishes_agent_states_concurrently() -> None:
     assert await publisher.publish_once() == 2
     assert event_bus.max_active == 2
     assert {principal for _, principal, _ in event_bus.published} == {"Huginn", "Heimdall"}
+
+
+async def test_recent_states_and_extended_handler_activity_context() -> None:
+    observer = EventBusPantheonActivityObserver(event_bus=RecordingEventBus())
+    payload = {
+        "approval_id": "approval-99",
+        "target_ref": "scope:sub/rg/providers/compute/vm-target",
+        "resource_type": "compute-vm",
+    }
+
+    await observer.observe(
+        agent="Var",
+        topic="object.approval",
+        phase=SimpleNamespace(value="started"),
+        payload=payload,
+    )
+    await observer.observe(
+        agent="Var",
+        topic="object.approval",
+        phase=SimpleNamespace(value="completed"),
+        payload=payload,
+    )
+
+    assert "Var" not in observer.active_states()
+    recent = observer.recent_states()
+    assert "Var" in recent
+    assert recent["Var"].detail == "Processed object.approval"
+    assert recent["Var"].activity is not None
+    assert recent["Var"].activity.resource_ref == payload["target_ref"]
+    assert recent["Var"].activity.resource_name == "vm-target"
+
+    snapshot = runtime_agent_state_snapshot(
+        _health("Var"),
+        active_states=observer.active_states(),
+        recent_states=recent,
+    )
+    assert len(snapshot) == 1
+    assert snapshot[0].detail == "Processed object.approval"
+    assert (
+        runtime_agent_state_snapshot(
+            {"consumers_live": True, "agent_health": {"Var": {"status": "ok"}}}
+        )
+        == ()
+    )
+
+
+def test_handler_activity_context_rejects_control_characters_and_naive_timestamps() -> None:
+    from fdai.delivery.agent_handler_activity import bounded_identifier, handler_activity_context
+
+    assert bounded_identifier("bad\x00id") is None
+    assert bounded_identifier("bad\x7fid") is None
+    ctx = handler_activity_context(
+        agent="Mimir",
+        topic="object.rule",
+        phase="completed",
+        payload={"rule_id": "rule-1", "scope_id": "scope-1"},
+        transition_at="2026-01-01T00:00:01",
+        started_at="2026-01-01T00:00:00Z",
+    )
+    assert ctx is not None
+    assert ctx.resource_ref == "scope-1"
+    assert ctx.duration_ms is None

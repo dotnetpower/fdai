@@ -54,7 +54,10 @@ def health_sort_key(row: QueryRow) -> tuple[int, int, str]:
     )
     coverage = 0 if values.get("coverage_state") in (None, _OBSERVED) else 1
     name = values.get("name")
-    return rank, coverage, name.casefold() if isinstance(name, str) else ""
+    if not isinstance(name, str) or not name.strip():
+        props = values.get("properties")
+        name = props.get("name") if isinstance(props, Mapping) else None
+    return rank, coverage, name.strip().casefold() if isinstance(name, str) else ""
 
 
 def order_health_rows(rows: Sequence[QueryRow]) -> list[QueryRow]:
@@ -102,6 +105,7 @@ def health_summary_lines(summary: object, *, korean: bool) -> list[str]:
     if (
         not isinstance(total, int)
         or isinstance(total, bool)
+        or total <= 0
         or not isinstance(availability, Mapping)
         or not isinstance(gaps, Mapping)
     ):
@@ -115,12 +119,17 @@ def health_summary_lines(summary: object, *, korean: bool) -> list[str]:
     states = [
         f"{label(_AVAILABILITY_LABELS, key)} {count}"
         for key in ("unavailable", "degraded", "unknown", "available")
-        if isinstance((count := availability.get(key)), int) and count > 0
+        if isinstance((count := availability.get(key)), int)
+        and not isinstance(count, bool)
+        and count > 0
     ]
     gap_parts = [
         f"{label(_COVERAGE_LABELS, key)} {count}"
         for key, count in gaps.items()
-        if key in _COVERAGE_LABELS and isinstance(count, int) and count > 0
+        if key in _COVERAGE_LABELS
+        and isinstance(count, int)
+        and not isinstance(count, bool)
+        and count > 0
     ]
     lines = [
         f"- 확인 대상 {total}개 중 {', '.join(states) if states else '상태 정보 없음'}."

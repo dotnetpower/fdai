@@ -695,3 +695,154 @@ async def test_secured_object_set_handler_preserves_source_incompleteness(
         truncation_reason=table_reason,
     )
     assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")
+
+
+async def test_project_and_order_preserve_total_rows_and_lineage_grouping_validates_bounds() -> (
+    None
+):
+    from fdai.core.ontology_platform.lineage_grouping import count_by_nearest_container
+    from fdai.core.ontology_platform.query_lineage_batches import root_names
+
+    source_table = QueryTable(
+        rows=(
+            QueryRow.from_values("a", {"name": " vm-a ", "score": 2}),
+            QueryRow.from_values("b", {"name": "vm-b", "score": 1}),
+        ),
+        complete=True,
+        total_rows=2,
+    )
+    projected = await ProjectNodeHandler()(
+        _node(
+            QueryNodeKind.PROJECT,
+            dependencies=("source",),
+            arguments={"fields": ["name", "score"]},
+        ),
+        {"source": QueryNodeResult(source_table)},
+    )
+    assert projected.value.total_rows == 2
+    assert root_names(projected.value) == {"a": "vm-a", "b": "vm-b"}
+
+    ordered = await OrderNodeHandler()(
+        _node(
+            QueryNodeKind.ORDER,
+            dependencies=("source",),
+            arguments={"keys": [{"field": "score", "direction": "ascending"}], "limit": 1},
+        ),
+        {"source": projected},
+    )
+    assert len(ordered.value.rows) == 1
+    assert ordered.value.complete is False
+    assert ordered.value.total_rows == 2
+
+    with pytest.raises(ValueError, match="limit MUST be"):
+        count_by_nearest_container(source_table, limit=0)
+    bad_lineage = QueryTable(
+        rows=(
+            QueryRow.from_values(
+                "m1",
+                {
+                    "member_id": "m1",
+                    "root_id": "r1",
+                    "depth": 1,
+                    "path_evidence": '[""]',
+                    "source_generation": "gen-1",
+                },
+            ),
+        ),
+        complete=True,
+    )
+    with pytest.raises(ValueError, match="path evidence MUST be a non-empty list"):
+        count_by_nearest_container(bad_lineage, limit=10)
+
+
+async def test_function_handler_requires_receipt_authority_and_topology_metric_bounds() -> None:
+    from datetime import timedelta
+
+    from fdai.core.ontology_platform.metric_semantics import MetricWindow
+    from fdai.core.ontology_platform.query_metric_handlers import EvidenceJoinNodeHandler
+    from fdai.core.ontology_platform.query_topology_handlers import TopologyAtNodeHandler
+    from fdai.shared.ontology.acl import ProjectionRequest
+
+    declaration = OntologyFunctionType(
+        name="query.needs_scope",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + ("e" * 64),
+        publisher="fdai",
+        input_schema={"type": "object"},
+        output_schema={"type": "object"},
+        purpose_bindings=["operations-review"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register(declaration, AsyncMock(return_value={}))
+    handler = FunctionNodeHandler(
+        registry,
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        ),
+        receipt_authority=None,
+    )
+    with pytest.raises(PermissionError, match="receipt authority"):
+        await handler(
+            _node(
+                QueryNodeKind.FUNCTION,
+                dependencies=("scope",),
+                arguments={
+                    "function_name": "query.needs_scope",
+                    "arguments": {},
+                    "dependency_arguments": {"scope": "query_result"},
+                },
+            ),
+            {"scope": QueryNodeResult(_table(("a", {"id": "a"})))},
+        )
+
+    topo = TopologyAtNodeHandler(
+        AsyncMock(return_value=()),
+        expected_release_digest="sha256:" + "a" * 64,
+        object_types={},
+        projection_request=ProjectionRequest(
+            caller_role=CeilingRole.READER,
+            declared_purposes=frozenset({"operations-review"}),
+        ),
+        now=lambda: NOW.replace(tzinfo=None),
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await topo(
+            OntologyQueryNode(
+                node_id="t1",
+                kind=QueryNodeKind.TOPOLOGY_AT,
+                arguments_json=canonical_json(
+                    {"as_of": NOW.isoformat(), "known_at": NOW.isoformat()}
+                ),
+                output_kind="topology.graph",
+            ),
+            {},
+        )
+
+    window = MetricWindow(
+        concept_id="resource.cpu.utilization_pct",
+        resource_id="vm-1",
+        unit="percent",
+        start=NOW,
+        end=NOW + timedelta(minutes=5),
+        samples=(),
+        complete=True,
+        evidence_refs=("m:1",),
+    )
+    join_handler = EvidenceJoinNodeHandler()
+    with pytest.raises(ValueError, match="lag_seconds"):
+        await join_handler(
+            OntologyQueryNode(
+                node_id="j1",
+                kind=QueryNodeKind.EVIDENCE_JOIN,
+                depends_on=("c", "e"),
+                arguments_json=canonical_json(
+                    {"feature_cutoff": NOW.isoformat(), "lag_seconds": [-1]}
+                ),
+                output_kind="causal.join",
+            ),
+            {"c": QueryNodeResult(window), "e": QueryNodeResult(window)},
+        )

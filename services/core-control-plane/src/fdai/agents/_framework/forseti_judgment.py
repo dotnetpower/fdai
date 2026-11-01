@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Any
 
@@ -19,20 +19,23 @@ from fdai.agents._framework.anomaly_action import AnomalyActionPreparer, Anomaly
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.forseti_cost_annotation import cost_annotation_from_event
-from fdai.agents._framework.forseti_decision_helpers import copy_change_assessment, source_freshness
+from fdai.agents._framework.forseti_decision_helpers import (
+    classified_hold,
+    copy_change_assessment,
+    resolve_advised_action,
+    source_freshness,
+)
 from fdai.agents._framework.forseti_no_rule_fold import NO_RULE_FOLD_PREFIX, sweep_no_rule_folds
 from fdai.agents._framework.forseti_rule_bindings import RISK_VERDICT, RULE_MATCH
 from fdai.agents._framework.forseti_safeguards import execution_safeguards
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context import (
-    TestContextDecision,
     TestContextSource,
     evaluate_test_context,
     observation_context_digest,
 )
 from fdai.core.operational_evidence.owner_outcome import (
-    OperationalEvidenceAttempt,
     OperationalEvidenceRequester,
     request_operational_evidence,
 )
@@ -88,6 +91,8 @@ class ForsetiJudgmentMixin:
     _no_rule_folds: BoundedLruDict[str, int]
     _rule_state: BoundedLruDict[str, dict[str, str]]
     _forseti_state_store: StateStore | None
+    _t1_advisor: Callable[[dict[str, Any]], Any] | None = None
+    _t2_advisor: Callable[[dict[str, Any]], Any] | None = None
 
     def record_behavior(self, name: str, amount: int = 1) -> None:
         raise NotImplementedError
@@ -231,6 +236,15 @@ class ForsetiJudgmentMixin:
         action_type = None if candidate_held else event.get("action_type")
         if action_type is None and not candidate_held:
             action_type = self._judgment_table.rule_match.get(str(event.get("event_type", "")))
+        if action_type is None and not candidate_held:
+            action_type, advised_tier = await resolve_advised_action(
+                event,
+                t1_advisor=self._t1_advisor,
+                t2_advisor=self._t2_advisor,
+                record_behavior=self.record_behavior,
+            )
+            if advised_tier is not None and "judgment_tier" not in event:
+                event = {**event, "judgment_tier": advised_tier}
         if action_type is None:
             self.record_behavior("no_rule_match")
             resource_id = event.get("resource_id")
@@ -646,7 +660,7 @@ class ForsetiJudgmentMixin:
                     admission=admission,
                     observation_admission=observation_admission,
                 )
-                result = _classified_hold(result, context_attempt, observation_attempt)
+                result = classified_hold(result, context_attempt, observation_attempt)
                 latest = await self._test_context_source.read(
                     target_ref=target,
                     access_scope_digest=scope,
@@ -777,22 +791,3 @@ __all__ = [
     "RISK_VERDICT",
     "RULE_MATCH",
 ]
-
-
-def _classified_hold(
-    result: TestContextDecision,
-    context_attempt: OperationalEvidenceAttempt,
-    observation_attempt: OperationalEvidenceAttempt,
-) -> TestContextDecision:
-    """Name an explicit rejection class and cite its record; unavailable keeps the generic hold."""
-    attempt = {
-        "context_admission_required": context_attempt,
-        "observation_admission_required": observation_attempt,
-    }.get(result.reason)
-    if attempt is None:
-        return result
-    return replace(
-        result,
-        reason=attempt.hold_reason(result.reason),
-        evidence_rejection_ref=attempt.rejection_digest,
-    )

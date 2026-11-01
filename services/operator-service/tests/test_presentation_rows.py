@@ -101,3 +101,134 @@ def test_an_ungrouped_aggregate_has_no_group_column() -> None:
 
     assert row == {"operation": "count", "value": 25}
     assert ordered_columns(list(row)) == ["operation", "value"]
+
+
+async def test_password_and_api_key_suffixes_are_redacted_and_handle_refs_deduplicate() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    import pytest
+    from fdai_operator_service.families.conversation.result_handles import latest_result_handle_refs
+    from fdai_service_contracts import ResultHandleRef
+
+    row = readable_row(
+        {"name": "vm-1", "admin_password": "secret-password", "service_api_key": "k"}
+    )
+    assert row["admin_password"] == "<redacted>"
+    assert row["service_api_key"] == "<redacted>"
+
+    now = datetime(2026, 9, 27, tzinfo=UTC)
+    ref = ResultHandleRef(
+        handle_ref="OpaqueHandleRef0123456789abcdefABCDEF",
+        key_version="v1",
+        issued_at=now,
+        expires_at=now + timedelta(minutes=15),
+    )
+
+    class _Store:
+        async def latest_result_handle_refs(
+            self, *, principal_id: str, session_id: str, limit: int = 4
+        ) -> tuple[ResultHandleRef, ...]:
+            del principal_id, session_id, limit
+            return (ref, ref)
+
+    assert await latest_result_handle_refs(
+        _Store(), principal_id="p1", session_id="s1", limit=2
+    ) == (ref,)
+    assert await latest_result_handle_refs(_Store(), principal_id="  ", session_id="s1") == ()
+    with pytest.raises(ValueError, match="limit MUST be"):
+        await latest_result_handle_refs(_Store(), principal_id="p1", session_id="s1", limit=0)
+
+
+def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
+    from datetime import UTC, datetime
+
+    import pytest
+    from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
+    from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
+        compile_presentation_artifact_v2,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_v3 import (
+        assemble_presentation_artifact_v3,
+        verify_presentation_artifact_v3,
+    )
+    from fdai_operator_service.families.conversation.semantic_progress_relay import (
+        SemanticProgressRelay,
+    )
+    from fdai_operator_service.families.conversation.subscription_scope_presentation import (
+        subscription_scope_artifact,
+    )
+    from fdai_operator_service.families.conversation.user_context import _moment, _text
+
+    # D49 & D50: compile_presentation_artifact_v2 rejects whitespace-only evidence_refs
+    assert (
+        compile_presentation_artifact_v2(
+            semantic={"evidence_refs": ["   "]},
+            technical_details={
+                "presentation_context": {"operation": "select", "output_shape": "resource_list"},
+                "outputs": [{"rows": []}],
+            },
+            locale="en",
+        )
+        is None
+    )
+
+    # D51: boolean progress_sequence rejected in SemanticProgressRelay
+    relay = SemanticProgressRelay()
+    with pytest.raises(ValueError, match="non-negative integer"):
+        relay.after("req-1", True)  # type: ignore[arg-type]
+
+    # D53: assemble_presentation_artifact_v3 normalizes and validates evidence_refs
+    artifact = assemble_presentation_artifact_v3(
+        layout="operational_brief",
+        blocks=[{"slot_id": "overview", "kind": "summary", "title": "T", "data": {}}],
+        evidence_refs=[" ref-1 ", "ref-1", "   "],
+        locale="en",
+        input_kinds=("verified_semantic_result",),
+    )
+    assert artifact["evidence_refs"] == ["ref-1"]
+    verify_presentation_artifact_v3(artifact)
+    with pytest.raises(ValueError, match="missing"):
+        verify_presentation_artifact_v3({**artifact, "evidence_refs": ["   "]})
+
+    # D58: subscription_scope_artifact rejects non-ISO observed_at
+    assert (
+        subscription_scope_artifact(
+            output={
+                "source_complete": True,
+                "rows": (
+                    {
+                        "values": {
+                            "execution_authority": False,
+                            "display_name": "Sub",
+                            "state": "Enabled",
+                            "masked_subscription_id": "0000...1111",
+                            "observed_at": "not-a-timestamp",
+                            "evidence_digest": "sha256:" + "a" * 64,
+                        }
+                    },
+                ),
+            },
+            evidence_refs=["ref-1"],
+            locale="en",
+            verified=True,
+        )
+        is None
+    )
+
+    # D60: user_context _text rejects whitespace-only and _moment rejects naive datetime
+    with pytest.raises(ConversationBoundaryError):
+        _text({"field": "   "}, "field")
+    with pytest.raises(ConversationBoundaryError):
+        _moment({"ts": datetime(2026, 9, 27)}, "ts")
+    assert _moment({"ts": datetime(2026, 9, 27, tzinfo=UTC)}, "ts").startswith("2026-09-27")
+
+    # E56 & E57: inline_images_present accepts tuple and receipt writer validates DSN
+    from fdai_operator_service.families.conversation.inline_images import inline_images_present
+    from fdai_operator_service.families.conversation.semantic_authentication_receipts import (
+        PostgresAuthenticationReceiptWriter,
+    )
+
+    assert inline_images_present({"images": ()}) is False
+    assert inline_images_present({"images": ("img-1",)}) is True
+    with pytest.raises(ValueError, match="non-empty DSN"):
+        PostgresAuthenticationReceiptWriter(dsn="   ")

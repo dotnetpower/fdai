@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Iterator
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 PACKAGE_PREFIX = "fdai.core.standing_authority"
@@ -28,16 +29,26 @@ class ImportReference:
     reference: str
 
 
-def shipped_modules(source_root: Path, *, include_owning_package: bool = False) -> Iterator[Path]:
-    """Yield shipped modules, by default excluding the standing-authority package."""
-
+@lru_cache(maxsize=16)
+def _cached_shipped_modules(
+    source_root: Path,
+    include_owning_package: bool,
+) -> tuple[Path, ...]:
     owning = source_root.joinpath(*_OWNING_PACKAGE_PARTS)
+    items: list[Path] = []
     for path in sorted(source_root.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
         if not include_owning_package and path.is_relative_to(owning):
             continue
-        yield path
+        items.append(path)
+    return tuple(items)
+
+
+def shipped_modules(source_root: Path, *, include_owning_package: bool = False) -> Iterator[Path]:
+    """Yield shipped modules, by default excluding the standing-authority package."""
+
+    yield from _cached_shipped_modules(source_root, include_owning_package)
 
 
 def module_name(path: Path, source_root: Path) -> str:
@@ -65,15 +76,14 @@ def _resolve_relative(path: Path, source_root: Path, node: ast.ImportFrom) -> st
     return ".".join([*prefix, node.module]) if node.module else ".".join(prefix)
 
 
-def import_references(path: Path, source_root: Path) -> list[ImportReference]:
-    """Resolve every import reference in one shipped module.
+@lru_cache(maxsize=4096)
+def _cached_source_text(path: Path) -> str:
+    return path.read_text(encoding="utf-8")
 
-    Covers ``import a.b``, ``from a.b import c`` (recorded as both ``a.b`` and
-    ``a.b.c`` so a package re-export cannot hide), explicit relative imports, and
-    ``importlib.import_module("...")`` / ``__import__("...")`` string literals.
-    """
 
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+@lru_cache(maxsize=4096)
+def _cached_import_references(path: Path, source_root: Path) -> tuple[ImportReference, ...]:
+    tree = ast.parse(_cached_source_text(path))
     references: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -95,7 +105,18 @@ def import_references(path: Path, source_root: Path) -> list[ImportReference]:
                     for argument in node.args
                     if isinstance(argument, ast.Constant) and isinstance(argument.value, str)
                 )
-    return [ImportReference(path=path, reference=reference) for reference in references]
+    return tuple(ImportReference(path=path, reference=reference) for reference in references)
+
+
+def import_references(path: Path, source_root: Path) -> list[ImportReference]:
+    """Resolve every import reference in one shipped module.
+
+    Covers ``import a.b``, ``from a.b import c`` (recorded as both ``a.b`` and
+    ``a.b.c`` so a package re-export cannot hide), explicit relative imports, and
+    ``importlib.import_module("...")`` / ``__import__("...")`` string literals.
+    """
+
+    return list(_cached_import_references(path, source_root))
 
 
 def find_inertness_violations(
@@ -106,8 +127,12 @@ def find_inertness_violations(
 ) -> list[str]:
     """Return every shipped module that reaches a forbidden module or symbol."""
 
+    needles = ("standing_authority", *(mod.rsplit(".", 1)[-1] for mod in forbidden_modules))
     violations: set[str] = set()
     for path in shipped_modules(source_root):
+        source = _cached_source_text(path)
+        if not any(needle in source for needle in needles):
+            continue
         for item in import_references(path, source_root):
             reference = item.reference
             if reference.startswith(forbidden_modules):

@@ -33,9 +33,15 @@ async def persist_configuration_drift_report(
 ) -> ConfigurationDriftReport:
     """Create one report idempotently and reject payload substitution."""
 
-    if await store.create(campaign_id, run_id, report):
+    if not isinstance(campaign_id, str) or not campaign_id.strip():
+        raise ValueError("campaign_id MUST be non-empty")
+    if not isinstance(run_id, str) or not run_id.strip():
+        raise ValueError("run_id MUST be non-empty")
+    normalized_campaign = campaign_id.strip()
+    normalized_run = run_id.strip()
+    if await store.create(normalized_campaign, normalized_run, report):
         return report
-    existing = await store.get(campaign_id, run_id)
+    existing = await store.get(normalized_campaign, normalized_run)
     if existing == report:
         return existing
     raise ConfigurationDriftReportConflictError(

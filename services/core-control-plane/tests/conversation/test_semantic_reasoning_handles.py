@@ -590,3 +590,12 @@ async def test_a_reference_named_as_its_own_relation_anchor_starts_the_read(
     assert "prov_operand_without_source:g1-side-1:id" in _verify(
         admission, narrowed_to_itself, references, anchors
     )
+
+
+def test_handle_and_scope_reject_whitespace_only_fields() -> None:
+    with pytest.raises(ValueError, match="result handle"):
+        _handle(purpose="   ")
+    with pytest.raises(ValueError, match="non-empty identifiers"):
+        _handle(rows=("   ",))
+    with pytest.raises(ValueError, match="handle scope"):
+        HandleScope("   ", "p", PURPOSE, "m", NOW)

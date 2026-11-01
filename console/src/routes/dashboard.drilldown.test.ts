@@ -41,7 +41,8 @@ describe("Dashboard drill-down contract", () => {
     const dashboard = source("./dashboard.tsx");
 
     expect(dashboard).toContain('class="cs-control-button overview-resource-dashboard-link"');
-    expect(dashboard).toContain('href={routeHref("dashboard-v2")}');
+    expect(dashboard).toContain('href={resourceDashboardHref(dataMode)}');
+    expect(dashboard).toContain('routeHref("dashboard-v2"');
     expect(dashboard).toContain("<ResourceDashboardIcon />");
   });
 

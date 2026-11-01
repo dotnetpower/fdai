@@ -84,20 +84,21 @@ def model_call_started(label: str | None, model: str | None) -> ModelCallHandle 
     """Report the start of one reviewed-stage call, or return ``None`` when nothing observes it."""
 
     binding = _BINDING.get()
-    stage = CALL_STAGES.get(label or "")
+    stage = CALL_STAGES.get((label or "").strip())
     if binding is None or stage is None:
         return None
+    cleaned_model = model.strip() if isinstance(model, str) and model.strip() else None
     with binding.lock:
         if binding.calls >= MAX_REPORTED_MODEL_CALLS:
             return None
         binding.calls += 1
         call_index = binding.calls
     handle = ModelCallHandle(
-        binding, call_index, stage.value, model, datetime.now(UTC), time.monotonic()
+        binding, call_index, stage.value, cleaned_model, datetime.now(UTC), time.monotonic()
     )
     _report(
         binding,
-        ModelCallProgress(call_index, handle.stage, "running", model, handle.started_at),
+        ModelCallProgress(call_index, handle.stage, "running", cleaned_model, handle.started_at),
     )
     return handle
 

@@ -276,7 +276,7 @@ def attribute_structural_failure(
         and by_stage[stage].outcome in {StageOutcome.FAILED, StageOutcome.UNAVAILABLE}
     )
     root_stage = contributing[0] if contributing else None
-    normalized_rubrics = tuple(sorted(set(failed_rubrics)))
+    normalized_rubrics = tuple(sorted({item.strip() for item in failed_rubrics if item.strip()}))
     reason_codes = tuple(by_stage[stage].reason_code for stage in contributing)
     evidence_refs = tuple(
         dict.fromkeys(

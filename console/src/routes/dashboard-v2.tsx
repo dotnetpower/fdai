@@ -6,7 +6,12 @@ import { RecordedStateFacts } from "../components/recorded-state-facts";
 import { recordedStateValueText } from "../components/recorded-state-text";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { currentRoute, routeHref } from "../router";
+import {
+  currentRoute,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { DashboardResourceMap } from "./dashboard-v2-map";
 import {
   dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateAxis, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeKeywords, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
@@ -104,14 +109,14 @@ export default function DashboardV2Route({ client }: { readonly client: Operator
   }, [client, revision]);
   return <div class="stack dashboard-v2-page">
     <PageHeader title={t("title")} subtitle={t("subtitle")} actions={<>
-      <a class="cs-control-button" href={routeHref("dashboard")}>{t("original")}</a>
+      <a class="cs-control-button" href={dashboardOriginalHref()}>{t("original")}</a>
       <button type="button" class="cs-control-button" onClick={() => setRevision((value) => value + 1)} disabled={state.status === "loading" || refreshInFlight}>{t("refresh")}</button>
     </>} />
     {refreshInFlight && !refreshDelayed && <p class="dv2-notice" role="status">{t("refreshing")}</p>}
     {refreshDelayed && visibleState.status === "ready" && <p class="dv2-notice" role="status">{t("refreshDelayed")}</p>}
     {(recoveryState === "exhausted" || recoveryState === "deployment-required") && <p class="dv2-notice" role="status">
       {visibleState.status === "ready" && t(recoveryState === "deployment-required" ? "releaseMismatch" : "recoveryExhausted")}
-      {" "}<a href="/settings/diagnostics">{t("diagnostics")}</a>
+      {" "}<a href={routeHref("settings-diagnostics")}>{t("diagnostics")}</a>
     </p>}
     {visibleState.status !== "ready" && <DashboardPendingContext status={recoveryState ?? visibleState.status} />}
     {visibleState.status === "loading" && recoveryState === "synchronizing" && <p class="dv2-notice">{t("synchronizingDetail")}</p>}
@@ -149,8 +154,41 @@ function StateBadge({ value, text }: { readonly value: DashboardState; readonly 
   return <span class="dv2-state" data-tone={style.tone}>{style.symbol} {text ?? stateText(value)}</span>;
 }
 
+export function dashboardOriginalHref(search: URLSearchParams = currentRoute().search): string {
+  return routeHref("dashboard", {
+    params: { data: search.get("data") === "sample" ? "sample" : null },
+  });
+}
+
+export function dashboardResourceHref(
+  resource?: DashboardResource,
+  search: URLSearchParams = currentRoute().search,
+): string {
+  return routeHref("ontology", {
+    params: {
+      view: "instances",
+      instance: resource?.id,
+      data: search.get("data") === "sample" ? "sample" : null,
+    },
+  });
+}
+
 function resourceHref(resource?: DashboardResource): string {
-  return routeHref("ontology", { params: { view: "instances", instance: resource?.id } });
+  return dashboardResourceHref(resource);
+}
+
+export function dashboardSummaryHref(
+  status: string,
+  targetLens: DashboardLens,
+  search: URLSearchParams = currentRoute().search,
+): string {
+  return routeHref("dashboard-v2", {
+    params: {
+      data: search.get("data") === "sample" ? "sample" : null,
+      state: status || null,
+      lens: targetLens === "operation" ? null : targetLens,
+    },
+  });
 }
 
 function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
@@ -167,6 +205,25 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const sync = () => {
+      const search = currentRoute().search;
+      setFilters((current) => ({
+        ...current,
+        status: dashboardStatusFilter(search.get("state")),
+      }));
+      setLens(dashboardLens(search.get("lens"), hasServing));
+      setPage(0);
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, [hasServing]);
   useEffect(() => {
     if (!hasServing && lens === "serving") {
       setLens("resource");
@@ -306,17 +363,23 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
           ["notApplicable", operations.get("not-applicable") ?? 0, "not-applicable", "operation"],
           ["provisioningRecorded", provisioningRecorded, "known", "provisioning"],
         ] as const).map(([label, value, status, targetLens]) => {
-          return <a href={routeHref("dashboard-v2", { params: { state: status, lens: targetLens === "operation" ? null : targetLens } })} key={label} onClick={(event) => {
+          const href = dashboardSummaryHref(status, targetLens);
+          return <a href={href} key={label} onClick={(event) => {
             if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
+            replaceRouteState(href);
             setFilters({ ...EMPTY_DASHBOARD_FILTERS, status }); setLens(targetLens); setView("list"); setPage(0);
           }}><strong>{number(value)}</strong><span>{t(label)}</span></a>;
         })}
-        {hasServing && <a href={routeHref("dashboard-v2", { params: { state: "serving", lens: "serving" } })} onClick={(event) => {
-          if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          setFilters({ ...EMPTY_DASHBOARD_FILTERS, status: "serving" }); setLens("serving"); setView("list"); setPage(0);
-        }}><strong>{number(servingRecorded)}</strong><span>{t("servingRecorded")}</span></a>}
+        {hasServing && (() => {
+          const servingHref = dashboardSummaryHref("serving", "serving");
+          return <a href={servingHref} onClick={(event) => {
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            replaceRouteState(servingHref);
+            setFilters({ ...EMPTY_DASHBOARD_FILTERS, status: "serving" }); setLens("serving"); setView("list"); setPage(0);
+          }}><strong>{number(servingRecorded)}</strong><span>{t("servingRecorded")}</span></a>;
+        })()}
       </div>
     </section>
     <div class="dv2-workspace">

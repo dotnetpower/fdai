@@ -37,9 +37,19 @@ class DiagnosticNormalizerOptions:
             raise ValueError("metric_whitelist MUST be unique and ordered")
         if len(self.metric_whitelist) != len(set(self.metric_whitelist)):
             raise ValueError("metric_whitelist MUST be unique and ordered")
-        if any(not item.strip() or len(item) > _MAX_TEXT for item in self.metric_whitelist):
+        if any(
+            not isinstance(item, str)
+            or not item.strip()
+            or item != item.strip()
+            or len(item) > _MAX_TEXT
+            for item in self.metric_whitelist
+        ):
             raise ValueError("metric_whitelist contains an invalid metric name")
-        if not 1 <= self.max_records <= _MAX_DIAGNOSTIC_RECORDS:
+        if (
+            isinstance(self.max_records, bool)
+            or not isinstance(self.max_records, int)
+            or not 1 <= self.max_records <= _MAX_DIAGNOSTIC_RECORDS
+        ):
             raise ValueError(f"max_records MUST be in [1, {_MAX_DIAGNOSTIC_RECORDS}]")
 
 
@@ -51,16 +61,20 @@ def normalize_diagnostic_records(
 ) -> tuple[Event, ...]:
     """Normalize whitelisted AllMetrics records and skip all other categories."""
 
+    if not isinstance(payload, Mapping):
+        raise AzureMonitorNormalizationError("diagnostic payload MUST be an object")
     records = payload.get("records")
-    if not isinstance(records, list):
+    if not isinstance(records, (list, tuple)):
         raise AzureMonitorNormalizationError("diagnostic payload records MUST be an array")
     if len(records) > options.max_records:
         raise AzureMonitorNormalizationError("diagnostic payload exceeds the record bound")
     if ingested_at.tzinfo is None or ingested_at.utcoffset() is None:
         raise AzureMonitorNormalizationError("ingested_at MUST be timezone-aware")
+    ingested_utc = ingested_at.astimezone(UTC)
 
     allowed = frozenset(options.metric_whitelist)
     events: list[Event] = []
+    seen_event_ids: set[UUID] = set()
     for raw in records:
         record = _mapping(raw, field="records[]")
         if record.get("category") != "AllMetrics":
@@ -69,7 +83,7 @@ def normalize_diagnostic_records(
         if metric_name not in allowed:
             continue
         detected_at = _timestamp(record, "time").astimezone(UTC)
-        if detected_at > ingested_at:
+        if detected_at > ingested_utc:
             raise AzureMonitorNormalizationError("diagnostic record time MUST NOT be in the future")
         provider_ref = _text(record, "resourceId")
         resource_ref = to_neutral_id(provider_ref)
@@ -78,10 +92,14 @@ def normalize_diagnostic_records(
             f"diagnostic-metric|{resource_ref}|{metric_name}|"
             f"{detected_at.isoformat()}|{_digest(repr(sorted(values.items())))}"
         )
+        event_id = uuid5(_EVENT_NAMESPACE, identity)
+        if event_id in seen_event_ids:
+            continue
+        seen_event_ids.add(event_id)
         events.append(
             Event(
                 schema_version="1.0.0",
-                event_id=uuid5(_EVENT_NAMESPACE, identity),
+                event_id=event_id,
                 idempotency_key=f"azure-diagnostic:{_digest(identity)}",
                 correlation_id=None,
                 source="azure_diagnostic_metrics",
@@ -89,7 +107,7 @@ def normalize_diagnostic_records(
                 resource_ref=resource_ref,
                 payload={"metric_name": metric_name, **values},
                 detected_at=detected_at,
-                ingested_at=ingested_at,
+                ingested_at=ingested_utc,
                 incident_correlation=IncidentCorrelation.NONE,
                 mode=Mode.SHADOW,
             )

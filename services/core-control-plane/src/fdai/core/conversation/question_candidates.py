@@ -82,7 +82,7 @@ class QuestionModelUsage:
 
     def __post_init__(self) -> None:
         if any(
-            value < 0
+            isinstance(value, bool) or value < 0
             for value in (
                 self.model_calls,
                 self.prompt_tokens,
@@ -223,7 +223,7 @@ async def validate_question_candidate(
     """
 
     _require_digest("generation profile digest", generation_profile_digest)
-    if not generator_family:
+    if not generator_family.strip():
         raise ValueError("question generator family MUST be non-empty")
     if len(prior_questions) > _MAX_PRIOR_QUESTIONS:
         raise ValueError("prior question corpus exceeds its bound")

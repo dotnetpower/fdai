@@ -96,6 +96,15 @@ describe("promotion gate drilldown filters", () => {
     expect(() => decodePromotionGates(response({
       capability_recall: { ...recall, active: false },
     }))).toThrow(/recall.*state/i);
+    expect(() => decodePromotionGates(response({
+      capability_recall: { ...recall, action_type: "other-action" },
+    }))).toThrow(/capability_recall\.action_type MUST match/);
+    expect(() => decodePromotionGates({
+      window_days: 7,
+      ready_count: 0,
+      blocked_count: 2,
+      rows: [rows[1], rows[1]],
+    })).toThrow(/action_type_name MUST be unique/);
   });
 
   it("rejects summary counts that contradict the returned rows", () => {

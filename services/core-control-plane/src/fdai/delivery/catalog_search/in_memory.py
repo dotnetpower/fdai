@@ -149,7 +149,7 @@ class InMemoryCatalogSemanticIndex:
         activated_at: datetime,
         expected_validation_receipt_digest: str | None = None,
     ) -> CatalogGenerationMetadata:
-        if activated_at.tzinfo is None:
+        if activated_at.tzinfo is None or activated_at.utcoffset() is None:
             raise ValueError("semantic generation activation time MUST be timezone-aware")
         if (expected_active_generation_id is None) != (expected_active_generation_digest is None):
             raise ValueError("expected active generation identity MUST be supplied together")
@@ -219,7 +219,7 @@ class InMemoryCatalogSemanticIndex:
         ontology_compatibility_receipt: OntologyGenerationCompatibilityReceipt,
         rolled_back_at: datetime,
     ) -> CatalogGenerationRollbackReceipt:
-        if rolled_back_at.tzinfo is None:
+        if rolled_back_at.tzinfo is None or rolled_back_at.utcoffset() is None:
             raise ValueError("semantic generation rollback time MUST be timezone-aware")
         async with self._lock:
             try:
@@ -288,7 +288,7 @@ class InMemoryCatalogSemanticIndex:
         expected_catalog_digest: str | None = None,
         candidate_rule_ids: frozenset[str] | None = None,
     ) -> Sequence[CatalogSearchResult]:
-        if not 1 <= k <= 100 or not query.strip():
+        if isinstance(k, bool) or not 1 <= k <= 100 or not query.strip():
             return ()
         generation = await self.active_generation(corpus)
         documents = tuple(self._documents.values())

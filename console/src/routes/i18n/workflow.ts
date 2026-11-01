@@ -1,4 +1,5 @@
 import { getLocale, t as mainT } from "../../i18n";
+import { formatConsoleTimestamp } from "../../time-format";
 import en from "./workflow.en.json";
 import ko from "./workflow.ko.json";
 
@@ -70,15 +71,16 @@ export function formatNumber(value: number): string {
 }
 
 export function formatDateTime(value: string | number | Date): string {
-  return new Date(value).toLocaleString(localeTag());
+  if (typeof value === "string") return formatConsoleTimestamp(value);
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : formatConsoleTimestamp(parsed.toISOString());
 }
 
 export function formatDateTimeValue(value: unknown): string {
   if (typeof value !== "string" && typeof value !== "number" && !(value instanceof Date)) {
     return value === null || value === undefined ? "-" : String(value);
   }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(localeTag());
+  return formatDateTime(value);
 }
 
 export function formatCurrency(value: number, currency: string): string {

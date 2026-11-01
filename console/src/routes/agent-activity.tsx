@@ -370,15 +370,18 @@ function ActivityBody({
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
   const openActivity = (agent: string | null, nextView: ActivityView): void => {
     navigate(routeHref("agent-activity", {
       params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
         agent,
         view: nextView === "activity" ? "activity" : null,
         ...activityRouteFilterParams(filters, false),
@@ -389,6 +392,7 @@ function ActivityBody({
     const route = currentRoute().search;
     const href = routeHref("agent-activity", {
       params: {
+        data: route.get("data") === "sample" ? "sample" : null,
         agent: selected,
         view: view === "activity" ? "activity" : null,
         trajectory: view === "trajectory" ? route.get("trajectory") : null,
@@ -586,17 +590,18 @@ function ActivityBody({
   );
 }
 
-function roleOverlayHref(open: boolean, roleAgent: string | null): string {
-  const url = new URL(window.location.href);
+export function roleOverlayHref(open: boolean, roleAgent: string | null, route = currentRoute()): string {
+  const params = new URLSearchParams(route.search);
   if (open) {
-    url.searchParams.set("roles", "1");
-    if (roleAgent) url.searchParams.set("roleAgent", roleAgent);
-    else url.searchParams.set("roleAgent", "");
+    params.set("roles", "1");
+    if (roleAgent) params.set("roleAgent", roleAgent);
+    else params.set("roleAgent", "");
   } else {
-    url.searchParams.delete("roles");
-    url.searchParams.delete("roleAgent");
+    params.delete("roles");
+    params.delete("roleAgent");
   }
-  return `${url.pathname}${url.search}`;
+  const query = params.toString();
+  return query ? `${route.canonicalPathname}?${query}` : route.canonicalPathname;
 }
 
 function AgentOrganizationRouteOverlay({

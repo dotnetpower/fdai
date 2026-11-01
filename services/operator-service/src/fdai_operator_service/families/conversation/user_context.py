@@ -229,7 +229,7 @@ def _continuation(row: Mapping[str, Any]) -> dict[str, JsonValue]:
 
 def _text(row: Mapping[str, Any], field: str) -> str:
     value = row.get(field)
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise _malformed(field)
     return value
 
@@ -259,7 +259,7 @@ def _count(row: Mapping[str, Any], field: str) -> int:
 
 def _moment(row: Mapping[str, Any], field: str) -> str:
     value = row.get(field)
-    if not isinstance(value, datetime):
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise _malformed(field)
     return value.astimezone(UTC).isoformat()
 
@@ -319,7 +319,7 @@ def _optional_text(query: Mapping[str, JsonValue], key: str) -> str | None:
 
 def _timestamp(value: str) -> datetime:
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError as exc:
         raise _invalid("before_last_active MUST be an ISO-8601 timestamp") from exc
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)

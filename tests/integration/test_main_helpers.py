@@ -558,6 +558,7 @@ def test_build_publisher_honors_env_defaults(monkeypatch: pytest.MonkeyPatch) ->
 
 def _clear_pattern_library_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in (
+        "FDAI_STATE_STORE_DSN",
         "FDAI_T1_PATTERN_LIBRARY_DSN",
         "FDAI_T1_PATTERN_LIBRARY_STATEMENT_TIMEOUT_MS",
         "FDAI_T1_PATTERN_LIBRARY_IVFFLAT_PROBES",
@@ -573,6 +574,20 @@ def test_build_pattern_library_defaults_to_in_memory(
 
     library = _build_pattern_library()
     assert isinstance(library, InMemoryPatternLibrary)
+
+
+def test_build_pattern_library_falls_back_to_state_store_dsn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_pattern_library_env(monkeypatch)
+    monkeypatch.setenv(
+        "FDAI_STATE_STORE_DSN",
+        "******example:5432/db",
+    )
+    from fdai.delivery.persistence import PgVectorPatternLibrary
+
+    library = _build_pattern_library()
+    assert isinstance(library, PgVectorPatternLibrary)
 
 
 def test_build_pattern_library_selects_pgvector_when_dsn_set(

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { decodeAutomationBlueprints } from "./automation-blueprints";
+import { getLocale, setLocale } from "../i18n";
+import {
+  automationBlueprintColumns,
+  decodeAutomationBlueprints,
+} from "./automation-blueprints";
 
 function payload() {
   return {
@@ -58,5 +62,27 @@ describe("automation blueprint cards", () => {
     const invalid = payload();
     invalid.candidates[0]!.confidence = 2;
     expect(() => decodeAutomationBlueprints(invalid)).toThrow(/MUST be <= 1/);
+  });
+
+  test("rejects duplicate candidate ids and localizes column headers dynamically", () => {
+    const duplicate = payload();
+    expect(() => decodeAutomationBlueprints({
+      ...duplicate,
+      count: 2,
+      candidates: [duplicate.candidates[0]!, duplicate.candidates[0]!],
+    })).toThrow(/candidate_id MUST be unique/);
+
+    const previous = getLocale();
+    try {
+      setLocale("en");
+      const enHeader = automationBlueprintColumns()[0]?.header;
+      setLocale("ko");
+      const koHeader = automationBlueprintColumns()[0]?.header;
+      expect(enHeader).toBeTruthy();
+      expect(koHeader).toBeTruthy();
+      expect(koHeader).not.toBe(enHeader);
+    } finally {
+      setLocale(previous);
+    }
   });
 });

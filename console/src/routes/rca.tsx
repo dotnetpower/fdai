@@ -8,7 +8,7 @@ import {
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { navigate, routeHref } from "../router";
+import { currentRoute, navigate, ROUTE_STATE_EVENT, routeHref } from "../router";
 import type { RcaView } from "../types";
 import { rcaText } from "./rca.i18n";
 import { RcaBody } from "./rca.presentation";
@@ -25,18 +25,36 @@ interface Props {
   readonly client: OperatorApiClient;
 }
 
-/** Read the ``?correlation=`` value used by incident and evidence deep links. */
-function correlationFromLocation(): string {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("correlation")?.trim() ?? "";
+export const MAX_RCA_CORRELATION_ID_LENGTH = 256;
+
+export function normalizeRcaCorrelationId(value: string | null | undefined): string {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed || trimmed.length > MAX_RCA_CORRELATION_ID_LENGTH || /[\r\n\0]/.test(trimmed)) {
+    return "";
+  }
+  return trimmed;
 }
 
-export function rcaCorrelationHref(correlationId: string): string {
-  return routeHref("rca", { params: { correlation: correlationId.trim() } });
+/** Read the ``?correlation=`` value used by incident and evidence deep links. */
+function correlationFromLocation(): string {
+  return normalizeRcaCorrelationId(currentRoute().search.get("correlation"));
+}
+
+export function rcaCorrelationHref(
+  correlationId: string,
+  search?: URLSearchParams,
+): string {
+  const normalized = normalizeRcaCorrelationId(correlationId);
+  return routeHref("rca", {
+    params: {
+      correlation: normalized || null,
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
+  });
 }
 
 export function RcaRoute({ client }: Props) {
-  const [selectedCorrelationId] = useState(
+  const [selectedCorrelationId, setSelectedCorrelationId] = useState(
     () => correlationFromLocation(),
   );
   const [draftCorrelationId, setDraftCorrelationId] = useState(
@@ -68,15 +86,33 @@ export function RcaRoute({ client }: Props) {
   }
 
   useEffect(() => {
+    const sync = () => {
+      const next = correlationFromLocation();
+      setSelectedCorrelationId(next);
+      setDraftCorrelationId(next);
+      setLookupOpen(!next);
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
     if (consumeLookupFocusState()) {
       setLookupFocusRequest((current) => current + 1);
     }
     if (selectedCorrelationId) void fetchRca(selectedCorrelationId);
+    else setState({ status: "idle" });
     return () => {
       requestGeneration.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [client, selectedCorrelationId]);
 
   useEffect(() => {
     if (lookupFocusRequest > 0) lookupToggle.current?.focus();
@@ -140,7 +176,11 @@ export function RcaRoute({ client }: Props) {
                 setLookupFocusRequest((current) => current + 1);
                 void fetchRca(selectedCorrelationId);
               } else {
-                navigate(rcaCorrelationHref(normalized), false, { fdaiRcaLookupFocus: true });
+                navigate(
+                  rcaCorrelationHref(normalized, currentRoute().search),
+                  false,
+                  { fdaiRcaLookupFocus: true },
+                );
               }
             }
           }}
@@ -150,6 +190,7 @@ export function RcaRoute({ client }: Props) {
             <input
               ref={lookupInput}
               type="text"
+              maxLength={MAX_RCA_CORRELATION_ID_LENGTH}
               value={draftCorrelationId}
               aria-describedby="rca-lookup-help"
               onInput={(event) => setDraftCorrelationId(
@@ -162,10 +203,10 @@ export function RcaRoute({ client }: Props) {
             type="submit"
             class="btn primary"
             disabled={
-              !draftCorrelationId.trim()
+              !normalizeRcaCorrelationId(draftCorrelationId)
               || (
                 state.status === "loading"
-                && draftCorrelationId.trim() === loadedCorrelation.trim()
+                && normalizeRcaCorrelationId(draftCorrelationId) === loadedCorrelation.trim()
               )
             }
           >
@@ -250,10 +291,12 @@ function consumeLookupFocusState(): boolean {
   }
   const nextState = { ...state };
   delete nextState.fdaiRcaLookupFocus;
+  const route = currentRoute();
+  const query = route.search.toString();
   window.history.replaceState(
     nextState,
     "",
-    `${window.location.pathname}${window.location.search}${window.location.hash}`,
+    `${route.canonicalPathname}${query ? `?${query}` : ""}${window.location.hash}`,
   );
   return true;
 }

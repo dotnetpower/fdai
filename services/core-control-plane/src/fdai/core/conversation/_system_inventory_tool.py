@@ -122,10 +122,12 @@ def _record_in_resource_group(
     target = resource_group.strip().lower()
     if not target:
         return True
-    for key in ("resourceGroup", "resource_group", "resourcegroup"):
+    for key in ("resourceGroup", "resource_group", "resourcegroup", "parent_id"):
         value = properties.get(key)
-        if isinstance(value, str) and value.strip().lower() == target:
-            return True
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized == target or normalized.endswith(f"/{target}"):
+                return True
     lowered = record_id.lower()
     for marker in ("resource-group/", "resourcegroups/"):
         index = lowered.find(marker)

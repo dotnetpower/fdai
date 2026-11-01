@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -58,13 +59,30 @@ class AzureServiceHealthConfig:
             raise ValueError("subscription_id MUST be a canonical UUID")
         if not self.endpoint.startswith("https://"):
             raise ValueError("Service Health endpoint MUST use https")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not isinstance(self.timeout_seconds, (int, float))
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("Service Health timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.max_events <= 64:
+        if (
+            isinstance(self.max_events, bool)
+            or not isinstance(self.max_events, int)
+            or not 1 <= self.max_events <= 64
+        ):
             raise ValueError("Service Health max_events MUST be in [1, 64]")
-        if not 1 <= self.max_impacts <= 256:
+        if (
+            isinstance(self.max_impacts, bool)
+            or not isinstance(self.max_impacts, int)
+            or not 1 <= self.max_impacts <= 256
+        ):
             raise ValueError("Service Health max_impacts MUST be in [1, 256]")
-        if not 1_024 <= self.max_response_bytes <= 5_000_000:
+        if (
+            isinstance(self.max_response_bytes, bool)
+            or not isinstance(self.max_response_bytes, int)
+            or not 1_024 <= self.max_response_bytes <= 5_000_000
+        ):
             raise ValueError("Service Health max_response_bytes MUST be in [1024, 5000000]")
 
 
@@ -114,8 +132,9 @@ class AzureServiceHealthReader:
         """Return active events or a typed unavailable or incomplete collection."""
 
         observed_at = self._now()
-        if observed_at.tzinfo is None:
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
             raise ValueError("Service Health reader clock MUST be timezone-aware")
+        observed_at = observed_at.astimezone(UTC)
         try:
             raw_events = await self._query(
                 query=_active_events_query(self._config.max_events),
@@ -131,12 +150,14 @@ class AzureServiceHealthReader:
             )
 
         events: list[_Event] = []
+        seen_event_refs: set[str] = set()
         malformed = False
         for row in raw_events[: self._config.max_events]:
             event, scheduled_future = _event(row, observed_at=observed_at)
             if event is None:
                 malformed = malformed or not scheduled_future
-            else:
+            elif event.evidence_ref not in seen_event_refs:
+                seen_event_refs.add(event.evidence_ref)
                 events.append(event)
         event_limited = len(raw_events) > self._config.max_events
         if not events:

@@ -53,6 +53,9 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 AUDIT_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 @pytest.fixture
 async def saga_database() -> AsyncIterator[str]:
     dsn = _plain_dsn(_requires_live_db())
@@ -584,6 +587,9 @@ def _requires_live_db() -> str:
 
 
 def _upgrade_head() -> None:
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     result = subprocess.run(  # noqa: S603 - controlled subprocess
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=REPO_ROOT,
@@ -594,6 +600,8 @@ def _upgrade_head() -> None:
     assert result.returncode == 0, (
         f"alembic upgrade head failed:\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 def _plain_dsn(url: str) -> str:

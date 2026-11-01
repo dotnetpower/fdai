@@ -1,6 +1,6 @@
 import type { AuditItem, IncidentOutcomeCohort, IncidentOutcomeMetrics, IncidentSummary } from "../types";
 import { StatusPill, type PillKind } from "../components/ui";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import { incidentMilestones, type IncidentMilestoneStatus } from "./incidents.milestones";
@@ -65,7 +65,12 @@ export function IncidentOutcomeAnalytics({ metrics }: { readonly metrics: Incide
               </summary>
               {metrics.drilldown[cohort].length > 0 ? (
                 <ul>{metrics.drilldown[cohort].map((correlation) => (
-                  <li key={correlation}><a href={routeHref("incidents", { params: { correlation } })}>{correlation}</a></li>
+                  <li key={correlation}><a href={routeHref("incidents", {
+                    params: {
+                      data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                      correlation,
+                    },
+                  })}>{correlation}</a></li>
                 ))}</ul>
               ) : <p>{t("incidents.analytics.noDrilldown")}</p>}
               {metrics.drilldown_truncated[cohort] ? (

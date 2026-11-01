@@ -152,7 +152,7 @@ class AuthorizedGovernedDocumentReader:
         minimum_score: float = 0.01,
         cloud_reference: CloudReferenceReader | None = None,
     ) -> None:
-        if not math.isfinite(minimum_score) or minimum_score < 0:
+        if isinstance(minimum_score, bool) or not math.isfinite(minimum_score) or minimum_score < 0:
             raise ValueError("governed document minimum score MUST be finite and non-negative")
         self._search = search
         self._metadata = metadata
@@ -184,7 +184,7 @@ class AuthorizedGovernedDocumentReader:
             raise ValueError("governed document query MUST be bounded and non-empty")
         if not principal_ref.strip() or len(principal_ref) > 256:
             raise ValueError("governed document principal MUST be bounded and non-empty")
-        if not 1 <= limit <= GOVERNED_DOCUMENT_MAX_EXCERPTS:
+        if isinstance(limit, bool) or not 1 <= limit <= GOVERNED_DOCUMENT_MAX_EXCERPTS:
             raise ValueError("governed document limit is invalid")
         if bool(exact_refs) != (
             context_source in {"channel_attachment", "web_reference"}
@@ -282,6 +282,12 @@ class AuthorizedGovernedDocumentReader:
             if exact_identities and identity not in exact_identities:
                 raise RuntimeError("exact governed document search widened its identity set")
             _validate_source_ref(hit, identity)
+            if (
+                not isinstance(hit.chunk_id, str)
+                or not hit.chunk_id.strip()
+                or len(hit.chunk_id) > 256
+            ):
+                raise RuntimeError("governed document search result chunk_id is invalid")
             chunk_key = (identity[0], identity[1], hit.chunk_id)
             if chunk_key in seen_chunks:
                 raise RuntimeError("governed document search returned a duplicate chunk")
@@ -345,8 +351,14 @@ class AuthorizedGovernedDocumentReader:
                 )
                 if cloud_status == Freshness.UNKNOWN.value:
                     continue
-            if hit.score < self._minimum_score:
+            if not math.isfinite(hit.score) or hit.score < self._minimum_score:
                 continue
+            if (
+                not isinstance(hit.text, str)
+                or not hit.text.strip()
+                or len(hit.text.encode("utf-8")) > 8_192
+            ):
+                raise RuntimeError("governed document search result text is invalid")
             locator = hit.metadata.get("locator")
             if not isinstance(locator, str) or not locator.strip() or len(locator) > 512:
                 raise RuntimeError("governed document search result locator is invalid")
@@ -460,7 +472,7 @@ def _validate_source_ref(hit: KnowledgeChunk, identity: tuple[UUID, UUID]) -> No
     if (
         not hit.source_ref.startswith(expected_prefix)
         or len(hit.source_ref) > 512
-        or not hit.source_ref.removeprefix(expected_prefix)
+        or not hit.source_ref.removeprefix(expected_prefix).strip()
     ):
         raise RuntimeError("governed document source reference is invalid")
 

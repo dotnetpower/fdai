@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import replace
 from typing import Any, Protocol, cast
 
@@ -57,11 +57,16 @@ async def latest_result_handle_refs(
 ) -> tuple[ResultHandleRef, ...]:
     """Return newest opaque result-handle refs from a semantic store when available."""
 
+    if isinstance(limit, bool) or not 1 <= limit <= 4:
+        raise ValueError("result handle ref limit MUST be in [1, 4]")
+    if not principal_id.strip() or not session_id.strip():
+        return ()
     if hasattr(store, "latest_result_handle_refs"):
         reader = cast(ResultHandleRefReader, store)
-        return await reader.latest_result_handle_refs(
+        refs = await reader.latest_result_handle_refs(
             principal_id=principal_id, session_id=session_id, limit=limit
         )
+        return _deduplicate_handle_refs(refs, limit=limit)
     repository = getattr(store, "_semantic_turn_store", None)
     fetch_all = getattr(repository, "_fetch_all", None)
     outbox_prefix = getattr(repository, "_outbox_prefix", None)
@@ -161,11 +166,21 @@ async def _latest_postgres_refs(
             "limit": limit,
         },
     )
-    return tuple(
+    parsed = tuple(
         ResultHandleRef.model_validate(dict(cast(Mapping[str, object], row["result_handle_ref"])))
         for row in rows
         if isinstance(row.get("result_handle_ref"), Mapping)
     )
+    return _deduplicate_handle_refs(parsed, limit=limit)
+
+
+def _deduplicate_handle_refs(
+    refs: Iterable[ResultHandleRef], *, limit: int
+) -> tuple[ResultHandleRef, ...]:
+    unique: dict[str, ResultHandleRef] = {}
+    for ref in refs:
+        unique.setdefault(ref.handle_ref, ref)
+    return tuple(unique.values())[:limit]
 
 
 __all__ = ["build_envelope_with_result_handles", "latest_result_handle_refs"]

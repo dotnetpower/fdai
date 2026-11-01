@@ -43,7 +43,13 @@ def _dsn() -> str:
     return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
+_UPGRADED_DSNS: set[str] = set()
+
+
 def _upgrade() -> None:
+    url = os.environ.get("FDAI_DATABASE_URL", "")
+    if url in _UPGRADED_DSNS:
+        return
     result = subprocess.run(  # noqa: S603 - controlled module invocation
         [sys.executable, "-m", "alembic", "upgrade", "head"],
         cwd=_REPO_ROOT,
@@ -52,6 +58,8 @@ def _upgrade() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+    if url:
+        _UPGRADED_DSNS.add(url)
 
 
 def _stored(*, suffix: str = "", expires_at: datetime | None = None) -> StoredBrowserEvidence:

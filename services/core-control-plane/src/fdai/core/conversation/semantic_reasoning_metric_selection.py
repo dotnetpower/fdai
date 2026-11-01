@@ -55,6 +55,17 @@ class MetricStage:
     # The reviewed recipe a qualitative word was read through, stated in the answer.
     recipe_requirement: str | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.concept.strip()
+            or self.window_kind not in WINDOW_LIMITATIONS
+            or isinstance(self.seconds, bool)
+            or self.seconds <= 0
+        ):
+            raise ValueError(
+                "metric stage requires a valid concept, window_kind, and positive seconds"
+            )
+
     def node(self, node_id: str, source_id: str) -> OntologyQueryNode:
         return OntologyQueryNode(
             node_id=node_id,

@@ -83,7 +83,7 @@ def _single_output_rows(
     if len(outputs) != 1:
         return ()
     raw_rows = outputs[0].get("rows")
-    if not isinstance(raw_rows, list) or not raw_rows:
+    if not isinstance(raw_rows, (list, tuple)) or not raw_rows:
         return ()
     rows: list[Mapping[str, object]] = []
     for raw_row in raw_rows:
@@ -178,7 +178,9 @@ def _parts_form_one_whole(rows: Sequence[Mapping[str, object]], fields: set[str]
 
 def _one_string_value(rows: Sequence[Mapping[str, object]], field: str) -> bool:
     values = {row.get(field) for row in rows}
-    return len(values) == 1 and all(isinstance(value, str) and value for value in values)
+    return len(values) == 1 and all(
+        isinstance(value, str) and bool(value.strip()) for value in values
+    )
 
 
 def _numeric_value(value: object) -> float:

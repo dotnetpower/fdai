@@ -36,7 +36,9 @@ class SemanticGenerationBuild:
     def __post_init__(self) -> None:
         if len(self.documents) != len(self.document_digests):
             raise ValueError("semantic generation document digest count mismatch")
-        if not 0 <= self.reused_document_count <= len(self.documents):
+        if isinstance(
+            self.reused_document_count, bool
+        ) or not 0 <= self.reused_document_count <= len(self.documents):
             raise ValueError("semantic generation reused count is invalid")
 
 
@@ -149,7 +151,7 @@ def validate_ontology_semantic_generation(
 ) -> SemanticGenerationValidationReceipt:
     """Recompute complete declaration coverage and every document digest."""
 
-    if not validator_id or len(validator_id) > 128:
+    if not validator_id.strip() or validator_id != validator_id.strip() or len(validator_id) > 128:
         raise ValueError("semantic generation validator_id MUST be bounded")
     if build.metadata.ontology_release_digest != manifest.release_digest:
         raise ValueError("semantic generation validation release mismatch")
@@ -244,7 +246,7 @@ async def publish_ontology_semantic_generation(
 ) -> CatalogGenerationMetadata:
     """Stage and activate only if the prior corpus pointer remains unchanged."""
 
-    if activated_at.tzinfo is None:
+    if activated_at.tzinfo is None or activated_at.utcoffset() is None:
         raise ValueError("semantic generation activation time MUST be timezone-aware")
     if build.metadata.validation_receipt_digest is None:
         raise ValueError("semantic generation validation receipt is unavailable")

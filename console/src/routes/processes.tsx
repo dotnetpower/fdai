@@ -10,7 +10,12 @@ import {
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, routeHref } from "../router";
+import {
+  currentRoute,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { ProcessWidget, RenderedRegion } from "./process-view-renderer";
 import { schedulerRunsText } from "./scheduler-runs.i18n";
@@ -28,6 +33,7 @@ import {
     type PlanningRoom as PlanningRoomData,
   defaultProcessId,
   processHref,
+  processRouteHref,
   processEventHref,
   processIdFromHash,
   processListFailure,
@@ -54,6 +60,20 @@ interface LoadedProcessList {
   readonly generation: number;
 }
 
+export function processViewAriaControls(
+  view: "workspace" | "provenance",
+  activeView: "workspace" | "provenance",
+  listReady: boolean,
+): string | undefined {
+  return listReady && activeView === view ? `process-${view}-panel` : undefined;
+}
+
+export function processSchedulerRunsHref(dataMode: ConsoleDataMode): string {
+  return routeHref("scheduler-runs", {
+    params: { data: dataMode === "sample" ? "sample" : null },
+  });
+}
+
 export function ProcessesRoute({ client, dataMode }: Props) {
   if (currentRoute().segments[0] === "scheduler-runs") {
     return <SchedulerRunsRoute client={client} dataMode={dataMode} />;
@@ -72,14 +92,18 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
     const sync = () => setSelectedId(currentRoute().segments[0] ?? null);
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setListState({ status: "loading" });
+    setDetailState({ status: "idle" });
     client.panel<unknown>("/views/process").then(
       (payload) => {
         if (cancelled) return;
@@ -97,12 +121,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
         });
         const defaultId = currentRoute().segments[0] ?? defaultProcessId(data.items, "");
         if (!currentRoute().segments[0] && defaultId) {
-          const href = processHref(defaultId);
-          window.history.replaceState(
-            window.history.state,
-            "",
-            dataMode === "sample" ? `${href}?data=sample` : href,
-          );
+          replaceRouteState(processRouteHref(defaultId, dataMode));
           setSelectedId(defaultId);
         } else if (!defaultId) {
           dispatchRefresh({ type: "finish", generation: refreshCycle.generation });
@@ -171,7 +190,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
               type="button"
               class="btn btn-small"
               aria-pressed={activeView === view}
-              aria-controls={`process-${view}-panel`}
+              aria-controls={processViewAriaControls(view, activeView, listState.status === "ready")}
               onClick={() => setActiveView(view)}
             >
               {t(`processesView.${view}`)}
@@ -179,7 +198,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
           ))}
         </div>
         <div class="process-toolbar-actions">
-          <a class="btn btn-small" href={routeHref("scheduler-runs")}>
+          <a class="btn btn-small" href={processSchedulerRunsHref(dataMode)}>
             {schedulerRunsText("title")}
           </a>
           <button
@@ -200,6 +219,7 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
             selectedId={selectedId}
             detailState={detailState}
             activeView={activeView}
+            dataMode={dataMode}
           />
         )}
       </AsyncBoundary>
@@ -207,11 +227,12 @@ function ProcessRuntimeRoute({ client, dataMode }: Props) {
   );
 }
 
-function ProcessWorkspace({ processList, selectedId, detailState, activeView }: {
+function ProcessWorkspace({ processList, selectedId, detailState, activeView, dataMode }: {
   readonly processList: ProcessListResponse;
   readonly selectedId: string | null;
   readonly detailState: AsyncState<ProcessDetailData>;
   readonly activeView: "workspace" | "provenance";
+  readonly dataMode: ConsoleDataMode;
 }) {
   const processes = processList.items;
   const selected = processes.find((item) => item.id === selectedId) ?? null;
@@ -274,7 +295,7 @@ function ProcessWorkspace({ processList, selectedId, detailState, activeView }: 
                 {processes.map((process) => (
                   <a
                     key={process.id}
-                    href={processHref(process.id)}
+                    href={processRouteHref(process.id, dataMode)}
                     class={`process-list-entry ${process.id === selectedId ? "is-active" : ""}`}
                     aria-current={process.id === selectedId ? "page" : undefined}
                   >

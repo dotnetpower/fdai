@@ -10,6 +10,7 @@ the model quoted, so no stated word is dropped without the model's explicit judg
 
 from __future__ import annotations
 
+import math
 import string
 import unicodedata
 from collections.abc import Sequence
@@ -126,7 +127,11 @@ def admit_question_form(
 ) -> FormAdmission:
     """Return the admission disposition and the exact text of every mention."""
 
-    if not 0.0 < confidence_floor <= 1.0:
+    if (
+        isinstance(confidence_floor, bool)
+        or not math.isfinite(confidence_floor)
+        or not 0.0 < confidence_floor <= 1.0
+    ):
         raise ValueError("confidence floor MUST be in (0, 1]")
     invalid: list[str] = []
     mention_text: dict[str, str] = {}

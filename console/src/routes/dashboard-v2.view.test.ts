@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, test } from "vitest";
+import {
+  dashboardOriginalHref,
+  dashboardResourceHref,
+  dashboardSummaryHref,
+} from "./dashboard-v2";
 
 const source = readFileSync(new URL("./dashboard-v2.tsx", import.meta.url), "utf8");
 const styles = readFileSync(new URL("./dashboard-v2.css", import.meta.url), "utf8");
@@ -29,6 +34,15 @@ describe("Dashboard v2 refresh presentation", () => {
     expect(source).toContain('class="dv2-scope-heading"');
     expect(source).toContain('class="dv2-snapshot-meta"');
     expect(source).toContain('class="dv2-scope-boundary"');
+    expect(source).toContain("replaceRouteState(href)");
+    expect(dashboardSummaryHref("unknown", "resource", new URLSearchParams("data=sample")))
+      .toBe("/resource-dashboard?data=sample&state=unknown&lens=resource");
+    expect(dashboardSummaryHref("known", "operation", new URLSearchParams()))
+      .toBe("/resource-dashboard?state=known");
+    expect(dashboardOriginalHref(new URLSearchParams("data=sample")))
+      .toBe("/overview?data=sample");
+    expect(dashboardResourceHref({ id: "res-1" } as never, new URLSearchParams("data=sample")))
+      .toBe("/ontology?view=instances&instance=res-1&data=sample");
     expect(styles).toMatch(/\.dv2-summary \{[^}]*grid-template-columns: repeat\(7,/s);
     expect(styles).toMatch(/\.dv2-summary a \{[^}]*min-height: 58px/s);
   });

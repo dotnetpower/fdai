@@ -82,6 +82,7 @@ def verified_query_activities(
             or not isinstance(arguments, Mapping)
             or not isinstance(task_id, str)
             or not task_id.startswith("query:")
+            or not task_id.removeprefix("query:").strip()
             or status
             not in {"completed", "unavailable", "failed", "cancelled", "timed_out", "skipped"}
             or not isinstance(duration_ms, int)

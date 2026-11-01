@@ -27,6 +27,19 @@ class DirectionCostReceipt:
     wall_ms: int
     unsettled_calls: int = 0
 
+    def __post_init__(self) -> None:
+        if isinstance(self.readers, bool) or self.readers not in {1, 2}:
+            raise ValueError("direction cost receipt readers MUST be 1 or 2")
+        for value in (
+            self.calls,
+            self.input_bytes,
+            self.output_tokens,
+            self.wall_ms,
+            self.unsettled_calls,
+        ):
+            if isinstance(value, bool) or value < 0:
+                raise ValueError("direction cost receipt counts MUST be non-negative integers")
+
 
 def direction_cost_receipt(
     ledger: TurnReservationLedger, direction_calls: int = 0, tiebreak_calls: int = 0
@@ -48,7 +61,7 @@ def direction_cost_receipt(
     ]
     first_calls = max(direction_calls - tiebreak_calls, 0)
     ended = [item.ended_at for item in records if item.ended_at is not None]
-    span = max(ended) - min(item.started for item in records) if ended else 0.0
+    span = max(0.0, max(ended) - min(item.started for item in records)) if ended else 0.0
     receipt = DirectionCostReceipt(
         readers=2 if first_calls and tiebreak_calls and len(records) > first_calls else 1,
         calls=len(records),

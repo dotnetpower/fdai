@@ -12,7 +12,7 @@ import {
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { navigate, replaceRouteState } from "../router";
+import { currentRoute, navigate, replaceRouteState, ROUTE_STATE_EVENT } from "../router";
 import { ArchitectureWorkbench } from "./architecture-workbench";
 import { t } from "./i18n/architecture";
 
@@ -100,30 +100,38 @@ export function architectureCachePollDelay(attempt: number): number {
   return Math.min(30_000, 2_000 * 2 ** Math.min(Math.max(0, attempt), 4));
 }
 
+function currentArchitectureSearch(): string {
+  const query = currentRoute().search.toString();
+  return query ? `?${query}` : "";
+}
+
 export function ArchitectureRoute({ client }: Props) {
   const [state, setState] = useState<AsyncState<InventoryGraphResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(
-    () => selectedResourceIdFromHash(window.location.search),
+    () => selectedResourceIdFromHash(currentArchitectureSearch()),
   );
   const [viewScope, setViewScope] = useState<string | null>(
-    () => architectureViewFromHash(window.location.search),
+    () => architectureViewFromHash(currentArchitectureSearch()),
   );
   const [mode, setMode] = useState<ArchitecturePresentationMode>(
-    () => architecturePresentationModeFromHash(window.location.search),
+    () => architecturePresentationModeFromHash(currentArchitectureSearch()),
   );
   const cachePollAttemptRef = useRef(0);
 
   useEffect(() => {
     const syncRoute = () => {
-      setSelectedId(selectedResourceIdFromHash(window.location.search));
-      setViewScope(architectureViewFromHash(window.location.search));
-      setMode(architecturePresentationModeFromHash(window.location.search));
+      const search = currentArchitectureSearch();
+      setSelectedId(selectedResourceIdFromHash(search));
+      setViewScope(architectureViewFromHash(search));
+      setMode(architecturePresentationModeFromHash(search));
     };
     window.addEventListener("popstate", syncRoute);
     window.addEventListener("fdai:route-changed", syncRoute);
+    window.addEventListener(ROUTE_STATE_EVENT, syncRoute);
     return () => {
       window.removeEventListener("popstate", syncRoute);
       window.removeEventListener("fdai:route-changed", syncRoute);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncRoute);
     };
   }, []);
 
@@ -148,8 +156,9 @@ export function ArchitectureRoute({ client }: Props) {
     };
   }, [client, viewScope]);
 
+  const refreshPending = state.status === "ready" && architectureCacheRefreshPending(state.data);
   useEffect(() => {
-    if (state.status !== "ready" || !architectureCacheRefreshPending(state.data)) return;
+    if (!refreshPending) return;
     let cancelled = false;
     let timer: number | undefined;
     const schedule = () => {
@@ -161,6 +170,7 @@ export function ArchitectureRoute({ client }: Props) {
               ? cachePollAttemptRef.current + 1
               : 0;
             setState({ status: "ready", data });
+            if (architectureCacheRefreshPending(data)) schedule();
           },
           () => {
             if (cancelled) return;
@@ -175,7 +185,7 @@ export function ArchitectureRoute({ client }: Props) {
       cancelled = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [client, state, viewScope]);
+  }, [client, refreshPending, viewScope]);
 
   const selectResource = (resource: InventoryResource | null): void => {
     setSelectedId(resource?.id ?? null);
@@ -314,5 +324,5 @@ function currentArchitectureHref(
   viewId: string | null | undefined,
   mode: ArchitecturePresentationMode,
 ): string {
-  return architectureHrefWithRouteState(resourceId, viewId, mode, window.location.search);
+  return architectureHrefWithRouteState(resourceId, viewId, mode, currentArchitectureSearch());
 }

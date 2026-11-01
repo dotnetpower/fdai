@@ -59,6 +59,8 @@ def compile_target_error_activity_plan(
 
     if (
         frame.output_shape != SemanticOutputShape.TARGET_ERROR_ACTIVITY_CORRELATION
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_required_functions(manifest.descriptors)
     ):
         return None
@@ -173,7 +175,9 @@ def _exact_target(
     *,
     descriptors: tuple[dict[str, Any], ...],
 ) -> str | None:
-    targets = tuple(match.group(0) for match in _RUNTIME_TARGET.finditer(utterance))
+    targets = tuple(
+        dict.fromkeys(match.group(0) for match in _RUNTIME_TARGET.finditer(utterance.rstrip(".!?")))
+    )
     has_resource = any(
         item.get("kind") == "object" and item.get("name") == "Resource" for item in descriptors
     )

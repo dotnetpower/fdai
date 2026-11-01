@@ -14,7 +14,13 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import {
   CAPABILITY_PAGE_SIZE,
   capabilityRoleMatch,
@@ -79,13 +85,15 @@ export function CapabilitiesRoute({ client }: { readonly client: OperatorApiClie
   );
 }
 
-const columns: readonly Column<Capability>[] = [
-  { key: "id", header: t("governance.capabilities.column.id"), render: (row) => <code>{row.capability_id}</code> },
-  { key: "name", header: t("governance.capabilities.column.name"), render: (row) => row.name },
-  { key: "category", header: t("governance.capabilities.column.category"), render: (row) => row.category },
-  { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
-  { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
-];
+export function capabilityColumns(): readonly Column<Capability>[] {
+  return [
+    { key: "id", header: t("governance.capabilities.column.id"), render: (row) => <code>{row.capability_id}</code> },
+    { key: "name", header: t("governance.capabilities.column.name"), render: (row) => row.name },
+    { key: "category", header: t("governance.capabilities.column.category"), render: (row) => row.category },
+    { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
+    { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
+  ];
+}
 
 function CapabilitiesBody({
   data,
@@ -94,6 +102,7 @@ function CapabilitiesBody({
   readonly data: CapabilityResponse;
   readonly iamState: AsyncState<IamOverview>;
 }) {
+  const columns = capabilityColumns();
   const initial = capabilityRouteStateFromSearch(currentRoute().search);
   const [query, setQuery] = useState(initial.query);
   const [category, setCategory] = useState(initial.category);
@@ -115,9 +124,11 @@ function CapabilitiesBody({
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
   const categories = new Set(data.capabilities.map((item) => item.category)).size;

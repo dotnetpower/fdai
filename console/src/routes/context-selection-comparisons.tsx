@@ -11,6 +11,8 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
 import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 import {
@@ -49,6 +51,7 @@ export function ContextSelectionComparisonsRoute({ client }: { readonly client: 
   const [state, setState] = useState<AsyncState<ComparisonResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = decodeContextSelectionComparisons(
@@ -89,6 +92,13 @@ export function decodeContextSelectionComparisons(value: unknown): ComparisonRes
   }
   const comparisons = panelArray(root["comparisons"], "context policy comparisons.comparisons")
     .map((value, index) => decodeRow(value, index));
+  const seenIds = new Set<string>();
+  for (const row of comparisons) {
+    if (seenIds.has(row.evaluation_id)) {
+      throw new OperatorApiError(502, "invalid Operator API response: evaluation_id MUST be unique");
+    }
+    seenIds.add(row.evaluation_id);
+  }
   const count = panelNonNegativeInteger(root, "count", "context policy comparisons");
   const failures = panelNonNegativeInteger(root, "invariant_failures", "context policy comparisons");
   if (count !== comparisons.length || failures !== comparisons.filter((row) => row.failure_reason !== null).length) {
@@ -139,6 +149,26 @@ function nullableString(value: unknown, label: string): string | null {
 }
 
 function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
+  usePublishViewContext(
+    () => ({
+      routeId: "context-selection-comparisons",
+      routeLabel: t("route.contextSelectionComparisons"),
+      purpose: t("evidence.contextSelection.subtitle"),
+      glossary: composeGlossary([TERMS.shadowMode]),
+      headline: `${data.count} comparisons - ${data.invariant_failures} invariant failures`,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "comparison_count", value: data.count, group: "context-selection" },
+        { key: "invariant_failures", value: data.invariant_failures, group: "context-selection" },
+        { key: "read_only", value: data.read_only, group: "safety" },
+        { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
+      ],
+      records: {
+        comparisons: data.comparisons.slice(0, 25).map((row) => ({ ...row })),
+      },
+    }),
+    [data],
+  );
   const comparisonsHref = `${routeHref("context-selection-comparisons")}#context-selection-comparisons`;
   const columns: readonly Column<ComparisonRow>[] = [
     { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => row.candidate_policy_ref, cellClass: "mono" },

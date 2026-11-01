@@ -425,3 +425,98 @@ async def test_exact_document_context_and_cloud_target_never_widen_to_collection
         with pytest.raises(RuntimeError, match="exact cloud applicability"):
             await case.reader.search(**arguments)
     assert search.calls == []
+
+
+def test_citation_times_rejects_inverted_chronology_and_applicability_ignores_none_selectors() -> (
+    None
+):
+    from fdai.core.knowledge.cloud_applicability import cloud_target_from_arguments
+
+    with pytest.raises(ValueError, match="precede collection"):
+        citation_times(NOW, NOW - timedelta(minutes=1), status="fresh", korean=False)
+
+    assert cloud_target_from_arguments({"cloud_provider": None, "cloud_skus": None}) is None
+    with pytest.raises(ValueError, match="provider, resource type, and generation"):
+        cloud_target_from_arguments(
+            {
+                "cloud_provider": None,
+                "cloud_resource_type": "network",
+                "cloud_generation": "v1",
+            }
+        )
+
+
+async def test_catalog_ranking_generation_and_cloud_selector_hardening() -> None:
+    from types import MappingProxyType
+
+    from fdai.core.knowledge.cloud_applicability import cloud_target_from_arguments
+    from fdai.delivery.catalog_search.in_memory import InMemoryCatalogSemanticIndex
+    from fdai.delivery.catalog_search.ontology_candidate_authorization import (
+        projected_candidate_record,
+    )
+    from fdai.delivery.catalog_search.ontology_candidate_proposal import (
+        OntologyCandidateProposal,
+        filter_candidate_proposal_quotes,
+    )
+    from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCandidateClause
+    from fdai.delivery.catalog_search.ontology_vector_store import _check_deadline
+    from fdai.delivery.catalog_search.ranking import (
+        CatalogRankingPolicy,
+        lexical_tokens,
+        rank_documents,
+    )
+    from fdai.shared.providers.catalog_search import CatalogSearchDocument
+    from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+
+    # D01: NFKC normalization in lexical_tokens and boolean score guard in rank_documents
+    assert "vm_prod" in lexical_tokens("ＶＭ＿ＰＲＯＤ")
+    doc = CatalogSearchDocument(rule_id="rule-1", text="VM_PROD health check", neighbor_ids=())
+    with pytest.raises(ValueError, match="finite"):
+        rank_documents(
+            (doc,),
+            "vm_prod",
+            policy=CatalogRankingPolicy(),
+            semantic_scores={"rule-1": True},  # type: ignore[dict-item]
+        )
+
+    # D02: boolean k rejected in InMemoryCatalogSemanticIndex.search
+    index = InMemoryCatalogSemanticIndex()
+    await index.upsert((doc,))
+    assert await index.search("rule-1", k=True) == ()  # type: ignore[arg-type]
+
+    # D05: projected_candidate_record handles None __redactions__
+    record = OntologyObjectRecord(
+        id="vm-1",
+        object_type="Resource",
+        properties=MappingProxyType({"name": "vm-1", "__redactions__": None}),
+    )
+    assert dict(projected_candidate_record(record).properties) == {"name": "vm-1"}
+
+    # D06: whitespace-only proposal quote is rejected
+    proposal = OntologyCandidateProposal(
+        status="select",
+        reason="conditions_proposed",
+        clauses=(OntologyCandidateClause(object_type="Resource"),),
+        clause_quotes=(" ",),
+    )
+    with pytest.raises(ValueError, match="exact source span"):
+        proposal.validate_source_quotes("vm-1 ")
+    filtered, invalid = filter_candidate_proposal_quotes("vm-1 ", proposal)
+    assert filtered.status == "clarify"
+    assert invalid == 1
+
+    # D09: NaN deadline fails closed
+    with pytest.raises(TimeoutError):
+        _check_deadline(float("nan"))
+
+    # D11 & D12: case-insensitive citation status and unknown cloud_* selector rejection
+    assert "checked as of" in citation_times(COLLECTED, NOW, status=" FRESH ", korean=False)
+    with pytest.raises(ValueError, match="unsupported cloud applicability selector"):
+        cloud_target_from_arguments(
+            {
+                "cloud_provider": "azure",
+                "cloud_resource_type": "network",
+                "cloud_generation": "v1",
+                "cloud_sku": "Standard",
+            }
+        )

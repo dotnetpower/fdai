@@ -124,3 +124,19 @@ async def test_malformed_configured_rows_fail_closed(field: str, value: object) 
             window_seconds=300,
             window_bucket="2026-08-17T01:00Z",
         )
+
+
+@pytest.mark.asyncio
+async def test_trace_continuity_deduplicates_spans_and_rejects_blank_target() -> None:
+    with pytest.raises(ValueError, match="topology_ref"):
+        TraceTopologyTarget(topology_ref="   ", resource_ref="res-1", expected_hops=("a", "b"))
+
+    row = _row()
+    source = AzureTraceContinuitySource(_LogProvider((row, dict(row))))
+    obs = await source.collect(
+        (_target(),),
+        window_seconds=300,
+        window_bucket="2026-08-17T01:00Z",
+    )
+    assert len(obs) == 1
+    assert len(obs[0].spans) == 1

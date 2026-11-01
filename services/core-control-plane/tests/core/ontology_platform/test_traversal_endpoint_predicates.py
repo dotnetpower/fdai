@@ -236,3 +236,40 @@ def test_case_insensitive_equality_is_exact_apart_from_case(
         "operator": "equals_ignore_case",
         "equals": operand,
     }
+
+
+def test_relationship_endpoint_table_updates_total_rows_when_roots_excluded() -> None:
+    from fdai.core.ontology_platform.query_values import relationship_endpoint_table
+    from fdai.shared.providers.ontology_instance import (
+        OntologyGraphSnapshot,
+        OntologyLinkRecord,
+        OntologyObjectRecord,
+    )
+
+    table = QueryTable(
+        rows=(
+            QueryRow.from_values("rg-1", {"id": "rg-1"}),
+            QueryRow.from_values("vm-1", {"id": "vm-1"}),
+        ),
+        complete=True,
+        total_rows=2,
+    )
+    graph = OntologyGraphSnapshot(
+        objects=(
+            OntologyObjectRecord(id="rg-1", object_type="Resource", properties={"id": "rg-1"}),
+            OntologyObjectRecord(id="vm-1", object_type="Resource", properties={"id": "vm-1"}),
+        ),
+        links=(OntologyLinkRecord(link_type="contains", from_id="rg-1", to_id="vm-1"),),
+    )
+
+    projected = relationship_endpoint_table(
+        table,
+        graph,
+        root_ids=("rg-1",),
+        link_type="contains",
+        direction="outgoing",
+        max_depth=1,
+    )
+
+    assert [row.row_id for row in projected.rows] == ["vm-1"]
+    assert projected.total_rows == 1

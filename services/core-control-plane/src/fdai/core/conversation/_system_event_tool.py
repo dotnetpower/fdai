@@ -44,8 +44,9 @@ class DescribeEventTool:
                 status="error",
                 preview="describe_event 'resource_props' MUST be a mapping",
             )
-        signal_type = _optional_str(
-            arguments, "signal_type", default="synthetic.chat.describe_event"
+        signal_type = (
+            _optional_str(arguments, "signal_type", default="synthetic.chat.describe_event").strip()
+            or "synthetic.chat.describe_event"
         )
         now = datetime.now(tz=UTC)
         event = Event(

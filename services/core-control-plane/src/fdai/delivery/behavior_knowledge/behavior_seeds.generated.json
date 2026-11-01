@@ -138,7 +138,7 @@
         "When does Odin intervene?",
         "Odin이 개입하지 않는 경우는 언제인가요?"
       ],
-      "source_manifest_hash": "c0befdae01b4aeaa093b150db5b55aaf36119403de75429b03034d3515e073b3",
+      "source_manifest_hash": "e3df8f5a90362b1ea40d19cf63f3f1f5c7d11ea111170f4dd11c168f1578eb8d",
       "sources": [
         {
           "authority_role": "implementation",
@@ -151,9 +151,9 @@
         },
         {
           "authority_role": "implementation",
-          "blob_sha": "e36c19708cf9812a4bc327fa55ce7848e10b64c9",
-          "line_end": 371,
-          "line_start": 284,
+          "blob_sha": "1ba219f7ee1b65003a0b84c1d43ba9e7b0479b1c",
+          "line_end": 397,
+          "line_start": 308,
           "path": "services/core-control-plane/src/fdai/agents/odin.py",
           "source_kind": "code",
           "symbol": "Odin.arbitrate"
@@ -399,13 +399,13 @@
         "What checks does a T2 proposal pass?",
         "T2 제안은 어떤 검증을 통과해야 하나요?"
       ],
-      "source_manifest_hash": "14a239dcd53c0ca384d45fc568663cbfcf219c62fc8010078553106ad141ce7f",
+      "source_manifest_hash": "f54ba8282215495fe8988648ab98007e70a00d8e414bc3233ad55609f8376bc7",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "0911135b403285a8d4ae0247cc20a140d681da84",
-          "line_end": 463,
-          "line_start": 450,
+          "blob_sha": "0edec10aec0d457c2644defa69634489066f1f2a",
+          "line_end": 461,
+          "line_start": 448,
           "path": "services/core-control-plane/src/fdai/core/quality_gate/gate.py",
           "source_kind": "code",
           "symbol": "QualityGate.evaluate"

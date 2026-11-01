@@ -284,7 +284,7 @@ async def test_closed_reader_or_drift_cannot_be_bypassed(failure: str) -> None:
     expected = "sha256:" + "b" * 64 if failure == "binding" else None
     exception = ValueError if failure == "binding" else OntologyRetrievalEvaluationAbortedError
     with pytest.raises(exception):
-        await harness.run(expected, 0.01, _NOW)
+        await harness.run(expected, 0.1, _NOW)
     assert harness.embedder.calls == (1 if failure == "timeout" else 0)
 
 

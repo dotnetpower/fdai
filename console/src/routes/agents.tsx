@@ -16,7 +16,13 @@ import { UnavailableState } from "../components/ui";
 import { agentStreamDescriptor, useAgentStream } from "../hooks/use-agent-stream";
 import { observationSourceLabel } from "../hooks/observation-source";
 import { t } from "../i18n";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { usePublishViewContext } from "../deck/context";
 import { agentTerm, composeGlossary, TERMS } from "../deck/glossary";
 import {
@@ -127,9 +133,11 @@ export function AgentsRoute({ client }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
@@ -139,6 +147,7 @@ export function AgentsRoute({ client }: Props) {
   ): void => {
     navigate(routeHref(nextLayout === "org" ? "pantheon" : "agents", {
       params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
         agent,
         layer: rosterLayer === "all" ? null : rosterLayer,
         state: rosterState === "all" ? null : rosterState,
@@ -155,6 +164,7 @@ export function AgentsRoute({ client }: Props) {
   ): void => {
     const href = routeHref("agents", {
       params: {
+        data: currentRoute().search.get("data") === "sample" ? "sample" : null,
         view: layout === "roster" ? null : layout,
         agent: selectedAgent,
         layer: layer === "all" ? null : layer,
@@ -286,6 +296,9 @@ export function AgentsRoute({ client }: Props) {
       {layout === "roster" && snapshotError ? (
         <UnavailableState message={t("agents.error.historyUnavailable", { error: snapshotError })} />
       ) : null}
+      {selectedAgent && !selectedAgentNode ? (
+        <UnavailableState message={t("agents.error.unknownAgent", { agent: selectedAgent })} />
+      ) : null}
 
       {layout === "roster" ? (
         <AgentRoster
@@ -308,17 +321,12 @@ export function AgentsRoute({ client }: Props) {
           }}
         />
       ) : (
-        <>
-          {selectedAgent && !selectedAgentNode ? (
-            <UnavailableState message={t("agents.error.unknownAgent", { agent: selectedAgent })} />
-          ) : null}
-          <AgentOrganizationWorkspace
-            agents={state.agents}
-            selectedAgent={selectedAgent}
-            runtimeCurrent={runtimeCurrent}
-            onSelectAgent={(agent) => openFocus(agent, "org")}
-          />
-        </>
+        <AgentOrganizationWorkspace
+          agents={state.agents}
+          selectedAgent={selectedAgent}
+          runtimeCurrent={runtimeCurrent}
+          onSelectAgent={(agent) => openFocus(agent, "org")}
+        />
       )}
     </div>
   );

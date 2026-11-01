@@ -1,5 +1,5 @@
 import { useRef } from "preact/hooks";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { t } from "./i18n/ontology";
 import type { OntologyView } from "./ontology.types";
 
@@ -16,10 +16,14 @@ function ontologyViewLabel(view: (typeof REFERENCE_VIEWS)[number]): string {
 }
 
 /** Returns the canonical navigation URL for one ontology view. */
-export function ontologyViewHref(view: OntologyView): string {
+export function ontologyViewHref(
+  view: OntologyView,
+  search?: URLSearchParams,
+): string {
+  const data = search?.get("data") === "sample" ? "sample" : null;
   return view === "instances"
-    ? routeHref("ontology")
-    : routeHref("ontology", { params: { view } });
+    ? routeHref("ontology", { params: { data } })
+    : routeHref("ontology", { params: { view, data } });
 }
 
 /**
@@ -29,6 +33,7 @@ export function ontologyViewHref(view: OntologyView): string {
 export function OntologyNavigation({ active }: { readonly active: OntologyView }) {
   const activeReference = active === "instances" ? null : active;
   const referenceNav = useRef<HTMLDetailsElement>(null);
+  const search = currentRoute().search;
   const closeReferenceNav = (): void => {
     if (referenceNav.current !== null) referenceNav.current.open = false;
   };
@@ -36,7 +41,7 @@ export function OntologyNavigation({ active }: { readonly active: OntologyView }
     <nav class="ontology-view-nav" aria-label={t("ontology.navigation.label")}>
       <a
         class={`ontology-view-primary${active === "instances" ? " is-active" : ""}`}
-        href={ontologyViewHref("instances")}
+        href={ontologyViewHref("instances", search)}
         aria-current={active === "instances" ? "page" : undefined}
       >
         {t("ontology.instances.title")}
@@ -60,7 +65,7 @@ export function OntologyNavigation({ active }: { readonly active: OntologyView }
           {REFERENCE_VIEWS.map((view) => (
             <a
               key={view}
-              href={ontologyViewHref(view)}
+              href={ontologyViewHref(view, search)}
               class={view === active ? "is-active" : undefined}
               aria-current={view === active ? "page" : undefined}
               onClick={closeReferenceNav}

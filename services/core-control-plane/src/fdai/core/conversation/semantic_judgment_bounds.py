@@ -16,11 +16,15 @@ _MAX_CAPABILITY_BYTES = 524_288
 
 
 def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
+    if isinstance(context, (str, bytes)):
+        raise TypeError("semantic judgment context MUST be a sequence of strings")
     selected: list[str] = []
     total = 0
     for item in tuple(context)[-_MAX_CONTEXT_ITEMS:]:
         if not isinstance(item, str):
             raise TypeError("semantic judgment context MUST contain strings")
+        if not item.strip():
+            continue
         total += len(item)
         if total > _MAX_CONTEXT_CHARS:
             raise ValueError("semantic judgment context exceeds its bound")

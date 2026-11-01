@@ -87,3 +87,11 @@ async def test_registry_projects_rehydrated_and_live_incident_into_object_set() 
     assert current.graph.objects[0].properties["status"] == "triaging"
     assert current.graph.objects[0].properties["updated_at"] == "2026-08-14T09:05:00Z"
     assert current.graph.objects[0].revision == 2
+
+    import pytest
+
+    projector = IncidentOntologyProjector(store=ontology_store)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await projector.project(incident, updated_at=datetime(2026, 8, 14, 9))
+    with pytest.raises(ValueError, match="precede opened_at"):
+        await projector.project(incident, updated_at=datetime(2026, 8, 14, 8, tzinfo=UTC))

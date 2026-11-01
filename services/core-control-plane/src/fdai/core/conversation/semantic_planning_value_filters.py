@@ -55,7 +55,7 @@ def stated_value_filters(
             if allowed_properties is not None and property_name not in allowed_properties:
                 continue
             groups = declaration.get("value_groups")
-            if not isinstance(groups, list):
+            if not isinstance(groups, (list, tuple)):
                 continue
             selected: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
             spans: dict[tuple[tuple[str, ...], tuple[str, ...]], set[tuple[int, int]]] = {}
@@ -64,7 +64,7 @@ def stated_value_filters(
                     continue
                 terms = group.get("terms")
                 values = group.get("values")
-                if not isinstance(terms, list) or not isinstance(values, list):
+                if not isinstance(terms, (list, tuple)) or not isinstance(values, (list, tuple)):
                     continue
                 bounded_terms = tuple(term for term in terms if isinstance(term, str))
                 bounded_values = tuple(str(value) for value in values)
@@ -128,9 +128,9 @@ def stated_value_term_spans(
         properties = descriptor.get("properties")
         declaration = properties.get(property_name) if isinstance(properties, Mapping) else None
         groups = declaration.get("value_groups") if isinstance(declaration, Mapping) else None
-        for group in groups if isinstance(groups, list) else ():
+        for group in groups if isinstance(groups, (list, tuple)) else ():
             terms = group.get("terms") if isinstance(group, Mapping) else None
-            for term in terms if isinstance(terms, list) else ():
+            for term in terms if isinstance(terms, (list, tuple)) else ():
                 if isinstance(term, str):
                     spans.update(_term_spans(term, lowered))
     return tuple(sorted(spans))
@@ -299,10 +299,10 @@ def _declared_subject_vocabulary(
             if not isinstance(declaration, Mapping):
                 continue
             values = declaration.get("values")
-            if isinstance(values, list):
+            if isinstance(values, (list, tuple)):
                 words.update(value.casefold() for value in values if isinstance(value, str))
             groups = declaration.get("value_groups")
-            if not isinstance(groups, list):
+            if not isinstance(groups, (list, tuple)):
                 continue
             for group in groups:
                 if not isinstance(group, Mapping):
@@ -312,7 +312,7 @@ def _declared_subject_vocabulary(
                     words.add(group_id.casefold())
                 for key in ("terms", "values"):
                     items = group.get(key)
-                    if isinstance(items, list):
+                    if isinstance(items, (list, tuple)):
                         words.update(item.casefold() for item in items if isinstance(item, str))
     return frozenset(words)
 

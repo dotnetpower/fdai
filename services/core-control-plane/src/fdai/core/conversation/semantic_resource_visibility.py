@@ -101,7 +101,7 @@ def _declared_excluded_resource_types(
         properties = descriptor.get("properties")
         type_property = properties.get("type") if isinstance(properties, Mapping) else None
         values = type_property.get("values") if isinstance(type_property, Mapping) else None
-        if not isinstance(values, list):
+        if not isinstance(values, (list, tuple)):
             return ()
         declared = {value for value in values if isinstance(value, str)}
         return tuple(

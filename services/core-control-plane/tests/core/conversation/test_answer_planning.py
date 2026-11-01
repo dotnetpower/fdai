@@ -243,3 +243,31 @@ def test_contribution_requires_a_reference_for_every_fact() -> None:
 def test_shipping_budgets_cannot_be_widened(config: dict[str, object]) -> None:
     with pytest.raises(ValueError):
         AnswerPlanningConfig(**config)
+
+
+@pytest.mark.asyncio
+async def test_nan_candidate_score_and_boolean_confidence_are_rejected() -> None:
+    with pytest.raises(ValueError, match="confidence"):
+        AnswerContribution(
+            agent="Njord",
+            facts=(),
+            caveats=(),
+            suggested_sections=(),
+            evidence_refs=(),
+            confidence=True,  # type: ignore[arg-type]
+        )
+
+    provider = _Provider({"Njord": _contribution("Njord", evidence=("cost:1",))})
+    result = await run_answer_planning_round(
+        prompt="Why was this denied?",
+        plan=build_answer_plan("denial", intent=AnswerIntent.WHY),
+        route=AnswerPlanningRoute(
+            primary_agent="Forseti",
+            candidates=(
+                PlanningCandidate("Freyr", float("nan")),
+                PlanningCandidate("Njord", 0.8),
+            ),
+        ),
+        provider=provider,
+    )
+    assert result.consulted_agents == ("Njord",)

@@ -147,8 +147,8 @@ def root_names(dependency: QueryTable) -> dict[str, str | None]:
     names: dict[str, str | None] = {}
     for row in dependency.rows:
         properties = row.values.get("properties")
-        name = properties.get("name") if isinstance(properties, Mapping) else None
-        names[row.row_id] = name if isinstance(name, str) else None
+        name = properties.get("name") if isinstance(properties, Mapping) else row.values.get("name")
+        names[row.row_id] = name.strip() if isinstance(name, str) and name.strip() else None
     return names
 
 

@@ -82,10 +82,10 @@ class MetricForecastObservationProvider:
         resource_label: str = "resource_id",
         policy: ForecastObservationPolicy | None = None,
     ) -> None:
-        if not resource_label.strip():
+        if not isinstance(resource_label, str) or not resource_label.strip():
             raise ValueError("forecast observation resource label MUST be non-empty")
         self._provider = provider
-        self._resource_label = resource_label
+        self._resource_label = resource_label.strip()
         self._policy = policy or ForecastObservationPolicy()
 
     async def observe(self, episode: ForecastEpisode) -> ForecastObservation:
@@ -111,6 +111,7 @@ class MetricForecastObservationProvider:
                             point.metric_name != episode.metric
                             or point.labels.get(self._resource_label) != episode.target_ref
                             or point.at.tzinfo is None
+                            or point.at.utcoffset() is None
                             or isinstance(point.value, bool)
                             or not isinstance(point.value, (int, float))
                             or not math.isfinite(point.value)

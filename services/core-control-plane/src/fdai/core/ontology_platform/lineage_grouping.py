@@ -19,6 +19,8 @@ def count_by_nearest_container(table: QueryTable, *, limit: int) -> QueryTable:
     ``ambiguous_membership`` row.
     """
 
+    if isinstance(limit, bool) or not 1 <= limit <= _MAX_GROUPS:
+        raise ValueError(f"lineage grouping limit MUST be in [1, {_MAX_GROUPS}]")
     candidates: dict[str, list[_Candidate]] = {}
     generations: set[str] = set()
     for row in table.rows:
@@ -115,7 +117,11 @@ def _candidate(values: Mapping[str, object]) -> _Candidate:
         parsed = json.loads(path_evidence)
     except json.JSONDecodeError as exc:
         raise ValueError("lineage grouping path evidence MUST be JSON") from exc
-    if not isinstance(parsed, list) or not parsed:
+    if (
+        not isinstance(parsed, list)
+        or not parsed
+        or any(not isinstance(item, str) or not item.strip() for item in parsed)
+    ):
         raise ValueError("lineage grouping path evidence MUST be a non-empty list")
     return _Candidate(
         member_id=member_id,

@@ -55,15 +55,26 @@ class TraceTopologyTarget:
     expected_hops: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.topology_ref or len(self.topology_ref) > 512:
+        if (
+            not isinstance(self.topology_ref, str)
+            or not self.topology_ref.strip()
+            or len(self.topology_ref) > 512
+        ):
             raise ValueError("TraceTopologyTarget.topology_ref MUST be bounded non-empty text")
-        if not self.resource_ref or len(self.resource_ref) > 512:
+        if (
+            not isinstance(self.resource_ref, str)
+            or not self.resource_ref.strip()
+            or len(self.resource_ref) > 512
+        ):
             raise ValueError("TraceTopologyTarget.resource_ref MUST be bounded non-empty text")
         if not 2 <= len(self.expected_hops) <= 32:
             raise ValueError("TraceTopologyTarget.expected_hops MUST contain 2 to 32 hops")
         if len(set(self.expected_hops)) != len(self.expected_hops):
             raise ValueError("TraceTopologyTarget.expected_hops MUST be unique")
-        if any(not hop or len(hop) > 128 for hop in self.expected_hops):
+        if any(
+            not isinstance(hop, str) or not hop.strip() or len(hop) > 128
+            for hop in self.expected_hops
+        ):
             raise ValueError("TraceTopologyTarget.expected_hops MUST be bounded text")
 
 
@@ -76,7 +87,11 @@ class AzureTraceContinuitySource:
         *,
         max_rows: int = _MAX_ROWS,
     ) -> None:
-        if not 1 <= max_rows <= _MAX_ROWS:
+        if (
+            isinstance(max_rows, bool)
+            or not isinstance(max_rows, int)
+            or not 1 <= max_rows <= _MAX_ROWS
+        ):
             raise ValueError(f"trace continuity max_rows MUST be in [1, {_MAX_ROWS}]")
         self._provider = provider
         self._max_rows = max_rows
@@ -91,9 +106,13 @@ class AzureTraceContinuitySource:
         """Collect configured runs; partial or malformed evidence fails closed."""
         if not 1 <= len(targets) <= _MAX_TARGETS:
             raise ValueError(f"trace continuity targets MUST contain 1 to {_MAX_TARGETS} items")
-        if window_seconds < 1:
+        if (
+            isinstance(window_seconds, bool)
+            or not isinstance(window_seconds, int)
+            or window_seconds < 1
+        ):
             raise ValueError("trace continuity window_seconds MUST be positive")
-        if not window_bucket:
+        if not isinstance(window_bucket, str) or not window_bucket.strip():
             raise ValueError("trace continuity window_bucket MUST be non-empty")
         target_by_ref = {target.topology_ref: target for target in targets}
         if len(target_by_ref) != len(targets):
@@ -108,6 +127,7 @@ class AzureTraceContinuitySource:
             raise TraceContinuitySourceError("trace continuity evidence was truncated")
 
         grouped: dict[tuple[str, str], list[TraceSpanObservation]] = {}
+        seen_spans: dict[tuple[str, str], set[str]] = {}
         completed: dict[tuple[str, str], bool] = {}
         for row in result.rows:
             topology_ref = _required_text(row, "topology_ref")
@@ -117,16 +137,19 @@ class AzureTraceContinuitySource:
             scenario_id = _required_text(row, "scenario_id")
             group_key = (topology_ref, scenario_id)
             span_id = _required_text(row, "span_id")
-            grouped.setdefault(group_key, []).append(
-                TraceSpanObservation(
-                    trace_id=_required_text(row, "trace_id"),
-                    span_id=span_id,
-                    hop=_required_text(row, "hop"),
-                    sequence=_required_int(row, "sequence"),
-                    observed_at=_required_datetime(row, "observed_at"),
-                    evidence_ref=f"appinsights:{span_id}",
+            group_seen = seen_spans.setdefault(group_key, set())
+            if span_id not in group_seen:
+                group_seen.add(span_id)
+                grouped.setdefault(group_key, []).append(
+                    TraceSpanObservation(
+                        trace_id=_required_text(row, "trace_id"),
+                        span_id=span_id,
+                        hop=_required_text(row, "hop"),
+                        sequence=_required_int(row, "sequence"),
+                        observed_at=_required_datetime(row, "observed_at"),
+                        evidence_ref=f"appinsights:{span_id}",
+                    )
                 )
-            )
             completed[group_key] = completed.get(group_key, False) or _required_bool(
                 row,
                 "completed",
@@ -187,7 +210,7 @@ def _required_datetime(row: Any, field: str) -> datetime:
             ) from exc
     else:
         raise TraceContinuitySourceError(f"trace continuity row {field} MUST be RFC 3339")
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise TraceContinuitySourceError(f"trace continuity row {field} MUST be timezone-aware")
     return parsed
 

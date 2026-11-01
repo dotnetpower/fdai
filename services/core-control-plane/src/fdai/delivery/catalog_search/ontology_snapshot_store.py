@@ -104,7 +104,13 @@ class OntologyGenerationSnapshotStore:
             sorted(str(item["name"]) for item in manifest.descriptors if item["kind"] == "object")
         )
         available = _MAX_DOCUMENTS - len(manifest.descriptors) - len(manifest.unavailable)
-        if not names or len(manifest.purposes) != 1 or available < 1:
+        if (
+            not names
+            or len(manifest.purposes) != 1
+            or available < 1
+            or not expected_source_generation.strip()
+            or len(expected_source_generation) > 256
+        ):
             raise ValueError("ontology staging requires one purpose and a bounded type manifest")
         projected = await gateway.scan_snapshot(
             object_type_names=names,
@@ -136,7 +142,7 @@ class OntologyGenerationSnapshotStore:
                     key: value
                     for key, value in record.properties.items()
                     if key != "__redactions__"
-                    and key not in record.properties.get("__redactions__", {})
+                    and key not in (record.properties.get("__redactions__") or {})
                 },
             )
             for record in projected.graph.objects
@@ -227,7 +233,7 @@ class OntologyGenerationSnapshotStore:
                     key: value
                     for key, value in record.properties.items()
                     if key != "__redactions__"
-                    and key not in record.properties.get("__redactions__", {})
+                    and key not in (record.properties.get("__redactions__") or {})
                 },
             )
             for record in result.materialization.graph.objects

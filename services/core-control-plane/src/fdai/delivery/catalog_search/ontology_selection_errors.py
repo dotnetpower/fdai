@@ -51,6 +51,15 @@ class CandidateSelectionError(ValueError):
         }.get(self.reason, "typed selection membership failed")
         super().__init__(f"{message} [{self.reason}]")
 
+    @property
+    def clarification(self) -> bool:
+        return self.reason in {
+            SelectionFailure.UNRESOLVED_REFERENCE,
+            SelectionFailure.UNSUPPORTED_CONSTRAINT,
+            SelectionFailure.AMBIGUOUS_REQUEST,
+            SelectionFailure.NO_CANDIDATE_MATCH,
+        }
+
 
 class CandidateSelectionDeniedError(PermissionError):
     reason = SelectionFailure.MEMBERSHIP_DENIED

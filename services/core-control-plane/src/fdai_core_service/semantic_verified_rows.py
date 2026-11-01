@@ -106,7 +106,15 @@ def verified_rows_table(
         shown_rows += 1
     if shown_rows == 0:
         return []
-    hidden_rows = len(values) - shown_rows
+    total_rows = output.get("total_rows")
+    total_count = (
+        total_rows
+        if isinstance(total_rows, int)
+        and not isinstance(total_rows, bool)
+        and total_rows >= len(values)
+        else len(values)
+    )
+    hidden_rows = total_count - shown_rows
     hidden_columns = len(columns) - len(shown_columns)
     if hidden_rows > 0:
         lines.append(

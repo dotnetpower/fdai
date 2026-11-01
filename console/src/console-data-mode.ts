@@ -57,12 +57,13 @@ export function consoleDataModeHref(
   mode: ConsoleDataMode,
   pathname: string,
   search: string,
+  hash = "",
 ): string {
   const params = new URLSearchParams(search);
   if (mode === "sample") params.set(SAMPLE_PARAM, "sample");
   else params.delete(SAMPLE_PARAM);
   const query = params.toString();
-  return query ? `${pathname}?${query}` : pathname;
+  return `${query ? `${pathname}?${query}` : pathname}${hash}`;
 }
 
 export function shouldRestoreConsoleDataMode(

@@ -13,7 +13,8 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
 import {
   panelArray,
@@ -70,6 +71,7 @@ export function AutomationBlueprintsRoute({ client }: { readonly client: Operato
   const [state, setState] = useState<AsyncState<AutomationBlueprintResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     client.panel<unknown>("/automation-blueprints")
       .then((value) => { if (!cancelled) setState({ status: "ready", data: decodeAutomationBlueprints(value) }); })
       .catch((error: unknown) => { if (!cancelled) setState({ status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error", message: error instanceof Error ? error.message : String(error) }); });
@@ -82,12 +84,23 @@ export function decodeAutomationBlueprints(value: unknown): AutomationBlueprintR
   const root = panelRecord(value, "automation blueprints");
   const candidates = panelArray(root["candidates"], "automation blueprints.candidates")
     .map((raw, index) => decodeCard(raw, index));
+  const seenIds = new Set<string>();
+  for (const candidate of candidates) {
+    if (seenIds.has(candidate.candidate_id)) {
+      throw new Error("invalid Operator API response: automation blueprint candidate_id MUST be unique");
+    }
+    seenIds.add(candidate.candidate_id);
+  }
   const count = panelNonNegativeInteger(root, "count", "automation blueprints");
   if (count !== candidates.length) throw new Error("invalid Operator API response: automation blueprint count MUST match candidates");
+  const mutationControls = panelBoolean(root, "mutation_controls", "automation blueprints");
+  if (mutationControls) {
+    throw new Error("automation blueprints mutation controls MUST be false");
+  }
   const metrics = panelRecord(root["metrics"], "automation blueprints.metrics");
   return {
     source: panelNonEmptyString(root, "source", "automation blueprints"),
-    mutation_controls: panelBoolean(root, "mutation_controls", "automation blueprints"),
+    mutation_controls: false,
     count,
     candidates,
     metrics: {
@@ -138,18 +151,21 @@ function ratio(value: Readonly<Record<string, unknown>>, key: string): number {
   return result;
 }
 
-const columns: readonly Column<BlueprintCard>[] = [
-  { key: "intent", header: t("evidence.blueprints.column.automation"), render: (item) => <div><strong>{item.normalized_task_intent}</strong><small>{item.schedule_expression}</small></div> },
-  { key: "state", header: t("evidence.blueprints.column.state"), render: (item) => <StatusPill kind={item.state === "draft" ? "shadow" : item.state === "materialized" ? "success" : "warning"} label={presentationLabel("status", item.state)} /> },
-  { key: "scope", header: t("evidence.blueprints.column.scope"), render: (item) => <code>{item.resource_scope}</code> },
-  { key: "evidence", header: t("evidence.blueprints.column.evidence"), render: (item) => item.evidence_fingerprints.length },
-  { key: "tools", header: t("evidence.blueprints.column.tools"), render: (item) => item.required_tools.join(", ") || t("evidence.common.none") },
-  { key: "isolation", header: t("evidence.blueprints.column.isolation"), render: (item) => `${item.isolation_profile.profile_id}; ${t("evidence.blueprints.toolCalls", { count: item.isolation_profile.max_tool_calls })}` },
-  { key: "cost", header: t("evidence.blueprints.column.cost"), render: (item) => t("evidence.blueprints.microUsd", { cost: item.estimated_cost_microusd }) },
-  { key: "confidence", header: t("evidence.blueprints.column.confidence"), render: (item) => `${(item.confidence * 100).toFixed(1)}%` },
-];
+export function automationBlueprintColumns(): readonly Column<BlueprintCard>[] {
+  return [
+    { key: "intent", header: t("evidence.blueprints.column.automation"), render: (item) => <div><strong>{item.normalized_task_intent}</strong><small>{item.schedule_expression}</small></div> },
+    { key: "state", header: t("evidence.blueprints.column.state"), render: (item) => <StatusPill kind={item.state === "draft" ? "shadow" : item.state === "materialized" ? "success" : "warning"} label={presentationLabel("status", item.state)} /> },
+    { key: "scope", header: t("evidence.blueprints.column.scope"), render: (item) => <code>{item.resource_scope}</code> },
+    { key: "evidence", header: t("evidence.blueprints.column.evidence"), render: (item) => item.evidence_fingerprints.length },
+    { key: "tools", header: t("evidence.blueprints.column.tools"), render: (item) => item.required_tools.join(", ") || t("evidence.common.none") },
+    { key: "isolation", header: t("evidence.blueprints.column.isolation"), render: (item) => `${item.isolation_profile.profile_id}; ${t("evidence.blueprints.toolCalls", { count: item.isolation_profile.max_tool_calls })}` },
+    { key: "cost", header: t("evidence.blueprints.column.cost"), render: (item) => t("evidence.blueprints.microUsd", { cost: item.estimated_cost_microusd }) },
+    { key: "confidence", header: t("evidence.blueprints.column.confidence"), render: (item) => `${(item.confidence * 100).toFixed(1)}%` },
+  ];
+}
 
 function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse }) {
+  const columns = automationBlueprintColumns();
   usePublishViewContext(
     () => ({
       routeId: "automation-blueprints",
@@ -165,10 +181,17 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         { key: "realized_usage", value: data.metrics.realized_usage, group: "quality" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
-      records: { candidates: data.candidates.map((item) => ({ ...item })) },
+      records: {
+        candidates: data.candidates.map((item) => ({
+          ...item,
+          expires_at: formatConsoleTimestamp(item.expires_at),
+        })),
+      },
     }),
     [data],
   );
-  const candidatesHref = `${routeHref("automation-blueprints")}#automation-blueprint-candidates`;
+  const candidatesHref = `${routeHref("automation-blueprints", {
+    params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+  })}#automation-blueprint-candidates`;
   return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.blueprints.bannerTitle")}</strong><span>{t("evidence.blueprints.bannerBody")}</span></div><KpiGrid><KpiCard href={candidatesHref} label={t("evidence.blueprints.candidates")} value={data.count.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} /></KpiGrid><div id="automation-blueprint-candidates"><DataTable rows={data.candidates} columns={columns} keyOf={(item) => item.candidate_id} empty={<EmptyState title={t("evidence.blueprints.empty")} />} /></div></div>;
 }

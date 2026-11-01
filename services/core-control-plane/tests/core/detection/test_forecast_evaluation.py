@@ -97,3 +97,14 @@ async def test_cold_start_records_abstain_not_negative() -> None:
     episode = next(iter(store.episodes.values()))
     assert episode.evaluation_kind is ForecastEvaluationKind.ABSTAINED
     assert episode.abstain_reason == "insufficient_samples"
+
+
+def test_forecast_target_spec_rejects_blank_identity_and_boolean_bounds() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="identity MUST be non-empty"):
+        _target(detector_id="   ")
+    with pytest.raises(ValueError, match="SHA-256"):
+        _target(access_scope_digest="Z" * 64)
+    with pytest.raises(ValueError, match="positive"):
+        _target(horizon_seconds=True)

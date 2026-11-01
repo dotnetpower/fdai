@@ -101,3 +101,27 @@ async def test_late_revision_preserves_balanced_evidence_and_challenger_basis() 
         ),
     }
     assert revised.closure is CausalClosure.INCONCLUSIVE
+
+
+async def test_projector_rejects_self_precedence_and_blank_finding_id() -> None:
+    import pytest
+    from fdai.core.rca.member_source import IncidentRcaContext
+
+    store = _Store()
+    prior = _hypothesis()
+    projector = CausalHypothesisProjector(store=cast(OntologyInstanceStore, store))
+    with pytest.raises(ValueError, match="finding_id"):
+        await projector.project(prior, finding_id="   ")
+    with pytest.raises(ValueError, match="same hypothesis"):
+        await projector.project(
+            prior,
+            finding_id="finding-1",
+            previous_hypothesis_id=prior.hypothesis_id,
+        )
+    with pytest.raises(ValueError, match="evidence_refs"):
+        IncidentRcaContext(
+            members=(),
+            depends_on={},
+            inventory_generation="gen-1",
+            evidence_refs=(" ",),
+        )

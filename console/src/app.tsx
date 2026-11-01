@@ -5,6 +5,7 @@ import type { AuthContext } from "./auth";
 import { initAuth } from "./auth";
 import { observeUnauthorizedApiResponses } from "./auth-response";
 import {
+  recoverConsoleAccess,
   shouldAllowLocalDevBypass,
   shouldLoadIamSelf,
   shouldShowAccessRequired,
@@ -166,7 +167,7 @@ export function App() {
       window.history.replaceState(
         null,
         "",
-        query ? `${route.canonicalPathname}?${query}` : route.canonicalPathname,
+        `${query ? `${route.canonicalPathname}?${query}` : route.canonicalPathname}${window.location.hash}`,
       );
     }
     const syncRoute = () => {
@@ -379,8 +380,14 @@ export function App() {
           accessRecovery={{
             error: state.error ?? t("accessRequired.checkFailed"),
             retry: async () => {
-              const iamSelf = await client.iamSelf();
-              setState({ status: "ready", config, auth, client, iamSelf });
+              const iamSelf = await recoverConsoleAccess(auth, client);
+              setState({
+                status: "ready",
+                config,
+                auth,
+                client,
+                ...(iamSelf ? { iamSelf } : {}),
+              });
             },
           }}
         />
@@ -471,7 +478,12 @@ export function App() {
           writeConsoleDataMode(mode);
           setPreferredDataMode(mode);
           navigate(
-            consoleDataModeHref(mode, window.location.pathname, window.location.search),
+            consoleDataModeHref(
+              mode,
+              window.location.pathname,
+              window.location.search,
+              window.location.hash,
+            ),
             true,
           );
         }}

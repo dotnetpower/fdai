@@ -35,7 +35,11 @@ def lineage_count_goal(
     side = containment_side(ctx)
     if side is None or side.endpoint_type != RESOURCE_OBJECT_TYPE:
         return OperatorResult(unsupported=("lineage_containment_unavailable",))
-    container_kind = group[0].split(":", 1)[1]
+    if not group or ":" not in group[0]:
+        return OperatorResult(unsupported=("lineage_container_kind_unreadable",))
+    container_kind = group[0].split(":", 1)[1].strip()
+    if not container_kind:
+        return OperatorResult(unsupported=("lineage_container_kind_unreadable",))
     container_predicates = (
         []
         if container_kind == RESOURCE_OBJECT_TYPE

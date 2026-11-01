@@ -4,7 +4,7 @@ import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api
 import { PageHeader, type AsyncState } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import {
@@ -127,8 +127,16 @@ function correlationFromRoute(): string {
   return currentRoute().search.get("correlation")?.trim() ?? "";
 }
 
-export function traceCorrelationHref(correlationId: string): string {
-  return routeHref("trace", { params: { correlation: correlationId.trim() } });
+export function traceCorrelationHref(
+  correlationId: string,
+  search?: URLSearchParams,
+): string {
+  return routeHref("trace", {
+    params: {
+      correlation: correlationId.trim(),
+      data: search?.get("data") === "sample" ? "sample" : null,
+    },
+  });
 }
 
 export function RuleTraceRoute({ client }: Props) {
@@ -187,13 +195,15 @@ export function RuleTraceRoute({ client }: Props) {
     sync();
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       requestGeneration.current += 1;
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [client]);
 
   useEffect(() => {
     let active = true;
@@ -254,7 +264,7 @@ export function RuleTraceRoute({ client }: Props) {
         setState({ status: "idle" });
         setLoadedAt(null);
       }}
-      onSubmit={() => navigate(traceCorrelationHref(correlationId))}
+      onSubmit={() => navigate(traceCorrelationHref(correlationId, currentRoute().search))}
       trace={state.status === "ready" ? state.data : null}
       loadedAt={loadedAt}
     />
@@ -813,20 +823,21 @@ function TraceEvidenceLinks({
   readonly correlationId: string;
   readonly trace: TraceResponse | null;
 }) {
+  const data = currentRoute().search.get("data") === "sample" ? "sample" : null;
   return (
     <nav class="trace-evidence-links trace-toolbar-links" aria-label={t("evidence.trace.evidence")}>
       <TraceEvidenceLink
-        href={routeHref("incidents", { params: { status: "all", correlation: correlationId } })}
+        href={routeHref("incidents", { params: { status: "all", correlation: correlationId, data } })}
         label={t("evidence.trace.incident")}
         recorded={trace?.incident_evidence_recorded ?? null}
       />
       <TraceEvidenceLink
-        href={routeHref("audit", { params: { correlation: correlationId } })}
+        href={routeHref("audit", { params: { correlation: correlationId, data } })}
         label={t("evidence.trace.audit")}
         recorded={true}
       />
       <TraceEvidenceLink
-        href={routeHref("rca", { params: { correlation: correlationId } })}
+        href={routeHref("rca", { params: { correlation: correlationId, data } })}
         label={t("evidence.trace.rca")}
         recorded={trace?.rca_evidence_recorded ?? null}
       />

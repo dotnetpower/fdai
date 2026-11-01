@@ -7,6 +7,7 @@ import json
 from collections.abc import Mapping
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
+from functools import lru_cache
 from typing import Any
 
 import pytest
@@ -18,10 +19,12 @@ NOW = datetime(2026, 10, 30, tzinfo=UTC)
 STATE = "pantheon/heimdall/sensing-state"
 
 
+@lru_cache(maxsize=4096)
 def _encoded(key: tuple[str, ...]) -> str:
     return json.dumps(key, ensure_ascii=True, separators=(",", ":"))
 
 
+@lru_cache(maxsize=4096)
 def _subject(family: str, identity: str) -> str:
     return f"{STATE}/{family}/" + hashlib.sha256(identity.encode()).hexdigest()
 

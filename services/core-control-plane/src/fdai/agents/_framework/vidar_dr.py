@@ -23,6 +23,7 @@ def is_failover_action_type(action_type: object) -> bool:
 
 
 def decision_allows_executor_io(decision: Mapping[str, Any] | None) -> bool:
+    digest = decision.get("expected_effect_digest") if decision is not None else None
     return (
         decision is not None
         and decision.get("kind") == DR_CONTRACT_KIND
@@ -30,8 +31,10 @@ def decision_allows_executor_io(decision: Mapping[str, Any] | None) -> bool:
         and is_action_run_identity(decision.get("action_run_identity"))
         and isinstance(decision.get("failback_contract"), str)
         and bool(str(decision.get("failback_contract")).strip())
-        and isinstance(decision.get("expected_effect_digest"), str)
-        and str(decision.get("expected_effect_digest")).startswith("sha256:")
+        and isinstance(digest, str)
+        and digest.startswith("sha256:")
+        and len(digest) == 71
+        and all(ch in "0123456789abcdef" for ch in digest.removeprefix("sha256:"))
     )
 
 
@@ -126,8 +129,15 @@ def build_outcome(
     if not is_failover_action_type(action_run.get("action_type")):
         return None
     action_run_identity = action_run.get("action_run_identity")
-    if not is_action_run_identity(action_run_identity) or not decision_allows_executor_io(
-        accepted_decision
+    if (
+        not is_action_run_identity(action_run_identity)
+        or not decision_allows_executor_io(accepted_decision)
+        or accepted_decision.get("action_run_identity") != action_run_identity
+        or (
+            accepted_decision.get("resource_id") is not None
+            and action_run.get("resource_id") is not None
+            and accepted_decision.get("resource_id") != action_run.get("resource_id")
+        )
     ):
         return None
     accepted_at = _parse_datetime(accepted_decision.get("accepted_at"))

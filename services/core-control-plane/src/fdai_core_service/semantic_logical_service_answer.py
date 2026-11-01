@@ -155,7 +155,7 @@ def _object_rows(
     object_type: str,
 ) -> list[dict[str, str]] | None:
     raw_rows = output.get("rows")
-    if not isinstance(raw_rows, list):
+    if not isinstance(raw_rows, (list, tuple)):
         return None
     rows: list[dict[str, str]] = []
     for raw_row in raw_rows:
@@ -168,7 +168,7 @@ def _object_rows(
         if (
             values.get("object_type") != object_type
             or not isinstance(object_id, str)
-            or not object_id
+            or not object_id.strip()
             or not isinstance(properties, Mapping)
         ):
             return None
@@ -176,10 +176,14 @@ def _object_rows(
         runtime_type = properties.get("type")
         rows.append(
             {
-                "id": object_id,
-                "name": name if isinstance(name, str) and name else object_id,
+                "id": object_id.strip(),
+                "name": (
+                    name.strip() if isinstance(name, str) and name.strip() else object_id.strip()
+                ),
                 "type": (
-                    runtime_type if isinstance(runtime_type, str) and runtime_type else "unknown"
+                    runtime_type.strip()
+                    if isinstance(runtime_type, str) and runtime_type.strip()
+                    else "unknown"
                 ),
             }
         )
@@ -188,7 +192,7 @@ def _object_rows(
 
 def _state_rows(output: Mapping[str, object]) -> list[dict[str, str]] | None:
     raw_rows = output.get("rows")
-    if not isinstance(raw_rows, list):
+    if not isinstance(raw_rows, (list, tuple)):
         return None
     rows: list[dict[str, str]] = []
     for raw_row in raw_rows:
@@ -202,22 +206,22 @@ def _state_rows(output: Mapping[str, object]) -> list[dict[str, str]] | None:
         observed_at = values.get("source_observed_at")
         if (
             not isinstance(name, str)
-            or not name
+            or not name.strip()
             or not isinstance(runtime_type, str)
-            or not runtime_type
+            or not runtime_type.strip()
             or not isinstance(state, str)
-            or not state
+            or not state.strip()
             or not isinstance(observed_at, str)
-            or not observed_at
+            or not observed_at.strip()
             or values.get("execution_authority") is not False
         ):
             return None
         rows.append(
             {
-                "name": name,
-                "type": runtime_type,
-                "state": state,
-                "observed_at": observed_at,
+                "name": name.strip(),
+                "type": runtime_type.strip(),
+                "state": state.strip(),
+                "observed_at": observed_at.strip(),
             }
         )
     return rows

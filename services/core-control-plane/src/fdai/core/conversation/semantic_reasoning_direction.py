@@ -182,7 +182,8 @@ def _reading_role(
     ``SubjectRole`` is itself a string enum, so callers test for it first.
     """
 
-    reading = answer.get("reading") if isinstance(answer, Mapping) else None
+    raw_reading = answer.get("reading") if isinstance(answer, Mapping) else None
+    reading = raw_reading.strip().lower() if isinstance(raw_reading, str) else None
     if reading not in _READINGS:
         return "review_direction_unavailable"
     if reading == "unclear" or (reading == "either" and not question.mutual):
@@ -203,7 +204,12 @@ def _senses(
     for descriptor in descriptors:
         if descriptor.get("kind") != "link":
             continue
-        traits = set(descriptor.get("semantic_traits") or ())
+        raw_traits = descriptor.get("semantic_traits")
+        traits = (
+            {item.strip() for item in raw_traits if isinstance(item, str) and item.strip()}
+            if isinstance(raw_traits, (list, tuple))
+            else set()
+        )
         if (RECIPROCAL_TRAIT in traits) is not reciprocal:
             continue
         senses.update(

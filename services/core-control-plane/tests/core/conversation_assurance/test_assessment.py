@@ -659,3 +659,69 @@ def test_coordinator_requires_complete_timing_configuration() -> None:
             rubric_version="1.0.0",
             deterministic_timing_environment=LatencyEnvironment.PR_REGRESSION,
         )
+
+
+async def test_rounds_13_to_16_core_answer_and_assurance_hardening() -> None:
+    from fdai_core_service.semantic_assurance_claims import project_function_claims
+    from fdai_core_service.semantic_reading_holds import reading_hold_answer
+    from fdai_core_service.semantic_resource_health_summary import health_summary_lines
+    from fdai_core_service.semantic_service_health_answer import _parse_timestamp
+    from fdai_core_service.semantic_service_health_format import event_line, impacted_line
+
+    # D37: _parse_timestamp strips surrounding whitespace and requires UTC offset
+    assert _parse_timestamp(" 2026-08-28T00:00:00Z ") is not None
+    assert _parse_timestamp("2026-08-28T00:00:00") is None
+
+    # D40: boolean counts and non-positive total rejected in health_summary_lines
+    assert (
+        health_summary_lines({"total": 0, "availability": {}, "coverage_gaps": {}}, korean=False)
+        == []
+    )
+    assert health_summary_lines(
+        {"total": 1, "availability": {"unavailable": True}, "coverage_gaps": {}},
+        korean=False,
+    ) == ["- Of 1 resources checked: no state."]
+
+    # D41: boolean count rejected in impacted_line and blank title replaced in event_line
+    assert "unknown" in impacted_line(True, posture="exact", korean=False)
+    assert "title unavailable" in event_line({"title": "   "}, korean=False)
+
+    # D43: slot:<role>:<reason> codes resolve to reviewed role labels in reading_hold_answer
+    notice = reading_hold_answer(
+        "en",
+        "held",
+        "semantic_constraint_uncovered",
+        ("slot:restricts:unbound",),
+    )
+    assert notice is not None and "restriction" in notice
+
+    # D44: tuple-backed rows accepted in project_function_claims
+    claims = project_function_claims(
+        "query.ontology_relationships",
+        {
+            "authority": "ontology_release",
+            "execution_authority": False,
+            "complete": True,
+            "relationships": (
+                {"link_type": "contains", "from_type": "Resource", "to_type": "Resource"},
+            ),
+        },
+    )
+    assert "relationship.containment" in claims.fact_kinds
+
+    # D46 & D47: disagreement flag set when tie_breaker is None, and blank authority rejected
+    first = _Evaluator("publisher-a:model-a", "family-a", 4)
+    second = _Evaluator("publisher-b:model-b", "family-b", 1)
+    decision = await MixedFamilyAssuranceReviewer(first=first, second=second).review(_turn())
+    assert decision.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert decision.disagreement is True
+
+    blank_auth = assess_deterministically(
+        _turn(deterministic_answer=True, verification_authority="  UNAVAILABLE  ")
+    )
+    assert blank_auth.verdict is AssuranceVerdict.INCONCLUSIVE
+    assert blank_auth.reasons == ("verification_authority_unavailable",)
+    blank_reason = assess_deterministically(
+        _turn(verification_status="unverified", verification_reason_code="  unknown_link_type  ")
+    )
+    assert blank_reason.reasons == ("verification_failed:unknown_link_type",)

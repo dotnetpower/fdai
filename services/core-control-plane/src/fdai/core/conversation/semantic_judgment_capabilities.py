@@ -34,9 +34,13 @@ def property_canonical_values(capability: Mapping[str, Any]) -> tuple[str, ...]:
     if (
         capability.get("kind") != "object_type"
         or not isinstance(name, str)
-        or not name
+        or not name.strip()
+        or name != name.strip()
         or not isinstance(properties, (list, tuple))
-        or any(not isinstance(item, str) or not item for item in properties)
+        or any(
+            not isinstance(item, str) or not item.strip() or item != item.strip()
+            for item in properties
+        )
         or len(properties) != len(set(properties))
     ):
         raise ValueError("semantic property names require one exact ObjectType and unique names")

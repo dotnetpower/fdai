@@ -69,7 +69,13 @@ async def validate_snapshot_against_current_graph(
     declarations must agree. Missing, deleted, changed, or fabricated objects hold.
     No persistence, embedding calls, index activation, or privilege change occurs.
     """
-    if not validator_id or len(validator_id) > 128 or as_of.tzinfo is None:
+    if (
+        not validator_id.strip()
+        or validator_id != validator_id.strip()
+        or len(validator_id) > 128
+        or as_of.tzinfo is None
+        or as_of.utcoffset() is None
+    ):
         raise ValueError("snapshot validation requires a bounded validator and aware cutoff")
     if len(manifest.purposes) != 1:
         raise ValueError("snapshot validation requires one exact purpose")
@@ -124,7 +130,7 @@ async def validate_snapshot_against_current_graph(
                 key: value
                 for key, value in record.properties.items()
                 if key != "__redactions__"
-                and key not in record.properties.get("__redactions__", {})
+                and key not in (record.properties.get("__redactions__") or {})
             },
         )
         for record in observed.graph.objects

@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/ho
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { AsyncBoundary, LoadingState, type AsyncState } from "../components/ui";
-import { currentRoute, replaceRouteState, routeHref } from "../router";
+import { currentRoute, replaceRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { PANTHEON } from "./agents.model";
 import { ScopedDutyApi } from "./scoped-duty-api";
 import { scopedDutyText as text, type ScopedDutyCopyKey } from "./scoped-duty-copy";
@@ -139,11 +139,13 @@ function ScopedDutySession({ client, canManage, principalOid, contextCurrent }: 
     };
     window.addEventListener("popstate", onRoute);
     window.addEventListener("fdai:route-changed", onRoute);
+    window.addEventListener(ROUTE_STATE_EVENT, onRoute);
     return () => {
       alive.current = false;
       for (const controller of controllers.current.values()) controller.abort();
       window.removeEventListener("popstate", onRoute);
       window.removeEventListener("fdai:route-changed", onRoute);
+      window.removeEventListener(ROUTE_STATE_EVENT, onRoute);
     };
   }, [api]);
 

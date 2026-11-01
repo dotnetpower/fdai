@@ -42,9 +42,13 @@ export function nextEnvironmentDeploymentTab(
   ]!;
 }
 
-export function environmentDeploymentHref(tab: EnvironmentDeploymentTab): string {
+export function environmentDeploymentHref(
+  tab: EnvironmentDeploymentTab,
+  dataMode?: ConsoleDataMode,
+): string {
   return routeHref("settings-environment", {
     segments: tab === "readiness" ? [] : [tab],
+    params: { data: dataMode === "sample" ? "sample" : null },
   });
 }
 
@@ -59,7 +63,7 @@ export function EnvironmentDeploymentRoute({
   const activeTab = requestedTab ?? "readiness";
 
   const selectTab = (tab: EnvironmentDeploymentTab): void => {
-    navigate(environmentDeploymentHref(tab));
+    navigate(environmentDeploymentHref(tab, dataMode));
   };
 
   return (

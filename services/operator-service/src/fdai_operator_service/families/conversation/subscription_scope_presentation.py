@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import datetime
 from typing import cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
@@ -26,7 +27,11 @@ def subscription_scope_artifact(
     """Return localized fields only for one complete sanitized observation."""
 
     rows = output.get("rows")
-    if output.get("source_complete") is not True or not isinstance(rows, list) or len(rows) != 1:
+    if (
+        output.get("source_complete") is not True
+        or not isinstance(rows, (list, tuple))
+        or len(rows) != 1
+    ):
         return None
     values = rows[0].get("values") if isinstance(rows[0], Mapping) else None
     if not isinstance(values, Mapping) or values.get("execution_authority") is not False:
@@ -43,6 +48,7 @@ def subscription_scope_artifact(
         or not isinstance(masked_id, str)
         or _MASKED_ID.fullmatch(masked_id) is None
         or not _bounded(observed_at, 64)
+        or _timestamp(observed_at) is None
         or not isinstance(evidence_digest, str)
         or _DIGEST.fullmatch(evidence_digest) is None
     ):
@@ -89,6 +95,16 @@ def _bounded(value: object, maximum: int) -> bool:
         and len(value) <= maximum
         and all(ord(char) >= 32 for char in value)
     )
+
+
+def _timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
 
 
 __all__ = ["subscription_scope_artifact"]

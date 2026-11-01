@@ -7,7 +7,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleCompactTimestamp } from "../time-format";
 import type {
   RcaCitation,
@@ -77,20 +77,37 @@ export function RcaBody({ data }: { readonly data: RcaView }) {
           {recorded ? (
             <a href={routeHref("reports", {
               segments: ["incident-rca-dossier"],
-              params: { correlation_id: data.correlation_id },
+              params: {
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                correlation_id: data.correlation_id,
+              },
             })}>
               {rcaText("report")}
             </a>
           ) : null}
           <a href={routeHref("incidents", {
-            params: { status: "all", correlation: data.correlation_id },
+            params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              status: "all",
+              correlation: data.correlation_id,
+            },
           })}>
             {rcaText("incident")}
           </a>
-          <a href={routeHref("trace", { params: { correlation: data.correlation_id } })}>
+          <a href={routeHref("trace", {
+            params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              correlation: data.correlation_id,
+            },
+          })}>
             {rcaText("technicalActivity")}
           </a>
-          <a href={routeHref("audit", { params: { correlation: data.correlation_id } })}>
+          <a href={routeHref("audit", {
+            params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+              correlation: data.correlation_id,
+            },
+          })}>
             {rcaText("auditRecords")}
           </a>
         </nav>
@@ -154,7 +171,11 @@ function HypothesisCard({
 }) {
   const titleId = `rca-hypothesis-${hypothesis.seq}`;
   const hypothesisAuditHref = routeHref("audit", {
-    params: { correlation: correlationId, entry: hypothesis.seq },
+    params: {
+      data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+      correlation: correlationId,
+      entry: hypothesis.seq,
+    },
   });
   const cause = hypothesis.cause
     ?? (hypothesis.grounded ? rcaText("none") : rcaText("abstainedCauseTitle"));
@@ -297,11 +318,12 @@ function ResponsePlan({
       </section>
     );
   }
+  const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const hypothesisAuditHref = routeHref("audit", {
-    params: { correlation: correlationId, entry: response.hypothesis_seq },
+    params: { data: dataParam, correlation: correlationId, entry: response.hypothesis_seq },
   });
   const responseAuditHref = routeHref("audit", {
-    params: { correlation: correlationId, entry: response.source_seq },
+    params: { data: dataParam, correlation: correlationId, entry: response.source_seq },
   });
   return (
     <section class="rca-panel" aria-label={rcaText("response")}>
@@ -383,27 +405,28 @@ function citationDestination(
   citation: RcaCitation,
   correlationId: string,
 ): { readonly href: string; readonly label: string } {
+  const data = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const kind = citation.kind.toLowerCase();
   if (kind === "rule") {
     return {
-      href: routeHref("rules", { params: { rule: citation.ref } }),
+      href: routeHref("rules", { params: { data, rule: citation.ref } }),
       label: rcaText("citationDestinationRule"),
     };
   }
   if (kind === "incident") {
     return {
-      href: routeHref("incidents", { params: { status: "all", q: citation.ref } }),
+      href: routeHref("incidents", { params: { data, status: "all", q: citation.ref } }),
       label: rcaText("citationDestinationIncident"),
     };
   }
   if (kind === "telemetry" || kind === "metric" || kind === "trace") {
     return {
-      href: routeHref("trace", { params: { correlation: correlationId } }),
+      href: routeHref("trace", { params: { data, correlation: correlationId } }),
       label: rcaText("citationDestinationTrace"),
     };
   }
   return {
-    href: routeHref("audit", { params: { correlation: correlationId } }),
+    href: routeHref("audit", { params: { data, correlation: correlationId } }),
     label: rcaText("citationDestinationAudit"),
   };
 }

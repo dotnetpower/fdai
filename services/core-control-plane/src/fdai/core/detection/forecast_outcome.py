@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -102,7 +102,7 @@ def close_forecast(
     outcome_id = uuid5(
         NAMESPACE_URL,
         "fdai-forecast-outcome:"
-        f"{expectation.prediction_id}:{expectation.horizon_ended_at.isoformat()}",
+        f"{expectation.prediction_id}:{expectation.horizon_ended_at.astimezone(UTC).isoformat()}",
     )
     return ForecastOutcome(
         schema_version=forecast_outcome_schema_version(observation.scoring_exclusions),
@@ -160,7 +160,7 @@ def close_missed_breach(
         NAMESPACE_URL,
         "fdai-missed-forecast:"
         f"{access_scope_digest}:{detector_id}:{detector_version}:"
-        f"{target_ref}:{metric}:{actual_breach_at.isoformat()}",
+        f"{target_ref}:{metric}:{actual_breach_at.astimezone(UTC).isoformat()}",
     )
     return ForecastOutcome(
         schema_version="1.0.0",

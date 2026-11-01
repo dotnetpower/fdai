@@ -15,7 +15,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, ROUTE_STATE_EVENT, routeHref } from "../router";
 import { schedulerRunsNumber, schedulerRunsText } from "./scheduler-runs.i18n";
 import {
   appendSchedulerRunPage,
@@ -36,6 +36,20 @@ interface Query {
 
 const PAGE_SIZE = 50;
 
+export function schedulerRunsHref(
+  taskId: string,
+  status: SchedulerRunStatus | "",
+  dataMode: ConsoleDataMode,
+): string {
+  return routeHref("scheduler-runs", {
+    params: {
+      task_id: taskId,
+      status: status || null,
+      data: dataMode === "sample" ? "sample" : null,
+    },
+  });
+}
+
 export function SchedulerRunsRoute({
   client,
   dataMode,
@@ -43,13 +57,16 @@ export function SchedulerRunsRoute({
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
 }) {
-  const routeQuery = queryFromRoute();
-  const initial = dataMode === "sample" && !routeQuery.taskId
-    ? { ...routeQuery, taskId: "inventory-reconciliation" }
-    : routeQuery;
+  const resolveQuery = (mode: ConsoleDataMode): Query => {
+    const rq = queryFromRoute();
+    return mode === "sample" && !rq.taskId
+      ? { ...rq, taskId: "inventory-reconciliation" }
+      : rq;
+  };
+  const initial = resolveQuery(dataMode);
   const [taskInput, setTaskInput] = useState(initial.taskId);
   const [statusInput, setStatusInput] = useState<Query["status"]>(initial.status);
-  const [activeQuery] = useState<Query | null>(initial.taskId ? initial : null);
+  const [activeQuery, setActiveQuery] = useState<Query | null>(initial.taskId ? initial : null);
   const [state, setState] = useState<AsyncState<SchedulerRunPage>>(
     initial.taskId ? { status: "loading" } : { status: "idle" },
   );
@@ -96,9 +113,33 @@ export function SchedulerRunsRoute({
   };
 
   useEffect(() => {
+    const sync = () => {
+      const next = resolveQuery(dataMode);
+      setTaskInput(next.taskId);
+      setStatusInput(next.status);
+      setActiveQuery(next.taskId ? next : null);
+      if (!next.taskId) {
+        generation.current += 1;
+        setLoadingMore(false);
+        setPageError(null);
+        setState({ status: "idle" });
+      }
+    };
+    sync();
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, [dataMode]);
+
+  useEffect(() => {
     if (activeQuery !== null) void load(activeQuery, null, false);
     return () => { generation.current += 1; };
-  }, [client]);
+  }, [client, dataMode, activeQuery?.taskId, activeQuery?.status]);
 
   const submit = (event: Event): void => {
     event.preventDefault();
@@ -108,9 +149,7 @@ export function SchedulerRunsRoute({
       if (state.status !== "loading") void load(activeQuery, null, false);
       return;
     }
-    navigate(routeHref("scheduler-runs", {
-      params: { task_id: taskId, status: statusInput || null },
-    }), true);
+    navigate(schedulerRunsHref(taskId, statusInput, dataMode), true);
   };
 
   return (

@@ -200,9 +200,11 @@ def _relation_failure(goal: FormGoal) -> str | None:
 
 def _object_type_names(ctx: CompileContext) -> frozenset[str]:
     return frozenset(
-        item["name"]
+        name.strip()
         for item in ctx.manifest.descriptors
-        if item.get("kind") == "object" and isinstance(item.get("name"), str)
+        if item.get("kind") == "object"
+        and isinstance((name := item.get("name")), str)
+        and name.strip()
     )
 
 
@@ -211,7 +213,8 @@ def _quotes_another_object_type(
 ) -> bool:
     if stated_name == grounded_name:
         return False
-    return any(item != grounded_name and item in stated_name.split() for item in object_names)
+    tokens = {token.strip(".,!?;:()[]\"'") for token in stated_name.split()}
+    return any(item != grounded_name and item in tokens for item in object_names)
 
 
 def _declared_kinds(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...]:

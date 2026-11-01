@@ -285,7 +285,7 @@ def _project_ontology_relationships(value: object) -> SemanticAssuranceClaims:
         value.get("authority") != "ontology_release"
         or value.get("execution_authority") is not False
         or not isinstance(complete, bool)
-        or not isinstance(relationships, list)
+        or not isinstance(relationships, (list, tuple))
     ):
         return SemanticAssuranceClaims()
     facts: set[str] = set()
@@ -348,7 +348,7 @@ def _project_ontology_evidence_health(value: object) -> SemanticAssuranceClaims:
     facts = {"evidence.completeness", "evidence.freshness"}
     conflicts = row.get("conflicts")
     if (
-        isinstance(conflicts, list)
+        isinstance(conflicts, (list, tuple))
         and conflicts
         and all(isinstance(item, str) for item in conflicts)
     ):
@@ -376,9 +376,9 @@ def _project_incident_evidence(value: object) -> SemanticAssuranceClaims:
         value.get("authority") != "audit_projection"
         or value.get("execution_authority") is not False
         or not _nonempty_text(value.get("incident_id"))
-        or not isinstance(correlated, list)
-        or not isinstance(gaps, list)
-        or not isinstance(citations, list)
+        or not isinstance(correlated, (list, tuple))
+        or not isinstance(gaps, (list, tuple))
+        or not isinstance(citations, (list, tuple))
         or not isinstance(value.get("truncated"), bool)
         or not isinstance(value.get("cause_claim_supported"), bool)
     ):
@@ -399,7 +399,7 @@ def _project_incident_evidence(value: object) -> SemanticAssuranceClaims:
             facts.add("activity.recorded_at")
         facts.update(("incident.activity", "incident.evidence"))
     impact_evidence = value.get("impact_evidence")
-    if isinstance(impact_evidence, list) and impact_evidence:
+    if isinstance(impact_evidence, (list, tuple)) and impact_evidence:
         facts.add("incident.impact")
     if (
         value.get("cause_claim_supported") is True
@@ -449,7 +449,7 @@ def _project_ontology_declaration(value: object) -> SemanticAssuranceClaims:
         facts.add("action_type.safeguards")
     if isinstance(declaration.get("argument_schema"), Mapping) and isinstance(
         declaration.get("preconditions"),
-        list,
+        (list, tuple),
     ):
         facts.add("action_type.constraints")
     if isinstance(declaration.get("ceiling_by_tier"), Mapping):
@@ -466,7 +466,7 @@ def _table_rows(value: object) -> tuple[list[Mapping[str, Any]] | None, bool | N
     if not isinstance(complete, bool):
         return None, None
     raw_rows = value.get("rows")
-    if not isinstance(raw_rows, list):
+    if not isinstance(raw_rows, (list, tuple)):
         return None, complete
     rows: list[Mapping[str, Any]] = []
     for item in raw_rows:

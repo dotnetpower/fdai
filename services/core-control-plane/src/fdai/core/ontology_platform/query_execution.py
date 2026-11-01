@@ -626,15 +626,21 @@ def _bind_result_authority(
     if len(dependency_authorities) > 1:
         raise QueryNodeHeldError("evidence_authority_conflict")
     dependency_authority = next(iter(dependency_authorities), None)
+    dependency_inputs = {
+        dependency.authority_inputs
+        for dependency in dependencies.values()
+        if dependency.authority is not None
+    }
+    inherited_inputs = next(iter(dependency_inputs), ()) if len(dependency_inputs) == 1 else ()
     if result.authority is None:
         return (
-            replace(result, authority=dependency_authority)
+            replace(result, authority=dependency_authority, authority_inputs=inherited_inputs)
             if dependency_authority is not None
             else result
         )
     if result.authority is EvidenceAuthority.SERVER_ONTOLOGY_QUERY:
         return (
-            replace(result, authority=dependency_authority)
+            replace(result, authority=dependency_authority, authority_inputs=inherited_inputs)
             if dependency_authority is not None
             else result
         )

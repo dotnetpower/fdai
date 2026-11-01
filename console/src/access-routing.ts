@@ -15,3 +15,15 @@ export function shouldShowAccessRequired(
 ): boolean {
   return auth.account !== null && iamSelf?.canAccessConsole === false;
 }
+
+export async function recoverConsoleAccess(
+  auth: AuthContext,
+  client: {
+    iamSelf(): Promise<IamSelfStatus>;
+    dashboardMetrics(): Promise<unknown>;
+  },
+): Promise<IamSelfStatus | undefined> {
+  if (shouldLoadIamSelf(auth)) return client.iamSelf();
+  await client.dashboardMetrics();
+  return undefined;
+}

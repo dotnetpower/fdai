@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -27,15 +28,21 @@ class ReadInvestigationBudget:
     max_output_bytes: int = 256_000
 
     def __post_init__(self) -> None:
-        if not 1 <= self.max_wall_seconds <= 3_600:
+        if isinstance(self.max_wall_seconds, bool) or not 1 <= self.max_wall_seconds <= 3_600:
             raise ValueError("max_wall_seconds MUST be in [1, 3600]")
-        if not 0 <= self.max_cost_microusd <= 10_000_000:
+        if (
+            isinstance(self.max_cost_microusd, bool)
+            or not 0 <= self.max_cost_microusd <= 10_000_000
+        ):
             raise ValueError("max_cost_microusd MUST be in [0, 10000000]")
-        if not 1 <= self.max_tool_calls <= 5:
+        if isinstance(self.max_tool_calls, bool) or not 1 <= self.max_tool_calls <= 5:
             raise ValueError("max_tool_calls MUST be in [1, 5]")
-        if not 2 <= self.max_results <= 64:
+        if isinstance(self.max_results, bool) or not 2 <= self.max_results <= 64:
             raise ValueError("max_results MUST be in [2, 64]")
-        if not 1_024 <= self.max_output_bytes <= 1_000_000:
+        if (
+            isinstance(self.max_output_bytes, bool)
+            or not 1_024 <= self.max_output_bytes <= 1_000_000
+        ):
             raise ValueError("max_output_bytes MUST be in [1024, 1000000]")
 
 
@@ -73,9 +80,9 @@ class ReadInvestigationRequest:
         ):
             if optional_value is not None:
                 _identifier(name, optional_value)
-        if self.created_at.tzinfo is None:
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
             raise ValueError("created_at MUST be timezone-aware")
-        if not 60 <= self.lookback_seconds <= 2_592_000:
+        if isinstance(self.lookback_seconds, bool) or not 60 <= self.lookback_seconds <= 2_592_000:
             raise ValueError("lookback_seconds MUST be in [60, 2592000]")
         if ReadToolId.RESOLVE_RESOURCE in self.requested_evidence:
             raise ValueError("resolve_resource is server-owned and MUST NOT be requested")
@@ -94,13 +101,20 @@ class ReadInvestigationStep:
     fallback_rank: int = 0
 
     def __post_init__(self) -> None:
-        if not 0.1 <= self.timeout_seconds <= 120:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 120
+        ):
             raise ValueError("step timeout_seconds MUST be in [0.1, 120]")
-        if not 1 <= self.max_results <= 64:
+        if isinstance(self.max_results, bool) or not 1 <= self.max_results <= 64:
             raise ValueError("step max_results MUST be in [1, 64]")
-        if not 1_024 <= self.max_output_bytes <= 1_000_000:
+        if (
+            isinstance(self.max_output_bytes, bool)
+            or not 1_024 <= self.max_output_bytes <= 1_000_000
+        ):
             raise ValueError("step max_output_bytes MUST be in [1024, 1000000]")
-        if self.fallback_rank < 0:
+        if isinstance(self.fallback_rank, bool) or self.fallback_rank < 0:
             raise ValueError("fallback_rank MUST be non-negative")
 
 
@@ -144,7 +158,12 @@ class ReadInvestigationResult:
     finished_at: datetime
 
     def __post_init__(self) -> None:
-        if self.started_at.tzinfo is None or self.finished_at.tzinfo is None:
+        if (
+            self.started_at.tzinfo is None
+            or self.started_at.utcoffset() is None
+            or self.finished_at.tzinfo is None
+            or self.finished_at.utcoffset() is None
+        ):
             raise ValueError("investigation result timestamps MUST be timezone-aware")
         if self.finished_at < self.started_at:
             raise ValueError("investigation finished_at MUST be >= started_at")
@@ -159,7 +178,9 @@ class ReadInvestigationResult:
 
     @property
     def evidence_refs(self) -> tuple[str, ...]:
-        return tuple(ref for envelope in self.evidence for ref in envelope.evidence_refs)
+        return tuple(
+            dict.fromkeys(ref for envelope in self.evidence for ref in envelope.evidence_refs)
+        )
 
 
 def _identifier(name: str, value: str) -> None:

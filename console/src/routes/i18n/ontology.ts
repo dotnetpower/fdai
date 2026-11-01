@@ -1,4 +1,5 @@
 import { getLocale, t as mainT } from "../../i18n";
+import { formatConsoleTimestamp } from "../../time-format";
 import en from "./ontology.en.json";
 import ko from "./ontology.ko.json";
 
@@ -29,5 +30,7 @@ export function formatNumber(value: number): string {
 }
 
 export function formatDateTime(value: string | number | Date): string {
-  return new Date(value).toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US");
+  if (typeof value === "string") return formatConsoleTimestamp(value);
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(parsed.getTime()) ? String(value) : formatConsoleTimestamp(parsed.toISOString());
 }

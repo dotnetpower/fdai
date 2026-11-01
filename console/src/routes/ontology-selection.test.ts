@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
 import {
+  ontologyIncludePropertiesFromSearch,
   ontologyNamedSelection,
   ontologyPathSelection,
   ontologyRouteView,
@@ -24,6 +25,9 @@ describe("ontology explicit selections", () => {
   it("keeps an absent ActionType selection implicit", () => {
     expect(requestedOntologyAction(new URLSearchParams())).toBeNull();
     expect(requestedOntologyAction(new URLSearchParams("action=alpha"))).toBe("alpha");
+    expect(ontologyIncludePropertiesFromSearch(new URLSearchParams())).toBe(true);
+    expect(ontologyIncludePropertiesFromSearch(new URLSearchParams("properties=true"))).toBe(true);
+    expect(ontologyIncludePropertiesFromSearch(new URLSearchParams("properties=false"))).toBe(false);
   });
 
   it("defaults only when no LinkType or ActionType was requested", () => {

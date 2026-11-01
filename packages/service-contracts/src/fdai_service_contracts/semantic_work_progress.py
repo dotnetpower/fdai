@@ -200,7 +200,13 @@ def derive_work_progress_shape(
 
     depth: dict[str, int] = {}
     for node_id, depends_on in nodes:
-        if node_id in depth or any(dependency not in depth for dependency in depends_on):
+        if (
+            not isinstance(node_id, str)
+            or not node_id.strip()
+            or isinstance(depends_on, (str, bytes))
+            or node_id in depth
+            or any(dependency not in depth for dependency in depends_on)
+        ):
             return None
         depth[node_id] = 1 + max((depth[dependency] for dependency in depends_on), default=0)
     if not depth or len(depth) > MAX_WORK_PROGRESS_PLANNED_READS:

@@ -3,7 +3,10 @@ import type { OperatorApiClient } from "../api";
 import { EvidenceRefresh } from "../components/evidence-refresh";
 import { AsyncBoundary, type AsyncState } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { panelArray, panelRecord, panelString, panelStringArray } from "./panel-decode";
 
 const METHODS = ["gitops", "existing_host", "managed_host", "run_command"] as const;
@@ -79,6 +82,7 @@ export function ObserverProposals({ client, dataMode }: { readonly client: Opera
   const generation = useRef(0);
   const load = async (): Promise<void> => {
     const request = ++generation.current;
+    setNow(Date.now());
     if (dataMode !== "live") {
       setState({ status: "unavailable", message: t("observerProposals.unavailable") });
       return;
@@ -91,6 +95,28 @@ export function ObserverProposals({ client, dataMode }: { readonly client: Opera
       if (request === generation.current) setState({ status: "unavailable", message: t("observerProposals.unavailable") });
     }
   };
+  usePublishViewContext(
+    () => state.status === "ready" ? ({
+      routeId: "observer-proposals",
+      routeLabel: t("observerProposals.title"),
+      purpose: t("observerProposals.sourceDescription"),
+      headline: `${state.data.length} observer proposals`,
+      capturedAt: new Date().toISOString(),
+      glossary: composeGlossary([TERMS.hil]),
+      facts: [
+        { key: "proposal_count", value: state.data.length, group: "proposals" },
+        { key: "execution_authority", value: false, group: "proposals" },
+      ],
+      records: {
+        proposals: state.data.map((item) => ({
+          target: item.target,
+          status: item.status,
+          expires_at: formatConsoleTimestamp(new Date(item.expiresAt).toISOString()),
+        })),
+      },
+    }) : null,
+    [state],
+  );
   useEffect(() => {
     void load();
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -118,7 +144,7 @@ export function ObserverProposals({ client, dataMode }: { readonly client: Opera
               <dt>{t(`observerProposals.${entry.method}`)} / {t(`observerProposals.${entry.egress}`)}</dt>
               <dd>{t(`observerProposals.${entry.state}`)}{[...entry.blockers, ...entry.missing].map((reason) => <code key={reason}>{reason}</code>)}</dd>
             </div>)}</dl>
-            <p>{t("observerProposals.expires")}: <time dateTime={new Date(item.expiresAt).toISOString()}>{new Date(item.expiresAt).toLocaleString()}</time></p>
+            <p>{t("observerProposals.expires")}: <time dateTime={new Date(item.expiresAt).toISOString()}>{formatConsoleTimestamp(new Date(item.expiresAt).toISOString())}</time></p>
           </div> : <p>{t("observerProposals.unavailable")}</p>}
         </details>;
       })}</>}

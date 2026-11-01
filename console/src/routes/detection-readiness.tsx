@@ -19,6 +19,7 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import {
+  currentRoute,
   pushRouteState,
   replaceRouteState,
   routeHref,
@@ -244,6 +245,7 @@ export function DetectionReadinessRoute({
   );
   useEffect(() => {
     let active = true;
+    setState({ status: "loading" });
     void loadDetectionReadinessState(client).then((nextState) => {
       if (active) setState(nextState);
     });
@@ -665,11 +667,7 @@ function DetectionReadinessBody({
   const coverage = data.analyzer_coverage;
   const coverageAvailable = coverage.status === "available";
   const [resourceControls, setResourceControls] = useState<CoverageResourceControls>(() => {
-    const parsed = parseCoverageResourceControls(
-      typeof window === "undefined"
-        ? new URLSearchParams()
-        : new URLSearchParams(window.location.search),
-    );
+    const parsed = parseCoverageResourceControls(currentRoute().search);
     return {
       ...parsed,
       selectedRef: parsed.selectedRef
@@ -678,9 +676,7 @@ function DetectionReadinessBody({
           : null),
     };
   });
-  const routeSearch = typeof window === "undefined"
-    ? new URLSearchParams()
-    : new URLSearchParams(window.location.search);
+  const routeSearch = currentRoute().search;
   const resourcesHref = coverageResourceHref(
     routeHref("detection-readiness"),
     routeSearch,
@@ -701,9 +697,7 @@ function DetectionReadinessBody({
   useEffect(() => {
     const syncRouteState = () => {
       setActiveView(detectionCoverageViewFromHash(window.location.hash));
-      const parsed = parseCoverageResourceControls(
-        new URLSearchParams(window.location.search),
-      );
+      const parsed = parseCoverageResourceControls(currentRoute().search);
       setResourceControls({
         ...parsed,
         selectedRef: parsed.selectedRef
@@ -714,10 +708,12 @@ function DetectionReadinessBody({
     };
     window.addEventListener("hashchange", syncRouteState);
     window.addEventListener("popstate", syncRouteState);
+    window.addEventListener("fdai:route-changed", syncRouteState);
     window.addEventListener(ROUTE_STATE_EVENT, syncRouteState);
     return () => {
       window.removeEventListener("hashchange", syncRouteState);
       window.removeEventListener("popstate", syncRouteState);
+      window.removeEventListener("fdai:route-changed", syncRouteState);
       window.removeEventListener(ROUTE_STATE_EVENT, syncRouteState);
     };
   }, [coverage, coverageAvailable]);
@@ -814,9 +810,10 @@ function DetectionReadinessBody({
   ) => {
     setResourceControls(next);
     setActiveView("resources");
+    const route = currentRoute();
     const href = coverageResourceHref(
-      window.location.pathname,
-      new URLSearchParams(window.location.search),
+      route.pathname,
+      route.search,
       next,
     );
     if (historyMode === "push") pushRouteState(href);
@@ -842,9 +839,10 @@ function DetectionReadinessBody({
       : view === "resources"
         ? "#detection-resources"
         : "#detection-findings";
+    const route = currentRoute();
     pushRouteState(coverageResourceHref(
-      window.location.pathname,
-      new URLSearchParams(window.location.search),
+      route.pathname,
+      route.search,
       resourceControls,
       hash.slice(1),
     ));
@@ -1269,9 +1267,8 @@ function DetectionLifecycle({ lifecycle }: { readonly lifecycle: DetectionLifecy
 }
 
 function PodLifecycleSection({ lifecycle }: { readonly lifecycle: LifecycleView }) {
-  const anchor = `${routeHref("detection-readiness")}${
-    typeof window === "undefined" ? "" : window.location.search
-  }#pod-detection-lifecycle`;
+  const query = currentRoute().search.toString();
+  const anchor = `${routeHref("detection-readiness")}${query ? `?${query}` : ""}#pod-detection-lifecycle`;
   const [selectedRef, setSelectedRef] = useState<string | null>(
     lifecycle.targets[0]?.resource_ref ?? null,
   );

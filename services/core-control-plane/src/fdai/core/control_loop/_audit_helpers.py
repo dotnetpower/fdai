@@ -475,6 +475,7 @@ async def write_t2_audit(
             "producer_principal": "Forseti",
             "action_kind": "control_loop.t2_evaluate",
             "mode": Mode.SHADOW.value,
+            "tier": "t2",
             "stage": "t2_reasoning",
             "t2_outcome": t2.outcome.value,
             "t2_reason": t2.reason,

@@ -17,6 +17,7 @@ import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { SettingRow } from "./settings";
 import { ForecastHistorySourceDetails } from "./settings-forecast-history";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
@@ -840,7 +841,7 @@ function TeamsWorkflowTestPanel({
                     {bindingSaved.savedAt
                       ? settingsIntegrationsText("bindingSavedDetail", {
                           version: bindingSaved.bindingVersion,
-                          time: new Date(bindingSaved.savedAt).toLocaleString(),
+                          time: formatConsoleTimestamp(bindingSaved.savedAt),
                         })
                       : settingsIntegrationsText("bindingSavedVersionOnly", {
                           version: bindingSaved.bindingVersion,
@@ -867,7 +868,7 @@ function TeamsWorkflowTestPanel({
           <small class="muted">
             {settingsIntegrationsText("savedAndAcceptedDetail", {
               status: result.providerStatus,
-              time: new Date(result.testedAt).toLocaleString(),
+              time: formatConsoleTimestamp(result.testedAt),
             })}
           </small>
         </div>
@@ -958,7 +959,7 @@ function SlackWebhookTestPanel({
           <small class="muted">
             {t("settings.slackWebhookTest.acceptedDetail", {
               status: result.providerStatus,
-              time: new Date(result.testedAt).toLocaleString(),
+              time: formatConsoleTimestamp(result.testedAt),
             })}
           </small>
         </div>

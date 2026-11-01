@@ -193,6 +193,8 @@ def review_forms(
 ) -> FormReview:
     """Compare the admitted forms with the blind extraction and return the verdict."""
 
+    if not forms:
+        return FormReview("invalid", ("review_invalid", "review_invalid:no_forms"))
     if raw is None:
         return FormReview("unavailable", ("review_unavailable",))
     extraction = _resolved(raw, utterance)

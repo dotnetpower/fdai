@@ -15,17 +15,18 @@ _UNAVAILABLE_AUTHORITIES = frozenset({"none", "unknown", "unavailable", "unverif
 def assess_deterministically(turn: TurnAssessmentInput) -> DeterministicAssessment:
     """Return a decisive result when existing terminal evidence is sufficient."""
 
+    reason_code = turn.verification_reason_code.strip() or "unspecified"
     if turn.failed_claim_ids:
         reasons = ["unsupported_atomic_claim"]
         if turn.verification_status == "unverified":
-            reasons.append(f"verification_failed:{turn.verification_reason_code}")
+            reasons.append(f"verification_failed:{reason_code}")
         return DeterministicAssessment(
             verdict=AssuranceVerdict.FAIL,
             reasons=tuple(reasons),
         )
     if turn.verification_status == "unverified":
         prefix = "verification_failed" if turn.checks_total else "evidence_unavailable"
-        reason = f"{prefix}:{turn.verification_reason_code}"
+        reason = f"{prefix}:{reason_code}"
         verdict = AssuranceVerdict.FAIL if turn.checks_total else AssuranceVerdict.INCONCLUSIVE
         return DeterministicAssessment(verdict=verdict, reasons=(reason,))
     if turn.checks_completed < turn.checks_total:
@@ -44,7 +45,8 @@ def assess_deterministically(turn: TurnAssessmentInput) -> DeterministicAssessme
                 verdict=AssuranceVerdict.INCONCLUSIVE,
                 reasons=("evidence_manifest_empty",),
             )
-        if turn.verification_authority.casefold() in _UNAVAILABLE_AUTHORITIES:
+        authority = turn.verification_authority.strip().casefold()
+        if not authority or authority in _UNAVAILABLE_AUTHORITIES:
             return DeterministicAssessment(
                 verdict=AssuranceVerdict.INCONCLUSIVE,
                 reasons=("verification_authority_unavailable",),

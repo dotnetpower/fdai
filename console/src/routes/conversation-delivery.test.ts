@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { decodeConversationDelivery } from "./conversation-delivery";
+import {
+  conversationDeliveryEvidenceHref,
+  decodeConversationDelivery,
+} from "./conversation-delivery";
 
 function payload() {
   return {
@@ -33,5 +36,16 @@ describe("conversation delivery dashboard", () => {
       .toThrow(/MUST be read-only/);
     expect(() => decodeConversationDelivery({ ...payload(), states: { delivered: -1 } }))
       .toThrow(/non-negative integer/);
+    expect(() => decodeConversationDelivery({
+      ...payload(),
+      delivery_latency_ms: { count: 2, average: 200, p95: 100 },
+    })).toThrow(/p95 latency MUST be >= average/);
+    expect(() => decodeConversationDelivery({
+      ...payload(),
+      attempt_count: 1,
+      acknowledgement_count: 2,
+    })).toThrow(/acknowledgements MUST NOT exceed attempts/);
+    expect(conversationDeliveryEvidenceHref(new URLSearchParams("data=sample")))
+      .toBe("/conversation-delivery?data=sample#conversation-delivery-evidence");
   });
 });

@@ -300,6 +300,30 @@ class KpiCollector:
             for agent, metrics in DECLARED_AGENT_KPIS.items()
         }
 
+    def snapshot(self) -> dict[str, dict[str, dict[str, object]]]:
+        """Return the latest declared KPI sample state for every Pantheon agent."""
+        result: dict[str, dict[str, dict[str, object]]] = {}
+        for agent, metrics in DECLARED_AGENT_KPIS.items():
+            agent_metrics: dict[str, dict[str, object]] = {}
+            for metric in metrics:
+                sample = self.latest(agent=agent, metric=metric)
+                if sample is None:
+                    agent_metrics[metric] = {
+                        "value": None,
+                        "evidence_state": KpiEvidenceState.NOT_OBSERVED.value,
+                        "observed_at": "",
+                        "tags": {},
+                    }
+                else:
+                    agent_metrics[metric] = {
+                        "value": sample.value,
+                        "evidence_state": sample.evidence_state.value,
+                        "observed_at": sample.observed_at,
+                        "tags": dict(sample.tags),
+                    }
+            result[agent] = agent_metrics
+        return result
+
 
 @dataclass
 class PromotionGateThreshold:
@@ -308,7 +332,12 @@ class PromotionGateThreshold:
     max: float | None = None
 
     def evaluate(self, sample: KpiSample | None) -> bool:
-        if sample is None or sample.value is None:
+        if (
+            sample is None
+            or sample.evidence_state is not KpiEvidenceState.MEASURED
+            or sample.value is None
+            or not math.isfinite(sample.value)
+        ):
             return False
         if self.min is not None and sample.value < self.min:
             return False
