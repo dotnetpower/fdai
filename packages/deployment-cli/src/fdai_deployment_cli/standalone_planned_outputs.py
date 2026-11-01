@@ -30,16 +30,54 @@ class _Source:
 
 _SOURCES: dict[Path, _Source] = {}
 _CACHE: dict[Path, dict[str, object]] = {}
+_STATE_OUTPUT_CACHE: dict[tuple[Path, str], dict[str, object]] = {}
+_DEFAULT_SUBPROCESS_RUN = subprocess.run
 
 
 def bind(infra: Path, *, variables: Path, data_dir: Path) -> None:
     """Allow planned-output evaluation for one shared root with its exact inputs."""
 
     _SOURCES[infra.resolve()] = _Source(variables=variables, data_dir=data_dir)
+    _STATE_OUTPUT_CACHE.clear()
 
 
 def read_output(infra: Path, name: str, *, raw: bool, reason: str) -> object:
     """Return a state output, or a known planned value when state never recorded it."""
+
+    resolved_infra = infra.resolve()
+    tf_data_dir = os.environ.get("TF_DATA_DIR", "")
+    cache_key = (resolved_infra, tf_data_dir)
+    if subprocess.run is _DEFAULT_SUBPROCESS_RUN:
+        cached_outputs = _STATE_OUTPUT_CACHE.get(cache_key)
+        if cached_outputs is None:
+            bulk = subprocess.run(
+                ("terraform", "output", "-json"),
+                cwd=infra,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if bulk.returncode == 0:
+                try:
+                    parsed = json.loads(bulk.stdout)
+                    if isinstance(parsed, dict):
+                        cached_outputs = {
+                            str(k): v["value"]
+                            for k, v in parsed.items()
+                            if isinstance(v, dict) and "value" in v
+                        }
+                        _STATE_OUTPUT_CACHE[cache_key] = cached_outputs
+                except ValueError:
+                    cached_outputs = None
+        if cached_outputs is not None and name in cached_outputs:
+            val = cached_outputs[name]
+            if not raw:
+                return val
+            if isinstance(val, bool):
+                return "true" if val else "false"
+            if isinstance(val, str | int | float):
+                return str(val)
 
     command = ("terraform", "output", "-raw" if raw else "-json", name)
     result = subprocess.run(

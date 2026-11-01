@@ -115,9 +115,31 @@ def prepare_remote(
         assert source_archive is not None
         assert source_receiver is not None
         assert source_runtime_support is not None
-        tunnel.copy_to(source_archive, remote_source_archive, timeout=min(1800, timeout_seconds))
-        tunnel.copy_to(source_receiver, remote_source_receiver, timeout=300)
-        tunnel.copy_to(source_runtime_support, remote_runtime_support, timeout=600)
+        if getattr(getattr(tunnel, "_tunnel", None), "_process", None) is not None:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+                f_arch = pool.submit(
+                    tunnel.copy_to,
+                    source_archive,
+                    remote_source_archive,
+                    timeout=min(1800, timeout_seconds),
+                )
+                f_recv = pool.submit(
+                    tunnel.copy_to, source_receiver, remote_source_receiver, timeout=300
+                )
+                f_supp = pool.submit(
+                    tunnel.copy_to, source_runtime_support, remote_runtime_support, timeout=600
+                )
+                f_arch.result()
+                f_recv.result()
+                f_supp.result()
+        else:
+            tunnel.copy_to(
+                source_archive, remote_source_archive, timeout=min(1800, timeout_seconds)
+            )
+            tunnel.copy_to(source_receiver, remote_source_receiver, timeout=300)
+            tunnel.copy_to(source_runtime_support, remote_runtime_support, timeout=600)
     else:
         assert archive is not None
         tunnel.copy_to(archive, remote_archive, timeout=min(1800, timeout_seconds))
