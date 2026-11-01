@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "owner": "docs/roadmap/interfaces/cost-model.md",
-  "terraform_inventory_digest": "sha256:06f1f993ed9f5f6636ff1f18660b01f41e88de3c55790148cc549f34f722a7f6",
+  "terraform_inventory_digest": "sha256:d305609dee5dafb1d627680e609a4d16a4a447c695a739bde54ea6fe55f4f616",
   "terraform_sources": [
     "infra/main.tf",
     "infra/modules/compute/container-apps/main.tf",
