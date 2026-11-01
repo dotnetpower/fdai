@@ -1,13 +1,4 @@
-"""Azure OpenAI adapter for the shadow question-form and concept-selection calls.
-
-Both calls return one strict JSON object and never carry authority. The question
-form quotes utterance text instead of counting characters, and concept selection
-sees one complete catalog shard per call. Exact identifiers reach the model only
-as opaque placeholders, and a form call whose input still needs redaction or
-exceeds its request ceiling is refused with a typed reason. Transport failure
-returns ``None`` so the shadow runner records ``model_unavailable``. Recorded
-traces are content-free: hashes, usage, timing, and redaction counts only.
-"""
+"""Azure OpenAI adapter for the shadow question-form and concept-selection calls."""
 
 from __future__ import annotations
 
@@ -155,30 +146,20 @@ class AzureOpenAIQuestionFormConfig:
     def __post_init__(self) -> None:
         if not 1 <= len(self.candidates) <= _MAX_CANDIDATES:
             raise ValueError(f"question form candidates MUST contain 1 to {_MAX_CANDIDATES}")
+        optional_prompts = (
+            (self.extraction_system_prompt, self.extraction_prompt_manifest),
+            (self.direction_system_prompt, self.direction_prompt_manifest),
+            (self.ambiguity_system_prompt, self.ambiguity_prompt_manifest),
+        )
         for prompt, manifest in (
             (self.form_system_prompt, self.form_prompt_manifest),
             (self.concept_system_prompt, self.concept_prompt_manifest),
-            *(
-                ((self.extraction_system_prompt, self.extraction_prompt_manifest),)
-                if self.extraction_system_prompt is not None
-                else ()
-            ),
-            *(
-                ((self.direction_system_prompt, self.direction_prompt_manifest),)
-                if self.direction_system_prompt is not None
-                else ()
-            ),
-            *(
-                ((self.ambiguity_system_prompt, self.ambiguity_prompt_manifest),)
-                if self.ambiguity_system_prompt is not None
-                else ()
-            ),
+            *((p, m) for p, m in optional_prompts if p is not None),
         ):
             if not prompt or len(prompt) > _MAX_PROMPT_CHARS:
                 raise ValueError("question form prompts MUST be non-empty and bounded")
-            if manifest is not None and (
-                manifest.system_text_sha256 != hashlib.sha256(prompt.encode()).hexdigest()
-            ):
+            prompt_sha = hashlib.sha256(prompt.encode()).hexdigest()
+            if manifest is not None and manifest.system_text_sha256 != prompt_sha:
                 raise ValueError("question form prompt manifest does not match its prompt")
         if not 0 < self.timeout_seconds <= 120:
             raise ValueError("question form timeout_seconds MUST be in (0, 120]")
@@ -226,26 +207,41 @@ class AzureOpenAIQuestionFormModel:
         self._form_schema = question_form_proposal_schema()
         self._extraction_schema = extraction_schema()
         self._shard_verdicts: OrderedDict[str, bool] = OrderedDict()
+        self._prompt_verdicts: OrderedDict[str, bool] = OrderedDict()
+        self._static_response_formats: dict[str, Mapping[str, Any]] = {
+            name: _strict_response_format(schema, name=name)
+            for name, schema in (
+                ("semantic-question-form", self._form_schema),
+                ("semantic-constraint-extraction", self._extraction_schema),
+                ("semantic-direction-check", direction_schema()),
+                ("semantic-ambiguity-check", ambiguity_schema()),
+            )
+        }
+
+    def _prompt_is_safe(self, text: str) -> bool:
+        """Scan a static system prompt once per SHA-256 digest rather than once per call."""
+        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        if (verdict := self._prompt_verdicts.get(digest)) is not None:
+            self._prompt_verdicts.move_to_end(digest)
+            return verdict
+        verdict = not (_hides_secret(text) or _hides_identity(text))
+        self._prompt_verdicts[digest] = verdict
+        while len(self._prompt_verdicts) > _MAX_SHARD_VERDICTS:
+            self._prompt_verdicts.popitem(last=False)
+        return verdict
 
     def _shard_is_safe(self, shard: ConceptShard, payload: Mapping[str, Any]) -> bool:
-        """Scan one reviewed catalog shard once per content digest, not once per call.
-
-        Every leaf of a shard is decoded and scanned; repeating that for each chooser,
-        shard, and retry blocked the event loop, and the verdict depends only on the
-        content the digest names.
-        """
-
-        verdict = self._shard_verdicts.get(shard.digest)
-        if verdict is None:
-            verdict = not any(
-                secret_spans(leaf) or _hides_secret(leaf) or _hides_identity(leaf)
-                for leaf in _string_leaves(payload)
-            )
-            self._shard_verdicts[shard.digest] = verdict
-            while len(self._shard_verdicts) > _MAX_SHARD_VERDICTS:
-                self._shard_verdicts.popitem(last=False)
-        else:
+        """Scan one reviewed catalog shard once per content digest, not once per call."""
+        if (verdict := self._shard_verdicts.get(shard.digest)) is not None:
             self._shard_verdicts.move_to_end(shard.digest)
+            return verdict
+        verdict = not any(
+            secret_spans(leaf) or _hides_secret(leaf) or _hides_identity(leaf)
+            for leaf in _string_leaves(payload)
+        )
+        self._shard_verdicts[shard.digest] = verdict
+        while len(self._shard_verdicts) > _MAX_SHARD_VERDICTS:
+            self._shard_verdicts.popitem(last=False)
         return verdict
 
     async def propose_form(
@@ -410,8 +406,7 @@ class AzureOpenAIQuestionFormModel:
             **(
                 {
                     "literals": [
-                        mask.unmask_quote(item) if isinstance(item, Mapping) else item
-                        for item in literals
+                        mask.unmask_quote(i) if isinstance(i, Mapping) else i for i in literals
                     ]
                 }
                 if isinstance(literals, list)
@@ -546,13 +541,19 @@ class AzureOpenAIQuestionFormModel:
         # serialization could still hide is transmitted.
         if any(
             isinstance(content := message.get("content"), str)
-            and (_hides_secret(content) or _hides_identity(content))
+            and (
+                not self._prompt_is_safe(content)
+                if message.get("role") == "system"
+                else (_hides_secret(content) or _hides_identity(content))
+            )
             for message in prepared.messages
         ):
             _held("input_redacted", name=name, raise_error=require_verbatim)
             return None
         messages = list(prepared.messages)
-        response_format = _strict_response_format(schema, name=name)
+        response_format = self._static_response_formats.get(name) or _strict_response_format(
+            schema, name=name
+        )
         request_candidates = candidates or self._config.candidates
         ceiling = self._config.max_request_tokens
         if manifest is not None and manifest.request_token_budget is not None:
@@ -627,20 +628,19 @@ class AzureOpenAIQuestionFormModel:
                     observed = observed_usage(usage)
                     record_provider_usage(call_kind=name, usage=observed)
                     if reservation is not None:
+                        trace = complete_model_trace(
+                            trace_start,
+                            call_id=f"{name}-{index + 1}",
+                            kind=name,
+                            model=target.deployment,
+                            response_content=content,
+                            usage=usage,
+                        )
                         reservation.record(
                             ConversationModelObservation(
                                 model=target.deployment,
                                 usage=observed,
-                                trace_call=_content_free(
-                                    complete_model_trace(
-                                        trace_start,
-                                        call_id=f"{name}-{index + 1}",
-                                        kind=name,
-                                        model=target.deployment,
-                                        response_content=content,
-                                        usage=usage,
-                                    )
-                                ),
+                                trace_call=_content_free(trace),
                                 prompt_replay_manifest=manifest,
                             )
                         )
@@ -748,11 +748,7 @@ def _string_leaves(value: Any) -> list[str]:
     if isinstance(value, str):
         return [value]
     if isinstance(value, Mapping):
-        return [
-            leaf
-            for key, item in value.items()
-            for leaf in (*_string_leaves(key), *_string_leaves(item))
-        ]
+        return [leaf for k, v in value.items() for leaf in (*_string_leaves(k), *_string_leaves(v))]
     if isinstance(value, list | tuple):
         return [leaf for item in value for leaf in _string_leaves(item)]
     return []

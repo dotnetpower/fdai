@@ -40,6 +40,7 @@ from fdai_operator_service.families.conversation.semantic_document_presentation 
 )
 from fdai_operator_service.families.conversation.semantic_model_call_presentation import (
     model_call_activity,
+    settled_model_call_fields,
 )
 from fdai_operator_service.families.conversation.semantic_progress_relay import (
     SemanticProgressRelay as _SemanticProgressRelay,
@@ -242,7 +243,9 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._terminal_absent_observed = False
         self._stream_sequence = 0
         self._progress_sequence = 0
-        self._running_activities: dict[str, tuple[str, str | None]] = {}
+        self._running_activities: dict[
+            str, tuple[str, str | None, str | None, str, JsonObject | None]
+        ] = {}
         self._pin_window_closed = False
         self._queue_initial_progress()
 
@@ -296,7 +299,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
     ) -> None:
         """Queue one bounded step record for the observed-process timeline."""
         if status == "running":
-            self._running_activities[phase] = (label, detail)
+            self._running_activities[phase] = (label, detail, activity_id, kind, model_call)
         else:
             self._running_activities.pop(phase, None)
         self._stream_sequence += 1
@@ -327,13 +330,21 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
 
     def _settle_pending_activities(self, sequence: int) -> None:
         """Complete every step still reported as running before the terminal."""
-        for phase, (label, detail) in tuple(self._running_activities.items()):
+        for phase, (label, detail, activity_id, kind, model_call) in tuple(
+            self._running_activities.items()
+        ):
+            settled_detail, settled_call = settled_model_call_fields(
+                detail, kind, model_call, locale=self._request.locale
+            )
             self._append_activity(
                 phase,
                 label,
                 status="completed",
                 event_id=f"{sequence}:done",
-                detail=detail,
+                activity_id=activity_id,
+                kind=kind,
+                detail=settled_detail,
+                model_call=settled_call,
             )
 
     def _append_event(
@@ -413,25 +424,28 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     self._queue_work_progress(shape, "0:planning")
                     return
                 self._pin_window_closed = True
-            progress = self._progress_relay.next_after(
-                self._stored.request_id,
-                self._progress_sequence,
-            )
-            if progress is not None and self._terminal_absent_observed:
-                self._progress_sequence = progress.progress_sequence
-                if (
-                    progress.session_id == self._request.session_id
-                    and progress.turn_id == self._request.turn_id
-                    and progress.turn_sequence == self._request.turn_sequence
-                ):
-                    if isinstance(progress, SemanticModelCallProgress):
-                        self._append_activity(
-                            **model_call_activity(progress, locale=self._request.locale)
-                        )
-                    else:
-                        self._queue_progress(progress)
+            if self._terminal_absent_observed:
+                queued_progress = False
+                while (
+                    progress := self._progress_relay.next_after(
+                        self._stored.request_id, self._progress_sequence
+                    )
+                ) is not None:
+                    self._progress_sequence = progress.progress_sequence
+                    if (progress.session_id, progress.turn_id, progress.turn_sequence) == (
+                        self._request.session_id,
+                        self._request.turn_id,
+                        self._request.turn_sequence,
+                    ):
+                        if isinstance(progress, SemanticModelCallProgress):
+                            self._append_activity(
+                                **model_call_activity(progress, locale=self._request.locale)
+                            )
+                        else:
+                            self._queue_progress(progress)
+                        queued_progress = True
+                if queued_progress:
                     return
-                continue
             await self._progress_relay.wait_for_update(
                 self._stored.request_id,
                 self._progress_sequence,
@@ -443,16 +457,11 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         """Pin presentation density once per stream, ahead of the first query activity."""
         self._pin_window_closed = True
         self._stream_sequence += 1
-        self._events.append(
-            StreamEvent(
-                event="work_progress",
-                event_id=event_id,
-                data=cast(
-                    JsonObject,
-                    {"seq": self._stream_sequence, "revision": 0, "work_progress_shape": shape},
-                ),
-            )
+        data = cast(
+            JsonObject,
+            {"seq": self._stream_sequence, "revision": 0, "work_progress_shape": shape},
         )
+        self._events.append(StreamEvent(event="work_progress", event_id=event_id, data=data))
 
     def _queue_progress(self, progress: SemanticQueryProgress) -> None:
         _LOGGER.info("semantic_query_progress_streamed")
@@ -659,11 +668,7 @@ class SemanticTurnProjectionConsumer:
     post_turn_reviews: ptrq.NonBlockingPostTurnReviewQueue | None = None
 
     async def consume(self, payload: Mapping[str, object]) -> StoredSemanticResult:
-        """Reject malformed, evidence-incomplete, or uncommitted Core results before projection.
-
-        The recomputed ``evidence_digest`` and ``projection_id`` must equal what Core committed,
-        so a result, manifest, receipt, or payload changed after Core published is never rendered.
-        """
+        """Reject malformed, evidence-incomplete, or uncommitted Core results before projection."""
         decoded = CORE_PROJECTION_CONSUMER_V18.decode_mapping(payload)
         violation = semantic_projection_commitment_violation(decoded)
         if violation is not None:
@@ -1613,14 +1618,8 @@ def _terminal_progress(locale: str) -> dict[str, str]:
 
 def _initial_progress(locale: str) -> dict[str, str]:
     if locale.casefold().startswith("ko"):
-        return {
-            "accepted": "질문을 수락했습니다.",
-            "planning": "답변 경로를 확인하는 중입니다.",
-        }
-    return {
-        "accepted": "Semantic request accepted.",
-        "planning": "Determining the answer path.",
-    }
+        return {"accepted": "질문을 수락했습니다.", "planning": "답변 경로를 확인하는 중입니다."}
+    return {"accepted": "Semantic request accepted.", "planning": "Determining the answer path."}
 
 
 def _terminal_progress_detail(phase: str, locale: str) -> str:

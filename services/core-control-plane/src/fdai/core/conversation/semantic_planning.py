@@ -1,9 +1,4 @@
-"""Schema-constrained semantic planning for ordinary-language read questions.
-
-The model proposes meaning and typed nodes from the whole bounded turn. Core
-rebuilds every identity, verifies the exact principal manifest, and grants no
-execution authority. No phrase, regex, or keyword selects a query capability.
-"""
+"""Schema-constrained semantic planning for ordinary-language read questions."""
 
 from __future__ import annotations
 
@@ -486,6 +481,9 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 and judgment_proposal.primary_intent == "query.resource_change_activity"
                 else None
             )
+            if typed_recent_change_frame is not None and ticket is not None:
+                if callable(disable_resample := getattr(ticket, "disable_resample", None)):
+                    disable_resample()
             # A released reading answers over a clarification only on a third reader's verdict.
             clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
             if clarified is not None:

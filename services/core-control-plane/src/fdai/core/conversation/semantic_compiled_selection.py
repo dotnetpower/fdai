@@ -41,13 +41,23 @@ _FORM_MISLABELS = frozenset(
 )
 
 
+_SETTLED_NON_FAULT_PASSES = frozenset({"clarify", "review"})
+
+
 def resample_worthy(observation: ReasoningShadowObservation) -> bool:
     decline = single_compiled_batch(observation)
     if not isinstance(decline, str):
         return False
     if decline == "not_released":
         dispositions = {item.disposition for item in observation.passes}
-        return bool(dispositions) and not dispositions <= _UNAVAILABLE_PASSES
+        if not dispositions or dispositions <= _UNAVAILABLE_PASSES:
+            return False
+        if dispositions <= _SETTLED_NON_FAULT_PASSES and observation.review not in {
+            "unfaithful",
+            "invalid",
+        }:
+            return False
+        return True
     return decline == "goal_not_compiled" and any(
         reason.split(":", 1)[0] in _FORM_MISLABELS
         for compilation in observation.compilations

@@ -23,12 +23,24 @@ def _encoding_for_model(model: str) -> Encoding | None:
     return None
 
 
+@lru_cache(maxsize=256)
+def _cached_encoded_token_count(text: str, model: str) -> int | None:
+    encoding = _encoding_for_model(model)
+    if encoding is None:
+        return None
+    return len(encoding.encode(text, disallowed_special=()))
+
+
 def estimate_prompt_tokens(text: str, *, model: str | None = None) -> int:
     """Estimate text tokens exactly for known model families or conservatively otherwise."""
 
     if not text:
         return 0
     if model is not None:
+        if len(text) <= 65_536:
+            cached = _cached_encoded_token_count(text, model)
+            if cached is not None:
+                return cached
         encoding = _encoding_for_model(model)
         if encoding is not None:
             return len(encoding.encode(text, disallowed_special=()))

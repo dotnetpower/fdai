@@ -44,6 +44,7 @@
   cursor: pointer;
 }
 .deck-general-suggestions button:hover {
+  border-color: var(--cs-deck-control-line, var(--fg-muted));
   background: var(--bg);
   color: var(--fg);
 }

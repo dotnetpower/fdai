@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import time
-from collections import Counter
+from collections import Counter, OrderedDict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -326,7 +326,28 @@ def _text_content(value: Any, redactions: Counter[str]) -> str:
     return "\n".join(parts)
 
 
+_REDACTED_CACHE_MAX: Final[int] = 128
+_REDACTED_CACHE: OrderedDict[tuple[str, int | None], tuple[str, tuple[tuple[str, int], ...]]] = (
+    OrderedDict()
+)
+
+
 def _redact(value: str, *, max_chars: int | None) -> tuple[str, Counter[str]]:
+    if len(value) >= 1_024:
+        key = (value, max_chars)
+        cached = _REDACTED_CACHE.get(key)
+        if cached is not None:
+            _REDACTED_CACHE.move_to_end(key)
+            return cached[0], Counter(dict(cached[1]))
+        output, redactions = redact(value)
+        if max_chars is not None and len(output) > max_chars:
+            keep = max(0, max_chars - len(_TRUNCATED))
+            output = f"{output[:keep]}{_TRUNCATED}"[:max_chars]
+            redactions["character-limit"] += 1
+        _REDACTED_CACHE[key] = (output, tuple(redactions.items()))
+        while len(_REDACTED_CACHE) > _REDACTED_CACHE_MAX:
+            _REDACTED_CACHE.popitem(last=False)
+        return output, redactions
     output, redactions = redact(value)
     if max_chars is not None and len(output) > max_chars:
         keep = max(0, max_chars - len(_TRUNCATED))

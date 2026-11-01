@@ -169,3 +169,52 @@ def test_a_rank_without_the_words_that_order_it_never_admits() -> None:
 
     assert admission.disposition is AdmissionDisposition.INVALID
     assert admission.reasons == ("order_cue_required:g1",)
+
+
+def test_a_qualitative_window_cue_without_digits_normalizes_to_unspecified() -> None:
+    utterance = "최근 변경된 리소스 5개를 알려줘"
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": {"text": "리소스", "occurrence": 1},
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "history",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {
+                    "kind": "change",
+                    "cue": {"text": "변경된", "occurrence": 1},
+                    "order": {
+                        "direction": "descending",
+                        "limit": 5,
+                        "limit_span": {"text": "5개", "occurrence": 1},
+                    },
+                },
+                "time": {
+                    "kind": "window",
+                    "value": None,
+                    "cue": {"text": "최근", "occurrence": 1},
+                },
+                "cue": {"text": "알려줘", "occurrence": 1},
+                "confidence": 0.95,
+            }
+        ],
+        "context": [{"text": "를", "occurrence": 1}],
+        "request_kind": "direct_read",
+    }
+
+    resolved = resolve_question_form(raw, utterance=utterance)
+    assert resolved.form is not None
+    assert resolved.form.goals[0].time.kind.value == "unspecified"
+    assert resolved.form.goals[0].time.cue is not None
+    admission = admit_question_form(resolved.form, utterance=utterance)
+    assert admission.disposition is AdmissionDisposition.ADMITTED
+    assert admission.reasons == ()

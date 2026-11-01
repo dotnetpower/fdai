@@ -241,6 +241,9 @@ def _is_temporal_comparison(frame: SemanticProblemFrame | None) -> bool:
     )
 
 
+_CAPABILITY_PROJECTION_CACHE: dict[int, tuple[tuple[dict[str, Any], ...], int]] = {}
+
+
 def _semantic_judgment_capabilities(
     descriptors: Sequence[Mapping[str, Any]],
     *,
@@ -254,6 +257,17 @@ def _semantic_judgment_capabilities(
     never displace declared identities.
     """
 
+    cache_key = id(descriptors) if isinstance(descriptors, tuple) else None
+    cached = _CAPABILITY_PROJECTION_CACHE.get(cache_key) if cache_key is not None else None
+    if cached is not None and cached[1] == len(descriptors):
+        base_capabilities = cached[0]
+        if utterance is not None:
+            return _with_stated_values(
+                tuple(dict(item) for item in base_capabilities),
+                utterance=utterance,
+                descriptors=descriptors,
+            )
+        return tuple(dict(item) for item in base_capabilities)
     kind_map = {
         "action": "action_type",
         "function": "function_type",
@@ -307,6 +321,11 @@ def _semantic_judgment_capabilities(
             raise ValueError("semantic judgment capability projection exceeds its byte bound")
         capabilities.append(capability)
         encoded_bytes = candidate_bytes
+    base_tuple = tuple(dict(item) for item in capabilities)
+    if cache_key is not None:
+        if len(_CAPABILITY_PROJECTION_CACHE) >= 16:
+            _CAPABILITY_PROJECTION_CACHE.clear()
+        _CAPABILITY_PROJECTION_CACHE[cache_key] = (base_tuple, len(descriptors))
     if utterance is not None:
         capabilities = list(
             _with_stated_values(tuple(capabilities), utterance=utterance, descriptors=descriptors)

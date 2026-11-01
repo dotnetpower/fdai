@@ -1111,3 +1111,53 @@ def test_single_compiled_batch_rejects_boolean_or_out_of_range_confidence() -> N
         bad_goal = replace(goal, confidence=bad_conf)  # type: ignore[arg-type]
         obs = _observation(compilations=(replace(compilation, goals=(bad_goal,)),))
         assert single_compiled_batch(obs) == "goal_unbatched"
+
+
+async def test_a_clarify_or_review_pass_without_a_contract_fault_is_not_resampled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for disposition in ("clarify", "review"):
+        settled = _observation(
+            released=False,
+            review=None,
+            passes=(ShadowPass(0, disposition, (f"{disposition}_reason:g1",)),),
+            compilations=(),
+        )
+        calls: list[int] = []
+
+        async def shadow(
+            _settled: ReasoningShadowObservation = settled,
+            _calls: list[int] = calls,
+            **_arguments: Any,
+        ) -> ReasoningShadowObservation:
+            _calls.append(1)
+            return _settled
+
+        monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+        collector = semantic_compiled_answers._ObservationCollector()
+        result = await semantic_compiled_answers._run_form_path(object(), collector)  # type: ignore[arg-type]
+
+        assert calls == [1]
+        assert result is settled
+
+
+async def test_disable_resample_stops_after_first_sample(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid = _observation(released=False, passes=(ShadowPass(0, "invalid"),), compilations=())
+    calls: list[int] = []
+
+    async def shadow(**_arguments: Any) -> ReasoningShadowObservation:
+        calls.append(1)
+        return invalid
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+    result = await semantic_compiled_answers._run_form_path(
+        object(),  # type: ignore[arg-type]
+        collector,
+        allow_resample=[False],
+    )
+
+    assert calls == [1]
+    assert result is invalid

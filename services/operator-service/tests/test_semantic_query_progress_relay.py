@@ -249,3 +249,58 @@ async def test_semantic_iterator_streams_model_calls_as_live_steps_in_core_order
     }
     assert read.data["kind"] == "ontology_query"
     await iterator.aclose()
+
+
+async def test_settle_pending_activities_preserves_model_call_kind_and_settled_detail() -> None:
+    class EmptyStore:
+        async def replay_semantic_turn(self, **kwargs: object) -> tuple[()]:
+            del kwargs
+            return ()
+
+    request = SemanticTurnRequest(
+        utterance="최근 변경된 리소스 5개를 알려줘",
+        principal=SemanticTurnPrincipal(subject_id="operator-1", roles=(OperatorRole.READER,)),
+        session_id="session-1",
+        turn_id="turn-1",
+        turn_sequence=1,
+        locale="ko",
+        purpose="operations-review",
+        deadline_at=datetime.now(UTC) + timedelta(minutes=1),
+    )
+    stored = StoredSemanticTurn(
+        key="semantic-turn:request-1",
+        proposal_id="proposal-1",
+        request_id="request-1",
+        principal_id="operator-1",
+        envelope={"semantic_turn": request.model_dump(mode="json")},
+        duplicate=False,
+    )
+    relay = _SemanticProgressRelay()
+    relay.consume(_model_call(sequence=1, status="running"))
+    iterator = _SemanticEventIterator(
+        store=cast(Any, EmptyStore()),
+        consumer=SemanticTurnProjectionConsumer(cast(Any, EmptyStore())),
+        progress_relay=relay,
+        stored=stored,
+        principal_id="operator-1",
+        cursor=None,
+        retry_seconds=0.01,
+    )
+    assert (await anext(iterator)).event == "status"
+    assert (await anext(iterator)).event == "status"
+    running = await anext(iterator)
+    assert running.data["kind"] == "model_call"
+    assert running.data["status"] == "running"
+
+    iterator._settle_pending_activities(1)  # noqa: SLF001
+    settled = await anext(iterator)
+    assert settled.data["kind"] == "model_call"
+    assert settled.data["activity_id"] == "semantic:model:1"
+    assert settled.data["status"] == "completed"
+    assert settled.data["detail"] == "narrator-gpt-5-4-mini · 0.0초 · 완료"
+    assert settled.data["model_call"] == {
+        "stage": "form",
+        "model": "narrator-gpt-5-4-mini",
+        "duration_ms": 0,
+    }
+    await iterator.aclose()

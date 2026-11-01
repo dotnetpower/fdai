@@ -2841,8 +2841,11 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
 }
 
 .cs-deck-context-chip.is-empty {
+  border-color: var(--cs-deck-control-line);
   border-style: dashed;
-  color: var(--cs-deck-meta-text);
+  background: color-mix(in srgb, var(--cs-text) 2%, var(--cs-card));
+  color: var(--cs-text);
+  font-weight: 500;
 }
 
 .cs-deck-context-chip { max-width: 100%; }
@@ -2852,7 +2855,11 @@ details[open] > summary .cs-run-chevron { transform: rotate(225deg) translate(-1
   overflow-wrap: anywhere;
 }
 
-.cs-deck-context-chip:hover:not(:disabled) { border-color: var(--cs-deck-line-strong); }
+.cs-deck-context-chip:hover:not(:disabled) {
+  border-color: var(--cs-deck-line-strong);
+  border-style: solid;
+  background: color-mix(in srgb, var(--cs-steel) 8%, var(--cs-card));
+}
 
 /* A running turn locks the reference screen; the chip stays readable but stops inviting a click. */
 .cs-deck-context-chip:disabled {

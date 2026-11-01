@@ -555,7 +555,8 @@
 }
 
 .cs-deck-user-bubble {
-  padding: 9px 15px;
+  padding: 10px 16px;
+  border: 1px solid var(--cs-hairline);
   border-radius: 16px 16px 5px 16px;
   background: var(--cs-shade);
   color: var(--cs-text);
