@@ -536,14 +536,16 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     completed=checks_completed,
                     total=checks_total,
                     detail=_terminal_progress_detail(phase, self._request.locale),
-                    # Only the evidence step ran a query; other steps attach None.
+                    # Only the evidence step ran a query. Attaching the same
+                    # record to a step that executed nothing would report work
+                    # the turn never did.
                     execution=None,
                 )
-        # Settle the waiting step once a terminal projection exists.
+        # The waiting step is observed as finished only once a terminal
+        # projection exists. Settling it here keeps the timeline from holding a
+        # step that already ended, whatever the disposition turned out to be.
         self._settle_pending_activities(result.sequence)
-        done = _done_event_data(
-            result.data, locale=self._request.locale, utterance=self._request.utterance
-        )
+        done = _done_event_data(result.data, locale=self._request.locale)
         document_answer_replaced = await _apply_document_answer(
             done,
             projection=result.data,
