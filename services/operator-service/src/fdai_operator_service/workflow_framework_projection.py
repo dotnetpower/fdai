@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import cast
 
+from fdai_service_contracts.framework_guidance import localized_framework_titles
 from fdai_service_contracts.wara_guidance import localized_wara_titles, wara_guidance_detail
 from starlette.exceptions import HTTPException
 
@@ -57,6 +58,7 @@ def _caf_catalog_payload(
     )
     filters = {field: request.query.get(field, "").strip().lower() for field in filter_fields}
     needle = request.query.get("q", "").strip().lower()
+    korean_titles = localized_framework_titles(controls, framework_id="azure-caf")
     matched = [
         item
         for item in controls
@@ -68,7 +70,13 @@ def _caf_catalog_payload(
             not needle
             or needle
             in "\n".join(
-                str(item.get(field, "")) for field in ("control_id", "title", "description", "area")
+                [
+                    *(
+                        str(item.get(field, ""))
+                        for field in ("control_id", "title", "description", "area")
+                    ),
+                    korean_titles.get(str(item.get("control_id", "")), ""),
+                ]
             ).lower()
         )
     ]
@@ -89,9 +97,18 @@ def _caf_catalog_payload(
         },
         "controls": [
             {
-                key: value
-                for key, value in item.items()
-                if key not in {"evidence_specifications", "crosswalk"}
+                **(
+                    {
+                        key: value
+                        for key, value in item.items()
+                        if key not in {"evidence_specifications", "crosswalk"}
+                    }
+                ),
+                **(
+                    {"title_ko": korean_titles[str(item.get("control_id"))]}
+                    if str(item.get("control_id")) in korean_titles
+                    else {}
+                ),
             }
             for item in matched[offset : offset + limit]
         ],
@@ -150,13 +167,24 @@ def _mcsb_catalog_payload(
     domain = request.query.get("domain", "").strip().lower()
     coverage = request.query.get("coverage", "").strip().lower()
     needle = request.query.get("q", "").strip().lower()
+    korean_titles = (
+        localized_framework_titles(controls, framework_id="azure-mcsb") if version == "v1" else {}
+    )
     matched = [
         item
         for item in controls
         if (not domain or str(item.get("domain", "")).lower() == domain)
         and (not coverage or str(item.get("coverage", "")).lower() == coverage)
         and (
-            not needle or needle in f"{item.get('control_id', '')}\n{item.get('title', '')}".lower()
+            not needle
+            or needle
+            in "\n".join(
+                (
+                    str(item.get("control_id", "")),
+                    str(item.get("title", "")),
+                    korean_titles.get(str(item.get("control_id", "")), ""),
+                )
+            ).lower()
         )
     ]
     offset = request.offset or 0
@@ -176,17 +204,26 @@ def _mcsb_catalog_payload(
         },
         "controls": [
             {
-                key: value
-                for key, value in item.items()
-                if key
-                not in {
-                    "benchmark_version",
-                    "rule_ids",
-                    "runtime_observation_ids",
-                    "manual_evidence_refs",
-                    "source",
-                    "evaluation_source",
-                }
+                **{
+                    key: value
+                    for key, value in item.items()
+                    if key
+                    not in {
+                        "benchmark_version",
+                        "rule_ids",
+                        "runtime_observation_ids",
+                        "manual_evidence_refs",
+                        "source",
+                        "evaluation_source",
+                        "guidance_source_revision",
+                        "guidance_source_digest",
+                    }
+                },
+                **(
+                    {"title_ko": korean_titles[str(item.get("control_id"))]}
+                    if str(item.get("control_id")) in korean_titles
+                    else {}
+                ),
             }
             for item in matched[offset : offset + limit]
         ],

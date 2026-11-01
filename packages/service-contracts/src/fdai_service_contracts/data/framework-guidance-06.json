@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:617e423b326f2cb73a06ae9135ad0ab72a2087100daae42c7511e45c64c4b656",
+      "content_digest": "sha256:50df2b01d15d3f8b589c757eb533059c9240b62357d12944377058aedf519669",
       "control_id": "GS-9",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.gs-9",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Endpoint strategy defines coverage, configuration and response across supported hosts.",
+              "ko": "엔드포인트 전략은 지원 호스트의 적용 범위, 구성, 대응을 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -242,7 +272,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a2dd7baea01ae305996c1ec7fcef5e1d8bb90f1aea78c63e90084fa5648d9ffe",
+      "content_digest": "sha256:9006ea19a26e202978e0a5a047eb9e1e1fb4ef2feb878d7eb6cdade50373d2c5",
       "control_id": "IM-1",
       "diagram": {
         "description": {
@@ -260,12 +290,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -279,7 +327,7 @@
           }
         ],
         "id": "azure-mcsb.im-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -300,8 +348,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -312,10 +360,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Central authentication supplies a consistent identity source for supported applications.",
+              "ko": "중앙 인증은 지원 애플리케이션에 일관된 신원 원천을 제공합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -437,7 +497,7 @@
           }
         ]
       },
-      "content_digest": "sha256:95157d3e61c84875f18c44a1b110786b9168de700a23b17905b4a61ab0aa5876",
+      "content_digest": "sha256:f64dc27db3ad0c8145f4fc4244189ab7ca6192cf08568eff45b1aa114864e5b0",
       "control_id": "IM-2",
       "diagram": {
         "description": {
@@ -455,12 +515,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -474,7 +552,7 @@
           }
         ],
         "id": "azure-mcsb.im-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -495,8 +573,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -507,10 +585,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Protecting identity administration and configuration guards the root of access trust.",
+              "ko": "신원 관리와 구성을 보호하면 접근 신뢰의 근간을 지킬 수 있습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -632,7 +722,7 @@
           }
         ]
       },
-      "content_digest": "sha256:41451e175ad4e5ffabf1a3ebfc09bc329b2f9a103e4db26ce6e56ec562f8172e",
+      "content_digest": "sha256:ccecf136e6932fe1f06b015fcd14bc4562b1fc489e87e8bae2065a4b4edf4b81",
       "control_id": "IM-3",
       "diagram": {
         "description": {
@@ -650,12 +740,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -669,7 +777,7 @@
           }
         ],
         "id": "azure-mcsb.im-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -690,8 +798,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -702,10 +810,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Managed workload identities reduce manually distributed application credentials.",
+              "ko": "관리되는 워크로드 신원은 수동 배포하는 애플리케이션 자격 증명을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -831,7 +951,7 @@
           }
         ]
       },
-      "content_digest": "sha256:1246703f16e540eaf9697e34c982f3f6cee4a87bd18c62851f62efde2997c712",
+      "content_digest": "sha256:05950ee9c32307d920f2a69012550dc3c7dbaf97025db9e886d65e32f8466cf8",
       "control_id": "IM-4",
       "diagram": {
         "description": {
@@ -849,12 +969,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -868,7 +1006,7 @@
           }
         ],
         "id": "azure-mcsb.im-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -889,8 +1027,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -901,10 +1039,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Service authentication verifies the peer before trusting machine-to-machine requests.",
+              "ko": "서비스 인증은 시스템 간 요청을 신뢰하기 전에 상대를 검증합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1026,7 +1176,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a66735dc3c7d51d3062e31f8ba0ca346fe2cb7a4aa7aa2788fd13e122fbf9c2b",
+      "content_digest": "sha256:2cfd4026a88490e32370c650b7b5eb7ec26b37dd247db983b38be283223edf2b",
       "control_id": "IM-5",
       "diagram": {
         "description": {
@@ -1044,12 +1194,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1063,7 +1231,7 @@
           }
         ],
         "id": "azure-mcsb.im-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -1084,8 +1252,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -1096,10 +1264,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Single sign-on reuses approved authentication instead of multiplying application passwords.",
+              "ko": "SSO는 애플리케이션 암호를 늘리는 대신 승인된 인증을 재사용합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1221,7 +1401,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e64427c46e13f6754849e32e1a372f2da298faa14c8f5059bfe6d7eb95fd9145",
+      "content_digest": "sha256:ec6aa64b173da6ea81c0febfa13706cade6a4c901ecef068f3b7a76b70b92678",
       "control_id": "IM-6",
       "diagram": {
         "description": {
@@ -1239,12 +1419,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1258,7 +1456,7 @@
           }
         ],
         "id": "azure-mcsb.im-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -1279,8 +1477,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -1291,10 +1489,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Stronger authentication requires more assurance than possession of a reusable password.",
+              "ko": "강력한 인증은 재사용 암호 보유보다 높은 신원 확인 수준을 요구합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1416,7 +1626,7 @@
           }
         ]
       },
-      "content_digest": "sha256:843088d1ee3d222cbc9155da670252e8918ae4e0696bcd74e76c799deb552a74",
+      "content_digest": "sha256:2236f5dce9f5b461f53dd7ebd9c591f47ebc45c21c3ac09573021d4fcc5a5739",
       "control_id": "IM-7",
       "diagram": {
         "description": {
@@ -1434,12 +1644,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1453,7 +1681,7 @@
           }
         ],
         "id": "azure-mcsb.im-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -1474,8 +1702,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -1486,10 +1714,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Conditional access evaluates relevant identity and device context before admission.",
+              "ko": "조건부 접근은 허용 전에 신원과 기기의 관련 맥락을 평가합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1611,7 +1851,7 @@
           }
         ]
       },
-      "content_digest": "sha256:aaf29cd34e75f3754870e865c3045a8130347dd31ee48359f57549019a4c74a4",
+      "content_digest": "sha256:232e0b6a69d73304540816115c46cdd671066663134c6a9511d89e3e2f62b394",
       "control_id": "IM-8",
       "diagram": {
         "description": {
@@ -1629,12 +1869,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1648,7 +1906,7 @@
           }
         ],
         "id": "azure-mcsb.im-8",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -1669,8 +1927,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -1681,10 +1939,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Secret handling controls keep credentials out of code, logs and distributed files.",
+              "ko": "비밀 처리 통제는 자격 증명이 코드, 로그, 배포 파일에 들어가지 않게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1810,7 +2080,7 @@
           }
         ]
       },
-      "content_digest": "sha256:58d577726cb2295c537322aca8d3b52b3c04fad04a4f388dfbc31292544130d9",
+      "content_digest": "sha256:7fdcc9e69f574d4a50eed75ffe12c5582ead1f6b7f137de17dda2d210e514e2f",
       "control_id": "IM-9",
       "diagram": {
         "description": {
@@ -1828,12 +2098,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1847,7 +2135,7 @@
           }
         ],
         "id": "azure-mcsb.im-9",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-identity-management",
         "nodes": [
           {
             "detail": {
@@ -1868,8 +2156,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Centralized identity and strong auth",
+              "ko": "중앙 신원 및 강력한 인증 설계"
             },
             "role": "configuration"
           },
@@ -1880,10 +2168,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Authentication and token audit",
+              "ko": "인증 정책 및 토큰 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Access mediation can add identity controls around legacy applications that lack modern integration.",
+              "ko": "접근 중계는 현대적인 연동이 없는 기존 애플리케이션에 신원 통제를 보완할 수 있습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Federation, SSO and conditional access",
+              "ko": "연합 인증·SSO·조건부 접근 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2005,7 +2305,7 @@
           }
         ]
       },
-      "content_digest": "sha256:7449becbb994c4efb2c76fd0c0cfdf3378102f9c23aa62529c3edebfbcb1a5d1",
+      "content_digest": "sha256:ca957d554da20d299bb9cfea3658788191a10e5cfe6492eee9084045545fd0cc",
       "control_id": "IR-1",
       "diagram": {
         "description": {
@@ -2023,12 +2323,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2042,7 +2360,7 @@
           }
         ],
         "id": "azure-mcsb.ir-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -2063,8 +2381,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -2075,10 +2393,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "An updated response plan defines roles, decisions and handling before an incident.",
+              "ko": "최신 대응 계획은 인시던트 전에 역할, 결정, 처리를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2200,7 +2530,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e729ef26ee05597ed25485f808c6633e4c532c25016d58c9657f4296673d54f3",
+      "content_digest": "sha256:b56f893a182e5fc89ce43aa8b84f0ad1d1608d933b5757ef7211f94bc0c529c5",
       "control_id": "IR-2",
       "diagram": {
         "description": {
@@ -2218,12 +2548,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2237,7 +2585,7 @@
           }
         ],
         "id": "azure-mcsb.ir-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -2258,8 +2606,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -2270,10 +2618,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Maintained contact routes connect incident decisions to reachable responders.",
+              "ko": "관리하는 연락 경로는 인시던트 결정을 연락 가능한 대응자와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2395,7 +2755,7 @@
           }
         ]
       },
-      "content_digest": "sha256:408a3e646e0a72fcfcebb14c13df1d943a15e5768978a771cfbb5dd1e33215db",
+      "content_digest": "sha256:ab2e93804063e92ec2983b2a217ba7a40bde0cd398dad16036ab313442e78933",
       "control_id": "IR-3",
       "diagram": {
         "description": {
@@ -2413,12 +2773,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2432,7 +2810,7 @@
           }
         ],
         "id": "azure-mcsb.ir-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -2453,8 +2831,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -2465,10 +2843,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Triage criteria convert actionable signals into incidents with enough context.",
+              "ko": "분류 기준은 대응 가능한 신호를 충분한 맥락이 있는 인시던트로 바꿉니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2590,7 +2980,7 @@
           }
         ]
       },
-      "content_digest": "sha256:7278f0a96f1275a6ea6459f0c1c386dfa515921cd6e4bf63f33029fdbe900541",
+      "content_digest": "sha256:3170edc7e4b1f9226ceba40db5fcef1c16f6e96ee639cf97bc67b7d9e73b8807",
       "control_id": "IR-4",
       "diagram": {
         "description": {
@@ -2608,12 +2998,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2627,7 +3035,7 @@
           }
         ],
         "id": "azure-mcsb.ir-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -2648,8 +3056,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -2660,10 +3068,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Correlated timelines and preserved evidence support a bounded investigation.",
+              "ko": "연결한 시간 기록과 보존한 증거는 범위가 제한된 조사를 뒷받침합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2785,7 +3205,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4ac469c2b5f0c1e259f4604ddf72c1a065a00f621716c631d0d050fa806f3943",
+      "content_digest": "sha256:9d7437d33609053582861f4b0d19dd469805d03a53f2994fec42a8f7b0ce3eb1",
       "control_id": "IR-5",
       "diagram": {
         "description": {
@@ -2803,12 +3223,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2822,7 +3260,7 @@
           }
         ],
         "id": "azure-mcsb.ir-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -2843,8 +3281,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -2855,10 +3293,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Impact and urgency criteria order incident response work.",
+              "ko": "영향과 긴급도 기준은 인시던트 대응 작업의 순서를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2980,7 +3430,7 @@
           }
         ]
       },
-      "content_digest": "sha256:ac2842078a898e0b0e839d4e404f28755a917bf43ce1dc29a09443a3755385ff",
+      "content_digest": "sha256:86f99cd700dd5a5f984ce822f785067f33167c93b5a740e0c2cf8c508cf2d855",
       "control_id": "IR-6",
       "diagram": {
         "description": {
@@ -2998,12 +3448,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3017,7 +3485,7 @@
           }
         ],
         "id": "azure-mcsb.ir-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -3038,8 +3506,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -3050,10 +3518,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Bounded playbooks automate approved containment and recovery steps.",
+              "ko": "제한된 대응 절차서는 승인된 격리 및 복구 단계를 자동화합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

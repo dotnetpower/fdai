@@ -168,6 +168,139 @@ def _requirement(requirement: dict[str, Any]) -> dict[str, str]:
     )
 
 
+_WAF_DOMAINS: dict[str, tuple[str, dict[str, str], dict[str, str], dict[str, str]]] = {
+    "RE": (
+        "waf-reliability-topology",
+        _text("Resilience and isolation design", "복원력 및 장애 격리 설계"),
+        _text("Failure domain and recovery boundary", "장애 범위 및 복구 경계"),
+        _text("Health and recovery verification", "상태 및 복구 검증"),
+    ),
+    "SE": (
+        "waf-security-boundary",
+        _text("Defense-in-depth and least privilege", "심층 방어 및 최소 권한 설계"),
+        _text("Identity, network and encryption boundary", "신원·네트워크·암호화 경계"),
+        _text("Security posture and audit check", "보안 태세 및 감사 검증"),
+    ),
+    "CO": (
+        "waf-cost-guardrail",
+        _text("Cost model and budget guardrail", "비용 모델 및 예산 가드레일 설계"),
+        _text("Billing unit and capacity boundary", "과금 단위 및 용량 배분 경계"),
+        _text("Usage and rate reconciliation", "사용량 및 실효 요금 대조 검증"),
+    ),
+    "OE": (
+        "waf-operational-loop",
+        _text("Safe deployment and runbook design", "안전 배포 및 런북 자동화 설계"),
+        _text("Observability and release gate boundary", "관측성 및 릴리스 게이트 경계"),
+        _text("Telemetry and change verification", "원격 분석 및 변경 추적 검증"),
+    ),
+    "PE": (
+        "waf-performance-scaling",
+        _text("Performance target and scaling design", "성능 목표 및 탄력적 확장 설계"),
+        _text("Load distribution and capacity boundary", "부하 분산 및 용량 병목 경계"),
+        _text("Load test and saturation check", "부하 시험 및 포화도 검증"),
+    ),
+}
+
+_MCSB_DOMAINS: dict[str, tuple[str, dict[str, str], dict[str, str], dict[str, str]]] = {
+    "NS": (
+        "mcsb-network-security",
+        _text("Network segmentation and edge control", "네트워크 분할 및 경계 통제 설계"),
+        _text("Zero-trust perimeter and private link", "제로 트러스트 경계 및 사설 연결"),
+        _text("Traffic flow and rule verification", "트래픽 흐름 및 방화벽 규칙 검증"),
+    ),
+    "IM": (
+        "mcsb-identity-management",
+        _text("Centralized identity and strong auth", "중앙 신원 및 강력한 인증 설계"),
+        _text("Federation, SSO and conditional access", "연합 인증·SSO·조건부 접근 경계"),
+        _text("Authentication and token audit", "인증 정책 및 토큰 감사 검증"),
+    ),
+    "PA": (
+        "mcsb-privileged-access",
+        _text("Least privilege and JIT elevation", "최소 권한 및 JIT 권한 승격 설계"),
+        _text("PIM lifecycle and break-glass boundary", "권한 수명주기 및 비상 계정 경계"),
+        _text("Role assignment and access review", "역할 배정 및 정기 접근 검토"),
+    ),
+    "DP": (
+        "mcsb-data-protection",
+        _text("Classification and encryption policy", "데이터 분류 및 암호화 정책 설계"),
+        _text("In-transit TLS, at-rest CMK and vault", "전송·저장 암호화 및 키 보관소 경계"),
+        _text("Key rotation and cipher verification", "키 회전 및 암호화 상태 검증"),
+    ),
+    "AM": (
+        "mcsb-asset-management",
+        _text("Approved service and inventory policy", "승인 서비스 및 자산 목록 설계"),
+        _text("Resource graph and lifecycle tracking", "리소스 그래프 및 수명주기 경계"),
+        _text("Inventory reconciliation check", "자산 인벤토리 및 승인 상태 검증"),
+    ),
+    "LT": (
+        "mcsb-logging-threat-detection",
+        _text("Diagnostic collection and alert rules", "진단 수집 및 위협 탐지 규칙 설계"),
+        _text("Central SIEM and Log Analytics pipeline", "중앙 로그 분석 및 보존 파이프라인"),
+        _text("Log completeness and alert verification", "로그 완전성 및 경보 전달 검증"),
+    ),
+    "IR": (
+        "mcsb-incident-response",
+        _text("Incident response plan and routing", "인시던트 대응 계획 및 라우팅 설계"),
+        _text("Triage, containment and recovery loop", "분류·격리·복구 실행 경계"),
+        _text("Response drill and postmortem check", "대응 훈련 및 사후 검토 검증"),
+    ),
+    "PV": (
+        "mcsb-posture-vulnerability",
+        _text("Secure baseline and patch automation", "보안 기준선 및 패치 자동화 설계"),
+        _text("Configuration drift and CVE scanner", "구성 드리프트 및 취약점 스캔 경계"),
+        _text("Baseline compliance and fix check", "기준선 준수 및 조치 결과 검증"),
+    ),
+    "ES": (
+        "mcsb-endpoint-security",
+        _text("EDR and anti-malware enforcement", "EDR 및 맬웨어 방지 강제 설계"),
+        _text("Host agent and signature update loop", "호스트 에이전트 및 서명 갱신 경계"),
+        _text("Endpoint health and telemetry check", "엔드포인트 상태 및 원격 분석 검증"),
+    ),
+    "BR": (
+        "mcsb-backup-recovery",
+        _text("Automated backup and immutability", "자동 백업 및 불변성 보호 설계"),
+        _text("Isolated vault and RPO/RTO boundary", "격리 자격 증명 모음 및 복구 경계"),
+        _text("Restore drill and vault verification", "복원 훈련 및 보존 상태 검증"),
+    ),
+    "DS": (
+        "mcsb-devops-security",
+        _text("Supply chain and pipeline security", "공급망 및 파이프라인 보안 설계"),
+        _text("SAST/DAST gate and artifact signing", "정적·동적 분석 게이트 및 서명 경계"),
+        _text("Pipeline audit and dependency check", "파이프라인 감사 및 의존성 검증"),
+    ),
+    "GS": (
+        "mcsb-governance-strategy",
+        _text("Security governance and duty separation", "보안 거버넌스 및 직무 분리 설계"),
+        _text("Accountable owner and policy hierarchy", "책임 역할 및 전사 정책 계층 경계"),
+        _text("Governance review and exception check", "거버넌스 검토 및 예외 추적 검증"),
+    ),
+}
+
+
+def _domain_profile(
+    framework_id: str, control_id: str
+) -> tuple[str, dict[str, str], dict[str, str], dict[str, str]]:
+    if framework_id == "azure-waf":
+        prefix = control_id.split(":", 1)[0]
+        return _WAF_DOMAINS[prefix]
+    if framework_id == "azure-mcsb":
+        prefix = control_id.split("-", 1)[0]
+        return _MCSB_DOMAINS[prefix]
+    if control_id.startswith("landing-zone."):
+        return (
+            "caf-landing-zone-architecture",
+            _text("Landing-zone platform governance", "랜딩 존 플랫폼 거버넌스 설계"),
+            _text("Shared subscription and policy boundary", "공통 구독·네트워크·정책 경계"),
+            _text("Platform and workload readiness check", "플랫폼 및 워크로드 준비도 검증"),
+        )
+    return (
+        "caf-estate-methodology",
+        _text("Estate operating procedure and ownership", "클라우드 자산 운영 절차 및 책임 설계"),
+        _text("Cross-subscription governance boundary", "구독 간 거버넌스 및 인수인계 경계"),
+        _text("Procedure and execution evidence check", "절차 및 실행 근거 대조 검증"),
+    )
+
+
 def _diagram(
     framework_id: str,
     control_id: str,
@@ -175,9 +308,10 @@ def _diagram(
     authored: dict[str, Any],
 ) -> dict[str, Any]:
     identity = control_id.lower().replace(":", "-")
+    kind, config_label, mech_label, ev_label = _domain_profile(framework_id, control_id)
     return {
         "id": f"{framework_id}.{identity}",
-        "kind": "control-evidence-flow",
+        "kind": kind,
         "title": title,
         "description": _text(
             "Illustrative directed relationship, not an observed installation "
@@ -188,15 +322,21 @@ def _diagram(
             {"id": "subject", "label": title, "detail": authored["before"], "role": "subject"},
             {
                 "id": "configuration",
-                "label": _text("Reviewed design", "검토한 설계"),
+                "label": config_label,
                 "detail": authored["after"],
                 "role": "configuration",
             },
             {
                 "id": "evidence",
-                "label": _text("Independent check", "독립 확인"),
+                "label": ev_label,
                 "detail": authored["verify"],
                 "role": "evidence",
+            },
+            {
+                "id": "mechanism",
+                "label": mech_label,
+                "detail": authored["mechanism"],
+                "role": "dependency",
             },
             {
                 "id": "outcome",
@@ -213,10 +353,22 @@ def _diagram(
                 "style": "solid",
             },
             {
+                "from": "subject",
+                "to": "mechanism",
+                "label": _text("Bind architectural boundary", "아키텍처 경계 결합"),
+                "style": "solid",
+            },
+            {
                 "from": "configuration",
                 "to": "evidence",
                 "label": _text("Verify independently", "독립적으로 검증"),
                 "style": "solid",
+            },
+            {
+                "from": "mechanism",
+                "to": "evidence",
+                "label": _text("Inspect boundary telemetry", "경계 상태 및 근거 확인"),
+                "style": "dashed",
             },
             {
                 "from": "evidence",

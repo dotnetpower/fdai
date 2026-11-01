@@ -14,6 +14,7 @@ from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationOutcome,
     BaselineEvaluationTerminalOutcome,
 )
+from fdai_service_contracts.framework_guidance import localized_framework_titles
 from fdai_service_contracts.rule_activation import (
     RuleActivationGeneration,
     RuleActivationProposal,
@@ -212,6 +213,24 @@ def _is_aware_iso_timestamp(value: str) -> bool:
     return parsed.tzinfo is not None
 
 
+def _rule_search_titles(detail: object) -> tuple[str, ...]:
+    if not isinstance(detail, Mapping):
+        return ()
+    explanation = detail.get("explanation")
+    if not isinstance(explanation, Mapping):
+        return ()
+    values: list[str] = []
+    title = explanation.get("title")
+    if isinstance(title, str) and title:
+        values.append(title)
+    exp_details = explanation.get("details")
+    if isinstance(exp_details, Mapping):
+        title_ko = exp_details.get("title_ko")
+        if isinstance(title_ko, str) and title_ko:
+            values.append(title_ko)
+    return tuple(values)
+
+
 def _rule_catalog_payload(
     stored: Mapping[str, object],
     request: WorkflowReadRequest,
@@ -258,7 +277,17 @@ def _rule_catalog_payload(
         and (not severity or item.get("severity") == severity)
         and (not source or item.get("source") == source)
         and (
-            not needle or needle in f"{item.get('id', '')}\n{item.get('resource_type', '')}".lower()
+            not needle
+            or needle
+            in "\n".join(
+                (
+                    str(item.get("id", "")),
+                    str(item.get("resource_type", "")),
+                    *_rule_search_titles(
+                        details_value.get(f"{item.get('origin')}:{item.get('id')}")
+                    ),
+                )
+            ).lower()
         )
     ]
     offset = request.offset or 0
@@ -268,7 +297,15 @@ def _rule_catalog_payload(
         detail = details_value.get(f"{item.get('origin')}:{item.get('id')}")
         explanation = detail.get("explanation") if isinstance(detail, dict) else None
         title = explanation.get("title") if isinstance(explanation, dict) else None
-        summaries.append({**item, "title": title if isinstance(title, str) else None})
+        exp_details = explanation.get("details") if isinstance(explanation, dict) else None
+        title_ko = exp_details.get("title_ko") if isinstance(exp_details, dict) else None
+        summaries.append(
+            {
+                **item,
+                "title": title if isinstance(title, str) else None,
+                **({"title_ko": title_ko} if isinstance(title_ko, str) and title_ko else {}),
+            }
+        )
     return {
         "total": len(rules),
         "filtered_total": len(matched),
@@ -695,6 +732,7 @@ def _best_practice_catalog_payload(
     status = request.query.get("status", "").strip().lower()
     needle = request.query.get("q", "").strip().lower()
     rule_id = request.query.get("rule", "").strip()
+    korean_titles = localized_framework_titles(controls, framework_id="azure-waf")
     matched = [
         item
         for item in controls
@@ -705,7 +743,13 @@ def _best_practice_catalog_payload(
             not needle
             or needle
             in "\n".join(
-                str(item.get(field, "")) for field in ("id", "control_id", "title", "rationale")
+                [
+                    *(
+                        str(item.get(field, ""))
+                        for field in ("id", "control_id", "title", "rationale")
+                    ),
+                    korean_titles.get(str(item.get("control_id", "")), ""),
+                ]
             ).lower()
         )
     ]
@@ -722,7 +766,18 @@ def _best_practice_catalog_payload(
             "by_severity": _rule_counts(controls, "severity"),
         },
         "controls": [
-            {key: value for key, value in item.items() if key not in {"requirements", "provenance"}}
+            {
+                **{
+                    key: value
+                    for key, value in item.items()
+                    if key not in {"requirements", "provenance"}
+                },
+                **(
+                    {"title_ko": korean_titles[str(item.get("control_id"))]}
+                    if str(item.get("control_id")) in korean_titles
+                    else {}
+                ),
+            }
             for item in matched[offset : offset + limit]
         ],
         "evaluation_source": evaluation_source,

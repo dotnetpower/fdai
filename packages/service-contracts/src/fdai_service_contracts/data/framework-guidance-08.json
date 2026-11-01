@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:58203ab2bba9ed1b420b5e362cf08276722322402c2b8d7f0ed8e66c5dd9a5bc",
+      "content_digest": "sha256:2c21aa64250d2ffe9f517cadaeb0bcf143293700b8a9ccd9c7cb91a68599f207",
       "control_id": "NS-8",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.ns-8",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Protocol review removes obsolete or plaintext paths where supported alternatives exist.",
+              "ko": "프로토콜 검토는 지원 대안이 있는 구식 또는 평문 경로를 제거합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -258,7 +288,7 @@
           }
         ]
       },
-      "content_digest": "sha256:5143a86b764cec0307de665c7859fccc0940d666d6acdbb9479726f4ca4991da",
+      "content_digest": "sha256:f681298d269a8480b39a0717df8aef00fa7751ab8a844b324c30cd8004d69242",
       "control_id": "NS-9",
       "diagram": {
         "description": {
@@ -276,12 +306,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -295,7 +343,7 @@
           }
         ],
         "id": "azure-mcsb.ns-9",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -316,8 +364,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -328,10 +376,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Private connectivity defines controlled paths between connected environments.",
+              "ko": "비공개 연결은 연결 환경 사이의 통제된 경로를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -453,7 +513,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a99941451e0799576d87764cdf5de30bb99defd6b7d9fe594c274f69acf88cb0",
+      "content_digest": "sha256:ea9bf59818a180ecf0196e10accca716d40e6a821e19cadb37bdca3befce7f1b",
       "control_id": "PA-1",
       "diagram": {
         "description": {
@@ -471,12 +531,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -490,7 +568,7 @@
           }
         ],
         "id": "azure-mcsb.pa-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -511,8 +589,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -523,10 +601,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Dedicated administrative identities separate privileged duties from everyday activity.",
+              "ko": "전용 관리 신원은 권한 업무와 일상 활동을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -656,7 +746,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4181340e2e17da17edda9ae94e7d27a30f11109c69d4756c786eab5759d3d9da",
+      "content_digest": "sha256:1ce6651100354e9e88ffd20953e01a1802236cb98b449c5da8cc3e45c907bd47",
       "control_id": "PA-2",
       "diagram": {
         "description": {
@@ -674,12 +764,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -693,7 +801,7 @@
           }
         ],
         "id": "azure-mcsb.pa-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -714,8 +822,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -726,10 +834,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Time-bounded activation reduces the duration of available privilege.",
+              "ko": "기한이 있는 활성화는 권한을 사용할 수 있는 시간을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -855,7 +975,7 @@
           }
         ]
       },
-      "content_digest": "sha256:51763c47b7e21ecea53934061dbe99841bccb3f62197150c1317d3eb3f8b3bc1",
+      "content_digest": "sha256:4bc482e263a39d4ae97b79ee48c2f0aac18ff8be76114ba9803444f6b239469d",
       "control_id": "PA-3",
       "diagram": {
         "description": {
@@ -873,12 +993,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -892,7 +1030,7 @@
           }
         ],
         "id": "azure-mcsb.pa-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -913,8 +1051,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -925,10 +1063,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Joiner, mover and leaver workflows keep access aligned with current duties.",
+              "ko": "입사, 이동, 퇴사 절차는 접근을 현재 업무와 맞춥니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1050,7 +1200,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a7ed2fc8e086d2b41e2129455f428d3985dc50004445a34408a085c09183466a",
+      "content_digest": "sha256:67471ec79bcade5ea792119a86320acd9464b1ca60c1bbc5a18a15fb5ded6f59",
       "control_id": "PA-4",
       "diagram": {
         "description": {
@@ -1068,12 +1218,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1087,7 +1255,7 @@
           }
         ],
         "id": "azure-mcsb.pa-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -1108,8 +1276,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -1120,10 +1288,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Periodic attestation compares existing access with current business need.",
+              "ko": "정기 확인은 기존 접근과 현재 업무 필요를 비교합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1245,7 +1425,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9cb5372d5dabc898e5d3883c26ffd20316d9eb7278ab6b54419401e0ff9c39f1",
+      "content_digest": "sha256:7c2f259520d94011b829ba1e86e650d29841c3ee316ee18967de595a0950d2ad",
       "control_id": "PA-5",
       "diagram": {
         "description": {
@@ -1263,12 +1443,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1282,7 +1480,7 @@
           }
         ],
         "id": "azure-mcsb.pa-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -1303,8 +1501,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -1315,10 +1513,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Protected emergency access provides recovery when normal administration is unavailable.",
+              "ko": "보호된 비상 접근은 일반 관리가 불가능할 때 복구 경로를 제공합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1440,7 +1650,7 @@
           }
         ]
       },
-      "content_digest": "sha256:66b78ee2c6a415050f4dcdfe4725a08b87d6a85868a1d625686280e1ad553dbf",
+      "content_digest": "sha256:67577d34ddf670ac9e64047f86af76e1c61cd6f6d872830501cb7016fe165b71",
       "control_id": "PA-6",
       "diagram": {
         "description": {
@@ -1458,12 +1668,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1477,7 +1705,7 @@
           }
         ],
         "id": "azure-mcsb.pa-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -1498,8 +1726,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -1510,10 +1738,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A hardened administrative channel isolates privileged sessions from everyday exposure.",
+              "ko": "강화된 관리 경로는 권한 세션을 일상적인 노출에서 격리합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1635,7 +1875,7 @@
           }
         ]
       },
-      "content_digest": "sha256:1e03e55645e0731aafd912090432063d8defa96fc637c32e5be837b2345ed644",
+      "content_digest": "sha256:8c66288548ab54ef077c80e3c3c3eb40165c595059e74b04cae7d09d87463b46",
       "control_id": "PA-7",
       "diagram": {
         "description": {
@@ -1653,12 +1893,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1672,7 +1930,7 @@
           }
         ],
         "id": "azure-mcsb.pa-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -1693,8 +1951,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -1705,10 +1963,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Task-scoped roles limit administration to the permissions required for the job.",
+              "ko": "작업 범위 역할은 관리를 업무에 필요한 권한으로 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1842,7 +2112,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9beb06e65d89bd4114c921ee7ecd5ad12cfae95e3b745188d8433dc619898abd",
+      "content_digest": "sha256:58e403177d7d4e64d7f7c9b9b6bffa71a658d03ceb0abb4c57b9c40e4e6e91bb",
       "control_id": "PA-8",
       "diagram": {
         "description": {
@@ -1860,12 +2130,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1879,7 +2167,7 @@
           }
         ],
         "id": "azure-mcsb.pa-8",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-privileged-access",
         "nodes": [
           {
             "detail": {
@@ -1900,8 +2188,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Least privilege and JIT elevation",
+              "ko": "최소 권한 및 JIT 권한 승격 설계"
             },
             "role": "configuration"
           },
@@ -1912,10 +2200,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Role assignment and access review",
+              "ko": "역할 배정 및 정기 접근 검토"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A support-access process defines approval, scope and audit for provider-assisted access.",
+              "ko": "지원 접근 절차는 공급자 지원 접근의 승인, 범위, 감사를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "PIM lifecycle and break-glass boundary",
+              "ko": "권한 수명주기 및 비상 계정 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2037,7 +2337,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d2095416c9a5c5cb2064c018c3f980ad92a2571b8e7c8757c48e0d696a9309c4",
+      "content_digest": "sha256:6731a69a159ef85bf675a17262061ef1d444735f5c813fcf305aaa2ec88a11f6",
       "control_id": "PV-1",
       "diagram": {
         "description": {
@@ -2055,12 +2355,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2074,7 +2392,7 @@
           }
         ],
         "id": "azure-mcsb.pv-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -2095,8 +2413,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2107,10 +2425,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A reviewed configuration baseline defines expected security settings.",
+              "ko": "검토된 구성 기준선은 예상 보안 설정을 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2232,7 +2562,7 @@
           }
         ]
       },
-      "content_digest": "sha256:3efec1c692f96bf121385c7292f77ea226aa944585d2412c7031bc2c0a03cba7",
+      "content_digest": "sha256:43b40e95ae5ec6418fa7ff09c46798d59bfb2f250cc451620e2e939c4f92b833",
       "control_id": "PV-2",
       "diagram": {
         "description": {
@@ -2250,12 +2580,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2269,7 +2617,7 @@
           }
         ],
         "id": "azure-mcsb.pv-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -2290,8 +2638,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2302,10 +2650,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Drift assessment compares effective settings with the approved configuration baseline.",
+              "ko": "드리프트 평가는 실제 설정을 승인한 구성 기준선과 비교합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2427,7 +2787,7 @@
           }
         ]
       },
-      "content_digest": "sha256:75ba3db0b1bcec847d19e3feacc9a2218811b961af080d053f9913229b08e4cb",
+      "content_digest": "sha256:04af805643e815d7548007927749577648dc9ece1f45c3da78e3af4586fcde5e",
       "control_id": "PV-3",
       "diagram": {
         "description": {
@@ -2445,12 +2805,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2464,7 +2842,7 @@
           }
         ],
         "id": "azure-mcsb.pv-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -2485,8 +2863,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2497,10 +2875,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Compute baselines define operating-system and runtime hardening expectations.",
+              "ko": "컴퓨팅 기준선은 운영체제와 실행 환경의 강화 기준을 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2622,7 +3012,7 @@
           }
         ]
       },
-      "content_digest": "sha256:37278e30d963346b9a63d4107b9edf46082bce22743c35caf006183f048e5659",
+      "content_digest": "sha256:9e0dde3c278217d8335b8fdea82fb3fdd62bfa8453303f946fcec71c14c590e9",
       "control_id": "PV-4",
       "diagram": {
         "description": {
@@ -2640,12 +3030,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2659,7 +3067,7 @@
           }
         ],
         "id": "azure-mcsb.pv-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -2680,8 +3088,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2692,10 +3100,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Guest configuration assessment exposes drift from the approved compute baseline.",
+              "ko": "게스트 구성 평가는 승인한 컴퓨팅 기준선의 이탈을 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2817,7 +3237,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9708bb252b376cfc9a7ccdfe2053d281f1df82b5255978b15ede76f8985c7e8a",
+      "content_digest": "sha256:589a474a24c061b084efecc31a16b99752be652feebb635759e22f4821a091e9",
       "control_id": "PV-5",
       "diagram": {
         "description": {
@@ -2835,12 +3255,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2854,7 +3292,7 @@
           }
         ],
         "id": "azure-mcsb.pv-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -2875,8 +3313,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2887,10 +3325,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Current vulnerability assessment identifies exposed software and configuration weaknesses.",
+              "ko": "최신 취약점 평가는 노출된 소프트웨어 및 구성 취약점을 식별합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3012,7 +3462,7 @@
           }
         ]
       },
-      "content_digest": "sha256:affe5b78518b55446f310fab1a959292fc5193f5d02248ca32078a1e367d5ff9",
+      "content_digest": "sha256:4bf8c5b73d08301149bc3ca1e69e8bd3ac9eb3018398545a074c5a5e0cf9f21c",
       "control_id": "PV-6",
       "diagram": {
         "description": {
@@ -3030,12 +3480,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3049,7 +3517,7 @@
           }
         ],
         "id": "azure-mcsb.pv-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -3070,8 +3538,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -3082,10 +3550,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Risk-based remediation connects findings to tested patches or bounded mitigations.",
+              "ko": "위험 기반 수정은 발견 사항을 시험한 패치나 제한된 완화 조치와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

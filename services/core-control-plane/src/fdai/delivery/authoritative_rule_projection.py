@@ -8,6 +8,11 @@ from typing import Any
 
 import yaml
 
+from fdai.delivery.rule_explanation_localization import (
+    ACTIVE_RULE_KO,
+    localize_azure_policy_explanation,
+    localize_kube_bench_explanation,
+)
 from fdai.shared.contracts.models import Rule
 
 MAX_BODY_BYTES = 512_000
@@ -117,36 +122,58 @@ def _rule_detail(
 def _rule_explanation(rule: Rule, check_logic_body: str | None) -> dict[str, object]:
     metadata = _rego_metadata(check_logic_body) if check_logic_body else None
     if metadata and (metadata.get("title") or metadata.get("description")):
+        title_ko, desc_ko = ACTIVE_RULE_KO.get(rule.id, (None, None))
         return {
             "title": metadata.get("title"),
             "description": metadata.get("description"),
             "source": "rego_metadata",
-            "details": {},
+            "details": {
+                **({"title_ko": title_ko} if title_ko else {}),
+                **({"description_ko": desc_ko} if desc_ko else {}),
+                **({"evaluated_properties": ", ".join(rule.evaluates)} if rule.evaluates else {}),
+                **({"trigger_signals": ", ".join(rule.triggered_by)} if rule.triggered_by else {}),
+                "remediation_action": rule.remediates,
+            },
         }
     parameters = rule.parameters
     if "azure_policy_display_name" in parameters:
+        title_en, title_ko, desc_en, desc_ko = localize_azure_policy_explanation(
+            rule_id=rule.id,
+            resource_type=rule.resource_type,
+            parameters=parameters,
+        )
         return {
-            "title": parameters.get("azure_policy_display_name"),
-            "description": None,
+            "title": title_en,
+            "description": desc_en,
             "source": "azure_policy",
             "details": {
-                key: parameters[key]
-                for key in ("azure_policy_effect_default", "azure_policy_category")
-                if parameters.get(key) is not None
+                **{
+                    key: parameters[key]
+                    for key in ("azure_policy_effect_default", "azure_policy_category")
+                    if parameters.get(key) is not None
+                },
+                "title_ko": title_ko,
+                "description_ko": desc_ko,
             },
         }
     if "kube_bench_id" in parameters:
+        title_en, title_ko, desc_en, desc_ko = localize_kube_bench_explanation(
+            rule_id=rule.id,
+            resource_type=rule.resource_type,
+            parameters=parameters,
+        )
         return {
-            "title": (
-                f"CIS {parameters.get('kube_bench_ruleset', '')} "
-                f"{parameters.get('kube_bench_id', '')}"
-            ).strip(),
-            "description": None,
+            "title": title_en,
+            "description": desc_en,
             "source": "kube_bench",
             "details": {
-                key: parameters[key]
-                for key in ("kube_bench_audit", "kube_bench_scored")
-                if parameters.get(key) is not None
+                **{
+                    key: parameters[key]
+                    for key in ("kube_bench_audit", "kube_bench_scored")
+                    if parameters.get(key) is not None
+                },
+                "title_ko": title_ko,
+                "description_ko": desc_ko,
             },
         }
     return {"title": None, "description": None, "source": None, "details": {}}

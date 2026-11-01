@@ -21,6 +21,7 @@ import shard16 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-
 import shard17 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-17.json";
 import shard18 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-18.json";
 import shard19 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-19.json";
+import { msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import {
   panelArray,
   panelBoolean,
@@ -488,6 +489,7 @@ export function filterMsrcCsafRows(
     return (
       row.cve_id.toLowerCase().includes(query)
       || row.title.toLowerCase().includes(query)
+      || msrcCsafDisplayTitle(row, "ko").toLowerCase().includes(query)
       || row.advisory_tracking_id.toLowerCase().includes(query)
       || row.advisory_title.toLowerCase().includes(query)
       || row.primary_resource_type.toLowerCase().includes(query)

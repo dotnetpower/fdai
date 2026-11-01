@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 88bd4d9a8901f7aad239cfc74fd2b1fb58656a20
+translation_source_sha: 7984c4b97cbad92f35adbd313461fc86c9ac5195
 translation_revised: 2026-11-01
 ---
 # 프로젝트 구조
@@ -1134,6 +1134,9 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
   를 리뷰 전에 강제합니다;
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
   참조.
+  이중 언어 규칙 현지화(`delivery/rule_explanation_localization.py`)와 Console 도해 설명 모듈
+  (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`)은 서비스 간 런타임을 가져오지 않고
+  실행 권한을 부여하지 않는 순수 표현 보조 모듈로 유지됩니다.
 
 ## 관련 문서
 

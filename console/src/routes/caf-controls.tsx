@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   ErrorState,
@@ -11,6 +12,9 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import {
   cafHref,
@@ -24,7 +28,9 @@ import {
   type CafSatisfaction,
 } from "./caf-controls.model";
 import { displayValue, t } from "./i18n/governance";
+import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
@@ -170,6 +176,8 @@ export function CafControlsRoute({ client }: { readonly client: OperatorApiClien
         filters={filters}
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
+        selected={selected}
+        detail={detail}
         onFilter={updateFilter}
         onSearch={setSearchInput}
         onSelect={(controlId) => navigate(cafHref(filters, controlId))}
@@ -186,6 +194,8 @@ function CafControlsBody({
   filters,
   searchInput,
   loading,
+  selected,
+  detail,
   onFilter,
   onSearch,
   onSelect,
@@ -194,26 +204,87 @@ function CafControlsBody({
   readonly filters: CafFilters;
   readonly searchInput: string;
   readonly loading: boolean;
+  readonly selected: string | null;
+  readonly detail: DetailState;
   readonly onFilter: (patch: Partial<CafFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (controlId: string) => void;
 }) {
+  usePublishViewContext(
+    () => {
+      const locale = getLocale();
+      const selectedDetail = selected !== null && detail.status === "ready" ? detail.data : null;
+      const guidance = selectedDetail?.guidance ?? null;
+      return {
+        routeId: "rules",
+        routeLabel: "Azure CAF",
+        purpose: t("governance.rules.caf.banner.body"),
+        glossary: composeGlossary([]),
+        headline: selectedDetail
+          ? `CAF ${selectedDetail.control_id}: ${frameworkDisplayTitle("azure-caf", selectedDetail, locale)}`
+          : `Azure CAF: ${data.total} controls (${data.filtered_total} shown)`,
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "total_caf_controls", value: data.total, group: "catalog" },
+          { key: "filtered_caf_controls", value: data.filtered_total, group: "catalog" },
+          { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+          ...(selectedDetail
+            ? [
+                { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
+                { key: "selected_title", value: frameworkDisplayTitle("azure-caf", selectedDetail, locale), group: "selection" },
+                { key: "selected_area", value: selectedDetail.area, group: "selection" },
+                { key: "selected_owner", value: selectedDetail.owner_slot, group: "selection" },
+                { key: "selected_satisfaction", value: selectedDetail.satisfaction, group: "selection" },
+                ...(guidance
+                  ? [
+                      { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
+                      { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+                      { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+                      { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        records: {
+          controls: data.controls.map((control) => ({
+            control_id: control.control_id,
+            title: frameworkDisplayTitle("azure-caf", control, locale),
+            area: control.area,
+            owner_slot: control.owner_slot,
+            evaluation_status: control.evaluation_status,
+            satisfaction: control.satisfaction,
+          })),
+        },
+      };
+    },
+    [data, detail, selected],
+  );
   const columns: readonly Column<CafControl>[] = useMemo(
     () => [
       {
         key: "control",
         header: t("governance.rules.caf.column.control"),
-        render: (item) => (
-          <span class="control-table-identity">
-            <code>{item.control_id}</code>
-            <span>{item.title}</span>
-          </span>
-        ),
+        render: (item) => {
+          const displayTitle = frameworkDisplayTitle("azure-caf", item, getLocale());
+          return (
+            <span class="control-table-identity">
+              <code>{item.control_id}</code>
+              {displayTitle === item.title ? (
+                <span>{item.title}</span>
+              ) : (
+                <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: item.title })} placement="top">
+                  <span>{displayTitle}</span>
+                </Tooltip>
+              )}
+            </span>
+          );
+        },
       },
       {
         key: "area",
         header: t("governance.rules.caf.column.area"),
-        render: (item) => item.area,
+        render: (item) => displayValue("cafArea", item.area),
       },
       {
         key: "enablement",
@@ -257,12 +328,12 @@ function CafControlsBody({
       </KpiGrid>
       <section class="stack-section">
         <div class="rule-facet-toolbar">
-          <FacetSelect label={t("governance.rules.caf.filter.area")} value={filters.area} counts={facet("by_area")} onChange={(area) => onFilter({ area })} />
+          <FacetSelect label={t("governance.rules.caf.filter.area")} value={filters.area} counts={facet("by_area")} displayGroup="cafArea" onChange={(area) => onFilter({ area })} />
           <FacetSelect label={t("governance.rules.caf.filter.applicability")} value={filters.applicability} counts={facet("by_applicability")} displayGroup="controlStatus" onChange={(applicability) => onFilter({ applicability })} />
           <FacetSelect label={t("governance.rules.caf.filter.satisfaction")} value={filters.satisfaction} counts={facet("by_satisfaction")} displayGroup="controlStatus" onChange={(satisfaction) => onFilter({ satisfaction })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.caf.filter.searchAria")}</span>
-            <input type="search" value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
+            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
         </div>
         <div class="table-toolbar">
@@ -274,7 +345,7 @@ function CafControlsBody({
           rows={data.controls}
           keyOf={(item) => item.control_id}
           onRowClick={(item) => onSelect(item.control_id)}
-          rowActionLabel={(item) => t("governance.rules.caf.openRow", { title: item.title })}
+          rowActionLabel={(item) => t("governance.rules.caf.openRow", { title: frameworkDisplayTitle("azure-caf", item, getLocale()) })}
           rowActionControls="caf-control-detail"
           empty={t("governance.rules.caf.result.empty")}
         />
@@ -306,13 +377,18 @@ function CafDrawer({
       return;
     }
     if (event.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -351,16 +427,16 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
       <ControlRemediationSection value={data.remediation} />
       <div class="pill-row">
         <StatusPill kind={SATISFACTION_PILL[data.satisfaction]} label={displayValue("controlStatus", data.satisfaction)} />
-        <StatusPill kind="info" label={data.area} />
+        <StatusPill kind="info" label={displayValue("cafArea", data.area)} />
       </div>
       <dl class="detail-grid">
-        <DetailRow label={t("governance.rules.caf.detail.reference")} value={data.reference_state} />
-        <DetailRow label={t("governance.rules.controls.column.mapping")} value={data.mapping_state} />
+        <DetailRow label={t("governance.rules.caf.detail.reference")} value={displayValue("catalogStatus", data.reference_state)} />
+        <DetailRow label={t("governance.rules.controls.column.mapping")} value={displayValue("cafRelationship", data.mapping_state)} />
         <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
         <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
         <DetailRow label={t("governance.rules.controls.column.satisfaction")} value={displayValue("controlStatus", data.satisfaction)} />
         <DetailRow label={t("governance.rules.caf.detail.owner")} value={data.owner_slot} mono />
-        <DetailRow label={t("governance.rules.caf.detail.cadence")} value={`${data.cadence_days} days`} />
+        <DetailRow label={t("governance.rules.caf.detail.cadence")} value={t("governance.rules.controls.detail.cadenceDays", { days: data.cadence_days })} />
         <DetailRow label={t("governance.rules.caf.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
         <DetailRow label={t("governance.rules.caf.detail.profile")} value={data.profile_id ?? "-"} mono />
@@ -375,14 +451,14 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <dl class="detail-grid">
           <DetailRow label={t("governance.rules.caf.detail.evidenceRefs")} value={data.evidence_refs.join(", ") || "-"} mono />
           <DetailRow label={t("governance.rules.caf.detail.evidenceDigests")} value={data.evidence_digests.join(", ") || "-"} mono />
-          <DetailRow label={t("governance.rules.caf.detail.limitations")} value={data.limitations.join(", ") || "-"} />
+          <DetailRow label={t("governance.rules.caf.detail.limitations")} value={data.limitations.map((code) => displayValue("requirementLimitation", code)).join(", ") || "-"} />
         </dl>
       </DetailSection>
       <DetailSection title={t("governance.rules.caf.detail.specifications")}>
         <div class="control-requirement-list">
           {data.evidence_specifications.map((item) => (
             <article key={item.requirement_id} class="control-requirement-row">
-              <div><span class="muted small">{item.kind} - {item.process_phase}</span><code>{item.source_ref}</code></div>
+              <div><span class="muted small">{displayValue("controlRequirementKind", item.kind)} - {displayValue("cafProcessPhase", item.process_phase)}</span><code>{item.source_ref}</code></div>
               <span>{item.authoritative_producer ?? item.blocked_dependency}</span>
             </article>
           ))}
@@ -392,8 +468,8 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <div class="control-requirement-list">
           {data.crosswalk.map((item) => (
             <article key={`${item.target_kind}:${item.target_ref}`} class="control-requirement-row">
-              <div><span class="muted small">{item.target_kind}</span><code>{item.target_ref ?? "unmapped"}</code></div>
-              <span>{item.relationship}</span>
+              <div><span class="muted small">{displayValue("cafTargetKind", item.target_kind)}</span><code>{item.target_ref ?? "unmapped"}</code></div>
+              <span>{displayValue("cafRelationship", item.relationship)}</span>
             </article>
           ))}
         </div>

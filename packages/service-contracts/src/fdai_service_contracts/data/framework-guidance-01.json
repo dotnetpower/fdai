@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:5faf52c36f10b3422828772548df6630d7da1ad3f7348820d4c3c722f178f03f",
+      "content_digest": "sha256:af712ce33d5ae7f3a7456e2b7e24516aa00ebb7e825ef39a8753e5a3658bf2f1",
       "control_id": "OE:03",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-waf.oe-03",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Lifecycle gates connect planning, development, release and retirement evidence.",
+              "ko": "수명 주기 검토 단계는 계획, 개발, 배포, 폐기의 근거를 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -246,7 +276,7 @@
           }
         ]
       },
-      "content_digest": "sha256:060a1ba788d1097043838a49323ba80d7475b0cbe5b3307bfc70d68be7a60f4c",
+      "content_digest": "sha256:189513d4f36c0b349d43369bf59a0e3e5530a6636b0d469b5cff8a6970cd93cc",
       "control_id": "OE:04",
       "diagram": {
         "description": {
@@ -264,12 +294,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -283,7 +331,7 @@
           }
         ],
         "id": "azure-waf.oe-04",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -304,8 +352,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -316,10 +364,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A reviewed toolchain applies consistent checks to repeatable delivery work.",
+              "ko": "검토된 도구 체계는 반복되는 전달 작업에 일관된 검사를 적용합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -445,7 +505,7 @@
           }
         ]
       },
-      "content_digest": "sha256:3b7c43175cee47761db36b83551fe23ae03e1e6e26a294b45b5b32354dcf0fd0",
+      "content_digest": "sha256:99430c453069779daee5302f874fc9410dc36cdc2580eb2944ef6094fd65c687",
       "control_id": "OE:05",
       "diagram": {
         "description": {
@@ -463,12 +523,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -482,7 +560,7 @@
           }
         ],
         "id": "azure-waf.oe-05",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -503,8 +581,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -515,10 +593,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Declarative infrastructure makes desired configuration reviewable and repeatable.",
+              "ko": "선언형 인프라는 원하는 구성을 검토하고 반복할 수 있게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -644,7 +734,7 @@
           }
         ]
       },
-      "content_digest": "sha256:275a03e5d5200c9f7e4d82b6d1f156c13ab457d23dc4f3d87b5479dce6cc14ad",
+      "content_digest": "sha256:2eac60f5386c882be99515c178842a256ae2e1e57c1e8ff85b87c79344690c87",
       "control_id": "OE:06",
       "diagram": {
         "description": {
@@ -662,12 +752,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -681,7 +789,7 @@
           }
         ],
         "id": "azure-waf.oe-06",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -702,8 +810,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -714,10 +822,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Artifact provenance and controlled dependencies preserve the identity of delivered software.",
+              "ko": "산출물 출처와 의존성 통제는 전달하는 소프트웨어의 동일성을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -847,7 +967,7 @@
           }
         ]
       },
-      "content_digest": "sha256:fb7cda5ccf94f5abdb577e54b25b411c93ca749c1940dc0d146d00c2381974e6",
+      "content_digest": "sha256:038b5b022f9afc383c961ba70ff65c06cf5a43185d86538f740c5351f708c9a1",
       "control_id": "OE:07",
       "diagram": {
         "description": {
@@ -865,12 +985,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -884,7 +1022,7 @@
           }
         ],
         "id": "azure-waf.oe-07",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -905,8 +1043,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -917,10 +1055,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Correlated logs, metrics and traces connect user impact with dependency behavior.",
+              "ko": "상관관계를 갖는 로그, 메트릭, 추적 정보는 사용자 영향과 의존성 동작을 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1070,7 +1220,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6132e0a57c26adad7749822d72a300f7b24f81bd1b91e6474b98ad71aa0756f5",
+      "content_digest": "sha256:92bb9e608514c2bd04b8077246e27134cf7bbd06e59b201ab280551212a233c8",
       "control_id": "OE:08",
       "diagram": {
         "description": {
@@ -1088,12 +1238,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1107,7 +1275,7 @@
           }
         ],
         "id": "azure-waf.oe-08",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -1128,8 +1296,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -1140,10 +1308,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Severity, ownership and communication rules coordinate incident response.",
+              "ko": "심각도, 담당자, 의사소통 규칙은 인시던트 대응을 조정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1273,7 +1453,7 @@
           }
         ]
       },
-      "content_digest": "sha256:71c9167b59428d86118fcd408d09910ba690286a64ca62c031cc82d6271e31b9",
+      "content_digest": "sha256:7d1641dbceadc41a3d02237bb53df9ff9bde0f17fd62f3a3ed4f09fbb0f826b7",
       "control_id": "OE:09",
       "diagram": {
         "description": {
@@ -1291,12 +1471,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1310,7 +1508,7 @@
           }
         ],
         "id": "azure-waf.oe-09",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -1331,8 +1529,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -1343,10 +1541,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A risk-based test strategy links workload behavior to business acceptance criteria.",
+              "ko": "위험 기반 테스트 전략은 워크로드 동작과 사업 수용 기준을 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1472,7 +1682,7 @@
           }
         ]
       },
-      "content_digest": "sha256:16cd6fc26160cf2727153595924efd9974eb467af01e7c16fd1d466b3004e189",
+      "content_digest": "sha256:df17714e92a9f0ac807a177441078985f028a6bca19861d3fbf67dc0773c646e",
       "control_id": "OE:10",
       "diagram": {
         "description": {
@@ -1490,12 +1700,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1509,7 +1737,7 @@
           }
         ],
         "id": "azure-waf.oe-10",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -1530,8 +1758,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -1542,10 +1770,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Idempotency and bounded recovery keep repeated automation from compounding failures.",
+              "ko": "멱등성과 범위가 제한된 복구는 반복 자동화가 장애를 확대하지 않게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1675,7 +1915,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b690324a2fe91c9587255e869ce64959122ec8e9898f057d3a21a2dcbfac37b1",
+      "content_digest": "sha256:2fabd2630f26843a6fd23a82d1db620866f9fd7c76ee264ff3392fa516f113ff",
       "control_id": "OE:11",
       "diagram": {
         "description": {
@@ -1693,12 +1933,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1712,7 +1970,7 @@
           }
         ],
         "id": "azure-waf.oe-11",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -1733,8 +1991,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -1745,10 +2003,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Progressive exposure and health gates limit the impact of a faulty release.",
+              "ko": "점진적 노출과 상태 검토 단계는 잘못된 배포의 영향을 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1878,7 +2148,7 @@
           }
         ]
       },
-      "content_digest": "sha256:440f6f22e7f1528e67791d5dd3e28682928dfd0ca6ddc1a20174ee8dfc94c353",
+      "content_digest": "sha256:7d2da112bd97f322b67689e4a32e3f5b5e87576422ee6dfb994ad83aea5f2588",
       "control_id": "PE:01",
       "diagram": {
         "description": {
@@ -1896,12 +2166,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1915,7 +2203,7 @@
           }
         ],
         "id": "azure-waf.pe-01",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -1936,8 +2224,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -1948,10 +2236,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Numerical latency and throughput targets give critical flows testable boundaries.",
+              "ko": "지연과 처리량의 수치형 목표는 핵심 흐름에 시험 가능한 경계를 제공합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2077,7 +2377,7 @@
           }
         ]
       },
-      "content_digest": "sha256:0be36d4562bd8b8f222314ed93ed6146024e3dabf1cb1c8a743241487f456853",
+      "content_digest": "sha256:3d071b5ddada85bc2ab45306069e8ef44ccbab284a5d9ef8a5e929047d2c002f",
       "control_id": "PE:02",
       "diagram": {
         "description": {
@@ -2095,12 +2395,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2114,7 +2432,7 @@
           }
         ],
         "id": "azure-waf.pe-02",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -2135,8 +2453,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -2147,10 +2465,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Forecasts connect demand growth to service quotas and provisioning lead times.",
+              "ko": "예측은 수요 증가를 서비스 할당량과 용량 확보 소요 시간에 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2280,7 +2610,7 @@
           }
         ]
       },
-      "content_digest": "sha256:0507fde3850be9dae81d08b4f9b4624e80a886095b1de636416ca83249a03043",
+      "content_digest": "sha256:f6986ed561e6a4d46ebea9a767719c4834f149798fb760d7007a059daec5d2a2",
       "control_id": "PE:03",
       "diagram": {
         "description": {
@@ -2298,12 +2628,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2317,7 +2665,7 @@
           }
         ],
         "id": "azure-waf.pe-03",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -2338,8 +2686,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -2350,10 +2698,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Service capabilities and limits determine whether a design can sustain its target load.",
+              "ko": "서비스 기능과 제한은 설계가 목표 부하를 유지할 수 있는지 좌우합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2483,7 +2843,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f9a5f79bcdb2769bed9b934213ab6504fcddcc5c58777f42313f508367f6b857",
+      "content_digest": "sha256:5109ffeba8ca7a1413e98fb65941956c7bb2b3f57a06930018e7edd0666afa6d",
       "control_id": "PE:04",
       "diagram": {
         "description": {
@@ -2501,12 +2861,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2520,7 +2898,7 @@
           }
         ],
         "id": "azure-waf.pe-04",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -2541,8 +2919,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -2553,10 +2931,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Comparable measurement windows distinguish regressions from workload changes.",
+              "ko": "비교 가능한 측정 구간은 성능 저하와 부하 변화를 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2686,7 +3076,7 @@
           }
         ]
       },
-      "content_digest": "sha256:426b90eeb2a77445fb1b9ae2e0c6bc66174d62b9609aab5a51290924863d16d4",
+      "content_digest": "sha256:cf3ffae05353da96ee337370ce6751eec8d497a8f67869a3935ae403886bab61",
       "control_id": "PE:05",
       "diagram": {
         "description": {
@@ -2704,12 +3094,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2723,7 +3131,7 @@
           }
         ],
         "id": "azure-waf.pe-05",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -2744,8 +3152,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -2756,10 +3164,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Partitioning and scaling distribute demand across independently constrained capacity.",
+              "ko": "분할과 확장은 수요를 각각 제한이 있는 용량에 분산합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2889,7 +3309,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d0f2b203eda9d4c251caf79941085a72ca6498d173f9ccd94fa47ad7142f29f1",
+      "content_digest": "sha256:9b07b86cbcbd3d591119eed4715f92406ce4773c10a64fa1d729f5fb99aefe16",
       "control_id": "PE:06",
       "diagram": {
         "description": {
@@ -2907,12 +3327,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2926,7 +3364,7 @@
           }
         ],
         "id": "azure-waf.pe-06",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -2947,8 +3385,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -2959,10 +3397,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Representative data and dependencies expose limits that small isolated tests miss.",
+              "ko": "대표 데이터와 의존성은 작은 독립 테스트가 놓치는 제한을 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3088,7 +3538,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4ae28ba7ca96fb043d60b1be0099456440cb417ca8b4970851648f5b9cb33ebb",
+      "content_digest": "sha256:92133cfb94cc0af2787861d6bf510166ac131cfffd28fc4f0277a64bfb43c6e6",
       "control_id": "PE:07",
       "diagram": {
         "description": {
@@ -3106,12 +3556,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3125,7 +3593,7 @@
           }
         ],
         "id": "azure-waf.pe-07",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -3146,8 +3614,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -3158,10 +3626,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Profiling separates inefficient code from infrastructure bottlenecks.",
+              "ko": "프로파일링은 비효율적인 코드와 인프라 병목을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

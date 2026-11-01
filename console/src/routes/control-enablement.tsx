@@ -22,7 +22,7 @@ export function ControlEnablementSection({ value, severitySource }: {
         <DetailRow label={t(`${key}.default`)} value={t(`${key}.${value.default_enabled ? "enabled" : "disabled"}`)} />
         <DetailRow label={t(`${key}.source`)} value={t(`${key}.sources.${value.source}`)} />
         <DetailRow label={t(`${key}.available`)} value={t(`${key}.${value.available === undefined ? "unknown" : value.available ? "availableYes" : "availableNo"}`)} />
-        {value.unavailable_reason ? <DetailRow label={t(`${key}.unavailableReason`)} value={value.unavailable_reason} /> : null}
+        {value.unavailable_reason ? <DetailRow label={t(`${key}.unavailableReason`)} value={value.unavailable_reason} mono /> : null}
         <DetailRow label={t(`${key}.mode`)} value="shadow" mono />
       </dl>
       <p class="muted">{t(`${key}.boundary`)}</p>

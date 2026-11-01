@@ -9,11 +9,14 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetSelect } from "./rule-catalog-components";
+import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
 import { RulesCatalogRail } from "./rule-catalog-rail";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
+import { guidanceText } from "./wara-guidance.model";
 import {
   SEVERITY_PILL,
   type DetailState,
@@ -72,7 +75,10 @@ export function RuleCatalogBody({
         );
         if (detail.status === "ready") {
           const selectedDetail = detail.data;
+          const guidance = buildRuleGuidance(selectedDetail);
+          const locale = getLocale();
           selectionFacts.push(
+            { key: "selected_title", value: ruleDisplayTitle(selectedDetail, locale), group: "selection" },
             { key: "selected_severity", value: selectedDetail.severity, group: "selection" },
             { key: "selected_category", value: selectedDetail.category, group: "selection" },
             { key: "selected_resource_type", value: selectedDetail.resource_type, group: "selection" },
@@ -85,9 +91,13 @@ export function RuleCatalogBody({
             },
             {
               key: "selected_explanation",
-              value: selectedDetail.explanation.description ?? selectedDetail.explanation.title ?? t("governance.common.parentheticalNone"),
+              value: guidanceText(guidance.summary, locale) || selectedDetail.explanation.description || selectedDetail.explanation.title || t("governance.common.parentheticalNone"),
               group: "selection",
             },
+            { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+            { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+            { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+            { key: "selected_verification", value: guidanceText(guidance.verification_steps[0]!, locale), group: "selection" },
             { key: "selected_remediates", value: selectedDetail.remediates, group: "selection" },
           );
         } else {
@@ -178,12 +188,22 @@ export function RuleCatalogBody({
       {
         key: "id",
         header: t("governance.rules.column.rule"),
-        render: (rule) => (
-          <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
-            <span>{rule.title?.trim() || rule.id}</span>
-            <small>{t("governance.rules.column.provenance")}: {rule.provenance.source_url || rule.source}</small>
-          </span>
-        ),
+        render: (rule) => {
+          const baseTitle = rule.title?.trim() || rule.id;
+          const displayTitle = getLocale() === "ko" && rule.title_ko?.trim() ? rule.title_ko.trim() : baseTitle;
+          return (
+            <span class="rule-table-identity" data-rule-key={`${rule.origin}:${rule.id}`}>
+              {displayTitle === baseTitle ? (
+                <span>{baseTitle}</span>
+              ) : (
+                <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: baseTitle })} placement="top">
+                  <span>{displayTitle}</span>
+                </Tooltip>
+              )}
+              <small>{t("governance.rules.column.provenance")}: {rule.provenance.source_url || rule.source}</small>
+            </span>
+          );
+        },
       },
       {
         key: "origin",
@@ -227,7 +247,7 @@ export function RuleCatalogBody({
       {
         key: "source",
         header: t("governance.rules.column.source"),
-        render: (rule) => rule.source,
+        render: (rule) => displayValue("ruleSource", rule.source),
         cellClass: "rule-column-secondary",
         headerClass: "rule-column-secondary",
       },
@@ -292,6 +312,7 @@ export function RuleCatalogBody({
             <span>{t("governance.rules.filter.searchAria")}</span>
             <input
               type="search"
+              maxLength={256}
               value={searchInput}
               placeholder={t("governance.rules.filter.searchPlaceholder")}
               onInput={(event) => onSearch((event.target as HTMLInputElement).value)}
@@ -300,7 +321,7 @@ export function RuleCatalogBody({
           <FacetSelect label={t("governance.rules.filter.origin")} value={filters.origin} counts={data.facets.by_origin} displayGroup="origin" onChange={(value) => onFilter({ origin: value })} />
           <FacetSelect label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
           <FacetSelect label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
-          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} onChange={(value) => onFilter({ source: value })} />
+          <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} displayGroup="ruleSource" onChange={(value) => onFilter({ source: value })} />
         </div>
 
         <div class="rules-catalog-workbench">
@@ -331,10 +352,10 @@ export function RuleCatalogBody({
                 {loading ? <span class="muted">{t("governance.rules.result.updating")}</span> : null}
               </p>
               <div class="pager">
-                <button type="button" class="btn" disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
+                <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasPrev} onClick={() => onPage(Math.max(0, data.offset - data.limit))}>
                   {t("governance.rules.result.previous")}
                 </button>
-                <button type="button" class="btn" disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
+                <button type="button" class="btn" style={{ minHeight: 44 }} disabled={loading || !hasNext} onClick={() => onPage(data.offset + data.limit)}>
                   {t("governance.rules.result.next")}
                 </button>
               </div>

@@ -1140,6 +1140,9 @@ remain open.
 - CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit,
   coverage, and regression-before review; see
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
+  Bilingual rule localization (`delivery/rule_explanation_localization.py`) and Console guidance
+  modules (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`) remain pure
+  presentation helpers that import no cross-service runtime and grant no execution authority.
 
 ## Related docs
 

@@ -81,7 +81,7 @@ export function IllustratedGuidanceContent({ control, expanded, onExpand, prefix
       {guidance.reference_image
         ? <>
           <WaraGuidanceReferenceImage key={guidance.reference_image.asset_id} image={guidance.reference_image} />
-          <details class="wara-guidance-supplement">
+          <details class="wara-guidance-supplement" open={prefix !== "wara"}>
             <summary>{t("governance.rules.wara.guidance.supplementaryDiagram")}</summary>
             <WaraGuidanceDiagram diagram={guidance.diagram} expanded={expanded} onExpand={onExpand} />
           </details>

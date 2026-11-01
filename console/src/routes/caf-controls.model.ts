@@ -60,6 +60,7 @@ export interface CafControl {
   readonly severity_source?: SeveritySource | null;
   readonly control_id: string;
   readonly title: string;
+  readonly title_ko?: string | null;
   readonly description: string;
   readonly area: string;
   readonly reference_state: CafReferenceState;
@@ -155,6 +156,7 @@ function decodeControl(value: unknown, index: number): CafControl {
     enablement: decodeControlEnablement(raw["enablement"]),
     severity_source: decodeSeveritySource(raw["severity_source"]),
     title: panelNonEmptyString(raw, "title", label),
+    ...(raw["title_ko"] === undefined ? {} : { title_ko: panelNullableString(raw, "title_ko", label) }),
     description: panelNonEmptyString(raw, "description", label),
     area: panelNonEmptyString(raw, "area", label),
     reference_state: decodeEnum(panelNonEmptyString(raw, "reference_state", label), CAF_REFERENCE_STATES, `${label}.reference_state`),

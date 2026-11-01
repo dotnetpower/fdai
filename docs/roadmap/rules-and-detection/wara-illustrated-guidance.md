@@ -216,6 +216,12 @@ Tests cover source identity, corpus accounting, strict decoding, rendering, loca
 malformed sources, unavailable guidance and no-authority behavior. Fixture browser evidence is
 explicitly fixture evidence and never an authenticated live assessment result.
 
+The shared Console illustrated-guidance renderer also serves packaged WAF, CAF, and MCSB v1 guides,
+derived MCSB v2-preview (`74` controls including `AI-1..AI-7`) and MSRC CSAF 2.0 (`268` CVEs)
+guides, and active/collected Detection Rule (`52` active plus `8,517` collected) guides through the
+same no-authority `GuidancePresentation` contract and the 16 reviewed CC-BY-4.0 Microsoft Learn
+reference images.
+
 ## Related docs
 
 | To learn about | Read |

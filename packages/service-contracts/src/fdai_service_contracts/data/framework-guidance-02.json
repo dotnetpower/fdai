@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d2a3683c8a0f3eede6dc5aed25e6ba31ddc9e34517c8123afb5103d7a280f4d1",
+      "content_digest": "sha256:f4e5d93dceee93906c24dffba57946370cc42a472ba41c96464b318aae74c368",
       "control_id": "PE:08",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-waf.pe-08",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Query shape, indexes and access patterns determine data-path work.",
+              "ko": "질의 형태, 인덱스, 접근 패턴은 데이터 경로의 작업량을 결정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -250,7 +280,7 @@
           }
         ]
       },
-      "content_digest": "sha256:78ac17465bcc638d9975789e2afbe8da0faed578b6298ad68081dfb56e2970cd",
+      "content_digest": "sha256:53bdbab692346644ae7855337850fc8b7cdebf5a2c62f484e9bb370a34d0d6d0",
       "control_id": "PE:09",
       "diagram": {
         "description": {
@@ -268,12 +298,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -287,7 +335,7 @@
           }
         ],
         "id": "azure-waf.pe-09",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -308,8 +356,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -320,10 +368,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Flow prioritization reserves constrained capacity for business-critical requests.",
+              "ko": "흐름 우선순위는 제한된 용량을 사업상 핵심 요청에 배분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -453,7 +513,7 @@
           }
         ]
       },
-      "content_digest": "sha256:ff45189adead8c6473d51557c293815ac28c26d898366a516209a7b3c13feb36",
+      "content_digest": "sha256:b5c5b25988dc3c4442b6b197f36c09b8e29dbd4b3a06a10e1b303832e93e5f76",
       "control_id": "PE:10",
       "diagram": {
         "description": {
@@ -471,12 +531,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -490,7 +568,7 @@
           }
         ],
         "id": "azure-waf.pe-10",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -511,8 +589,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -523,10 +601,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Maintenance scheduling and resource limits separate operational load from user traffic.",
+              "ko": "유지보수 일정과 자원 제한은 운영 부하와 사용자 트래픽을 분리합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -656,7 +746,7 @@
           }
         ]
       },
-      "content_digest": "sha256:433594f543036ddc15a2be94a3b2b4722f732dc9287af8e5d1b576baff0339d8",
+      "content_digest": "sha256:33c448dd0b3a3a3435da5198f2c94392e61537945cdf14f9d74515d3eddf18d8",
       "control_id": "PE:11",
       "diagram": {
         "description": {
@@ -674,12 +764,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -693,7 +801,7 @@
           }
         ],
         "id": "azure-waf.pe-11",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -714,8 +822,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -726,10 +834,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Diagnostics and escalation connect observed degradation to bounded mitigation.",
+              "ko": "진단과 보고는 관측한 성능 저하를 범위가 제한된 완화 조치와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -859,7 +979,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e3e798b04f0463a2018009bd3a28af3ab6ce7b5c07c91b2009fc38a474763536",
+      "content_digest": "sha256:12eb7691e5d81acf13da57ae49eeeec65b411d380e6f8ea61bdace03434e42f8",
       "control_id": "PE:12",
       "diagram": {
         "description": {
@@ -877,12 +997,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -896,7 +1034,7 @@
           }
         ],
         "id": "azure-waf.pe-12",
-        "kind": "control-evidence-flow",
+        "kind": "waf-performance-scaling",
         "nodes": [
           {
             "detail": {
@@ -917,8 +1055,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Performance target and scaling design",
+              "ko": "성능 목표 및 탄력적 확장 설계"
             },
             "role": "configuration"
           },
@@ -929,10 +1067,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Load test and saturation check",
+              "ko": "부하 시험 및 포화도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Trend reviews expose gradual performance drift beyond individual release failures.",
+              "ko": "추세 검토는 개별 배포 장애를 넘어 점진적인 성능 변화를 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Load distribution and capacity boundary",
+              "ko": "부하 분산 및 용량 병목 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1058,7 +1208,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4ba5ce76c9fa0c9df001847997ac60d29e2b3d75cca5fb534ceed3e9e932cf5e",
+      "content_digest": "sha256:1f6ef02130c363cf0a00ad628d0c466e2f2fefd7255fc1f6cf8b550ad20e3190",
       "control_id": "RE:01",
       "diagram": {
         "description": {
@@ -1076,12 +1226,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1095,7 +1263,7 @@
           }
         ],
         "id": "azure-waf.re-01",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -1116,8 +1284,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -1128,10 +1296,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Fewer unnecessary dependencies reduce the number of ways a critical flow can fail.",
+              "ko": "불필요한 의존성을 줄이면 핵심 흐름의 장애 경로를 줄일 수 있습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1261,7 +1441,7 @@
           }
         ]
       },
-      "content_digest": "sha256:8eabb05f696fdd19f4c3b40e48b27ba2c3486bc5284ce6e9202756aeb10b1c57",
+      "content_digest": "sha256:b3f271f1970b035f527820ae387ec943e9b5a3f02fcaaad17a32d4216c585ca8",
       "control_id": "RE:02",
       "diagram": {
         "description": {
@@ -1279,12 +1459,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1298,7 +1496,7 @@
           }
         ],
         "id": "azure-waf.re-02",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -1319,8 +1517,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -1331,10 +1529,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Flow criticality links user outcomes to the dependencies requiring protection.",
+              "ko": "흐름의 중요도는 사용자 결과와 보호할 의존성을 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1460,7 +1670,7 @@
           }
         ]
       },
-      "content_digest": "sha256:ead4a3f90cf2b4035583f88e973495a658f39976ea2efe97346e26624c86f6cf",
+      "content_digest": "sha256:8ea7c0d54d0e8d895d9bbfc3a4c33aa197ffcc9c7cd80fde1c455a4bff1bc9ca",
       "control_id": "RE:03",
       "diagram": {
         "description": {
@@ -1478,12 +1688,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1497,7 +1725,7 @@
           }
         ],
         "id": "azure-waf.re-03",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -1518,8 +1746,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -1530,10 +1758,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Failure-mode analysis names how dependency failures propagate through a workload.",
+              "ko": "장애 유형 분석은 의존성 장애가 워크로드에 전파되는 방식을 설명합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1659,7 +1899,7 @@
           }
         ]
       },
-      "content_digest": "sha256:99265f4f6434fdc861cc16e516bd406310066f0bc8f070b330108d31cc706e2f",
+      "content_digest": "sha256:d65c97e93631abc6695512d4ba89aac63b967ba4080d4fcf3e6b795ecc82408f",
       "control_id": "RE:04",
       "diagram": {
         "description": {
@@ -1677,12 +1917,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1696,7 +1954,7 @@
           }
         ],
         "id": "azure-waf.re-04",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -1717,8 +1975,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -1729,10 +1987,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Reliability targets translate business tolerance into availability and recovery boundaries.",
+              "ko": "안정성 목표는 사업의 허용 범위를 가용성 및 복구 경계로 구체화합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1862,7 +2132,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4a32556783196db06543dbd8d5a3e8d149153b82555929b0f5491e427147cb58",
+      "content_digest": "sha256:84ec14103fca76c81be36c41ec63ef7b6135ef078e14bde7124c9fd2b7311609",
       "control_id": "RE:05",
       "diagram": {
         "description": {
@@ -1880,12 +2150,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1899,7 +2187,7 @@
           }
         ],
         "id": "azure-waf.re-05",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -1920,8 +2208,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -1932,10 +2220,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Independent failure domains prevent one component failure from ending a critical flow.",
+              "ko": "독립된 장애 영역은 한 구성 요소의 장애가 핵심 흐름 전체를 중단하지 않게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2081,7 +2381,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a74f5f4d3ea48c482ac0fa0697f0dd02bd6e1aebb5981ba0deb0a8519aadf9af",
+      "content_digest": "sha256:3873fa716bbda2e8f8cd3b33b9364cf87510b97ab69645dcb8fa0ce136aef46a",
       "control_id": "RE:06",
       "diagram": {
         "description": {
@@ -2099,12 +2399,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2118,7 +2436,7 @@
           }
         ],
         "id": "azure-waf.re-06",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -2139,8 +2457,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -2151,10 +2469,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Scaling headroom and lead times keep demand growth from exhausting the service.",
+              "ko": "확장 여유와 소요 시간 관리는 수요 증가로 서비스 용량이 고갈되지 않게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2284,7 +2614,7 @@
           }
         ]
       },
-      "content_digest": "sha256:90f0aa5d5e4c535fa957df891f8a150ea2aee1888bad4d43bda9b1148df4031e",
+      "content_digest": "sha256:0d5f722aac06d5c850ae3de55496aa3595aa1ca087b10dfeb1dd1474f951efe7",
       "control_id": "RE:07",
       "diagram": {
         "description": {
@@ -2302,12 +2632,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2321,7 +2669,7 @@
           }
         ],
         "id": "azure-waf.re-07",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -2342,8 +2690,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -2354,10 +2702,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Timeouts, circuit breakers and bounded recovery prevent cascading resource exhaustion.",
+              "ko": "시간 제한, 회로 차단기, 제한된 복구는 연쇄적인 자원 고갈을 막습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2495,7 +2855,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d2b7e61569e326aeaec134e1a7f5f8b3eab42b1c614953a26a98309f0b7f1c20",
+      "content_digest": "sha256:84c18d715702a7170c1bd0515e94705e459c2e6550d35c270400aafe96fddbb7",
       "control_id": "RE:08",
       "diagram": {
         "description": {
@@ -2513,12 +2873,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2532,7 +2910,7 @@
           }
         ],
         "id": "azure-waf.re-08",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -2553,8 +2931,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -2565,10 +2943,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Controlled fault tests compare designed failure behavior with observed recovery.",
+              "ko": "통제된 결함 시험은 설계한 장애 동작과 관측한 복구를 비교합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2694,7 +3084,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4a41f4a643bb5e1b39feec42c96660fe2e1aee1c4786ae52caa04adca91bc7c2",
+      "content_digest": "sha256:1552b3d6eecaeaf4ab4e594032a4d1e71560ac24da3e00cc658c6b8cee539947",
       "control_id": "RE:09",
       "diagram": {
         "description": {
@@ -2712,12 +3102,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2731,7 +3139,7 @@
           }
         ],
         "id": "azure-waf.re-09",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -2752,8 +3160,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -2764,10 +3172,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Recovery procedures coordinate data restoration and service reconstruction after severe loss.",
+              "ko": "복구 절차는 큰 손실 뒤의 데이터 복원과 서비스 재구성을 조정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2901,7 +3321,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d818462549814cda671959d6898d0d881ecc714ca317ebc74c1b1a6a5a80fa9e",
+      "content_digest": "sha256:651aa31d0381a4c216849f0e66e41c6796383325bb19c83e76f5604157c4ae38",
       "control_id": "RE:10",
       "diagram": {
         "description": {
@@ -2919,12 +3339,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2938,7 +3376,7 @@
           }
         ],
         "id": "azure-waf.re-10",
-        "kind": "control-evidence-flow",
+        "kind": "waf-reliability-topology",
         "nodes": [
           {
             "detail": {
@@ -2959,8 +3397,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Resilience and isolation design",
+              "ko": "복원력 및 장애 격리 설계"
             },
             "role": "configuration"
           },
@@ -2971,10 +3409,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Health and recovery verification",
+              "ko": "상태 및 복구 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Health models combine dependency and user-flow signals into actionable service status.",
+              "ko": "상태 모델은 의존성과 사용자 흐름의 신호를 실행 가능한 서비스 상태로 묶습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Failure domain and recovery boundary",
+              "ko": "장애 범위 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3124,7 +3574,7 @@
           }
         ]
       },
-      "content_digest": "sha256:772476a52d5ffcfe63f56f3c67b64b4fc1fc514eeeb4d971dd5c95a1a9dab5f4",
+      "content_digest": "sha256:8c8d779f19bc86167e271d6acd0d9b87144b9885b070f71a8b20e437bac2bb8a",
       "control_id": "SE:01",
       "diagram": {
         "description": {
@@ -3142,12 +3592,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3161,7 +3629,7 @@
           }
         ],
         "id": "azure-waf.se-01",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -3182,8 +3650,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -3194,10 +3662,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A reviewed baseline gives workload controls explicit ownership and expected settings.",
+              "ko": "검토된 기준선은 워크로드 보안 통제의 담당자와 예상 설정을 명시합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

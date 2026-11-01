@@ -39,13 +39,18 @@ export function BestPracticeDrawer({
       return;
     }
     if (event.key !== "Tab" || panelRef.current === null) return;
-    const focusables = panelRef.current.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
+    const focusables = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => {
+      const closed = element.closest("details:not([open])");
+      return element.getClientRects().length > 0 && (closed === null || element === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === panelRef.current)) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && document.activeElement === last) {
@@ -92,8 +97,8 @@ function BestPracticeDetailContent({ data, expanded, onExpand }: { readonly data
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.controls.detail.framework")} value={data.framework} mono />
         <DetailRow label={t("governance.common.version")} value={data.version} mono />
-        <DetailRow label={t("governance.rules.controls.detail.mode")} value={data.requirement_mode} />
-        <DetailRow label={t("governance.rules.controls.column.catalog")} value={data.catalog_status} />
+        <DetailRow label={t("governance.rules.controls.detail.mode")} value={displayValue("requirementMode", data.requirement_mode)} />
+        <DetailRow label={t("governance.rules.controls.column.catalog")} value={displayValue("catalogStatus", data.catalog_status)} />
         <DetailRow label={t("governance.rules.controls.column.mapping")} value={displayValue("controlMapping", data.mapping_status)} />
         <DetailRow label={t("governance.rules.controls.column.evaluation")} value={displayValue("controlEvaluation", data.evaluation_status)} />
         <DetailRow label={t("governance.rules.controls.column.applicability")} value={displayValue("controlStatus", data.applicability)} />
@@ -151,7 +156,7 @@ function BestPracticeDetailContent({ data, expanded, onExpand }: { readonly data
         <dl class="detail-grid">
           <DetailRow label={t("governance.rules.controls.detail.evidenceRefs")} value={data.evidence_refs.join(", ") || "-"} mono />
           <DetailRow label={t("governance.rules.controls.detail.evidenceDigests")} value={data.evidence_digests.join(", ") || "-"} mono />
-          <DetailRow label={t("governance.rules.controls.detail.limitations")} value={data.limitations.join(", ") || "-"} />
+          <DetailRow label={t("governance.rules.controls.detail.limitations")} value={data.limitations.map((code) => displayValue("requirementLimitation", code)).join(", ") || "-"} />
         </dl>
       </DetailSection>
       <DetailSection title={t("governance.rules.detail.provenance")}>

@@ -933,10 +933,104 @@
       "knowledge": "Knowledge",
       "reporting": "Reporting",
       "resilience": "Resilience",
+      "reliability": "Reliability",
+      "config_drift": "Configuration drift",
+      "compliance": "Compliance",
       "change-safety": "Change safety",
       "security": "Security",
       "governance": "Governance",
       "operations": "Operations"
+    },
+    "ruleSource": {
+      "mcsb": "mcsb",
+      "waf": "waf",
+      "cis": "cis",
+      "aks_baseline": "aks_baseline",
+      "custom": "custom",
+      "azure_policy": "azure_policy",
+      "kube_bench": "kube_bench"
+    },
+    "cafArea": {
+      "methodology": "Methodology",
+      "landing-zone": "Landing zone"
+    },
+    "ruleDetailKey": {
+      "title_ko": "Korean title",
+      "description_ko": "Korean summary",
+      "evaluated_properties": "Evaluated properties",
+      "trigger_signals": "Trigger signals",
+      "remediation_action": "Remediation ActionType",
+      "azure_policy_effect_default": "Default policy effect",
+      "azure_policy_category": "Policy category",
+      "kube_bench_audit": "Audit command",
+      "kube_bench_scored": "CIS scored"
+    },
+    "checkLogicKind": {
+      "rego": "OPA Rego policy",
+      "expression": "Policy expression"
+    },
+    "redistribution": {
+      "embeddable": "Embeddable",
+      "reference-only": "Reference only"
+    },
+    "requirementMode": {
+      "all": "All requirements required",
+      "any": "Any requirement sufficient"
+    },
+    "catalogStatus": {
+      "present": "Present in catalog"
+    },
+    "cafProcessPhase": {
+      "none": "Observation only",
+      "procedure": "Procedure phase",
+      "execution": "Execution phase",
+      "both": "Procedure and execution"
+    },
+    "cafTargetKind": {
+      "rule": "Detection rule",
+      "waf": "Azure WAF",
+      "mcsb": "MCSB",
+      "control_objective": "Control objective",
+      "azure_policy": "Azure Policy",
+      "provider_observation": "Provider observation",
+      "manual_evidence": "Manual evidence"
+    },
+    "cafRelationship": {
+      "full": "Full coverage",
+      "partial": "Partial coverage",
+      "supporting_only": "Supporting only",
+      "unmapped": "Unmapped"
+    },
+    "msrcRemediationCategory": {
+      "vendor_fix": "Official security patch (vendor_fix)",
+      "workaround": "Configuration workaround",
+      "mitigation": "Compensating mitigation",
+      "none_available": "No patch available"
+    },
+    "msrcBlockedReason": {
+      "unsupported_product_family": "Unsupported product family",
+      "missing_version_property": "Missing resource version property",
+      "ambiguous_product_mapping": "Ambiguous product mapping",
+      "manual_verification_required": "Manual verification required"
+    },
+    "activationStatus": {
+      "applied": "Applied",
+      "already_applied": "Already applied",
+      "conflict": "Generation conflict",
+      "rejected": "Rejected",
+      "failed": "Failed"
+    },
+    "activationSource": {
+      "git_catalog": "Git catalog",
+      "operator_request": "Operator request",
+      "offline_bundle": "Signed offline bundle",
+      "bootstrap": "Bootstrap"
+    },
+    "remediationLimitation": {
+      "promotion_required": "ActionType is in shadow mode; promotion is required before enforcement",
+      "rule_activation_runtime_support_and_safety_gates_required": "Requires active Rule membership, runtime ActionType support, and safety gates",
+      "rule_not_in_active_catalog": "Cited Rule is not in the active catalog",
+      "action_type_runtime_unsupported": "Paired ActionType is not yet supported by the runtime executor"
     },
     "sideEffect": {
       "read": "Read",

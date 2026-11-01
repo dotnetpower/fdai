@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:53e03c213f666f2da362027bd85d242feb5fe8825711476ed12cbcc845738a55",
+      "content_digest": "sha256:0ab4d05231cf9ca18bee4455e636309668284ab06763c35b06bc51a604e371ed",
       "control_id": "SE:02",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-waf.se-02",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Threat review and security tests place security decisions before release.",
+              "ko": "위협 검토와 보안 테스트는 배포 전에 보안 결정을 수행하게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -250,7 +280,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6fe309df7bd8dbdfb78eaabc26f9594675d305e585e55fed838194b40dc609f5",
+      "content_digest": "sha256:49110c61d4dcfcd71e8424dc967f275f9c0acda544cee373957b49a7ac32205f",
       "control_id": "SE:03",
       "diagram": {
         "description": {
@@ -268,12 +298,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -287,7 +335,7 @@
           }
         ],
         "id": "azure-waf.se-03",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -308,8 +356,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -320,10 +368,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Classification connects information sensitivity and business importance to protection needs.",
+              "ko": "분류는 정보의 민감도와 사업상 중요도를 보호 요구와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -453,7 +513,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b1f8b8865634de6eb5bd0a556d11f583c3d290c0d40e1f8bead9be698d148a63",
+      "content_digest": "sha256:1df3533f46cccd1ef22b51df684e6ef7b35cd4110eb35534871380a3d1b8abc7",
       "control_id": "SE:04",
       "diagram": {
         "description": {
@@ -471,12 +531,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -490,7 +568,7 @@
           }
         ],
         "id": "azure-waf.se-04",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -511,8 +589,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -523,10 +601,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Trust boundaries isolate components with different exposure and privilege needs.",
+              "ko": "신뢰 경계는 노출 및 권한 요구가 다른 구성 요소를 격리합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -656,7 +746,7 @@
           }
         ]
       },
-      "content_digest": "sha256:906ff0da0342aef5665286763b34556f2c46283823899bf72a470cb08e2bc446",
+      "content_digest": "sha256:5985fc7efb23805f8510b14f1bc461d536de99dd3c6b1ad157b5d57f919217cf",
       "control_id": "SE:05",
       "diagram": {
         "description": {
@@ -674,12 +764,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -693,7 +801,7 @@
           }
         ],
         "id": "azure-waf.se-05",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -714,8 +822,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -726,10 +834,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Least privilege and conditional checks bind access to verified identity and context.",
+              "ko": "최소 권한과 조건 검사는 접근을 검증된 신원 및 상황에 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -875,7 +995,7 @@
           }
         ]
       },
-      "content_digest": "sha256:2a6f7912288a415bfaa46cb67774307eba448accb55641b77a33b692c92628b6",
+      "content_digest": "sha256:d307c91932f73beb4a06ecd1a0f1a3ea5defcf860624f278050df14e75b0311d",
       "control_id": "SE:06",
       "diagram": {
         "description": {
@@ -893,12 +1013,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -912,7 +1050,7 @@
           }
         ],
         "id": "azure-waf.se-06",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -933,8 +1071,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -945,10 +1083,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Explicit network rules restrict paths to required sources, destinations and protocols.",
+              "ko": "명시적인 네트워크 규칙은 경로를 필요한 출발지, 목적지, 프로토콜로 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1098,7 +1248,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f4ccdd052e254b413fcc205853aec25d73a7cd56667e1f0fb10944790405653c",
+      "content_digest": "sha256:b9847b46295ea74dcc15c6a26cf2eb355de49abf7376d6c1a39662d48bc5ba1a",
       "control_id": "SE:07",
       "diagram": {
         "description": {
@@ -1116,12 +1266,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1135,7 +1303,7 @@
           }
         ],
         "id": "azure-waf.se-07",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -1156,8 +1324,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -1168,10 +1336,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Transport and storage encryption protect different stages of the data lifecycle.",
+              "ko": "전송 암호화와 저장 암호화는 데이터 수명 주기의 서로 다른 단계를 보호합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1317,7 +1497,7 @@
           }
         ]
       },
-      "content_digest": "sha256:68da4029d0d8971d6fa5e33420eca35f9f7e27f3ae9ddc0c4f82ecb3cf2228cd",
+      "content_digest": "sha256:1d28cee3751f7cc3c211c6c802dc1a211db4425201dfa13fd5f4ab9b4a2e3cc4",
       "control_id": "SE:08",
       "diagram": {
         "description": {
@@ -1335,12 +1515,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1354,7 +1552,7 @@
           }
         ],
         "id": "azure-waf.se-08",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -1375,8 +1573,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -1387,10 +1585,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Reduced functionality and patched configurations shrink the exposed attack surface.",
+              "ko": "기능 축소와 패치된 구성은 노출된 공격 표면을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1520,7 +1730,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4eb1089ceabd1f209cc42e16ed29d09eb01eeabc1d3edcdbf8f7db5700c6bf61",
+      "content_digest": "sha256:cd7772a38d637c24e420a1cc908abc358a356ebf8fac90f7341bfc31fe3d4b39",
       "control_id": "SE:09",
       "diagram": {
         "description": {
@@ -1538,12 +1748,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1557,7 +1785,7 @@
           }
         ],
         "id": "azure-waf.se-09",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -1578,8 +1806,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -1590,10 +1818,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Central secret storage and rotation limit credential exposure and lifetime.",
+              "ko": "중앙 비밀 저장과 교체는 자격 증명의 노출 및 유효 기간을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1735,7 +1975,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4c1f08cbb1c649e3f8c7674d32124a369eed7e5c1a748d19e6e314044035d69c",
+      "content_digest": "sha256:84c042d0b970670c76561c8a6919d414ed06942dc57510f4517e2580cd670d39",
       "control_id": "SE:10",
       "diagram": {
         "description": {
@@ -1753,12 +1993,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1772,7 +2030,7 @@
           }
         ],
         "id": "azure-waf.se-10",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -1793,8 +2051,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -1805,10 +2063,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Joined security signals connect suspicious activity across identity and workload boundaries.",
+              "ko": "연결된 보안 신호는 신원 및 워크로드 경계를 넘는 의심스러운 활동을 묶습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1938,7 +2208,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a756bfa07dd50db820c7a7bc0a178c93af9086673105c3d629bf96bf8902c322",
+      "content_digest": "sha256:3a365fa5c191307e3a06c707df8e811fe4205cc4171e88c9b8b0546b85a88da9",
       "control_id": "SE:11",
       "diagram": {
         "description": {
@@ -1956,12 +2226,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1975,7 +2263,7 @@
           }
         ],
         "id": "azure-waf.se-11",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -1996,8 +2284,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -2008,10 +2296,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Complementary security tests examine implementation flaws and exploitable system behavior.",
+              "ko": "서로 보완하는 보안 테스트는 구현 결함과 악용 가능한 시스템 동작을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2141,7 +2441,7 @@
           }
         ]
       },
-      "content_digest": "sha256:7a0a69a5486b4a57950a6b81d479f89db20fc3b16bfbe4379d2061c61019648c",
+      "content_digest": "sha256:fa4bfeef0c91d5c323cc543a6ea92500192431a6b9e35e1450503deadd5c6f7f",
       "control_id": "SE:12",
       "diagram": {
         "description": {
@@ -2159,12 +2459,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2178,7 +2496,7 @@
           }
         ],
         "id": "azure-waf.se-12",
-        "kind": "control-evidence-flow",
+        "kind": "waf-security-boundary",
         "nodes": [
           {
             "detail": {
@@ -2199,8 +2517,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Defense-in-depth and least privilege",
+              "ko": "심층 방어 및 최소 권한 설계"
             },
             "role": "configuration"
           },
@@ -2211,10 +2529,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Security posture and audit check",
+              "ko": "보안 태세 및 감사 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A rehearsed response plan coordinates containment, evidence handling and recovery.",
+              "ko": "연습한 대응 계획은 격리, 증거 처리, 복구를 조정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Identity, network and encryption boundary",
+              "ko": "신원·네트워크·암호화 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2348,7 +2678,7 @@
           }
         ]
       },
-      "content_digest": "sha256:7b08129eaafcb447c4d9c78e9c3289eb32ab1c8b6b3927f9d6b804a69af3a5c0",
+      "content_digest": "sha256:f5070b8e4eae5aaa7ec063c28a7bec9a1e543878f122faa21ed41ab8033f6e24",
       "control_id": "AM-1",
       "diagram": {
         "description": {
@@ -2366,12 +2696,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2385,7 +2733,7 @@
           }
         ],
         "id": "azure-mcsb.am-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-asset-management",
         "nodes": [
           {
             "detail": {
@@ -2406,8 +2754,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Approved service and inventory policy",
+              "ko": "승인 서비스 및 자산 목록 설계"
             },
             "role": "configuration"
           },
@@ -2418,10 +2766,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Inventory reconciliation check",
+              "ko": "자산 인벤토리 및 승인 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "An owned inventory connects discovered assets with exposure and risk context.",
+              "ko": "담당자가 있는 목록은 발견한 자산과 노출 및 위험 정보를 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Resource graph and lifecycle tracking",
+              "ko": "리소스 그래프 및 수명주기 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2543,7 +2903,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e968b1b5c7b3f6e0115f73425a0ec84a3325b35be3bc2191baf47025a2018576",
+      "content_digest": "sha256:5875c46b3a455574defbf92aaec5e09efb3400035d5cfefbfd511a9e2a0174f1",
       "control_id": "AM-2",
       "diagram": {
         "description": {
@@ -2561,12 +2921,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2580,7 +2958,7 @@
           }
         ],
         "id": "azure-mcsb.am-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-asset-management",
         "nodes": [
           {
             "detail": {
@@ -2601,8 +2979,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Approved service and inventory policy",
+              "ko": "승인 서비스 및 자산 목록 설계"
             },
             "role": "configuration"
           },
@@ -2613,10 +2991,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Inventory reconciliation check",
+              "ko": "자산 인벤토리 및 승인 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "An approved-service catalog constrains which cloud capabilities enter the workload.",
+              "ko": "승인 서비스 목록은 워크로드가 도입할 수 있는 클라우드 기능을 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Resource graph and lifecycle tracking",
+              "ko": "리소스 그래프 및 수명주기 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2738,7 +3128,7 @@
           }
         ]
       },
-      "content_digest": "sha256:2520fb83e89e0ab14f1e81784fa8b49b8039a51c10533e3bb621776c81c25468",
+      "content_digest": "sha256:c18e390dfceb417e613580f94147895b9deae332a6265e82f459a9f247f3cbd7",
       "control_id": "AM-3",
       "diagram": {
         "description": {
@@ -2756,12 +3146,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2775,7 +3183,7 @@
           }
         ],
         "id": "azure-mcsb.am-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-asset-management",
         "nodes": [
           {
             "detail": {
@@ -2796,8 +3204,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Approved service and inventory policy",
+              "ko": "승인 서비스 및 자산 목록 설계"
             },
             "role": "configuration"
           },
@@ -2808,10 +3216,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Inventory reconciliation check",
+              "ko": "자산 인벤토리 및 승인 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Lifecycle records preserve ownership through provisioning, transfer and retirement.",
+              "ko": "수명 주기 기록은 생성, 이전, 폐기 과정의 책임을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Resource graph and lifecycle tracking",
+              "ko": "리소스 그래프 및 수명주기 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2933,7 +3353,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f0a39ddba17cd6a89fdf5ded8137901ac8108f52a008b902846228160d7bfe1b",
+      "content_digest": "sha256:b3f7c9211c7a90781be1f189f7d1bc68258b37291c37233dd5074e70638e2b32",
       "control_id": "AM-4",
       "diagram": {
         "description": {
@@ -2951,12 +3371,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2970,7 +3408,7 @@
           }
         ],
         "id": "azure-mcsb.am-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-asset-management",
         "nodes": [
           {
             "detail": {
@@ -2991,8 +3429,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Approved service and inventory policy",
+              "ko": "승인 서비스 및 자산 목록 설계"
             },
             "role": "configuration"
           },
@@ -3003,10 +3441,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Inventory reconciliation check",
+              "ko": "자산 인벤토리 및 승인 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Scoped management permissions separate asset administration from ordinary use.",
+              "ko": "제한된 관리 권한은 자산 관리와 일반 사용을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Resource graph and lifecycle tracking",
+              "ko": "리소스 그래프 및 수명주기 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3128,7 +3578,7 @@
           }
         ]
       },
-      "content_digest": "sha256:2c043f4956b0937b5fb6f0fe03d4c6215164e567704a6914390fa5cd4b76fff5",
+      "content_digest": "sha256:2751ea15f5a5b8fafda4400b361c4c8193300b5071126ccf3fcf761e83381a16",
       "control_id": "AM-5",
       "diagram": {
         "description": {
@@ -3146,12 +3596,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3165,7 +3633,7 @@
           }
         ],
         "id": "azure-mcsb.am-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-asset-management",
         "nodes": [
           {
             "detail": {
@@ -3186,8 +3654,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Approved service and inventory policy",
+              "ko": "승인 서비스 및 자산 목록 설계"
             },
             "role": "configuration"
           },
@@ -3198,10 +3666,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Inventory reconciliation check",
+              "ko": "자산 인벤토리 및 승인 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Application approval limits executable software on virtual machines.",
+              "ko": "애플리케이션 승인은 가상 머신에서 실행할 소프트웨어를 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Resource graph and lifecycle tracking",
+              "ko": "리소스 그래프 및 수명주기 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

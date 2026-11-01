@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
-import { t } from "./i18n/governance";
+import { displayValue, t } from "./i18n/governance";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import type {
@@ -45,14 +45,14 @@ export function RuleActivationPanel({ ruleId, activation, history, onRequest, on
         </div>
         <dl class="detail-grid rule-activation-facts">
           <DetailRow label={t("governance.rules.activation.generation")} value={activation.data.generation_id} mono />
-          <DetailRow label={t("governance.rules.activation.source")} value={activation.data.source} />
+          <DetailRow label={t("governance.rules.activation.source")} value={displayValue("activationSource", activation.data.source)} />
           <DetailRow label={t("governance.rules.activation.requestedBy")} value={activation.data.requested_by} mono />
           <DetailRow label={t("governance.rules.activation.approvers")} value={activation.data.approver_ids.join(", ") || "-"} mono />
           <DetailRow label={t("governance.rules.activation.activatedAt")} value={formatTimestamp(activation.data.activated_at)} />
         </dl>
       </DetailSection>
       <ActivationRequestForm enabled={enabled} onRequest={onRequest} />
-      <PendingApprovals pending={pending} onApprove={onApprove} />
+      <PendingApprovals ruleId={ruleId} pending={pending} onApprove={onApprove} />
       <ActivationHistory history={history} />
     </div>
   );
@@ -109,20 +109,24 @@ function ActivationRequestForm({
   );
 }
 
-function PendingApprovals({ pending, onApprove }: {
+function PendingApprovals({ ruleId, pending, onApprove }: {
+  readonly ruleId: string;
   readonly pending: readonly PendingRuleActivationRequest[];
   readonly onApprove: Props["onApprove"];
 }) {
   const [active, setActive] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [failed, setFailed] = useState(false);
   if (pending.length === 0) return null;
   async function approve(request: PendingRuleActivationRequest): Promise<void> {
     setActive(request.request_id);
     setMessage("");
+    setFailed(false);
     try {
       await onApprove(request);
       setMessage(t("governance.rules.activation.approvalAccepted"));
     } catch (error) {
+      setFailed(true);
       setMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setActive(null);
@@ -134,7 +138,7 @@ function PendingApprovals({ pending, onApprove }: {
         {pending.map((request) => (
           <li key={request.request_id}>
             <div>
-              <strong>{request.changes.find((change) => change.rule_id)?.enabled
+              <strong>{(request.changes.find((change) => change.rule_id === ruleId) ?? request.changes[0])?.enabled
                 ? t("governance.rules.activation.enable")
                 : t("governance.rules.activation.disable")}</strong>
               <small>{formatTimestamp(request.requested_at)} - <span class="mono">{request.requested_by}</span></small>
@@ -152,7 +156,11 @@ function PendingApprovals({ pending, onApprove }: {
           </li>
         ))}
       </ul>
-      {message ? <p class="state-inline" role="status" aria-live="polite">{message}</p> : null}
+      {message ? (
+        <p class={`state-inline ${failed ? "error" : "success"}`} role={failed ? "alert" : "status"} aria-live="polite">
+          {message}
+        </p>
+      ) : null}
     </DetailSection>
   );
 }
@@ -175,11 +183,13 @@ function ActivationHistory({ history }: { readonly history: ActivationHistorySta
             <li key={item.request_id}>
               <div>
                 <div class="pill-row">
-                  <StatusPill kind={item.readback_verified ? "success" : "warning"} label={item.status} />
+                  <StatusPill kind={item.readback_verified ? "success" : "warning"} label={displayValue("activationStatus", item.status)} />
                   <StatusPill kind={item.enabled ? "success" : "neutral"} label={item.enabled ? t("governance.rules.activation.enabled") : t("governance.rules.activation.disabled")} />
+                  <StatusPill kind="neutral" label={displayValue("activationSource", item.source)} />
                 </div>
                 <small>{formatTimestamp(item.completed_at)} - <span class="mono">{item.requested_by}</span></small>
                 <p>{item.reason}</p>
+                {item.failure_reason ? <p class="muted small mono">{item.failure_reason}</p> : null}
                 <small>{t("governance.rules.activation.approvers")}: {item.approver_ids.join(", ") || "-"}</small>
               </div>
             </li>

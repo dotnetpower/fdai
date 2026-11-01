@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   KpiCard,
@@ -7,6 +8,9 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import {
@@ -21,8 +25,18 @@ import {
   type MsrcCsafExposure,
   type MsrcCsafFilters,
 } from "./msrc-csaf-controls.model";
+import {
+  buildMsrcCsafGuidance,
+  msrcCsafDisplayTitle,
+  parseCvssVector,
+} from "./msrc-csaf-guidance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+import { IllustratedGuidanceContent } from "./wara-guidance";
+import { guidanceText } from "./wara-guidance.model";
+
+const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
 const EXPLOIT_PILL: Readonly<Record<MsrcCsafExploitStatus, PillKind>> = {
   exploited: "danger",
@@ -117,21 +131,81 @@ export function MsrcCsafControlsRoute() {
   const blockedCount = catalog.rows.filter((r) => r.evaluation_status === "blocked").length;
   const facet = (name: string) => facets[name] ?? {};
 
+  usePublishViewContext(
+    () => {
+      const selectedGuidance = selectedRow ? buildMsrcCsafGuidance(selectedRow, catalog.source_revision) : null;
+      const locale = getLocale();
+      return {
+        routeId: "rules",
+        routeLabel: "MSRC CSAF 2.0",
+        purpose: t("governance.rules.msrcCsaf.banner.body", { revision: catalog.source_revision }),
+        glossary: composeGlossary([]),
+        headline: selectedRow
+          ? `${selectedRow.cve_id}: ${msrcCsafDisplayTitle(selectedRow, locale)} (CVSS ${selectedRow.cvss_base_score.toFixed(1)})`
+          : `MSRC CSAF 2.0: ${catalog.rows.length} CVEs (${exploitedCount} exploited)`,
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "total_cves", value: catalog.rows.length, group: "catalog" },
+          { key: "exploited_cves", value: exploitedCount, group: "catalog" },
+          { key: "mapped_cves", value: mappedCount, group: "catalog" },
+          { key: "blocked_cves", value: blockedCount, group: "catalog" },
+          { key: "filtered_cves", value: filteredRows.length, group: "filter" },
+          ...(selectedRow && selectedGuidance
+            ? [
+                { key: "selected_cve", value: selectedRow.cve_id, group: "selection" },
+                { key: "selected_title", value: msrcCsafDisplayTitle(selectedRow, locale), group: "selection" },
+                { key: "selected_cvss", value: selectedRow.cvss_base_score, group: "selection" },
+                { key: "selected_exploit_status", value: selectedRow.exploit_status, group: "selection" },
+                { key: "selected_resource_type", value: selectedRow.primary_resource_type, group: "selection" },
+                { key: "selected_version_window", value: selectedRow.version_window, group: "selection" },
+                { key: "selected_summary", value: guidanceText(selectedGuidance.summary, locale), group: "selection" },
+                { key: "selected_remediation", value: guidanceText(selectedGuidance.configuration.after[0]!, locale), group: "selection" },
+              ]
+            : []),
+        ],
+        records: {
+          cves: pagedRows.slice(0, 25).map((row) => ({
+            cve_id: row.cve_id,
+            title: msrcCsafDisplayTitle(row, locale),
+            severity: row.severity,
+            cvss: row.cvss_base_score,
+            exploit_status: row.exploit_status,
+            resource_type: row.primary_resource_type,
+            version_window: row.version_window,
+            disposition: row.disposition,
+          })),
+        },
+      };
+    },
+    [blockedCount, catalog.rows.length, catalog.source_revision, exploitedCount, filteredRows.length, mappedCount, pagedRows, selectedRow],
+  );
+
   const columns: readonly Column<MsrcCsafControlRow>[] = useMemo(
     () => [
       {
         key: "cve",
         header: t("governance.rules.msrcCsaf.column.cve"),
-        render: (item) => (
-          <span class="wara-recommendation-identity" data-cve-id={item.cve_id}>
-            <span class="wara-recommendation-title">{item.title}</span>
-            <small class="muted">
-              <code>{item.cve_id}</code>
-              <span>{item.advisory_tracking_id}</span>
-              <span>{item.primary_resource_type}</span>
-            </small>
-          </span>
-        ),
+        render: (item) => {
+          const displayTitle = msrcCsafDisplayTitle(item, getLocale());
+          return (
+            <span class="wara-recommendation-identity" data-cve-id={item.cve_id}>
+              <span class="wara-recommendation-title">
+                {displayTitle === item.title ? (
+                  item.title
+                ) : (
+                  <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: item.title })} placement="top">
+                    <span>{displayTitle}</span>
+                  </Tooltip>
+                )}
+              </span>
+              <small class="muted">
+                <code>{item.cve_id}</code>
+                <span>{item.advisory_tracking_id}</span>
+                <span>{item.primary_resource_type}</span>
+              </small>
+            </span>
+          );
+        },
       },
       {
         key: "severity",
@@ -259,6 +333,7 @@ export function MsrcCsafControlsRoute() {
             <span class="sr-only">{t("governance.rules.msrcCsaf.filter.searchAria")}</span>
             <input
               type="search"
+              maxLength={256}
               value={searchInput}
               placeholder={t("governance.rules.msrcCsaf.filter.searchPlaceholder")}
               onInput={(event) => setSearchInput((event.target as HTMLInputElement).value)}
@@ -305,7 +380,7 @@ export function MsrcCsafControlsRoute() {
             setSelected(item.cve_id);
           }}
           isRowActive={(item) => item.cve_id === selected}
-          rowActionLabel={(item) => t("governance.rules.msrcCsaf.openRow", { cve: item.cve_id, title: item.title })}
+          rowActionLabel={(item) => t("governance.rules.msrcCsaf.openRow", { cve: item.cve_id, title: msrcCsafDisplayTitle(item, getLocale()) })}
           rowActionControls="msrc-csaf-control-detail"
         />
       </section>
@@ -336,6 +411,10 @@ function MsrcCsafDrawer({
   readonly onClose: () => void;
 }) {
   const panelRef = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const locale = getLocale();
+  const guidance = useMemo(() => buildMsrcCsafGuidance(row, sourceRevision), [row, sourceRevision]);
+  const cvssDimensions = useMemo(() => parseCvssVector(row.cvss_vector), [row.cvss_vector]);
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -353,7 +432,10 @@ function MsrcCsafDrawer({
       panelRef.current.querySelectorAll<HTMLElement>(
         'summary, a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((el) => el.getClientRects().length > 0);
+    ).filter((el) => {
+      const closed = el.closest("details:not([open])");
+      return el.getClientRects().length > 0 && (closed === null || el === closed.querySelector(":scope > summary"));
+    });
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
     if (!first || !last) return;
@@ -372,7 +454,7 @@ function MsrcCsafDrawer({
         id="msrc-csaf-control-detail"
         ref={panelRef}
         tabIndex={-1}
-        class="rule-drawer wara-drawer"
+        class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={t("governance.rules.msrcCsaf.detail.aria")}
@@ -385,8 +467,22 @@ function MsrcCsafDrawer({
         </header>
         <div class="rule-drawer-body">
           <div class="stack">
-            <section class="stack-section">
-              <h3>{row.cve_id} - {row.title}</h3>
+            <IllustratedGuidanceContent
+              control={{
+                id: row.cve_id,
+                title: `${row.cve_id} - ${msrcCsafDisplayTitle(row, locale)}`,
+                description: row.advisory_title,
+                guidance,
+                source_url: row.source_url,
+                source_version: sourceRevision,
+              }}
+              expanded={expanded}
+              onExpand={() => setExpanded((value) => !value)}
+              prefix="framework"
+            />
+
+            <section id="framework-runtime" tabIndex={-1} class="stack-section">
+              <h3>{t("governance.rules.wara.guidance.runtime")}</h3>
               <p class="muted">{row.advisory_title}</p>
               <div class="pill-row">
                 <StatusPill
@@ -407,6 +503,19 @@ function MsrcCsafDrawer({
                 />
               </div>
               <p>{t("governance.rules.msrcCsaf.detail.boundary")}</p>
+              {cvssDimensions.length > 0 ? (
+                <div class="control-requirement-list" aria-label="CVSS v3.1 vector breakdown">
+                  {cvssDimensions.map((dim) => (
+                    <div key={dim.code} class="control-requirement-row">
+                      <div>
+                        <span class="muted small">{guidanceText(dim.label, locale)}</span>
+                        <code>{dim.code}</code>
+                      </div>
+                      <StatusPill kind={dim.tone} label={guidanceText(dim.value, locale)} />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </section>
 
             <DetailSection title={t("governance.rules.msrcCsaf.detail.advisorySection")}>
@@ -431,7 +540,22 @@ function MsrcCsafDrawer({
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.productIds")} value={row.product_ids.join(", ")} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.canonicalResourceType")} value={row.primary_resource_type} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.versionWindow")} value={row.version_window} mono />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.existingRule")} value={row.existing_rule_id ?? "-"} mono />
+                <DetailRow
+                  label={t("governance.rules.msrcCsaf.detail.existingRule")}
+                  value={
+                    row.existing_rule_id ? (
+                      <a
+                        href={ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: row.existing_rule_id, origin: "active" })}
+                        aria-label={t("governance.rules.controls.detail.openRule", { id: row.existing_rule_id })}
+                      >
+                        <code>{row.existing_rule_id}</code>
+                      </a>
+                    ) : (
+                      "-"
+                    )
+                  }
+                  mono
+                />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.candidateActionType")} value={row.candidate_action_type ?? "-"} mono />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.workaroundCheck")}
@@ -442,7 +566,7 @@ function MsrcCsafDrawer({
                   }
                   mono
                 />
-                <DetailRow label={t("governance.rules.msrcCsaf.detail.blockedReasons")} value={row.blocked_reasons.join(", ") || "-"} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.blockedReasons")} value={row.blocked_reasons.map((reason) => displayValue("msrcBlockedReason", reason)).join(", ") || "-"} />
               </dl>
             </DetailSection>
 
@@ -454,7 +578,7 @@ function MsrcCsafDrawer({
                   {row.remediations.map((rem, idx) => (
                     <div key={`${rem.category}-${idx}`} class="control-requirement-row">
                       <div>
-                        <strong>{rem.category}</strong>
+                        <strong>{displayValue("msrcRemediationCategory", rem.category)}</strong>
                         <span>{rem.details}</span>
                         {rem.fixed_version ? <code>fixed_version &gt;= {rem.fixed_version}</code> : null}
                         {rem.workaround_property ? (

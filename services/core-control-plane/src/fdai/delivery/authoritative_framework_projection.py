@@ -231,10 +231,16 @@ def _mcsb_assessment_snapshot(assessment: FrameworkAssessmentCatalog) -> dict[st
     }
 
 
-def _mcsb_snapshot(catalogs: Sequence[McsbCatalog]) -> dict[str, object]:
+def _mcsb_snapshot(
+    catalogs: Sequence[McsbCatalog],
+    assessment: FrameworkAssessmentCatalog | None = None,
+) -> dict[str, object]:
     return {
         "catalogs": [
-            _mcsb_catalog_entry(catalog)
+            _mcsb_catalog_entry(
+                catalog,
+                assessment=assessment if catalog.benchmark_version == "v1" else None,
+            )
             for catalog in sorted(catalogs, key=lambda item: item.benchmark_version)
         ],
         "evaluation_source": "catalog-crosswalk",
@@ -373,7 +379,11 @@ def _wara_snapshot(
     }
 
 
-def _mcsb_catalog_entry(catalog: McsbCatalog) -> dict[str, object]:
+def _mcsb_catalog_entry(
+    catalog: McsbCatalog,
+    *,
+    assessment: FrameworkAssessmentCatalog | None = None,
+) -> dict[str, object]:
     mappings = {mapping.control_id: mapping for mapping in catalog.mappings}
     controls: list[dict[str, object]] = []
     for control in catalog.controls:
@@ -406,6 +416,11 @@ def _mcsb_catalog_entry(catalog: McsbCatalog) -> dict[str, object]:
                     "retrieved_at": catalog.source.retrieved_at,
                 },
                 "evaluation_source": "catalog-crosswalk",
+                **(
+                    framework_guidance_pins(assessment, control.id)
+                    if assessment is not None
+                    else {}
+                ),
             }
         )
     return {

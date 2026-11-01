@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:eb53eb40ae651581a553fbe63f96e1ad527ee577242d0666a3483da9a61e220c",
+      "content_digest": "sha256:d7fefc2765f29e48c2e71178dede3d68b912b9605484ff1f9c7c97e5b4afdc10",
       "control_id": "CO:01",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-waf.co-01",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Named cost owners connect engineering choices to financial accountability.",
+              "ko": "비용 담당자가 기술 선택과 재무 책임을 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -250,7 +280,7 @@
           }
         ]
       },
-      "content_digest": "sha256:89c8480d05b04e44f8d3e4943c30435811e85576c95f145d79e9e5c82b81f564",
+      "content_digest": "sha256:0d8974c2115272bee84c88df788db02879880a2e4fbe488648afdd2c0825d530",
       "control_id": "CO:02",
       "diagram": {
         "description": {
@@ -268,12 +298,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -287,7 +335,7 @@
           }
         ],
         "id": "azure-waf.co-02",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -308,8 +356,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -320,10 +368,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A cost model relates demand assumptions to the components that incur charges.",
+              "ko": "비용 모델은 수요 가정과 요금이 발생하는 구성 요소를 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -453,7 +513,7 @@
           }
         ]
       },
-      "content_digest": "sha256:c61f299b89a8c406147a2497cf47458a8caa74cd96ef8f2fedb21f6da2624aee",
+      "content_digest": "sha256:b90be8a86d8252835882039bdaaf17f100d8b9b63686ae66987ef348ccbcfd93",
       "control_id": "CO:03",
       "diagram": {
         "description": {
@@ -471,12 +531,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -490,7 +568,7 @@
           }
         ],
         "id": "azure-waf.co-03",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -511,8 +589,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -523,10 +601,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Allocated usage and billing data reveal departures from the cost model.",
+              "ko": "배분된 사용량과 청구 데이터는 비용 모델에서 벗어난 부분을 보여 줍니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -656,7 +746,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a4413b85fb32ac575bce2e5cdf2ce33d6b0e27d2c423acc2967871531a9d82cd",
+      "content_digest": "sha256:6337497f9474269f00f1d56f52f8bb01e9b00aaefdbd3431ee8215ed4fe9f269",
       "control_id": "CO:04",
       "diagram": {
         "description": {
@@ -674,12 +764,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -693,7 +801,7 @@
           }
         ],
         "id": "azure-waf.co-04",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -714,8 +822,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -726,10 +834,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Budgets and reviewed guardrails constrain exposure and route overruns to owners.",
+              "ko": "예산과 검토된 제한 정책은 비용 노출을 줄이고 초과 상황을 담당자에게 전달합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -859,7 +979,7 @@
           }
         ]
       },
-      "content_digest": "sha256:edf735beab52c70042b07d62d6934d1f2bb974b3c471712782998316fccee33b",
+      "content_digest": "sha256:d879535cabb999b816b9036a9ef7f89a624e81ff0ae66e9fd7fe1ac3a18085ad",
       "control_id": "CO:05",
       "diagram": {
         "description": {
@@ -877,12 +997,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -896,7 +1034,7 @@
           }
         ],
         "id": "azure-waf.co-05",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -917,8 +1055,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -929,10 +1067,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Rate reviews compare commitments and discounts with predictable workload demand.",
+              "ko": "요금 검토는 약정과 할인 조건을 예측 가능한 워크로드 수요와 비교합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1058,7 +1208,7 @@
           }
         ]
       },
-      "content_digest": "sha256:3f1a8a0db0c54cc9009dad13689153f5208a5acd2bfce96448be0ce08dc17590",
+      "content_digest": "sha256:c89d1e7f6643ccf974a816dcf817265885268e355b7a1cc4ada6af1530883196",
       "control_id": "CO:06",
       "diagram": {
         "description": {
@@ -1076,12 +1226,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1095,7 +1263,7 @@
           }
         ],
         "id": "azure-waf.co-06",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -1116,8 +1284,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -1128,10 +1296,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Scheduling work around the actual billing unit reduces paid idle capacity.",
+              "ko": "실제 청구 단위에 맞춘 작업 일정은 비용을 내는 유휴 용량을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1257,7 +1437,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a50db3ccc2f2e8cfca17aca63e36cf131496d28d36e8965f6024bf61cffccba1",
+      "content_digest": "sha256:ee5fad7aaa8a6a9f0c824f88b8354a083e30a135f6dbf364a86d8613e5876c63",
       "control_id": "CO:07",
       "diagram": {
         "description": {
@@ -1275,12 +1455,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1294,7 +1492,7 @@
           }
         ],
         "id": "azure-waf.co-07",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -1315,8 +1513,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -1327,10 +1525,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Component-level utilization distinguishes oversized resources from genuine capacity needs.",
+              "ko": "구성 요소별 사용률은 과도한 크기와 실제 용량 수요를 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1456,7 +1666,7 @@
           }
         ]
       },
-      "content_digest": "sha256:c805d159d9acd2ecfd75539e7795554d85b38151b2556d713b170246b843f37a",
+      "content_digest": "sha256:29ce6d26d78e175b1a66687431132610f22b4262987d119230eae1adb094c15b",
       "control_id": "CO:08",
       "diagram": {
         "description": {
@@ -1474,12 +1684,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1493,7 +1721,7 @@
           }
         ],
         "id": "azure-waf.co-08",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -1514,8 +1742,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -1526,10 +1754,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Environment schedules align paid capacity with development and test activity.",
+              "ko": "환경별 일정은 비용이 드는 용량을 개발 및 테스트 활동과 맞춥니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1655,7 +1895,7 @@
           }
         ]
       },
-      "content_digest": "sha256:8755a05de361051c145a6da1b8c4460dc17e8bf878b6af64c46c07abee6f04ec",
+      "content_digest": "sha256:178684f8d1760e05c3311d29db7931b38f311efc57fcb58fe05ee6dd46c85772",
       "control_id": "CO:09",
       "diagram": {
         "description": {
@@ -1673,12 +1913,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1692,7 +1950,7 @@
           }
         ],
         "id": "azure-waf.co-09",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -1713,8 +1971,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -1725,10 +1983,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Per-flow cost attribution exposes expensive paths hidden by workload totals.",
+              "ko": "흐름별 비용 배분은 워크로드 총액에 가려진 고비용 경로를 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1854,7 +2124,7 @@
           }
         ]
       },
-      "content_digest": "sha256:74f1146f89af2b1c5464a52fea5de74468185d5c72e82a1baf97d83c76b3bd6d",
+      "content_digest": "sha256:59e458f73faa7632fb0d84dd778804fc2ef1ba850df818b74c826f939172ea46",
       "control_id": "CO:10",
       "diagram": {
         "description": {
@@ -1872,12 +2142,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1891,7 +2179,7 @@
           }
         ],
         "id": "azure-waf.co-10",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -1912,8 +2200,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -1924,10 +2212,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Retention and access-tier choices align storage expense with data value and retrieval needs.",
+              "ko": "보존 기간과 접근 계층 선택은 저장 비용을 데이터 가치 및 조회 요구와 맞춥니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2053,7 +2353,7 @@
           }
         ]
       },
-      "content_digest": "sha256:96d69c91190ee2a66aeb53797c0d86727e26b3bc673726e0c84e43b99d7789b7",
+      "content_digest": "sha256:30858c8e351eb1e878b663a008cd9ec43466e1b48ab278b45822573186aa7036",
       "control_id": "CO:11",
       "diagram": {
         "description": {
@@ -2071,12 +2371,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2090,7 +2408,7 @@
           }
         ],
         "id": "azure-waf.co-11",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -2111,8 +2429,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -2123,10 +2441,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Profiling links excessive computation and repeated I/O to code paths.",
+              "ko": "프로파일링은 과도한 계산과 반복 입출력을 코드 경로와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2252,7 +2582,7 @@
           }
         ]
       },
-      "content_digest": "sha256:5aad0633fc3e4d19ca0e6438a04331ecd3c729b5d3c52c4ef5597e79304ab925",
+      "content_digest": "sha256:d7a56bc86b7f07bc0a759ebd8da7dde68083ed00bca0ba07192608091f57486b",
       "control_id": "CO:12",
       "diagram": {
         "description": {
@@ -2270,12 +2600,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2289,7 +2637,7 @@
           }
         ],
         "id": "azure-waf.co-12",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -2310,8 +2658,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -2322,10 +2670,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Demand-aware scaling limits excess replicas while preserving a measured service objective.",
+              "ko": "수요 기반 확장은 측정한 서비스 목표를 유지하면서 불필요한 복제본을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2451,7 +2811,7 @@
           }
         ]
       },
-      "content_digest": "sha256:5e75a7cffee7abd3b21bcee6daec16e6af9e62b1d08145d14660323731bbdb55",
+      "content_digest": "sha256:b76042d1b0d621af3ea74dcf312c19bccda9a4dde5baf80e1696dc841431563e",
       "control_id": "CO:13",
       "diagram": {
         "description": {
@@ -2469,12 +2829,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2488,7 +2866,7 @@
           }
         ],
         "id": "azure-waf.co-13",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -2509,8 +2887,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -2521,10 +2899,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Measuring repetitive work identifies where automation can repay its maintenance cost.",
+              "ko": "반복 작업 시간을 측정하면 유지 비용을 감수할 가치가 있는 자동화를 찾을 수 있습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2650,7 +3040,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6f7a15f58f9b0e94c3747ecce262cb5f7828c298dea1e5e18ee55a28f23db8a3",
+      "content_digest": "sha256:1e7079d376c93158e6af9db6f0b9ef46b3b42368d0852d036d8dcd986008de10",
       "control_id": "CO:14",
       "diagram": {
         "description": {
@@ -2668,12 +3058,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2687,7 +3095,7 @@
           }
         ],
         "id": "azure-waf.co-14",
-        "kind": "control-evidence-flow",
+        "kind": "waf-cost-guardrail",
         "nodes": [
           {
             "detail": {
@@ -2708,8 +3116,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Cost model and budget guardrail",
+              "ko": "비용 모델 및 예산 가드레일 설계"
             },
             "role": "configuration"
           },
@@ -2720,10 +3128,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Usage and rate reconciliation",
+              "ko": "사용량 및 실효 요금 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Consolidation shares compatible capacity and ownership without hiding isolation needs.",
+              "ko": "통합은 격리 요구를 드러낸 상태에서 호환되는 용량과 책임을 공유합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Billing unit and capacity boundary",
+              "ko": "과금 단위 및 용량 배분 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2849,7 +3269,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f5a8ce09a720b7dbe02a6fe374808f2424a9103c128c71090ac197061b4ca9f3",
+      "content_digest": "sha256:29fb633b76f2871fab257025665f7e9182a82049482454b2b14bae0d7554e69d",
       "control_id": "OE:01",
       "diagram": {
         "description": {
@@ -2867,12 +3287,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2886,7 +3324,7 @@
           }
         ],
         "id": "azure-waf.oe-01",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -2907,8 +3345,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -2919,10 +3357,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Shared working agreements make workload ownership and operational expectations explicit.",
+              "ko": "공통 작업 규약은 워크로드 책임과 운영 기대사항을 명확히 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3048,7 +3498,7 @@
           }
         ]
       },
-      "content_digest": "sha256:3dfa34db0de4742770d981a8791c36bc7d2b9ddbe2fa81c021141d78def8521b",
+      "content_digest": "sha256:e25a2c21232b7e7c48168f88777a3525471ff2d3b074489a4ab08075f2696d5c",
       "control_id": "OE:02",
       "diagram": {
         "description": {
@@ -3066,12 +3516,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3085,7 +3553,7 @@
           }
         ],
         "id": "azure-waf.oe-02",
-        "kind": "control-evidence-flow",
+        "kind": "waf-operational-loop",
         "nodes": [
           {
             "detail": {
@@ -3106,8 +3574,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Safe deployment and runbook design",
+              "ko": "안전 배포 및 런북 자동화 설계"
             },
             "role": "configuration"
           },
@@ -3118,10 +3586,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Telemetry and change verification",
+              "ko": "원격 분석 및 변경 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Runbooks distinguish predictable procedures from emergency decisions and escalation.",
+              "ko": "운영 절차서는 반복 가능한 절차와 비상 결정 및 보고를 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Observability and release gate boundary",
+              "ko": "관측성 및 릴리스 게이트 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
