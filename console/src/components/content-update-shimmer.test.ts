@@ -29,10 +29,12 @@ describe("content update top-edge shimmer contract", () => {
     const pantheon = source("../routes/pantheon.tsx");
     const livePanels = source("../routes/live.panels.tsx");
     const liveTiles = source("../routes/live.tiles.tsx");
+    const trajectory = source("../routes/agent-activity-trajectory.tsx");
+    const trajectoryModel = source("../routes/agent-activity-trajectory-model.ts");
 
     expect(ui).toContain("readonly updateKey?: ContentUpdateKey");
     expect(ui).toContain("useContentUpdatePulse(semanticUpdateKey)");
-    for (const cardSource of [roster, pantheon, livePanels, liveTiles]) {
+    for (const cardSource of [roster, pantheon, livePanels, liveTiles, trajectory]) {
       expect(cardSource).toContain("useContentUpdatePulse");
       expect(cardSource).toContain("is-content-updated");
     }
@@ -42,6 +44,13 @@ describe("content update top-edge shimmer contract", () => {
       liveTiles.indexOf("export function LiveTile"),
     );
     expect(tileKey).not.toContain("now");
+
+    const trajectoryKey = trajectoryModel.slice(
+      trajectoryModel.indexOf("export function trajectoryCardUpdateKey"),
+      trajectoryModel.indexOf("export function visibleGroupOccurrences"),
+    );
+    expect(trajectoryKey).not.toContain("startMs");
+    expect(trajectoryKey).not.toContain("endMs");
   });
 
   test("keeps the UI guidance aligned with semantic update feedback", () => {

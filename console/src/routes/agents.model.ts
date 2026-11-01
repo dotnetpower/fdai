@@ -293,6 +293,39 @@ export function operationalActivityDetail(
   return `${message.producer} - ${message.source} - ${message.freshness} - ${result} - ${duration}${reasons}`;
 }
 
+export function operationalActivityInstanceKey(
+  activityId: string | null,
+  operationalKind: OperationalActivityKind | null,
+): string | null {
+  if (activityId === null || operationalKind === null) return null;
+  return activityId.replace(/:(started|completed|failed|degraded|superseded)$/, "");
+}
+
+function isOperationalActivityStarted(event: LiveAgentActivityEvent): boolean {
+  return event.operationalKind !== null && event.summary.endsWith(" - started");
+}
+
+function findOperationalActivityIndex(
+  events: readonly LiveAgentActivityEvent[],
+  projected: LiveAgentActivityEvent,
+): number {
+  if (projected.activityId === null) return -1;
+  const exactIndex = events.findIndex(
+    (candidate) => candidate.activityId === projected.activityId,
+  );
+  if (exactIndex >= 0) return exactIndex;
+  const instanceKey = operationalActivityInstanceKey(
+    projected.activityId,
+    projected.operationalKind,
+  );
+  if (instanceKey === null) return -1;
+  return events.findIndex(
+    (candidate) =>
+      operationalActivityInstanceKey(candidate.activityId, candidate.operationalKind) ===
+        instanceKey,
+  );
+}
+
 function recordLiveActivity(
   state: AgentsState,
   msg: AgentActivityMessage,
@@ -311,11 +344,7 @@ function recordLiveActivity(
   if (latestComparable && sameLiveActivity(latestComparable, projected)) {
     return state;
   }
-  const duplicateIndex = projected.activityId === null
-    ? -1
-    : state.liveActivity.findIndex(
-      (candidate) => candidate.activityId === projected.activityId,
-    );
+  const duplicateIndex = findOperationalActivityIndex(state.liveActivity, projected);
   if (duplicateIndex >= 0) {
     const duplicate = state.liveActivity[duplicateIndex];
     if (
@@ -328,6 +357,24 @@ function recordLiveActivity(
         ...state,
         liveActivity: boundLiveActivity([
           projected,
+          ...state.liveActivity.filter((_, index) => index !== duplicateIndex),
+        ]),
+        nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
+      };
+    }
+    if (
+      projected.operationalKind !== null &&
+      duplicate !== undefined &&
+      duplicate.operationalKind !== null &&
+      duplicate.activityId !== projected.activityId
+    ) {
+      if (isOperationalActivityStarted(projected) && !isOperationalActivityStarted(duplicate)) {
+        return state;
+      }
+      return {
+        ...state,
+        liveActivity: boundLiveActivity([
+          { ...projected, retained: duplicate.retained === true || projected.retained === true },
           ...state.liveActivity.filter((_, index) => index !== duplicateIndex),
         ]),
         nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
@@ -624,21 +671,42 @@ function hydrateOperationalActivity(
     if (event.activityId !== null && !activityIndexes.has(event.activityId)) {
       activityIndexes.set(event.activityId, index);
     }
+    const instanceKey = operationalActivityInstanceKey(event.activityId, event.operationalKind);
+    if (instanceKey !== null && !activityIndexes.has(instanceKey)) {
+      activityIndexes.set(instanceKey, index);
+    }
   });
   let nextSequence = state.nextLiveActivitySequence;
 
   for (const message of [...activities].reverse()) {
     const projected = projectLiveActivity(message, nextSequence, "replay");
     if (projected !== null && projected.activityId !== null) {
-      const duplicateIndex = activityIndexes.get(projected.activityId);
+      const instanceKey = operationalActivityInstanceKey(
+        projected.activityId,
+        projected.operationalKind,
+      );
+      const duplicateIndex =
+        activityIndexes.get(projected.activityId) ??
+        (instanceKey !== null ? activityIndexes.get(instanceKey) : undefined);
       if (duplicateIndex === undefined) {
         activityIndexes.set(projected.activityId, liveActivity.length);
+        if (instanceKey !== null) activityIndexes.set(instanceKey, liveActivity.length);
         liveActivity.push(projected);
         nextSequence += 1;
       } else {
         const duplicate = liveActivity[duplicateIndex];
-        if (duplicate !== undefined && duplicate.retained !== true) {
-          liveActivity[duplicateIndex] = { ...duplicate, retained: true };
+        if (duplicate !== undefined) {
+          if (isOperationalActivityStarted(duplicate) && !isOperationalActivityStarted(projected)) {
+            liveActivity[duplicateIndex] = {
+              ...projected,
+              sequence: duplicate.sequence,
+              source: duplicate.source,
+              retained: true,
+            };
+            activityIndexes.set(projected.activityId, duplicateIndex);
+          } else if (duplicate.retained !== true) {
+            liveActivity[duplicateIndex] = { ...duplicate, retained: true };
+          }
         }
       }
     }

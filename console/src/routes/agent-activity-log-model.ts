@@ -68,10 +68,35 @@ export function buildAgentLogRows(
   const liveRows: AgentLogRow[] = [];
   const auditRows: AgentLogRow[] = [];
   const conversationRows: AgentLogRow[] = [];
+  const durableTurnSignatures = new Set<string>();
+  for (const item of auditItems) {
+    const corr = item.correlation_id ?? "";
+    for (const turn of entryConversation(item) ?? []) {
+      durableTurnSignatures.add(`${corr}|${turn.from}|${turn.to}|${turn.text}`);
+    }
+  }
+  const seenOperationalInstances = new Set<string>();
   const latestLiveEventByAgent = new Map<string, LiveAgentActivityEvent>();
   events.forEach((event) => {
     const previous = latestLiveEventByAgent.get(event.agent);
     if (isRepeatedPassiveSnapshot(previous, event)) return;
+    if (
+      event.kind === "conversation.turn" &&
+      event.agents.length >= 2 &&
+      durableTurnSignatures.has(
+        `${event.correlationId ?? ""}|${event.agents[0]}|${event.agents[1]}|${event.detail ?? event.summary}`,
+      )
+    ) {
+      return;
+    }
+    if (event.operationalKind !== null && event.activityId !== null) {
+      const instanceKey = event.activityId.replace(
+        /:(started|completed|failed|degraded|superseded)$/,
+        "",
+      );
+      if (seenOperationalInstances.has(instanceKey)) return;
+      seenOperationalInstances.add(instanceKey);
+    }
     for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
       latestLiveEventByAgent.set(agent, event);
     }

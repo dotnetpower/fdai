@@ -58,8 +58,12 @@ import {
   agentOf,
   auditProvenanceOf,
   entryStr,
+  hasAuditCorrelation,
   isAgentActivitySelectionValid,
+  mergeRetainedAuditItems,
   outcomeOf,
+  RETAINED_CORRELATED_AUDIT_LIMIT,
+  RETAINED_UNCORRELATED_AUDIT_LIMIT,
   summaryOf,
   tierOf,
 } from "./agent-activity-semantics";
@@ -69,10 +73,14 @@ export {
   agentOf,
   auditProvenanceOf,
   entryConversation,
+  hasAuditCorrelation,
   isAgentActivitySelectionValid,
   layerOf,
   lifecycleOf,
+  mergeRetainedAuditItems,
   otherEntryFields,
+  RETAINED_CORRELATED_AUDIT_LIMIT,
+  RETAINED_UNCORRELATED_AUDIT_LIMIT,
 } from "./agent-activity-semantics";
 import { AgentTrajectories } from "./agent-activity-trajectory";
 import { t as tTrajectory } from "./i18n/agent-trajectory";
@@ -243,11 +251,14 @@ export function AgentActivityRoute({ client }: Props) {
         dispatch({ kind: "hydrate-activity", activities: operational.items });
         if (operational.items[0]) setLastEventAt(operational.items[0].observed_at);
         setState((prev) => {
+          const nextItems = prev.status === "ready"
+            ? mergeRetainedAuditItems(prev.data.items, page.items)
+            : page.items;
           if (
             silent &&
             prev.status === "ready" &&
-            prev.data.items.length === page.items.length &&
-            prev.data.items[0]?.seq === page.items[0]?.seq &&
+            prev.data.items.length === nextItems.length &&
+            prev.data.items[0]?.seq === nextItems[0]?.seq &&
             prev.data.olderAvailable === (page.next_cursor !== null) &&
             prev.data.operationalSource === operational.source
           ) {
@@ -256,7 +267,7 @@ export function AgentActivityRoute({ client }: Props) {
           return {
             status: "ready",
             data: {
-              items: page.items,
+              items: nextItems,
               olderAvailable: page.next_cursor !== null,
               operationalSource: operational.source,
             },
@@ -455,6 +466,10 @@ function ActivityBody({
     () => activityProvenanceCounts(presentedAudit),
     [presentedAudit],
   );
+  const totalProvenanceCounts = useMemo(
+    () => activityProvenanceCounts(data.items),
+    [data.items],
+  );
   const presentation = activityPresentationState({
     totalAuditCount: data.items.length,
     visibleAuditCount: presentedAudit.length,
@@ -554,7 +569,7 @@ function ActivityBody({
             <p>
               {tTrajectory("agentActivity.trajectory.evidenceDetailsBody", {
                 records: data.items.length,
-                operational: provenanceCounts.operational,
+                operational: totalProvenanceCounts.operational,
               })}
             </p>
           </details>

@@ -1,6 +1,7 @@
 import { Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
+import { useContentUpdatePulse } from "../hooks/use-content-update-pulse";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
 import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
 import { t } from "./i18n/agent-trajectory";
@@ -22,10 +23,12 @@ import {
   presentStepSummary,
   presentTrajectoryTitle,
   stabilizeTrajectorySelection,
+  trajectoryCardUpdateKey,
   trajectoryPhases,
   trajectoryScale,
   trajectorySubtitle,
   uncorrelatedAuditCount,
+  visibleGroupOccurrences,
   type AgentTrajectory,
   type PinnedTrajectoryDetail,
   type TrajectoryPhaseState,
@@ -117,38 +120,18 @@ export function AgentTrajectories({
   );
   pinnedRef.current = selection.pinned;
   const { shown, grouped, current, currentGroupMembers } = selection;
+  const totalTrajectoryCount = useMemo(() => {
+    if (
+      selection.pinned &&
+      !all.some((trajectory) => trajectory.correlationId === selection.pinned!.correlationId)
+    ) {
+      return all.length + 1;
+    }
+    return all.length;
+  }, [all, selection.pinned]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  const knownTrajectoryDigestRef = useRef<Map<string, number> | null>(null);
-  const [updatedCorrelationIds, setUpdatedCorrelationIds] = useState<ReadonlySet<string>>(new Set());
   const uncorrelated = useMemo(() => uncorrelatedAuditCount(mergedItems), [mergedItems]);
-
-  useEffect(() => {
-    const nextDigest = new Map<string, number>();
-    for (const trajectory of all) {
-      nextDigest.set(trajectory.correlationId, trajectory.endMs);
-    }
-    const previous = knownTrajectoryDigestRef.current;
-    knownTrajectoryDigestRef.current = nextDigest;
-    if (previous === null) return;
-    const changed: string[] = [];
-    for (const [corrId, endMs] of nextDigest) {
-      const prevEnd = previous.get(corrId);
-      if (prevEnd === undefined || endMs > prevEnd) {
-        changed.push(corrId);
-      }
-    }
-    if (changed.length === 0) return;
-    setUpdatedCorrelationIds((curr) => new Set([...curr, ...changed]));
-    const timer = window.setTimeout(() => {
-      setUpdatedCorrelationIds((curr) => {
-        const next = new Set(curr);
-        changed.forEach((id) => next.delete(id));
-        return next;
-      });
-    }, 3_000);
-    return () => window.clearTimeout(timer);
-  }, [all]);
 
   useEffect(() => {
     if (selectedId === null) {
@@ -265,8 +248,8 @@ export function AgentTrajectories({
       <p class="tj-source" role="status" aria-live="polite">
         {t("agentActivity.trajectory.count", {
           shown: shown.length,
-          total: all.length,
-          records: items.length,
+          total: totalTrajectoryCount,
+          records: mergedItems.length,
         })}
         {uncorrelated > 0 ? (
           <>
@@ -283,7 +266,7 @@ export function AgentTrajectories({
           </>
         ) : null}
       </p>
-      {all.length === 0 ? (
+      {totalTrajectoryCount === 0 ? (
         <div class="tj-empty" role="status">
           <strong>{t("agentActivity.trajectory.emptyTitle")}</strong>
           <p>{t("agentActivity.trajectory.emptyBody")}</p>
@@ -297,21 +280,16 @@ export function AgentTrajectories({
         <div class="tj-layout">
           <nav class="tj-list" aria-label={t("agentActivity.trajectory.listLabel")}>
             <ul ref={listRef}>
-              {grouped.map((group) => {
-                const isGroupUpdated = group.members.some((m) =>
-                  updatedCorrelationIds.has(m.correlationId));
-                return (
-                  <li key={group.key}>
-                    <TrajectoryListItem
-                      trajectory={group.primary}
-                      groupCount={group.members.length}
-                      highlighted={isGroupUpdated}
-                      selected={group.primary.correlationId === current.correlationId}
-                      onSelect={() => select(group.primary.correlationId)}
-                    />
-                  </li>
-                );
-              })}
+              {grouped.map((group) => (
+                <li key={group.key}>
+                  <TrajectoryListItem
+                    trajectory={group.primary}
+                    groupCount={group.members.length}
+                    selected={group.primary.correlationId === current.correlationId}
+                    onSelect={() => select(group.primary.correlationId)}
+                  />
+                </li>
+              ))}
             </ul>
           </nav>
           <TrajectoryDetail
@@ -343,20 +321,21 @@ function initialSelection(trajectories: readonly AgentTrajectory[]): string | nu
 function TrajectoryListItem({
   trajectory,
   groupCount = 1,
-  highlighted = false,
   selected,
   onSelect,
 }: {
   readonly trajectory: AgentTrajectory;
   readonly groupCount?: number;
-  readonly highlighted?: boolean;
   readonly selected: boolean;
   readonly onSelect: () => void;
 }) {
+  const contentUpdated = useContentUpdatePulse(
+    trajectoryCardUpdateKey(trajectory, groupCount),
+  );
   return (
     <button
       type="button"
-      class={`tj-item${highlighted ? " is-live-updated" : ""}`}
+      class={`tj-item${contentUpdated ? " is-content-updated" : ""}`}
       aria-pressed={selected}
       aria-controls="aa-trajectory-detail"
       onClick={onSelect}
@@ -459,7 +438,7 @@ function TrajectoryDetail({
             {t("agentActivity.trajectory.groupedOccurrences", { count: groupMembers.length })}
           </span>
           <div class="tj-occurrences-list">
-            {groupMembers.slice(0, 12).map((member, idx) => (
+            {visibleGroupOccurrences(groupMembers, trajectory.correlationId).map(({ member, index }) => (
               <button
                 key={member.correlationId}
                 type="button"
@@ -467,7 +446,7 @@ function TrajectoryDetail({
                 aria-pressed={member.correlationId === trajectory.correlationId}
                 onClick={() => onSelectMember(member.correlationId)}
               >
-                <span>#{idx + 1}</span>
+                <span>#{index}</span>
                 <code>{shortHash(member.correlationId)}</code>
               </button>
             ))}

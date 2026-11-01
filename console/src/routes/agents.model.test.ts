@@ -880,4 +880,24 @@ describe("agents.model org chart + agent events", () => {
     expect(briefing).not.toContain("corr-1");
     expect(briefing).not.toContain("\n\n");
   });
+
+  it("coalesces started and completed operational activities for the same instance", () => {
+    const started = {
+      ...operationalActivity("inventory.scan:attempt-42:started"),
+      status: "started" as const,
+      observed_at: "2026-07-12T00:00:00+00:00",
+    };
+    const completed = {
+      ...operationalActivity("inventory.scan:attempt-42:completed"),
+      status: "completed" as const,
+      observed_at: "2026-07-12T00:00:02+00:00",
+    };
+    let state = reducer(makeInitialState(), { kind: "message", msg: started });
+    expect(state.liveActivity).toHaveLength(1);
+    expect(state.liveActivity[0]?.activityId).toBe("inventory.scan:attempt-42:started");
+
+    state = reducer(state, { kind: "message", msg: completed });
+    expect(state.liveActivity).toHaveLength(1);
+    expect(state.liveActivity[0]?.activityId).toBe("inventory.scan:attempt-42:completed");
+  });
 });

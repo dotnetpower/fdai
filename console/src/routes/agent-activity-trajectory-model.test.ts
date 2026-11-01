@@ -14,11 +14,14 @@ import {
   presentTrajectoryTitle,
   stabilizeTrajectorySelection,
   stepCategory,
+  trajectoryCardUpdateKey,
+  trajectoryGroupKey,
   trajectoryPhases,
   trajectoryScale,
   trajectorySubtitle,
   trajectoryTitle,
   uncorrelatedAuditCount,
+  visibleGroupOccurrences,
 } from "./agent-activity-trajectory-model";
 
 function item(
@@ -404,5 +407,127 @@ describe("agent trajectory projection", () => {
     );
     expect(filteredOut.current?.correlationId).toBe("corr-older");
     expect(filteredOut.pinned?.correlationId).toBe("corr-older");
+  });
+
+  test("ignores transient non-terminal agent.state frames and deduplicates live steps against durable audit", () => {
+    const durable = [
+      item(1, "fdai.core.control_loop", "risk_gate.evaluated", "2026-07-15T10:00:02.005Z", {
+        outcome: "hil",
+        summary: "Risk class high",
+        conversation: [{ from: "Forseti", to: "Var", text: "Approval required." }],
+      }, "corr-dedup"),
+    ];
+    const merged = mergeLiveEventsIntoAuditItems(durable, [
+      {
+        sequence: 1,
+        kind: "agent.state",
+        ts: "2026-07-15T10:00:01Z",
+        agent: "Forseti",
+        agents: ["Forseti"],
+        state: "deciding",
+        source: "runtime-observed",
+        activityId: null,
+        operationalKind: null,
+        observationDomain: null,
+        correlationId: "corr-ephemeral-stage",
+        summary: "gate running",
+        detail: "gate running",
+      },
+      {
+        sequence: 2,
+        kind: "agent.operational-activity",
+        ts: "2026-07-15T10:00:01.500Z",
+        agent: "Huginn",
+        agents: ["Huginn"],
+        state: "collecting",
+        source: "runtime-observed",
+        activityId: "inventory.scan:attempt-1:started",
+        operationalKind: "inventory.scan",
+        observationDomain: null,
+        correlationId: "corr-ephemeral-scan",
+        summary: "inventory.scan - started",
+        detail: "inventory-sync-job - started",
+      },
+      {
+        sequence: 3,
+        kind: "conversation.turn",
+        ts: "2026-07-15T10:00:02.000Z",
+        agent: "Forseti",
+        agents: ["Forseti", "Var"],
+        state: null,
+        source: "runtime-observed",
+        activityId: null,
+        operationalKind: null,
+        observationDomain: null,
+        correlationId: "corr-dedup",
+        summary: "Forseti to Var - handoff",
+        detail: "Approval required.",
+      },
+      {
+        sequence: 4,
+        kind: "agent.operational-activity",
+        ts: "2026-07-15T10:00:02.001Z",
+        agent: "Forseti",
+        agents: ["Forseti"],
+        state: null,
+        source: "runtime-observed",
+        activityId: "act-4",
+        operationalKind: null,
+        observationDomain: null,
+        correlationId: "corr-dedup",
+        summary: "Risk class high",
+        detail: "Risk class high",
+        eventType: "risk_gate.evaluated",
+        activityPhase: "completed",
+      },
+    ]);
+
+    const trajectories = buildAgentTrajectories(merged, agentOf);
+    expect(trajectories.map((t) => t.correlationId)).toEqual(["corr-dedup"]);
+    expect(trajectories[0]?.steps).toHaveLength(1);
+  });
+
+  test("normalizes group keys across equivalent outcome codes and aggregate counts and keeps selected occurrence visible", () => {
+    const items = [
+      item(1, "Saga", "audit.record", "2026-07-15T10:00:00Z", {
+        payload: { aggregate_type: "forseti.no_rule_match", count: 1 },
+      }, "agg-1"),
+      item(2, "Saga", "audit.record", "2026-07-15T10:00:01Z", {
+        payload: { aggregate_type: "forseti.no_rule_match", count: 5 },
+      }, "agg-2"),
+      item(3, "Forseti", "risk_gate.evaluated", "2026-07-15T10:00:02Z", {
+        rule_id: "compute.vm.environment-tag.required",
+        outcome: "hil",
+      }, "hil-1"),
+      item(4, "Var", "hil.requested", "2026-07-15T10:00:03Z", {
+        rule_id: "compute.vm.environment-tag.required",
+        outcome: "hil_pending",
+      }, "hil-2"),
+    ];
+    const trajectories = buildAgentTrajectories(items, agentOf);
+    expect(trajectoryGroupKey(trajectories.find((t) => t.correlationId === "agg-1")!, "ko"))
+      .toBe(trajectoryGroupKey(trajectories.find((t) => t.correlationId === "agg-2")!, "ko"));
+    expect(trajectoryGroupKey(trajectories.find((t) => t.correlationId === "hil-1")!, "ko"))
+      .toBe(trajectoryGroupKey(trajectories.find((t) => t.correlationId === "hil-2")!, "ko"));
+
+    const groups = groupTrajectoriesForDisplay(trajectories, null, "ko");
+    expect(groups).toHaveLength(2);
+
+    const cardKeyA = trajectoryCardUpdateKey(groups[0]!.primary, 2, "ko");
+    const cardKeyB = trajectoryCardUpdateKey(
+      { ...groups[0]!.primary, startMs: 0, endMs: 999_999 },
+      2,
+      "ko",
+    );
+    expect(cardKeyA).toBe(cardKeyB);
+
+    const manyMembers = Array.from({ length: 15 }, (_, idx) => ({
+      ...groups[0]!.primary,
+      correlationId: `member-${idx + 1}`,
+    }));
+    const visible = visibleGroupOccurrences(manyMembers, "member-15", 12);
+    expect(visible).toHaveLength(12);
+    expect(visible.at(-1)?.member.correlationId).toBe("member-15");
+    expect(visible.at(-1)?.index).toBe(15);
   });
 });

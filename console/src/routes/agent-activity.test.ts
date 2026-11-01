@@ -12,6 +12,7 @@ import {
   layerOf,
   lifecycleOf,
   matchingLiveIncident,
+  mergeRetainedAuditItems,
   otherEntryFields,
   selectedAgentAuditEmptyBody,
   shouldRefreshAgentActivity,
@@ -446,5 +447,35 @@ describe("otherEntryFields - nothing stored is hidden", () => {
   test("empty / null values are dropped", () => {
     const item = makeItem({ entry: { a: "", b: null, c: "keep" } });
     expect(otherEntryFields(item).map(([k]) => k)).toEqual(["c"]);
+  });
+
+  test("retains correlated audit items in a separate pool across uncorrelated measurement bursts", () => {
+    const correlated = [
+      makeItem({
+        seq: 1,
+        correlation_id: "corr-retained-1",
+        recorded_at: "2026-07-06T10:00:00Z",
+        entry: {},
+      }),
+      makeItem({
+        seq: 2,
+        correlation_id: "corr-retained-2",
+        recorded_at: "2026-07-06T10:00:01Z",
+        entry: {},
+      }),
+    ];
+    const uncorrelatedBurst = Array.from({ length: 5 }, (_, idx) =>
+      makeItem({
+        seq: 10 + idx,
+        correlation_id: null,
+        action_kind: "measurement.control_loop.v1",
+        recorded_at: `2026-07-06T10:01:0${idx}Z`,
+        entry: {},
+      }),
+    );
+
+    const merged = mergeRetainedAuditItems(correlated, uncorrelatedBurst, 10, 3);
+    expect(merged.filter((item) => item.correlation_id !== null).map((item) => item.seq)).toEqual([2, 1]);
+    expect(merged.filter((item) => item.correlation_id === null)).toHaveLength(3);
   });
 });

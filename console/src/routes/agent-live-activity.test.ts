@@ -339,6 +339,52 @@ describe("agent live log projection", () => {
     expect(conversations).toHaveLength(AGENT_AUDIT_CONVERSATION_LIMIT);
     expect(rows).toHaveLength(AGENT_AUDIT_LOG_LIMIT);
   });
+
+  it("deduplicates live handoffs and started operational scans once terminal/durable records exist", () => {
+    const audit = auditItem(1, {
+      summary: "Risk evaluated",
+      conversation: [{
+        from: "Heimdall",
+        to: "Forseti",
+        text: "Investigate the anomaly before judgment.",
+      }],
+    }, "2026-07-24T10:01:00Z");
+    const auditWithSameCorr: AuditItem = { ...audit, correlation_id: "corr-live" };
+    const startedOp: LiveAgentActivityEvent = {
+      sequence: 10,
+      kind: "agent.operational-activity",
+      agent: "Huginn",
+      agents: ["Huginn"],
+      state: "collecting",
+      summary: "inventory.scan - started",
+      detail: "inventory-sync-job - started",
+      correlationId: "attempt-99",
+      ts: "2026-07-24T10:01:01Z",
+      source: "runtime-observed",
+      activityId: "inventory.scan:attempt-99:started",
+      operationalKind: "inventory.scan",
+      observationDomain: null,
+    };
+    const completedOp: LiveAgentActivityEvent = {
+      ...startedOp,
+      sequence: 11,
+      state: "watching",
+      summary: "inventory.scan - completed",
+      detail: "inventory-sync-job - completed",
+      ts: "2026-07-24T10:01:02Z",
+      activityId: "inventory.scan:attempt-99:completed",
+    };
+
+    const rows = buildAgentLogRows(
+      [completedOp, startedOp, liveConversation(1)],
+      [auditWithSameCorr],
+    );
+    expect(rows.filter((r) => r.kind === "handoff")).toHaveLength(1);
+    expect(rows.filter((r) => r.operationalKind === "inventory.scan")).toHaveLength(1);
+    expect(rows.find((r) => r.operationalKind === "inventory.scan")?.activityId).toBe(
+      "inventory.scan:attempt-99:completed",
+    );
+  });
 });
 
 describe("agent live log controls", () => {
