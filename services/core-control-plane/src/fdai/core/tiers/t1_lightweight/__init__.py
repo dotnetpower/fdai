@@ -27,6 +27,7 @@ from fdai.core.tiers.t1_lightweight.tier import (
     T1Outcome,
     T1Tier,
     cosine_similarity,
+    event_embedding_projection,
 )
 
 __all__ = [
@@ -42,4 +43,5 @@ __all__ = [
     "T1Outcome",
     "T1Tier",
     "cosine_similarity",
+    "event_embedding_projection",
 ]

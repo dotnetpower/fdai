@@ -44,6 +44,25 @@ class InMemoryPatternLibrary(PatternLibrary, PatternLibraryWriter):
     def add(self, *, vector: Sequence[float], action: LearnedAction) -> None:
         self._entries.append((vector, action))
 
+    def signatures(self) -> tuple[str, ...]:
+        """Return stored pattern signatures in insertion order."""
+        return tuple(action.signature for _vec, action in self._entries)
+
+    def seed_patterns(
+        self,
+        entries: Sequence[tuple[Sequence[float], LearnedAction]],
+    ) -> int:
+        """Seed baseline patterns idempotently by signature and return newly added count."""
+        known = {action.signature for _vec, action in self._entries}
+        added = 0
+        for vector, action in entries:
+            if action.signature in known:
+                continue
+            self._entries.append((list(vector), action))
+            known.add(action.signature)
+            added += 1
+        return added
+
     async def upsert_pattern(
         self,
         *,

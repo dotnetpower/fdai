@@ -97,26 +97,48 @@ class SemanticAgentRouter:
             provider_status="ok",
         )
 
+    @property
+    def is_warm(self) -> bool:
+        return self._vectors is not None
+
+    @property
+    def cached_domain_count(self) -> int:
+        return len(self._vectors) if self._vectors is not None else 0
+
+    def invalidate(self) -> None:
+        """Clear cached agent-domain vectors so the next lookup re-embeds."""
+        self._vectors = None
+
+    async def warm(self) -> dict[str, tuple[float, ...]]:
+        """Pre-compute and cache frozen agent-domain vectors."""
+        return await self._domain_vectors()
+
     async def _domain_vectors(self) -> dict[str, tuple[float, ...]]:
         if self._vectors is not None:
             return self._vectors
         async with self._lock:
             if self._vectors is not None:
                 return self._vectors
-            vectors: dict[str, tuple[float, ...]] = {}
-            for spec in self._specs:
-                charter = spec.conversation
-                text = "\n".join(
-                    (
-                        spec.name,
-                        *spec.question_domains,
-                        *charter.routing_examples,
-                    )
+            texts = tuple(
+                (
+                    spec.name,
+                    "\n".join(
+                        (
+                            spec.name,
+                            *spec.question_domains,
+                            *spec.conversation.routing_examples,
+                        )
+                    ),
                 )
-                vectors[spec.name] = _validated_vector(
-                    await self._embed_bounded(text),
-                    expected_dim=self._embedding.dim,
-                )
+                for spec in self._specs
+            )
+            raw_vectors = await asyncio.gather(
+                *(self._embed_bounded(text) for _name, text in texts)
+            )
+            vectors: dict[str, tuple[float, ...]] = {
+                name: _validated_vector(vec, expected_dim=self._embedding.dim)
+                for (name, _text), vec in zip(texts, raw_vectors, strict=True)
+            }
             self._vectors = vectors
             return vectors
 

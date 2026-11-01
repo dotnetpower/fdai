@@ -43,7 +43,8 @@ SELECT seq, event_id,
    )
    AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
    AND (%(tier)s::text IS NULL
-        OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}')) = %(tier)s::text)
+        OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}', entry->>'rca_tier'))
+           = %(tier)s::text)
    AND (%(action_kind)s::text IS NULL OR action_kind = %(action_kind)s::text)
    AND (%(outcome)s::text IS NULL
         OR COALESCE(
@@ -91,7 +92,7 @@ WITH matching AS (
      )
        AND (%(mode)s::text IS NULL OR mode = %(mode)s::text)
        AND (%(tier)s::text IS NULL
-            OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}'))
+            OR lower(COALESCE(entry->>'tier', entry#>>'{payload,tier}', entry->>'rca_tier'))
                = %(tier)s::text)
        AND (%(action_kind)s::text IS NULL OR action_kind = %(action_kind)s::text)
        AND (%(outcome)s::text IS NULL
@@ -509,10 +510,9 @@ SELECT value, updated_at
 """
 
 AGENT_READ_ACTIVITY_SQL: Final = """
-SELECT profile.key, profile.value->>'tool_id' AS tool_id,
+SELECT profile.key, profile.value->>'tool_id' AS tool_id, sample,
        profile.value->>'transport' AS transport,
-       profile.value->>'operation_class' AS operation_class,
-       sample
+       profile.value->>'operation_class' AS operation_class
   FROM state_kv profile
  CROSS JOIN LATERAL jsonb_array_elements(
        CASE WHEN jsonb_typeof(profile.value->'samples') = 'array'

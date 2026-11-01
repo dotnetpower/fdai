@@ -1019,6 +1019,35 @@ export function incidentsForAgent(state: AgentsState, agent: string): Incident[]
     .filter((inc): inc is Incident => inc !== undefined && inc.involved.includes(agent));
 }
 
+export function completedHandlerCountForAgent(state: AgentsState, agent: string): number {
+  let count = 0;
+  for (const event of state.liveActivity) {
+    if (
+      (event.agent === agent || event.agents.includes(agent)) &&
+      (event.activityPhase === "completed" || event.operationalKind !== null)
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function lastHandlerDurationMsForAgent(
+  state: AgentsState,
+  agent: string,
+): number | null {
+  for (const event of state.liveActivity) {
+    if (
+      (event.agent === agent || event.agents.includes(agent)) &&
+      typeof event.durationMs === "number" &&
+      Number.isFinite(event.durationMs)
+    ) {
+      return event.durationMs;
+    }
+  }
+  return null;
+}
+
 /**
  * Build the grounding context injected into the deck when an operator starts
  * a conversation about one agent. It summarizes the agent's role, live state,

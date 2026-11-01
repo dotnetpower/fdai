@@ -73,6 +73,14 @@ function semanticAgentOwner(item: AuditItem): string | null {
   if (actionKind.startsWith("rca.") || item.actor === "fdai.core.rca") return "Forseti";
   if (actionKind.startsWith("governance.")) return "Mimir";
   if (actionKind.startsWith("measurement.pattern_growth")) return "Norns";
+  if (actionKind.startsWith("executor.") || item.actor === "fdai.core.executor") return "Thor";
+  if (actionKind.startsWith("rollback.") || actionKind.startsWith("recovery.")) return "Vidar";
+  if (actionKind.startsWith("workflow.") || actionKind.startsWith("arbitration.")) return "Odin";
+  if (actionKind.startsWith("cost.")) return "Njord";
+  if (actionKind.startsWith("capacity.")) return "Freyr";
+  if (actionKind.startsWith("chaos.")) return "Loki";
+  if (actionKind.startsWith("memory.") || actionKind.startsWith("context.")) return "Muninn";
+  if (actionKind.startsWith("conversation.") || actionKind.startsWith("narrator.")) return "Bragi";
   if (actionKind.startsWith("control_loop.")) {
     return stage === "trust_router" ? "Heimdall" : "Forseti";
   }
@@ -155,12 +163,50 @@ export function outcomeOf(item: AuditItem): string | null {
 
 export function summaryOf(item: AuditItem): string | null {
   const summary = item.entry["summary"];
-  return typeof summary === "string" ? summary : null;
+  if (typeof summary === "string" && summary.trim()) return summary;
+  if (item.action_kind === "control_loop.t1_evaluate") {
+    const outcome = item.entry["t1_outcome"];
+    const reason = item.entry["t1_reason"];
+    if (typeof outcome === "string") {
+      return typeof reason === "string" && reason ? `T1 ${outcome} (${reason})` : `T1 ${outcome}`;
+    }
+  }
+  if (item.action_kind === "control_loop.t2_evaluate") {
+    const outcome = item.entry["t2_outcome"];
+    const reason = item.entry["t2_reason"];
+    if (typeof outcome === "string") {
+      return typeof reason === "string" && reason ? `T2 ${outcome} (${reason})` : `T2 ${outcome}`;
+    }
+  }
+  if (item.action_kind === "rca.hypothesis") {
+    const cause = item.entry["rca_cause"];
+    if (typeof cause === "string" && cause.trim()) return cause.trim();
+  }
+  return null;
 }
 
 export function tierOf(item: AuditItem): string | null {
-  const tier = item.entry["tier"];
-  return typeof tier === "string" ? tier.toUpperCase() : null;
+  const tier =
+    item.entry["tier"] ??
+    item.entry["rca_tier"] ??
+    item.entry["routed_to"];
+  if (typeof tier === "string" && tier.trim()) return tier.trim().toUpperCase();
+  if (
+    item.entry["stage"] === "t1_similarity" ||
+    typeof item.entry["t1_outcome"] === "string" ||
+    item.action_kind === "control_loop.t1_evaluate" ||
+    item.action_kind === "control_loop.t1_reuse_advisory"
+  ) {
+    return "T1";
+  }
+  if (
+    item.entry["stage"] === "t2_reasoning" ||
+    typeof item.entry["t2_outcome"] === "string" ||
+    item.action_kind === "control_loop.t2_evaluate"
+  ) {
+    return "T2";
+  }
+  return null;
 }
 
 export type AuditProvenance = "operational" | "sample";
