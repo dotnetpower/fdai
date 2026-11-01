@@ -401,6 +401,14 @@ _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
     ),
     ("encryption at host", "호스트 수준 암호화(Encryption at Host) 활성화 필요"),
     ("trusted launch", "신뢰할 수 있는 시작(Trusted Launch) 보안 구성 필요"),
+    ("cors should not allow every resource", "웹 앱 CORS 모든 출처(*) 허용 금지"),
+    ("remote debugging should be turned off", "웹 앱·함수 앱 원격 디버깅 비활성화 필요"),
+    ("ftps only should be required", "웹 앱 FTPS 전용 암호화 전송 강제 필요"),
+    (
+        "authentication should be enabled",
+        "웹 앱·API 앱 내장 인증(App Service Authentication) 활성화 필요",
+    ),
+    ("web application firewall (waf) should be enabled", "웹 애플리케이션 방화벽(WAF) 활성화 필요"),
 )
 
 _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (

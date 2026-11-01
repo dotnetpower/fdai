@@ -191,33 +191,78 @@ class HeimdallCodeSecurityMixin:
         rows = await self._state_store.read_states(
             CODE_SECURITY_REVIEW_STATE_PREFIX, limit=_MAX_REVIEW_ROWS
         )
-        latest: dict[str, dict[str, Any]] = {}
+        latest: dict[str, tuple[datetime, dict[str, Any]]] = {}
         withheld = 0
         for row in rows:
             package, recorded_at = row.get("package"), row.get("recorded_at")
             try:
-                if not isinstance(package, Mapping) or not isinstance(recorded_at, str):
+                if (
+                    not isinstance(package, Mapping)
+                    or not isinstance(recorded_at, str)
+                    or not recorded_at.strip()
+                ):
                     raise CodeSecurityReviewError("review row is malformed")
+                parsed_ts = datetime.fromisoformat(recorded_at)
+                if parsed_ts.tzinfo is None or parsed_ts.utcoffset() is None:
+                    raise CodeSecurityReviewError("review recorded_at must be timezone-aware")
+                utc_ts = parsed_ts.astimezone(UTC)
                 review = validate_review_package(package)
-            except CodeSecurityReviewError:
+            except (CodeSecurityReviewError, ValueError):
                 withheld += 1
                 continue
             alias = str(review["repository_alias"])
-            if alias in latest and latest[alias]["recorded_at"] >= recorded_at:
+            if alias in latest and latest[alias][0] >= utc_ts:
                 continue
             source = review.get("source")
-            latest[alias] = {
-                "repository_alias": alias,
-                "revision": str(review["revision"])[:12],
-                "decision": review_decision(review),
-                "issue_count": review["issue_count"],
-                "coverage_complete": review["coverage_complete"],
-                "source_kind": source.get("kind") if isinstance(source, Mapping) else None,
-                "recorded_at": recorded_at,
-            }
-        ordered = sorted(latest.values(), key=lambda item: item["recorded_at"], reverse=True)
+            by_severity = review.get("by_severity")
+            by_priority = review.get("by_priority")
+            decision = review_decision(review)
+            latest[alias] = (
+                utc_ts,
+                {
+                    "repository_alias": alias,
+                    "revision": str(review["revision"])[:12],
+                    "decision": decision,
+                    "issue_count": review["issue_count"],
+                    "critical_issue_count": (
+                        by_severity.get("critical", 0) if isinstance(by_severity, Mapping) else 0
+                    ),
+                    "high_issue_count": (
+                        by_severity.get("high", 0) if isinstance(by_severity, Mapping) else 0
+                    ),
+                    "p0_issue_count": (
+                        by_priority.get("P0", 0) if isinstance(by_priority, Mapping) else 0
+                    ),
+                    "p1_issue_count": (
+                        by_priority.get("P1", 0) if isinstance(by_priority, Mapping) else 0
+                    ),
+                    "known_exploited_count": review.get("known_exploited_count", 0),
+                    "exposure": review.get("exposure", "unknown"),
+                    "coverage_complete": review["coverage_complete"],
+                    "source_kind": source.get("kind") if isinstance(source, Mapping) else None,
+                    "recorded_at": recorded_at,
+                },
+            )
+        ordered = [
+            item[1]
+            for item in sorted(
+                latest.values(),
+                key=lambda entry: (entry[0], entry[1]["repository_alias"]),
+                reverse=True,
+            )
+        ]
+        urgent_repos = sum(1 for item in ordered if item["decision"] == "urgent")
+        incomplete_repos = sum(1 for item in ordered if item["decision"] == "coverage_incomplete")
+        zero_risk_repos = sum(
+            1
+            for item in ordered
+            if item["decision"] == "clear" and item.get("coverage_complete") is True
+        )
         return {
             "code_security_reviews_read": len(rows) - withheld,
+            "code_security_urgent_repository_count": urgent_repos,
+            "code_security_incomplete_repository_count": incomplete_repos,
+            "code_security_zero_risk_repository_count": zero_risk_repos,
             "code_security_latest_decisions": ordered[:_MAX_REPOSITORIES],
             "code_security_reviews_withheld": withheld,
             "code_security_reviews_truncated": len(rows) >= _MAX_REVIEW_ROWS,

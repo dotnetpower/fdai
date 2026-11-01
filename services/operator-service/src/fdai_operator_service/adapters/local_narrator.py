@@ -45,6 +45,7 @@ from fdai_operator_service.adapters.narrator_payloads import (
     is_reasoning_model,
     narrator_message_plan,
     narrator_targets,
+    resolve_narrator_behavior_grounding,
     stream_payload,
     vision_probe_content,
     vision_targets,
@@ -283,16 +284,47 @@ class LocalAzureNarratorAdapters:
         shadow = context_receipt.get("dialogue_state_shadow")
         if isinstance(shadow, dict):
             shadow["t1_scheduled"] = t1_scheduled
-        verification: JsonObject = {
-            "status": "unverified",
-            "authority": "model-knowledge",
-            "checks_completed": 0,
-            "checks_total": 0,
-            "evidence_refs": [],
-            "reason_code": "local_narrator_model_knowledge",
-            "claims": [],
-            "failed_claim_ids": [],
-        }
+        locale_hint = str(request.body.get("locale") or "en")
+        if any("가" <= ch <= "힣" for ch in prompt):
+            locale_hint = "ko"
+        behavior_grounding = resolve_narrator_behavior_grounding(prompt.strip(), locale_hint)
+        if behavior_grounding is not None:
+            evidence_refs = [
+                f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}"
+                for c in behavior_grounding.verification.citations
+            ]
+            claim_id = (
+                behavior_grounding.behavior_ids[0]
+                if behavior_grounding.behavior_ids
+                else "behavior-knowledge"
+            )
+            verification: JsonObject = {
+                "status": "verified",
+                "authority": "behavior-knowledge",
+                "checks_completed": len(evidence_refs),
+                "checks_total": len(evidence_refs),
+                "evidence_refs": cast(list[Any], evidence_refs),
+                "reason_code": "behavior_knowledge_verified",
+                "claims": [
+                    {
+                        "claim_id": claim_id,
+                        "status": "supported",
+                        "evidence_refs": cast(list[Any], evidence_refs),
+                    }
+                ],
+                "failed_claim_ids": [],
+            }
+        else:
+            verification = {
+                "status": "unverified",
+                "authority": "model-knowledge",
+                "checks_completed": 0,
+                "checks_total": 0,
+                "evidence_refs": [],
+                "reason_code": "local_narrator_model_knowledge",
+                "claims": [],
+                "failed_claim_ids": [],
+            }
         return NarratorEventIterator(
             (
                 StreamEvent(event="token", data={"seq": 1, "revision": 0, "delta": answer}),

@@ -302,7 +302,11 @@ export function knownExploitedTotal(reviews: readonly CodeSecurityReview[]): num
   return reviews.reduce((total, review) => total + review.known_exploited_count, 0);
 }
 
-export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSnapshot {
+export function buildCodeSecurityViewSnapshot(
+  state: CodeSecurityState,
+  selected: CodeSecurityReview | null = null,
+  filter: SourceFilter = "all",
+): ViewSnapshot {
   const data = state.reviews;
   const latest = latestPerRepository(data.reviews);
   const sumSeverity = (key: (typeof SEVERITIES)[number]) =>
@@ -350,6 +354,7 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
       { key: "coverage_complete_repositories", value: coverageCompleteCount, group: "coverage" },
       { key: "incomplete_coverage_repositories", value: incompleteRepos, group: "coverage" },
       { key: "exposure_summary", value: exposureSummary, group: "exposure" },
+      { key: "active_source_filter", value: filter, group: "filter" },
       {
         key: "registered_repository_count",
         value: state.repositories?.repositories.length ?? 0,
@@ -372,6 +377,17 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
         value: "/rules?view=controls&framework=msrc-csaf, /rules?view=controls&framework=azure-mcsb, /rules?category=security",
         group: "navigation",
       },
+      ...(selected
+        ? [
+            { key: "selected_repository_alias", value: selected.repository_alias, group: "selection" },
+            { key: "selected_revision", value: selected.revision, group: "selection" },
+            { key: "selected_decision", value: selected.decision, group: "selection" },
+            { key: "selected_issue_count", value: selected.issue_count, group: "selection" },
+            { key: "selected_critical_count", value: selected.by_severity.critical, group: "selection" },
+            { key: "selected_p0_count", value: selected.by_priority.P0, group: "selection" },
+            { key: "selected_exposure", value: selected.exposure, group: "selection" },
+          ]
+        : []),
     ],
     records: {
       reviews: data.reviews.map((review) => ({
@@ -379,6 +395,13 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
         revision: review.revision,
         decision: review.decision,
         issue_count: review.issue_count,
+        critical_count: review.by_severity.critical,
+        high_count: review.by_severity.high,
+        p0_count: review.by_priority.P0,
+        p1_count: review.by_priority.P1,
+        known_exploited_count: review.known_exploited_count,
+        exposure: review.exposure,
+        coverage_complete: review.coverage_complete,
         recorded_at: review.recorded_at,
         source: sourceCategory(review),
         provider: review.source?.provider ?? null,
@@ -518,9 +541,12 @@ function CodeSecurityBody({
   readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan" | "changeCodeSecurityRepository" | "panel">;
   readonly onQueued: () => void;
 }) {
-  usePublishViewContext(() => buildCodeSecurityViewSnapshot(state), [state]);
   const [filter, setFilter] = useState<SourceFilter>("all");
   const [selected, setSelected] = useState<CodeSecurityReview | null>(null);
+  usePublishViewContext(
+    () => buildCodeSecurityViewSnapshot(state, selected, filter),
+    [state, selected, filter],
+  );
   const data = state.reviews;
   const href = `${routeHref("code-security")}#code-security-reviews`;
   const visible = filterBySource(data.reviews, filter);
@@ -620,6 +646,13 @@ function CodeSecurityBody({
       <div class="governance-readonly-banner">
         <strong>{t("codeSecurity.readOnlyTitle")}</strong>
         <span>{t("codeSecurity.readOnlyBody")}</span>
+        <div class="row" style="gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+          <span class="muted">{t("codeSecurity.relatedRoutesLabel")}:</span>
+          <a class="btn subtle" href={`${routeHref("rules")}?view=controls&framework=msrc-csaf`}>MSRC CSAF 2.0</a>
+          <a class="btn subtle" href={`${routeHref("rules")}?view=controls&framework=azure-mcsb`}>MCSB v1/v2</a>
+          <a class="btn subtle" href={`${routeHref("rules")}?view=rules`}>Detection Rules</a>
+          <a class="btn subtle" href={routeHref("settings-iam")}>IAM & RBAC</a>
+        </div>
       </div>
       <SourceFilterControl value={filter} counts={counts} onChange={setFilter} />
       <KpiGrid>

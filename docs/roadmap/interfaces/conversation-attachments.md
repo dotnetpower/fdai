@@ -45,6 +45,7 @@ admission, document citations, ownership routing, or channel authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-01 | implemented | Attached `_console_security_posture` (`execution_authority=false`) in `viewContextWithUser` (`console/src/deck/backend-context.ts`) and raised `snapshotCitations` to 20 facts without changing attachment or image-ingestion contracts. | `current change`; `console/src/deck/backend-context.test.ts` (`6 passed`). | Vendor adapters, protected ingestion, and governed runtime receipts remain open. |
 | 2026-10-02 | not-applicable | Added a deployment preflight for duplicate tenant-local Entra display names. The `Document.ChannelAttachment.Submit` role declaration remains in the exact Entra plan, but attachment admission, assignment, ingestion, citations, and runtime authority are unchanged. | `current change`; `genesis_entra.py`; focused Entra ambiguity tests. | No attachment behavior changes; deployed channel-edge evidence remains as tracked below. |
 | 2026-09-30 | not-applicable | Pinned the conversation image store clock in its tests. The fixture images, created on 2026-08-05, reach their 90-day expiry on 2026-11-03, and the store read them at the wall clock. No attachment behavior changed. | `test_conversation_images.py` passes under wall clocks set to 2026-10-31, 2026-11-15, and 2027-06-01; [Issue #1719](https://github.com/dotnetpower/fdai/issues/1719). | None. |
 | 2026-09-27 | not-applicable | Split the shared Entra operation's human approval evidence from serialized executor-owned control and app/group plan readback, including exact active-target validation. The application-only attachment role remains in the exact plan, but attachment identity, assignment, ingestion, and runtime authority are unchanged. | `current change`; Genesis two-thread serialization, executor-target, plan/recovery-context, permission-failure, and sanitization regressions. | Pregrant deployment-owned executor read permissions and retain a successful exact-target observation; the dedicated channel-edge assignment and readiness evidence remain separate. |
@@ -96,7 +97,9 @@ admission, document citations, ownership routing, or channel authority.
 
 An attachment without a directive uses `knowledge_base`. Attachment-only messages are valid and
 return a deterministic protected-ingestion acknowledgement with citations. Ordinary prose that
-mentions a handover does not change purpose.
+mentions a handover does not change purpose. Console `viewContextWithUser` (`backend-context.ts`)
+also attaches `_console_security_posture` with `execution_authority=false` alongside attachment and
+route view context.
 
 ### Ownership handover
 

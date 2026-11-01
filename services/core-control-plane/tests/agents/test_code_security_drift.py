@@ -121,6 +121,15 @@ async def test_heimdall_drift_tool_reads_recorded_code_security_reviews() -> Non
     (latest,) = facts["code_security_latest_decisions"]
     assert latest["revision"] == _REVISION[:12] and latest["source_kind"] == "local_path"
     assert latest["decision"] == "urgent"
+    assert latest["critical_issue_count"] == 1
+    assert latest["p0_issue_count"] == 1
+    assert latest["known_exploited_count"] == 1
+    assert latest["exposure"] == "exposed"
+    direct_facts = await heimdall.code_security_facts()
+    assert direct_facts is not None
+    assert direct_facts["code_security_urgent_repository_count"] == 1
+    assert direct_facts["code_security_incomplete_repository_count"] == 0
+    assert direct_facts["code_security_zero_risk_repository_count"] == 0
     assert facts["code_security_reviews_read"] == 2
     assert "Opengrep" not in str(facts) and "top_issue_ids" not in str(facts)
 

@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: 9d12ce5af5e672e7245b31ddd13126ac7659ac47
-translation_revised: 2026-10-11
+translation_source_sha: d6df56397b2d830d098540dc5c7aead7a19308c4
+translation_revised: 2026-11-01
 ---
 # 시스템 지식 서비스
 
@@ -176,6 +176,9 @@ A3-E 원장 표 복구도 원본 고정값만 갱신합니다. 승인 검증기�
 설계 소유 문서의 인라인 구현 상태가 대응하는 구현 원장으로 옮겨지면 검증 원본도 그 원장의
 `Implementation status` 제목으로 옮깁니다. 이 갱신은 원본 고정값과 카탈로그 다이제스트만
 바꾸며 새로운 구현이나 런타임 증적을 주장하지 않습니다.
+또한 카탈로그는 4개의 검토된 보안·거버넌스 레코드(`console-web-security`, `code-security-review`,
+`rules-and-framework-governance`, `msrc-csaf-and-ai-security`, 총 18개 레코드)를
+`execution_authority=false`로 포함합니다.
 
 컴파일한 카탈로그는 중복 식별자, 중복 exact alias, 추적되지 않는 경로, 잘못된 소스 범위,
 digest 불일치 및 소스 없는 레코드를 차단합니다. 소스 본문은 런타임 응답에 포함하지 않습니다.
