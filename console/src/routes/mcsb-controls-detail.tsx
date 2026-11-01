@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ErrorState, LoadingState, StatusPill } from "../components/ui";
+import { CopyButton, ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { displayValue, t } from "./i18n/governance";
 import { MCSB_COVERAGE_PILL, MCSB_SATISFACTION_PILL, mcsbAssessmentSummaryText } from "./mcsb-controls-body";
 import type { McsbDetailState } from "./mcsb-controls";
@@ -8,7 +8,7 @@ import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { IllustratedGuidanceContent } from "./wara-guidance";
-import { buildMcsbV2Guidance } from "./mcsb-v2-guidance";
+import { buildMcsbV2Guidance, resolveMcsbAiTaxonomy } from "./mcsb-v2-guidance";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
 
@@ -28,6 +28,11 @@ export function McsbControlDrawer({
     panelRef.current?.focus();
     return () => previous?.focus?.();
   }, []);
+  const selectedControlId = detail.status === "ready" ? detail.data.control_id : "";
+  useEffect(() => {
+    const body = panelRef.current?.querySelector<HTMLElement>(".rule-drawer-body");
+    if (body) body.scrollTop = 0;
+  }, [selectedControlId]);
 
   function trapFocus(event: KeyboardEvent): void {
     if (event.key === "Escape") {
@@ -61,7 +66,11 @@ export function McsbControlDrawer({
       <aside id="mcsb-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.mcsb.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.mcsb.detail.title")}</h3>
-          <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          <div class="rule-drawer-actions">
+            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
+            <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          </div>
         </header>
         <div class="rule-drawer-body">
           {detail.status === "loading" ? <LoadingState label={t("governance.rules.mcsb.detail.loading")} /> : detail.status === "error" ? <ErrorState message={t("governance.rules.mcsb.detail.loadFailed", { message: detail.message })} /> : <McsbControlDetailContent data={detail.data} expanded={expanded} onExpand={() => setExpanded((value) => !value)} />}
@@ -123,6 +132,12 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
         <StatusPill kind={MCSB_COVERAGE_PILL[data.coverage]} label={displayValue("mcsbCoverage", data.coverage)} />
         <StatusPill kind="info" label={displayValue("mcsbDomain", data.domain)} />
         <StatusPill kind="neutral" label={data.benchmark_version} />
+        {resolveMcsbAiTaxonomy(data.control_id) ? (
+          <>
+            <StatusPill kind="warning" label={resolveMcsbAiTaxonomy(data.control_id)!.owaspLlmRef} />
+            <StatusPill kind="info" label={resolveMcsbAiTaxonomy(data.control_id)!.mitreAtlasRef} />
+          </>
+        ) : null}
       </div>
       <p class="muted">{t("governance.rules.mcsb.detail.boundary")}</p>
       {data.benchmark_version === "v1" ? <McsbAssessmentSection data={data} /> : null}
@@ -138,7 +153,7 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
       <DetailSection title={t("governance.rules.detail.provenance")}>
         <dl class="detail-grid">
           {Object.entries(source).map(([key, value]) => (
-            <DetailRow key={key} label={key.replace(/_/g, " ")} value={value} mono />
+            <DetailRow key={key} label={displayValue("provenanceKey", key)} value={value} mono />
           ))}
         </dl>
       </DetailSection>

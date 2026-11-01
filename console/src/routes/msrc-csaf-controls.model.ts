@@ -21,7 +21,7 @@ import shard16 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-
 import shard17 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-17.json";
 import shard18 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-18.json";
 import shard19 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-19.json";
-import { msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
+import { computeCvePriorityTier, msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import {
   panelArray,
   panelBoolean,
@@ -512,6 +512,8 @@ export function filterMsrcCsafRows(
       || row.primary_resource_type.toLowerCase().includes(query)
       || (row.existing_rule_id?.toLowerCase().includes(query) ?? false)
       || (row.candidate_action_type?.toLowerCase().includes(query) ?? false)
+      || (row.workaround_property?.toLowerCase().includes(query) ?? false)
+      || computeCvePriorityTier(row).toLowerCase() === query
       || row.product_ids.some((pid) => pid.toLowerCase().includes(query))
       || row.products.some((prod) => prod.product_name.toLowerCase().includes(query))
       || row.remediations.some((rem) => rem.kb_article?.toLowerCase().includes(query) ?? false)

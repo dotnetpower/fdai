@@ -8,6 +8,8 @@ function text(en: string, ko: string): GuidanceText {
 
 interface AiControlAuthored {
   readonly titleKo: string;
+  readonly owaspLlmRef: string;
+  readonly mitreAtlasRef: string;
   readonly summary: GuidanceText;
   readonly benefits: GuidanceText;
   readonly before: GuidanceText;
@@ -19,6 +21,8 @@ interface AiControlAuthored {
 const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   "AI-1": {
     titleKo: "승인된 AI 모델만 사용하도록 보장",
+    owaspLlmRef: "OWASP LLM03:2025 Supply Chain & LLM09:2025 Misinformation",
+    mitreAtlasRef: "AML.T0010 ML Supply Chain Compromise",
     summary: text(
       "Governed model registries and deployment policies restrict workloads to reviewed foundation and fine-tuned models with verified provenance.",
       "통제된 모델 레지스트리와 배포 정책을 통해 출처와 안전성이 검토된 기반 모델 및 파인튜닝 모델만 워크로드에 배포하도록 제한합니다.",
@@ -46,6 +50,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-2": {
     titleKo: "다계층 콘텐츠 필터링 및 안전 가드레일 구현",
+    owaspLlmRef: "OWASP LLM01:2025 Prompt Injection & LLM05:2025 Improper Output Handling",
+    mitreAtlasRef: "AML.T0051 LLM Prompt Injection",
     summary: text(
       "Multi-layered input and output content safety classifiers inspect prompts and completions for harmful content, jailbreaks, and sensitive data leakage.",
       "입력 프롬프트와 모델 응답 양단에 다계층 콘텐츠 안전 분류기를 적용하여 유해 콘텐츠, 탈옥(Jailbreak) 시도, 민감 데이터 유출을 검사합니다.",
@@ -73,6 +79,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-3": {
     titleKo: "안전 메타 프롬프트 및 지침 경계 채택",
+    owaspLlmRef: "OWASP LLM07:2025 System Prompt Leakage & LLM01:2025 Prompt Injection",
+    mitreAtlasRef: "AML.T0054 LLM Meta Prompt Extraction",
     summary: text(
       "System meta-prompts define explicit trust boundaries, role constraints, abstention rules, and untrusted-data handling instructions.",
       "시스템 메타 프롬프트에 신뢰 경계, 역할 제약, 판단 보류(Abstention) 규칙, 비신뢰 데이터 처리 지침을 명시적으로 정의합니다.",
@@ -100,6 +108,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-4": {
     titleKo: "에이전트 함수 및 도구에 최소 권한 적용",
+    owaspLlmRef: "OWASP LLM06:2025 Excessive Agency",
+    mitreAtlasRef: "AML.T0048 External Harms via Agent Tooling",
     summary: text(
       "Agent tool bindings use narrowly scoped identities, typed parameter schemas, and read/write separation so an agent cannot invoke arbitrary mutations.",
       "에이전트가 호출하는 함수와 도구에 최소 권한 신원, 엄격한 타입 스키마, 읽기/쓰기 분리를 적용하여 임의의 변경 실행을 방지합니다.",
@@ -127,6 +137,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-5": {
     titleKo: "고위험 결정 및 실행에 인간 개입(HIL) 승인 보장",
+    owaspLlmRef: "OWASP LLM06:2025 Excessive Agency & LLM02:2025 Sensitive Information Disclosure",
+    mitreAtlasRef: "AML.T0024 Exfiltration via ML Inference API",
     summary: text(
       "High-impact, irreversible, or low-confidence AI proposals require explicit human-in-the-loop (HIL) review and approval before execution.",
       "영향도가 크거나 되돌릴 수 없거나 신뢰도가 낮은 AI 에이전트의 조치 제안은 실행 전에 반드시 명시적인 인간 개입(HIL) 검토와 승인을 거치도록 강제합니다.",
@@ -154,6 +166,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-6": {
     titleKo: "AI 입출력 모니터링 및 이상 징후 탐지 체계 수립",
+    owaspLlmRef: "OWASP LLM10:2025 Unbounded Consumption",
+    mitreAtlasRef: "AML.T0034 Cost Harvesting / Denial of ML Service",
     summary: text(
       "Continuous telemetry captures model invocations, token anomalies, tool-call trajectories, grounding failures, and safety filter triggers.",
       "모델 호출, 토큰 급증, 도구 호출 궤적(Trajectory), 근거 검증 실패, 안전 필터 차단 이벤트를 지속적으로 수집하고 이상 징후를 탐지합니다.",
@@ -181,6 +195,8 @@ const AI_CONTROLS: Readonly<Record<string, AiControlAuthored>> = {
   },
   "AI-7": {
     titleKo: "지속적인 AI 레드팀(Red Teaming) 및 적대적 검증 수행",
+    owaspLlmRef: "OWASP LLM08:2025 Vector and Embedding Weaknesses",
+    mitreAtlasRef: "AML.T0043 Craft Adversarial Data / Red Teaming",
     summary: text(
       "Structured adversarial testing continuously probes prompts, RAG retrieval, and agent tool boundaries for jailbreaks, hallucinations, and policy bypasses.",
       "프롬프트, RAG 검색, 에이전트 도구 경계를 대상으로 탈옥, 환각(Hallucination), 정책 우회 여부를 점검하는 구조화된 AI 레드팀 평가를 정기적으로 수행합니다.",
@@ -378,6 +394,14 @@ const MCSB_DOMAIN_PROFILES: Readonly<Record<string, {
   },
 };
 
+export function resolveMcsbAiTaxonomy(
+  controlId: string,
+): { readonly owaspLlmRef: string; readonly mitreAtlasRef: string } | null {
+  const ai = AI_CONTROLS[controlId];
+  if (!ai) return null;
+  return { owaspLlmRef: ai.owaspLlmRef, mitreAtlasRef: ai.mitreAtlasRef };
+}
+
 export function mcsbDisplayTitle(
   version: "v1" | "v2-preview",
   control: Pick<McsbControl, "control_id" | "title" | "title_ko">,
@@ -481,8 +505,8 @@ export function buildMcsbV2Guidance(detail: McsbControlDetail): GuidancePresenta
     summary,
     benefits,
     rationale: text(
-      `${summary.en} In FDAI, MCSB v2 preview (${detail.control_id}) is tracked as an explicit preview benchmark definition (${detail.coverage} crosswalk state) and never silently inherits MCSB v1 assessment verdicts.`,
-      `${summary.ko} FDAI에서 MCSB v2 미리 보기(${detail.control_id})는 명시적인 미리 보기 벤치마크 정의(교차 매핑 상태: ${detail.coverage})로 관리되며, MCSB v1 섀도 평가 판정을 임의로 상속하지 않습니다.`,
+      `${summary.en} In FDAI, MCSB v2 preview (${detail.control_id}) is tracked as an explicit preview benchmark definition (${detail.coverage} crosswalk state)${ai ? ` aligned with ${ai.owaspLlmRef} and MITRE ATLAS (${ai.mitreAtlasRef})` : ""} and never silently inherits MCSB v1 assessment verdicts.`,
+      `${summary.ko} FDAI에서 MCSB v2 미리 보기(${detail.control_id})는 명시적인 미리 보기 벤치마크 정의(교차 매핑 상태: ${detail.coverage})${ai ? `로서 ${ai.owaspLlmRef} 및 MITRE ATLAS(${ai.mitreAtlasRef}) 위협 분류와 연계되며` : "로 관리되며"}, MCSB v1 섀도 평가 판정을 임의로 상속하지 않습니다.`,
     ),
     applicability: [
       text(

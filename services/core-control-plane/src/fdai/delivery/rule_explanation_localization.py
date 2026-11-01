@@ -228,6 +228,37 @@ _EFFECT_LABELS_KO: dict[str, str] = {
     "append": "추가(Append)",
 }
 
+_AZURE_POLICY_CATEGORY_KO: dict[str, str] = {
+    "network": "네트워크(Network)",
+    "storage": "스토리지(Storage)",
+    "key vault": "자격 증명 모음(Key Vault)",
+    "kubernetes": "쿠버네티스(Kubernetes)",
+    "sql": "데이터베이스(SQL)",
+    "compute": "컴퓨팅(Compute)",
+    "monitoring": "모니터링(Monitoring)",
+    "security center": "보안 센터(Security Center)",
+    "defender for cloud": "클라우드용 Defender",
+    "app service": "앱 서비스(App Service)",
+    "authorization": "권한 부여(Authorization)",
+    "backup": "백업(Backup)",
+    "cosmos db": "Cosmos DB",
+    "data factory": "Data Factory",
+    "event hub": "Event Hub",
+    "service bus": "Service Bus",
+    "container registry": "컨테이너 레지스트리(ACR)",
+    "container instance": "컨테이너 인스턴스(ACI)",
+    "api management": "API Management",
+    "postgresql": "PostgreSQL",
+    "mysql": "MySQL",
+    "redis cache": "Redis Cache",
+    "synapse": "Synapse Analytics",
+    "cognitive services": "Cognitive Services (AI)",
+    "machine learning": "Machine Learning (AI)",
+    "general": "일반 거버넌스(General)",
+    "tags": "태그(Tags)",
+    "regulatory compliance": "규정 준수(Regulatory Compliance)",
+}
+
 _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
     (
         "should use a customer-managed key to encrypt data at rest",
@@ -238,22 +269,75 @@ _AZURE_POLICY_PHRASE_KO: tuple[tuple[str, str], ...] = (
         "저장 데이터 암호화에 고객 관리형 키(CMK) 사용 필요",
     ),
     ("should use a customer-managed key", "고객 관리형 키(CMK) 사용 필요"),
+    ("should use customer-managed keys", "고객 관리형 키(CMK) 사용 필요"),
+    ("should have infrastructure encryption enabled", "인프라 이중 암호화 활성화 필요"),
+    ("should use double encryption", "이중 암호화(Double Encryption) 사용 필요"),
     ("should use private link", "Private Link 사설 연결 사용 필요"),
     ("should use private endpoints", "프라이빗 엔드포인트(Private Endpoint) 사용 필요"),
+    ("private endpoint connections should be enabled", "프라이빗 엔드포인트 연결 활성화 필요"),
     ("should disable public network access", "공용 네트워크 접근 비활성화 필요"),
     ("should have public network access disabled", "공용 네트워크 접근 비활성화 필요"),
+    ("public network access should be disabled", "공용 네트워크 접근 비활성화 필요"),
+    ("should not have a public ip", "공용 IP 주소 할당 금지"),
+    ("should not have public ip", "공용 IP 주소 할당 금지"),
     ("should use a virtual network", "가상 네트워크(VNet) 통합 사용 필요"),
+    ("should be injected into a virtual network", "가상 네트워크(VNet) 주입 구성 필요"),
     ("should be associated with a data collection rule", "데이터 수집 규칙(DCR) 연결 필요"),
     ("should have diagnostic settings", "진단 설정(Diagnostic Settings) 활성화 필요"),
     ("resource logs should be enabled", "리소스 진단 로그 활성화 필요"),
+    ("audit logs should be enabled", "감사 로그(Audit Logs) 활성화 필요"),
     ("should have firewall rules", "방화벽(Firewall) 규칙 구성 필요"),
     ("should use managed identity", "관리 ID(Managed Identity) 사용 필요"),
+    ("system-assigned managed identity should be enabled", "시스템 할당 관리 ID 활성화 필요"),
     ("local authentication methods should be disabled", "로컬 인증 방식 비활성화 필요"),
     ("should have local authentication methods disabled", "로컬 인증 방식 비활성화 필요"),
+    ("shared key access should be disabled", "공유 키(Shared Key) 접근 비활성화 필요"),
+    ("anonymous access should be disabled", "익명 접근(Anonymous Access) 비활성화 필요"),
+    ("anonymous pull access should be disabled", "익명 이미지 Pull 접근 비활성화 필요"),
     ("should be zone redundant", "영역 중복(Zone Redundant) 구성 필요"),
+    ("minimum tls version", "최소 TLS 버전(TLS 1.2+) 강제 필요"),
+    ("latest tls version", "최신 TLS 버전(TLS 1.2+) 사용 필요"),
+    ("secure transfer to storage accounts should be enabled", "보안 전송(HTTPS 전용) 활성화 필요"),
+    ("should only be accessible over https", "HTTPS 보안 연결만 허용 필요"),
+    ("soft delete should be enabled", "일시 삭제(Soft Delete) 보호 활성화 필요"),
+    ("purge protection should be enabled", "영구 삭제 방지(Purge Protection) 활성화 필요"),
+    ("azure backup should be enabled", "Azure Backup 백업 보호 활성화 필요"),
+    ("ddos protection standard should be enabled", "DDoS 네트워크 보호 표준 플랜 활성화 필요"),
+    ("microsoft defender for", "Microsoft Defender 클라우드 워크로드 보호 활성화 필요"),
+    (
+        "vulnerability assessment should be enabled",
+        "취약점 평가(Vulnerability Assessment) 활성화 필요",
+    ),
+    ("disk encryption should be applied", "디스크 암호화(Disk Encryption) 적용 필요"),
+    ("flow logs should be enabled", "NSG 흐름 로그(Flow Logs) 활성화 필요"),
+    ("allowed locations", "허용된 Azure 리전(Region) 위치 제한"),
+    ("allowed virtual machine size skus", "허용된 가상 머신(VM) SKU 크기 제한"),
+    ("require a tag", "필수 거버넌스 태그(Tag) 지정 필요"),
 )
 
 _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
+    ("anonymous-auth argument is set to false", "익명 인증(--anonymous-auth=false) 비활성화"),
+    ("authorization-mode argument", "인가 모드(--authorization-mode) RBAC/Node 설정 준수"),
+    ("client-ca-file argument", "클라이언트 CA 인증서(--client-ca-file) 설정 준수"),
+    ("tls-cert-file and --tls-private-key-file", "TLS 서버 인증서 및 개인 키 인자 설정 준수"),
+    ("audit-log-path argument", "감사 로그 경로(--audit-log-path) 설정 준수"),
+    ("audit-log-maxage argument", "감사 로그 보존 일수(--audit-log-maxage) 설정 준수"),
+    ("audit-log-maxbackup argument", "감사 로그 백업 파일 수(--audit-log-maxbackup) 설정 준수"),
+    ("audit-log-maxsize argument", "감사 로그 최대 크기(--audit-log-maxsize) 설정 준수"),
+    ("profiling argument is set to false", "프로파일링(--profiling=false) 비활성화"),
+    ("read-only-port argument is set to 0", "읽기 전용 포트(--read-only-port=0) 비활성화"),
+    ("protect-kernel-defaults", "커널 기본값 보호(--protect-kernel-defaults) 활성화"),
+    (
+        "kubelet-https argument is set to true",
+        "Kubelet HTTPS(--kubelet-https=true) 암호화 통신 강제",
+    ),
+    ("service-account-lookup", "서비스 계정 토큰 검증(--service-account-lookup) 활성화"),
+    ("etcd data directory", "etcd 데이터 디렉터리 권한·소유권 보호"),
+    ("pki directory and file", "PKI 인증서 디렉터리 및 파일 권한 보호"),
+    ("kubeconfig file", "kubeconfig 구성 파일 권한·소유권 설정 준수"),
+    ("seccomp profile", "컨테이너 Seccomp 보안 프로필 적용"),
+    ("default namespace should not be used", "기본(default) 네임스페이스 직접 사용 제한"),
+    ("networkpolicy", "네트워크 정책(NetworkPolicy) 격리 구성 준수"),
     ("file permissions are set to", "파일 권한 설정 준수"),
     ("file ownership is set to", "파일 소유권(root:root) 설정 준수"),
     ("argument is set to", "실행 인자(Argument) 보안 설정 준수"),
@@ -261,6 +345,10 @@ _KUBE_BENCH_PHRASE_KO: tuple[tuple[str, str], ...] = (
     ("minimize the admission of", "컨테이너 고위험 권한 허용 최소화"),
     ("ensure that the", "보안 기준 점검:"),
 )
+
+
+def translate_azure_policy_category_ko(category: str) -> str:
+    return _AZURE_POLICY_CATEGORY_KO.get(category.strip().lower(), category.strip() or "General")
 
 
 def _translate_policy_phrase_ko(display_name: str) -> str:
@@ -347,13 +435,14 @@ def localize_azure_policy_explanation(
 ) -> tuple[str, str, str, str]:
     display_name = str(parameters.get("azure_policy_display_name") or rule_id).strip()
     category = str(parameters.get("azure_policy_category") or "General").strip()
+    category_ko = translate_azure_policy_category_ko(category)
     effect_raw = str(parameters.get("azure_policy_effect_default") or "Audit").strip()
     policy_name = str(parameters.get("azure_policy_name") or "").strip()
     effect_ko = _EFFECT_LABELS_KO.get(effect_raw.lower(), effect_raw)
 
     title_en = display_name
     translated_ko = _translate_policy_phrase_ko(display_name)
-    title_ko = f"[{category}] {translated_ko} ({effect_ko})"
+    title_ko = f"[{category_ko}] {translated_ko} ({effect_ko})"
     description_en = (
         f"Evaluates Azure Policy built-in definition `{policy_name or rule_id}` (category: {category}, "
         f"default effect: {effect_raw}) on `{resource_type}` to verify that the resource configuration "
@@ -361,6 +450,6 @@ def localize_azure_policy_explanation(
     )
     description_ko = (
         f"`{resource_type}` 리소스를 대상으로 Azure Policy 기본 제공 정책 `{policy_name or rule_id}`"
-        f"(범주: {category}, 기본 효과: {effect_ko})를 평가하여 '{display_name}' 기준 충족 여부를 검증합니다."
+        f"(범주: {category_ko}, 기본 효과: {effect_ko})를 평가하여 '{translated_ko}' 기준 충족 여부를 검증합니다."
     )
     return title_en, title_ko, description_en, description_ko

@@ -98,6 +98,12 @@ export function RuleCatalogBody({
             { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
             { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
             { key: "selected_verification", value: guidanceText(guidance.verification_steps[0]!, locale), group: "selection" },
+            { key: "selected_caution", value: guidanceText(guidance.cautions[0]!, locale), group: "selection" },
+            {
+              key: "selected_diagram_flow",
+              value: guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> "),
+              group: "selection",
+            },
             { key: "selected_remediates", value: selectedDetail.remediates, group: "selection" },
           );
         } else {
@@ -322,6 +328,18 @@ export function RuleCatalogBody({
           <FacetSelect label={t("governance.rules.filter.category")} value={filters.category} counts={data.facets.by_category} displayGroup="category" onChange={(value) => onFilter({ category: value })} />
           <FacetSelect label={t("governance.rules.filter.severity")} value={filters.severity} counts={data.facets.by_severity} displayGroup="severity" onChange={(value) => onFilter({ severity: value })} />
           <FacetSelect label={t("governance.rules.filter.source")} value={filters.source} counts={data.facets.by_source} displayGroup="ruleSource" onChange={(value) => onFilter({ source: value })} />
+          {Boolean(filters.origin || filters.category || filters.severity || filters.source || filters.q || searchInput) ? (
+            <button
+              type="button"
+              class="btn"
+              onClick={() => {
+                onSearch("");
+                onFilter({ origin: "", category: "", severity: "", source: "", q: "" });
+              }}
+            >
+              {t("governance.common.clearFilter")}
+            </button>
+          ) : null}
         </div>
 
         <div class="rules-catalog-workbench">

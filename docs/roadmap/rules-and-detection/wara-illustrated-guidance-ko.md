@@ -1,7 +1,7 @@
 ---
 title: 도표를 포함한 WARA 설명
 translation_of: wara-illustrated-guidance.md
-translation_source_sha: b5aae68ceddc8f0033c30c95492100e12b120e52
+translation_source_sha: b604545a1de6c7d58726d102b2211cecfc18dad9
 translation_revised: 2026-11-01
 ---
 # 도표를 포함한 WARA 설명
@@ -221,8 +221,10 @@ Operator 읽기 결과와 Console은 본문, 도표, 제품 그룹 검증 표시
 
 공통 Console 도해 설명 렌더러는 동일한 권한 없는 `GuidancePresentation` 계약과 검토된
 CC-BY-4.0 Microsoft Learn 공식 참조 도해 16종을 통해 패키지된 WAF, CAF, MCSB v1 설명과
-파생된 MCSB v2-preview(`AI-1..AI-7` 포함 74개 컨트롤), MSRC CSAF 2.0(268개 CVE), 활성 및
-수집 탐지 규칙(활성 52개 및 수집 8,517개) 도해 설명도 함께 렌더링합니다.
+파생된 MCSB v2-preview(OWASP LLM Top 10 2025 및 MITRE ATLAS와 매핑된 `AI-1..AI-7` 포함 74개
+컨트롤), MSRC CSAF 2.0(`P0`-`P3` 악용 우선순위 등급 및 CVSS 공격 표면 요약이 포함된 9,058개 CVE),
+활성 및 수집 탐지 규칙(활성 52개 및 수집 8,517개) 도해 설명과 마크다운 요약 복사
+(`formatGuidanceMarkdownBrief`)를 함께 렌더링합니다.
 
 ## 관련 문서
 

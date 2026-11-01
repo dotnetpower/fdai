@@ -5,6 +5,7 @@
     "clear": "지우기",
     "clearFilter": "필터 지우기",
     "close": "닫기",
+    "copyBrief": "요약 복사",
     "copyId": "ID 복사",
     "copyLink": "링크 복사",
     "eligible": "적격",
@@ -1101,6 +1102,29 @@
     "mcsbEvidenceRole": {
       "decisive": "결정적",
       "supporting_only": "보조 전용"
+    },
+    "cvePriority": {
+      "P0": "P0 즉시 조치 (야생 악용·KEV 확인)",
+      "P1": "P1 긴급 패치 (높은 악용 가능성)",
+      "P2": "P2 정기 패치 (표준 패치 주기)",
+      "P3": "P3 모니터링 (낮은 노출 위험)"
+    },
+    "msrcProductDisposition": {
+      "canonical": "정규 ResourceType 매핑됨",
+      "unsupported": "지원되지 않는 제품군",
+      "ambiguous": "모호한 매핑 (평가 보류)"
+    },
+    "provenanceKey": {
+      "source_url": "원본 URL",
+      "source_version": "원본 버전",
+      "resolved_ref": "확인된 Git 커밋(Ref)",
+      "retrieved_at": "수집 시각",
+      "content_hash": "콘텐츠 SHA-256",
+      "source_digest": "원본 SHA-256",
+      "license": "라이선스",
+      "redistribution": "재배포 정책",
+      "catalog_id": "카탈로그 ID",
+      "benchmark_version": "벤치마크 버전"
     }
   }
 }

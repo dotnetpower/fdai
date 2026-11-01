@@ -5,6 +5,7 @@
     "clear": "Clear",
     "clearFilter": "Clear filter",
     "close": "Close",
+    "copyBrief": "Copy brief",
     "copyId": "Copy id",
     "copyLink": "Copy link",
     "eligible": "Eligible",
@@ -1101,6 +1102,29 @@
     "mcsbEvidenceRole": {
       "decisive": "Decisive",
       "supporting_only": "Supporting only"
+    },
+    "cvePriority": {
+      "P0": "P0 Immediate (Exploited / KEV)",
+      "P1": "P1 Urgent (High exploitability)",
+      "P2": "P2 Scheduled (Standard patch cycle)",
+      "P3": "P3 Monitor (Low exposure)"
+    },
+    "msrcProductDisposition": {
+      "canonical": "Canonical ResourceType mapped",
+      "unsupported": "Unsupported product family",
+      "ambiguous": "Ambiguous mapping (blocked)"
+    },
+    "provenanceKey": {
+      "source_url": "Source URL",
+      "source_version": "Source version",
+      "resolved_ref": "Resolved Git ref",
+      "retrieved_at": "Retrieved at",
+      "content_hash": "Content SHA-256",
+      "source_digest": "Source SHA-256",
+      "license": "License",
+      "redistribution": "Redistribution",
+      "catalog_id": "Catalog ID",
+      "benchmark_version": "Benchmark version"
     }
   }
 }
