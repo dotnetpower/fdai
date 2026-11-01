@@ -11,8 +11,12 @@ from pathlib import Path
 from fdai.core.security.csaf import (
     CsafAssessmentRequest,
     CsafAssessmentResult,
+    CsafExposureStatus,
+    CsafVexJustification,
+    CsafVulnerabilityFinding,
     MsrcCsafAssessmentRuntime,
     build_csaf_review_package,
+    compute_csaf_risk_score,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
     to_security_control_observations,
@@ -23,6 +27,7 @@ from fdai.rule_catalog.schema.msrc_csaf import (
     CsafThreatExploitStatus,
     CsafVulnerabilityRecord,
     MsrcCsafCrosswalkCatalog,
+    classify_kev_sla_tier,
     load_msrc_csaf_crosswalk_catalog,
 )
 
@@ -125,16 +130,39 @@ def build_msrc_csaf_operator_projection(
         year_match = _CVE_YEAR_RE.match(mapping.cve_id)
         year = year_match.group(1) if year_match is not None else init_date[:4]
         finding = findings_by_cve.get(mapping.cve_id)
+        sla_tier, _due_days = classify_kev_sla_tier(
+            vuln.severity,
+            vuln.exploit_status,
+            vuln.cvss_vector,
+        )
+        profile = vuln.attack_profile
         if finding is not None:
             eval_status = finding.evaluation.value
             exposure = finding.exposure.value
+            vex_just = finding.vex_justification.value
+            risk_score = finding.risk_score
         elif mapping.disposition is CsafDisposition.AMBIGUOUS_OR_BLOCKED or mapping.blocked_reasons:
             eval_status = "blocked"
             exposure = "unknown"
+            vex_just = CsafVexJustification.UNDETERMINED_EVIDENCE_GAP.value
+            risk_score = compute_csaf_risk_score(
+                cvss_base_score=vuln.cvss_base_score,
+                exploit_status=vuln.exploit_status,
+                cvss_vector=vuln.cvss_vector,
+                exposure=CsafExposureStatus.UNKNOWN,
+            )
         else:
             eval_status = "not_evaluated"
             exposure = "unknown"
+            vex_just = CsafVexJustification.UNDETERMINED_EVIDENCE_GAP.value
+            risk_score = compute_csaf_risk_score(
+                cvss_base_score=vuln.cvss_base_score,
+                exploit_status=vuln.exploit_status,
+                cvss_vector=vuln.cvss_vector,
+                exposure=CsafExposureStatus.UNKNOWN,
+            )
 
+        # V19: Include KEV SLA tier, VEX justification, risk score, and attack-surface flags
         controls.append(
             {
                 "cve_id": mapping.cve_id,
@@ -156,6 +184,12 @@ def build_msrc_csaf_operator_projection(
                 "primary_resource_type": primary_rtype,
                 "evaluation_status": eval_status,
                 "exposure": exposure,
+                "kev_sla_tier": sla_tier.value,
+                "vex_justification": vex_just,
+                "risk_score": risk_score,
+                "is_zero_click": profile.is_zero_click,
+                "is_pre_auth_network": profile.is_network_reachable and profile.is_unauthenticated,
+                "is_wormable_candidate": profile.is_wormable_candidate,
                 # C22: Include per-CVE resource counts and limitations in Operator projection
                 "affected_resource_count": (
                     len(finding.affected_resource_ids) if finding is not None else 0
@@ -171,6 +205,11 @@ def build_msrc_csaf_operator_projection(
             }
         )
 
+    # V20: Expand summary with critical, zero-click, wormable, and KEV SLA tier counts
+    by_sla: dict[str, int] = {}
+    for item in controls:
+        tier_key = str(item["kev_sla_tier"])
+        by_sla[tier_key] = by_sla.get(tier_key, 0) + 1
     summary = {
         "total": len(controls),
         "affected": sum(1 for item in controls if item["exposure"] == "affected"),
@@ -184,6 +223,22 @@ def build_msrc_csaf_operator_projection(
             if item["exposure"] == "affected"
             and item["exploit_status"] == CsafThreatExploitStatus.EXPLOITED.value
         ),
+        "critical_affected": sum(
+            1
+            for item in controls
+            if item["exposure"] == "affected" and item["severity"] == "critical"
+        ),
+        "zero_click_affected": sum(
+            1
+            for item in controls
+            if item["exposure"] == "affected" and item["is_zero_click"] is True
+        ),
+        "wormable_affected": sum(
+            1
+            for item in controls
+            if item["exposure"] == "affected" and item["is_wormable_candidate"] is True
+        ),
+        "by_kev_sla_tier": dict(sorted(by_sla.items())),
     }
 
     payload: dict[str, object] = {
@@ -239,3 +294,22 @@ class MsrcCsafAssessmentRunner:
             security_observations_count=len(observations),
             execution_authority=False,
         )
+
+
+def filter_actionable_findings(
+    result: CsafAssessmentResult,
+    *,
+    min_risk_score: float = 0.0,
+    exploited_only: bool = False,
+) -> tuple[CsafVulnerabilityFinding, ...]:
+    """Filter and prioritize actionable CSAF findings by risk score and exploit status (V21)."""
+
+    selected = [
+        finding
+        for finding in result.findings
+        if finding.exposure in {CsafExposureStatus.AFFECTED, CsafExposureStatus.MITIGATED}
+        and finding.risk_score >= min_risk_score
+        and (not exploited_only or finding.exploit_status is CsafThreatExploitStatus.EXPLOITED)
+    ]
+    selected.sort(key=lambda item: (-item.risk_score, -item.cvss_base_score, item.cve_id))
+    return tuple(selected)

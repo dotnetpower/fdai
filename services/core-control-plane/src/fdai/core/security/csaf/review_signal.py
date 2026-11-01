@@ -295,6 +295,63 @@ def csaf_review_decision(package: Mapping[str, object]) -> str:
     return "clear"
 
 
+def compute_workload_posture_score(result: CsafAssessmentResult) -> int:
+    """Compute a deterministic 0-100 workload security posture score from CSAF findings (V16)."""
+
+    deduction = 0
+    for finding in result.findings:
+        if finding.exposure is CsafExposureStatus.AFFECTED:
+            if finding.exploit_status is CsafThreatExploitStatus.EXPLOITED:
+                deduction += 35
+            elif finding.severity is Severity.CRITICAL:
+                deduction += 25
+            elif finding.severity is Severity.HIGH:
+                deduction += 12
+            else:
+                deduction += 5
+        elif finding.exposure is CsafExposureStatus.MITIGATED:
+            deduction += 3
+        elif finding.exposure is CsafExposureStatus.UNKNOWN:
+            deduction += 2
+    return max(0, 100 - min(100, deduction))
+
+
+def csaf_posture_summary(package: Mapping[str, object]) -> dict[str, object]:
+    """Build a bounded posture summary from a validated MSRC CSAF review package (V16)."""
+
+    validated = validate_csaf_review_package(package)
+    by_exp = validated["by_exposure"]
+    if not isinstance(by_exp, Mapping):
+        raise MsrcCsafReviewError("by_exposure must be a mapping")
+    affected = int(by_exp.get("affected", 0))
+    mitigated = int(by_exp.get("mitigated", 0))
+    fixed = int(by_exp.get("fixed", 0))
+    unknown = int(by_exp.get("unknown", 0))
+    exploited_raw = validated["exploited_affected_count"]
+    critical_raw = validated["critical_affected_count"]
+    exploited = exploited_raw if isinstance(exploited_raw, int) else 0
+    critical = critical_raw if isinstance(critical_raw, int) else 0
+    deduction = (
+        exploited * 35
+        + max(0, critical - exploited) * 25
+        + max(0, affected - critical) * 10
+        + mitigated * 3
+        + min(20, unknown)
+    )
+    return {
+        "workload_id": validated["workload_id"],
+        "decision": csaf_review_decision(validated),
+        "posture_score": max(0, 100 - min(100, deduction)),
+        "affected_count": affected,
+        "mitigated_count": mitigated,
+        "fixed_count": fixed,
+        "unknown_count": unknown,
+        "exploited_affected_count": exploited,
+        "critical_affected_count": critical,
+        "grants_authority": False,
+    }
+
+
 def msrc_csaf_drift_payload(raw: Mapping[str, object]) -> dict[str, object]:
     """Project one validated MSRC CSAF review package into Heimdall's Drift ownership."""
 
@@ -331,6 +388,9 @@ def extract_csaf_rule_candidates(
             "extract_csaf_rule_candidates requires matching catalog and assessment pins"
         )
     advisory_urls = {advisory.tracking_id: advisory.source_url for advisory in catalog.advisories}
+    vuln_by_cve = {
+        vuln.cve_id: vuln for advisory in catalog.advisories for vuln in advisory.vulnerabilities
+    }
     product_map = {item.product_id: item for item in catalog.product_mappings}
     crosswalk_map = {item.cve_id: item for item in catalog.vulnerability_mappings}
     candidates: list[dict[str, object]] = []
@@ -361,7 +421,12 @@ def extract_csaf_rule_candidates(
         ]
         if not version_checks and mapping.workaround_property is None:
             continue
+        vuln_rec = vuln_by_cve.get(finding.cve_id)
+        is_wormable = (
+            vuln_rec.attack_profile.is_wormable_candidate if vuln_rec is not None else False
+        )
         candidate_id = f"msrc-csaf.{finding.cve_id.lower()}"
+        # V17: Enrich RuleCandidate with kev_sla_tier, vex_justification, and risk_score
         body: dict[str, object] = {
             "candidate_id": candidate_id,
             "cve_id": finding.cve_id,
@@ -374,7 +439,11 @@ def extract_csaf_rule_candidates(
             ),
             "severity": finding.severity.value,
             "cvss_base_score": finding.cvss_base_score,
+            "risk_score": finding.risk_score,
             "exploit_status": finding.exploit_status.value,
+            "kev_sla_tier": finding.kev_sla_tier.value,
+            "vex_justification": finding.vex_justification.value,
+            "is_wormable_candidate": is_wormable,
             "affected_resource_count": len(finding.affected_resource_ids),
             "mitigated_resource_count": len(finding.mitigated_resource_ids),
             "resource_types": canonical_types,
@@ -407,6 +476,8 @@ __all__ = [
     "CSAF_SCHEMA_VERSION",
     "MsrcCsafReviewError",
     "build_csaf_review_package",
+    "compute_workload_posture_score",
+    "csaf_posture_summary",
     "csaf_review_decision",
     "extract_csaf_rule_candidates",
     "msrc_csaf_drift_payload",

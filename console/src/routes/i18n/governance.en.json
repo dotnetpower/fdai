@@ -775,12 +775,16 @@
         "disposition": "Disposition",
         "mappingState": "Mapping state",
         "resourceType": "Resource type",
+        "attackSurface": "Attack surface",
+        "kevSlaTier": "KEV SLA tier",
         "searchAria": "Filter MSRC CSAF advisories",
         "searchPlaceholder": "Filter CVE, advisory ID, product ID, or title"
       },
       "result": {
         "showing": "Showing {start}-{end} of {filtered} filtered ({total} total)",
-        "empty": "No MSRC CSAF vulnerabilities match these filters"
+        "empty": "No MSRC CSAF vulnerabilities match these filters",
+        "exportCsv": "Export CSV",
+        "exportJson": "Export JSON"
       },
       "detail": {
         "aria": "MSRC CSAF vulnerability detail",
@@ -788,6 +792,10 @@
         "boundary": "Shadow-only vulnerability crosswalk. Advisory presence never grants approval or execution authority; unverified or missing resource version properties fail closed to Unknown.",
         "advisorySection": "OASIS CSAF 2.0 advisory provenance",
         "trackingId": "Advisory tracking ID",
+        "cweCategory": "CWE weakness class",
+        "riskScore": "Composite risk score",
+        "kevSla": "Remediation SLA target",
+        "vexJustification": "OpenVEX justification",
         "sourceRevision": "Source revision",
         "cvssVector": "CVSS v3.1 vector",
         "initialRelease": "Initial release",
@@ -825,6 +833,27 @@
       "fixed": "Fixed",
       "not_applicable": "Not applicable",
       "unknown": "Unknown"
+    },
+    "msrcCsafAttackSurface": {
+      "pre_auth_network": "Pre-Auth Network",
+      "zero_click": "Zero-Click",
+      "scope_changed": "Scope Changed",
+      "wormable": "Wormable RCE"
+    },
+    "msrcCsafSla": {
+      "immediate_24h": "Immediate (24h KEV)",
+      "urgent_72h": "Urgent (72h)",
+      "high_14d": "High (14d)",
+      "standard_30d": "Standard (30d)",
+      "monitor_90d": "Monitor (90d)"
+    },
+    "msrcCsafVex": {
+      "component_not_present": "Component not present",
+      "vulnerable_code_not_in_execute_path": "Vulnerable code not in execute path",
+      "inline_mitigations_already_exist": "Inline mitigations already exist",
+      "patched_version_deployed": "Patched version deployed",
+      "affected_requires_remediation": "Affected - remediation required",
+      "undetermined_evidence_gap": "Undetermined - evidence gap"
     },
     "waraLimitation": {
       "missing_exact_evaluator": "No evaluator is bound to this exact recommendation.",

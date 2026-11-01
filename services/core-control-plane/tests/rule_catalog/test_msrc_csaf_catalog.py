@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from fdai.rule_catalog.schema.msrc_csaf import (
+    CsafKevSlaTier,
     CsafProductBranch,
     CsafRemediationCategory,
     CsafRemediationRecord,
@@ -15,10 +16,12 @@ from fdai.rule_catalog.schema.msrc_csaf import (
     CsafThreatExploitStatus,
     CsafVulnerabilityRecord,
     MsrcCsafCrosswalkCatalog,
+    classify_kev_sla_tier,
     compare_dotted_versions,
     is_version_in_affected_window,
     load_msrc_csaf_crosswalk_catalog,
     load_msrc_csaf_raw_dict,
+    parse_cvss_v3_vector_profile,
     parse_dotted_version,
     severity_for_cvss_score,
     version_train_prefix,
@@ -763,3 +766,53 @@ def test_c01_to_c10_schema_and_oasis_parser_hardening_guards() -> None:
                 signature_verified=True,
                 source_url="https://msrc.microsoft.com/csaf/advisories/2026/bad.json",
             )
+
+
+def test_v01_to_v12_attack_vector_profile_kev_sla_and_oasis_notes() -> None:
+    """Verify V01-V12 attack-surface profile, KEV SLA tiering, and OASIS notes/references."""
+
+    wormable_vec = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H"
+    prof = parse_cvss_v3_vector_profile(wormable_vec)
+    assert prof.is_network_reachable is True
+    assert prof.is_unauthenticated is True
+    assert prof.is_zero_click is True
+    assert prof.is_scope_changed is True
+    assert prof.is_high_cia_impact is True
+    assert prof.is_wormable_candidate is True
+
+    tier_exp, days_exp = classify_kev_sla_tier(
+        Severity.HIGH,
+        CsafThreatExploitStatus.EXPLOITED,
+        wormable_vec,
+    )
+    assert tier_exp is CsafKevSlaTier.IMMEDIATE_24H
+    assert days_exp == 1
+
+    tier_crit, days_crit = classify_kev_sla_tier(
+        Severity.CRITICAL,
+        CsafThreatExploitStatus.UNPROVEN,
+        wormable_vec,
+    )
+    assert tier_crit is CsafKevSlaTier.URGENT_72H
+    assert days_crit == 3
+
+    payload = _sample_oasis_payload()
+    assert isinstance(payload["vulnerabilities"], list)
+    payload["vulnerabilities"][0]["title"] = ""
+    payload["vulnerabilities"][0]["notes"] = [
+        {"category": "summary", "text": "Fallback Title From OASIS Note"}
+    ]
+    payload["vulnerabilities"][0]["references"] = [
+        {"url": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20001"}
+    ]
+    raw_b = json.dumps(payload).encode("utf-8")
+    doc = parse_oasis_csaf_bytes(
+        raw_b,
+        expected_sha256=f"sha256:{hashlib.sha256(raw_b).hexdigest()}",
+        signature_verified=True,
+        source_url="https://msrc.microsoft.com/csaf/advisories/2026/notes.json",
+    )
+    assert doc.vulnerabilities[0].title == "Fallback Title From OASIS Note"
+    assert doc.vulnerabilities[0].attack_profile.is_network_reachable is True
+    assert doc.is_multi_revision is True
+    assert doc.release_latency_days >= 0

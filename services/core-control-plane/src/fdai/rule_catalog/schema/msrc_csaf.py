@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -197,6 +198,80 @@ class CsafRemediationCategory(StrEnum):
     NONE_AVAILABLE = "none_available"
 
 
+class CsafKevSlaTier(StrEnum):
+    """CISA KEV and MSRC exploitability-aligned remediation SLA tiers (V04)."""
+
+    IMMEDIATE_24H = "immediate_24h"
+    URGENT_72H = "urgent_72h"
+    HIGH_14D = "high_14d"
+    STANDARD_30D = "standard_30d"
+    MONITOR_90D = "monitor_90d"
+
+
+@dataclass(frozen=True, slots=True)
+class CsafAttackVectorProfile:
+    """Deterministic attack-surface traits extracted from a CVSS v3.x vector string (V01)."""
+
+    is_network_reachable: bool
+    is_unauthenticated: bool
+    is_zero_click: bool
+    is_scope_changed: bool
+    is_high_cia_impact: bool
+    is_wormable_candidate: bool
+
+
+def parse_cvss_v3_vector_profile(vector: str) -> CsafAttackVectorProfile:
+    """Parse CVSS v3.0/3.1 base metrics into an attack-surface profile (V02)."""
+
+    if not isinstance(vector, str) or re.fullmatch(_CVSS_V3_VECTOR, vector) is None:
+        raise CsafSchemaError(f"invalid CVSS v3 vector {vector!r}")
+    metrics: dict[str, str] = {}
+    for segment in vector.split("/")[1:]:
+        key, _, val = segment.partition(":")
+        metrics[key] = val
+    net = metrics.get("AV") == "N"
+    low_ac = metrics.get("AC") == "L"
+    unauth = metrics.get("PR") == "N"
+    zero_click = metrics.get("UI") == "N"
+    scope_changed = metrics.get("S") == "C"
+    high_cia = metrics.get("C") == "H" and metrics.get("I") == "H" and metrics.get("A") == "H"
+    wormable = net and low_ac and unauth and zero_click and high_cia
+    return CsafAttackVectorProfile(
+        is_network_reachable=net,
+        is_unauthenticated=unauth,
+        is_zero_click=zero_click,
+        is_scope_changed=scope_changed,
+        is_high_cia_impact=high_cia,
+        is_wormable_candidate=wormable,
+    )
+
+
+def classify_kev_sla_tier(
+    severity: Severity,
+    exploit_status: CsafThreatExploitStatus,
+    cvss_vector: str,
+) -> tuple[CsafKevSlaTier, int]:
+    """Return (CsafKevSlaTier, due_days) from severity, exploit status, and CVSS vector (V05)."""
+
+    profile = parse_cvss_v3_vector_profile(cvss_vector)
+    if exploit_status is CsafThreatExploitStatus.EXPLOITED:
+        return CsafKevSlaTier.IMMEDIATE_24H, 1
+    if severity is Severity.CRITICAL or (
+        exploit_status is CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY
+        and profile.is_network_reachable
+        and profile.is_unauthenticated
+    ):
+        return CsafKevSlaTier.URGENT_72H, 3
+    if severity is Severity.HIGH or exploit_status in {
+        CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY,
+        CsafThreatExploitStatus.PUBLICLY_DISCLOSED,
+    }:
+        return CsafKevSlaTier.HIGH_14D, 14
+    if severity is Severity.MEDIUM:
+        return CsafKevSlaTier.STANDARD_30D, 30
+    return CsafKevSlaTier.MONITOR_90D, 90
+
+
 class CsafProductBranch(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -326,6 +401,12 @@ class CsafVulnerabilityRecord(BaseModel):
                 )
         return self
 
+    @property
+    def attack_profile(self) -> CsafAttackVectorProfile:
+        """Return deterministic CVSS v3 attack-surface profile (V03)."""
+
+        return parse_cvss_v3_vector_profile(self.cvss_vector)
+
 
 class CsafAdvisoryDocument(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -385,6 +466,18 @@ class CsafAdvisoryDocument(BaseModel):
                     f"vulnerability {vuln.cve_id} references undeclared product_tree ids"
                 )
         return self
+
+    @property
+    def is_multi_revision(self) -> bool:
+        """Return True when the advisory has been revised after initial release (V10)."""
+
+        return self.revision_count > 1
+
+    @property
+    def release_latency_days(self) -> int:
+        """Return elapsed days between initial_release_date and current_release_date (V10)."""
+
+        return max(0, (self.current_release_date - self.initial_release_date).days)
 
 
 class CsafProductCrosswalk(BaseModel):
@@ -666,7 +759,9 @@ def load_msrc_csaf_crosswalk_catalog(path: Path) -> MsrcCsafCrosswalkCatalog:
 
 __all__ = [
     "CsafAdvisoryDocument",
+    "CsafAttackVectorProfile",
     "CsafDisposition",
+    "CsafKevSlaTier",
     "CsafProductBranch",
     "CsafProductCrosswalk",
     "CsafRemediationCategory",
@@ -677,10 +772,12 @@ __all__ = [
     "CsafVulnerabilityRecord",
     "MsrcCsafCrosswalkCatalog",
     "StrictScalar",
+    "classify_kev_sla_tier",
     "compare_dotted_versions",
     "is_version_in_affected_window",
     "load_msrc_csaf_crosswalk_catalog",
     "load_msrc_csaf_raw_dict",
+    "parse_cvss_v3_vector_profile",
     "parse_dotted_version",
     "severity_for_cvss_score",
     "version_train_prefix",

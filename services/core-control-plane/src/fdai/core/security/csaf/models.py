@@ -9,7 +9,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from fdai.rule_catalog.schema.msrc_csaf import CsafDisposition, CsafThreatExploitStatus
+from fdai.rule_catalog.schema.msrc_csaf import (
+    CsafDisposition,
+    CsafKevSlaTier,
+    CsafThreatExploitStatus,
+    parse_cvss_v3_vector_profile,
+)
 from fdai.rule_catalog.schema.wara_assessment import canonical_digest
 from fdai.shared.contracts.models import Severity
 
@@ -31,6 +36,56 @@ class CsafEvaluationStatus(StrEnum):
     EVALUATED = "evaluated"
     NOT_EVALUATED = "not_evaluated"
     BLOCKED = "blocked"
+
+
+class CsafVexJustification(StrEnum):
+    """OpenVEX and OASIS CSAF 2.0 VEX status justification codes (V07)."""
+
+    COMPONENT_NOT_PRESENT = "component_not_present"
+    VULNERABLE_CODE_NOT_IN_EXECUTE_PATH = "vulnerable_code_not_in_execute_path"
+    INLINE_MITIGATIONS_ALREADY_EXIST = "inline_mitigations_already_exist"
+    PATCHED_VERSION_DEPLOYED = "patched_version_deployed"
+    AFFECTED_REQUIRES_REMEDIATION = "affected_requires_remediation"
+    UNDETERMINED_EVIDENCE_GAP = "undetermined_evidence_gap"
+
+
+def compute_csaf_risk_score(
+    *,
+    cvss_base_score: float,
+    exploit_status: CsafThreatExploitStatus,
+    cvss_vector: str | None = None,
+    exposure: CsafExposureStatus = CsafExposureStatus.UNKNOWN,
+) -> float:
+    """Compute a deterministic 0.0-100.0 composite risk score (V13)."""
+
+    if exposure in {CsafExposureStatus.FIXED, CsafExposureStatus.NOT_APPLICABLE}:
+        return 0.0
+    base_points = max(0.0, min(50.0, cvss_base_score * 5.0))
+    exploit_points = {
+        CsafThreatExploitStatus.EXPLOITED: 30.0,
+        CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY: 22.0,
+        CsafThreatExploitStatus.PUBLICLY_DISCLOSED: 16.0,
+        CsafThreatExploitStatus.EXPLOITATION_LESS_LIKELY: 8.0,
+        CsafThreatExploitStatus.EXPLOITATION_UNLIKELY: 4.0,
+        CsafThreatExploitStatus.UNPROVEN: 2.0,
+    }[exploit_status]
+    vector_points = 0.0
+    if cvss_vector is not None:
+        profile = parse_cvss_v3_vector_profile(cvss_vector)
+        if profile.is_network_reachable and profile.is_unauthenticated:
+            vector_points += 8.0
+        if profile.is_zero_click:
+            vector_points += 5.0
+        if profile.is_scope_changed:
+            vector_points += 4.0
+        if profile.is_high_cia_impact:
+            vector_points += 3.0
+    raw_total = min(100.0, base_points + exploit_points + vector_points)
+    if exposure is CsafExposureStatus.MITIGATED:
+        return round(raw_total * 0.45, 1)
+    if exposure is CsafExposureStatus.UNKNOWN:
+        return round(raw_total * 0.75, 1)
+    return round(raw_total, 1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,10 +265,16 @@ class CsafVulnerabilityFinding:
     evidence_digests: tuple[str, ...]
     evidence_complete: bool
     limitations: tuple[str, ...]
+    # V08 & V14: Include OpenVEX justification, KEV SLA tier, and composite risk score
+    vex_justification: CsafVexJustification = CsafVexJustification.UNDETERMINED_EVIDENCE_GAP
+    kev_sla_tier: CsafKevSlaTier = CsafKevSlaTier.STANDARD_30D
+    risk_score: float = 0.0
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.cvss_base_score) or not 0.0 <= self.cvss_base_score <= 10.0:
             raise ValueError("CsafVulnerabilityFinding.cvss_base_score MUST be in [0.0, 10.0]")
+        if not math.isfinite(self.risk_score) or not 0.0 <= self.risk_score <= 100.0:
+            raise ValueError("CsafVulnerabilityFinding.risk_score MUST be in [0.0, 100.0]")
         # C13: Validate sorted uniqueness and mutual disjointness of resource ID tuples
         for label, items in (
             ("affected_resource_ids", self.affected_resource_ids),
@@ -259,6 +320,9 @@ class CsafVulnerabilityFinding:
             "mapping_state": self.mapping_state,
             "evaluation": self.evaluation.value,
             "exposure": self.exposure.value,
+            "vex_justification": self.vex_justification.value,
+            "kev_sla_tier": self.kev_sla_tier.value,
+            "risk_score": self.risk_score,
             "affected_resource_ids": list(self.affected_resource_ids),
             "mitigated_resource_ids": list(self.mitigated_resource_ids),
             "fixed_resource_ids": list(self.fixed_resource_ids),
@@ -336,6 +400,8 @@ __all__ = [
     "CsafEvidenceReceipt",
     "CsafExposureStatus",
     "CsafScopedResource",
+    "CsafVexJustification",
     "CsafVulnerabilityFinding",
     "ScalarProperty",
+    "compute_csaf_risk_score",
 ]

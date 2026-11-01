@@ -63,6 +63,24 @@ export type MsrcCsafExploitStatus = (typeof MSRC_CSAF_EXPLOIT_STATUSES)[number];
 export type MsrcCsafDisposition = (typeof MSRC_CSAF_DISPOSITIONS)[number];
 export type MsrcCsafMappingState = (typeof MSRC_CSAF_MAPPING_STATES)[number];
 export type MsrcCsafExposure = (typeof MSRC_CSAF_EXPOSURES)[number];
+export type MsrcCsafAttackSurfaceTag =
+  | "pre_auth_network"
+  | "zero_click"
+  | "scope_changed"
+  | "wormable";
+export type MsrcCsafKevSlaTier =
+  | "immediate_24h"
+  | "urgent_72h"
+  | "high_14d"
+  | "standard_30d"
+  | "monitor_90d";
+export type MsrcCsafVexJustification =
+  | "component_not_present"
+  | "vulnerable_code_not_in_execute_path"
+  | "inline_mitigations_already_exist"
+  | "patched_version_deployed"
+  | "affected_requires_remediation"
+  | "undetermined_evidence_gap";
 
 export interface MsrcCsafRemediation {
   readonly category: "vendor_fix" | "workaround" | "mitigation" | "none_available";
@@ -121,6 +139,12 @@ export interface MsrcCsafControlRow {
   readonly remediations: readonly MsrcCsafRemediation[];
   readonly evaluation_status: "not_evaluated" | "evaluated" | "blocked";
   readonly exposure: MsrcCsafExposure;
+  // V31-V33: Attack-surface tags, KEV SLA tier, VEX justification, and composite risk score
+  readonly attack_surface_tags: readonly MsrcCsafAttackSurfaceTag[];
+  readonly kev_sla_tier: MsrcCsafKevSlaTier;
+  readonly due_days: number;
+  readonly vex_justification: MsrcCsafVexJustification;
+  readonly risk_score: number;
   readonly execution_authority: false;
 }
 
@@ -140,8 +164,11 @@ export interface MsrcCsafFilters {
   readonly disposition: string;
   readonly mapping_state: string;
   readonly resource_type: string;
-  // C31: Add runtime exposure filter
   readonly exposure: string;
+  // V34: Attack-surface, KEV SLA tier, and sort mode filters
+  readonly attack_surface: string;
+  readonly kev_sla_tier: string;
+  readonly sort: string;
   readonly q: string;
 }
 
@@ -153,8 +180,99 @@ export const EMPTY_MSRC_CSAF_FILTERS: MsrcCsafFilters = {
   mapping_state: "",
   resource_type: "",
   exposure: "",
+  attack_surface: "",
+  kev_sla_tier: "",
+  sort: "",
   q: "",
 };
+
+function deriveAttackSurfaceAndRisk(
+  vector: string,
+  baseScore: number,
+  severity: MsrcCsafSeverity,
+  exploitStatus: MsrcCsafExploitStatus,
+  exposure: MsrcCsafExposure,
+): {
+  readonly tags: readonly MsrcCsafAttackSurfaceTag[];
+  readonly kevSlaTier: MsrcCsafKevSlaTier;
+  readonly dueDays: number;
+  readonly vexJustification: MsrcCsafVexJustification;
+  readonly riskScore: number;
+} {
+  const metrics = new Map<string, string>();
+  for (const part of vector.split("/").slice(1)) {
+    const [k, v] = part.split(":");
+    if (k && v) metrics.set(k, v);
+  }
+  const isNet = metrics.get("AV") === "N";
+  const isLowAc = metrics.get("AC") === "L";
+  const isUnauth = metrics.get("PR") === "N";
+  const isZeroClick = metrics.get("UI") === "N";
+  const isScopeChanged = metrics.get("S") === "C";
+  const isHighCia = metrics.get("C") === "H" && metrics.get("I") === "H" && metrics.get("A") === "H";
+  const isPreAuthNet = isNet && isUnauth;
+  const isWormable = isPreAuthNet && isLowAc && isZeroClick && isHighCia;
+  const tags: MsrcCsafAttackSurfaceTag[] = [];
+  if (isPreAuthNet) tags.push("pre_auth_network");
+  if (isZeroClick) tags.push("zero_click");
+  if (isScopeChanged) tags.push("scope_changed");
+  if (isWormable) tags.push("wormable");
+
+  let kevSlaTier: MsrcCsafKevSlaTier = "monitor_90d";
+  let dueDays = 90;
+  if (exploitStatus === "exploited") {
+    kevSlaTier = "immediate_24h";
+    dueDays = 1;
+  } else if (
+    severity === "critical"
+    || (exploitStatus === "exploitation_more_likely" && isPreAuthNet)
+  ) {
+    kevSlaTier = "urgent_72h";
+    dueDays = 3;
+  } else if (
+    severity === "high"
+    || exploitStatus === "exploitation_more_likely"
+    || exploitStatus === "publicly_disclosed"
+  ) {
+    kevSlaTier = "high_14d";
+    dueDays = 14;
+  } else if (severity === "medium") {
+    kevSlaTier = "standard_30d";
+    dueDays = 30;
+  }
+
+  const vexMap: Readonly<Record<MsrcCsafExposure, MsrcCsafVexJustification>> = {
+    affected: "affected_requires_remediation",
+    mitigated: "inline_mitigations_already_exist",
+    fixed: "patched_version_deployed",
+    not_applicable: "vulnerable_code_not_in_execute_path",
+    unknown: "undetermined_evidence_gap",
+  };
+  const vexJustification = vexMap[exposure];
+
+  let riskScore = 0;
+  if (exposure !== "fixed" && exposure !== "not_applicable") {
+    const basePoints = Math.min(50, Math.max(0, baseScore * 5));
+    const exploitPoints: Readonly<Record<MsrcCsafExploitStatus, number>> = {
+      exploited: 30,
+      exploitation_more_likely: 22,
+      publicly_disclosed: 16,
+      exploitation_less_likely: 8,
+      exploitation_unlikely: 4,
+      unproven: 2,
+    };
+    let vectorPoints = 0;
+    if (isPreAuthNet) vectorPoints += 8;
+    if (isZeroClick) vectorPoints += 5;
+    if (isScopeChanged) vectorPoints += 4;
+    if (isHighCia) vectorPoints += 3;
+    const rawTotal = Math.min(100, basePoints + exploitPoints[exploitStatus] + vectorPoints);
+    const mult = exposure === "mitigated" ? 0.45 : exposure === "unknown" ? 0.75 : 1.0;
+    riskScore = Math.round(rawTotal * mult * 10) / 10;
+  }
+
+  return { tags, kevSlaTier, dueDays, vexJustification, riskScore };
+}
 
 function decodeEnum<T extends string>(
   value: string,
@@ -385,6 +503,13 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
     }
     const cveYearMatch = /^CVE-(\d{4})-/.exec(cveId);
     const year = cveYearMatch?.[1] ?? meta.initial_release_date.slice(0, 4);
+    const derived = deriveAttackSurfaceAndRisk(
+      meta.cvss_vector,
+      meta.cvss_base_score,
+      meta.severity,
+      meta.exploit_status,
+      "unknown",
+    );
     rows.push({
       cve_id: cveId,
       year,
@@ -418,6 +543,11 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
         ? "blocked"
         : "not_evaluated",
       exposure: "unknown",
+      attack_surface_tags: derived.tags,
+      kev_sla_tier: derived.kevSlaTier,
+      due_days: derived.dueDays,
+      vex_justification: derived.vexJustification,
+      risk_score: derived.riskScore,
       execution_authority: false,
     });
   }
@@ -492,8 +622,12 @@ export function filterMsrcCsafRows(
   rows: readonly MsrcCsafControlRow[],
   filters: MsrcCsafFilters,
 ): readonly MsrcCsafControlRow[] {
-  const query = filters.q.trim().toLowerCase();
-  return rows.filter((row) => {
+  const tokens = filters.q
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+  const filtered = rows.filter((row) => {
     if (filters.year && row.year !== filters.year) return false;
     if (filters.severity && row.severity !== filters.severity) return false;
     if (filters.exploit_status && row.exploit_status !== filters.exploit_status) return false;
@@ -501,24 +635,49 @@ export function filterMsrcCsafRows(
     if (filters.mapping_state && row.mapping_state !== filters.mapping_state) return false;
     if (filters.resource_type && row.primary_resource_type !== filters.resource_type) return false;
     if (filters.exposure && row.exposure !== filters.exposure) return false;
-    if (!query) return true;
-    // C32: Match product_name, existing_rule_id, candidate_action_type, and kb_article in search
-    return (
-      row.cve_id.toLowerCase().includes(query)
-      || row.title.toLowerCase().includes(query)
-      || msrcCsafDisplayTitle(row, "ko").toLowerCase().includes(query)
-      || row.advisory_tracking_id.toLowerCase().includes(query)
-      || row.advisory_title.toLowerCase().includes(query)
-      || row.primary_resource_type.toLowerCase().includes(query)
-      || (row.existing_rule_id?.toLowerCase().includes(query) ?? false)
-      || (row.candidate_action_type?.toLowerCase().includes(query) ?? false)
-      || (row.workaround_property?.toLowerCase().includes(query) ?? false)
-      || computeCvePriorityTier(row).toLowerCase() === query
-      || row.product_ids.some((pid) => pid.toLowerCase().includes(query))
-      || row.products.some((prod) => prod.product_name.toLowerCase().includes(query))
-      || row.remediations.some((rem) => rem.kb_article?.toLowerCase().includes(query) ?? false)
+    if (
+      filters.attack_surface
+      && !row.attack_surface_tags.includes(filters.attack_surface as MsrcCsafAttackSurfaceTag)
+    ) {
+      return false;
+    }
+    if (filters.kev_sla_tier && row.kev_sla_tier !== filters.kev_sla_tier) return false;
+    if (tokens.length === 0) return true;
+    // C32, V35 & TR48: Multi-token AND search across CVE, English/Korean title, product, rule, action, workaround, KB, SLA, and priority tier
+    return tokens.every(
+      (query) =>
+        row.cve_id.toLowerCase().includes(query)
+        || row.year.toLowerCase().includes(query)
+        || row.title.toLowerCase().includes(query)
+        || msrcCsafDisplayTitle(row, "ko").toLowerCase().includes(query)
+        || row.advisory_tracking_id.toLowerCase().includes(query)
+        || row.advisory_title.toLowerCase().includes(query)
+        || row.primary_resource_type.toLowerCase().includes(query)
+        || row.exploit_status.toLowerCase().includes(query)
+        || row.kev_sla_tier.toLowerCase().includes(query)
+        || computeCvePriorityTier(row).toLowerCase() === query
+        || (row.existing_rule_id?.toLowerCase().includes(query) ?? false)
+        || (row.candidate_action_type?.toLowerCase().includes(query) ?? false)
+        || (row.workaround_property?.toLowerCase().includes(query) ?? false)
+        || row.product_ids.some((pid) => pid.toLowerCase().includes(query))
+        || row.products.some((prod) => prod.product_name.toLowerCase().includes(query))
+        || row.remediations.some((rem) => rem.kb_article?.toLowerCase().includes(query) ?? false),
     );
   });
+  if (!filters.sort || filters.sort === "threat") {
+    return filtered;
+  }
+  const sorted = [...filtered];
+  if (filters.sort === "cvss") {
+    sorted.sort((a, b) => b.cvss_base_score - a.cvss_base_score || a.cve_id.localeCompare(b.cve_id));
+  } else if (filters.sort === "risk_score") {
+    sorted.sort((a, b) => b.risk_score - a.risk_score || b.cvss_base_score - a.cvss_base_score || a.cve_id.localeCompare(b.cve_id));
+  } else if (filters.sort === "recent") {
+    sorted.sort((a, b) => b.current_release_date.localeCompare(a.current_release_date) || a.cve_id.localeCompare(b.cve_id));
+  } else if (filters.sort === "cve") {
+    sorted.sort((a, b) => a.cve_id.localeCompare(b.cve_id));
+  }
+  return sorted;
 }
 
 export function buildMsrcCsafFacets(
@@ -532,6 +691,8 @@ export function buildMsrcCsafFacets(
   const byResourceType: Record<string, number> = {};
   const byExposure: Record<string, number> = {};
   const byEvalStatus: Record<string, number> = {};
+  const byAttackSurface: Record<string, number> = {};
+  const byKevSla: Record<string, number> = {};
   for (const row of rows) {
     byYear[row.year] = (byYear[row.year] ?? 0) + 1;
     bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
@@ -541,6 +702,10 @@ export function buildMsrcCsafFacets(
     byResourceType[row.primary_resource_type] = (byResourceType[row.primary_resource_type] ?? 0) + 1;
     byExposure[row.exposure] = (byExposure[row.exposure] ?? 0) + 1;
     byEvalStatus[row.evaluation_status] = (byEvalStatus[row.evaluation_status] ?? 0) + 1;
+    byKevSla[row.kev_sla_tier] = (byKevSla[row.kev_sla_tier] ?? 0) + 1;
+    for (const tag of row.attack_surface_tags) {
+      byAttackSurface[tag] = (byAttackSurface[tag] ?? 0) + 1;
+    }
   }
   return {
     by_year: byYear,
@@ -551,6 +716,8 @@ export function buildMsrcCsafFacets(
     by_resource_type: byResourceType,
     by_exposure: byExposure,
     by_evaluation_status: byEvalStatus,
+    by_attack_surface: byAttackSurface,
+    by_kev_sla_tier: byKevSla,
   };
 }
 
@@ -569,6 +736,9 @@ export function msrcCsafStateFromSearch(search: URLSearchParams): {
       mapping_state: search.get("mapping_state") ?? "",
       resource_type: search.get("resource_type") ?? "",
       exposure: search.get("exposure") ?? "",
+      attack_surface: search.get("attack_surface") ?? "",
+      kev_sla_tier: search.get("kev_sla_tier") ?? "",
+      sort: search.get("sort") ?? "",
       q: search.get("q") ?? "",
     },
     selected: search.get("cve"),
@@ -592,6 +762,9 @@ export function msrcCsafHref(
       mapping_state: filters.mapping_state || undefined,
       resource_type: filters.resource_type || undefined,
       exposure: filters.exposure || undefined,
+      attack_surface: filters.attack_surface || undefined,
+      kev_sla_tier: filters.kev_sla_tier || undefined,
+      sort: filters.sort || undefined,
       q: filters.q || undefined,
       cve: selected ?? undefined,
       offset: offset > 0 ? String(offset) : undefined,
@@ -656,7 +829,144 @@ export function mergeMsrcCsafProjection(
     ...baseCatalog,
     rows: baseCatalog.rows.map((row) => {
       const ov = overrides.get(row.cve_id);
-      return ov ? { ...row, evaluation_status: ov.evaluation_status, exposure: ov.exposure } : row;
+      if (!ov) return row;
+      const derived = deriveAttackSurfaceAndRisk(
+        row.cvss_vector,
+        row.cvss_base_score,
+        row.severity,
+        row.exploit_status,
+        ov.exposure,
+      );
+      return {
+        ...row,
+        evaluation_status: ov.evaluation_status,
+        exposure: ov.exposure,
+        vex_justification: derived.vexJustification,
+        risk_score: derived.riskScore,
+      };
     }),
   };
+}
+
+export interface MsrcCsafPostureSummary {
+  readonly total: number;
+  readonly exploitedCount: number;
+  readonly wormableCount: number;
+  readonly zeroClickCount: number;
+  readonly preAuthNetworkCount: number;
+  readonly criticalCount: number;
+  readonly immediate24hCount: number;
+  readonly mappedCount: number;
+}
+
+export function summarizeMsrcCsafPosture(
+  rows: readonly MsrcCsafControlRow[],
+): MsrcCsafPostureSummary {
+  let exploitedCount = 0;
+  let wormableCount = 0;
+  let zeroClickCount = 0;
+  let preAuthNetworkCount = 0;
+  let criticalCount = 0;
+  let immediate24hCount = 0;
+  let mappedCount = 0;
+  for (const row of rows) {
+    if (row.exploit_status === "exploited") exploitedCount += 1;
+    if (row.attack_surface_tags.some((tag) => tag === "wormable")) wormableCount += 1;
+    if (row.attack_surface_tags.some((tag) => tag === "zero_click")) zeroClickCount += 1;
+    if (row.attack_surface_tags.some((tag) => tag === "pre_auth_network")) preAuthNetworkCount += 1;
+    if (row.severity === "critical") criticalCount += 1;
+    if (row.kev_sla_tier === "immediate_24h") immediate24hCount += 1;
+    if (row.mapping_state === "full") mappedCount += 1;
+  }
+  return {
+    total: rows.length,
+    exploitedCount,
+    wormableCount,
+    zeroClickCount,
+    preAuthNetworkCount,
+    criticalCount,
+    immediate24hCount,
+    mappedCount,
+  };
+}
+
+function escapeCsvCell(raw: string): string {
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+export function exportMsrcCsafRowsCsv(rows: readonly MsrcCsafControlRow[]): string {
+  const header = [
+    "cve_id",
+    "year",
+    "severity",
+    "cvss_base_score",
+    "risk_score",
+    "exploit_status",
+    "kev_sla_tier",
+    "due_days",
+    "primary_resource_type",
+    "version_window",
+    "disposition",
+    "exposure",
+    "vex_justification",
+    "title",
+  ].join(",");
+  const lines = rows.map((row) =>
+    [
+      escapeCsvCell(row.cve_id),
+      escapeCsvCell(row.year),
+      escapeCsvCell(row.severity),
+      row.cvss_base_score.toFixed(1),
+      row.risk_score.toFixed(1),
+      escapeCsvCell(row.exploit_status),
+      escapeCsvCell(row.kev_sla_tier),
+      String(row.due_days),
+      escapeCsvCell(row.primary_resource_type),
+      escapeCsvCell(row.version_window),
+      escapeCsvCell(row.disposition),
+      escapeCsvCell(row.exposure),
+      escapeCsvCell(row.vex_justification),
+      escapeCsvCell(row.title),
+    ].join(","),
+  );
+  return [header, ...lines].join("\n");
+}
+
+export function exportMsrcCsafRowsJson(
+  catalog: MsrcCsafCatalog,
+  rows: readonly MsrcCsafControlRow[],
+): string {
+  return JSON.stringify(
+    {
+      schema_version: catalog.schema_version,
+      source_id: catalog.source_id,
+      source_revision: catalog.source_revision,
+      advisories_digest: catalog.advisories_digest,
+      crosswalk_digest: catalog.crosswalk_digest,
+      execution_authority: false,
+      exported_count: rows.length,
+      posture: summarizeMsrcCsafPosture(rows),
+      rows: rows.map((r) => ({
+        cve_id: r.cve_id,
+        year: r.year,
+        title: r.title,
+        severity: r.severity,
+        cvss_base_score: r.cvss_base_score,
+        risk_score: r.risk_score,
+        exploit_status: r.exploit_status,
+        kev_sla_tier: r.kev_sla_tier,
+        due_days: r.due_days,
+        attack_surface_tags: r.attack_surface_tags,
+        primary_resource_type: r.primary_resource_type,
+        version_window: r.version_window,
+        disposition: r.disposition,
+        exposure: r.exposure,
+        vex_justification: r.vex_justification,
+        execution_authority: false,
+      })),
+    },
+    null,
+    2,
+  );
 }

@@ -13,9 +13,13 @@ from fdai.core.security.csaf import (
     CsafEvidenceReceipt,
     CsafExposureStatus,
     CsafScopedResource,
+    CsafVexJustification,
     MsrcCsafAssessmentRuntime,
     MsrcCsafReviewError,
     build_csaf_review_package,
+    compute_csaf_risk_score,
+    compute_workload_posture_score,
+    csaf_posture_summary,
     csaf_review_decision,
     extract_csaf_rule_candidates,
     msrc_csaf_drift_payload,
@@ -647,3 +651,22 @@ def test_c11_to_c20_models_runtime_and_review_signal_hardening() -> None:
     cand_20001 = next(c for c in candidates if c["cve_id"] == "CVE-2026-20001")
     assert cand_20001["cvss_base_score"] == 8.8
     assert cand_20001["affected_resource_count"] == 1
+    # V07-V17: Verify VEX justification, risk score, posture score, and posture summary
+    assert f_v.vex_justification is CsafVexJustification.AFFECTED_REQUIRES_REMEDIATION
+    assert f_v.risk_score > 70.0
+    assert (
+        compute_csaf_risk_score(
+            cvss_base_score=9.8,
+            exploit_status=f_v.exploit_status,
+            exposure=CsafExposureStatus.FIXED,
+        )
+        == 0.0
+    )
+    posture_score = compute_workload_posture_score(res_v)
+    assert 0 <= posture_score <= 100
+    pkg_v = build_csaf_review_package(res_v)
+    posture = csaf_posture_summary(pkg_v)
+    assert posture["grants_authority"] is False
+    assert posture["exploited_affected_count"] >= 1
+    assert cand_20001["kev_sla_tier"] == "immediate_24h"
+    assert cand_20001["vex_justification"] == "affected_requires_remediation"
