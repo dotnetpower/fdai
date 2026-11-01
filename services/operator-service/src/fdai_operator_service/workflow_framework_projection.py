@@ -384,7 +384,7 @@ def _msrc_csaf_catalog_payload(
             )
         return dict(selected)
 
-    # C26: Support evaluation_status and exposure filters in addition to year/severity/exploit
+    # C26 & V22: Support evaluation_status, exposure, kev_sla_tier, and vex_justification filters
     filter_fields = (
         "year",
         "severity",
@@ -394,6 +394,8 @@ def _msrc_csaf_catalog_payload(
         "primary_resource_type",
         "evaluation_status",
         "exposure",
+        "kev_sla_tier",
+        "vex_justification",
     )
     filters = {
         field: request.query.get(
@@ -404,45 +406,60 @@ def _msrc_csaf_catalog_payload(
         .lower()
         for field in filter_fields
     }
-    needle = request.query.get("q", "").strip().lower()
-    # C28: Include product_ids, existing_rule_id, and candidate_action_type in text search
-    matched = [
-        item
-        for item in controls
-        if all(
+    # V23: Support attack_surface query filter (zero_click, pre_auth_network, wormable)
+    attack_surface = request.query.get("attack_surface", "").strip().lower()
+    surface_flag_map = {
+        "zero_click": "is_zero_click",
+        "pre_auth_network": "is_pre_auth_network",
+        "wormable": "is_wormable_candidate",
+    }
+    needle_tokens = [tok for tok in request.query.get("q", "").strip().lower().split() if tok]
+
+    def _matches_control(item: dict[str, object]) -> bool:
+        if not all(
             not expected or str(item.get(field, "")).lower() == expected
             for field, expected in filters.items()
-        )
-        and (
-            not needle
-            or needle
-            in "\n".join(
-                [
-                    *(
-                        str(item.get(field, ""))
-                        for field in (
-                            "cve_id",
-                            "title",
-                            "advisory_tracking_id",
-                            "advisory_title",
-                            "primary_resource_type",
-                            "existing_rule_id",
-                            "candidate_action_type",
-                        )
-                    ),
-                    *(
-                        str(pid)
-                        for pid in (
-                            cast(list[object], item["product_ids"])
-                            if isinstance(item.get("product_ids"), list)
-                            else []
-                        )
-                    ),
-                ]
-            ).lower()
-        )
-    ]
-    # C27: Sort matched controls by threat priority (exploited -> CVSS score -> cve_id)
+        ):
+            return False
+        if (
+            attack_surface in surface_flag_map
+            and item.get(surface_flag_map[attack_surface]) is not True
+        ):
+            return False
+        if not needle_tokens:
+            return True
+        # C28, V26, V27: Multi-token AND search across all identifying and crosswalk fields
+        haystack = "\n".join(
+            [
+                *(
+                    str(item.get(field, ""))
+                    for field in (
+                        "cve_id",
+                        "title",
+                        "advisory_tracking_id",
+                        "advisory_title",
+                        "primary_resource_type",
+                        "existing_rule_id",
+                        "candidate_action_type",
+                        "kev_sla_tier",
+                        "vex_justification",
+                    )
+                ),
+                *(
+                    str(pid)
+                    for pid in (
+                        cast(list[object], item["product_ids"])
+                        if isinstance(item.get("product_ids"), list)
+                        else []
+                    )
+                ),
+            ]
+        ).lower()
+        return all(tok in haystack for tok in needle_tokens)
+
+    matched = [item for item in controls if _matches_control(item)]
+    # C27 & V25: Sort matched controls by requested sort mode (threat/cvss/recent/cve/risk_score)
+    sort_mode = request.query.get("sort", "threat").strip().lower() or "threat"
     exploit_rank = {
         "exploited": 5,
         "exploitation_more_likely": 4,
@@ -451,17 +468,60 @@ def _msrc_csaf_catalog_payload(
         "exploitation_unlikely": 1,
         "unproven": 0,
     }
-    matched.sort(
-        key=lambda item: (
-            -exploit_rank.get(str(item.get("exploit_status", "")), 0),
-            -float(item.get("cvss_base_score", 0.0))
-            if isinstance(item.get("cvss_base_score"), (int, float))
-            else 0.0,
-            str(item.get("cve_id", "")),
+    if sort_mode == "cvss":
+        matched.sort(
+            key=lambda item: (
+                -float(item.get("cvss_base_score", 0.0))
+                if isinstance(item.get("cvss_base_score"), (int, float))
+                else 0.0,
+                str(item.get("cve_id", "")),
+            )
         )
-    )
-    offset = request.offset or 0
-    limit = request.limit or 100
+    elif sort_mode == "risk_score":
+        matched.sort(
+            key=lambda item: (
+                -float(item.get("risk_score", 0.0))
+                if isinstance(item.get("risk_score"), (int, float))
+                else 0.0,
+                -float(item.get("cvss_base_score", 0.0))
+                if isinstance(item.get("cvss_base_score"), (int, float))
+                else 0.0,
+                str(item.get("cve_id", "")),
+            )
+        )
+    elif sort_mode == "recent":
+        matched.sort(
+            key=lambda item: (
+                str(item.get("current_release_date", "")),
+                str(item.get("cve_id", "")),
+            ),
+            reverse=True,
+        )
+    elif sort_mode == "cve":
+        matched.sort(key=lambda item: str(item.get("cve_id", "")))
+    else:
+        matched.sort(
+            key=lambda item: (
+                -exploit_rank.get(str(item.get("exploit_status", "")), 0),
+                -float(item.get("cvss_base_score", 0.0))
+                if isinstance(item.get("cvss_base_score"), (int, float))
+                else 0.0,
+                str(item.get("cve_id", "")),
+            )
+        )
+    # V28, V29, V30: Clamp offset/limit bounds and include active_filters + VEX/SLA facets
+    offset = max(0, request.offset or 0)
+    limit = max(1, min(500, request.limit or 100))
+    active_filters = {
+        k: v
+        for k, v in {
+            **filters,
+            "attack_surface": attack_surface,
+            "q": " ".join(needle_tokens),
+            "sort": sort_mode if sort_mode != "threat" else "",
+        }.items()
+        if v
+    }
     response: dict[str, object] = {
         "schema_version": str(stored.get("schema_version") or "1.0.0"),
         "source_id": "msrc_csaf",
@@ -473,6 +533,7 @@ def _msrc_csaf_catalog_payload(
         "filtered_total": len(matched),
         "offset": offset,
         "limit": limit,
+        "active_filters": active_filters,
         "facets": {
             "by_year": _wara_counts(controls, "year"),
             "by_severity": _wara_counts(controls, "severity"),
@@ -482,6 +543,8 @@ def _msrc_csaf_catalog_payload(
             "by_resource_type": _wara_counts(controls, "primary_resource_type"),
             "by_evaluation_status": _wara_counts(controls, "evaluation_status"),
             "by_exposure": _wara_counts(controls, "exposure"),
+            "by_kev_sla_tier": _wara_counts(controls, "kev_sla_tier"),
+            "by_vex_justification": _wara_counts(controls, "vex_justification"),
         },
         "controls": [dict(item) for item in matched[offset : offset + limit]],
     }

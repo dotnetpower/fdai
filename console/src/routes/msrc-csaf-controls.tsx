@@ -18,10 +18,13 @@ import {
   EMPTY_MSRC_CSAF_FILTERS,
   PINNED_MSRC_CSAF_CATALOG,
   buildMsrcCsafFacets,
+  exportMsrcCsafRowsCsv,
+  exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
   mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
+  summarizeMsrcCsafPosture,
   type MsrcCsafCatalog,
   type MsrcCsafControlRow,
   type MsrcCsafExploitStatus,
@@ -30,6 +33,7 @@ import {
 } from "./msrc-csaf-controls.model";
 import {
   buildMsrcCsafGuidance,
+  inferCweCategory,
   msrcCsafDisplayTitle,
   parseCvssVector,
 } from "./msrc-csaf-guidance";
@@ -148,8 +152,9 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
     [catalog.rows, selected],
   );
 
-  const exploitedCount = catalog.rows.filter((r) => r.exploit_status === "exploited").length;
-  const mappedCount = catalog.rows.filter((r) => r.mapping_state === "full").length;
+  const posture = useMemo(() => summarizeMsrcCsafPosture(catalog.rows), [catalog.rows]);
+  const exploitedCount = posture.exploitedCount;
+  const mappedCount = posture.mappedCount;
   const blockedCount = catalog.rows.filter((r) => r.evaluation_status === "blocked").length;
   const evaluatedCount = catalog.rows.filter((r) => r.evaluation_status === "evaluated").length;
   const hasActiveFilters = Boolean(
@@ -160,13 +165,27 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
     || filters.mapping_state
     || filters.resource_type
     || filters.exposure
+    || filters.attack_surface
+    || filters.kev_sla_tier
+    || filters.sort
     || filters.q,
   );
   const facet = (name: string) => facets[name] ?? {};
 
+  function triggerDownload(filename: string, content: string, mime: string): void {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   usePublishViewContext(
     () => {
       const selectedGuidance = selectedRow ? buildMsrcCsafGuidance(selectedRow, catalog.source_revision) : null;
+      const selectedCwe = selectedRow ? inferCweCategory(selectedRow.title) : null;
       const locale = getLocale();
       return {
         routeId: "rules",
@@ -180,17 +199,24 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
         facts: [
           { key: "total_cves", value: catalog.rows.length, group: "catalog" },
           { key: "exploited_cves", value: exploitedCount, group: "catalog" },
+          { key: "wormable_cves", value: posture.wormableCount, group: "catalog" },
+          { key: "zero_click_cves", value: posture.zeroClickCount, group: "catalog" },
+          { key: "immediate_24h_cves", value: posture.immediate24hCount, group: "catalog" },
           { key: "mapped_cves", value: mappedCount, group: "catalog" },
           { key: "blocked_cves", value: blockedCount, group: "catalog" },
           { key: "filtered_cves", value: filteredRows.length, group: "filter" },
-          // C40: Publish selected_year and selected_exposure facts to Deck context
-          ...(selectedRow && selectedGuidance
+          // C40 & V48: Publish selected_year, exposure, SLA, VEX, risk score, and CWE facts to Deck context
+          ...(selectedRow && selectedGuidance && selectedCwe
             ? [
                 { key: "selected_cve", value: selectedRow.cve_id, group: "selection" },
                 { key: "selected_year", value: selectedRow.year, group: "selection" },
                 { key: "selected_title", value: msrcCsafDisplayTitle(selectedRow, locale), group: "selection" },
                 { key: "selected_cvss", value: selectedRow.cvss_base_score, group: "selection" },
+                { key: "selected_risk_score", value: selectedRow.risk_score, group: "selection" },
                 { key: "selected_exploit_status", value: selectedRow.exploit_status, group: "selection" },
+                { key: "selected_kev_sla_tier", value: selectedRow.kev_sla_tier, group: "selection" },
+                { key: "selected_vex_justification", value: selectedRow.vex_justification, group: "selection" },
+                { key: "selected_cwe", value: selectedCwe.cweId, group: "selection" },
                 { key: "selected_exposure", value: selectedRow.exposure, group: "selection" },
                 { key: "selected_resource_type", value: selectedRow.primary_resource_type, group: "selection" },
                 { key: "selected_version_window", value: selectedRow.version_window, group: "selection" },
@@ -375,6 +401,20 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
             displayGroup="msrcCsafExposure"
             onChange={(value) => updateFilter({ exposure: value })}
           />
+          <FacetSelect
+            label={t("governance.rules.msrcCsaf.filter.attackSurface")}
+            value={filters.attack_surface}
+            counts={facet("by_attack_surface")}
+            displayGroup="msrcCsafAttackSurface"
+            onChange={(value) => updateFilter({ attack_surface: value })}
+          />
+          <FacetSelect
+            label={t("governance.rules.msrcCsaf.filter.kevSlaTier")}
+            value={filters.kev_sla_tier}
+            counts={facet("by_kev_sla_tier")}
+            displayGroup="msrcCsafSla"
+            onChange={(value) => updateFilter({ kev_sla_tier: value })}
+          />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.msrcCsaf.filter.searchAria")}</span>
             <input
@@ -410,6 +450,34 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
             })}
           </p>
           <div class="pager">
+            <button
+              type="button"
+              class="btn"
+              style={{ minHeight: 44 }}
+              onClick={() =>
+                triggerDownload(
+                  `msrc-csaf-${catalog.source_revision}.csv`,
+                  exportMsrcCsafRowsCsv(filteredRows),
+                  "text/csv;charset=utf-8",
+                )
+              }
+            >
+              {t("governance.rules.msrcCsaf.result.exportCsv")}
+            </button>
+            <button
+              type="button"
+              class="btn"
+              style={{ minHeight: 44 }}
+              onClick={() =>
+                triggerDownload(
+                  `msrc-csaf-${catalog.source_revision}.json`,
+                  exportMsrcCsafRowsJson(catalog, filteredRows),
+                  "application/json;charset=utf-8",
+                )
+              }
+            >
+              {t("governance.rules.msrcCsaf.result.exportJson")}
+            </button>
             <button
               type="button"
               class="btn"
@@ -475,6 +543,7 @@ function MsrcCsafDrawer({
   const locale = getLocale();
   const guidance = useMemo(() => buildMsrcCsafGuidance(row, sourceRevision), [row, sourceRevision]);
   const cvssDimensions = useMemo(() => parseCvssVector(row.cvss_vector), [row.cvss_vector]);
+  const cweCategory = useMemo(() => inferCweCategory(row.title), [row.title]);
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -561,6 +630,17 @@ function MsrcCsafDrawer({
                   kind={EXPOSURE_PILL[row.exposure]}
                   label={displayValue("msrcCsafExposure", row.exposure)}
                 />
+                <StatusPill
+                  kind={row.kev_sla_tier === "immediate_24h" || row.kev_sla_tier === "urgent_72h" ? "danger" : "warning"}
+                  label={displayValue("msrcCsafSla", row.kev_sla_tier)}
+                />
+                {row.attack_surface_tags.map((tag) => (
+                  <StatusPill
+                    key={tag}
+                    kind={tag === "wormable" || tag === "pre_auth_network" ? "danger" : "warning"}
+                    label={displayValue("msrcCsafAttackSurface", tag)}
+                  />
+                ))}
               </div>
               <p>{t("governance.rules.msrcCsaf.detail.boundary")}</p>
               {cvssDimensions.length > 0 ? (
@@ -582,6 +662,10 @@ function MsrcCsafDrawer({
               <dl class="detail-grid">
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.trackingId")} value={row.advisory_tracking_id} mono />
                 <DetailRow label={t("governance.rules.msrcCsaf.filter.year")} value={row.year} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.cweCategory")} value={guidanceText(cweCategory.label, locale)} />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.riskScore")} value={`${row.risk_score.toFixed(1)} / 100`} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.kevSla")} value={`${displayValue("msrcCsafSla", row.kev_sla_tier)} (${row.due_days}d)`} />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.vexJustification")} value={displayValue("msrcCsafVex", row.vex_justification)} />
                 <DetailRow label={t("governance.rules.msrcCsaf.detail.sourceRevision")} value={sourceRevision} mono />
                 <DetailRow
                   label={t("governance.rules.msrcCsaf.detail.cvssVector")}

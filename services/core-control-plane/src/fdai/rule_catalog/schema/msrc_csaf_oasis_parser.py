@@ -345,6 +345,38 @@ def parse_oasis_csaf_bytes(
     for vuln_item in vulns_raw:
         if not isinstance(vuln_item, Mapping):
             raise CsafSchemaError("OASIS CSAF vulnerability item MUST be an object")
+        # V11 & V12: Validate optional notes and references on OASIS CSAF vulnerability items
+        notes_raw = vuln_item.get("notes")
+        fallback_title = ""
+        if notes_raw is not None:
+            if not isinstance(notes_raw, list):
+                raise CsafSchemaError("OASIS CSAF vulnerability.notes MUST be a list")
+            for note_item in notes_raw:
+                if not isinstance(note_item, Mapping):
+                    raise CsafSchemaError("OASIS CSAF note entry MUST be an object")
+                note_cat = note_item.get("category")
+                if note_cat is not None and note_cat not in {
+                    "description",
+                    "summary",
+                    "general",
+                    "faq",
+                    "legal_disclaimer",
+                    "details",
+                }:
+                    raise CsafSchemaError(f"invalid OASIS CSAF note category {note_cat!r}")
+                note_text = str(note_item.get("text") or note_item.get("title") or "").strip()
+                if note_text and not fallback_title:
+                    fallback_title = note_text[:240]
+        refs_raw = vuln_item.get("references")
+        if refs_raw is not None:
+            if not isinstance(refs_raw, list):
+                raise CsafSchemaError("OASIS CSAF vulnerability.references MUST be a list")
+            for ref_item in refs_raw:
+                if not isinstance(ref_item, Mapping):
+                    raise CsafSchemaError("OASIS CSAF reference entry MUST be an object")
+                ref_url = str(ref_item.get("url") or "").strip()
+                if not ref_url.startswith("https://") or any(ord(ch) < 32 for ch in ref_url):
+                    raise CsafSchemaError("OASIS CSAF reference url MUST be a valid https:// URL")
         status = vuln_item.get("product_status")
         if not isinstance(status, Mapping):
             raise CsafSchemaError("OASIS CSAF vulnerability.product_status is required")
@@ -360,7 +392,7 @@ def parse_oasis_csaf_bytes(
         vulnerabilities.append(
             CsafVulnerabilityRecord(
                 cve_id=str(vuln_item.get("cve") or ""),
-                title=str(vuln_item.get("title") or ""),
+                title=str(vuln_item.get("title") or fallback_title),
                 cvss_base_score=base_score,
                 cvss_temporal_score=temporal_score,
                 cvss_vector=vector,

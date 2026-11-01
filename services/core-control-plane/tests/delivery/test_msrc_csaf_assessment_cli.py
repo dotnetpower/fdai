@@ -15,6 +15,7 @@ from fdai.delivery.msrc_csaf_assessment_cli import (
     MsrcCsafAssessmentRunner,
     build_msrc_csaf_operator_projection,
     build_msrc_csaf_state_store_record,
+    filter_actionable_findings,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -73,6 +74,17 @@ def test_runner_evaluates_9058_cves_and_builds_shadow_operator_projection() -> N
     state_key, state_record = build_msrc_csaf_state_store_record(receipt)
     assert state_key == "runtime:msrc-csaf-review:payments-prod"
     assert state_record["package"] == receipt.review_package
+
+    # V19-V21: Verify actionable finding filter and expanded summary
+    exploited_findings = filter_actionable_findings(
+        receipt.assessment,
+        min_risk_score=70.0,
+        exploited_only=True,
+    )
+    assert any(f.cve_id == "CVE-2026-20001" for f in exploited_findings)
+    assert "by_kev_sla_tier" in proj["summary"]
+    assert aks_row["kev_sla_tier"] == "immediate_24h"
+    assert aks_row["vex_justification"] == "affected_requires_remediation"
 
     static_proj = build_msrc_csaf_operator_projection(catalog, None)
     assert static_proj["evaluation_source"] == "repository-catalog"

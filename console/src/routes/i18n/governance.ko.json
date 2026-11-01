@@ -774,12 +774,16 @@
         "disposition": "처분 유형",
         "mappingState": "매핑 상태",
         "resourceType": "리소스 유형",
+        "attackSurface": "공격 표면",
+        "kevSlaTier": "조치 기한 SLA",
         "searchAria": "MSRC CSAF 권고문 필터링",
         "searchPlaceholder": "CVE, 권고 ID, 제품 ID 또는 제목 검색"
       },
       "result": {
         "showing": "필터 결과 {filtered}개(전체 {total}개) 중 {start}-{end} 표시",
-        "empty": "선택한 필터와 일치하는 MSRC CSAF 취약점이 없습니다"
+        "empty": "선택한 필터와 일치하는 MSRC CSAF 취약점이 없습니다",
+        "exportCsv": "CSV 내보내기",
+        "exportJson": "JSON 내보내기"
       },
       "detail": {
         "aria": "MSRC CSAF 취약점 세부 정보",
@@ -787,6 +791,10 @@
         "boundary": "변경을 실행하지 않는 shadow 전용 취약점 교차표입니다. 권고문 등록만으로 승인이나 실행 권한이 부여되지 않으며, 리소스 버전 속성이 없거나 미검증된 경우 안전하게 알 수 없음(Unknown)으로 판정합니다.",
         "advisorySection": "OASIS CSAF 2.0 권고문 출처 이력",
         "trackingId": "권고문 추적 ID",
+        "cweCategory": "CWE 약점 분류",
+        "riskScore": "복합 위험도 점수",
+        "kevSla": "권장 조치 기한 SLA",
+        "vexJustification": "OpenVEX 판정 근거",
         "sourceRevision": "소스 리비전",
         "cvssVector": "CVSS v3.1 벡터",
         "initialRelease": "최초 배포 시각",
@@ -824,6 +832,27 @@
       "fixed": "패치 완료 (Fixed)",
       "not_applicable": "해당 없음",
       "unknown": "알 수 없음"
+    },
+    "msrcCsafAttackSurface": {
+      "pre_auth_network": "무인증 원격 (Pre-Auth Network)",
+      "zero_click": "제로클릭 (Zero-Click)",
+      "scope_changed": "경계 확장 (Scope Changed)",
+      "wormable": "워머블 원격 실행 (Wormable)"
+    },
+    "msrcCsafSla": {
+      "immediate_24h": "즉시 조치 (24시간 이내)",
+      "urgent_72h": "긴급 조치 (72시간 이내)",
+      "high_14d": "신속 조치 (14일 이내)",
+      "standard_30d": "정기 조치 (30일 이내)",
+      "monitor_90d": "모니터링 (90일 이내)"
+    },
+    "msrcCsafVex": {
+      "component_not_present": "구성요소 미설치",
+      "vulnerable_code_not_in_execute_path": "취약 버전 구간 외 실행",
+      "inline_mitigations_already_exist": "임시 완화(Workaround) 적용됨",
+      "patched_version_deployed": "패치 완료 버전 배포됨",
+      "affected_requires_remediation": "취약 상태 - 패치 조치 필요",
+      "undetermined_evidence_gap": "판정 보류 - 관측 증적 부족"
     },
     "waraLimitation": {
       "missing_exact_evaluator": "이 권고에 정확히 연결된 평가기가 없습니다.",

@@ -6,12 +6,15 @@ import {
   PINNED_MSRC_CSAF_RAW,
   buildMsrcCsafFacets,
   decodeMsrcCsafCatalog,
+  exportMsrcCsafRowsCsv,
+  exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
   mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
+  summarizeMsrcCsafPosture,
 } from "./msrc-csaf-controls.model";
-import { msrcCsafDisplayTitle, parseCvssVector } from "./msrc-csaf-guidance";
+import { inferCweCategory, msrcCsafDisplayTitle, parseCvssVector } from "./msrc-csaf-guidance";
 
 describe("msrc-csaf-controls model", () => {
   it("stays synchronized with the repository-pinned MSRC CSAF crosswalk catalog", () => {
@@ -185,5 +188,40 @@ describe("msrc-csaf-controls model", () => {
     expect(dims.map((d) => d.code)).toContain("E:F");
     expect(dims.map((d) => d.code)).toContain("RL:O");
     expect(dims.map((d) => d.code)).toContain("RC:C");
+  });
+
+  it("computes attack-surface tags, KEV SLA tiers, VEX justifications, CWE categories, multi-token search, and formula-safe CSV/JSON exports (V31-V58)", () => {
+    const posture = summarizeMsrcCsafPosture(PINNED_MSRC_CSAF_CATALOG.rows);
+    expect(posture.total).toBe(9058);
+    expect(posture.exploitedCount).toBeGreaterThanOrEqual(100);
+    expect(posture.immediate24hCount).toBe(posture.exploitedCount);
+    expect(posture.zeroClickCount).toBeGreaterThan(0);
+
+    const multiMatch = filterMsrcCsafRows(PINNED_MSRC_CSAF_CATALOG.rows, {
+      ...EMPTY_MSRC_CSAF_FILTERS,
+      q: "2026 exploited aks",
+    });
+    expect(multiMatch.some((r) => r.cve_id === "CVE-2026-20001")).toBe(true);
+
+    const slaFiltered = filterMsrcCsafRows(PINNED_MSRC_CSAF_CATALOG.rows, {
+      ...EMPTY_MSRC_CSAF_FILTERS,
+      kev_sla_tier: "immediate_24h",
+      sort: "risk_score",
+    });
+    expect(slaFiltered.length).toBe(posture.immediate24hCount);
+
+    const cwe = inferCweCategory("Windows Kernel Elevation of Privilege Vulnerability");
+    expect(cwe.cweId).toBe("CWE-269");
+
+    const sampleRow = PINNED_MSRC_CSAF_CATALOG.rows[0]!;
+    const dangerousRow = { ...sampleRow, title: "=cmd|' /C calc'!A0" };
+    const csv = exportMsrcCsafRowsCsv([dangerousRow]);
+    expect(csv).toContain("\"'=cmd|' /C calc'!A0\"");
+
+    const exportedJson = JSON.parse(
+      exportMsrcCsafRowsJson(PINNED_MSRC_CSAF_CATALOG, [sampleRow]),
+    ) as { readonly execution_authority: boolean; readonly exported_count: number };
+    expect(exportedJson.execution_authority).toBe(false);
+    expect(exportedJson.exported_count).toBe(1);
   });
 });
