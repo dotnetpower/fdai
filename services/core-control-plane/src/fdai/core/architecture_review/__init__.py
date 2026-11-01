@@ -6,6 +6,14 @@ from .decision_receipt import (
     ArchitectureReviewDecisionReceipt,
     build_architecture_review_decision_receipt,
 )
+from .effect_closure import (
+    ArchitectureReviewActionRunLink,
+    ArchitectureReviewEffectClosureResult,
+    ArchitectureReviewEffectObservation,
+    ArchitectureReviewExpectedEffect,
+    ArchitectureReviewRecoveryRequest,
+    evaluate_architecture_review_effect_closure,
+)
 from .observation_loop import (
     ArchitectureReviewBackpressureError,
     ArchitectureReviewContextSource,
@@ -25,6 +33,7 @@ from .observation_trace import (
     ArchitectureReviewStage,
     ArchitectureReviewTraceEvent,
     ArchitectureReviewTraceObserver,
+    build_owned_architecture_review_stage_records,
     replay_architecture_review_trace,
 )
 from .projection import ArchitectureReviewProjector
@@ -63,13 +72,20 @@ __all__ = [
     "OntologyArchitectureReviewLoop",
     "ArchitectureDecisionAuthorityBasis",
     "ArchitectureDecisionOutcome",
+    "ArchitectureReviewActionRunLink",
     "ArchitectureReviewDecisionReceipt",
+    "ArchitectureReviewEffectClosureResult",
+    "ArchitectureReviewEffectObservation",
+    "ArchitectureReviewExpectedEffect",
+    "ArchitectureReviewRecoveryRequest",
     "ProductionEvidenceAttestation",
     "ProductionEvidenceBinding",
     "ProductionEvidenceProvider",
     "PRODUCTION_GATE_REF",
     "evaluate_readiness",
+    "evaluate_architecture_review_effect_closure",
     "build_architecture_review_decision_receipt",
+    "build_owned_architecture_review_stage_records",
     "replay_architecture_review_trace",
     "validate_contract",
 ]

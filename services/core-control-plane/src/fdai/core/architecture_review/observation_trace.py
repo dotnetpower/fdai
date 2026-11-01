@@ -9,7 +9,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from .observation_loop import ArchitectureReviewObservation
 
 
 class ArchitectureReviewStage(StrEnum):
@@ -65,7 +68,15 @@ _TOPIC_STAGES = {
 }
 _SNAPSHOT_STAGE_HINTS = {
     "architecture_review_context": ArchitectureReviewStage.CONTEXT,
+    "operational_context_snapshot": ArchitectureReviewStage.CONTEXT,
     "architecture_review_evidence_bundle": ArchitectureReviewStage.EVIDENCE_BUNDLE,
+    "operational_evidence_bundle": ArchitectureReviewStage.EVIDENCE_BUNDLE,
+}
+_VERDICT_STAGE_HINTS = {
+    "architecture_review_scenario_branch": ArchitectureReviewStage.SCENARIO_BRANCH,
+    "architecture_review_decision_case": ArchitectureReviewStage.DECISION_CASE,
+    "architecture_review_impact_envelope": ArchitectureReviewStage.IMPACT_ENVELOPE,
+    "architecture_review_recommendation": ArchitectureReviewStage.RECOMMENDATION,
 }
 _DEFAULT_TRACE_DEADLINE = timedelta(minutes=5)
 _TERMINAL_OBSERVER_STATES = frozenset({"gave_up", "halted"})
@@ -288,7 +299,13 @@ class ArchitectureReviewTraceObserver:
             return ArchitectureReviewStage.CHANGE if intent_kind == "planned" else None
         if topic == "object.state-snapshot":
             snapshot_type = str(payload.get("snapshot_type") or payload.get("kind") or "")
-            return _SNAPSHOT_STAGE_HINTS.get(snapshot_type)
+            if (stage := _SNAPSHOT_STAGE_HINTS.get(snapshot_type)) is not None:
+                return stage
+            if isinstance(payload.get("context_snapshot"), Mapping):
+                return ArchitectureReviewStage.CONTEXT
+            if isinstance(payload.get("evidence_bundle"), Mapping):
+                return ArchitectureReviewStage.EVIDENCE_BUNDLE
+            return None
         if correlation_id not in self._contexts and _review_case_id_hint(payload) is None:
             return None
         if topic == "object.anomaly":
@@ -300,10 +317,39 @@ class ArchitectureReviewTraceObserver:
         if topic == "object.chaos-experiment":
             return ArchitectureReviewStage.RECOVERY
         if topic == "object.verdict":
-            if isinstance(payload.get("decision_case"), Mapping):
+            verdict_kind = str(payload.get("kind") or "")
+            if (verdict_stage := _VERDICT_STAGE_HINTS.get(verdict_kind)) is not None:
+                if verdict_stage is ArchitectureReviewStage.RECOMMENDATION and (
+                    not _is_conformant_recommendation(payload)
+                    or not _has_valid_projection_payload(payload, correlation_id=correlation_id)
+                ):
+                    return None
+                return verdict_stage
+            if isinstance(payload.get("impact_envelope"), Mapping) and not isinstance(
+                payload.get("decision_case"), Mapping
+            ):
+                return ArchitectureReviewStage.IMPACT_ENVELOPE
+            if (
+                isinstance(payload.get("decision_case"), Mapping)
+                and verdict_kind != "architecture_review"
+            ):
                 return ArchitectureReviewStage.DECISION_CASE
-            if "change_assessment" in payload or "operational_context" in payload:
+            if (
+                isinstance(payload.get("scenario_branch"), Mapping)
+                or "change_assessment" in payload
+                or "operational_context" in payload
+            ):
                 return ArchitectureReviewStage.SCENARIO_BRANCH
+            if (
+                (
+                    verdict_kind == "architecture_review"
+                    or isinstance(payload.get("review_case_projection"), Mapping)
+                    or _non_empty_string(payload.get("derived_review_case_id")) is not None
+                )
+                and _is_conformant_recommendation(payload)
+                and _has_valid_projection_payload(payload, correlation_id=correlation_id)
+            ):
+                return ArchitectureReviewStage.RECOMMENDATION
             return None
         if topic == "object.audit-entry" and payload.get("audited_topic") == "object.verdict":
             return ArchitectureReviewStage.AUDIT
@@ -586,13 +632,305 @@ def _looks_like_sha256(value: str) -> bool:
 
 def _is_conformant_recommendation(payload: Mapping[str, object]) -> bool:
     risk_verdict = str(payload.get("risk_verdict") or "")
-    decision = str(payload.get("decision") or payload.get("outcome") or "")
+    decision = str(
+        payload.get("decision") or payload.get("outcome") or payload.get("recommendation") or ""
+    )
     return risk_verdict == "auto" or decision in {
         "approved",
         "conditional",
         "conformant",
+        "conformant_observation",
         "ready",
     }
+
+
+def _has_valid_projection_payload(
+    payload: Mapping[str, object],
+    *,
+    correlation_id: str,
+) -> bool:
+    del correlation_id
+    projection = payload.get("review_case_projection")
+    if projection is None:
+        return True
+    if not isinstance(projection, Mapping):
+        return False
+    expected_case_id = _review_case_id_hint(payload) or _non_empty_string(
+        payload.get("derived_review_case_id")
+    )
+    if expected_case_id is not None and str(projection.get("id") or "") != expected_case_id:
+        return False
+    derived_id = _non_empty_string(payload.get("derived_review_case_id"))
+    if derived_id is not None and str(projection.get("id") or "") != derived_id:
+        return False
+    expected_target = _non_empty_string(payload.get("target_ref"))
+    if expected_target is not None and str(projection.get("scope_ref") or "") != expected_target:
+        return False
+    return _is_conformant_recommendation({"decision": str(projection.get("status") or "")})
+
+
+def _is_valid_projected_review_case(
+    projected_review_case: Mapping[str, object] | None,
+    *,
+    resolved_case_id: str,
+    target_ref: str,
+    recommendation: str,
+) -> bool:
+    if projected_review_case is None:
+        return False
+    return (
+        str(projected_review_case.get("id") or "") == resolved_case_id
+        and str(projected_review_case.get("scope_ref") or "") == target_ref
+        and str(projected_review_case.get("workflow_ref") or "") == "architecture-review"
+        and str(projected_review_case.get("status") or "") == recommendation
+    )
+
+
+def build_owned_architecture_review_stage_records(
+    observation: ArchitectureReviewObservation,
+    *,
+    deadline_at: datetime | None = None,
+    review_case_id: str | None = None,
+    projected_review_case: Mapping[str, object] | None = None,
+    specialist_records: Mapping[ArchitectureReviewStage, Mapping[str, object]] | None = None,
+    audit_record: Mapping[str, object] | None = None,
+) -> tuple[tuple[str, dict[str, object]], ...]:
+    """Emit distinct owned-topic records without synthesizing missing stages."""
+
+    resolved_case_id = review_case_id or f"arb-review:{observation.change_id}"
+    base_time = (
+        observation.context.recorded_at
+        if observation.context is not None
+        else datetime.fromtimestamp(0, tz=UTC)
+    )
+    resolved_deadline = deadline_at or (base_time + _DEFAULT_TRACE_DEADLINE)
+    base_meta = {
+        "correlation_id": observation.correlation_id,
+        "review_case_id": resolved_case_id,
+        "deadline_at": resolved_deadline.isoformat(),
+    }
+    records: list[tuple[str, dict[str, object]]] = []
+
+    change_payload: dict[str, object] = {
+        **base_meta,
+        "producer_principal": "Huginn",
+        "id": resolved_case_id,
+        "change_id": observation.change_id,
+        "target_ref": observation.target_ref,
+        "intent_kind": "planned",
+        "occurred_at": base_time.isoformat(),
+        "observed_at": (base_time + timedelta(seconds=1)).isoformat(),
+        "idempotency_key": f"{observation.idempotency_key}:change",
+        "change_digest": observation.change_digest,
+    }
+    records.append(("object.change", change_payload))
+
+    if observation.context is not None:
+        ctx = observation.context
+        records.append(
+            (
+                "object.state-snapshot",
+                {
+                    **base_meta,
+                    "producer_principal": "Muninn",
+                    "snapshot_type": "architecture_review_context",
+                    "observed_at": (base_time + timedelta(seconds=2)).isoformat(),
+                    "idempotency_key": f"{observation.idempotency_key}:context:{ctx.snapshot_id}",
+                    "context_snapshot": {
+                        "snapshot_id": ctx.snapshot_id,
+                        "target_resource_id": ctx.target_resource_id,
+                        "cutoff": ctx.cutoff.isoformat(),
+                        "recorded_at": ctx.recorded_at.isoformat(),
+                        "objective_ids": list(ctx.objective_ids),
+                    },
+                },
+            )
+        )
+
+    for index, stage in enumerate(
+        (
+            ArchitectureReviewStage.RELIABILITY,
+            ArchitectureReviewStage.COST,
+            ArchitectureReviewStage.CAPACITY,
+            ArchitectureReviewStage.RECOVERY,
+        ),
+        start=3,
+    ):
+        if specialist_records is not None and stage in specialist_records:
+            topic, producer = _STAGE_BINDINGS[stage]
+            supplied = dict(specialist_records[stage])
+            records.append(
+                (
+                    topic,
+                    {
+                        **base_meta,
+                        "producer_principal": str(supplied.get("producer_principal") or producer),
+                        "observed_at": str(
+                            supplied.get("observed_at")
+                            or (base_time + timedelta(seconds=index)).isoformat()
+                        ),
+                        "idempotency_key": str(
+                            supplied.get("idempotency_key")
+                            or f"{observation.idempotency_key}:{stage.value}"
+                        ),
+                        **{
+                            key: value
+                            for key, value in supplied.items()
+                            if key
+                            not in {
+                                "correlation_id",
+                                "review_case_id",
+                                "deadline_at",
+                                "producer_principal",
+                                "observed_at",
+                                "idempotency_key",
+                            }
+                        },
+                    },
+                )
+            )
+
+    if observation.evidence is not None:
+        bundle = observation.evidence.bundle
+        records.append(
+            (
+                "object.state-snapshot",
+                {
+                    **base_meta,
+                    "producer_principal": "Muninn",
+                    "snapshot_type": "architecture_review_evidence_bundle",
+                    "observed_at": (base_time + timedelta(seconds=7)).isoformat(),
+                    "idempotency_key": f"{observation.idempotency_key}:evidence:{bundle.digest}",
+                    "evidence_bundle": {
+                        "digest": bundle.digest,
+                        "purpose": bundle.purpose,
+                        "scope": list(bundle.scope),
+                        "cutoff": bundle.cutoff.isoformat(),
+                        "hold_required": bundle.hold_required,
+                    },
+                },
+            )
+        )
+
+    if observation.scenario is not None:
+        scenario = observation.scenario
+        records.append(
+            (
+                "object.verdict",
+                {
+                    **base_meta,
+                    "producer_principal": "Forseti",
+                    "kind": "architecture_review_scenario_branch",
+                    "observed_at": (base_time + timedelta(seconds=8)).isoformat(),
+                    "idempotency_key": (
+                        f"{observation.idempotency_key}:scenario:{scenario.scenario_digest}"
+                    ),
+                    "scenario_branch": {
+                        "branch_id": scenario.branch_id,
+                        "scenario_digest": scenario.scenario_digest,
+                    },
+                },
+            )
+        )
+
+    if observation.decision_case is not None:
+        case = observation.decision_case
+        records.append(
+            (
+                "object.verdict",
+                {
+                    **base_meta,
+                    "producer_principal": "Forseti",
+                    "kind": "architecture_review_decision_case",
+                    "observed_at": (base_time + timedelta(seconds=9)).isoformat(),
+                    "idempotency_key": (
+                        f"{observation.idempotency_key}:decision_case:{case.case_id}"
+                    ),
+                    "decision_case": {
+                        "case_id": case.case_id,
+                        "selected_option_id": "observe-only",
+                        "protected_objective_ids": list(case.protected_objective_ids),
+                    },
+                },
+            )
+        )
+
+    if observation.impact_envelope is not None:
+        envelope = observation.impact_envelope
+        records.append(
+            (
+                "object.verdict",
+                {
+                    **base_meta,
+                    "producer_principal": "Forseti",
+                    "kind": "architecture_review_impact_envelope",
+                    "observed_at": (base_time + timedelta(seconds=10)).isoformat(),
+                    "idempotency_key": (
+                        f"{observation.idempotency_key}:impact_envelope:{envelope.envelope_id}"
+                    ),
+                    "impact_envelope": {
+                        "envelope_id": envelope.envelope_id,
+                        "decision_case_id": envelope.decision_case_id,
+                        "graph_revision": envelope.graph_revision,
+                        "affected_set_digest": envelope.affected_set_digest,
+                    },
+                },
+            )
+        )
+
+    if _is_conformant_recommendation(
+        {"recommendation": observation.recommendation}
+    ) and _is_valid_projected_review_case(
+        projected_review_case,
+        resolved_case_id=resolved_case_id,
+        target_ref=observation.target_ref,
+        recommendation=observation.recommendation,
+    ):
+        assert projected_review_case is not None  # noqa: S101 - narrowed by helper above
+        projection_body = dict(projected_review_case)
+        records.append(
+            (
+                "object.verdict",
+                {
+                    **base_meta,
+                    "producer_principal": "Forseti",
+                    "kind": "architecture_review_recommendation",
+                    "observed_at": (base_time + timedelta(seconds=11)).isoformat(),
+                    "idempotency_key": f"{observation.idempotency_key}:recommendation",
+                    "target_ref": observation.target_ref,
+                    "recommendation": observation.recommendation,
+                    "derived_review_case_id": resolved_case_id,
+                    "review_case_projection": projection_body,
+                    "projection_digest": _digest(projection_body),
+                    "mutation_authority": False,
+                    "execution_authority": False,
+                },
+            )
+        )
+
+    if audit_record is not None:
+        supplied_audit = dict(audit_record)
+        records.append(
+            (
+                "object.audit-entry",
+                {
+                    **base_meta,
+                    "producer_principal": str(supplied_audit.get("producer_principal") or "Saga"),
+                    "audited_topic": str(supplied_audit.get("audited_topic") or "object.verdict"),
+                    "observed_at": str(
+                        supplied_audit.get("observed_at")
+                        or (base_time + timedelta(seconds=12)).isoformat()
+                    ),
+                    "idempotency_key": str(
+                        supplied_audit.get("idempotency_key")
+                        or f"{observation.idempotency_key}:audit"
+                    ),
+                    "mode": str(supplied_audit.get("mode") or "shadow"),
+                },
+            )
+        )
+
+    return tuple(records)
 
 
 def _json_ready(value: object) -> object:
@@ -614,5 +952,6 @@ __all__ = [
     "ArchitectureReviewTraceObserver",
     "ArchitectureReviewStage",
     "ArchitectureReviewTraceEvent",
+    "build_owned_architecture_review_stage_records",
     "replay_architecture_review_trace",
 ]
