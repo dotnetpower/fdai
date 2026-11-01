@@ -8,9 +8,11 @@ import {
   buildSevenSafeguardPlan,
   decodeMsrcCsafCatalog,
   evaluateCatalogZeroRiskAssurance,
+  evaluateMdashHarnessReadiness,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
+  isMdashCohortCve,
   mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
@@ -257,5 +259,19 @@ describe("msrc-csaf-controls model", () => {
         controls: [],
       }),
     ).toThrow(/zero_risk_assurance MUST NOT carry execution_authority/);
+
+    // M086-M095: Verify Codename MDASH 5-stage readiness and 16-CVE Patch Tuesday cohort matching
+    expect(isMdashCohortCve("CVE-2026-33827")).toBe(true);
+    expect(isMdashCohortCve("CVE-2026-33824")).toBe(true);
+    expect(isMdashCohortCve("CVE-2019-0001")).toBe(false);
+    const mdashSummary = evaluateMdashHarnessReadiness([
+      { ...sampleRow, cve_id: "CVE-2026-33827" },
+    ]);
+    expect(mdashSummary.total_languages).toBe(14);
+    expect(mdashSummary.specialized_auditors_count).toBe(105);
+    expect(mdashSummary.proving_plugins_count).toBe(5);
+    expect(mdashSummary.patch_tuesday_cohort_total).toBe(16);
+    expect(mdashSummary.catalog_matched_cohort_cves).toBe(1);
+    expect(mdashSummary.execution_authority).toBe(false);
   });
 });

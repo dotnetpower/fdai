@@ -827,6 +827,11 @@
         "idempotencyKey": "Idempotency key",
         "twoPhaseAudit": "Two-phase audit & separation of duties",
         "effectVerification": "Independent effect verification",
+        "mdashSection": "Codename MDASH 5-stage agentic harness parity (shadow)",
+        "mdashPipeline": "Pipeline stages & model panel",
+        "mdashLanguages": "Language coverage & auditors",
+        "mdashBenchmarks": "Retrospective MSRC & CyberGym benchmarks",
+        "mdashCohort": "May 2026 Patch Tuesday cohort & regions",
         "pantheonSection": "15-agent Pantheon governance bindings"
       }
     }

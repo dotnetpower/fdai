@@ -827,6 +827,11 @@
         "idempotencyKey": "멱등성 키 (Idempotency key)",
         "twoPhaseAudit": "2단계 감사 및 승인·실행 신원 분리",
         "effectVerification": "독립 효과 검증 계약",
+        "mdashSection": "Codename MDASH 5단계 에이전틱 하네스 패리티 (shadow 전용)",
+        "mdashPipeline": "5단계 파이프라인 및 멀티모델 패널",
+        "mdashLanguages": "언어 지원 범위 및 특화 감사 에이전트",
+        "mdashBenchmarks": "MSRC 회고 재현율 및 CyberGym 벤치마크",
+        "mdashCohort": "2026년 5월 정기 패치 코호트 및 리전 주권",
         "pantheonSection": "15인 에이전트 판테온 거버넌스 연결"
       }
     }
