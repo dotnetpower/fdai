@@ -1,5 +1,6 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
+import msrcCsafCatalogJson from "./msrc-csaf-catalog.json";
 import {
   panelArray,
   panelBoolean,
@@ -389,216 +390,7 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
   };
 }
 
-export const PINNED_MSRC_CSAF_RAW = {
-  schema_version: "1.0.0",
-  source_id: "msrc_csaf",
-  source_revision: "2026-10-patch-tuesday-v1",
-  advisories_digest: "sha256:f09cd216aa91e7d7fd24872681758f36d79469bd414dab314a6b7524ff2d2d48",
-  crosswalk_digest: "sha256:b898bd67514fbc9e12bc921a014ff53bbd07755d7514bff3a1fb4b66d9fe7b60",
-  product_mappings: [
-    {
-      product_id: "AZURE-AKS-1.28",
-      product_name: "Azure Kubernetes Service 1.28 Node Image",
-      disposition: "canonical",
-      canonical_resource_type: "kubernetes-cluster",
-      canonical_resource_types: ["kubernetes-cluster"],
-      provider_resource_types: ["microsoft.containerservice/managedclusters"],
-      version_property: "kubernetes_version",
-      minimum_affected_version_inclusive: "1.28.0",
-      vulnerable_version_ceiling_exclusive: "1.28.9",
-      freshness_ceiling_seconds: 86400,
-      reviewer: "fdai-maintainers",
-    },
-    {
-      product_id: "AZURE-APPLIANCE-LEGACY",
-      product_name: "Azure Legacy Appliance Firmware",
-      disposition: "unsupported",
-      canonical_resource_type: null,
-      canonical_resource_types: [],
-      provider_resource_types: ["microsoft.customproviders/resourceproviders"],
-      version_property: null,
-      minimum_affected_version_inclusive: null,
-      vulnerable_version_ceiling_exclusive: null,
-      freshness_ceiling_seconds: 86400,
-      reviewer: "fdai-maintainers",
-    },
-    {
-      product_id: "AZURE-STORAGE-TLS",
-      product_name: "Azure Storage Account TLS Configuration",
-      disposition: "canonical",
-      canonical_resource_type: "object-storage",
-      canonical_resource_types: ["object-storage"],
-      provider_resource_types: ["microsoft.storage/storageaccounts"],
-      version_property: "minimum_tls_version",
-      minimum_affected_version_inclusive: "1.0",
-      vulnerable_version_ceiling_exclusive: "1.2",
-      freshness_ceiling_seconds: 86400,
-      reviewer: "fdai-maintainers",
-    },
-  ],
-  vulnerability_mappings: [
-    {
-      cve_id: "CVE-2026-20001",
-      advisory_tracking_id: "MSRC-2026-AKS-001",
-      disposition: "new_rule_candidate",
-      mapping_state: "full",
-      product_ids: ["AZURE-AKS-1.28"],
-      existing_rule_id: null,
-      candidate_action_type: "remediate.disable-public-access",
-      workaround_property: "public_network_access_enabled",
-      workaround_expected_value: false,
-      blocked_reasons: [],
-    },
-    {
-      cve_id: "CVE-2026-20002",
-      advisory_tracking_id: "MSRC-2026-STORAGE-001",
-      disposition: "existing_rule",
-      mapping_state: "full",
-      product_ids: ["AZURE-STORAGE-TLS"],
-      existing_rule_id: "object-storage.public-access.deny",
-      candidate_action_type: "remediate.disable-public-access",
-      workaround_property: null,
-      workaround_expected_value: null,
-      blocked_reasons: [],
-    },
-    {
-      cve_id: "CVE-2026-20003",
-      advisory_tracking_id: "MSRC-2026-AKS-001",
-      disposition: "ambiguous_or_blocked",
-      mapping_state: "unmapped",
-      product_ids: ["AZURE-APPLIANCE-LEGACY"],
-      existing_rule_id: null,
-      candidate_action_type: null,
-      workaround_property: null,
-      workaround_expected_value: null,
-      blocked_reasons: ["unsupported_provider_type"],
-    },
-  ],
-  advisories: [
-    {
-      csaf_version: "2.0",
-      tracking_id: "MSRC-2026-AKS-001",
-      title: "Azure Kubernetes Service Node Image Privilege Escalation Vulnerability",
-      initial_release_date: "2026-10-13T00:00:00Z",
-      current_release_date: "2026-10-14T00:00:00Z",
-      revision_count: 2,
-      source_url: "https://msrc.microsoft.com/csaf/advisories/2026/msrc-2026-aks-001.json",
-      document_digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
-      signature_verified: true,
-      products: [
-        {
-          product_id: "AZURE-AKS-1.28",
-          name: "Azure Kubernetes Service 1.28 Node Image",
-          cpe: "cpe:/a:microsoft:azure_kubernetes_service:1.28",
-        },
-        {
-          product_id: "AZURE-APPLIANCE-LEGACY",
-          name: "Azure Legacy Appliance Firmware",
-          cpe: null,
-        },
-      ],
-      vulnerabilities: [
-        {
-          cve_id: "CVE-2026-20001",
-          title: "AKS Node Image Elevation of Privilege",
-          cvss_base_score: 8.8,
-          cvss_temporal_score: 8.2,
-          cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
-          severity: "high",
-          exploit_status: "exploited",
-          publicly_disclosed: true,
-          known_affected_product_ids: ["AZURE-AKS-1.28"],
-          fixed_product_ids: [],
-          known_not_affected_product_ids: [],
-          remediations: [
-            {
-              category: "vendor_fix",
-              product_ids: ["AZURE-AKS-1.28"],
-              details: "Upgrade AKS Kubernetes version to 1.28.9 or later.",
-              fixed_version: "1.28.9",
-              kb_article: null,
-              workaround_property: null,
-              workaround_expected_value: null,
-              recommended_action_type: "remediate.disable-public-access",
-              url: "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20001",
-            },
-            {
-              category: "workaround",
-              product_ids: ["AZURE-AKS-1.28"],
-              details: "Disable public network access on the managed cluster control plane.",
-              fixed_version: null,
-              kb_article: null,
-              workaround_property: "public_network_access_enabled",
-              workaround_expected_value: false,
-              recommended_action_type: "remediate.disable-public-access",
-              url: "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20001",
-            },
-          ],
-        },
-        {
-          cve_id: "CVE-2026-20003",
-          title: "Azure Legacy Appliance Unmapped Advisory",
-          cvss_base_score: 5.5,
-          cvss_temporal_score: null,
-          cvss_vector: "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
-          severity: "medium",
-          exploit_status: "unproven",
-          publicly_disclosed: false,
-          known_affected_product_ids: ["AZURE-APPLIANCE-LEGACY"],
-          fixed_product_ids: [],
-          known_not_affected_product_ids: [],
-          remediations: [],
-        },
-      ],
-    },
-    {
-      csaf_version: "2.0",
-      tracking_id: "MSRC-2026-STORAGE-001",
-      title: "Azure Storage Transport Security Bypass Vulnerability",
-      initial_release_date: "2026-10-13T00:00:00Z",
-      current_release_date: "2026-10-13T00:00:00Z",
-      revision_count: 1,
-      source_url: "https://msrc.microsoft.com/csaf/advisories/2026/msrc-2026-storage-001.json",
-      document_digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
-      signature_verified: true,
-      products: [
-        {
-          product_id: "AZURE-STORAGE-TLS",
-          name: "Azure Storage Account TLS Configuration",
-          cpe: "cpe:/a:microsoft:azure_storage:1.0",
-        },
-      ],
-      vulnerabilities: [
-        {
-          cve_id: "CVE-2026-20002",
-          title: "Azure Storage Legacy TLS Downgrade",
-          cvss_base_score: 9.1,
-          cvss_temporal_score: 8.7,
-          cvss_vector: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N",
-          severity: "critical",
-          exploit_status: "exploitation_more_likely",
-          publicly_disclosed: true,
-          known_affected_product_ids: ["AZURE-STORAGE-TLS"],
-          fixed_product_ids: [],
-          known_not_affected_product_ids: [],
-          remediations: [
-            {
-              category: "vendor_fix",
-              product_ids: ["AZURE-STORAGE-TLS"],
-              details: "Enforce minimum TLS version 1.2 on Storage Accounts.",
-              fixed_version: "1.2",
-              kb_article: null,
-              workaround_property: null,
-              workaround_expected_value: null,
-              recommended_action_type: "remediate.disable-public-access",
-              url: "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2026-20002",
-            },
-          ],
-        },
-      ],
-    },
-  ],
-} as const;
+export const PINNED_MSRC_CSAF_RAW: unknown = msrcCsafCatalogJson;
 
 export const PINNED_MSRC_CSAF_CATALOG: MsrcCsafCatalog = decodeMsrcCsafCatalog(PINNED_MSRC_CSAF_RAW);
 
@@ -652,7 +444,9 @@ export function buildMsrcCsafFacets(
 export function msrcCsafStateFromSearch(search: URLSearchParams): {
   readonly filters: MsrcCsafFilters;
   readonly selected: string | null;
+  readonly offset: number;
 } {
+  const rawOffset = Number.parseInt(search.get("offset") ?? "0", 10);
   return {
     filters: {
       severity: search.get("severity") ?? "",
@@ -663,12 +457,14 @@ export function msrcCsafStateFromSearch(search: URLSearchParams): {
       q: search.get("q") ?? "",
     },
     selected: search.get("cve"),
+    offset: Number.isFinite(rawOffset) && rawOffset > 0 ? rawOffset : 0,
   };
 }
 
 export function msrcCsafHref(
   filters: MsrcCsafFilters,
   selected: string | null,
+  offset = 0,
 ): string {
   return routeHref("rules", {
     params: {
@@ -681,6 +477,7 @@ export function msrcCsafHref(
       resource_type: filters.resource_type || undefined,
       q: filters.q || undefined,
       cve: selected ?? undefined,
+      offset: offset > 0 ? String(offset) : undefined,
     },
   });
 }

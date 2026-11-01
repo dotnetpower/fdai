@@ -37,8 +37,21 @@ _IDENTIFIER = r"^[a-z0-9][a-z0-9._:-]{0,255}$"
 _KB_ARTICLE = r"^KB[0-9]{6,9}$"
 _CVSS_V3_VECTOR = r"^CVSS:3\.[01](/[A-Z]+:[A-Za-z0-9.]+)+$"
 _MSRC_HTTPS_PREFIX = "https://msrc.microsoft.com/"
-_ALLOWED_REMEDIATION_HOSTS = frozenset({"msrc.microsoft.com", "learn.microsoft.com"})
-_MAX_CSAF_BYTES = 1_048_576
+_ALLOWED_REMEDIATION_HOSTS = frozenset(
+    {
+        "aka.ms",
+        "dev.azure.com",
+        "docs.azure.cn",
+        "docs.microsoft.com",
+        "github.com",
+        "learn.microsoft.com",
+        "msrc.microsoft.com",
+        "packages.microsoft.com",
+        "portal.msrc.microsoft.com",
+        "support.microsoft.com",
+    }
+)
+_MAX_CSAF_BYTES = 2_097_152
 _MAX_VULNERABILITIES_PER_ADVISORY = 128
 _MAX_PRODUCTS_PER_ADVISORY = 256
 _MAX_REMEDIATIONS_PER_VULNERABILITY = 64
@@ -50,7 +63,13 @@ class CsafSchemaError(ValueError):
     """Raised when an MSRC CSAF document or crosswalk violates safety invariants."""
 
 
-def _validate_https_url(url: str, *, allowed_hosts: frozenset[str], field_name: str) -> None:
+def _validate_https_url(
+    url: str,
+    *,
+    allowed_hosts: frozenset[str],
+    field_name: str,
+    allow_query: bool = False,
+) -> None:
     if any(ch.isspace() or ord(ch) < 32 for ch in url):
         raise ValueError(f"{field_name} MUST NOT contain whitespace or control characters")
     parsed = urlsplit(url)
@@ -61,7 +80,7 @@ def _validate_https_url(url: str, *, allowed_hosts: frozenset[str], field_name: 
         or parsed.hostname not in allowed_hosts
         or not parsed.path.startswith("/")
         or ".." in parsed.path.split("/")
-        or parsed.query
+        or (parsed.query and not allow_query)
         or parsed.fragment
     ):
         raise ValueError(f"{field_name} MUST be a clean HTTPS URL on {sorted(allowed_hosts)}")
@@ -209,6 +228,7 @@ class CsafRemediationRecord(BaseModel):
                 self.url,
                 allowed_hosts=_ALLOWED_REMEDIATION_HOSTS,
                 field_name="CSAF remediation url",
+                allow_query=True,
             )
         if (
             self.category is CsafRemediationCategory.VENDOR_FIX

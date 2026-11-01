@@ -31,23 +31,23 @@ def _sample_csaf_package(
     *, workload_id: str = "payments-prod", fixed_all: bool = False
 ) -> dict[str, object]:
     catalog = load_msrc_csaf_crosswalk_catalog(CROSSWALK_PATH)
-    # Filter out the unmapped third CVE when testing complete coverage
+    target_cves = {"CVE-2026-20001", "CVE-2026-20002"}
+    target_prods = {"AZURE-AKS-1.28", "AZURE-STORAGE-TLS"}
     active_vuln_mappings = tuple(
-        m for m in catalog.vulnerability_mappings if m.cve_id != "CVE-2026-20003"
+        m for m in catalog.vulnerability_mappings if m.cve_id in target_cves
     )
     from fdai.rule_catalog.schema.wara_assessment import canonical_digest
 
     trimmed_advisories = []
     for adv in catalog.advisories:
-        vulns = tuple(v for v in adv.vulnerabilities if v.cve_id != "CVE-2026-20003")
-        prods = tuple(p for p in adv.products if p.product_id != "AZURE-APPLIANCE-LEGACY")
-        trimmed_advisories.append(
-            adv.model_copy(update={"vulnerabilities": vulns, "products": prods})
-        )
+        vulns = tuple(v for v in adv.vulnerabilities if v.cve_id in target_cves)
+        prods = tuple(p for p in adv.products if p.product_id in target_prods)
+        if vulns and prods:
+            trimmed_advisories.append(
+                adv.model_copy(update={"vulnerabilities": vulns, "products": prods})
+            )
     adv_json = [a.model_dump(mode="json") for a in trimmed_advisories]
-    prods_filtered = tuple(
-        p for p in catalog.product_mappings if p.product_id != "AZURE-APPLIANCE-LEGACY"
-    )
+    prods_filtered = tuple(p for p in catalog.product_mappings if p.product_id in target_prods)
     raw_cat = {
         "schema_version": "1.0.0",
         "source_id": "msrc_csaf",

@@ -777,7 +777,7 @@
         "searchPlaceholder": "CVE, 권고 ID, 제품 ID 또는 제목 검색"
       },
       "result": {
-        "showing": "카탈로그화된 MSRC CSAF 취약점 전체 {total}개 중 {filtered}개 표시",
+        "showing": "필터 결과 {filtered}개(전체 {total}개) 중 {start}-{end} 표시",
         "empty": "선택한 필터와 일치하는 MSRC CSAF 취약점이 없습니다"
       },
       "detail": {
@@ -894,6 +894,7 @@
     "waraMapping": {
       "existing_rule": "기존 규칙",
       "new_rule_candidate": "새 규칙 후보",
+      "version_observation": "버전 관측",
       "manual_evidence": "수동 근거",
       "conditional_not_applicable": "조건부 해당 없음",
       "ambiguous_or_blocked": "모호하거나 차단됨",
