@@ -199,7 +199,7 @@ await_published_content() {
     if ((attempt == 60 || SECONDS >= readback_deadline)); then
       break
     fi
-    sleep 5
+    sleep 2
   done
   echo "published Console content did not converge within the readback window" >&2
   return 1

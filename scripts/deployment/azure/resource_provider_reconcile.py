@@ -314,7 +314,7 @@ def _run_parallel(
             raise subprocess.TimeoutExpired(command, 0)
         return operation(namespace, remaining)
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(namespaces))) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(namespaces))) as executor:
         futures = {namespace: executor.submit(invoke, namespace) for namespace in namespaces}
         done, pending = concurrent.futures.wait(
             tuple(futures.values()),

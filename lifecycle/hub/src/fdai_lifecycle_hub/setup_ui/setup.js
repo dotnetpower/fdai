@@ -100,6 +100,8 @@
     dbPostgresAks: "In-cluster AKS PostgreSQL (non-production)",
     dbHelp: "Managed PostgreSQL Flexible Server with pgvector and per-service roles.",
     stageColTitle: "STAGE", stageColTiming: "START ~ END · DURATION",
+    configSummaryTitle: "✓ Target & connection summary",
+    showConfigForm: "Show settings ⌄", hideConfigForm: "Hide settings ⌃",
   };
   const ko = {
     skip: "설정으로 이동", local: "로컬 설치 설정", language: "언어", eyebrow: "설치",
@@ -196,6 +198,8 @@
     dbPostgresAks: "AKS 클러스터 내부 PostgreSQL (비프로덕션)",
     dbHelp: "pgvector 및 서비스별 최소 권한 역할이 분리된 관리형 PostgreSQL Flexible Server입니다.",
     stageColTitle: "단계 (STAGE)", stageColTiming: "시작 ~ 완료 · 소요 시간",
+    configSummaryTitle: "✓ Azure 연결 및 설치 대상 요약",
+    showConfigForm: "설정 상세 보기 ⌄", hideConfigForm: "설정 상세 접기 ⌃",
   };
   const $ = id => document.getElementById(id);
   let savedLocale = "";
@@ -408,6 +412,12 @@
         ? `생성될 리소스 그룹: ${opsRg}, ${devRg}`
         : `Target resource groups: ${opsRg}, ${devRg}`);
     }
+    if ($("config-summary-text")) {
+      const subName = status?.accounts?.[0]?.name || $("subscription")?.selectedOptions?.[0]?.textContent || "Azure";
+      const opsRg = tel?.ops_rg || `rg-${workloadVal}-ops`;
+      const devRg = tel?.dev_rg || `rg-${workloadVal}-dev`;
+      setText("config-summary-text", `${subName} · ${runtimeLabel} (${dbLabel}) · ${regionVal} · ${opsRg} / ${devRg}`);
+    }
     const opPill = $("operator-pill");
     if (opPill) {
       const user = tel?.operator_user || "";
@@ -596,6 +606,7 @@
     if ($("reset")) $("reset").disabled = !available || active || status?.phase === "ready";
     if ($("fill-confirmation")) $("fill-confirmation").disabled = !available || !reviewCurrent();
   }
+  let configFormExpanded = false;
   function updateStepper(phase) {
     const hasAccounts = Array.isArray(status?.accounts) && status.accounts.length > 0;
     const ready = connected && phase === "ready" && status?.deployment_ready === true;
@@ -611,11 +622,17 @@
       const node = $(`step-${idx + 1}`);
       if (node) node.dataset.state = st;
     });
+    const compactMode = phase === "ready" || phase === "review" ||
+      (phase === "working" && ["install", "resume"].includes(status?.action));
+    if (!compactMode) configFormExpanded = false;
+    if ($("config-summary-card")) $("config-summary-card").hidden = !compactMode;
+    if ($("config-form-wrap")) $("config-form-wrap").hidden = compactMode && !configFormExpanded;
     const workspace = document.querySelector(".workspace");
     if (workspace) {
       workspace.dataset.activeDecision = String(
         phase === "working" || phase === "review" || ["blocked", "failed", "interrupted"].includes(phase) || ready
       );
+      workspace.dataset.compactConfig = String(compactMode && !configFormExpanded);
     }
     const accountSec = $("account-section");
     if (accountSec) accountSec.dataset.connected = String(hasAccounts);
@@ -823,6 +840,18 @@
         $("copy-console-url").textContent = text("copiedConsoleUrl");
         setTimeout(() => { $("copy-console-url").textContent = text("copyConsoleUrl"); }, 1800);
       } catch { /* ignore */ }
+    });
+  }
+  if ($("toggle-config-btn") && $("config-form-wrap")) {
+    $("toggle-config-btn").addEventListener("click", () => {
+      configFormExpanded = !configFormExpanded;
+      $("config-form-wrap").hidden = !configFormExpanded;
+      const workspace = document.querySelector(".workspace");
+      if (workspace) workspace.dataset.compactConfig = String(!configFormExpanded);
+      $("toggle-config-btn").setAttribute("aria-expanded", String(configFormExpanded));
+      const key = configFormExpanded ? "hideConfigForm" : "showConfigForm";
+      $("toggle-config-btn").dataset.i18n = key;
+      $("toggle-config-btn").textContent = text(key);
     });
   }
   if ($("toggle-perm-btn") && $("perm-drawer")) {

@@ -125,8 +125,17 @@
             </div>
           </div>
         </section>
+        <section id="config-summary-card" class="perm-strip" aria-labelledby="config-summary-heading" hidden>
+          <div class="perm-strip-bar">
+            <div class="perm-strip-summary">
+              <strong id="config-summary-heading" class="check-badge" data-i18n="configSummaryTitle">✓ Target &amp; connection summary</strong>
+              <span id="config-summary-text" class="muted"></span>
+            </div>
+            <button id="toggle-config-btn" type="button" class="link-btn" aria-expanded="false" data-i18n="showConfigForm">Show form ⌄</button>
+          </div>
+        </section>
         <div class="workspace">
-          <div class="configuration">
+          <div id="config-form-wrap" class="configuration">
             <section id="account-section" aria-labelledby="account-heading">
               <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
               <p class="compact-help" data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>

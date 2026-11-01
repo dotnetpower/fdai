@@ -117,9 +117,10 @@ sessions and cross-site request forgery protection. Unknown assets and request f
 Only bounded setup metadata reaches the interface; diagnostics and credentials stay with the
 customer-side executor. The minimal wizard surfaces the authenticated operator identity, required
 Azure permission checks with progressive disclosure, explicit runtime platform (`aks` or
-`container-apps`) and database placement (`postgres-flex` or `postgres-aks`) choices, and per-stage
-start, completion, and duration telemetry across all 15 stages. Native ownership or enrollment
-cannot be inferred from local installation.
+`container-apps`) and database placement (`postgres-flex` or `postgres-aks`) choices, a compact
+target and connection summary card during active and completed phases, and per-stage start,
+completion, and duration telemetry across all 15 stages. Native ownership or enrollment cannot be
+inferred from local installation.
 
 ## Related docs
 

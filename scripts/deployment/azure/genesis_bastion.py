@@ -129,6 +129,8 @@ class BastionTunnel:
         self._stop()
 
     def _stop(self) -> None:
+        if self.port > 0:
+            (Path.home() / ".ssh" / f"fdai-mux-{self.port}").unlink(missing_ok=True)
         process = self._process
         self._process = None
         if process is None or process.poll() is not None:
@@ -225,6 +227,18 @@ class BastionTunnel:
 
     def _ssh_options(self, *, port_flag: str) -> tuple[str, ...]:
         strict = "accept-new" if self.trust_new_host_key else "yes"
+        multiplex: tuple[str, ...] = ()
+        if self._process is not None and self.port > 0:
+            ssh_dir = Path.home() / ".ssh"
+            ssh_dir.mkdir(mode=0o700, exist_ok=True)
+            multiplex = (
+                "-o",
+                "ControlMaster=auto",
+                "-o",
+                "ControlPersist=300",
+                "-o",
+                f"ControlPath={ssh_dir / f'fdai-mux-{self.port}'}",
+            )
         return (
             port_flag,
             str(self.port),
@@ -250,6 +264,7 @@ class BastionTunnel:
             "LogLevel=ERROR",
             "-o",
             "ConnectTimeout=30",
+            *multiplex,
         )
 
 

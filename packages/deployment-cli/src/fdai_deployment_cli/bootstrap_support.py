@@ -265,10 +265,47 @@ def latest_progress_message(root: Path, current: str) -> str:
         ):
             detail_line = clean
     if stage_line:
+        m_num = re.match(r"^\[(\d{2})/15\]", stage_line)
+        if m_num:
+            _record_live_stage_timing(root, int(m_num.group(1)))
         return f"{stage_line} - elapsed {elapsed}" if elapsed else stage_line
     if detail_line:
         return f"{detail_line} - elapsed {elapsed}" if elapsed else detail_line
     return current
+
+
+def _record_live_stage_timing(root: Path, active_stage: int) -> None:
+    import time
+
+    t_file = root / "executor/stage-timings.json"
+    now = time.time()
+    try:
+        data: dict[str, dict[str, float]] = {}
+        if t_file.is_file() and not t_file.is_symlink():
+            loaded = json.loads(t_file.read_bytes().decode("utf-8"))
+            if isinstance(loaded, dict):
+                data = loaded
+        changed = False
+        last_end = now
+        for prev in range(1, active_stage):
+            pk = str(prev)
+            if pk not in data or not isinstance(data.get(pk), dict):
+                data[pk] = {"start": last_end, "end": now}
+                changed = True
+            else:
+                if "end" not in data[pk]:
+                    data[pk]["end"] = now
+                    changed = True
+                last_end = float(data[pk].get("end", now))
+        key = str(active_stage)
+        if key not in data or not isinstance(data.get(key), dict):
+            data[key] = {"start": now}
+            changed = True
+        if changed:
+            t_file.write_text(json.dumps(data, sort_keys=True), encoding="utf-8")
+            t_file.chmod(0o600)
+    except (OSError, ValueError):
+        pass
 
 
 def failure_diagnostic_message(root: Path) -> str:
@@ -326,6 +363,7 @@ def reset_unapplied_installation(area: Path) -> None:
             )
     (area / "configuration.json").unlink(missing_ok=True)
     (area / "acceptance.json").unlink(missing_ok=True)
+    (area / "stage-timings.json").unlink(missing_ok=True)
     shutil.rmtree(area / "deployment", ignore_errors=True)
     shutil.rmtree(area / "pinned-source", ignore_errors=True)
 
@@ -435,12 +473,29 @@ def read_setup_telemetry(root: Path) -> dict[str, object]:
         fdir / "entra-config-claim.json"
     )
     t13_end = _file_mtime(fdir / "source-transfer.json") or t13_start
-    t14_start = _file_mtime(fdir / "source-receiver.pyz") or t13_end
+    live_timings: dict[str, dict[str, float]] = {}
+    t_file = area / "stage-timings.json"
+    try:
+        if t_file.is_file() and not t_file.is_symlink():
+            loaded_t = json.loads(t_file.read_bytes().decode("utf-8"))
+            if isinstance(loaded_t, dict):
+                live_timings = loaded_t
+    except (OSError, ValueError):
+        pass
+
+    t14_start = (
+        live_timings.get("14", {}).get("start")
+        or _file_mtime(fdir / "source-runtime-support.tar")
+        or _file_mtime(fdir / "source-receiver.pyz")
+        or t13_end
+    )
     t15_end = _file_mtime(fdir / "standalone-application-receipt.json") or _file_mtime(
         fdir / "console-publication-receipt.json"
     )
-    t15_start = _file_mtime(fdir / "source-runtime-support.tar") or _file_mtime(
-        fdir / "console-runtime-settings.json"
+    t15_start = (
+        live_timings.get("15", {}).get("start")
+        or _file_mtime(fdir / "source-console-artifact/manifest.json")
+        or _file_mtime(fdir / "console-runtime-settings.json")
     )
     t14_end = t15_start or t15_end
 
@@ -461,9 +516,18 @@ def read_setup_telemetry(root: Path) -> dict[str, object]:
         (t14_start, t14_end),
         (t15_start, t15_end),
     ]
+
     stage_timings = []
     active_seconds = 0.0
     for idx, (s_ts, e_ts) in enumerate(pairs):
+        rec = live_timings.get(str(idx + 1))
+        if isinstance(rec, dict):
+            if isinstance(rec.get("start"), int | float):
+                s_ts = float(rec["start"])
+            if isinstance(rec.get("end"), int | float):
+                e_ts = float(rec["end"])
+            elif idx == 14 and t15_end is not None and s_ts is not None and t15_end >= s_ts:
+                e_ts = t15_end
         dur = (e_ts - s_ts) if (s_ts is not None and e_ts is not None and e_ts >= s_ts) else None
         if idx in {6, 7} and s_ts is not None:
             dur = 0.0
@@ -479,6 +543,10 @@ def read_setup_telemetry(root: Path) -> dict[str, object]:
         )
 
     total_dur = _fmt_dur(active_seconds) if active_seconds > 0 else ""
+    first_start = (
+        live_timings.get("1", {}).get("start") if isinstance(live_timings.get("1"), dict) else None
+    )
+    effective_start = float(first_start) if isinstance(first_start, int | float) else t0
 
     return {
         "operator_user": operator_user,
@@ -488,7 +556,7 @@ def read_setup_telemetry(root: Path) -> dict[str, object]:
         "workload": workload,
         "ops_rg": f"rg-{workload}-ops-{short}",
         "dev_rg": f"rg-{workload}-dev-{short}",
-        "started_at": _fmt_clock(t0),
+        "started_at": _fmt_clock(effective_start),
         "completed_at": _fmt_clock(t15_end),
         "total_duration": total_dur,
         "permissions": {

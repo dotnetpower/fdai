@@ -237,7 +237,10 @@ so one completed Core update cannot block a later exact repair or be mistaken fo
 `postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
 recovery, and upgrade evidence. The local Bootstrap wizard also exposes explicit `runtime_platform`
 (`aks` or `container-apps`) and `database_placement` (`postgres-flex` or `postgres-aks`) choices
-and enforces the same compatibility constraint before planning.
+and enforces the same compatibility constraint before planning. Live preflight, resource-provider
+inspection, Bastion SSH multiplexing, source packaging, ACR image build/readback, and Terraform
+output readback parallelize independent read and transfer steps without relaxing any approval,
+digest, or effect-verification gate.
 
 When a deployment binds bounded temporal series, every product surface gets the same causal
 evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor

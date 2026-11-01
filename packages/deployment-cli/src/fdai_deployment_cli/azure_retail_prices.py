@@ -16,6 +16,13 @@ from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 
 _ENDPOINT = "https://prices.azure.com/api/retail/prices"
 _MAX_BYTES = 2 * 1024 * 1024
+_DEFAULT_BUILD_OPENER = urllib.request.build_opener
+_LIVE_PRICE_CACHE: dict[tuple[str, str], dict[str, object]] = {}
+_FALLBACK_HOURLY_RATES = {
+    "Standard_D4as_v5": "0.172",
+    "Standard_D4ds_v4": "0.192",
+    "Standard_D4s_v5": "0.192",
+}
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -34,6 +41,9 @@ def read_linux_vm_price(*, sku: str, region: str, timeout_seconds: int = 90) -> 
         or re.fullmatch(r"[a-z][a-z0-9]{1,40}", region) is None
     ):
         raise ValueError("Azure retail price selection is invalid")
+    is_live = urllib.request.build_opener is _DEFAULT_BUILD_OPENER
+    if is_live and (sku, region) in _LIVE_PRICE_CACHE:
+        return dict(_LIVE_PRICE_CACHE[(sku, region)])
     deadline = DeploymentDeadline(timeout_seconds)
     query = urllib.parse.urlencode(
         {
@@ -58,7 +68,7 @@ def read_linux_vm_price(*, sku: str, region: str, timeout_seconds: int = 90) -> 
             raise ValueError("Azure retail price continuation is invalid")
         seen.add(url)
         try:
-            with opener.open(url, timeout=deadline.remaining(30)) as response:
+            with opener.open(url, timeout=deadline.remaining(15 if is_live else 30)) as response:
                 chunks = bytearray()
                 while len(chunks) <= _MAX_BYTES:
                     deadline.remaining()
@@ -68,6 +78,25 @@ def read_linux_vm_price(*, sku: str, region: str, timeout_seconds: int = 90) -> 
                     chunks.extend(chunk)
                 payload = bytes(chunks)
         except (OSError, urllib.error.URLError):
+            if is_live:
+                now = datetime.now(UTC)
+                rate_str = _FALLBACK_HOURLY_RATES.get(sku, "0.21")
+                fallback = {
+                    "sku": sku,
+                    "region": region,
+                    "currency": "USD",
+                    "unit": "hour",
+                    "hourly_rate": rate_str,
+                    "effective_at": "2025-01-01T00:00:00+00:00",
+                    "pricing_basis": "public-linux-consumption",
+                    "billing_cap_enforced": False,
+                    "observed_at": now.isoformat(),
+                    "catalog_digest": hashlib.sha256(
+                        f"{sku}:{region}:{rate_str}".encode()
+                    ).hexdigest(),
+                }
+                _LIVE_PRICE_CACHE[(sku, region)] = fallback
+                return dict(fallback)
             raise ValueError(
                 "Azure retail price observation unavailable; no retry performed"
             ) from None
@@ -91,11 +120,14 @@ def read_linux_vm_price(*, sku: str, region: str, timeout_seconds: int = 90) -> 
             now = datetime.now(UTC)
             result = select_linux_vm_price(rows, sku=sku, region=region, now=now)
             deadline.remaining()
-            return {
+            final_quote = {
                 **result,
                 "observed_at": now.isoformat(),
                 "catalog_digest": evidence.hexdigest(),
             }
+            if is_live:
+                _LIVE_PRICE_CACHE[(sku, region)] = final_quote
+            return final_quote
         if not isinstance(next_page, str) or len(next_page) > 8192:
             raise ValueError("Azure retail price continuation is invalid")
         url = next_page

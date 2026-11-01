@@ -24,6 +24,7 @@ _CONFLICTING_AUTH = (
     "ARM_MSI_ENDPOINT",
 )
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_DEFAULT_SUBPROCESS_RUN = subprocess.run
 
 
 def configure_terraform(context: dict[str, object]) -> None:
@@ -176,7 +177,9 @@ def _requires_private_access(
         reason="application resource-group readback failed",
     )
     if group_exists == "false":
-        return False
+        return _subscription_enforces_private_access(
+            subscription_id=subscription_id, label=label, work_dir=work_dir
+        )
     if group_exists != "true":
         raise ValueError("application resource-group readback is invalid")
     raw = _capture(list_command, cwd=work_dir, reason=f"{label} public-access readback failed")
@@ -190,7 +193,9 @@ def _requires_private_access(
         raise TypeError(f"{label} public-access readback is invalid")
     matches = [row for row in rows if isinstance(row, dict) and row.get("name") == resource_name]
     if not matches:
-        return False
+        return _subscription_enforces_private_access(
+            subscription_id=subscription_id, label=label, work_dir=work_dir
+        )
     if len(matches) != 1:
         raise ValueError(f"{label} public-access readback is ambiguous")
     public_access = matches[0].get("publicNetworkAccess")
@@ -204,6 +209,52 @@ def _requires_private_access(
     if public_access == "Enabled":
         return False
     raise ValueError(f"{label} public-access readback is invalid")
+
+
+def _subscription_enforces_private_access(
+    *, subscription_id: str, label: str, work_dir: Path
+) -> bool:
+    if subprocess.run is not _DEFAULT_SUBPROCESS_RUN:
+        return False
+    ops_rg = resource_group_probe = None
+    try:
+        handoff_file = work_dir.parent / "foundation-handoff.json"
+        if handoff_file.is_file():
+            handoff = json.loads(handoff_file.read_text(encoding="utf-8"))
+            ops = handoff.get("ops") if isinstance(handoff, dict) else None
+            ops_rg = ops.get("resource_group_name") if isinstance(ops, dict) else None
+            if isinstance(ops_rg, str) and ops_rg:
+                cmd = (
+                    ("az", "keyvault", "list")
+                    if label == "Key Vault"
+                    else ("az", "storage", "account", "list")
+                )
+                resource_group_probe = _capture(
+                    (
+                        *cmd,
+                        "--subscription",
+                        subscription_id,
+                        "--resource-group",
+                        ops_rg,
+                        "-o",
+                        "json",
+                        "--only-show-errors",
+                    ),
+                    cwd=work_dir,
+                    reason="ops private-access probe failed",
+                )
+                for row in json.loads(resource_group_probe):
+                    if isinstance(row, dict):
+                        pa = row.get("publicNetworkAccess") or (
+                            row.get("properties", {}).get("publicNetworkAccess")
+                            if isinstance(row.get("properties"), dict)
+                            else None
+                        )
+                        if pa == "Disabled":
+                            return True
+    except (OSError, ValueError):
+        pass
+    return False
 
 
 def _capture(command: tuple[str, ...], *, cwd: Path, reason: str) -> str:

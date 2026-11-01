@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Hub Bootstrap
 translation_of: lifecycle-hub-bootstrap.md
-translation_source_sha: 8f5cc4c3a140779d68ed9825e9b66e0728794e84
+translation_source_sha: 428fcb4aabdfbee3eedc52610c6224b003bdda20
 translation_revised: 2026-11-01
 ---
 # Lifecycle Hub Bootstrap
@@ -113,8 +113,9 @@ Bootstrap은 사전 권한이 있는 수명 주기에 버전별 필수 업데이
 범위가 제한된 설치 메타데이터만 화면에 전달하며 진단과 자격 증명은 고객 측 실행기에 남습니다.
 미니멀 위자드 화면은 인증된 운영자 계정, 단계별 펼침이 가능한 필수 Azure 권한 검증 상태,
 런타임 플랫폼(`aks` 또는 `container-apps`) 및 데이터베이스 배치(`postgres-flex` 또는
-`postgres-aks`) 선택, 그리고 15개 각 단계의 시작·완료·소요 시간 텔레메트리를 표시합니다.
-로컬 설치만으로 네이티브 소유권이나 등록을 추정하지 않습니다.
+`postgres-aks`) 선택, 실행 및 완료 단계에서의 연결·대상 요약 카드, 그리고 15개 각 단계의
+시작·완료·소요 시간 텔레메트리를 표시합니다. 로컬 설치만으로 네이티브 소유권이나 등록을
+추정하지 않습니다.
 
 ## 관련 문서
 

@@ -153,8 +153,8 @@ main.wizard { margin-top: 24px; background: var(--setup-surface); border: 1px so
 
 /* Account & Permissions Progressive Disclosure Strip */
 .perm-strip { border: 1px solid var(--setup-rule); border-radius: 6px; background: var(--setup-shade); padding: 10px 16px; }
-.perm-strip-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.perm-strip-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 12.5px; min-width: 0; }
+.perm-strip-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.perm-strip-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; font-size: 12.5px; min-width: 0; }
 .check-badge { color: var(--setup-success); font-weight: 650; display: inline-flex; align-items: center; gap: 4px; }
 .perm-drawer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--setup-rule); display: grid; gap: 6px; font-size: 12px; }
 .perm-row { display: grid; grid-template-columns: 185px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 3px 0; }
@@ -166,6 +166,7 @@ main.wizard { margin-top: 24px; background: var(--setup-surface); border: 1px so
 .workspace { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
 .workspace[data-active-decision="true"] { grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr); }
 .workspace[data-active-decision="true"] .decision-column { order: -1; }
+.workspace[data-compact-config="true"] { grid-template-columns: minmax(0, 1fr); }
 .configuration > section, #install-form { border-top: 1px solid var(--setup-rule); padding-top: 18px; margin-bottom: 18px; }
 .configuration > section:first-child { border-top: 0; padding-top: 0; }
 .connect-grid { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; margin-top: 10px; }

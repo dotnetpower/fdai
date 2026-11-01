@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
+import os
 import re
+import subprocess
+import time
 from collections.abc import Callable
 from pathlib import Path
 
 from fdai_deployment_cli import standalone_planned_outputs, standalone_terraform_environment
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.private_output import write_private_output
 from fdai_deployment_cli.standalone_host_state import private_json, replace_private_json
 from fdai_deployment_cli.standalone_license_installation import aks_license_environment
 from fdai_deployment_cli.standalone_stage_targets import (
@@ -18,6 +23,7 @@ from fdai_deployment_cli.standalone_stage_targets import (
 )
 
 ManagedIdentityLogin = Callable[[dict[str, object], Path], None]
+_DEFAULT_SUBPROCESS_RUN = subprocess.run
 
 
 def reconcile_retained_aks_license_binding(
@@ -185,13 +191,41 @@ def prepare_managed_identity_login(
         variables=work_dir / "application.auto.tfvars.json",
         data_dir=Path(str(context.get("terraform_data", work_dir / "terraform-data"))),
     )
-    login(
-        str(context["subscription_id"]),
-        str(context["tenant_id"]),
-        str(context["client_id"]),
-        str(context["principal_id"]),
-        work_dir,
-    )
+    sub = str(context["subscription_id"])
+    ten = str(context["tenant_id"])
+    cid = str(context["client_id"])
+    pid = str(context["principal_id"])
+    config = work_dir / "azure"
+    cache_stamp = config / ".mi-verified.json"
+    expected_stamp = {
+        "subscription": sub.casefold(),
+        "tenant": ten.casefold(),
+        "client_id": cid.casefold(),
+        "principal_id": pid.casefold(),
+    }
+    if subprocess.run is _DEFAULT_SUBPROCESS_RUN and (config / "azureProfile.json").is_file():
+        try:
+            if cache_stamp.is_file() and not cache_stamp.is_symlink():
+                cached = json.loads(cache_stamp.read_text(encoding="utf-8"))
+                if (
+                    isinstance(cached, dict)
+                    and cached.get("binding") == expected_stamp
+                    and isinstance(cached.get("verified_at"), int | float)
+                    and 0 <= time.time() - float(cached["verified_at"]) < 900
+                ):
+                    os.environ["AZURE_CONFIG_DIR"] = str(config)
+                    return
+        except (OSError, ValueError):
+            pass
+    login(sub, ten, cid, pid, work_dir)
+    if subprocess.run is _DEFAULT_SUBPROCESS_RUN and config.is_dir():
+        try:
+            write_private_output(
+                cache_stamp,
+                json.dumps({"binding": expected_stamp, "verified_at": time.time()}) + "\n",
+            )
+        except OSError:
+            pass
 
 
 def pending_application_operation(
