@@ -513,9 +513,30 @@ describe("agent trajectory projection", () => {
     const groups = groupTrajectoriesForDisplay(trajectories, null, "ko");
     expect(groups).toHaveLength(2);
 
-    const cardKeyA = trajectoryCardUpdateKey(groups[0]!.primary, 2, "ko");
+    const mirrorVmA = item(5, "Saga", "audit.record", "2026-07-15T10:00:04Z", {
+      payload: {
+        kind: "normalized_ingress_retention",
+        event_type: "inventory.resource_observed",
+        resource_id: "scope-1/resource-group/rg-1/providers/microsoft.compute/virtualmachines/vm-alpha",
+        judgment_state: "retained_for_replay",
+      },
+    }, "inventory-snapshot:vm-alpha");
+    const mirrorVmB = item(6, "Saga", "audit.record", "2026-07-15T10:00:05Z", {
+      payload: {
+        kind: "normalized_ingress_retention",
+        event_type: "inventory.resource_observed",
+        resource_id: "scope-1/resource-group/rg-1/providers/microsoft.compute/virtualmachines/vm-beta",
+        judgment_state: "retained_for_replay",
+      },
+    }, "inventory-snapshot:vm-beta");
+    const mirrorTrajectories = buildAgentTrajectories([mirrorVmA, mirrorVmB], agentOf);
+    expect(trajectoryGroupKey(mirrorTrajectories[0]!, "ko"))
+      .toBe(trajectoryGroupKey(mirrorTrajectories[1]!, "ko"));
+
+    const hilPrimary = groups.find((g) => g.primary.correlationId.startsWith("hil-"))!.primary;
+    const cardKeyA = trajectoryCardUpdateKey(hilPrimary, 2, "ko");
     const cardKeyB = trajectoryCardUpdateKey(
-      { ...groups[0]!.primary, startMs: 0, endMs: 999_999 },
+      { ...hilPrimary, startMs: 0, endMs: 999_999 },
       2,
       "ko",
     );

@@ -477,5 +477,17 @@ describe("otherEntryFields - nothing stored is hidden", () => {
     const merged = mergeRetainedAuditItems(correlated, uncorrelatedBurst, 10, 3);
     expect(merged.filter((item) => item.correlation_id !== null).map((item) => item.seq)).toEqual([2, 1]);
     expect(merged.filter((item) => item.correlation_id === null)).toHaveLength(3);
+
+    const silentMirrorBurst = [
+      makeItem({
+        seq: 30,
+        actor: "Saga",
+        action_kind: "audit.record",
+        correlation_id: "inventory-snapshot:new-hash",
+        recorded_at: "2026-07-06T10:02:00Z",
+        entry: {},
+      }),
+    ];
+    expect(mergeRetainedAuditItems(correlated, silentMirrorBurst, 10, 3, true)).toBe(correlated);
   });
 });

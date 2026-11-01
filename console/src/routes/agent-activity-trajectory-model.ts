@@ -352,13 +352,26 @@ export function trajectoryGroupKey(
   trajectory: AgentTrajectory,
   locale: "en" | "ko" = getLocale(),
 ): string {
-  const mirrorStep = trajectory.steps.length === 1 ? trajectory.steps[0] : undefined;
+  const singleStep = trajectory.steps.length === 1 ? trajectory.steps[0] : undefined;
   const rawTitle = presentTrajectoryTitle(trajectory, locale);
-  const normalizedTitle =
-    mirrorStep?.actionKind === "audit.record" &&
-    mirrorStep.aggregateType === "forseti.no_rule_match"
-      ? rawTitle.replace(/\s*\(\d+(?:건)?\)$/, "")
-      : rawTitle;
+  let normalizedTitle = rawTitle;
+  if (
+    singleStep?.actionKind === "audit.record" &&
+    singleStep.aggregateType === "forseti.no_rule_match"
+  ) {
+    normalizedTitle = rawTitle.replace(/\s*\(\d+(?:건)?\)$/, "");
+  } else if (
+    singleStep &&
+    !singleStep.ruleId &&
+    (singleStep.actionKind === "audit.record" ||
+      singleStep.reason === "inventory_baseline_no_rule_match" ||
+      singleStep.reason === "no_rule_matches_resource_and_signal_type")
+  ) {
+    normalizedTitle = rawTitle.replace(
+      /\s*\([^()]+\)(?=\s+(?:인벤토리|변경 이벤트|inventory|change event))/i,
+      "",
+    );
+  }
   const outcomeKey = trajectory.latestOutcome
     ? formatOutcomeLabel(trajectory.latestOutcome, locale)
     : "";
@@ -368,12 +381,17 @@ export function trajectoryGroupKey(
 /**
  * Semantic update key for a trajectory card. Excludes elapsed duration, raw timestamps, and
  * selection state so the shared top-edge shimmer triggers only on genuine visible content updates.
+ * Passive single-step Saga audit mirrors keep a constant key so background mirror retention does
+ * not shimmer archive cards.
  */
 export function trajectoryCardUpdateKey(
   trajectory: AgentTrajectory,
   groupCount = 1,
   locale: "en" | "ko" = getLocale(),
 ): string {
+  if (trajectory.steps.length === 1 && trajectory.steps[0]?.actionKind === "audit.record") {
+    return `mirror|${trajectoryGroupKey(trajectory, locale)}`;
+  }
   return [
     presentTrajectoryTitle(trajectory, locale),
     trajectory.latestOutcome ? formatOutcomeLabel(trajectory.latestOutcome, locale) : "",
