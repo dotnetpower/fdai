@@ -685,6 +685,16 @@ describe("agents.model engagement helpers", () => {
     expect(lastHandlerDurationMsForAgent(s, "Forseti")).toBe(15);
     expect(completedHandlerCountForAgent(s, "Odin")).toBe(0);
     expect(lastHandlerDurationMsForAgent(s, "Odin")).toBeNull();
+
+    const { agentActivitySummary, recentlyCompletedAgents } = await import("./agents.model");
+    expect(agentActivitySummary(s, "Forseti")).toEqual({
+      incidentsCount: 0,
+      completedHandlerCount: 1,
+      lastDurationMs: 15,
+    });
+    expect(
+      recentlyCompletedAgents(s, 5_000, Date.parse("2026-07-12T00:00:01Z")),
+    ).toEqual(["Forseti"]);
   });
 });
 

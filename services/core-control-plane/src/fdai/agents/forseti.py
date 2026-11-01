@@ -358,6 +358,18 @@ class Forseti(
         """Bind an optional T2 reasoning advisor for unmatched events."""
         self._t2_advisor = advisor
 
+    @property
+    def t1_advisor_bound(self) -> bool:
+        return self._t1_advisor is not None
+
+    @property
+    def t2_advisor_bound(self) -> bool:
+        return self._t2_advisor is not None
+
+    @property
+    def no_rule_fold_count(self) -> int:
+        return len(self._no_rule_folds)
+
     def bind_kinetic_proposal_source(
         self,
         source: KineticActionProposalSource | None,

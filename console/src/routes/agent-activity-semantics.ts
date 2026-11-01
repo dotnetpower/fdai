@@ -209,6 +209,27 @@ export function tierOf(item: AuditItem): string | null {
   return null;
 }
 
+export function rcaOutcomeOf(item: AuditItem): string | null {
+  const outcome = item.entry["rca_outcome"];
+  return typeof outcome === "string" && outcome.trim() ? outcome.trim() : null;
+}
+
+export function citedRulesOf(item: AuditItem): readonly string[] {
+  const direct = item.entry["citing_rule_ids"];
+  if (Array.isArray(direct)) {
+    return direct.filter((rule): rule is string => typeof rule === "string" && rule.trim().length > 0);
+  }
+  const candidate = item.entry["t2_candidate"];
+  if (candidate !== null && typeof candidate === "object" && !Array.isArray(candidate)) {
+    const cited = (candidate as Record<string, unknown>)["cited_rule_ids"];
+    if (Array.isArray(cited)) {
+      return cited.filter((rule): rule is string => typeof rule === "string" && rule.trim().length > 0);
+    }
+  }
+  const ruleId = item.entry["rule_id"];
+  return typeof ruleId === "string" && ruleId.trim() ? [ruleId.trim()] : [];
+}
+
 export type AuditProvenance = "operational" | "sample";
 
 export function auditProvenanceOf(item: AuditItem): AuditProvenance {

@@ -438,5 +438,14 @@ describe("Live cockpit model", () => {
     expect(tile?.t2_skip_reason).toBe("t2_no_candidate_rules");
     expect(tile && matchesFilter(tile, "t1")).toBe(true);
     expect(tile && matchesFilter(tile, "t2")).toBe(false);
+
+    const { summarizeTierAttempts } = await import("./live.model");
+    expect(summarizeTierAttempts(state.tiles)).toEqual({
+      t1Evaluated: 1,
+      t1Reused: 0,
+      t2Evaluated: 0,
+      t2Proposed: 0,
+      t2Skipped: 1,
+    });
   });
 });
