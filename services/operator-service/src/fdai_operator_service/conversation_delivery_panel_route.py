@@ -9,6 +9,8 @@ conversation, delivery, attempt, provider, and response-text identifier.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -201,15 +203,35 @@ class ConversationDeliveryPanelRoute:
         return payload
 
 
+def _validate_non_negative_count(name: str, value: object) -> None:
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{name} MUST be a non-negative integer")
+
+
 def project_conversation_delivery_panel_payload(
     snapshot: _DeliverySnapshotLike,
     *,
     progressive: Mapping[str, object] | None = None,
+    dead_letter_count: int | None = None,
+    breaker_open_count: int | None = None,
 ) -> dict[str, object]:
     """Build the identifier-free Console payload from a delivery snapshot."""
+    _validate_non_negative_count("dead_letter_count", dead_letter_count)
+    _validate_non_negative_count("breaker_open_count", breaker_open_count)
+    _validate_non_negative_count("dead_letter_count", getattr(snapshot, "dead_letter_count", None))
+    _validate_non_negative_count(
+        "breaker_open_count", getattr(snapshot, "breaker_open_count", None)
+    )
+    if progressive is not None:
+        _validate_non_negative_count("dead_letter_count", progressive.get("dead_letter_count"))
+        _validate_non_negative_count("breaker_open_count", progressive.get("breaker_open_count"))
+
     deliveries = snapshot.deliveries
     state_counts = {state.value: 0 for state in ChannelDeliveryState}
     for record in deliveries:
+        _validate_non_negative_count("attempt_count", record.attempt_count)
         key = str(getattr(record.state, "value", record.state))
         if key not in state_counts:
             raise ValueError(f"unknown delivery state in snapshot: {key}")
@@ -247,6 +269,8 @@ def project_conversation_delivery_panel_payload(
         "progressive": None if progressive is None else dict(progressive),
     }
     _assert_identifier_free(payload)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    payload["panel_digest"] = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
     return payload
 
 

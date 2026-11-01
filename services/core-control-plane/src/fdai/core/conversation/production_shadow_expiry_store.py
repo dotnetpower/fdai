@@ -209,6 +209,17 @@ class ProductionShadowCleanupReceipt:
     active_count: int
     skipped_non_shadow_keys: int
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "evaluated_at": self.evaluated_at.astimezone(UTC).isoformat(),
+            "scanned_shadow_keys": self.scanned_shadow_keys,
+            "deleted_count": self.deleted_count,
+            "deleted_keys": list(self.deleted_keys),
+            "remaining_expired_count": self.remaining_expired_count,
+            "active_count": self.active_count,
+            "skipped_non_shadow_keys": self.skipped_non_shadow_keys,
+        }
+
 
 class ExpiringProductionShadowStore:
     """Enforce production-shadow TTL at both read and bounded-cleanup boundaries.

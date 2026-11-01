@@ -102,6 +102,8 @@ export interface DeclaredIntentReviewViewModel {
   readonly expectedRevision: number;
   readonly sourceRevision: number;
   readonly changedFieldCount: number;
+  readonly unchangedFieldCount: number;
+  readonly hasChanges: boolean;
   readonly rows: readonly DeclaredIntentDiffRowViewModel[];
 }
 
@@ -351,6 +353,8 @@ export function formatDeclaredIntentReviewViewModel(
     changeBadge: change.changed ? copy.changedBadge : copy.unchangedBadge,
   }));
   const changedFieldCount = rows.filter((row) => row.changed).length;
+  const unchangedFieldCount = rows.length - changedFieldCount;
+  const hasChanges = changedFieldCount > 0;
   const operationLabel =
     payload.operation === "add"
       ? copy.addOp
@@ -375,6 +379,8 @@ export function formatDeclaredIntentReviewViewModel(
     expectedRevision: payload.expected_revision,
     sourceRevision: payload.source_revision,
     changedFieldCount,
+    unchangedFieldCount,
+    hasChanges,
     rows,
   };
 }

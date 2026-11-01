@@ -231,7 +231,13 @@ class SkillSourceWorkflowBridge:
             ]
             revocations: list[JsonValue] = [item.to_json() for item in self._revocations]
             return self._read_result(
-                {"sources": sources, "candidates": candidates, "revocations": revocations}
+                {
+                    "sources": sources,
+                    "source_count": len(sources),
+                    "candidates": candidates,
+                    "candidate_count": len(candidates),
+                    "revocations": revocations,
+                }
             )
         if op is WorkflowOperation.SKILL_SOURCE_SEARCH:
             needle = request.query.get("q", "").strip().casefold()
@@ -312,6 +318,13 @@ class SkillSourceWorkflowBridge:
         source = self._sources.get(source_id)
         if source is None:
             raise SkillSourceProjectionError(404, "source_not_found", "skill source not found")
+        if proposal.operation is WorkflowOperation.SKILL_SOURCE_APPROVAL_PROPOSAL:
+            cid = str(proposal.payload.get("candidate_id", "")).strip()
+            candidate = self._candidates.get(cid)
+            if self._candidates and (candidate is None or candidate.source_id != source_id):
+                raise SkillSourceProjectionError(
+                    404, "candidate_not_found", "skill update candidate not found for source"
+                )
 
         digest = _payload_digest(proposal.expected_revision, proposal.payload)
         key = (proposal.operation.value, source_id, proposal.idempotency_key)

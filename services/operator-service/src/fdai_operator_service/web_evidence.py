@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import ipaddress
+import json
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -154,6 +157,49 @@ class OperatorWebSnippet:
     trusted: Literal[False] = False
 
 
+_FORBIDDEN_CITATION_HOSTS: Final[frozenset[str]] = frozenset(
+    {"localhost", "127.0.0.1", "::1", "169.254.169.254"}
+)
+
+
+def _is_forbidden_ssrf_host(host: str) -> bool:
+    normalized = host.strip().lower().rstrip(".")
+    if (
+        not normalized
+        or normalized in _FORBIDDEN_CITATION_HOSTS
+        or normalized.endswith((".localhost", ".local"))
+    ):
+        return True
+    try:
+        addr = ipaddress.ip_address(normalized)
+    except ValueError:
+        return False
+    return (
+        addr.is_loopback
+        or addr.is_link_local
+        or addr.is_unspecified
+        or addr.is_private
+        or addr.is_reserved
+        or addr.is_multicast
+    )
+
+
+def compute_citation_digest(citations: Sequence[OperatorWebCitation]) -> str:
+    """Compute a deterministic `sha256:<64 hex>` digest over resolved citations."""
+    payload = [
+        {
+            "authority": c.authority,
+            "domain": c.domain,
+            "source_hash": c.source_hash,
+            "title": c.title,
+            "url": c.url,
+        }
+        for c in citations
+    ]
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+
+
 @dataclass(frozen=True, slots=True)
 class OperatorWebCitation:
     url: str
@@ -165,8 +211,12 @@ class OperatorWebCitation:
     def __post_init__(self) -> None:
         if not is_valid_https_citation_url(self.url):
             raise ValueError(
-                "OperatorWebCitation.url MUST use https:// with no embedded credentials"
+                "OperatorWebCitation.url MUST use https:// with no credentials or SSRF host"
             )
+
+    @property
+    def citation_digest(self) -> str:
+        return compute_citation_digest((self,))
 
 
 def is_valid_https_citation_url(url: str) -> bool:
@@ -175,6 +225,7 @@ def is_valid_https_citation_url(url: str) -> bool:
     return (
         parsed.scheme.lower() == "https"
         and bool(host)
+        and not _is_forbidden_ssrf_host(host)
         and parsed.username is None
         and parsed.password is None
     )
@@ -201,6 +252,10 @@ class ComparisonRendering:
     citations: tuple[OperatorWebCitation, ...]
     dropped_candidates: tuple[tuple[str, str], ...] = ()
 
+    @property
+    def citation_digest(self) -> str:
+        return compute_citation_digest(self.citations)
+
 
 @dataclass(frozen=True, slots=True)
 class ResolvedWebEvidence:
@@ -214,6 +269,14 @@ class ResolvedWebEvidence:
     attention_state: bool = False
     retained_source_count: int = 0
     declared_source_count: int = 0
+    citation_digest: str = ""
+
+    def __post_init__(self) -> None:
+        expected = compute_citation_digest(self.citations)
+        if not self.citation_digest:
+            object.__setattr__(self, "citation_digest", expected)
+        elif self.citation_digest != expected:
+            raise ValueError("ResolvedWebEvidence.citation_digest mismatch")
 
 
 @runtime_checkable
@@ -228,6 +291,8 @@ class NoOpOperatorWebSearchProvider(OperatorWebSearchProvider):
 
 def is_allowed_web_host(host: str, allowed_domains: tuple[str, ...]) -> bool:
     normalized = host.lower().rstrip(".")
+    if _is_forbidden_ssrf_host(normalized):
+        return False
     allowlist = {domain.lower().rstrip(".") for domain in allowed_domains if domain.strip()}
     return any(normalized == d or normalized.endswith(f".{d}") for d in allowlist)
 

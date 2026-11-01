@@ -20,6 +20,7 @@ export interface BusySessionProjection {
   readonly mode: BusyInputMode;
   readonly revision: number;
   readonly activeTurnId: string | null;
+  readonly turn_busy?: boolean;
   readonly pendingCount: number;
   readonly pending: readonly PendingBusyInputItem[];
 }
@@ -34,10 +35,14 @@ export interface BusyInputControlViewModel {
   readonly submitLabel: string;
   readonly cancelLabel: string;
   readonly canCancelTurn: boolean;
+  readonly canInterrupt: boolean;
+  readonly canSteer: boolean;
   readonly ariaLiveStatus: string;
   readonly pendingBadgeText: string;
   readonly pendingItems: readonly PendingBusyInputItem[];
 }
+
+export type BusyInputControlsViewModel = BusyInputControlViewModel;
 
 const MODE_LABELS: Record<BusyControlLocale, Record<BusyInputMode, string>> = {
   en: {
@@ -136,11 +141,13 @@ export function decodeBusySessionProjection(raw: unknown): BusySessionProjection
       status,
     };
   });
+  const turnBusy = typeof obj.turn_busy === "boolean" ? obj.turn_busy : activeTurnId !== null;
   return {
     sessionId,
     mode,
     revision,
     activeTurnId,
+    turn_busy: turnBusy,
     pendingCount: pending.length,
     pending,
   };
@@ -151,7 +158,8 @@ export function buildBusyInputControlViewModel(
   locale: BusyControlLocale = "en",
   options?: { readonly controlsDisabled?: boolean },
 ): BusyInputControlViewModel {
-  const isTurnActive = projection.activeTurnId !== null;
+  const isTurnActive = projection.turn_busy ?? (projection.activeTurnId !== null);
+  const controlsDisabled = Boolean(options?.controlsDisabled);
   const modeLabel = MODE_LABELS[locale][projection.mode];
   const submitLabel = isTurnActive
     ? SUBMIT_LABELS[locale][projection.mode]
@@ -174,12 +182,14 @@ export function buildBusyInputControlViewModel(
     sessionId: projection.sessionId,
     isTurnActive,
     turnBusy: isTurnActive,
-    controlsDisabled: Boolean(options?.controlsDisabled),
+    controlsDisabled,
     mode: projection.mode,
     modeLabel,
     submitLabel,
     cancelLabel,
     canCancelTurn: isTurnActive,
+    canInterrupt: !controlsDisabled && isTurnActive,
+    canSteer: !controlsDisabled && isTurnActive,
     ariaLiveStatus,
     pendingBadgeText,
     pendingItems: projection.pending,

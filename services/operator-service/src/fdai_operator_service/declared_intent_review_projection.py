@@ -10,6 +10,8 @@ source document coordinates. Every projection sets ``read_only=True`` and
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -41,7 +43,7 @@ _FORBIDDEN_GENERAL_TOPIC_KEYS: Final = frozenset(
 )
 
 
-class DeclaredIntentReviewAccessError(PermissionError):
+class DeclaredIntentReviewAccessError(PermissionError, ValueError):
     """Raised when reviewer role, independence, scope, or source ACL checks fail."""
 
     def __init__(self, code: str, message: str, *, status_code: int = 403) -> None:
@@ -84,6 +86,30 @@ class DeclaredIntentSourceAccessMetadata:
     retention_state: str = "live"
     protection_state: str = "none"
     purposes: frozenset[str] = frozenset({"manual_distillation"})
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.document_id, str) or not self.document_id.strip():
+            raise DeclaredIntentReviewAccessError(
+                "invalid_source_metadata",
+                "source.document_id MUST be a non-empty string",
+                status_code=400,
+            )
+        if not isinstance(self.version_id, str) or not self.version_id.strip():
+            raise DeclaredIntentReviewAccessError(
+                "invalid_source_metadata",
+                "source.version_id MUST be a non-empty string",
+                status_code=400,
+            )
+        if (
+            isinstance(self.revision, bool)
+            or not isinstance(self.revision, int)
+            or self.revision < 1
+        ):
+            raise DeclaredIntentReviewAccessError(
+                "invalid_source_revision",
+                "source.revision MUST be a positive integer >= 1",
+                status_code=400,
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -161,9 +187,10 @@ def build_declared_intent_review_projection(
     before_map = _serialize_properties(prior_properties) if prior_properties is not None else None
     after_map = _serialize_properties(diff.properties)
     changes = _compute_property_changes(before_map=before_map, after_map=after_map)
+    changed_field_count = sum(1 for change in changes if change.changed)
     intent_digest = diff.digest
 
-    return {
+    projection: dict[str, object] = {
         "type": "declared-intent.review-projection",
         "schema_version": "1.0.0",
         "read_only": True,
@@ -189,7 +216,13 @@ def build_declared_intent_review_projection(
         "before_properties": before_map,
         "after_properties": after_map,
         "property_changes": [change.to_dict() for change in changes],
+        "changed_field_count": changed_field_count,
     }
+    canonical = json.dumps(projection, sort_keys=True, separators=(",", ":"))
+    projection["review_projection_digest"] = (
+        f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+    )
+    return projection
 
 
 def build_declared_intent_general_topic_summary(
@@ -221,6 +254,8 @@ def build_declared_intent_general_topic_summary(
         "outcome": event.outcome,
         "applied_revision": event.applied_revision,
     }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    payload["summary_digest"] = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
     _assert_no_source_properties_disclosed(payload)
     return payload
 

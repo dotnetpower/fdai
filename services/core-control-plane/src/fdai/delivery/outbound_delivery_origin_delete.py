@@ -47,6 +47,23 @@ class OriginDeletionAuditReceipt:
     execution_authority: Literal["none"]
     receipt_digest: str
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "receipt_id": self.receipt_id,
+            "origin_id": self.origin_id,
+            "session_id": self.session_id,
+            "actor_id": self.actor_id,
+            "reason": self.reason,
+            "purged_at": self.purged_at.astimezone(UTC).isoformat(),
+            "deleted_delivery_ids": list(self.deleted_delivery_ids),
+            "retained_attempts": self.retained_attempts,
+            "retained_acknowledgements": self.retained_acknowledgements,
+            "idempotent_replay": self.idempotent_replay,
+            "fence_verified": self.fence_verified,
+            "execution_authority": "none",
+            "receipt_digest": self.receipt_digest,
+        }
+
 
 class OriginDeletionAuditSink(Protocol):
     """Append-only sink receiving origin-scoped outbound delivery deletion receipts."""

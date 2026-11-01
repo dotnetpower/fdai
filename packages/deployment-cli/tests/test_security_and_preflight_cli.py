@@ -66,6 +66,8 @@ def test_fdaictl_deploy_preflight_passes_safe_plan_and_holds_destructive_plan(
     assert report_ok["create_count"] == 1
     assert report_ok["destructive_count"] == 0
     assert report_ok["execution_authority"] == "none"
+    assert str(report_ok["plan_sha256"]).startswith("sha256:")
+    assert report_ok["plan_sha256"] == report_ok["plan_digest"]
 
     destructive_plan = tmp_path / "destructive-plan.json"
     destructive_plan.write_text(

@@ -67,3 +67,30 @@ export function normalizeConstraintOutcome(
   }
   return "blocking";
 }
+
+export function summarizeConstraintOutcomes(
+  outcomes: readonly unknown[],
+): { blocking: number; warning: number; passed: number; total: number } {
+  let blocking = 0;
+  let warning = 0;
+  let passed = 0;
+  for (const outcome of outcomes) {
+    const normalized =
+      typeof outcome === "string" && outcome.trim() === "warning"
+        ? "waiting"
+        : normalizeConstraintOutcome(outcome);
+    if (normalized === "passed") {
+      passed += 1;
+    } else if (normalized === "waiting") {
+      warning += 1;
+    } else {
+      blocking += 1;
+    }
+  }
+  return {
+    blocking,
+    warning,
+    passed,
+    total: outcomes.length,
+  };
+}

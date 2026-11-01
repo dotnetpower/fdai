@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from fdai.core.skills.catalog import SkillCatalog
@@ -74,6 +76,20 @@ class SkillSourceRestartRecoveryReceipt:
     disabled_candidate_ids: tuple[str, ...]
     revoked_source_ids: tuple[str, ...]
 
+    @property
+    def recovery_digest(self) -> str:
+        payload = {
+            "runner_id": self.runner_id,
+            "recovered_at": self.recovered_at.astimezone(UTC).isoformat(),
+            "reclaimed_due_source_ids": list(self.reclaimed_due_source_ids),
+            "preserved_etags": dict(sorted(self.preserved_etags.items())),
+            "disabled_source_ids": list(self.disabled_source_ids),
+            "disabled_candidate_ids": list(self.disabled_candidate_ids),
+            "revoked_source_ids": list(self.revoked_source_ids),
+        }
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
 
 class SkillSourceRunnerGuard(Protocol):
     def acquire(
@@ -110,6 +126,13 @@ class InMemorySkillSourceRunnerGuard:
         if self._active is not None and self._active.runner_id == runner_id:
             self._active = None
 
+    def active_lease(self, *, now: datetime) -> SkillSourceRunnerLease | None:
+        if now.tzinfo is None:
+            raise ValueError("now MUST include timezone")
+        if self._active is not None and self._active.expires_at > now:
+            return self._active
+        return None
+
     force_recover = acquire
 
 
@@ -120,6 +143,10 @@ class InMemorySkillSourceStore:
     async def put(self, source: SkillSource, *, now: datetime) -> SkillSource:
         if now.tzinfo is None:
             raise ValueError("skill source timestamp MUST include timezone")
+        if any(ord(ch) < 32 for ch in source.location) or (
+            "://" in source.location and "@" in source.location.split("://", 1)[1].split("/", 1)[0]
+        ):
+            raise ValueError("skill source location MUST NOT contain control chars or credentials")
         existing = self._sources.get(source.source_id)
         if existing is not None and existing != source:
             raise ValueError("skill source id conflicts with different registration")

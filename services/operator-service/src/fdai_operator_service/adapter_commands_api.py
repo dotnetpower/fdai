@@ -89,8 +89,37 @@ class AdapterCommandResponse:
     failure_count: int
     audit_receipt_id: str | None = None
     audit_receipt_digest: str | None = None
+    state_digest: str = ""
+
+    def __post_init__(self) -> None:
+        material = {
+            "adapter_id": self.adapter_id,
+            "audit_receipt_digest": self.audit_receipt_digest,
+            "audit_receipt_id": self.audit_receipt_id,
+            "can_send": self.can_send,
+            "channel_kind": self.channel_kind,
+            "command": self.command,
+            "execution_authority": self.execution_authority,
+            "failure_count": self.failure_count,
+            "mode": self.mode,
+            "mounted_in_console_api": self.mounted_in_console_api,
+            "reason": self.reason,
+            "revision": self.revision,
+            "surface": self.surface,
+            "updated_at": self.updated_at,
+            "updated_by": self.updated_by,
+        }
+        canonical = json.dumps(material, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        expected = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+        if not self.state_digest:
+            object.__setattr__(self, "state_digest", expected)
+        elif self.state_digest != expected:
+            raise ValueError("AdapterCommandResponse.state_digest mismatch")
 
     def to_dict(self) -> dict[str, object]:
+        return asdict(self)
+
+    def to_json(self) -> dict[str, object]:
         return asdict(self)
 
 
@@ -176,9 +205,20 @@ class AdapterCommandController:
                 "invalid_reason", "payload.reason MUST be a non-empty string", status_code=400
             )
         raw_reason = str(payload["reason"])
+        expected_rev = payload.get("expected_revision")
         if action == "pause":
-            return await self.pause(principal=principal, adapter_id=adapter_id, reason=raw_reason)
-        return await self.resume(principal=principal, adapter_id=adapter_id, reason=raw_reason)
+            return await self.pause(
+                principal=principal,
+                adapter_id=adapter_id,
+                reason=raw_reason,
+                expected_revision=expected_rev,
+            )
+        return await self.resume(
+            principal=principal,
+            adapter_id=adapter_id,
+            reason=raw_reason,
+            expected_revision=expected_rev,
+        )
 
     async def status(
         self, *, principal: AdapterCommandPrincipal | None, adapter_id: str
@@ -206,7 +246,12 @@ class AdapterCommandController:
         return _response_from_breaker(current, command="status", receipt=None)
 
     async def pause(
-        self, *, principal: AdapterCommandPrincipal | None, adapter_id: str, reason: str
+        self,
+        *,
+        principal: AdapterCommandPrincipal | None,
+        adapter_id: str,
+        reason: str,
+        expected_revision: int | None = None,
     ) -> AdapterCommandResponse:
         """Pause ``adapter_id`` with Owner/Approver RBAC and append-only audit receipt."""
         actor_id, roles = self._authorize(principal=principal, adapter_id=adapter_id, mutate=True)
@@ -214,6 +259,20 @@ class AdapterCommandController:
         channel_kind = self._resolve_channel_kind(adapter_id)
         now = _ensure_aware(self._clock())
         current = await self._store.get_breaker(adapter_id)
+        if expected_revision is not None:
+            if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
+                raise AdapterCommandError(
+                    "invalid_expected_revision",
+                    "expected_revision must be an integer",
+                    status_code=400,
+                )
+            actual_rev = current.revision if current is not None else 0
+            if actual_rev != expected_revision:
+                raise AdapterCommandError(
+                    "revision_conflict",
+                    "adapter breaker revision conflict",
+                    status_code=409,
+                )
         prev_mode = current.mode.value if current is not None else ChannelBreakerMode.CLOSED.value
         updated = ChannelAdapterBreaker(
             adapter_id=adapter_id,
@@ -232,7 +291,12 @@ class AdapterCommandController:
         return _response_from_breaker(stored, command="pause", receipt=receipt)
 
     async def resume(
-        self, *, principal: AdapterCommandPrincipal | None, adapter_id: str, reason: str
+        self,
+        *,
+        principal: AdapterCommandPrincipal | None,
+        adapter_id: str,
+        reason: str,
+        expected_revision: int | None = None,
     ) -> AdapterCommandResponse:
         """Resume an open or paused adapter with Owner/Approver RBAC and audit receipt."""
         actor_id, roles = self._authorize(principal=principal, adapter_id=adapter_id, mutate=True)
@@ -244,6 +308,19 @@ class AdapterCommandController:
             raise AdapterCommandError(
                 "adapter_not_paused_or_open", "adapter is neither paused nor open", status_code=409
             )
+        if expected_revision is not None:
+            if isinstance(expected_revision, bool) or not isinstance(expected_revision, int):
+                raise AdapterCommandError(
+                    "invalid_expected_revision",
+                    "expected_revision must be an integer",
+                    status_code=400,
+                )
+            if current.revision != expected_revision:
+                raise AdapterCommandError(
+                    "revision_conflict",
+                    "adapter breaker revision conflict",
+                    status_code=409,
+                )
         updated = replace(
             current,
             mode=ChannelBreakerMode.CLOSED,

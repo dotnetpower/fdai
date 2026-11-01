@@ -34,6 +34,7 @@ export interface LicensingWarningProjectionPayload {
   readonly expires_at: string | null;
   readonly remaining_seconds: number | null;
   readonly remaining_days: number | null;
+  readonly days_remaining?: number | null;
   readonly observed_at: string;
   readonly reason_code: string;
 }
@@ -48,6 +49,7 @@ export interface LicensingStatusBadgeViewModel {
   readonly tone: LicensingBadgeTone;
   readonly actingAvailable: boolean;
   readonly showProactiveWarning: boolean;
+  readonly isUrgentWarning: boolean;
   readonly warningTitle: string | null;
   readonly warningDetail: string | null;
   readonly remainingDaysDisplay: string | null;
@@ -207,6 +209,16 @@ export function decodeLicensingWarningProjection(
       throw panelContractError("LicensingWarningProjection contains secret-like material");
     }
   }
+  const remainingDays =
+    root["remaining_days"] === null || root["remaining_days"] === undefined
+      ? root["days_remaining"] === null || root["days_remaining"] === undefined
+        ? null
+        : panelNonNegativeInteger(root, "days_remaining", "LicensingWarningProjection")
+      : panelNonNegativeInteger(root, "remaining_days", "LicensingWarningProjection");
+  const daysRemaining =
+    root["days_remaining"] === null || root["days_remaining"] === undefined
+      ? remainingDays
+      : panelNonNegativeInteger(root, "days_remaining", "LicensingWarningProjection");
   return {
     type: "licensing.warning-projection",
     schema_version: "1.0.0",
@@ -225,10 +237,8 @@ export function decodeLicensingWarningProjection(
       root["remaining_seconds"] === null
         ? null
         : panelNonNegativeInteger(root, "remaining_seconds", "LicensingWarningProjection"),
-    remaining_days:
-      root["remaining_days"] === null
-        ? null
-        : panelNonNegativeInteger(root, "remaining_days", "LicensingWarningProjection"),
+    remaining_days: remainingDays,
+    days_remaining: daysRemaining,
     observed_at: panelNonEmptyString(root, "observed_at", "LicensingWarningProjection"),
     reason_code: reasonCode,
   };
@@ -250,6 +260,7 @@ export function formatLicensingStatusBadge(
       tone: "neutral",
       actingAvailable: false,
       showProactiveWarning: true,
+      isUrgentWarning: false,
       warningTitle: copy.title,
       warningDetail: copy.detail,
       remainingDaysDisplay: null,
@@ -265,12 +276,15 @@ export function formatLicensingStatusBadge(
           ? "neutral"
           : "danger";
   const copy = payload.state === "normal" ? null : WARNING_COPY[locale][payload.state];
+  const effectiveDays = payload.days_remaining ?? payload.remaining_days;
   const daysDisplay =
-    payload.remaining_days === null
+    effectiveDays === null
       ? null
       : locale === "ko"
-        ? `${payload.remaining_days}일 남음`
-        : `${payload.remaining_days}d remaining`;
+        ? `${effectiveDays}일 남음`
+        : `${effectiveDays}d remaining`;
+  const isUrgentWarning =
+    payload.state === "expiring_soon" && effectiveDays !== null && effectiveDays <= 7;
   return {
     locale,
     readOnly: true,
@@ -281,6 +295,7 @@ export function formatLicensingStatusBadge(
     tone,
     actingAvailable: payload.acting_available,
     showProactiveWarning: payload.proactive_warning,
+    isUrgentWarning,
     warningTitle: copy?.title ?? null,
     warningDetail: copy?.detail ?? null,
     remainingDaysDisplay: daysDisplay,

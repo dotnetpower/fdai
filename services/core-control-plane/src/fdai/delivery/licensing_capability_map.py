@@ -77,6 +77,19 @@ class ClockIntegrityDecision:
     host_now_utc: datetime
     trusted_now_utc: datetime | None = None
 
+    def to_audit_dict(self) -> dict[str, object]:
+        return {
+            "clock_regressed": self.clock_regressed,
+            "reason": self.reason,
+            "high_water_mark_utc": self.high_water_mark_utc.astimezone(UTC).isoformat(),
+            "host_now_utc": self.host_now_utc.astimezone(UTC).isoformat(),
+            "trusted_now_utc": (
+                self.trusted_now_utc.astimezone(UTC).isoformat()
+                if self.trusted_now_utc is not None
+                else None
+            ),
+        }
+
 
 @dataclass(slots=True)
 class TrustedTimeRollbackDetector:

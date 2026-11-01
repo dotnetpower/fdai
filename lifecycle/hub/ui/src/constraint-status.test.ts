@@ -4,6 +4,7 @@ import {
   describeConstraintReason,
   isTimingReason,
   normalizeConstraintOutcome,
+  summarizeConstraintOutcomes,
 } from "./constraint-status";
 
 describe("isTimingReason", () => {
@@ -64,5 +65,23 @@ describe("constraintVerdict", () => {
       expect(normalizeConstraintOutcome("")).toBe("blocking");
       expect(normalizeConstraintOutcome(null)).toBe("blocking");
       expect(normalizeConstraintOutcome(undefined)).toBe("blocking");
+    });
+
+    test("summarizeConstraintOutcomes counts blocking, warning, passed, and total outcomes", () => {
+      expect(
+        summarizeConstraintOutcomes([
+          "passed",
+          "waiting",
+          "maintenance_window_unavailable",
+          "blocking",
+          "unexpected_outcome",
+          null,
+        ]),
+      ).toEqual({
+        blocking: 3,
+        warning: 2,
+        passed: 1,
+        total: 6,
+      });
     });
 });

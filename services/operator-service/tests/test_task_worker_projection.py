@@ -162,6 +162,7 @@ async def test_workers_list_get_and_events_enforce_owner_predicates_and_404_equi
     assert "goal" not in row
     assert "constraints" not in row
     assert row["evidence_count"] == 2
+    assert row["summary_truncated"] is False
     assert row["trusted"] is False
 
     detail_resp = await materializer.read(

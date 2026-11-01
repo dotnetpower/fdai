@@ -9,7 +9,11 @@ from pathlib import Path
 
 import pytest
 from fdai_deployment_cli.cli import main
-from fdai_deployment_cli.trajectory_cli import canonical_json_bytes, validate_trajectory_artifacts
+from fdai_deployment_cli.trajectory_cli import (
+    canonical_json_bytes,
+    validate_trajectory_artifacts,
+    validate_trajectory_dataset_files,
+)
 
 SCOPE_A = "a" * 64
 SCOPE_B = "b" * 64
@@ -139,6 +143,15 @@ def test_fdaictl_trajectory_validate_passes_on_valid_export(
     assert payload["replay_verified"] is True
     assert payload["training_authority"] == "none"
     assert payload["promotion_authority"] == "none"
+    expected_sha256 = "sha256:" + hashlib.sha256(dataset_path.read_bytes()).hexdigest()
+    assert payload["dataset_sha256"] == expected_sha256
+    direct = validate_trajectory_dataset_files(
+        dataset_path=dataset_path,
+        manifest_path=manifest_path,
+        purpose="quality-evaluation",
+        access_scope=SCOPE_A,
+    )
+    assert direct["dataset_sha256"] == expected_sha256
 
 
 def test_fdaictl_trajectory_validate_rejects_purpose_mismatch(

@@ -81,6 +81,18 @@ def serialize_behavior_spec(spec: BehaviorSpec) -> dict[str, Any]:
 def deserialize_behavior_spec(payload: Mapping[str, Any]) -> BehaviorSpec:
     """Reconstruct a `BehaviorSpec` from its stored JSON payload."""
 
+    behavior_id = str(payload.get("behavior_id", "")).strip()
+    subject_id = str(payload.get("subject_id", "")).strip()
+    sources_raw = payload.get("sources")
+    if (
+        not behavior_id
+        or not subject_id
+        or not isinstance(sources_raw, Sequence)
+        or not sources_raw
+    ):
+        raise ValueError(
+            "persisted BehaviorSpec requires non-empty behavior_id, subject_id, and sources"
+        )
     localized_raw = payload.get("localized", {})
     localized = {
         str(locale): BehaviorContent(

@@ -50,6 +50,15 @@ class ProgrammaticPipelineRuntimeBundle:
     store: ProgrammaticPipelineStore
     sandbox_profiles: ProgrammaticPipelineSandboxCatalog
     authority: PipelineCapabilityAuthority
+    profiles: tuple[ProgrammaticPipelineSandboxProfile, ...] = DEFAULT_PIPELINE_SANDBOX_PROFILES
+
+    def allowed_tools_for_profile(self, profile_id: str) -> frozenset[str]:
+        """Return the immutable frozenset of read-only tools permitted by ``profile_id``."""
+        target = profile_id.strip()
+        for profile in self.profiles:
+            if profile.profile_id == target:
+                return frozenset(profile.allowed_read_tools)
+        raise LookupError(f"unknown pipeline sandbox profile_id: {profile_id!r}")
 
 
 def build_programmatic_pipeline_runtime(
@@ -88,6 +97,7 @@ def build_programmatic_pipeline_runtime(
         store=resolved_store,
         sandbox_profiles=catalog,
         authority=resolved_authority,
+        profiles=profiles_tuple,
     )
 
 

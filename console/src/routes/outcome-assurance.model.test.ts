@@ -150,6 +150,8 @@ describe("outcome-assurance.model", () => {
 
     const enView = formatOutcomeAssuranceViewModel(decoded, "en");
     expect(enView.unavailableBanner).toBeNull();
+    expect(enView.breachedGuardCount).toBe(0);
+    expect(enView.allGuardsPassing).toBe(true);
     expect(enView.summaryCards[0]?.title).toBe("Operational readiness");
     expect(enView.summaryCards[1]?.headlineDisplay).toBe("95%");
     expect(enView.objectiveDrilldowns[0]?.attributionCountDisplay).toBe(
@@ -204,6 +206,8 @@ describe("outcome-assurance.model", () => {
   it("renders explicit unavailable and stale states in en and ko without synthetic values", () => {
     const nullEn = formatOutcomeAssuranceViewModel(null, "en");
     expect(nullEn.state).toBe("unavailable");
+    expect(nullEn.breachedGuardCount).toBe(0);
+    expect(nullEn.allGuardsPassing).toBe(false);
     expect(nullEn.unavailableBanner).toContain("not connected");
     expect(nullEn.summaryCards.every((c) => c.headlineDisplay === "Unavailable")).toBe(true);
 

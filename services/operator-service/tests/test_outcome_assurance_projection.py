@@ -349,3 +349,43 @@ def test_rejects_non_finite_metrics_negative_sample_size_and_inverted_ci() -> No
                 projection=bad_proj,
                 now=NOW,
             )
+
+
+def test_operator_projection_includes_digest_and_rejects_duplicate_metric_or_guard_ids() -> None:
+    proj = build_outcome_assurance_operator_projection(
+        principal_id="operator-reader-1",
+        projection=_complete_projection(),
+        now=NOW,
+    )
+    dumped = proj.to_dict()
+    assert str(dumped["projection_digest"]).startswith("sha256:")
+    assert len(str(dumped["projection_digest"])) == 71
+    assert proj.projection_digest == dumped["projection_digest"]
+
+    base = _complete_projection()
+    dup_outcomes = base.model_copy(update={"outcomes": (base.outcomes[0], base.outcomes[0])})
+    with pytest.raises(ValueError, match="duplicate metric_id"):
+        build_outcome_assurance_operator_projection(
+            principal_id="operator-reader-1",
+            projection=dup_outcomes,
+            now=NOW,
+        )
+
+    dup_guards = base.model_copy(
+        update={
+            "guards": base.guards.model_copy(
+                update={
+                    "guard_evaluations": (
+                        base.guards.guard_evaluations[0],
+                        base.guards.guard_evaluations[0],
+                    )
+                }
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="duplicate guard_id"):
+        build_outcome_assurance_operator_projection(
+            principal_id="operator-reader-1",
+            projection=dup_guards,
+            now=NOW,
+        )

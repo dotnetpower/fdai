@@ -30,6 +30,10 @@ describe("formatRelative", () => {
   test("renders hours from now for a future timestamp", () => {
     expect(formatRelative("2026-10-14T19:00:00Z", now)).toContain("hour");
   });
+
+  test("renders en-dash safely when now is an invalid Date", () => {
+    expect(formatRelative("2026-10-14T11:59:48Z", new Date("invalid"))).toBe("\u2013");
+  });
 });
 
 describe("formatDurationMinutes", () => {
