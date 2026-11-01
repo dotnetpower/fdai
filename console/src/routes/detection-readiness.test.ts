@@ -8,6 +8,11 @@ import {
   detectionCoverageViewFromHash,
   loadDetectionReadinessState,
 } from "./detection-readiness";
+import {
+  parseResourceRefDisplay,
+  resourceKindLabel,
+  resourceTypeLabel,
+} from "./detection-coverage-view";
 import PINNED from "./fixtures/detection-lifecycle-projection.json";
 
 const RESPONSE = {
@@ -229,5 +234,28 @@ describe("pod lifecycle detection decoder", () => {
 
   test("rejects totals that do not reconcile with the retained history", () => {
     expect(() => decodeLifecycle({ ...PINNED, failure_total: 4 })).toThrow(/totals do not reconcile/);
+  });
+
+  test("parses structured scope and ARM resource references and maps canonical types", () => {
+    const vmssRef = "scope-ddcc51d93c16973d/resource-group/mc_rg-fdai-dev-wus3_aks-fdai-dev-wus3_westus3/providers/microsoft.compute/virtualmachinescalesets/aks-runtime-60095787-vmss";
+    expect(parseResourceRefDisplay(vmssRef)).toEqual({
+      fullRef: vmssRef,
+      shortName: "aks-runtime-60095787-vmss",
+      resourceGroup: "mc_rg-fdai-dev-wus3_aks-fdai-dev-wus3_westus3",
+      scopeId: "scope-ddcc51d93c16973d",
+      providerType: "microsoft.compute/virtualmachinescalesets",
+      hasStructuredScope: true,
+    });
+    expect(parseResourceRefDisplay("resource/mysql")).toEqual({
+      fullRef: "resource/mysql",
+      shortName: "resource/mysql",
+      resourceGroup: null,
+      scopeId: null,
+      providerType: null,
+      hasStructuredScope: false,
+    });
+    expect(resourceTypeLabel("compute.vm-scale-set")).toBe("Virtual machine scale set (VMSS)");
+    expect(resourceTypeLabel("compute.vm")).toBe("Virtual machine (VM)");
+    expect(resourceKindLabel("virtual_machine_scale_set")).toBe("Virtual machine scale set");
   });
 });

@@ -9,7 +9,7 @@ import {
   summarizeAttackSurface,
 } from "./msrc-csaf-guidance";
 import { frameworkDisplayTitle, resolveControlReferenceImage } from "./reference-images.catalog";
-import { ACTIVE_RULE_GUIDANCE_SPECS, buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { ACTIVE_RULE_GUIDANCE_SPECS, buildRuleGuidance, formatRuleResourceType, ruleDisplayTitle } from "./rule-catalog-guidance";
 import type { RuleDetailDto } from "./rule-catalog-types";
 import { formatGuidanceMarkdownBrief } from "./wara-guidance";
 import { guidanceMissingKoreanFields } from "./wara-guidance.model";
@@ -202,5 +202,7 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
         "ko",
       ),
     ).toContain("[미리 보기(Preview)]");
+    expect(formatRuleResourceType("-current--resourcetype---")).toBe("azure.resource");
+    expect(formatRuleResourceType("compute.vm-scale-set")).toBe("compute.vm-scale-set");
   });
 });
