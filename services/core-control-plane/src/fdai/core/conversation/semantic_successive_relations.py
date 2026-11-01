@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Protocol
@@ -246,7 +246,7 @@ def relation_endpoints(
         link_type = link_types[node_id]
         for row in value.rows:
             properties = row.values.get("properties")
-            name = properties.get("name") if isinstance(properties, dict) else None
+            name = properties.get("name") if isinstance(properties, Mapping) else None
             endpoints.append(
                 RelationEndpoint(
                     endpoint_id=row.row_id,
@@ -278,9 +278,14 @@ def _output_link_types(plan: OntologyQueryPlan) -> dict[str, str]:
             raise ValueError("successive relation output MUST be a traversal")
         arguments = json.loads(node.arguments_json)
         raw = arguments.get("link_types")
-        if not isinstance(raw, list) or len(raw) != 1 or not isinstance(raw[0], str):
+        if (
+            not isinstance(raw, (list, tuple))
+            or len(raw) != 1
+            or not isinstance(raw[0], str)
+            or not raw[0].strip()
+        ):
             raise ValueError("successive relation traversal MUST name one LinkType")
-        link_types[node_id] = raw[0]
+        link_types[node_id] = raw[0].strip()
     return link_types
 
 
@@ -298,7 +303,7 @@ def _max_depth(plan: OntologyQueryPlan) -> int:
     for node in plan.nodes:
         if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
             value = json.loads(node.arguments_json).get("max_depth")
-            if isinstance(value, int):
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 1:
                 depths.append(value)
     return max(depths or [1])
 

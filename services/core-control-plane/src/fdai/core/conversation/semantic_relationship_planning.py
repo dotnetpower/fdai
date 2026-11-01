@@ -110,6 +110,10 @@ def compile_typed_relationship_plan(
         or (not singleton_schema_subject and subjects not in _SUPPORTED_SUBJECT_SETS)
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("typed relationship plan requires timezone-aware evaluation_time")
+    if not purpose.strip():
+        raise ValueError("typed relationship plan purpose MUST be non-empty")
     object_names = {
         str(descriptor["name"])
         for descriptor in descriptors

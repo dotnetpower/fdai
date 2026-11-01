@@ -257,6 +257,8 @@ def _verify_ontology_declaration_subject(
     if len(frame.subject_constraints) != 1:
         raise ValueError("semantic declaration frame requires one exact subject")
     expected_name = frame.subject_constraints[0]
+    if any(item not in DECLARATION_SECTIONS_BY_MEASURE for item in frame.measure_concepts):
+        raise ValueError("semantic declaration plan sections differ from frame")
     expected_sections = frozenset(
         DECLARATION_SECTIONS_BY_MEASURE[item] for item in frame.measure_concepts
     )
@@ -312,7 +314,7 @@ def _manifest_query_kinds(arguments_json: str) -> frozenset[str] | None:
         return None
     function_arguments = arguments.get("arguments")
     kinds = function_arguments.get("kinds") if isinstance(function_arguments, Mapping) else None
-    if not isinstance(kinds, list) or any(not isinstance(kind, str) for kind in kinds):
+    if not isinstance(kinds, (list, tuple)) or any(not isinstance(kind, str) for kind in kinds):
         return frozenset()
     return frozenset(kinds)
 
@@ -344,7 +346,7 @@ def _object_set_has_multiple_existence_only_predicates(arguments_json: str) -> b
     definition = arguments.get("definition")
     predicates = definition.get("predicates") if isinstance(definition, Mapping) else None
     return (
-        isinstance(predicates, list)
+        isinstance(predicates, (list, tuple))
         and len(predicates) > 1
         and all(
             isinstance(predicate, Mapping) and predicate.get("operator") == "exists"

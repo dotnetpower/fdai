@@ -96,6 +96,8 @@ async def materialize_conversation_search(
 
     if query.operation not in _OPERATIONS:
         return None
+    if not query.scope.subject_id.strip():
+        raise _invalid("principal_id MUST be non-empty")
     if query.operation == _SEARCH_OPERATION:
         return await _search(query, store=store)
     if query.operation == _CONTEXT_OPERATION:

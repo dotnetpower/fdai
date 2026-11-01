@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -115,7 +116,10 @@ def contextual_resource_function(
     ) -> object:
         if invocation_context.purposes != ("operations-review",):
             raise PermissionError("contextual resource purpose does not match invocation context")
-        if not isinstance(arguments["selection_token"], str):
+        if (
+            not isinstance(arguments.get("selection_token"), str)
+            or not arguments["selection_token"].strip()
+        ):
             return _table((), complete=False, reason="context_capability_mismatch")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         expected_ids = tuple(str(item) for item in arguments["resource_ids"])
@@ -166,7 +170,11 @@ def _scalar_properties(properties: Mapping[str, object]) -> dict[str, object]:
     return {
         key: value
         for key, value in properties.items()
-        if isinstance(value, str | int | float | bool) or value is None
+        if (
+            isinstance(value, str | int | bool)
+            or (isinstance(value, float) and math.isfinite(value))
+            or value is None
+        )
     }
 
 

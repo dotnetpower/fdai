@@ -27,6 +27,8 @@ def build_framework_catalog_projection(
     objective_ids = {
         objective.ref: f"control-objective:{objective.ref}" for objective in objectives
     }
+    if len(objective_ids) != len(objectives):
+        raise ValueError("framework catalog projection has duplicate control objective refs")
     for objective in objectives:
         objects.append(
             OntologyObjectRecord(
@@ -116,6 +118,8 @@ def build_framework_catalog_projection(
                 )
             )
             for objective_ref in control.objective_refs:
+                if objective_ref not in objective_ids:
+                    raise ValueError(f"unknown control objective reference: {objective_ref}")
                 links.append(
                     OntologyLinkRecord(
                         from_id=control_id,

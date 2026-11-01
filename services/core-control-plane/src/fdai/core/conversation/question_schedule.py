@@ -43,8 +43,17 @@ class QuestionScheduleProfile:
             ZoneInfo(self.timezone)
         except ZoneInfoNotFoundError as error:
             raise ValueError("question schedule timezone MUST be a valid IANA timezone") from error
-        if not self.generation_profile or not self.model_profile:
+        if not self.generation_profile.strip() or not self.model_profile.strip():
             raise ValueError("question schedule generation and model profiles MUST be non-empty")
+        if (
+            isinstance(self.question_budget, bool)
+            or isinstance(self.no_progress_seconds, bool)
+            or isinstance(self.time_budget_seconds, bool)
+            or isinstance(self.token_budget, bool)
+            or isinstance(self.cost_budget_microusd, bool)
+            or not isinstance(self.enabled, bool)
+        ):
+            raise ValueError("question schedule numeric budgets MUST NOT be booleans")
         if not 1 <= self.question_budget <= 100:
             raise ValueError("question schedule budget MUST be in [1, 100]")
         if not 1 <= self.no_progress_seconds <= self.time_budget_seconds <= 86_400:
@@ -90,11 +99,11 @@ class QuestionWorkloadPrincipalReceipt:
                 raise ValueError("question workload principal digests MUST be canonical")
         if self.principal_kind != "workload":
             raise ValueError("question campaign principal MUST be a workload identity")
-        if not self.role or not self.role_source or len(self.role_source) > 128:
+        if not self.role.strip() or not self.role_source.strip() or len(self.role_source) > 128:
             raise ValueError("question workload role mapping MUST be bounded")
-        if not self.purpose or len(self.purpose) > 128:
+        if not self.purpose.strip() or len(self.purpose) > 128:
             raise ValueError("question workload purpose MUST be bounded")
-        if self.authenticated_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if self.authenticated_at.utcoffset() is None or self.expires_at.utcoffset() is None:
             raise ValueError("question workload authentication times MUST be timezone-aware")
         if self.expires_at <= self.authenticated_at:
             raise ValueError("question workload authentication MUST expire after issuance")
@@ -142,9 +151,9 @@ def evaluate_question_campaign_due(
 ) -> QuestionCampaignDueDecision:
     """Evaluate schedule and readiness without calling a model or semantic runtime."""
 
-    if now.tzinfo is None:
+    if now.utcoffset() is None:
         raise ValueError("question campaign due time MUST be timezone-aware")
-    if last_started_at is not None and last_started_at.tzinfo is None:
+    if last_started_at is not None and last_started_at.utcoffset() is None:
         raise ValueError("question campaign last start MUST be timezone-aware")
     if not profile.enabled:
         return _decision("skipped", "schedule_disabled")

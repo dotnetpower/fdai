@@ -40,6 +40,8 @@ def observe_intent_planning(
     """Measure applicable items 1-5 from typed semantic output only."""
 
     _require_digest(result.evidence_digest, "scenario evidence_digest")
+    if not result.case_id.strip() or not isinstance(result.expected_ambiguous, bool):
+        raise ValueError("intent planning scenario case_id and expected_ambiguous are invalid")
     actual_operation = None if result.actual.frame is None else result.actual.frame.operation
     contributions = [
         _contribution(
@@ -78,6 +80,10 @@ def observe_intent_planning(
     if result.expected_frame_input_digest is not None:
         if not result.expected_frame_input_digest.startswith("sha256:"):
             raise ValueError("expected frame input digest MUST use sha256:")
+        _require_digest(
+            result.expected_frame_input_digest.removeprefix("sha256:"),
+            "expected frame input digest",
+        )
         contributions.append(
             _contribution(
                 result,

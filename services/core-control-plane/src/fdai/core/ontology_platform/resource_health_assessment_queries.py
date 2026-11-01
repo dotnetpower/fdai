@@ -157,7 +157,7 @@ def _query_table(value: object, field: str) -> QueryTable:
     complete = value.get("complete")
     reason = value.get("truncation_reason")
     if (
-        not isinstance(raw_rows, list)
+        not isinstance(raw_rows, (list, tuple))
         or not isinstance(complete, bool)
         or (reason is not None and not isinstance(reason, str))
     ):
@@ -179,14 +179,14 @@ def _metric_window(value: object, concept_id: str) -> Mapping[str, Any]:
         raise ValueError(f"{concept_id} metric window is invalid")
     if not isinstance(value.get("complete"), bool):
         raise ValueError(f"{concept_id} metric completeness is invalid")
-    if not isinstance(value.get("samples"), list):
+    if not isinstance(value.get("samples"), (list, tuple)):
         raise ValueError(f"{concept_id} metric samples are invalid")
     return value
 
 
 def _sample_values(window: Mapping[str, Any]) -> tuple[float, ...]:
     raw = window.get("samples")
-    if not isinstance(raw, list):
+    if not isinstance(raw, (list, tuple)):
         return ()
     values: list[float] = []
     for sample in raw:

@@ -29,7 +29,12 @@ class PostgresDocumentContextResolverConfig:
     def __post_init__(self) -> None:
         if not self.dsn.strip():
             raise ValueError("document context resolver DSN MUST be non-empty")
-        if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
+        if (
+            isinstance(self.statement_timeout_ms, bool)
+            or isinstance(self.connect_timeout_s, bool)
+            or self.statement_timeout_ms < 1
+            or self.connect_timeout_s < 1
+        ):
             raise ValueError("document context resolver timeouts MUST be positive")
 
 

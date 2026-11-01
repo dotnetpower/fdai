@@ -29,7 +29,7 @@ class SlackIngressQueue:
     """Admit authenticated Slack turns to one bounded single-consumer queue."""
 
     def __init__(self, *, ingress: SlackIngressVerifier, capacity: int = 128) -> None:
-        if capacity < 1:
+        if isinstance(capacity, bool) or capacity < 1:
             raise ValueError("Slack queue capacity MUST be positive")
         self._ingress = ingress
         self._queue: asyncio.Queue[AuthenticatedInboundTurn | object] = asyncio.Queue(capacity)
@@ -100,7 +100,7 @@ class TeamsEndpointRegistry:
         allowed_service_urls: frozenset[str],
         maximum: int = 10_000,
     ) -> None:
-        if maximum < 1:
+        if isinstance(maximum, bool) or maximum < 1:
             raise ValueError("Teams endpoint registry maximum MUST be positive")
         normalized = frozenset(normalize_teams_service_url(url) for url in allowed_service_urls)
         if not normalized or normalized != allowed_service_urls:
@@ -111,6 +111,12 @@ class TeamsEndpointRegistry:
 
     def bind(self, *, conversation_id: str, service_url: str) -> None:
         """Bind one authenticated conversation without allowing endpoint changes."""
+        if not conversation_id.strip():
+            raise TeamsIngressError(
+                "Teams conversation_id is invalid",
+                code="invalid_conversation_id",
+                http_status=400,
+            )
         if normalize_teams_service_url(service_url) not in self._allowed_service_urls:
             raise TeamsIngressError(
                 "Teams service URL is not authorized",
@@ -147,7 +153,7 @@ class TeamsIngressQueue:
         endpoints: TeamsEndpointRegistry,
         capacity: int = 128,
     ) -> None:
-        if capacity < 1:
+        if isinstance(capacity, bool) or capacity < 1:
             raise ValueError("Teams queue capacity MUST be positive")
         self._ingress = ingress
         self._endpoints = endpoints

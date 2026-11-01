@@ -67,8 +67,10 @@ class ResourceEventObservation:
                 raise ValueError(f"Resource event {name} MUST be bounded and non-empty")
         if self.event_family not in RESOURCE_EVENT_MEASURE_CONCEPTS:
             raise ValueError("Resource event family is not reviewed")
-        if self.occurred_at.tzinfo is None:
+        if self.occurred_at.utcoffset() is None:
             raise ValueError("Resource event occurred_at MUST be timezone-aware")
+        if self.recorded_at is not None and self.recorded_at.utcoffset() is None:
+            raise ValueError("Resource event recorded_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +96,7 @@ class ResourceEventCollection:
         ordering = tuple((item.occurred_at, item.evidence_ref) for item in self.events)
         if ordering != tuple(sorted(ordering)):
             raise ValueError("Resource events MUST be deterministically ordered")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.utcoffset() is None:
             raise ValueError("Resource event collection time MUST be timezone-aware")
         if self.complete == (self.limitation is not None):
             raise ValueError("Resource event completeness and limitation are inconsistent")

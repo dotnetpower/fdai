@@ -502,3 +502,95 @@ def test_campaign_3_rounds_1_to_18_hardening() -> None:
             manifest_release_digest="sha256:" + "a" * 64,
             cells=(CoverageCell("c1", "compiled", ()), CoverageCell("c1", "compiled", ())),
         )
+
+
+def test_campaign_4_f001_to_f105_hardening_invariants() -> None:
+    from fdai.core.conversation.contextual_translation import _leaf_values
+    from fdai.core.conversation.grounded_answer_validation import validate_grounded_answer
+    from fdai.core.conversation.result_handle_store import result_handle_conversation_id
+    from fdai.core.conversation.semantic_current_evidence import (
+        SemanticCurrentEvidenceObservation,
+    )
+    from fdai.core.conversation.semantic_operand_provenance import (
+        IdentityBindingReceipt,
+        _predicate_operands,
+    )
+    from fdai.core.conversation.semantic_planning_assembly import frame_result_keys
+    from fdai.core.conversation.semantic_planning_judgment import (
+        _semantic_judgment_capabilities,
+    )
+    from fdai.core.conversation.semantic_planning_models import SemanticOutputShape
+    from fdai.core.conversation.semantic_reasoning_filter_coverage import all_zero_identifier
+    from fdai.core.conversation.semantic_reasoning_handles import ReferenceOutcome
+    from fdai.core.conversation.semantic_stored_result_handles import _bind_one
+    from fdai.core.conversation.tools import ToolResult
+    from fdai.core.ontology_platform.inventory_projection_bounds import (
+        validate_projection_allocation,
+    )
+    from fdai.core.ontology_platform.property_values import declared_property_values
+    from fdai.core.ontology_platform.query_handler_values import argument_name
+    from fdai_service_contracts.ontology_query import EvidenceAuthority
+    from fdai_service_contracts.reasoning_handles import TypedRowKey
+    from fdai_service_contracts.semantic_question_form import MentionForm
+
+    # F001: _semantic_judgment_capabilities accepts tuple x-fdai-measure-concepts
+    caps = _semantic_judgment_capabilities(
+        (
+            {
+                "kind": "function",
+                "name": "query.resource_state_inventory",
+                "output_schema": {"x-fdai-measure-concepts": (" m2 ", "m1")},
+            },
+        )
+    )
+    assert caps[0]["measure_concepts"] == ["m1", "m2"]
+
+    # F022, F024, F025, F029, F030: provenance, assembly, zero-UUID, and ordinal boolean guards
+    with pytest.raises(ValueError, match="trimmed"):
+        SemanticCurrentEvidenceObservation(
+            function_name=" query.manifest ",
+            complete=True,
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            principal_scope_digest="sha256:" + "a" * 64,
+        )
+    with pytest.raises(ValueError, match="non-empty"):
+        IdentityBindingReceipt(source=" ", lookup="l", identity="id")
+    assert _predicate_operands(
+        {"property": "name", "operator": "in", "values": ("app-a", "app-b")}
+    ) == ("app-a", "app-b")
+    assert frame_result_keys({"output_shape": SemanticOutputShape.RESOURCE_LIST}) == (
+        "shape:resource_list",
+    )
+    assert all_zero_identifier("  00000000-0000-0000-0000-000000000000  ") is True
+    row_key = TypedRowKey(row_type="semantic_query_row", row_digest="sha256:" + "a" * 64)
+    assert (
+        _bind_one(
+            "m1",
+            MentionForm.ORDINAL,
+            True,
+            handle_ref="h1",
+            row_keys=(row_key,),
+            truncated=False,
+            row_map={},
+            fallback=ReferenceOutcome.BOUND,
+            source_generation="g1",
+        ).outcome
+        is ReferenceOutcome.OUT_OF_RANGE
+    )
+
+    # F036, F038, F045, F051, F052, F061: contextual translation, grounded answer, ontology bounds
+    with pytest.raises(ValueError, match="finite"):
+        _leaf_values({"score": float("nan")})
+    assert (
+        validate_grounded_answer(
+            "   ",
+            ToolResult(status="ok", preview="p", data={}, evidence_refs=()),
+        ).reason_code
+        == "empty_answer"
+    )
+    with pytest.raises(ValueError, match="non-empty"):
+        result_handle_conversation_id("   ")
+    assert declared_property_values({"values": (" Running ", "", 123)}) == frozenset({"Running"})
+    with pytest.raises(ValueError, match="between 1 and 256"):
+        argument_name(" arg ")
+    validate_projection_allocation([frozenset({"a", "b"})])

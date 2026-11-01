@@ -60,8 +60,14 @@ class RegisteredDocument:
     def __post_init__(self) -> None:
         if not self.doc_id or not self.doc_id.strip():
             raise ValueError("RegisteredDocument.doc_id MUST be non-empty")
+        if not self.source_ref or not self.source_ref.strip():
+            raise ValueError("RegisteredDocument.source_ref MUST be non-empty")
+        if not self.title or not self.title.strip():
+            raise ValueError("RegisteredDocument.title MUST be non-empty")
         if not self.registered_by or not self.registered_by.strip():
             raise ValueError("RegisteredDocument.registered_by MUST be non-empty")
+        if self.registered_at.utcoffset() is None:
+            raise ValueError("RegisteredDocument.registered_at MUST be timezone-aware")
         if isinstance(self.chunk_count, bool) or self.chunk_count < 0:
             raise ValueError("RegisteredDocument.chunk_count MUST be non-negative")
 
@@ -95,6 +101,10 @@ class CodeRepoRegistration:
             raise ValueError("CodeRepoRegistration.default_branch MUST be non-empty")
         if not self.registered_by or not self.registered_by.strip():
             raise ValueError("CodeRepoRegistration.registered_by MUST be non-empty")
+        if self.registered_at.utcoffset() is None:
+            raise ValueError("CodeRepoRegistration.registered_at MUST be timezone-aware")
+        if not isinstance(self.enabled, bool):
+            raise ValueError("CodeRepoRegistration.enabled MUST be a boolean")
 
 
 __all__ = [

@@ -74,7 +74,11 @@ class OntologyIndexJournal:
             raise ValueError("ontology index event differs from its immutable owner record")
 
     async def pending(self, owner: str, *, limit: int = 32) -> tuple[ContextIndexMessage, ...]:
-        if owner not in {"Muninn", "Heimdall", "Saga"} or not 1 <= limit <= 64:
+        if (
+            owner not in {"Muninn", "Heimdall", "Saga"}
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 64
+        ):
             raise ValueError("ontology publication recovery requires bounded owned selection")
         rows, _total = await self._store.read_state_page(
             f"{_PREFIX}{owner}:result:",
@@ -97,6 +101,14 @@ class OntologyIndexJournal:
         await self.immutable(key, {"message_key": message.idempotency_key})
 
     async def acknowledge_pending(self, owner: str, *, limit: int = 64) -> int:
+        if (
+            owner not in {"Muninn", "Heimdall", "Saga"}
+            or isinstance(limit, bool)
+            or not 1 <= limit <= 64
+        ):
+            raise ValueError(
+                "ontology publication acknowledgement requires bounded owned selection"
+            )
         rows, _total = await self._store.read_state_page(
             f"{_PREFIX}{owner}:result:",
             limit=limit,

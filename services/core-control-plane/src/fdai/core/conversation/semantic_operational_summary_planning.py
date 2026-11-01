@@ -58,9 +58,11 @@ def build_function_backed_summary_frame(
     ):
         return None
     available_functions = {
-        descriptor["name"]
+        descriptor["name"].strip()
         for descriptor in descriptors
-        if descriptor.get("kind") == "function" and isinstance(descriptor.get("name"), str)
+        if descriptor.get("kind") == "function"
+        and isinstance(descriptor.get("name"), str)
+        and descriptor["name"].strip()
     }
     intents = (judgment.primary_intent, *judgment.secondary_intents)
     if judgment.primary_intent == GOVERNED_DOCUMENT_FUNCTION_NAME:
@@ -94,7 +96,13 @@ def build_function_backed_summary_frame(
             operation=SemanticOperation.SELECT,
             subject_constraints=("Incident",),
             measure_concepts=tuple(
-                sorted({facet.replace("-", "_") for facet in judgment.requested_facets})
+                sorted(
+                    {
+                        facet.strip().replace("-", "_")
+                        for facet in judgment.requested_facets
+                        if facet.strip()
+                    }
+                )
             ),
             temporal_scope={"kind": "historical"},
             output_shape=SemanticOutputShape.INCIDENT_EVIDENCE,

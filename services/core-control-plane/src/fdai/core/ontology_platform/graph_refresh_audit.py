@@ -57,8 +57,10 @@ class GraphEvidenceRefreshAuditRecord:
         _digest(ontology_release_digest, "ontology release")
         if principal_scope_digest is not None:
             _digest(principal_scope_digest, "principal scope")
-        if source_revisions != tuple(sorted(set(source_revisions))) or any(
-            not value.strip() or len(value) > 256 for value in source_revisions
+        if (
+            len(source_revisions) > 64
+            or source_revisions != tuple(sorted(set(source_revisions)))
+            or any(not value.strip() or len(value) > 256 for value in source_revisions)
         ):
             raise ValueError("graph refresh source revisions MUST be unique bounded values")
         body = {

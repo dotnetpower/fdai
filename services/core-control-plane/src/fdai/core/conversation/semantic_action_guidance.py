@@ -48,7 +48,9 @@ def incident_mitigation_requirements_guidance(
         or judgment.primary_intent != "action_requirements"
         or judgment.action_posture != "advise_only"
         or judgment.action_subject != "none"
-        or not {"incident_mitigation", "requirements"}.issubset(judgment.requested_facets)
+        or not {"incident_mitigation", "requirements"}.issubset(
+            {facet.strip().replace("-", "_") for facet in judgment.requested_facets}
+        )
         or not any(
             target.kind == "object_type" and target.canonical_value == "Incident"
             for target in judgment.targets
@@ -61,7 +63,7 @@ def incident_mitigation_requirements_guidance(
         return None
     answer = (
         _INCIDENT_MITIGATION_REQUIREMENTS_KO
-        if locale.casefold().startswith("ko")
+        if locale.strip().casefold().startswith("ko")
         else _INCIDENT_MITIGATION_REQUIREMENTS_EN
     )
     return SemanticAdvisoryResponseIntent.INCIDENT_MITIGATION_REQUIREMENTS, answer
@@ -82,11 +84,13 @@ def targetless_incident_mitigation_draft_clarification(
         or judgment.primary_intent != "action_request"
         or judgment.action_posture != "draft_only"
         or judgment.action_subject != "Incident"
-        or "incident_mitigation" not in judgment.requested_facets
+        or "incident_mitigation"
+        not in {facet.strip().replace("-", "_") for facet in judgment.requested_facets}
         or any(target.kind == "incident_id" for target in judgment.targets)
         or not judgment.ambiguous
         or judgment.unresolved_terms != ("incident_identity",)
         or judgment.clarification is None
+        or not judgment.clarification.strip()
     ):
         return None
     proposal = SemanticFrameProposal(

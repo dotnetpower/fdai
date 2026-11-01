@@ -26,6 +26,17 @@ class StoragePressurePolicy:
     max_projection_lag: int
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(value, bool)
+            for value in (
+                self.warning_bytes,
+                self.critical_bytes,
+                self.hard_bytes,
+                self.max_purge_backlog,
+                self.max_projection_lag,
+            )
+        ):
+            raise ValueError("storage pressure thresholds MUST NOT be booleans")
         if not 0 < self.warning_bytes < self.critical_bytes < self.hard_bytes:
             raise ValueError("storage pressure byte thresholds MUST increase")
         if self.max_purge_backlog < 1 or self.max_projection_lag < 1:
@@ -54,6 +65,11 @@ def assess_storage_pressure(
 ) -> StoragePressureAssessment:
     """Reduce measured capacity to a monotonic fail-closed degradation posture."""
 
+    if any(
+        isinstance(value, bool)
+        for value in (database_bytes, purge_backlog, projection_lag, growth_bytes_per_second)
+    ):
+        raise ValueError("storage pressure measurements MUST NOT be booleans")
     if min(database_bytes, purge_backlog, projection_lag) < 0:
         raise ValueError("storage pressure measurements MUST be non-negative")
     if growth_bytes_per_second is not None and growth_bytes_per_second < 0:
