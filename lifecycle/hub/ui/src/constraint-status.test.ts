@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { constraintVerdict, isTimingReason } from "./constraint-status";
+import { constraintVerdict, describeConstraintReason, isTimingReason } from "./constraint-status";
 
 describe("isTimingReason", () => {
   test("a closed maintenance window and an active suppression are timing reasons", () => {
@@ -43,5 +43,11 @@ describe("constraintVerdict", () => {
         release_id: "1.6.0",
         blocks: [{ reason_code: "new_constraint", details: [] }],
       })).toBe("blocked");
+    });
+
+    test("describes shared constraint reason codes as human-readable sentences", () => {
+      expect(describeConstraintReason("maintenance_window_unavailable")).toContain("maintenance window");
+      expect(describeConstraintReason("data_residency_mismatch")).toContain("data-residency");
+      expect(describeConstraintReason("custom_future_code")).toContain("custom future code");
     });
 });

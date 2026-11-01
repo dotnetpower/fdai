@@ -23,6 +23,9 @@ from fdai_deployment_cli.cli_help import (
 from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.lifecycle_configuration_cli import register_configuration_commands
 from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
+from fdai_deployment_cli.security_and_preflight_cli import (
+    register_security_and_preflight_commands,
+)
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
 from fdai_deployment_cli.trajectory_cli import register_trajectory_commands
 
@@ -43,6 +46,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     subcommands = command_group(parser)
     register_configuration_commands(subcommands)
     register_trajectory_commands(subcommands)
+    register_security_and_preflight_commands(subcommands)
 
     version = command(subcommands, "version", "Show the installed CLI version")
     version.add_argument("--output", choices=("text", "json"), default="text")

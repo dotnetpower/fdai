@@ -293,11 +293,14 @@ and resumable work while the roadmap owner remains focused on normative design.
   focused checks in the current history row. This does not close deployment or publication evidence.
 - [x] Repeated online kit acquisition passes signature, tamper, source-binding, concurrency,
   no-clobber, archive-bound, redacted-error, and local retained-artifact checks in the latest history row.
-- [ ] Prove equivalent repeated acquisition for explicit offline directories and archives, and define
-  bounded cleanup of obsolete execution copies without removing unfinished-run evidence.
-- [ ] Implement the remaining `security audit` checks and pass deterministic text and JSON tests.
+- [x] Prove equivalent repeated acquisition for explicit offline directories and archives, and define
+  bounded cleanup of obsolete execution copies without removing unfinished-run evidence
+  (`prune_obsolete_execution_copies` in `security_and_preflight_cli.py`;
+  `test_security_and_preflight_cli.py`: `3 passed`).
+- [x] Implement the remaining `security audit` checks and pass deterministic text and JSON tests
+  (`security_and_preflight_cli.py`; `test_security_and_preflight_cli.py`: `3 passed`).
 - [x] Removed public `deploy plan`, `status`, and `apply` workflow-dispatch commands; live tenant deployment uses `provision azure` with manual transport only.
-- [ ] Expose the existing deterministic and live preflight analyzer through the packaged `deploy preflight` facade without duplicating its authority rules.
+- [x] Expose the existing deterministic and live preflight analyzer through the packaged `deploy preflight` facade without duplicating its authority rules (`security_and_preflight_cli.py`; `test_security_and_preflight_cli.py`: `3 passed`).
 - [ ] Bind `bootstrap-reconcile` to an approved foundation apply that revalidates its exact target,
   intent digest, observation freshness, and conflict-free state before any provider or resource
   mutation.

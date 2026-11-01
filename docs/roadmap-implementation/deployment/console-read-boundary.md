@@ -68,6 +68,9 @@ The test-context choices endpoint is a read-boundary projection over deployment-
 | 2026-09-12 | implemented | Superseded the earlier unavailable declaration: the projection is materialized, and Operator joins each ActionType with its durable current mode before serving it. | `current change`; Operator workflow-family checks passed 40 cases; focused Console checks passed 6 cases; typecheck and catalog parity passed. | Retain authenticated browser evidence for current-mode presentation. |
 
 
+| 2026-11-01 | implemented | Reconciled the completed workflow-definition and Python-task projection writer tracked by [#1655](https://github.com/dotnetpower/fdai/issues/1655). | `current change`; [#1655](https://github.com/dotnetpower/fdai/issues/1655). | Provisioning progress relays and browser receipts remain open below. |
+
+
 ### Remaining work
 
 - [ ] Bind the provisioning progress and live onboarding observation relays, then retain an
@@ -76,9 +79,10 @@ The test-context choices endpoint is a read-boundary projection over deployment-
   capability receipt.
 - [ ] Retain an authenticated Browser Entra sweep of `/workflow-builder` on the standard local
   full stack that records HTTP `200` for `/workflows/definitions` and `/python-tasks/capabilities`.
-- [ ] Land the definition and binding writer tracked by
+- [x] Land the definition and binding writer tracked by
   [#1655](https://github.com/dotnetpower/fdai/issues/1655), then show a saved private draft under
-  Mine for its owner and under no other principal's groups.
+  Mine for its owner and under no other principal's groups (closed completed; workflow-definition
+  and Python-task projections and owner-scoped private drafts verified).
 - [ ] Retain an authenticated browser receipt showing the recorded-state source declaration and
   fact-level evidence gaps without treating a configured source as a fresh observation.
 - [ ] Decide whether the onboarding probe, configuration baseline, and conversation delivery

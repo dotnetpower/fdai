@@ -121,26 +121,26 @@ def _outcome_assurance_unavailable(
     now: datetime,
 ) -> sc.OutcomeAssuranceProjection:
     src = "outcome-assurance-measurement"
-    return sc.OutcomeAssuranceProjection.model_validate(
-        {
-            "state": "unavailable",
-            "reason": reason,
-            "scope": scope,
-            "window": window,
-            "sources": [{"name": src, "state": "unavailable", "reason": reason}],
-            "readiness": [{"facet": "measurement", "state": "unavailable", "reason": reason}],
-            "alignment": {
-                "state": "unavailable",
-                "finalized_events": 0,
-                "attributed_events": 0,
-                "unattributed_events": 0,
-                "reason": reason,
-            },
-            "outcomes": [],
-            "guards": {"state": "unavailable", "reason": reason},
-            "provenance": {"as_of": now, "generated_at": now, "source_names": [src]},
-        }
-    )
+    align = {
+        "state": "unavailable",
+        "finalized_events": 0,
+        "attributed_events": 0,
+        "unattributed_events": 0,
+        "reason": reason,
+    }
+    data = {
+        "state": "unavailable",
+        "reason": reason,
+        "scope": scope,
+        "window": window,
+        "sources": [{"name": src, "state": "unavailable", "reason": reason}],
+        "readiness": [{"facet": "measurement", "state": "unavailable", "reason": reason}],
+        "alignment": align,
+        "outcomes": [],
+        "guards": {"state": "unavailable", "reason": reason},
+        "provenance": {"as_of": now, "generated_at": now, "source_names": [src]},
+    }
+    return sc.OutcomeAssuranceProjection.model_validate(data)
 
 
 def _outcome_assurance_is_stale(projection: sc.OutcomeAssuranceProjection, now: datetime) -> bool:
@@ -175,36 +175,31 @@ def _stale_outcome_assurance_projection(
         for r in projection.readiness
     )
     outcomes = [
-        {
-            "objective_ref": o.objective_ref,
-            "metric": o.metric,
-            "state": "stale",
-            "reason": reason,
-            "evidence_refs": o.evidence_refs,
-        }
+        o.model_dump(include={"objective_ref", "metric", "evidence_refs"})
+        | {"state": "stale", "reason": reason}
         for o in projection.outcomes
     ]
     ev, p = projection.alignment.finalized_events, projection.provenance
-    return sc.OutcomeAssuranceProjection.model_validate(
-        {
-            "state": "stale",
-            "reason": reason,
-            "scope": projection.scope,
-            "window": projection.window,
-            "sources": sources,
-            "readiness": readiness,
-            "alignment": {
-                "state": "unavailable",
-                "finalized_events": ev,
-                "attributed_events": 0,
-                "unattributed_events": ev,
-                "reason": reason,
-            },
-            "outcomes": outcomes,
-            "guards": {"state": "stale", "reason": reason},
-            "provenance": {"as_of": p.as_of, "generated_at": now, "source_names": p.source_names},
-        }
-    )
+    align = {
+        "state": "unavailable",
+        "finalized_events": ev,
+        "attributed_events": 0,
+        "unattributed_events": ev,
+        "reason": reason,
+    }
+    data = {
+        "state": "stale",
+        "reason": reason,
+        "scope": projection.scope,
+        "window": projection.window,
+        "sources": sources,
+        "readiness": readiness,
+        "alignment": align,
+        "outcomes": outcomes,
+        "guards": {"state": "stale", "reason": reason},
+        "provenance": {"as_of": p.as_of, "generated_at": now, "source_names": p.source_names},
+    }
+    return sc.OutcomeAssuranceProjection.model_validate(data)
 
 
 def build_outcome_assurance_operator_projection(
@@ -255,16 +250,18 @@ def build_outcome_assurance_operator_projection(
             projection.scope, projection.window, reason, current_now
         )
         return _unavailable_operator_projection(principal_id, unavail, reason)
-    return OutcomeAssuranceOperatorProjection(
-        principal_id=principal_id,
-        state=sc.OutcomeAssuranceReadState.COMPLETE,
-        reason=None,
-        scope=projection.scope,
-        window=projection.window,
-        summary_cards=_build_summary_cards(projection),
-        objective_drilldowns=_build_objective_drilldowns(projection),
-        guard_status=projection.guards,
-        projection=projection,
+    return OutcomeAssuranceOperatorProjection.model_validate(
+        {
+            "principal_id": principal_id,
+            "state": sc.OutcomeAssuranceReadState.COMPLETE,
+            "reason": None,
+            "scope": projection.scope,
+            "window": projection.window,
+            "summary_cards": _build_summary_cards(projection),
+            "objective_drilldowns": _build_objective_drilldowns(projection),
+            "guard_status": projection.guards,
+            "projection": projection,
+        }
     )
 
 
@@ -275,9 +272,9 @@ async def read_outcome_assurance_operator_projection(
     if not query.principal_id.strip():
         raise PermissionError("Outcome Assurance projection requires an authenticated principal")
     raw = await read_outcome_assurance_projection(fetch_all=fetch_all, query=query)
+    parsed = sc.OutcomeAssuranceProjection.model_validate(raw)
     return build_outcome_assurance_operator_projection(
-        principal_id=query.principal_id,
-        projection=sc.OutcomeAssuranceProjection.model_validate(raw),
+        principal_id=query.principal_id, projection=parsed
     ).model_dump(mode="json")
 
 
@@ -290,14 +287,16 @@ def _card(
     refs: tuple[str, ...] = (),
 ) -> OutcomeAssuranceSummaryCard:
     unit = "ratio" if metric is not None else None
-    return OutcomeAssuranceSummaryCard(
-        card_id=card_id,
-        state=state,
-        available=available,
-        headline_metric=metric,
-        unit=unit,
-        reason=reason,
-        evidence_refs=refs,
+    return OutcomeAssuranceSummaryCard.model_validate(
+        {
+            "card_id": card_id,
+            "state": state,
+            "available": available,
+            "headline_metric": metric,
+            "unit": unit,
+            "reason": reason,
+            "evidence_refs": refs,
+        }
     )
 
 
@@ -307,19 +306,18 @@ def _unavailable_operator_projection(
     reason: sc.OutcomeAssuranceUnavailableReason,
 ) -> OutcomeAssuranceOperatorProjection:
     cards = tuple(_card(cid, "unavailable", False, reason=reason) for cid in _CARD_IDS)
-    guards = sc.OutcomeAssuranceControlSummary(
-        state=sc.OutcomeAssuranceGuardState.UNAVAILABLE, reason=reason
-    )
-    return OutcomeAssuranceOperatorProjection(
-        principal_id=principal_id,
-        state=sc.OutcomeAssuranceReadState.UNAVAILABLE,
-        reason=reason,
-        scope=projection.scope,
-        window=projection.window,
-        summary_cards=cards,
-        objective_drilldowns=(),
-        guard_status=guards,
-        projection=projection,
+    return OutcomeAssuranceOperatorProjection.model_validate(
+        {
+            "principal_id": principal_id,
+            "state": sc.OutcomeAssuranceReadState.UNAVAILABLE,
+            "reason": reason,
+            "scope": projection.scope,
+            "window": projection.window,
+            "summary_cards": cards,
+            "objective_drilldowns": (),
+            "guard_status": {"state": "unavailable", "reason": reason},
+            "projection": projection,
+        }
     )
 
 
@@ -372,24 +370,26 @@ def _build_objective_drilldowns(
     by_obj: dict[str, list[sc.OutcomeAssuranceMetric]] = {}
     for metric in projection.outcomes:
         by_obj.setdefault(metric.objective_ref, []).append(metric)
+    keys = {
+        "state",
+        "workflow_refs",
+        "action_type_ids",
+        "finalized_events",
+        "attributed_events",
+        "unattributed_events",
+        "coverage",
+        "reason",
+    }
+    base = align.model_dump(include=keys)
     items: list[ObjectiveAttributionDrilldown] = []
     for obj in sorted(set(align.objective_refs) | set(by_obj)):
         metrics = tuple(by_obj.get(obj, ()))
-        m_refs = {r for m in metrics for r in m.evidence_refs}
-        refs = tuple(sorted(set(align.evidence_refs) | m_refs))
+        refs = tuple(
+            sorted(set(align.evidence_refs) | {r for m in metrics for r in m.evidence_refs})
+        )
         items.append(
-            ObjectiveAttributionDrilldown(
-                objective_ref=obj,
-                state=align.state,
-                workflow_refs=align.workflow_refs,
-                action_type_ids=align.action_type_ids,
-                finalized_events=align.finalized_events,
-                attributed_events=align.attributed_events,
-                unattributed_events=align.unattributed_events,
-                coverage=align.coverage,
-                metrics=metrics,
-                evidence_refs=refs,
-                reason=align.reason,
+            ObjectiveAttributionDrilldown.model_validate(
+                {**base, "objective_ref": obj, "metrics": metrics, "evidence_refs": refs}
             )
         )
     return tuple(items)

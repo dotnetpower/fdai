@@ -603,15 +603,18 @@ No live cloud/model call, actual installation, production key ceremony or physic
   screens in the meantime rather than previewing them as disabled placeholders.
 - [ ] Add `lifecycle/hub/ui`'s `npm run typecheck`, `npm test`, and `npm run build` to CI alongside
   the Hub's `pytest`, `ruff`, and `mypy` gates.
-- [ ] Replace the constraints panel's raw `snake_case` reason codes with the human-readable
+- [x] Replace the constraints panel's raw `snake_case` reason codes with the human-readable
   sentences the Lifecycle Hub mocks (06) used, for every reason code the shared constraint
-  evaluator can return.
-- [ ] Record a decision on timestamp presentation: either render every Hub UI timestamp in the
+  evaluator can return (`describeConstraintReason` in `lifecycle/hub/ui/src/constraint-status.ts`;
+  `lifecycle/hub/ui/src/components/constraint-results.tsx`).
+- [x] Record a decision on timestamp presentation: either render every Hub UI timestamp in the
   browser's local time, including a declared maintenance window's `start`/`timezone`, or label
   every timestamp with its origin zone, so an operator never has to silently reconcile two
-  implicit time bases.
-- [ ] Add a client-side format hint or inline validation to the enrollment approval form's
+  implicit time bases (`formatTimestamp` in `lifecycle/hub/ui/src/format.ts` includes `timeZoneName: "short"` and optional origin zone label).
+- [x] Add a client-side format hint or inline validation to the enrollment approval form's
   approver field, matching the server's accepted pattern, instead of surfacing a raw
-  `approval_invalid` reason code on submission.
-- [ ] Add search or sort to the installations list once a Hub cell's enrolled installation count
-  makes the flat table hard to scan.
+  `approval_invalid` reason code on submission (`isValidApprover` in
+  `lifecycle/hub/ui/src/routes/enrollments.tsx`).
+- [x] Add search or sort to the installations list once a Hub cell's enrolled installation count
+  makes the flat table hard to scan (`lifecycle/hub/ui/src/routes/installations.tsx` supports
+  filtering by installation ID and sorting by ID, channel, or update status).

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:0eff7c53e4e8069d416141baf8a03de32126bddf4b0d60719d36cab675f46c50",
+  "catalog_digest": "sha256:70ee4bef9837138f39070ad66634f08727a78a8bc7fdd1e64caeb8cdd66345b6",
   "execution_authority": false,
-  "generated_at": "2026-10-31T18:46:40.720856Z",
+  "generated_at": "2026-11-01T03:57:56.137802Z",
   "records": [
     {
       "designed_behavior": [
@@ -192,25 +192,25 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:06c9bfa454098cf402a5030408669fc4f9e68e83cd943d112c72bc285ad25e36",
+      "record_digest": "sha256:1829f566679619f67da3a12c60237d782312b5f18219ffba7e9692b870b5f655",
       "sources": [
         {
+          "authority_role": "verification",
+          "blob_sha": "43502202ce3f5d94d53a560b81e1d0d496988930",
+          "line_end": 6,
+          "line_start": 6,
+          "path": "docs/roadmap-implementation/interfaces/durable-conversation-delivery.md",
+          "source_kind": "doc",
+          "symbol": "Implementation status"
+        },
+        {
           "authority_role": "design",
-          "blob_sha": "766d73ef2dfac08850b93a6fd1a5ada28a11a68e",
+          "blob_sha": "870558be18109a3bfa261e47f64a44b96b5df71e",
           "line_end": 18,
           "line_start": 18,
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
           "source_kind": "doc",
           "symbol": "Semantic request ordering and isolation"
-        },
-        {
-          "authority_role": "verification",
-          "blob_sha": "766d73ef2dfac08850b93a6fd1a5ada28a11a68e",
-          "line_end": 66,
-          "line_start": 66,
-          "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
-          "source_kind": "doc",
-          "symbol": "Implementation status"
         }
       ],
       "status": "implemented",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "7045382e411e87b5df32b06b673222af0dee19b3"
+  "source_revision": "079b9427a3685a78d584311d313f82922bdc5c2b"
 }

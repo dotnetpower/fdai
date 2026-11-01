@@ -26,6 +26,7 @@ function WindowCell({ installation }: { installation: InstallationSummary }) {
 export function InstallationsPage() {
   const installations = useAsync(() => hubApi.listInstallations(), []);
   const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"id" | "channel" | "outcome">("id");
 
   return (
     <>
@@ -52,12 +53,33 @@ export function InstallationsPage() {
           placeholder="Filter by installation ID"
           onInput={(event) => setQuery(event.currentTarget.value)}
         />
+        <label for="installation-sort">Sort by</label>
+        <select
+          id="installation-sort"
+          class="input"
+          value={sortBy}
+          onChange={(event) => setSortBy(event.currentTarget.value as "id" | "channel" | "outcome")}
+        >
+          <option value="id">Installation ID</option>
+          <option value="channel">Channel</option>
+          <option value="outcome">Update status</option>
+        </select>
       </div>
       <AsyncBoundary state={installations} layout="table">
         {({ installations: rows }) => {
-          const visible = rows.filter((row) =>
-            row.installation_id.toLowerCase().includes(query.trim().toLowerCase()),
-          );
+          const visible = [...rows]
+            .filter((row) =>
+              row.installation_id.toLowerCase().includes(query.trim().toLowerCase()),
+            )
+            .sort((a, b) => {
+              if (sortBy === "channel") {
+                return a.channel.localeCompare(b.channel) || a.installation_id.localeCompare(b.installation_id);
+              }
+              if (sortBy === "outcome") {
+                return a.outcome.localeCompare(b.outcome) || a.installation_id.localeCompare(b.installation_id);
+              }
+              return a.installation_id.localeCompare(b.installation_id);
+            });
           return rows.length === 0 ? (
             <p class="empty">No installations enrolled.</p>
           ) : visible.length === 0 ? (

@@ -206,7 +206,11 @@
           "services/operator-service/tests/test_licensing_warning_projection.py",
           "services/operator-service/tests/test_narrator_image_resolver.py",
           "services/operator-service/tests/test_operator_web_evidence_suite.py",
-          "services/operator-service/tests/test_programmatic_pipeline_api.py"
+          "services/operator-service/tests/test_programmatic_pipeline_api.py",
+          "services/operator-service/tests/test_adapter_commands_api.py",
+          "services/operator-service/tests/test_declared_intent_review_projection.py",
+          "services/operator-service/tests/test_skill_source_projection.py",
+          "services/operator-service/tests/test_task_worker_projection.py"
         ],
         "integration": [
           "services/operator-service/tests/test_action_confirmation_composition.py",

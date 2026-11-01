@@ -207,7 +207,7 @@ REFERENCE_SEEDS = (
                 SystemKnowledgeAuthorityRole.DESIGN,
             ),
             _doc(
-                "docs/roadmap/interfaces/durable-conversation-delivery.md",
+                "docs/roadmap-implementation/interfaces/durable-conversation-delivery.md",
                 "Implementation status",
                 SystemKnowledgeAuthorityRole.VERIFICATION,
             ),
