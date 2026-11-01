@@ -15,6 +15,7 @@ from fdai.rule_catalog.schema.msrc_csaf import (
     compare_dotted_versions,
     is_version_in_affected_window,
     load_msrc_csaf_crosswalk_catalog,
+    load_msrc_csaf_raw_dict,
     parse_dotted_version,
     severity_for_cvss_score,
     version_train_prefix,
@@ -114,9 +115,9 @@ def _sample_oasis_payload(
 def test_shipped_msrc_csaf_crosswalk_loads_and_verifies_digests() -> None:
     catalog = load_msrc_csaf_crosswalk_catalog(CROSSWALK_PATH)
     assert catalog.source_id == "msrc_csaf"
-    assert len(catalog.advisories) == 267
-    assert len(catalog.product_mappings) == 268
-    assert len(catalog.vulnerability_mappings) == 268
+    assert len(catalog.advisories) == 9057
+    assert len(catalog.product_mappings) == 1868
+    assert len(catalog.vulnerability_mappings) == 9058
 
 
 def test_dotted_version_comparison_and_train_prefix_are_numeric() -> None:
@@ -238,7 +239,29 @@ def test_url_and_strict_scalar_guards_reject_path_traversal_and_type_coercion() 
             url="https://msrc.microsoft.com/csaf/../../evil",
         )
 
-    raw_catalog = json.loads(CROSSWALK_PATH.read_text(encoding="utf-8"))
+    base_catalog = load_msrc_csaf_raw_dict(CROSSWALK_PATH)
+    # Use a 2-advisory slice for fast negative mutation checks
+    target_cves = {"CVE-2026-20001", "CVE-2026-20002", "CVE-2026-20003"}
+    target_prods = {"AZURE-AKS-1.28", "AZURE-STORAGE-TLS", "AZURE-APPLIANCE-LEGACY"}
+    sliced_advs = [
+        a
+        for a in base_catalog["advisories"]
+        if a["tracking_id"] in {"MSRC-2026-AKS-001", "MSRC-2026-STORAGE-001"}
+    ]
+    sliced_prods = [p for p in base_catalog["product_mappings"] if p["product_id"] in target_prods]
+    sliced_vmaps = [m for m in base_catalog["vulnerability_mappings"] if m["cve_id"] in target_cves]
+    base_slice = {
+        "schema_version": "1.0.0",
+        "source_id": "msrc_csaf",
+        "source_revision": base_catalog["source_revision"],
+        "advisories_digest": canonical_digest(sliced_advs),
+        "product_mappings": sliced_prods,
+        "vulnerability_mappings": sliced_vmaps,
+        "advisories": sliced_advs,
+    }
+    base_slice["crosswalk_digest"] = canonical_digest(base_slice)
+
+    raw_catalog = json.loads(json.dumps(base_slice))
     raw_catalog["product_mappings"][0]["vulnerable_version_ceiling_exclusive"] = "1.28.99"
     temp = dict(raw_catalog)
     temp.pop("crosswalk_digest")
@@ -268,7 +291,7 @@ def test_url_and_strict_scalar_guards_reject_path_traversal_and_type_coercion() 
             "product_ids mismatch",
         ),
     ):
-        cand_cat = json.loads(CROSSWALK_PATH.read_text(encoding="utf-8"))
+        cand_cat = json.loads(json.dumps(base_slice))
         cat_mutate(cand_cat)  # type: ignore[no-untyped-call]
         if cat_match != "crosswalk_digest":
             t = dict(cand_cat)
@@ -595,7 +618,7 @@ def test_oasis_parser_additional_branches() -> None:
     ):
         cand = _sample_oasis_payload()
         assert isinstance(cand["vulnerabilities"], list)
-        mutate(cand["vulnerabilities"][0])
+        mutate(cand["vulnerabilities"][0])  # type: ignore[no-untyped-call]
         b = json.dumps(cand).encode("utf-8")
         d = f"sha256:{hashlib.sha256(b).hexdigest()}"
         with pytest.raises(CsafSchemaError, match=match_str):

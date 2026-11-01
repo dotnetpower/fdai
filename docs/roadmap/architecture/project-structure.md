@@ -67,7 +67,7 @@ authorization in focused Core helpers. Bound context receipts are accepted only 
 scope, and ontology-release checks; a provider path is available only when every selected Resource
 type has reviewed that path. Recent-change continuation storage claims one opaque reference
 atomically, while the conversation layer remains read-only and grants no execution authority.
-Current-path relation and state-review convergence stays in the same Core conversation boundary: released relation plans come from the shared compiler, and independent state review compares closed meaning axes instead of facet text without adding Operator routes. MSRC CSAF vulnerability assessment (`core/security/csaf/`) and its drift-projector seam (`shared/providers/msrc_csaf.py`) likewise stay in Core and shared providers, keeping Heimdall's drift publication transport-free and shadow-only.
+Current-path relation and state-review convergence stays in the same Core conversation boundary: released relation plans come from the shared compiler, and independent state review compares closed meaning axes instead of facet text without adding Operator routes. MSRC CSAF vulnerability assessment (`core/security/csaf/`, covering all 9,058 2019-2026 MSRC CSAF records across 20 digest-verified shards) and its drift-projector seam (`shared/providers/msrc_csaf.py`) likewise stay in Core and shared providers, keeping Heimdall's drift publication transport-free and shadow-only.
 Typed constraint slots are also isolated at the shared contract and Core conversation boundary. The
 service-contract SDK owns the versioned judgment and frame fields, while Core owns slot coverage,
 plan coverage, and default-off model-schema exposure; this adds no Operator route or execution

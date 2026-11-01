@@ -1609,9 +1609,9 @@
     "services/core-control-plane/src/fdai/core/security/code_findings/verifier_evaluation.py": "bb9a12c168060ad1af035738054883c147fa3ff7652b26767a4fb59d8b96cfd0",
     "services/core-control-plane/src/fdai/core/security/code_findings/verifier_lists.py": "8173ac672d709a425677bdaae011c2dd5a56c6c1583f2255f78790fdf940fe04",
     "services/core-control-plane/src/fdai/core/security/csaf/__init__.py": "65f652ec1652f9bbb21f2f3cdea15d45430cd3a824c5e4de1362268b5e6a5f6d",
-    "services/core-control-plane/src/fdai/core/security/csaf/models.py": "b89f71fe334172d6bd591e1e5ed6020ebe644b38d7643127d916845c2d62e0b5",
-    "services/core-control-plane/src/fdai/core/security/csaf/review_signal.py": "0d5b15133e3eeca8d02f7b9bcd8412b47b11a5cb8bea3584aafeebba1c252cbb",
-    "services/core-control-plane/src/fdai/core/security/csaf/runtime.py": "5b19262f9947cddfcec31ee4f114dd0e45cd4f233b9557f0ec7b37973a33a68f",
+    "services/core-control-plane/src/fdai/core/security/csaf/models.py": "f3c3c75ee0fd77a009bfe9a26c359b9d46bd064b021d23c0515a481f4e674b6e",
+    "services/core-control-plane/src/fdai/core/security/csaf/review_signal.py": "9f431397838d1b5f5e332b9adca59376e0a6bc967a38dc26307187d881a5992a",
+    "services/core-control-plane/src/fdai/core/security/csaf/runtime.py": "39450cf4c19f153454855f89fd1f190153ae7d6c00a5bd5bf4e5ea5465517ee5",
     "services/core-control-plane/src/fdai/core/security/observations.py": "b92dc86cc7fe696067a0d81cdcf75262110e58f5013d5c6155ad0a9ddecf620d",
     "services/core-control-plane/src/fdai/core/skills/__init__.py": "8815d1d187c3597df01851f9a4dc8f4a5b4ef3ef8f86b1e844c69400dccb344f",
     "services/core-control-plane/src/fdai/core/skills/bundle_catalog.py": "2a2c54bb01cd315b65b74f0b45084361da166dd1aaf68e93fb043b4308d72332",
@@ -2072,7 +2072,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204",
     "services/operator-service/src/fdai_operator_service/entitlement_stamp.py": "d94f5239a78fdda58caa06e5c41ac96c7cdc2e36368c8e3fe6f9adde4d7ab4f2"
   },
-  "generated_at": "2026-11-01T05:05:05Z",
+  "generated_at": "2026-11-01T05:08:50Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

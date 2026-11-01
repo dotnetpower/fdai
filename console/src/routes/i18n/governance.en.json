@@ -768,6 +768,7 @@
         "exposure": "Runtime exposure"
       },
       "filter": {
+        "year": "Year",
         "severity": "Severity",
         "exploitStatus": "Exploit status",
         "disposition": "Disposition",

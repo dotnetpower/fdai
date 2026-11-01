@@ -228,11 +228,12 @@ export function AgentActivityRoute({ client }: Props) {
   async function loadAudit(
     showLoading: boolean,
     restoreRefreshFocus = false,
+    silent = false,
   ): Promise<void> {
     const generation = requestGeneration.current + 1;
     requestGeneration.current = generation;
     if (showLoading) setState({ status: "loading" });
-    else setRefreshing(true);
+    else if (!silent) setRefreshing(true);
     try {
       const [page, operational] = await Promise.all([
         client.listAudit({ limit: TIMELINE_LIMIT }),
@@ -241,17 +242,29 @@ export function AgentActivityRoute({ client }: Props) {
       if (requestGeneration.current === generation) {
         dispatch({ kind: "hydrate-activity", activities: operational.items });
         if (operational.items[0]) setLastEventAt(operational.items[0].observed_at);
-        setState({
-          status: "ready",
-          data: {
-            items: page.items,
-            olderAvailable: page.next_cursor !== null,
-            operationalSource: operational.source,
-          },
+        setState((prev) => {
+          if (
+            silent &&
+            prev.status === "ready" &&
+            prev.data.items.length === page.items.length &&
+            prev.data.items[0]?.seq === page.items[0]?.seq &&
+            prev.data.olderAvailable === (page.next_cursor !== null) &&
+            prev.data.operationalSource === operational.source
+          ) {
+            return prev;
+          }
+          return {
+            status: "ready",
+            data: {
+              items: page.items,
+              olderAvailable: page.next_cursor !== null,
+              operationalSource: operational.source,
+            },
+          };
         });
       }
     } catch (err) {
-      if (requestGeneration.current === generation) {
+      if (requestGeneration.current === generation && !silent) {
         setState({
           status: isOptionalOperatorApiUnavailable(err) ? "unavailable" : "error",
           message: err instanceof Error ? err.message : String(err),
@@ -259,7 +272,7 @@ export function AgentActivityRoute({ client }: Props) {
       }
     } finally {
       if (requestGeneration.current === generation) {
-        setRefreshing(false);
+        if (!silent) setRefreshing(false);
         if (restoreRefreshFocus) {
           window.requestAnimationFrame(() => refreshButtonRef.current?.focus());
         }
@@ -291,6 +304,16 @@ export function AgentActivityRoute({ client }: Props) {
       void loadAudit(false);
     },
   });
+
+  useEffect(() => {
+    if (state.status !== "ready" || streamStatus !== "open") return undefined;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) {
+        void loadAudit(false, false, true);
+      }
+    }, 10_000);
+    return () => window.clearInterval(timer);
+  }, [state.status, streamStatus, client]);
 
   return (
     <div class="stack">
@@ -581,6 +604,7 @@ function ActivityBody({
       {view === "trajectory" ? (
         <AgentTrajectories
           items={data.items}
+          liveEvents={runtime.liveActivity}
           selectedAgent={selected}
           query={filters.query}
           olderAvailable={data.olderAvailable}

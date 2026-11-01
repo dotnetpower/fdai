@@ -217,6 +217,12 @@ export function MsrcCsafControlsRoute() {
       <section class="stack-section">
         <div class="rule-facet-toolbar">
           <FacetSelect
+            label={t("governance.rules.msrcCsaf.filter.year")}
+            value={filters.year}
+            counts={facet("by_year")}
+            onChange={(value) => updateFilter({ year: value })}
+          />
+          <FacetSelect
             label={t("governance.rules.msrcCsaf.filter.severity")}
             value={filters.severity}
             counts={facet("by_severity")}
