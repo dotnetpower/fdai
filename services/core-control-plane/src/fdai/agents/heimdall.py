@@ -37,6 +37,7 @@ from fdai.agents._framework.heimdall_code_security import (
     DRIFT_TOOL_ID,
     HeimdallCodeSecurityMixin,
     code_security_statement,
+    msrc_csaf_statement,
 )
 from fdai.agents._framework.heimdall_constants import (
     _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
@@ -110,6 +111,7 @@ from fdai.core.readiness import (
 )
 from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
 from fdai.shared.providers.code_security import CodeSecurityDriftProjector
+from fdai.shared.providers.msrc_csaf import MsrcCsafDriftProjector
 from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
 from fdai.shared.providers.state_store import StateStore
 
@@ -220,6 +222,7 @@ class Heimdall(
         action_semantics: ActionSemanticsCatalog | None = None,
         provider_schema_drift_projector: ProviderSchemaDriftProjector | None = None,
         code_security_drift_projector: CodeSecurityDriftProjector | None = None,
+        msrc_csaf_drift_projector: MsrcCsafDriftProjector | None = None,
         state_store: StateStore | None = None,
     ) -> None:
         if rate_threshold < 1:
@@ -230,6 +233,7 @@ class Heimdall(
         self.bus = bus
         self._provider_schema_drift_projector = provider_schema_drift_projector
         self._code_security_drift_projector = code_security_drift_projector
+        self._msrc_csaf_drift_projector = msrc_csaf_drift_projector
         self._state_store = state_store
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window
@@ -458,20 +462,28 @@ class Heimdall(
                 "No retained forecast episode is bound to this conversational projection",
             )
         if "drift" in intents or context.get("conversation_tool") == DRIFT_TOOL_ID:
-            # Code-security scan reviews are Heimdall-owned Drift recorded by the scan worker.
+            # Code-security and MSRC CSAF reviews are Heimdall-owned Drift projections.
             code_facts = await self.code_security_facts()
-            if code_facts is None:
+            csaf_facts = await self.msrc_csaf_facts()
+            if code_facts is None and csaf_facts is None:
                 return evidence_backed_result(
                     self.spec.name,
                     facts,
                     "No retained drift finding is bound to this conversational projection",
                 )
-            facts.update(code_facts)
+            statements = [
+                "No retained configuration drift finding is bound to this conversational projection"
+            ]
+            if code_facts is not None:
+                facts.update(code_facts)
+                statements.append(code_security_statement(code_facts))
+            if csaf_facts is not None:
+                facts.update(csaf_facts)
+                statements.append(msrc_csaf_statement(csaf_facts))
             return evidence_backed_result(
                 self.spec.name,
                 facts,
-                "No retained configuration drift finding is bound to this conversational "
-                f"projection. {code_security_statement(code_facts)}",
+                ". ".join(statements),
             )
         resources = mentioned(
             question,
