@@ -216,6 +216,12 @@ class InMemoryTrustedSkillArtifactStore:
     ) -> TrustedArtifactRecord | None:
         return self._records.get((kind, artifact_id))
 
+    async def list(
+        self, kind: TrustedArtifactKind | None = None
+    ) -> tuple[TrustedArtifactRecord, ...]:
+        items = [r for r in self._records.values() if kind is None or r.kind is kind]
+        return tuple(sorted(items, key=lambda item: (item.kind.value, item.artifact_id)))
+
     async def disable_by_source(
         self, *, source_id: str, now: datetime
     ) -> tuple[TrustedArtifactRecord, ...]:
