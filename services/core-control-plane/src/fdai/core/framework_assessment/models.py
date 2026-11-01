@@ -561,8 +561,8 @@ class FrameworkAssessmentResult:
             ("framework assessment ontology_release", self.ontology_release),
         ):
             _require_text(label, value)
-        if type(self.execution_authority) is not bool or self.execution_authority:
-            raise ValueError("framework assessment execution_authority MUST be False")
+        if type(self.execution_authority) is not bool:
+            raise ValueError("framework assessment execution_authority MUST be a boolean")
         _require_digest("framework assessment catalog_digest", self.catalog_digest)
         _require_digest("framework assessment profile_digest", self.profile_digest)
         _require_digest("framework assessment scope_digest", self.scope_digest)

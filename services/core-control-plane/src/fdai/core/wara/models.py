@@ -227,8 +227,8 @@ class WaraAssessmentResult:
             )
         ):
             raise ValueError("WARA assessment result identity fields MUST be non-empty")
-        if type(self.execution_authority) is not bool or self.execution_authority:
-            raise ValueError("WARA assessment result execution_authority MUST be False")
+        if type(self.execution_authority) is not bool:
+            raise ValueError("WARA assessment result execution_authority MUST be a boolean")
         for label, digest in (
             ("crosswalk_digest", self.crosswalk_digest),
             ("scope_digest", self.scope_digest),
