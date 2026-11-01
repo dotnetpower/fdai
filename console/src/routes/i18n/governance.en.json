@@ -832,7 +832,8 @@
         "mdashLanguages": "Language coverage & auditors",
         "mdashBenchmarks": "Retrospective MSRC & CyberGym benchmarks",
         "mdashCohort": "May 2026 Patch Tuesday cohort & regions",
-        "pantheonSection": "15-agent Pantheon governance bindings"
+        "pantheonSection": "15-agent Pantheon proactive prediction & governance (100% utilized)",
+        "pantheonUtilization": "Proactive utilization & lead-time forecast"
       }
     }
   },

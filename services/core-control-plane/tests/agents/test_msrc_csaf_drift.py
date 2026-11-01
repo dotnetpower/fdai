@@ -12,12 +12,16 @@ from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.saga import Saga
 from fdai.core.security.csaf import (
+    CANONICAL_PANTHEON_15,
     CsafAssessmentRequest,
     CsafScopedResource,
     MsrcCsafAssessmentRuntime,
     MsrcCsafReviewError,
     build_csaf_review_package,
+    evaluate_pantheon_proactive_intelligence,
     msrc_csaf_drift_payload,
+    msrc_csaf_proactive_forecast_payload,
+    verify_pantheon_proactive_report_integrity,
 )
 from fdai.rule_catalog.schema.msrc_csaf import load_msrc_csaf_crosswalk_catalog
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -169,6 +173,8 @@ async def test_heimdall_drift_tool_orders_msrc_csaf_reviews_by_utc_timestamp() -
     assert facts["msrc_csaf_urgent_workload_count"] == 0
     assert facts["msrc_csaf_incomplete_workload_count"] == 0
     assert facts["msrc_csaf_zero_risk_certified_count"] == 1
+    assert facts["msrc_csaf_proactive_at_risk_count"] == 0
+    assert facts["msrc_csaf_pantheon_utilization_pct"] == 100.0
     assert facts["msrc_csaf_min_posture_score"] == 100
     (latest,) = facts["msrc_csaf_latest_decisions"]
     assert latest["decision"] == "clear"
@@ -176,3 +182,122 @@ async def test_heimdall_drift_tool_orders_msrc_csaf_reviews_by_utc_timestamp() -
     assert latest["critical_affected_count"] == 0
     assert latest["top_cve_ids"] == []
     assert latest["recorded_at"] == "2026-10-08T01:00:00+00:00"
+
+
+async def test_pantheon_15_agent_proactive_prediction_and_forecast_bus_flow() -> None:
+    """Verify P001-P096: 100% 15-agent proactive prediction and Heimdall->Forseti->Saga flow."""
+    catalog = load_msrc_csaf_crosswalk_catalog(CROSSWALK_PATH)
+    target_cves = {"CVE-2026-20001", "CVE-2026-20002"}
+    target_prods = {"AZURE-AKS-1.28", "AZURE-STORAGE-TLS"}
+    active_vuln_mappings = tuple(
+        m for m in catalog.vulnerability_mappings if m.cve_id in target_cves
+    )
+    from fdai.rule_catalog.schema.wara_assessment import canonical_digest
+
+    trimmed_advisories = []
+    for adv in catalog.advisories:
+        vulns = tuple(v for v in adv.vulnerabilities if v.cve_id in target_cves)
+        prods = tuple(p for p in adv.products if p.product_id in target_prods)
+        if vulns and prods:
+            trimmed_advisories.append(
+                adv.model_copy(update={"vulnerabilities": vulns, "products": prods})
+            )
+    adv_json = [a.model_dump(mode="json") for a in trimmed_advisories]
+    prods_filtered = tuple(p for p in catalog.product_mappings if p.product_id in target_prods)
+    raw_cat = {
+        "schema_version": "1.0.0",
+        "source_id": "msrc_csaf",
+        "source_revision": catalog.source_revision,
+        "advisories_digest": canonical_digest(adv_json),
+        "product_mappings": [p.model_dump(mode="json") for p in prods_filtered],
+        "vulnerability_mappings": [m.model_dump(mode="json") for m in active_vuln_mappings],
+        "advisories": adv_json,
+    }
+    raw_cat["crosswalk_digest"] = canonical_digest(raw_cat)
+    clean_catalog = catalog.model_validate(raw_cat)
+    runtime = MsrcCsafAssessmentRuntime(clean_catalog)
+    request = CsafAssessmentRequest(
+        assessment_id="csaf-proactive-test",
+        source_revision=clean_catalog.source_revision,
+        crosswalk_digest=clean_catalog.crosswalk_digest,
+        advisories_digest=clean_catalog.advisories_digest,
+        ontology_release="ontology-v1",
+        inventory_generation="inv-gen-001",
+        workload_id="payments-prod",
+        resources=(
+            CsafScopedResource(
+                resource_id="aks-01",
+                provider_resource_type="Microsoft.ContainerService/managedClusters",
+                observed_at=_NOW - timedelta(hours=20),
+                properties={
+                    "kubernetes_version": "1.28.4",
+                    "public_network_access_enabled": True,
+                },
+            ),
+            CsafScopedResource(
+                resource_id="st-01",
+                provider_resource_type="Microsoft.Storage/storageAccounts",
+                observed_at=_NOW - timedelta(minutes=5),
+                properties={"minimum_tls_version": "1.2"},
+            ),
+        ),
+        evaluated_at=_NOW,
+        recorded_at=_NOW + timedelta(seconds=1),
+    )
+    result = runtime.assess(request)
+    report = evaluate_pantheon_proactive_intelligence(
+        clean_catalog,
+        request,
+        result,
+        historical_scores=(95, 85, 70),
+        peer_workload_ids=("billing-prod",),
+        mdash_high_risk_files=("src/net/tcpip.c",),
+        capacity_headroom_pct=15.0,
+    )
+    assert verify_pantheon_proactive_report_integrity(report) is True
+    assert report.agents_utilized_count == 15
+    assert report.total_pantheon_agents == 15
+    assert report.utilization_pct == 100.0
+    assert {r.agent_name for r in report.agent_roles} == {
+        name for name, _, _ in CANONICAL_PANTHEON_15
+    }
+    assert len(report.predictions) >= 4
+    assert report.trajectory.trend_direction == "degrading"
+    assert (
+        report.odin_arbitration.selected_rollout_strategy
+        == "surge_capacity_first_then_canary_patch"
+    )
+    assert report.forseti_judgment.preemptive_change_freeze is True
+    assert len(report.norns_skuld_candidates) >= 1
+    assert report.var_thor_vidar_readiness.var_distinct_principal_enforced is True
+    assert "판테온 사전 예측 브리핑" in report.muninn_saga_bragi.bragi_briefing_ko
+
+    # Verify Heimdall publishes proactive forecast on object.forecast -> Forseti -> Saga
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    heimdall = Heimdall(bus=bus)
+    forseti = Forseti(bus=bus)
+    saga = Saga()
+    saga.bind_bus(bus)
+    bus.subscribe("object.forecast", "Forseti", forseti.on_typed_message)
+    bus.subscribe("object.verdict", "Saga", saga.on_typed_message)
+
+    forecast_payload = msrc_csaf_proactive_forecast_payload(
+        workload_id=request.workload_id,
+        source_revision=request.source_revision,
+        inventory_generation=request.inventory_generation,
+        predictions=report.predictions,
+        trajectory=report.trajectory,
+    )
+    assert await heimdall.publish_proactive_security_forecast(forecast_payload) is True
+    forecast_msg = bus.messages_on("object.forecast")[-1]
+    assert forecast_msg.principal == "Heimdall"
+    assert forecast_msg.payload["event_type"] == "msrc_csaf.proactive_risk_forecast"
+    assert forecast_msg.payload["grants_authority"] is False
+
+    verdict_msg = bus.messages_on("object.verdict")[-1]
+    assert verdict_msg.principal == "Forseti"
+    assert verdict_msg.payload["correlation_id"] == forecast_payload["correlation_id"]
+    audit_entries = saga.audit_chain.entries_for_correlation(
+        str(forecast_payload["correlation_id"])
+    )
+    assert len(audit_entries) == 1 and audit_entries[0].topic == "object.verdict"

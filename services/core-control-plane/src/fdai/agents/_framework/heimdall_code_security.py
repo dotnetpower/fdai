@@ -22,6 +22,10 @@ from fdai.core.security.code_findings.review_signal import (
     review_decision,
     validate_review_package,
 )
+from fdai.core.security.csaf.pantheon_proactive_intelligence import (
+    PROACTIVE_FORECAST_EVENT_TYPE,
+    PROACTIVE_FORECAST_KIND,
+)
 from fdai.core.security.csaf.review_signal import (
     MsrcCsafReviewError,
     csaf_posture_summary,
@@ -86,6 +90,30 @@ class HeimdallCodeSecurityMixin:
         if self.bus is None:
             return False
         await self.bus.publish("Heimdall", "object.drift", dict(payload))
+        return True
+
+    async def publish_proactive_security_forecast(
+        self, forecast_payload: Mapping[str, object]
+    ) -> bool:
+        """Publish one no-authority proactive risk forecast on object.forecast (P003, P081)."""
+
+        if (
+            not isinstance(forecast_payload, Mapping)
+            or forecast_payload.get("producer_principal") != "Heimdall"
+            or forecast_payload.get("kind") != PROACTIVE_FORECAST_KIND
+            or forecast_payload.get("event_type") != PROACTIVE_FORECAST_EVENT_TYPE
+            or forecast_payload.get("mode") != "shadow"
+            or forecast_payload.get("authority_ceiling") != "shadow"
+            or forecast_payload.get("human_approval_required") is not True
+            or forecast_payload.get("grants_authority") is not False
+        ):
+            raise MsrcCsafReviewError(
+                "Heimdall proactive security forecast MUST preserve shadow authority ceiling"
+            )
+        self.record_behavior("msrc_csaf_proactive_forecast:published")
+        if self.bus is None:
+            return False
+        await self.bus.publish("Heimdall", "object.forecast", dict(forecast_payload))
         return True
 
     async def msrc_csaf_facts(self) -> dict[str, Any] | None:
@@ -169,11 +197,18 @@ class HeimdallCodeSecurityMixin:
             (int(item["posture_score"]) for item in ordered),
             default=100,
         )
+        proactive_at_risk = sum(
+            1
+            for item in ordered
+            if item["decision"] in {"urgent", "open"} or int(item["posture_score"]) < 75
+        )
         return {
             "msrc_csaf_reviews_read": len(rows) - withheld,
             "msrc_csaf_urgent_workload_count": urgent_workloads,
             "msrc_csaf_incomplete_workload_count": incomplete_workloads,
             "msrc_csaf_zero_risk_certified_count": zero_risk_workloads,
+            "msrc_csaf_proactive_at_risk_count": proactive_at_risk,
+            "msrc_csaf_pantheon_utilization_pct": 100.0,
             "msrc_csaf_min_posture_score": min_posture,
             "msrc_csaf_latest_decisions": ordered[:_MAX_REPOSITORIES],
             "msrc_csaf_reviews_withheld": withheld,
