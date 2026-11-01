@@ -1,0 +1,487 @@
+{
+  "items": [
+    {
+      "description": "OTel GenAI gen_ai.* semantic convention span contract",
+      "domain": "otel_genai",
+      "item_id": "E001",
+      "round_code": "R01",
+      "round_number": 1,
+      "symbol": "OtelGenAiSpanRecord"
+    },
+    {
+      "description": "Streaming TTFT, TPOT/ITL, and queue wait latency decomposition",
+      "domain": "otel_genai",
+      "item_id": "E002",
+      "round_code": "R01",
+      "round_number": 1,
+      "symbol": "GenAiLatencyMetrics"
+    },
+    {
+      "description": "Token accounting, prompt-cache hit ratio, and TPM surge ratio",
+      "domain": "otel_genai",
+      "item_id": "E003",
+      "round_code": "R01",
+      "round_number": 1,
+      "symbol": "GenAiTokenUsage"
+    },
+    {
+      "description": "Azure OpenAI PTU utilization and PAYGO spillover analyzer",
+      "domain": "otel_genai",
+      "item_id": "E004",
+      "round_code": "R02",
+      "round_number": 2,
+      "symbol": "PtuSpilloverAssessment"
+    },
+    {
+      "description": "Agentic multi-turn tool-call loop and budget burn detector",
+      "domain": "otel_genai",
+      "item_id": "E005",
+      "round_code": "R02",
+      "round_number": 2,
+      "symbol": "AgenticTrajectoryHealth"
+    },
+    {
+      "description": "Prompt/response PII and secret redaction receipt verifier",
+      "domain": "otel_genai",
+      "item_id": "E006",
+      "round_code": "R02",
+      "round_number": 2,
+      "symbol": "verify_and_redact_genai_text"
+    },
+    {
+      "description": "Bounded KQL query compiler for Azure OpenAI/Foundry telemetry",
+      "domain": "otel_genai",
+      "item_id": "E007",
+      "round_code": "R03",
+      "round_number": 3,
+      "symbol": "compile_genai_telemetry_kql"
+    },
+    {
+      "description": "Multi-metric GenAI TTFT, TPOT, and availability SLO evaluator",
+      "domain": "otel_genai",
+      "item_id": "E008",
+      "round_code": "R03",
+      "round_number": 3,
+      "symbol": "evaluate_genai_slo"
+    },
+    {
+      "description": "Deterministic causal fault classifier across GenAI, PTU, and RAG",
+      "domain": "otel_genai",
+      "item_id": "E009",
+      "round_code": "R03",
+      "round_number": 3,
+      "symbol": "classify_genai_causal_fault"
+    },
+    {
+      "description": "Cross-region/deployment model failover readiness advisor",
+      "domain": "otel_genai",
+      "item_id": "E010",
+      "round_code": "R04",
+      "round_number": 4,
+      "symbol": "assess_genai_routing_readiness"
+    },
+    {
+      "description": "RAG and Vector Search (AI Search/pgvector) recall and latency detector",
+      "domain": "otel_genai",
+      "item_id": "E011",
+      "round_code": "R04",
+      "round_number": 4,
+      "symbol": "RagPipelineHealth"
+    },
+    {
+      "description": "Content-Safety and Prompt-Shield jailbreak/block surge detector",
+      "domain": "otel_genai",
+      "item_id": "E012",
+      "round_code": "R04",
+      "round_number": 4,
+      "symbol": "ContentSafetySurgeAssessment"
+    },
+    {
+      "description": "16-member Microsoft Retina and Cilium Hubble eBPF drop taxonomy",
+      "domain": "ebpf_retina",
+      "item_id": "E013",
+      "round_code": "R05",
+      "round_number": 5,
+      "symbol": "EbpfDropReason"
+    },
+    {
+      "description": "eBPF packet drop and flow anomaly observation contract",
+      "domain": "ebpf_retina",
+      "item_id": "E014",
+      "round_code": "R05",
+      "round_number": 5,
+      "symbol": "EbpfPacketDropObservation"
+    },
+    {
+      "description": "eBPF DNS P99 lookup latency, NXDOMAIN, and SERVFAIL analyzer",
+      "domain": "ebpf_retina",
+      "item_id": "E015",
+      "round_code": "R05",
+      "round_number": 5,
+      "symbol": "EbpfDnsHealthAssessment"
+    },
+    {
+      "description": "eBPF TCP retransmission, SYN backlog, and RST surge detector",
+      "domain": "ebpf_retina",
+      "item_id": "E016",
+      "round_code": "R06",
+      "round_number": 6,
+      "symbol": "EbpfTcpHealthAssessment"
+    },
+    {
+      "description": "Zero-instrumentation eBPF L7 HTTP/gRPC golden signals",
+      "domain": "ebpf_retina",
+      "item_id": "E017",
+      "round_code": "R06",
+      "round_number": 6,
+      "symbol": "EbpfL7ServiceHealth"
+    },
+    {
+      "description": "AKS Azure CNI Overlay/Cilium IPAM, conntrack, and SNAT analyzer",
+      "domain": "ebpf_retina",
+      "item_id": "E018",
+      "round_code": "R06",
+      "round_number": 6,
+      "symbol": "CniDataplaneAssessment"
+    },
+    {
+      "description": "eBPF kernel CPU CFS throttling, OOMKill, and block bio-latency",
+      "domain": "ebpf_retina",
+      "item_id": "E019",
+      "round_code": "R07",
+      "round_number": 7,
+      "symbol": "EbpfKernelSaturationAssessment"
+    },
+    {
+      "description": "eBPF TLS/mTLS handshake failure and cert expiry detector",
+      "domain": "ebpf_retina",
+      "item_id": "E020",
+      "round_code": "R07",
+      "round_number": 7,
+      "symbol": "EbpfTlsHealthAssessment"
+    },
+    {
+      "description": "Microsoft Retina PromQL and InsightsMetrics KQL compiler",
+      "domain": "ebpf_retina",
+      "item_id": "E021",
+      "round_code": "R07",
+      "round_number": 7,
+      "symbol": "compile_retina_promql_and_kql"
+    },
+    {
+      "description": "Cross-layer eBPF/iptables vs. Azure NSG/Firewall drop correlator",
+      "domain": "ebpf_retina",
+      "item_id": "E022",
+      "round_code": "R08",
+      "round_number": 8,
+      "symbol": "correlate_ebpf_and_azure_network"
+    },
+    {
+      "description": "eBPF CSI/NVMe block storage queue depth and fsync stall detector",
+      "domain": "ebpf_retina",
+      "item_id": "E023",
+      "round_code": "R08",
+      "round_number": 8,
+      "symbol": "EbpfStorageIoAssessment"
+    },
+    {
+      "description": "eBPF node noisy-neighbor, CPU steal, and runqueue latency detector",
+      "domain": "ebpf_retina",
+      "item_id": "E024",
+      "round_code": "R08",
+      "round_number": 8,
+      "symbol": "EbpfNoisyNeighborAssessment"
+    },
+    {
+      "description": "FinOps Foundation FOCUS 1.1 normalized cost and usage record",
+      "domain": "finops_greenops",
+      "item_id": "E025",
+      "round_code": "R09",
+      "round_number": 9,
+      "symbol": "FocusCostRecord"
+    },
+    {
+      "description": "Azure Reservations and Savings Plans utilization/waste analyzer",
+      "domain": "finops_greenops",
+      "item_id": "E026",
+      "round_code": "R09",
+      "round_number": 9,
+      "symbol": "CommitmentDiscountAssessment"
+    },
+    {
+      "description": "Log Analytics Basic/Auxiliary tier and Prometheus cardinality FinOps",
+      "domain": "finops_greenops",
+      "item_id": "E027",
+      "round_code": "R09",
+      "round_number": 9,
+      "symbol": "TelemetryCostAssessment"
+    },
+    {
+      "description": "GenAI cost per 1k tokens and GPU idle waste unit-economics analyzer",
+      "domain": "finops_greenops",
+      "item_id": "E028",
+      "round_code": "R10",
+      "round_number": 10,
+      "symbol": "AiUnitEconomicsAssessment"
+    },
+    {
+      "description": "AKS namespace CPU/memory slack waste and Spot eligibility allocator",
+      "domain": "finops_greenops",
+      "item_id": "E029",
+      "round_code": "R10",
+      "round_number": 10,
+      "symbol": "KubernetesCostAllocation"
+    },
+    {
+      "description": "Proactive monthly FinOps spend velocity and budget breach forecaster",
+      "domain": "finops_greenops",
+      "item_id": "E030",
+      "round_code": "R10",
+      "round_number": 10,
+      "symbol": "ForecastCostBurnResult"
+    },
+    {
+      "description": "GreenOps Scope 1/2/3 operational and embodied carbon footprint record",
+      "domain": "finops_greenops",
+      "item_id": "E031",
+      "round_code": "R11",
+      "round_number": 11,
+      "symbol": "CarbonFootprintRecord"
+    },
+    {
+      "description": "Green Software Foundation SCI (Software Carbon Intensity) calculator",
+      "domain": "finops_greenops",
+      "item_id": "E032",
+      "round_code": "R11",
+      "round_number": 11,
+      "symbol": "SciScoreAssessment"
+    },
+    {
+      "description": "Carbon-aware workload region and time-window shifting advisor",
+      "domain": "finops_greenops",
+      "item_id": "E033",
+      "round_code": "R11",
+      "round_number": 11,
+      "symbol": "CarbonAwareRecommendation"
+    },
+    {
+      "description": "Orphaned disk, idle IP, stale snapshot, and empty plan waste detector",
+      "domain": "finops_greenops",
+      "item_id": "E034",
+      "round_code": "R12",
+      "round_number": 12,
+      "symbol": "OrphanedResourceAssessment"
+    },
+    {
+      "description": "Cross-zone, VNet peering, and NAT Gateway data transfer cost analyzer",
+      "domain": "finops_greenops",
+      "item_id": "E035",
+      "round_code": "R12",
+      "round_number": 12,
+      "symbol": "NetworkEgressCostAssessment"
+    },
+    {
+      "description": "Unified FOCUS 1.1 + Telemetry FinOps + GreenOps SCI posture evaluator",
+      "domain": "finops_greenops",
+      "item_id": "E036",
+      "round_code": "R12",
+      "round_number": 12,
+      "symbol": "evaluate_finops_greenops_posture"
+    },
+    {
+      "description": "OpenTelemetry Metric Exemplar W3C TraceId/SpanId bridge contract",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E037",
+      "round_code": "R13",
+      "round_number": 13,
+      "symbol": "OtelMetricExemplar"
+    },
+    {
+      "description": "Prometheus 3.x UTF-8 and legacy underscore metric/label normalizer",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E038",
+      "round_code": "R13",
+      "round_number": 13,
+      "symbol": "normalize_prometheus_v3_identifier"
+    },
+    {
+      "description": "Exemplar-guided metric spike to slow/failing trace span correlator",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E039",
+      "round_code": "R13",
+      "round_number": 13,
+      "symbol": "correlate_metric_spike_via_exemplars"
+    },
+    {
+      "description": "Continuous profiling (eBPF/Pyroscope/PerfInsights) hotspot contract",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E040",
+      "round_code": "R14",
+      "round_number": 14,
+      "symbol": "ContinuousProfileSample"
+    },
+    {
+      "description": "Differential flamegraph CPU/heap regression comparator across revisions",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E041",
+      "round_code": "R14",
+      "round_number": 14,
+      "symbol": "compare_profile_baselines"
+    },
+    {
+      "description": "Monotonic post-GC memory leak vs. transient traffic spike discriminator",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E042",
+      "round_code": "R14",
+      "round_number": 14,
+      "symbol": "detect_monotonic_memory_leak"
+    },
+    {
+      "description": "Progressive delivery canary vs. stable baseline latency/error analyzer",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E043",
+      "round_code": "R15",
+      "round_number": 15,
+      "symbol": "CanaryComparisonAssessment"
+    },
+    {
+      "description": "Deterministic progressive delivery promote/hold/rollback gate evaluator",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E044",
+      "round_code": "R15",
+      "round_number": 15,
+      "symbol": "evaluate_deployment_rollback_gate"
+    },
+    {
+      "description": "Azure Deployment Stacks and GitOps out-of-band drift/deny verifier",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E045",
+      "round_code": "R15",
+      "round_number": 15,
+      "symbol": "DeploymentStackDriftAssessment"
+    },
+    {
+      "description": "Azure Monitor Data Collection Rule (DCR) and OTLP blindspot detector",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E046",
+      "round_code": "R16",
+      "round_number": 16,
+      "symbol": "DcrPipelineHealthAssessment"
+    },
+    {
+      "description": "Synthetic availability probe, RUM client error, and backend correlator",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E047",
+      "round_code": "R16",
+      "round_number": 16,
+      "symbol": "SyntheticRumCorrelation"
+    },
+    {
+      "description": "Tail-based trace sampling retaining 100% of error/slow/change traces",
+      "domain": "exemplars_profiling_canary",
+      "item_id": "E048",
+      "round_code": "R16",
+      "round_number": 16,
+      "symbol": "evaluate_tail_sampling_policy"
+    },
+    {
+      "description": "Azure Chaos Studio pre/during/post steady-state hypothesis verifier",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E049",
+      "round_code": "R17",
+      "round_number": 17,
+      "symbol": "ChaosSteadyStateExperiment"
+    },
+    {
+      "description": "Multi-AZ zone-down capacity headroom and dependency symmetry evaluator",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E050",
+      "round_code": "R17",
+      "round_number": 17,
+      "symbol": "ZoneFailoverReadinessAssessment"
+    },
+    {
+      "description": "Ransomware WORM immutability, soft-delete, and MUA backup verifier",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E051",
+      "round_code": "R17",
+      "round_number": 17,
+      "symbol": "CyberResilienceBackupAssessment"
+    },
+    {
+      "description": "Key Vault certificate/secret expiry and OIDC federation health analyzer",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E052",
+      "round_code": "R18",
+      "round_number": 18,
+      "symbol": "CredentialExpiryRiskAssessment"
+    },
+    {
+      "description": "Subscription ARM throttling, vCPU/GPU quota, and TU early-warning matrix",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E053",
+      "round_code": "R18",
+      "round_number": 18,
+      "symbol": "QuotaExhaustionEarlyWarning"
+    },
+    {
+      "description": "Cross-service dependencySPOF and hub blast-radius criticality scorer",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E054",
+      "round_code": "R18",
+      "round_number": 18,
+      "symbol": "compute_topology_criticality"
+    },
+    {
+      "description": "FDAI Constitution 7-safeguard preflight auditor for autonomous actions",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E055",
+      "round_code": "R19",
+      "round_number": 19,
+      "symbol": "audit_autonomous_action_safeguards"
+    },
+    {
+      "description": "Automated blameless postmortem TTD/TTM/TTR and timeline synthesizer",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E056",
+      "round_code": "R19",
+      "round_number": 19,
+      "symbol": "synthesize_postmortem_evidence_bundle"
+    },
+    {
+      "description": "60-item, 20-round 2025-2026 SRE & observability trend catalog loader",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E057",
+      "round_code": "R19",
+      "round_number": 19,
+      "symbol": "load_sre_observability_trend_catalog"
+    },
+    {
+      "description": "Unified 20-round orchestrator executing all 60 trend capabilities",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E058",
+      "round_code": "R20",
+      "round_number": 20,
+      "symbol": "SreObservabilityTrendOrchestrator"
+    },
+    {
+      "description": "Exhaustive 20-round / 60-item pytest verification suite",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E059",
+      "round_code": "R20",
+      "round_number": 20,
+      "symbol": "test_sre_observability_trends_20rounds"
+    },
+    {
+      "description": "Static gate verification (ruff, mypy, verify.sh) and PR merge delivery",
+      "domain": "chaos_cyber_resilience",
+      "item_id": "E060",
+      "round_code": "R20",
+      "round_number": 20,
+      "symbol": "verify_and_deliver_20_rounds"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "total_items": 60,
+  "total_rounds": 20
+}
