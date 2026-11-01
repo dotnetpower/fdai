@@ -157,6 +157,80 @@
   font-weight: 500;
 }
 .tj-stack { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.tj-group-badge {
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 999px;
+  background: var(--cs-shade);
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.aa-trajectories .tj-item.is-live-updated {
+  animation: tj-live-pulse 3s cubic-bezier(.2, .7, .25, 1) both;
+}
+@keyframes tj-live-pulse {
+  0%, 16% { box-shadow: inset 0 2px 0 0 var(--cs-steel); }
+  100% { box-shadow: none; }
+}
+.tj-occurrences {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 8px;
+  background: var(--cs-shade);
+}
+.tj-occurrences-label {
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+.tj-occurrences-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.aa-trajectories .tj-occurrence-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 2px 8px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 6px;
+  background: var(--cs-card);
+  color: var(--cs-text-soft);
+  font: inherit;
+  font-size: var(--cs-type-label-size);
+  cursor: pointer;
+}
+.aa-trajectories .tj-occurrence-btn[aria-pressed="true"] {
+  border-color: var(--cs-steel);
+  background: color-mix(in srgb, var(--cs-steel) 10%, var(--cs-card));
+  color: var(--cs-text);
+  font-weight: 600;
+}
+.aa-trajectories .tj-occurrence-btn code {
+  padding: 0;
+  background: transparent;
+  font-family: var(--cs-font-mono, monospace);
+  font-size: var(--cs-type-label-size);
+}
+.tj-step-repeat {
+  padding: 1px 7px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: 999px;
+  background: var(--cs-shade);
+  color: var(--cs-text-soft);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
 
 .tj-avatar { display: inline-grid; flex: 0 0 auto; width: 22px; height: 22px; place-items: center; border-radius: 6px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 700; }
 .tj-avatar img { width: 15px; height: 15px; }
@@ -367,11 +441,12 @@
 @media (max-width: 700px) {
   .aa-trajectories .tj-item,
   .aa-trajectories .tj-segmented button,
+  .aa-trajectories .tj-occurrence-btn,
   .aa-trajectories .cs-control-button,
   .tj-step > details > summary { min-height: var(--cs-control-height-touch); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tj-chevron svg, .tj-step-main, .aa-trajectories .tj-mark::before { transition: none; }
+  .tj-chevron svg, .tj-step-main, .aa-trajectories .tj-mark::before, .aa-trajectories .tj-item.is-live-updated { transition: none; animation: none; }
 }
 @media (forced-colors: active) {
   .tj-phases li + li::before, .tj-step::before { forced-color-adjust: none; background: CanvasText; }
