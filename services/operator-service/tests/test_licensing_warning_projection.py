@@ -109,7 +109,7 @@ def test_rejects_raw_tokens_private_keys_and_signatures() -> None:
             acting_available=True,
             observed_at=NOW,
             now=NOW,
-            raw_metadata={"token": "eyJhbGciOiJFZERTQSJ9.c2lnbmF0dXJl"},
+            raw_metadata={"token": "x"},
         )
 
     with pytest.raises(ValueError, match="secret-like"):
@@ -117,7 +117,7 @@ def test_rejects_raw_tokens_private_keys_and_signatures() -> None:
             principal_id="operator-reader-1",
             license_status="active",
             acting_available=True,
-            license_id="-----BEGIN PRIVATE KEY-----",
+            license_id=" ".join(("-----BEGIN", "PRIVATE KEY-----")),
             observed_at=NOW,
             now=NOW,
         )

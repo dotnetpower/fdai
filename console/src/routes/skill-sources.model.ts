@@ -173,34 +173,36 @@ export function decodeSkillSourceProjection(value: unknown): SkillSourceCatalogP
   if (panelString(root, "execution_authority", "SkillSourceProjection") !== "none") {
     throw panelContractError("SkillSourceProjection.execution_authority MUST be none");
   }
-  const sources = panelArray(root.sources, "SkillSourceProjection.sources").map((entry, idx) => {
-    const label = `SkillSourceProjection.sources[${idx}]`;
-    const row = panelRecord(entry, label);
-    rejectForbiddenKeys(row, label);
-    const policy = panelNonEmptyString(row, "refresh_policy", label);
-    if (policy !== "manual" && policy !== "scheduled") {
-      throw panelContractError(`${label}.refresh_policy is invalid`);
-    }
-    return {
-      source_id: panelNonEmptyString(row, "source_id", label),
-      kind: panelNonEmptyString(row, "kind", label),
-      location: panelNonEmptyString(row, "location", label),
-      trust_tier: panelNonEmptyString(row, "trust_tier", label),
-      owner: panelNonEmptyString(row, "owner", label),
-      allowed_path: panelNonEmptyString(row, "allowed_path", label),
-      refresh_policy: policy,
-      refresh_interval_seconds: panelNonNegativeInteger(row, "refresh_interval_seconds", label),
-      enabled: panelBoolean(row, "enabled", label),
-      revision: panelNonEmptyString(row, "revision", label),
-      last_refresh_at: panelNullableString(row, "last_refresh_at", label),
-      next_refresh_at: panelNullableString(row, "next_refresh_at", label),
-      last_etag: panelNullableString(row, "last_etag", label),
-      last_revision: panelNullableString(row, "last_revision", label),
-      error_count: panelNonNegativeInteger(row, "error_count", label),
-      retry_at: panelNullableString(row, "retry_at", label),
-      last_error_kind: panelNullableString(row, "last_error_kind", label),
-    };
-  });
+  const sources = panelArray(root.sources, "SkillSourceProjection.sources").map(
+    (entry, idx): SkillSourceProjectionItem => {
+      const label = `SkillSourceProjection.sources[${idx}]`;
+      const row = panelRecord(entry, label);
+      rejectForbiddenKeys(row, label);
+      const policy = panelNonEmptyString(row, "refresh_policy", label);
+      if (policy !== "manual" && policy !== "scheduled") {
+        throw panelContractError(`${label}.refresh_policy is invalid`);
+      }
+      return {
+        source_id: panelNonEmptyString(row, "source_id", label),
+        kind: panelNonEmptyString(row, "kind", label),
+        location: panelNonEmptyString(row, "location", label),
+        trust_tier: panelNonEmptyString(row, "trust_tier", label),
+        owner: panelNonEmptyString(row, "owner", label),
+        allowed_path: panelNonEmptyString(row, "allowed_path", label),
+        refresh_policy: policy,
+        refresh_interval_seconds: panelNonNegativeInteger(row, "refresh_interval_seconds", label),
+        enabled: panelBoolean(row, "enabled", label),
+        revision: panelNonEmptyString(row, "revision", label),
+        last_refresh_at: panelNullableString(row, "last_refresh_at", label),
+        next_refresh_at: panelNullableString(row, "next_refresh_at", label),
+        last_etag: panelNullableString(row, "last_etag", label),
+        last_revision: panelNullableString(row, "last_revision", label),
+        error_count: panelNonNegativeInteger(row, "error_count", label),
+        retry_at: panelNullableString(row, "retry_at", label),
+        last_error_kind: panelNullableString(row, "last_error_kind", label),
+      };
+    },
+  );
 
   const candidates = panelArray(root.candidates, "SkillSourceProjection.candidates").map(
     (entry, idx) => {

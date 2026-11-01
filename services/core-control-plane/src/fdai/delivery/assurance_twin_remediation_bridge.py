@@ -352,6 +352,14 @@ class AssuranceTwinRemediationProposalBridge:
         norm_finding = _require_bounded("finding_id", finding_id)
         norm_rule = _require_bounded("rule_id", rule_id)
         norm_rollback = _require_bounded("rollback_contract", rollback_contract)
+        if norm_rollback not in {
+            "pr_revert",
+            "scripted",
+            "pitr",
+            "snapshot_restore",
+            "state_forward_only",
+        }:
+            raise RemediationBridgeError("rollback_contract MUST be a canonical RollbackKind")
         norm_stop = _require_bounded("stop_condition", stop_condition)
         norm_idem = _require_bounded("idempotency_key", idempotency_key)
         norm_corr = _require_bounded("correlation_id", correlation_id)

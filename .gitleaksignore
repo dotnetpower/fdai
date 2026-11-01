@@ -19,3 +19,6 @@ a61f9e6d059a92e96e4aaa2ada1a1ea63726fefc:docs/roadmap/deployment/hub-managed-lif
 f03df3a8075ec3ba774ee0ae3994aea3520670b6:services/operator-service/tests/test_presentation_rows.py:generic-api-key:122
 # Reworded delivery_latency_ms.p95 decoder error after API response prefix; ignore only this historical PR fingerprint.
 ef893b9f1e4e6effabf02a17f3384a4023cbe034:console/src/routes/conversation-delivery.tsx:generic-api-key:83
+# Replaced synthetic forbidden-field fixture with single-character value; ignore only these historical PR fingerprints.
+b6b9a831d4005a70155a9b21291bbfa8e85f72f2:console/src/routes/licensing-status-badge.model.test.ts:generic-api-key:90
+b6b9a831d4005a70155a9b21291bbfa8e85f72f2:services/operator-service/tests/test_licensing_warning_projection.py:generic-api-key:112

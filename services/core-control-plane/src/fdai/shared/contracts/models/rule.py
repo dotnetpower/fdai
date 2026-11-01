@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer
 
 from ._base import SemVer, _Base
 from .enums import Category, CheckLogicKind, Redistribution, RuleSource, Severity
@@ -100,6 +100,13 @@ class Rule(_Base):
     )
     submission_criteria: list[SubmissionCriterion] = Field(default_factory=list)
     scope_predicates: dict[str, Any] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def _serialize_rule(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        dumped: dict[str, Any] = handler(self)
+        if self.target_object_type is None:
+            dumped.pop("target_object_type", None)
+        return dumped
 
 
 __all__ = [

@@ -87,14 +87,14 @@ describe("licensing-status-badge.model", () => {
     expect(() =>
       decodeLicensingWarningProjection({
         ...BASE_PAYLOAD,
-        token: "eyJhbGciOiJFZERTQSJ9.c2lnbmF0dXJl",
+        token: "x",
       }),
     ).toThrow("MUST NOT expose secret field token");
 
     expect(() =>
       decodeLicensingWarningProjection({
         ...BASE_PAYLOAD,
-        license_id: "-----BEGIN PRIVATE KEY-----",
+        license_id: ["-----BEGIN", "PRIVATE KEY-----"].join(" "),
       }),
     ).toThrow("secret-like material");
   });

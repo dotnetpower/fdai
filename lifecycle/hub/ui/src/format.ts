@@ -4,7 +4,6 @@
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "medium",
-  timeZoneName: "short",
 });
 
 export function formatTimestamp(iso: string | null, originZone?: string): string {

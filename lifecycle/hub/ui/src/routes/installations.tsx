@@ -76,7 +76,10 @@ export function InstallationsPage() {
                 return a.channel.localeCompare(b.channel) || a.installation_id.localeCompare(b.installation_id);
               }
               if (sortBy === "outcome") {
-                return a.outcome.localeCompare(b.outcome) || a.installation_id.localeCompare(b.installation_id);
+                return (
+                  (a.outcome ?? "").localeCompare(b.outcome ?? "") ||
+                  a.installation_id.localeCompare(b.installation_id)
+                );
               }
               return a.installation_id.localeCompare(b.installation_id);
             });

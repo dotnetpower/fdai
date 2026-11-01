@@ -81,6 +81,12 @@ _ADDITIVE_RULE_MODEL_LINES = frozenset(
             '    target_object_type: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]'
             " | None = None"
         ),
+        '    @model_serializer(mode="wrap")',
+        "    def _serialize_rule(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:",
+        "        dumped: dict[str, Any] = handler(self)",
+        "        if self.target_object_type is None:",
+        '            dumped.pop("target_object_type", None)',
+        "        return dumped",
     }
 )
 _NORMALIZATION_PACKAGES = frozenset({"pydantic", "pydantic-core", "pyyaml"})
@@ -288,11 +294,25 @@ def _normalization_source_bytes(path: Path, relative: str) -> bytes:
     raw_bytes = path.read_bytes()
     if relative != "services/core-control-plane/src/fdai/shared/contracts/models/rule.py":
         return raw_bytes
-    lines = [
-        line
-        for line in raw_bytes.decode("utf-8").splitlines()
-        if line not in _ADDITIVE_RULE_MODEL_LINES
-    ]
+    text = (
+        raw_bytes.decode("utf-8")
+        .replace(
+            "from pydantic import Field, SerializerFunctionWrapHandler, model_serializer",
+            "from pydantic import Field",
+        )
+        .replace(
+            '\n    @model_serializer(mode="wrap")\n'
+            "    def _serialize_rule("
+            "self, handler: SerializerFunctionWrapHandler"
+            ") -> dict[str, Any]:\n"
+            "        dumped: dict[str, Any] = handler(self)\n"
+            "        if self.target_object_type is None:\n"
+            '            dumped.pop("target_object_type", None)\n'
+            "        return dumped\n",
+            "",
+        )
+    )
+    lines = [line for line in text.splitlines() if line not in _ADDITIVE_RULE_MODEL_LINES]
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
