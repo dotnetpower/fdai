@@ -299,6 +299,21 @@ export interface TrajectoryDisplayGroup {
   readonly members: readonly AgentTrajectory[];
 }
 
+export interface PinnedTrajectoryDetail {
+  readonly correlationId: string;
+  readonly filterKey: string;
+  readonly trajectory: AgentTrajectory;
+  readonly groupMembers: readonly AgentTrajectory[];
+}
+
+export interface StabilizedTrajectorySelection {
+  readonly shown: readonly AgentTrajectory[];
+  readonly grouped: readonly TrajectoryDisplayGroup[];
+  readonly current: AgentTrajectory | null;
+  readonly currentGroupMembers: readonly AgentTrajectory[];
+  readonly pinned: PinnedTrajectoryDetail | null;
+}
+
 export function groupTrajectoriesForDisplay(
   trajectories: readonly AgentTrajectory[],
   selectedCorrelationId: string | null,
@@ -322,6 +337,82 @@ export function groupTrajectoriesForDisplay(
     result.push({ key, primary, members });
   }
   return result;
+}
+
+/**
+ * Keeps the currently viewed trajectory detail body stable while new activities stream in or
+ * older records age out of the bounded window. Selection changes only when no trajectory is pinned
+ * yet, when the operator explicitly selects a trajectory, or when a filter change excludes the
+ * previously pinned correlation id.
+ */
+export function stabilizeTrajectorySelection(
+  liveShown: readonly AgentTrajectory[],
+  selectedCorrelationId: string | null,
+  filterKey: string,
+  previousPinned: PinnedTrajectoryDetail | null,
+  locale: "en" | "ko" = getLocale(),
+): StabilizedTrajectorySelection {
+  const canPreservePinned =
+    previousPinned !== null &&
+    (selectedCorrelationId === null || selectedCorrelationId === previousPinned.correlationId) &&
+    (
+      previousPinned.filterKey === filterKey ||
+      liveShown.some((item) => item.correlationId === previousPinned.correlationId)
+    );
+
+  if (canPreservePinned) {
+    const hasPinnedInLive = liveShown.some(
+      (item) => item.correlationId === previousPinned.correlationId,
+    );
+    const shown = hasPinnedInLive
+      ? liveShown.map((item) =>
+          item.correlationId === previousPinned.correlationId ? previousPinned.trajectory : item)
+      : [...liveShown, previousPinned.trajectory];
+    const grouped = groupTrajectoriesForDisplay(shown, previousPinned.correlationId, locale);
+    const pinned = previousPinned.filterKey === filterKey
+      ? previousPinned
+      : { ...previousPinned, filterKey };
+    return {
+      shown,
+      grouped,
+      current: previousPinned.trajectory,
+      currentGroupMembers: previousPinned.groupMembers,
+      pinned,
+    };
+  }
+
+  if (liveShown.length === 0) {
+    return {
+      shown: [],
+      grouped: [],
+      current: null,
+      currentGroupMembers: [],
+      pinned: null,
+    };
+  }
+
+  const grouped = groupTrajectoriesForDisplay(liveShown, selectedCorrelationId, locale);
+  const activeGroup = (selectedCorrelationId !== null
+    ? grouped.find((group) =>
+        group.members.some((member) => member.correlationId === selectedCorrelationId))
+    : undefined) ?? grouped[0] ?? null;
+  const current = activeGroup?.primary ?? null;
+  const currentGroupMembers = activeGroup?.members ?? (current ? [current] : []);
+  const pinned: PinnedTrajectoryDetail | null = current
+    ? {
+        correlationId: current.correlationId,
+        filterKey,
+        trajectory: current,
+        groupMembers: currentGroupMembers,
+      }
+    : null;
+  return {
+    shown: liveShown,
+    grouped,
+    current,
+    currentGroupMembers,
+    pinned,
+  };
 }
 
 /** Count of retained audit records that cannot join a trajectory because they lack a correlation. */

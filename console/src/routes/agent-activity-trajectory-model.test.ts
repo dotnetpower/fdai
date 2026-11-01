@@ -12,6 +12,7 @@ import {
   presentResourceTypeLabel,
   presentStepSummary,
   presentTrajectoryTitle,
+  stabilizeTrajectorySelection,
   stepCategory,
   trajectoryPhases,
   trajectoryScale,
@@ -319,5 +320,89 @@ describe("agent trajectory projection", () => {
     expect(groups).toHaveLength(2);
     const vmssGroup = groups.find((g) => g.members.length === 2)!;
     expect(vmssGroup.primary.correlationId).toBe("analyzer:vmss-2");
+  });
+
+  test("keeps the selected trajectory body stable when newer or same-correlation activities arrive", () => {
+    const initialItems = [
+      item(1, "Huginn", "event.normalized", "2026-07-15T10:00:00Z", {
+        summary: "Initial change normalized",
+      }, "corr-initial"),
+      item(2, "Forseti", "risk_gate.evaluated", "2026-07-15T10:00:02Z", {
+        outcome: "hil_pending",
+        summary: "Approval required",
+      }, "corr-initial"),
+      item(3, "Heimdall", "read.graph-queried", "2026-07-15T09:55:00Z", {
+        summary: "Graph query finished",
+        outcome: "completed",
+      }, "corr-older"),
+    ];
+    const initialTrajectories = buildAgentTrajectories(initialItems, agentOf);
+
+    const firstRender = stabilizeTrajectorySelection(
+      initialTrajectories,
+      null,
+      "\0\0",
+      null,
+      "en",
+    );
+    expect(firstRender.current?.correlationId).toBe("corr-initial");
+    expect(firstRender.pinned?.correlationId).toBe("corr-initial");
+    const pinnedSnapshot = firstRender.current!;
+    const pinnedMembers = firstRender.currentGroupMembers;
+
+    const updatedItems = [
+      item(10, "Thor", "action.dispatch", "2026-07-15T10:05:00Z", {
+        summary: "Brand new multi-step activity",
+        outcome: "completed",
+      }, "corr-brand-new"),
+      item(11, "Heimdall", "effect.verified", "2026-07-15T10:05:02Z", {
+        summary: "Effect verified",
+        outcome: "verified",
+      }, "corr-brand-new"),
+      item(12, "Var", "hil.timeout", "2026-07-15T10:04:00Z", {
+        summary: "Approval window expired",
+        outcome: "timed_out",
+      }, "corr-initial"),
+      ...initialItems,
+    ];
+    const nextTrajectories = buildAgentTrajectories(updatedItems, agentOf);
+    expect(nextTrajectories[0]?.correlationId).toBe("corr-brand-new");
+
+    const secondRender = stabilizeTrajectorySelection(
+      nextTrajectories,
+      firstRender.current!.correlationId,
+      "\0\0",
+      firstRender.pinned,
+      "en",
+    );
+    expect(secondRender.current).toBe(pinnedSnapshot);
+    expect(secondRender.current?.steps).toHaveLength(2);
+    expect(secondRender.current?.latestOutcome).toBe("hil_pending");
+    expect(secondRender.currentGroupMembers).toBe(pinnedMembers);
+    expect(secondRender.grouped.map((g) => g.primary.correlationId)).toContain("corr-brand-new");
+    expect(secondRender.grouped.map((g) => g.primary.correlationId)).toContain("corr-initial");
+
+    const evictedTrajectories = nextTrajectories.filter(
+      (trajectory) => trajectory.correlationId !== "corr-initial",
+    );
+    const afterEviction = stabilizeTrajectorySelection(
+      evictedTrajectories,
+      "corr-initial",
+      "\0\0",
+      secondRender.pinned,
+      "en",
+    );
+    expect(afterEviction.current).toBe(pinnedSnapshot);
+    expect(afterEviction.grouped.map((g) => g.primary.correlationId)).toContain("corr-initial");
+
+    const filteredOut = stabilizeTrajectorySelection(
+      nextTrajectories.filter((trajectory) => trajectory.correlationId === "corr-older"),
+      "corr-initial",
+      "Heimdall\0graph\0",
+      afterEviction.pinned,
+      "en",
+    );
+    expect(filteredOut.current?.correlationId).toBe("corr-older");
+    expect(filteredOut.pinned?.correlationId).toBe("corr-older");
   });
 });

@@ -21,11 +21,13 @@ import {
   presentResourceTypeLabel,
   presentStepSummary,
   presentTrajectoryTitle,
+  stabilizeTrajectorySelection,
   trajectoryPhases,
   trajectoryScale,
   trajectorySubtitle,
   uncorrelatedAuditCount,
   type AgentTrajectory,
+  type PinnedTrajectoryDetail,
   type TrajectoryPhaseState,
   type TrajectoryStep,
   type TrajectoryStepCategory,
@@ -90,7 +92,7 @@ export function AgentTrajectories({
   );
   const all = useMemo(() => buildAgentTrajectories(mergedItems, agentOf), [mergedItems]);
   const [correlationFilter, setCorrelationFilter] = useState<string>("");
-  const shown = useMemo(
+  const liveShown = useMemo(
     () => filterAgentTrajectories(all, selectedAgent, query).filter(
       (trajectory) => !correlationFilter || trajectory.correlationId === correlationFilter,
     ),
@@ -106,13 +108,15 @@ export function AgentTrajectories({
     [all],
   );
   const [selectedId, setSelectedId] = useState<string | null>(() => initialSelection(all));
-  const grouped = useMemo(
-    () => groupTrajectoriesForDisplay(shown, selectedId),
-    [shown, selectedId],
+  const [selectionVersion, setSelectionVersion] = useState(0);
+  const pinnedRef = useRef<PinnedTrajectoryDetail | null>(null);
+  const filterKey = `${selectedAgent ?? ""}\0${query}\0${correlationFilter}`;
+  const selection = useMemo(
+    () => stabilizeTrajectorySelection(liveShown, selectedId, filterKey, pinnedRef.current),
+    [liveShown, selectedId, filterKey, selectionVersion],
   );
-  const currentGroup = grouped.find((group) =>
-    group.members.some((member) => member.correlationId === selectedId)) ?? grouped[0] ?? null;
-  const current = currentGroup?.primary ?? null;
+  pinnedRef.current = selection.pinned;
+  const { shown, grouped, current, currentGroupMembers } = selection;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const knownTrajectoryDigestRef = useRef<Map<string, number> | null>(null);
@@ -147,7 +151,33 @@ export function AgentTrajectories({
   }, [all]);
 
   useEffect(() => {
-    if (selectedId === null) setSelectedId(initialSelection(all));
+    if (selectedId === null) {
+      const requested = initialSelection(all);
+      if (requested !== null) {
+        setSelectedId(requested);
+        return;
+      }
+    }
+    if (current !== null && selectedId !== current.correlationId) {
+      setSelectedId(current.correlationId);
+    }
+  }, [all, current, selectedId]);
+
+  useEffect(() => {
+    const syncRouteSelection = () => {
+      const requested = initialSelection(all);
+      if (requested !== null && requested !== pinnedRef.current?.correlationId) {
+        pinnedRef.current = null;
+        setSelectedId(requested);
+        setSelectionVersion((version) => version + 1);
+      }
+    };
+    window.addEventListener("popstate", syncRouteSelection);
+    window.addEventListener("fdai:route-changed", syncRouteSelection);
+    return () => {
+      window.removeEventListener("popstate", syncRouteSelection);
+      window.removeEventListener("fdai:route-changed", syncRouteSelection);
+    };
   }, [all]);
 
   // Keep the selected row visible inside the bounded list without scrolling the page.
@@ -162,7 +192,9 @@ export function AgentTrajectories({
   }, [current?.correlationId]);
 
   const select = (correlationId: string): void => {
+    pinnedRef.current = null;
     setSelectedId(correlationId);
+    setSelectionVersion((version) => version + 1);
     const url = new URL(window.location.href);
     url.searchParams.set("trajectory", correlationId);
     url.searchParams.delete("step");
@@ -274,7 +306,7 @@ export function AgentTrajectories({
                       trajectory={group.primary}
                       groupCount={group.members.length}
                       highlighted={isGroupUpdated}
-                      selected={group.primary === current}
+                      selected={group.primary.correlationId === current.correlationId}
                       onSelect={() => select(group.primary.correlationId)}
                     />
                   </li>
@@ -284,7 +316,7 @@ export function AgentTrajectories({
           </nav>
           <TrajectoryDetail
             trajectory={current}
-            groupMembers={currentGroup?.members ?? [current]}
+            groupMembers={currentGroupMembers}
             selectedAgent={selectedAgent}
             titleRef={titleRef}
             onSelectMember={select}
@@ -397,9 +429,10 @@ function TrajectoryDetail({
     window.requestAnimationFrame(() => {
       const node = stepRefs.current.get(seq);
       if (!node) return;
+      const summary = node.querySelector("summary");
       const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      node.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
-      node.querySelector("summary")?.focus({ preventScroll: true });
+      (summary ?? node).scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+      summary?.focus({ preventScroll: true });
     });
   };
 
