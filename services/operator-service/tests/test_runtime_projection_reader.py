@@ -1546,3 +1546,115 @@ async def test_assurance_twin_review_detail_rejects_a_mismatched_stored_key(
     assert gap["reason_code"] == GAP_MALFORMED
     # No fragment of the other identity's finding evidence is exposed.
     assert gap["identity"] is None
+
+
+async def test_scheduler_runs_projects_inventory_and_analyzer_records_and_validates_inputs(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, parameters
+        if "FROM inventory_snapshot" in statement:
+            return [
+                {
+                    "snapshot_id": "snap-101",
+                    "scope_id": "subscription:sub-1",
+                    "observed_at": now,
+                    "resource_count": 827,
+                }
+            ]
+        return []
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    page = await reader.read(
+        _query("scheduler-runs", params={"task_id": ("inventory-reconciliation",)})
+    )
+    assert page["task_id"] == "inventory-reconciliation"
+    items = page["items"]
+    assert isinstance(items, list) and len(items) == 1
+    assert items[0]["run_id"] == "inv-sync-snap-101"
+    assert items[0]["status"] == "published"
+    assert items[0]["result_ref"] == "inventory_snapshot:snap-101:resources=827"
+
+    with pytest.raises(ValueError, match="task_id is required"):
+        await reader.read(_query("scheduler-runs"))
+
+
+async def test_configuration_baselines_projects_inventory_configuration_and_evaluation_state(
+    monkeypatch: Any,
+) -> None:
+    now = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self, statement, parameters
+        return [
+            {
+                "key": "inventory-configuration:delivery",
+                "value": {
+                    "latest_generation": "gen-abc123456789",
+                    "resource_count": 827,
+                    "recorded_at": now.isoformat(),
+                },
+                "updated_at": now,
+            },
+            {
+                "key": "inventory-configuration:generations:gen-abc123456789:projection",
+                "value": {
+                    "generation": "gen-abc123456789",
+                    "scope": "subscription:sub-1",
+                    "projected_at": now.isoformat(),
+                    "resource_count": 827,
+                    "relationship_count": 944,
+                },
+                "updated_at": now,
+            },
+            {
+                "key": "baseline-evaluation:status:latest",
+                "value": {
+                    "scope_id": "subscription:sub-1",
+                    "snapshot_id": "gen-abc123456789",
+                    "evaluated_at": now.isoformat(),
+                },
+                "updated_at": now,
+            },
+            {
+                "key": "baseline-evaluation:latest:coverage",
+                "value": {
+                    "covered": 732,
+                    "violated": 216,
+                    "abstained": 112,
+                    "evaluated_resources": 827,
+                    "evaluated_at": now.isoformat(),
+                },
+                "updated_at": now,
+            },
+        ]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    baselines = await reader.read(_query("configuration-baselines"))
+    assert baselines["baseline"]["version"] == "v1-gen-abc12345"  # type: ignore[index]
+    assert baselines["baseline"]["resource_count"] == 827  # type: ignore[index]
+    assert baselines["baseline"]["topology_count"] == 944  # type: ignore[index]
+    assert baselines["drift"]["verdict"] == "drifted"  # type: ignore[index]
+    assert baselines["drift"]["finding_count"] == 216  # type: ignore[index]
+    assert baselines["knowledge"]["status"] == "indexed"  # type: ignore[index]
+    assert baselines["review"]["state"] == "completed"  # type: ignore[index]

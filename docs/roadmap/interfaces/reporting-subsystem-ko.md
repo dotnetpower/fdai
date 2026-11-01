@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 0daf96891292259441c1d57e0a95ba78687541e1
-translation_revised: 2026-10-30
+translation_source_sha: 23682f217746eeedc2642438ee0ec66cbe799454
+translation_revised: 2026-11-01
 ---
 # 리포팅 서브시스템
 
@@ -638,6 +638,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-01 | implemented | 보고 레지스트리 밖의 `operations-panel` 경로로 `/scheduler-runs`를 `REFERENCE_PANEL_ROUTES`(`composition_routes.py`)에 추가했으며 보고 데이터 원본, 위젯, 형식은 추가하지 않았습니다. | `current change`; `test_operator_service_full_composition.py` (`7 passed`). | 권위 있는 데이터 원본 및 최신성 검증 결과는 아래 열린 항목으로 유지합니다. |
 | 2026-10-30 | implemented | JSON/CSV와 같은 읽기 전용 보고서를 사용하는 delivery 소유 XLSX/PPTX 인코더와 비공개 WARA 저장 경로를 추가했습니다. | `current change`; Office 재읽기, 수식 안전성, 셀/8 MiB/슬라이드 1,000개 상한, 393행 내보내기, 파일 권한을 집중 테스트 16개로 확인했습니다. strict mypy와 Ruff도 통과했습니다. | 해당 대상에서 Office HTTP 형식을 제공하기 전에 독립 대상 어댑터를 등록하고 인증된 HTTP 검증 결과를 보존합니다. |
 | 2026-10-21 | not-applicable | Core 비공개 설치 사용권 수락 저장소를 보고 데이터 원본 및 Operator 접근 권한과 구분했습니다. 보고 기능은 바뀌지 않습니다. | 현재의 영문 및 한국어 담당 문서; #2352; 사용권 소스 커밋 `4975461319283d8a2d82565f6bf775eaf6fd484b`; 사용권/PG/런타임/CLI 집중 테스트 443개와 마이그레이션 재고 검사 74개 통과. | 기존 보고 종료 조건은 유지됩니다. 로컬 수락은 운영 결과를 제공하지 않습니다. |
 | 2026-09-28 | implemented | Core 소유 삽입 전용 운영 근거 증명 테이블 다섯 개를 공유 service migration inventory에 등록했으며 reporting source, widget, 경로 또는 쓰기 권한에는 추가하지 않았습니다. | `current change`; `tests/integration/services/test_service_migration_inventory.py` 73개 통과, 루프백 PostgreSQL 역할 테스트에서 검증기 역할만 증명 기록을 삽입함을 확인했습니다. | reporting 동작이나 datasource 근거는 바뀌지 않았습니다. |

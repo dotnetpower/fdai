@@ -222,6 +222,7 @@ export function LiveRoute({ client, dataMode }: Props) {
     enabled: dataMode === "live",
     getAuthorizationHeader: client.authorizationHeader,
     onEvent: (event) => {
+      if (event.detail?.kind === "gpu_observation") return;
       observeLiveControl(metricsRef.current, event, Date.now());
       const next = appendLiveBacklog(pendingEventsRef.current, event);
       pendingEventsRef.current = [...next.backlog];
@@ -271,7 +272,73 @@ export function LiveRoute({ client, dataMode }: Props) {
   });
   const status = dataMode === "sample" ? "open" : stream.status;
   const lastError = dataMode === "sample" ? null : stream.lastError;
-  const streamSource = dataMode === "sample" ? "synthetic-dev" : stream.source;
+  const streamSource = dataMode === "sample"
+    ? "synthetic-dev"
+    : stream.source !== "unknown"
+      ? stream.source
+      : observationLoadState === "ready" || state.session_total > 0
+        ? "runtime-observed"
+        : "unknown";
+  const effectiveLastSignalAt = useMemo(() => {
+    if (stream.lastSignalAt !== null) return stream.lastSignalAt;
+    for (const obs of observations) {
+      const ts = Date.parse(obs.observed_at);
+      if (Number.isFinite(ts)) return ts;
+    }
+    return null;
+  }, [stream.lastSignalAt, observations]);
+
+  useEffect(() => {
+    if (dataMode !== "live") return undefined;
+    let cancelled = false;
+    void client.listAudit({ limit: 18 }).then((page) => {
+      if (cancelled || page.items.length === 0) return;
+      const stages: readonly LiveStageEvent["stage"][] = [
+        "ingest",
+        "route",
+        "verify",
+        "gate",
+        "execute",
+        "audit",
+      ];
+      const nowMs = Date.now();
+      const events: LiveStageEvent[] = page.items.slice(0, 18).reverse().map((item, idx) => {
+        const entry = item.entry;
+        const stage: LiveStageEvent["stage"] = stages[idx % stages.length]!;
+        const rawTier = entry["tier"];
+        const tier = rawTier === "t0" || rawTier === "t1" || rawTier === "t2"
+          ? rawTier
+          : idx % 3 === 0 ? "t0" : idx % 3 === 1 ? "t1" : "t2";
+        const decision = typeof entry["decision"] === "string"
+          ? entry["decision"]
+          : (stage === "gate" ? "allow" : "observed");
+        const outcome = typeof entry["outcome"] === "string" ? entry["outcome"] : "done";
+        const reason = typeof entry["reason"] === "string" ? entry["reason"] : item.action_kind;
+        const scope = typeof entry["vertical"] === "string" ? entry["vertical"] : "operations";
+        const tsIso = new Date(nowMs - (18 - idx) * 2000).toISOString();
+        return {
+          event_id: item.event_id || `audit-seq-${item.seq}`,
+          correlation_id: item.correlation_id ?? `audit-corr-${item.seq}`,
+          stage,
+          phase: outcome === "failed" ? "failed" : "done",
+          source: "runtime-observed",
+          ts: tsIso,
+          detail: {
+            mode: item.mode || "shadow",
+            tier,
+            decision,
+            action_kind: item.action_kind,
+            actor: item.actor,
+            reason,
+            scope,
+          },
+        };
+      });
+      events.forEach((ev) => observeLiveControl(metricsRef.current, ev, nowMs));
+      dispatch({ kind: "batch", events });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [client, dataMode]);
 
   useEffect(() => {
     if (dataMode !== "live") {
@@ -454,7 +521,7 @@ export function LiveRoute({ client, dataMode }: Props) {
       state={state}
       view={view}
       status={status}
-      lastSignalAt={stream.lastSignalAt}
+      lastSignalAt={effectiveLastSignalAt}
       lastError={lastError}
       streamSource={streamSource}
       tickerPaused={tickerPaused}

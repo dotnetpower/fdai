@@ -488,6 +488,28 @@ def _workflow_apps_snapshot(
             raise RuntimeError(f"workflow view name MUST be non-empty: {path}")
         if not isinstance(description, str) or not description:
             raise RuntimeError(f"workflow view description MUST be non-empty: {path}")
+        label = {"en": name, "ko": name}
+        localized_description = {"en": description, "ko": description}
+        console_manifest_path = catalog_root / "operator-console" / f"{view_id}.yaml"
+        if console_manifest_path.is_file():
+            console_raw = _yaml_mapping(console_manifest_path)
+            raw_label = console_raw.get("label")
+            if isinstance(raw_label, Mapping):
+                en_label = raw_label.get("en")
+                ko_label = raw_label.get("ko")
+                if (
+                    isinstance(en_label, str)
+                    and en_label
+                    and isinstance(ko_label, str)
+                    and ko_label
+                ):
+                    label = {"en": en_label, "ko": ko_label}
+            raw_desc = console_raw.get("description")
+            if isinstance(raw_desc, Mapping):
+                en_desc = raw_desc.get("en")
+                ko_desc = raw_desc.get("ko")
+                if isinstance(en_desc, str) and en_desc and isinstance(ko_desc, str) and ko_desc:
+                    localized_description = {"en": en_desc, "ko": ko_desc}
         items.append(
             {
                 "id": view_id,
@@ -495,8 +517,8 @@ def _workflow_apps_snapshot(
                 "view_ref": view_id,
                 "lifecycle": "published",
                 "audience": "reader",
-                "label": {"en": name, "ko": name},
-                "description": {"en": description, "ko": description},
+                "label": label,
+                "description": localized_description,
                 "route": f"/workflow-apps/{view_id}",
                 "group": "operations",
                 "order": order,
@@ -633,6 +655,23 @@ async def materialize(repo_root: Path) -> None:
         dsn,
         ontology_snapshot=snapshots[ONTOLOGY_GRAPH_KEY],
     )
+    local_helper = repo_root / "scripts/deployment/local/local_operations_materializer.py"
+    if os.environ.get("RUNTIME_ENV") == "dev" and local_helper.is_file():
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("local_operations_materializer", local_helper)
+        if spec is not None and spec.loader is not None:
+            helper_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(helper_mod)
+            await helper_mod.materialize_local_operations_state(
+                repo_root,
+                core_dsn=_psycopg_dsn(os.environ.get("FDAI_DATABASE_URL", "").strip() or dsn),
+                snapshots=snapshots,
+                onboarding_key=ONBOARDING_KEY,
+                configured_scopes=(
+                    configured_scopes or os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+                ),
+            )
     await write_catalog_snapshots_atomic(
         dsn=dsn,
         snapshots=snapshots,

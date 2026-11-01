@@ -118,6 +118,7 @@ REFERENCE_PANEL_ROUTES = (
     PanelRoute("/forecast-learning", "forecast-learning", "forecast-learning"),
     PanelRoute("/onboarding", "onboarding", "onboarding"),
     PanelRoute("/operator-memory", "operator-memory", "operator-memory"),
+    PanelRoute("/scheduler-runs", "scheduler-runs", "scheduler-runs"),
     PanelRoute("/skills", "skills", "skills"),
 )
 

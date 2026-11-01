@@ -463,13 +463,35 @@ def _encode_delivery(epoch: str, delivery: LiveStreamDelivery) -> bytes:
         if delivery.snapshot and delivery.event.event_type != "source"
         else delivery.event.event_type
     )
+    payload = delivery.event.payload
+    detail = payload.get("detail") if isinstance(payload, Mapping) else None
+    if (
+        delivery.snapshot
+        and isinstance(detail, Mapping)
+        and detail.get("kind") == "gpu_observation"
+    ):
+        offset_s = detail.get("sample_offset_seconds")
+        offset_ms = int(offset_s) * 1000 if isinstance(offset_s, (int, float)) else 0
+        ts_val = datetime.fromtimestamp(
+            (datetime.now(tz=UTC).timestamp() * 1000 + offset_ms) / 1000,
+            tz=UTC,
+        ).isoformat()
+        payload = {
+            **payload,
+            "ts": ts_val,
+            "detail": {
+                k: v
+                for k, v in {**detail, "observed_at": ts_val}.items()
+                if k != "sample_offset_seconds"
+            },
+        }
     lines: list[str] = []
     if delivery.sequence is not None:
         lines.append(f"id: {epoch}:{delivery.sequence}")
     lines.append(f"event: {_field(event_type)}")
     if delivery.dropped_before > 0:
         lines.append(f"dropped: {delivery.dropped_before}")
-    lines.append(f"data: {_json(delivery.event.payload)}")
+    lines.append(f"data: {_json(payload)}")
     return ("\n".join(lines) + "\n\n").encode()
 
 
