@@ -38,6 +38,8 @@ class WorkflowOperation(StrEnum):
     WARA_DETAIL = "wara.detail"
     MCSB_LIST = "mcsb.list"
     MCSB_DETAIL = "mcsb.detail"
+    MSRC_CSAF_LIST = "msrc-csaf.list"
+    MSRC_CSAF_DETAIL = "msrc-csaf.detail"
     PROMOTION_GATE_LIST = "promotion-gate.list"
     CONTEXT_SELECTION_COMPARISON_LIST = "context-selection.comparison-list"
     WORKFLOW_ACTION_TYPE_LIST = "workflow.action-type-list"

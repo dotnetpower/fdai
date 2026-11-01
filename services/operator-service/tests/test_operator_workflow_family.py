@@ -75,6 +75,8 @@ EXPECTED_MANIFEST = (
     ("GET", "/wara-controls/{recommendation_id}", "detail_handler"),
     ("GET", "/mcsb-controls", "list_handler"),
     ("GET", "/mcsb-controls/{benchmark_version}/{control_id}", "detail_handler"),
+    ("GET", "/msrc-csaf-controls", "list_handler"),
+    ("GET", "/msrc-csaf-controls/{cve_id}", "detail_handler"),
     ("GET", "/kpi/promotion-gates", "handler"),
     ("GET", "/context-selection-comparisons", "handler"),
     ("GET", "/workflows/action-types", "handler"),
@@ -225,7 +227,7 @@ def test_manifest_preserves_exact_legacy_method_path_and_name_surface() -> None:
         tuple((spec.method, spec.path, spec.name) for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST)
         == EXPECTED_MANIFEST
     )
-    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 47
+    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 49
     assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 15
 
     client, _, _, _ = _client()
@@ -866,6 +868,21 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
         "source_revision": "catalog-revision",
         "execution_authority": False,
     }
+    msrc_csaf_control = {
+        "cve_id": "CVE-2026-20001",
+        "year": "2026",
+        "title": "AKS Node Privilege Escalation",
+        "advisory_tracking_id": "MSRC-2026-AKS-001",
+        "advisory_title": "AKS Security Advisory",
+        "severity": "high",
+        "exploit_status": "exploited",
+        "disposition": "new_rule_candidate",
+        "mapping_state": "full",
+        "primary_resource_type": "kubernetes-cluster",
+        "evaluation_status": "evaluated",
+        "exposure": "affected",
+        "execution_authority": False,
+    }
     projections = {
         "best-practice.list": {
             "_revision": "best-practice-revision",
@@ -876,6 +893,16 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             "_revision": "mcsb-revision",
             "catalogs": [{"benchmark": benchmark, "controls": [mcsb_control]}],
             "evaluation_source": "catalog-crosswalk",
+        },
+        "msrc-csaf.list": {
+            "_revision": "msrc-csaf-revision",
+            "schema_version": "1.0.0",
+            "source_id": "msrc_csaf",
+            "source_revision": "2026-10-31",
+            "advisories_digest": "sha256:" + "c" * 64,
+            "crosswalk_digest": "sha256:" + "d" * 64,
+            "evaluation_source": "msrc-csaf-shadow-assessment",
+            "controls": [msrc_csaf_control],
         },
         "wara.list": {
             "_revision": "wara-revision",
@@ -990,6 +1017,24 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
             path_parameters={"control_id": "strategy"},
         )
     )
+    msrc_list = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.MSRC_CSAF_LIST,
+            principal_id="operator-a",
+            query={"year": "2026", "exploit_status": "exploited"},
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+    msrc_detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.MSRC_CSAF_DETAIL,
+            principal_id="operator-a",
+            query={},
+            path_parameters={"cve_id": "CVE-2026-20001"},
+        )
+    )
 
     assert best_list.payload["total"] == 1
     assert best_list.payload["controls"][0]["control_id"] == "RE:01"
@@ -1051,6 +1096,11 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert caf_detail.payload["guidance"] is None
     assert caf_detail.payload["guidance_unavailable_reason"] == "missing_source_pins"
     assert caf_detail.provenance.revision != "caf-revision"
+    assert msrc_list.payload["filtered_total"] == 1
+    assert msrc_list.payload["controls"] == [msrc_csaf_control]
+    assert msrc_list.payload["facets"]["by_year"] == {"2026": 1}
+    assert msrc_list.payload["facets"]["by_exploit_status"] == {"exploited": 1}
+    assert msrc_detail.payload == msrc_csaf_control
 
 
 async def test_best_practice_list_filters_controls_by_exact_rule_citation() -> None:

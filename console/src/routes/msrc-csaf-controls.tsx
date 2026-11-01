@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
@@ -18,8 +19,10 @@ import {
   PINNED_MSRC_CSAF_CATALOG,
   buildMsrcCsafFacets,
   filterMsrcCsafRows,
+  mergeMsrcCsafProjection,
   msrcCsafHref,
   msrcCsafStateFromSearch,
+  type MsrcCsafCatalog,
   type MsrcCsafControlRow,
   type MsrcCsafExploitStatus,
   type MsrcCsafExposure,
@@ -57,13 +60,33 @@ const EXPOSURE_PILL: Readonly<Record<MsrcCsafExposure, PillKind>> = {
 
 const PAGE_SIZE = 50;
 
-export function MsrcCsafControlsRoute() {
+export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorApiClient } = {}) {
   const initial = msrcCsafStateFromSearch(currentRoute().search);
+  const [catalog, setCatalog] = useState<MsrcCsafCatalog>(PINNED_MSRC_CSAF_CATALOG);
   const [filters, setFilters] = useState<MsrcCsafFilters>(initial.filters);
   const [searchInput, setSearchInput] = useState(initial.filters.q);
   const [selected, setSelected] = useState<string | null>(initial.selected);
   const [offset, setOffset] = useState<number>(initial.offset);
   const debounceRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!client) return;
+    let active = true;
+    void client
+      .panel<unknown>("/msrc-csaf-controls", { limit: "500" })
+      .then((raw: unknown) => {
+        if (!active) return;
+        setCatalog(mergeMsrcCsafProjection(PINNED_MSRC_CSAF_CATALOG, raw));
+      })
+      .catch((err: unknown) => {
+        if (isOptionalOperatorApiUnavailable(err)) {
+          return;
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [client]);
 
   useEffect(() => {
     window.clearTimeout(debounceRef.current);
@@ -106,7 +129,6 @@ export function MsrcCsafControlsRoute() {
     navigate(msrcCsafHref(next, selected, 0));
   }
 
-  const catalog = PINNED_MSRC_CSAF_CATALOG;
   const facets = useMemo(() => buildMsrcCsafFacets(catalog.rows), [catalog.rows]);
   const filteredRows = useMemo(
     () => filterMsrcCsafRows(catalog.rows, filters),

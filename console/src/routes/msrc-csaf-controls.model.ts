@@ -567,3 +567,60 @@ export function msrcCsafHref(
     },
   });
 }
+
+export function mergeMsrcCsafProjection(
+  baseCatalog: MsrcCsafCatalog,
+  projectionRaw: unknown,
+): MsrcCsafCatalog {
+  const root = panelRecord(projectionRaw, "msrc_csaf_projection");
+  const sourceId = panelNonEmptyString(root, "source_id", "msrc_csaf_projection");
+  if (sourceId !== "msrc_csaf") {
+    throw new OperatorApiError(502, `unexpected MSRC CSAF source_id: ${sourceId}`);
+  }
+  const sourceRevision = panelNonEmptyString(root, "source_revision", "msrc_csaf_projection");
+  const advisoriesDigest = panelNonEmptyString(root, "advisories_digest", "msrc_csaf_projection");
+  const crosswalkDigest = panelNonEmptyString(root, "crosswalk_digest", "msrc_csaf_projection");
+  if (
+    sourceRevision !== baseCatalog.source_revision
+    || advisoriesDigest !== baseCatalog.advisories_digest
+    || crosswalkDigest !== baseCatalog.crosswalk_digest
+  ) {
+    throw new OperatorApiError(502, "MSRC CSAF projection digest or revision mismatch");
+  }
+  const overrides = new Map<
+    string,
+    {
+      readonly evaluation_status: "evaluated" | "not_evaluated" | "blocked";
+      readonly exposure: MsrcCsafExposure;
+    }
+  >();
+  for (const [idx, item] of panelArray(root["controls"], "msrc_csaf_projection.controls").entries()) {
+    const rec = panelRecord(item, `controls[${idx}]`);
+    const cveId = panelNonEmptyString(rec, "cve_id", `controls[${idx}]`);
+    const execAuth = panelBoolean(rec, "execution_authority", `controls[${idx}]`);
+    if (execAuth !== false) {
+      throw new OperatorApiError(502, `MSRC CSAF control ${cveId} MUST NOT carry execution_authority`);
+    }
+    const evalStatus = decodeEnum(
+      panelNonEmptyString(rec, "evaluation_status", `controls[${idx}]`),
+      ["evaluated", "not_evaluated", "blocked"] as const,
+      `controls[${idx}].evaluation_status`,
+    );
+    const exposure = decodeEnum(
+      panelNonEmptyString(rec, "exposure", `controls[${idx}]`),
+      MSRC_CSAF_EXPOSURES,
+      `controls[${idx}].exposure`,
+    );
+    overrides.set(cveId, { evaluation_status: evalStatus, exposure });
+  }
+  if (overrides.size === 0) {
+    return baseCatalog;
+  }
+  return {
+    ...baseCatalog,
+    rows: baseCatalog.rows.map((row) => {
+      const ov = overrides.get(row.cve_id);
+      return ov ? { ...row, evaluation_status: ov.evaluation_status, exposure: ov.exposure } : row;
+    }),
+  };
+}
