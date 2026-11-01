@@ -138,6 +138,51 @@ class ChannelDeliveryRecord:
         if self.state is ChannelDeliveryState.AMBIGUOUS and not self.duplicate_risk:
             raise ValueError("ambiguous channel delivery MUST report duplicate risk")
 
+    @property
+    def origin_ref(self) -> str:
+        """Return the primary origin reference when present in the response payload."""
+        for key in ("origin_ref", "anchor_id"):
+            val = self.response.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+        return ""
+
+    @property
+    def origin_refs(self) -> tuple[str, ...]:
+        """Return every distinct origin/anchor identifier carried by this delivery record."""
+        found: list[str] = []
+        for key in ("origin_ref", "anchor_id"):
+            val = self.response.get(key)
+            if isinstance(val, str) and (cleaned := val.strip()) and cleaned not in found:
+                found.append(cleaned)
+        return tuple(found)
+
+
+class ChannelOriginPurgedError(RuntimeError):
+    """Raised when an outbound delivery record targets an already-purged origin."""
+
+
+class ChannelDeliveryReadbackError(RuntimeError):
+    """Raised when a deleted outbound delivery row or missing tombstone fails readback."""
+
+
+@dataclass(frozen=True, slots=True)
+class ChannelOriginDeletionResult:
+    """Verified result of one Operator-owned origin-scoped delivery purge."""
+
+    origin_ref: str
+    tombstone_key: str
+    deleted_delivery_ids: tuple[str, ...]
+
+
+def origin_tombstone_key(origin_ref: str) -> str:
+    """Return the tombstone key stored in conversation_adapter_breaker."""
+    cleaned = origin_ref.strip() if isinstance(origin_ref, str) else ""
+    if not cleaned or len(cleaned) > 256 or any(ord(ch) < 32 for ch in cleaned):
+        raise ValueError("origin_ref MUST be a bounded non-empty identifier")
+    digest = hashlib.sha256(f"channel-origin-tombstone:v1:{cleaned}".encode()).hexdigest()
+    return f"origin-tombstone:{digest}"
+
 
 @dataclass(frozen=True, slots=True)
 class ChannelDeliveryAttempt:

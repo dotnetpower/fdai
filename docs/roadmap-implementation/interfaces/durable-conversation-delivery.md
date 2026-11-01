@@ -60,6 +60,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-09-09 | implemented | Bound semantic Kafka partitioning to the opaque session reference and reconciled local Redpanda to the deployed two-partition floor. | `current change`; focused Operator bridge and local startup checks. | Retain the governed authenticated subscription receipt required by issue #151. |
 | 2026-09-08 | implemented | Revalidated the semantic transport state machine after receipt-bound progressive streaming and retained first-terminal and replay invariants. | `current change`; focused Operator semantic bridge passed 151 tests. | Governed restart and external broker evidence remain open. |
 | 2026-11-01 | implemented | Added `OriginScopedOutboundDeliveryDeleter`, `AdapterCommandController` (`/commands/adapters/*` pause/resume/status with RBAC and audit), and `conversation_delivery_panel_route.py` binding `ConversationDeliveryPanel` to an authenticated read route; migrated the owner status to this authoritative ledger. | `current change`; `services/core-control-plane/src/fdai/delivery/outbound_delivery_origin_delete.py`; `services/core-control-plane/tests/conversation/test_origin_delete_and_delivery_panel.py` (`4 passed`); `services/operator-service/src/fdai_operator_service/adapter_commands_api.py`; `services/operator-service/tests/test_adapter_commands_api.py` (`4 passed`); `services/operator-service/src/fdai_operator_service/conversation_delivery_panel_route.py`. | Governed Slack/Teams scheduled-delivery and restart receipts remain open. |
+| 2026-11-02 | implemented | Implemented `PostgresChannelDeliveryStore.delete_by_origin` and `is_origin_purged` with durable origin tombstones, `put` restoration refusal, and independent absence readback, and bound `RetentionTarget.SUBMITTED_DELIVERY` into `ScheduledContinuationRetentionWorker` (`RETENTION_ORDER_WITH_DELIVERY`) and `PostgresScheduledContinuationDeleter`. | `current change`; `services/operator-service/src/fdai_operator_service/families/conversation/{channel_delivery_models,postgres_channel_delivery}.py`; `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation_retention.py`; `test_continuation_retention.py`, `test_scheduled_continuation_retention.py`, and `test_channel_delivery_postgres.py` (`47 passed, 0 skipped` against isolated loopback PostgreSQL). | Governed runtime receipts for restart, process-loss reconciliation, and external channel delivery remain open below. |
 
 
 ### Remaining work
@@ -83,9 +84,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Add origin-scoped deletion to the Core in-memory delivery store under a source deletion
     fence. It preserves unrelated origins and attempt and acknowledgement lineage and checks for
     surviving bodies, but does not prove restart-safe physical deletion.
-- [ ] Implement the same origin-scoped deletion, origin tombstone, and readback in the
+- [x] Implement the same origin-scoped deletion, origin tombstone, and readback in the
     Operator-owned PostgreSQL delivery ledger, and bind the purge into the scheduled-result
-    retention worker's deletion order so one coordinated pass covers every retained copy.
+    retention worker's deletion order so one coordinated pass covers every retained copy
+    (`postgres_channel_delivery.py`, `continuation_retention.py`,
+    `postgres_scheduled_continuation_retention.py`, `test_channel_delivery_postgres.py`:
+    `5 passed, 0 skipped`; `test_scheduled_continuation_retention.py`: `9 passed, 0 skipped`).
 - [x] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
 - [x] Bind `ConversationDeliveryPanel` to an authenticated console read route and a production
     delivery store, and share the bounded progressive-conversation collector with it

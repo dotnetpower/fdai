@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:da91afcc0525935b5b5482fbca7f0f6c4171782daf72dd73c577630c96f079ee",
+  "catalog_digest": "sha256:abf08d195adcf41493658d91737cb32cab7138899a05ea54f99921dc77b4a488",
   "execution_authority": false,
-  "generated_at": "2026-11-01T14:52:05.043694Z",
+  "generated_at": "2026-11-01T17:28:55.190561Z",
   "records": [
     {
       "designed_behavior": [
@@ -321,17 +321,8 @@
         "How does FDAI prevent duplicate chat replies?",
         "FDAI는 중복 채팅 응답을 어떻게 방지하나요?"
       ],
-      "record_digest": "sha256:1829f566679619f67da3a12c60237d782312b5f18219ffba7e9692b870b5f655",
+      "record_digest": "sha256:013398409990b9b44e3f2d76e29f221b072980fd37649e433e8052cb741fde8f",
       "sources": [
-        {
-          "authority_role": "verification",
-          "blob_sha": "43502202ce3f5d94d53a560b81e1d0d496988930",
-          "line_end": 6,
-          "line_start": 6,
-          "path": "docs/roadmap-implementation/interfaces/durable-conversation-delivery.md",
-          "source_kind": "doc",
-          "symbol": "Implementation status"
-        },
         {
           "authority_role": "design",
           "blob_sha": "870558be18109a3bfa261e47f64a44b96b5df71e",
@@ -340,6 +331,15 @@
           "path": "docs/roadmap/interfaces/durable-conversation-delivery.md",
           "source_kind": "doc",
           "symbol": "Semantic request ordering and isolation"
+        },
+        {
+          "authority_role": "verification",
+          "blob_sha": "d77d414382ffe90cad5141b6e168720bac4b432a",
+          "line_end": 6,
+          "line_start": 6,
+          "path": "docs/roadmap-implementation/interfaces/durable-conversation-delivery.md",
+          "source_kind": "doc",
+          "symbol": "Implementation status"
         }
       ],
       "status": "implemented",
@@ -854,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "0d4b5b7d32e47f78cefc993efc3ddf66621c549f"
+  "source_revision": "2fc1d4a3661efe3d5345828bd5ea3f11779eae76"
 }

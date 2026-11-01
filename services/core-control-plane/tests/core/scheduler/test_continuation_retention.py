@@ -17,6 +17,7 @@ from fdai.core.scheduler.continuation_retention import (
     MAX_FENCE_ALIASES,
     MAX_FENCE_MIGRATION_BATCH,
     RETENTION_ORDER,
+    RETENTION_ORDER_WITH_DELIVERY,
     ContinuationDeletionFence,
     ContinuationFenceMigrator,
     FenceCarryForward,
@@ -307,7 +308,7 @@ async def test_fence_is_recorded_before_the_first_deletion() -> None:
     result = await worker.purge(anchor_id=anchor.anchor_id, now=DUE)
 
     assert result.outcome is RetentionOutcome.PURGED
-    assert observed == [True, True, True]
+    assert observed == [True] * len(RETENTION_ORDER)
 
 
 async def test_partial_failure_keeps_the_fence_recorded() -> None:
@@ -568,6 +569,29 @@ async def test_migration_keeps_a_dropped_write_pending() -> None:
     assert result.pending == (CURRENT_ANCHOR_ID,)
     assert result.carried == ()
     assert result.complete is False
+
+
+async def test_coordinated_pass_with_submitted_delivery_deletes_all_four_targets_in_order() -> None:
+    anchor = _anchor()
+    store = InMemoryScheduledConversationAnchorStore()
+    await store.create(anchor)
+    deleter = _RecordingDeleter()
+    audit = InMemoryRetentionAuditSink()
+    worker = ScheduledContinuationRetentionWorker(
+        store=store,
+        holds=InMemoryLegalHoldRegistry(),
+        deleter=deleter,
+        audit=audit,
+        fence=InMemoryContinuationDeletionFence(),
+        grace=GRACE,
+        include_submitted_delivery=True,
+    )
+
+    result = await worker.purge(anchor_id=anchor.anchor_id, now=DUE)
+
+    assert result.outcome is RetentionOutcome.PURGED
+    assert tuple(deleter.calls) == RETENTION_ORDER_WITH_DELIVERY
+    assert deleter.calls[-1] is RetentionTarget.ANCHOR
 
 
 async def test_migration_fails_closed_on_an_unreadable_or_unwritable_fence() -> None:

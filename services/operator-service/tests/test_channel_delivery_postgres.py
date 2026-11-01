@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
@@ -16,9 +17,11 @@ from fdai_operator_service.families.conversation.channel_delivery_models import 
     ChannelDeliveryRecord,
     ChannelDeliveryState,
     ChannelKind,
+    ChannelOriginPurgedError,
     PrincipalChannelBinding,
     VerifiedChannelEndpoint,
     channel_response_digest,
+    origin_tombstone_key,
 )
 from fdai_operator_service.families.conversation.postgres_channel_binding import (
     PostgresChannelBindingConfig,
@@ -327,3 +330,114 @@ async def test_operator_breaker_cas_and_terminal_retention_cleanup() -> None:
             )
             await connection.commit()
         await _cleanup(admin_dsn, binding)
+
+
+@pytest.mark.integration
+async def test_operator_origin_scoped_delete_records_tombstone_and_refuses_restoration() -> None:
+    admin_dsn, _operator_dsn, binding_store, delivery_store = await _stores()
+    suffix = uuid4().hex
+    binding = _binding(suffix)
+    other_binding = _binding(f"other-{suffix}")
+    anchor_id = f"scheduled-anchor-{suffix}"
+    response = {
+        "answer": f"Origin response {suffix}",
+        "origin_ref": anchor_id,
+        "status": "answered",
+        "verification": {"status": "verified", "evidence_refs": [f"audit:{suffix}"]},
+        "execution_authority": False,
+    }
+    record = replace(
+        _record(binding, suffix=suffix),
+        response=response,
+        response_digest=channel_response_digest(response),
+    )
+    sibling_response = {
+        "answer": f"Sibling in same conversation {suffix}",
+        "origin_ref": f"sibling-anchor-{suffix}",
+        "status": "answered",
+        "verification": {"status": "verified", "evidence_refs": [f"audit:sib-{suffix}"]},
+        "execution_authority": False,
+    }
+    sibling_same_conversation = replace(
+        _record(binding, suffix=f"sibling-{suffix}"),
+        response=sibling_response,
+        response_digest=channel_response_digest(sibling_response),
+    )
+    other_record = _record(other_binding, suffix=f"other-{suffix}")
+    tombstone = origin_tombstone_key(anchor_id)
+    try:
+        await binding_store.create(binding)
+        await binding_store.create(other_binding)
+        await delivery_store.put(record)
+        await delivery_store.put(sibling_same_conversation)
+        await delivery_store.put(other_record)
+
+        result = await delivery_store.delete_by_origin(
+            origin_ref=anchor_id,
+            at=_NOW + timedelta(minutes=1),
+            principal_id=binding.principal_id,
+        )
+        assert result.origin_ref == anchor_id
+        assert result.tombstone_key == tombstone
+        assert result.deleted_delivery_ids == (record.delivery_id,)
+        assert await delivery_store.is_origin_purged(origin_ref=anchor_id) is True
+        assert await delivery_store.get(record.delivery_id) is None
+        assert await delivery_store.get(sibling_same_conversation.delivery_id) is not None
+        assert await delivery_store.get(other_record.delivery_id) is not None
+
+        with pytest.raises(ChannelOriginPurgedError, match="MUST NOT be restored"):
+            await delivery_store.put(
+                replace(
+                    record,
+                    delivery_id=f"delivery-replayed-{suffix}",
+                    idempotency_key=f"channel-delivery-replayed:{suffix}",
+                )
+            )
+        dual_id_response = {
+            **response,
+            "origin_ref": f"different-origin-{suffix}",
+            "anchor_id": anchor_id,
+        }
+        with pytest.raises(ChannelOriginPurgedError, match="MUST NOT be restored"):
+            await delivery_store.put(
+                replace(
+                    record,
+                    delivery_id=f"delivery-dual-replayed-{suffix}",
+                    idempotency_key=f"channel-delivery-dual-replayed:{suffix}",
+                    response=dual_id_response,
+                    response_digest=channel_response_digest(dual_id_response),
+                )
+            )
+
+        # Concurrent put and delete_by_origin on a second anchor are serialized by advisory lock
+        race_anchor = f"race-anchor-{suffix}"
+        race_response = {
+            **response,
+            "origin_ref": race_anchor,
+        }
+        race_record = replace(
+            _record(binding, suffix=f"race-{suffix}"),
+            response=race_response,
+            response_digest=channel_response_digest(race_response),
+        )
+        race_outcomes = await asyncio.gather(
+            delivery_store.put(race_record),
+            delivery_store.delete_by_origin(
+                origin_ref=race_anchor,
+                at=_NOW + timedelta(minutes=2),
+                principal_id=binding.principal_id,
+            ),
+            return_exceptions=True,
+        )
+        assert any(not isinstance(outcome, BaseException) for outcome in race_outcomes)
+        assert await delivery_store.is_origin_purged(origin_ref=race_anchor) is True
+        assert await delivery_store.get(race_record.delivery_id) is None
+    finally:
+        async with await psycopg.AsyncConnection.connect(admin_dsn) as connection:
+            await connection.execute(
+                "DELETE FROM conversation_adapter_breaker "
+                "WHERE adapter_id LIKE 'origin-tombstone:%%'",
+            )
+            await connection.commit()
+        await _cleanup(admin_dsn, binding)
+        await _cleanup(admin_dsn, other_binding)

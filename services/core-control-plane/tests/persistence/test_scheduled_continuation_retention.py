@@ -8,7 +8,7 @@ from uuid import uuid4
 import psycopg
 import pytest
 from fdai.core.scheduler.continuation_retention import (
-    RETENTION_ORDER,
+    RETENTION_ORDER_WITH_DELIVERY,
     InMemoryContinuationDeletionFence,
     InMemoryLegalHoldRegistry,
     InMemoryRetentionAuditSink,
@@ -104,12 +104,21 @@ def test_anchor_statement_refuses_a_reactivated_row() -> None:
     assert "state" not in statement.readback_sql
 
 
+_CORE_STATEMENT_TARGETS = (
+    RetentionTarget.PROJECTED_TURN,
+    RetentionTarget.SOURCE_RESULT,
+    RetentionTarget.ANCHOR,
+)
+
+
 def test_every_target_has_a_distinct_scoped_statement() -> None:
     anchor = _anchor()
 
-    statements = [retention_statement(target=target, anchor=anchor) for target in RETENTION_ORDER]
+    statements = [
+        retention_statement(target=target, anchor=anchor) for target in _CORE_STATEMENT_TARGETS
+    ]
 
-    assert len({statement.delete_sql for statement in statements}) == len(RETENTION_ORDER)
+    assert len({statement.delete_sql for statement in statements}) == len(_CORE_STATEMENT_TARGETS)
     for statement in statements:
         assert "%s" in statement.delete_sql
         assert statement.delete_sql.count("%s") == len(statement.params)
@@ -118,7 +127,7 @@ def test_every_target_has_a_distinct_scoped_statement() -> None:
 def test_readback_params_match_the_delete_params() -> None:
     anchor = _anchor()
 
-    for target in RETENTION_ORDER:
+    for target in _CORE_STATEMENT_TARGETS:
         statement = retention_statement(target=target, anchor=anchor)
         assert statement.readback_sql.count("%s") == len(statement.params)
 
@@ -133,26 +142,46 @@ async def test_live_purge_deletes_every_copy_and_preserves_unrelated_scopes() ->
     other = _anchor(run_id=f"run-other-{suffix}")
     await store.create(anchor)
     await store.create(other)
+    from fdai_operator_service.families.conversation.postgres_channel_delivery import (
+        PostgresChannelDeliveryConfig,
+        PostgresChannelDeliveryStore,
+    )
+
+    delivery_store = PostgresChannelDeliveryStore(config=PostgresChannelDeliveryConfig(dsn=dsn))
     worker = ScheduledContinuationRetentionWorker(
         store=store,
         holds=InMemoryLegalHoldRegistry(),
-        deleter=PostgresScheduledContinuationDeleter(config=config),
+        deleter=PostgresScheduledContinuationDeleter(
+            config=config,
+            submitted_delivery_deleter=lambda item: delivery_store.delete_by_origin(
+                origin_ref=item.anchor_id,
+                at=DUE,
+                principal_id=item.owner_principal_id,
+            ),
+        ),
         audit=InMemoryRetentionAuditSink(),
         fence=InMemoryContinuationDeletionFence(),
         grace=GRACE,
+        include_submitted_delivery=True,
     )
 
     try:
         result = await worker.purge(anchor_id=anchor.anchor_id, now=DUE)
 
         assert result.outcome is RetentionOutcome.PURGED
+        assert result.completed_targets == RETENTION_ORDER_WITH_DELIVERY
         assert await store.get(anchor.anchor_id) is None
         assert await store.get(other.anchor_id) is not None
+        assert await delivery_store.is_origin_purged(origin_ref=anchor.anchor_id) is True
     finally:
         async with await psycopg.AsyncConnection.connect(psycopg_dsn(dsn)) as connection:
             await connection.execute(
                 "DELETE FROM scheduled_conversation_anchor WHERE anchor_id IN (%s, %s)",
                 (anchor.anchor_id, other.anchor_id),
+            )
+            await connection.execute(
+                "DELETE FROM conversation_adapter_breaker "
+                "WHERE adapter_id LIKE 'origin-tombstone:%%'",
             )
 
 
