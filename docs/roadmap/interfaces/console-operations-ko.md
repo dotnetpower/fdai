@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 112a156c7ac095877ecf238a0f3e7e525b0e4687
+translation_source_sha: e624cde9c6d39ff309e92489e47c7e83fc6d129f
 translation_revised: 2026-11-02
 ---
 
@@ -79,7 +79,7 @@ HTML 보고서와 정규 SARIF를 비활성 콘텐츠로 표시할 수 있습니
 축을 사용합니다. 따라서 정확한 Static Web App 기본 환경 `BuildStatus`를 운영 값으로 표시하고,
 검토된 값이 없으면 기록 없음으로 유지합니다. 프로비저닝 성공이나 공급자 요청 성공을 운영 성공으로
 바꾸지 않습니다. 구성 기준선도 Core가 완료한 점검만 읽어 고정된 메타데이터, 판정, 측정 지연 시간을 유지합니다. Knowledge가 구성되지 않았거나 차단되었으면 측정된 인용 수가 아니라 사용 불가 상태로 표시합니다. 근거 조회로 기준선이나 검토 캠페인이 활성화되지는 않습니다. 예측 학습은 기한이 도래한 집단의 종료 비율과 평가된 누락 원인을 서버 응답 그대로 표시합니다. 기한이 도래한 에피소드가 없으면 빈 값이나 0 대신 측정되지 않음으로 표시합니다.
-감지 커버리지(`/detection-coverage`)는 `?finding=`이나 `#console-inbox`를 직접 지정하지 않으면 주요 `Coverage`, `Resources`, `Findings` 작업 영역을 보존된 Finding 및 알림 피드보다 첫 화면에 먼저 배치하고, 구조화된 Azure 및 범위 리소스 참조를 정본 식별자와 아키텍처·규칙 링크를 유지한 채 읽기 쉬운 짧은 이름으로 표시하며, 선택한 리소스의 최신 보존 발견 평가와 6축 준비도를 `#detection-resource-detail`에서 바로 보여 주고, `ConsoleInbox` 알림을 페이지네이션과 접기 기능으로 제한하며, 파생된 Pod 수명 주기 변환 결과를 `kubernetes_pod` 리소스로만 한정합니다. 규칙 카탈로그(`/rules`)는 애니메이션 상태와 관계없이 세부 정보 서랍을 불투명하게 유지하고, 매개 변수에서 파생된 리소스 형식 표시를 정규화하며, 카탈로그나 활성화 권한을 바꾸지 않고 활성 규칙을 해당 리소스 형식의 감지 커버리지와 연결합니다.
+감지 커버리지(`/detection-coverage`)는 `?finding=`, `#current-findings` 또는 `#console-inbox`를 직접 지정하지 않으면 주요 `Coverage`, `Resources`, `Findings` 작업 영역을 보존된 Finding 및 알림 피드보다 첫 화면에 먼저 배치하고, 구조화된 Azure 및 범위 리소스 참조를 정본 식별자와 아키텍처·규칙 링크를 유지한 채 읽기 쉬운 짧은 이름으로 표시하며, 선택한 리소스의 최신 보존 발견 평가와 6축 준비도를 `#detection-resource-detail`에서 바로 보여 주고, `CurrentFindings`(`#current-findings`)를 `StatusPill` 배지, 관측 요약 상자, 4열 수명 주기 사실, 펼침형 근거 칩을 갖춘 Calm Slate 피드로 구성하며, `ConsoleInbox` 알림을 페이지네이션과 접기 기능으로 제한하고, 파생된 Pod 수명 주기 변환 결과를 `kubernetes_pod` 리소스로만 한정합니다. 규칙 카탈로그(`/rules`)는 애니메이션 상태와 관계없이 세부 정보 서랍을 불투명하게 유지하고, 매개 변수에서 파생된 리소스 형식 표시를 정규화하며, 카탈로그나 활성화 권한을 바꾸지 않고 활성 규칙을 해당 리소스 형식의 감지 커버리지와 연결합니다.
 
 ## 제품 용어
 

@@ -3,6 +3,7 @@ import { routeHref } from "./router";
 
 export interface CurrentFinding {
   readonly finding_id: string;
+  readonly revision?: number;
   readonly notification_version: number;
   readonly notification_reason: "opened" | "escalated" | "recovered";
   readonly notification_changed_at: string;
@@ -12,11 +13,19 @@ export interface CurrentFinding {
   readonly severity: "low" | "medium" | "high" | "critical";
   readonly status: "active" | "resolved";
   readonly observation: string;
+  readonly observation_key?: string;
+  readonly observation_digest?: string;
+  readonly first_seen_at?: string;
   readonly occurred_at: string;
+  readonly recorded_at?: string;
+  readonly current_state?: string;
   readonly evidence_complete: boolean;
   readonly evidence_state: string;
+  readonly recovery_closed?: boolean | null;
+  readonly assessed_by?: string | null;
   readonly evidence_gaps: readonly string[];
   readonly evidence_refs: readonly string[];
+  readonly publication?: string;
 }
 
 interface FindingPage {
@@ -59,8 +68,36 @@ export function decodeFindingPage(value: unknown): FindingPage {
         throw new Error("Invalid Finding observation time");
       }
     }
+    const optionalText = (key: string): string | undefined => {
+      const candidate = row[key];
+      return typeof candidate === "string" && candidate.trim().length > 0 && candidate.length <= 512
+        ? candidate.trim()
+        : undefined;
+    };
+    const optionalTimestamp = (key: string): string | undefined => {
+      const candidate = optionalText(key);
+      return candidate !== undefined && Number.isFinite(Date.parse(candidate))
+        ? candidate
+        : undefined;
+    };
+    const revision = Number.isSafeInteger(row.revision) && Number(row.revision) >= 1
+      ? Number(row.revision)
+      : undefined;
+    const recoveryClosed = typeof row.recovery_closed === "boolean"
+      ? row.recovery_closed
+      : row.recovery_closed === null
+        ? null
+        : undefined;
+    const assessedBy = optionalText("assessed_by") ?? (row.assessed_by === null ? null : undefined);
+    const observationKey = optionalText("observation_key");
+    const observationDigest = optionalText("observation_digest");
+    const firstSeenAt = optionalTimestamp("first_seen_at");
+    const recordedAt = optionalTimestamp("recorded_at");
+    const currentState = optionalText("current_state");
+    const publication = optionalText("publication");
     return {
       finding_id: row.finding_id,
+      ...(revision !== undefined ? { revision } : {}),
       notification_version: Number(row.notification_version),
       notification_reason: row.notification_reason as CurrentFinding["notification_reason"],
       notification_changed_at: String(row.notification_changed_at),
@@ -70,11 +107,19 @@ export function decodeFindingPage(value: unknown): FindingPage {
       severity: row.severity as CurrentFinding["severity"],
       status: row.status as CurrentFinding["status"],
       observation: String(row.observation),
+      ...(observationKey !== undefined ? { observation_key: observationKey } : {}),
+      ...(observationDigest !== undefined ? { observation_digest: observationDigest } : {}),
+      ...(firstSeenAt !== undefined ? { first_seen_at: firstSeenAt } : {}),
       occurred_at: String(row.occurred_at),
+      ...(recordedAt !== undefined ? { recorded_at: recordedAt } : {}),
+      ...(currentState !== undefined ? { current_state: currentState } : {}),
       evidence_complete: row.evidence_complete,
       evidence_state: String(row.evidence_state),
+      ...(recoveryClosed !== undefined ? { recovery_closed: recoveryClosed } : {}),
+      ...(assessedBy !== undefined ? { assessed_by: assessedBy } : {}),
       evidence_refs: row.evidence_refs,
       evidence_gaps: row.evidence_gaps,
+      ...(publication !== undefined ? { publication } : {}),
     };
   });
   return { items, next_cursor: page.next_cursor as string | null, total_count: Number(page.total_count) };
