@@ -368,3 +368,91 @@ def test_reject_rejects_the_enrollment(
 
     assert (response.status_code, response.json()) == (200, {"rejected": installation_id})
     assert store.enrollment_status(installation_id) == "rejected"
+
+
+def test_list_audit_returns_hash_chained_records_and_validates_query(
+    client: TestClient, installation: Installation
+) -> None:
+    response = client.get("/v1/audit")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["chain_intact"] is True
+    assert len(body["records"]) >= 2
+    assert body["records"][0]["sequence"] > body["records"][1]["sequence"]
+
+    filtered = client.get(f"/v1/audit?installation_id={installation.installation_id}&limit=1")
+    assert filtered.status_code == 200
+    assert len(filtered.json()["records"]) == 1
+
+    for bad_query in ("?limit=0", "?limit=201", "?limit=abc", "?unknown=1", "?installation_id="):
+        assert client.get(f"/v1/audit{bad_query}").status_code == 422
+
+
+def test_post_and_lift_suppression_commands_enforce_confirmation_and_scope(
+    client: TestClient, installation: Installation, now: datetime
+) -> None:
+    installation_id = installation.installation_id
+    ends_at = (now + timedelta(hours=2)).isoformat()
+    starts_at = now.isoformat()
+
+    # Wrong confirmation is rejected with 422.
+    bad_confirm = client.post(
+        f"/v1/installations/{installation_id}/suppressions",
+        json={
+            "scope": "installation",
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+            "reason": "maintenance_freeze",
+            "confirmation": "wrong",
+        },
+    )
+    assert (bad_confirm.status_code, bad_confirm.json()) == (
+        422,
+        {"error": "suppression_invalid"},
+    )
+
+    # Valid suppression command adds the manual window and records audit.
+    added = client.post(
+        f"/v1/installations/{installation_id}/suppressions",
+        json={
+            "scope": "installation",
+            "starts_at": starts_at,
+            "ends_at": ends_at,
+            "reason": "maintenance_freeze",
+            "confirmation": f"suppress {installation_id} installation",
+        },
+    )
+    assert added.status_code == 200
+    assert added.json()["scope"] == "installation"
+    detail = client.get(f"/v1/installations/{installation_id}").json()
+    assert len(detail["suppressions"]) == 1
+    assert detail["suppressions"][0]["scope"] == "installation"
+
+    # Lifting an inactive scope returns 409.
+    not_active = client.post(
+        f"/v1/installations/{installation_id}/suppressions/lift",
+        json={
+            "scope": "entity:core",
+            "reason": "freeze_ended",
+            "confirmation": f"lift suppression {installation_id} entity:core",
+        },
+    )
+    assert (not_active.status_code, not_active.json()) == (
+        409,
+        {"error": "suppression_not_active"},
+    )
+
+    # Lifting the active scope clears it.
+    lifted = client.post(
+        f"/v1/installations/{installation_id}/suppressions/lift",
+        json={
+            "scope": "installation",
+            "reason": "freeze_ended",
+            "confirmation": f"lift suppression {installation_id} installation",
+        },
+    )
+    assert (lifted.status_code, lifted.json()) == (
+        200,
+        {"lifted": installation_id, "scope": "installation"},
+    )
+    assert client.get(f"/v1/installations/{installation_id}").json()["suppressions"] == []

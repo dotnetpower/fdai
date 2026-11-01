@@ -15,10 +15,18 @@ export type Catalog = {
   key_id: string; mode: string; releases: Release[];
   channels: Record<string, string[]>; events: Event[]; export_sha256?: string;
 };
-export type Action = "register" | "publish" | "contribute" | "recall" | "renew";
+export type Action = "register" | "publish" | "contribute" | "promote" | "recall" | "renew";
+export type CanaryObservationInput = {
+  installation_id: string; release_id: string; healthy: boolean; soak_seconds: number;
+};
 export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string; channel_confirmation?: string;
   label?: string; manifest?: string;
+  source_channel?: string; target_channel?: string;
+  required_labels?: string[]; labels?: string[];
+  min_soak_seconds?: number; min_healthy_canaries?: number;
+  max_stage_timeout_seconds?: number; elapsed_stage_seconds?: number;
+  canary_observations?: CanaryObservationInput[];
 };
 
 export class CatalogRequestError extends Error {
@@ -47,12 +55,18 @@ export function catalogRecovery(failure: unknown): string {
 }
 
 export function catalogChangeObserved(catalog: Catalog, action: Action, id: string, change: Change): boolean {
+  const expectedAction = action === "promote" ? "contribute" : action;
+  const expectedChannel = action === "contribute"
+    ? change.channel
+    : action === "promote"
+    ? (change.target_channel ?? change.channel ?? null)
+    : null;
   return catalog.revision > change.revision && catalog.events.some((event) =>
     event.revision === change.revision + 1
-    && event.action === action
+    && event.action === expectedAction
     && event.release_id === (action === "renew" ? "catalog" : id)
     && event.reason === change.reason.trim()
-    && event.channel === (action === "contribute" ? change.channel : null));
+    && event.channel === expectedChannel);
 }
 
 export type DeploymentRequest = {
@@ -96,8 +110,45 @@ export type ReleaseManifest = Record<string, unknown> & {
   product?: string;
   source_commit?: string;
   platform_tag?: string;
+  capability_maximums?: Record<string, unknown>;
   schema?: { target: number; tolerates: { minimum: number; maximum: number } };
 };
+
+export function nextPromotionTransition(
+  release: Release,
+): { sourceChannel: "DEV" | "RELEASE_CANDIDATE"; targetChannel: "RELEASE_CANDIDATE" | "RELEASE" } | null {
+  if (release.state !== "published") return null;
+  if (release.channels.includes("RELEASE")) return null;
+  if (release.channels.includes("RELEASE_CANDIDATE")) {
+    return { sourceChannel: "RELEASE_CANDIDATE", targetChannel: "RELEASE" };
+  }
+  if (release.channels.includes("DEV")) {
+    return { sourceChannel: "DEV", targetChannel: "RELEASE_CANDIDATE" };
+  }
+  return null;
+}
+
+export function activeCapabilityRecalls(events: readonly Event[]): string[] {
+  const ordered = [...events].sort((a, b) => a.revision - b.revision);
+  const active = new Set<string>();
+  for (const event of ordered) {
+    if (event.action === "recall_capability") active.add(event.release_id);
+    else if (event.action === "lift_capability") active.delete(event.release_id);
+  }
+  return [...active].sort();
+}
+
+export function blockedReleaseCapabilities(
+  manifest: ReleaseManifest,
+  events: readonly Event[],
+): string[] {
+  const declared = manifest.capability_maximums && typeof manifest.capability_maximums === "object"
+    ? Object.keys(manifest.capability_maximums)
+    : [];
+  if (declared.length === 0) return [];
+  const recalled = new Set(activeCapabilityRecalls(events));
+  return declared.filter((cap) => recalled.has(cap)).sort();
+}
 
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
   const parsed: unknown = JSON.parse(manifest);

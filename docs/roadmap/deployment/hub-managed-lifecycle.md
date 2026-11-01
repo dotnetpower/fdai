@@ -796,8 +796,11 @@ and independent readback. The installation's own kill switch route keeps its exi
 > command applies its secret-scanned emergency overrides (`configuration-change` Plan) and bypasses
 > only its declared window or version-range constraints while preserving recall, schema, artifact,
 > and residency checks. At expiry, `plan_next` reconciles unadopted emergency overrides back to the
-> approved configuration revision with a `drift-reconciliation` Plan. Dedicated Hub command HTTP/UI
-> routes remain separate.
+> approved configuration revision with a `drift-reconciliation` Plan. Operator-confirmed
+> suppression window creation and lift routes (`POST /v1/installations/{id}/suppressions`,
+> `/suppressions/lift`), hash-chained audit inspection (`GET /v1/audit`), and the Lifecycle Hub
+> Commands, Audit, Configuration, and Update Readiness & Recovery surfaces are implemented locally;
+> installation-local break-glass CLI execution remains separate.
 
 ## Separation from the operations loop
 

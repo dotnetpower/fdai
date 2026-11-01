@@ -11,6 +11,8 @@ export type Route =
   | { kind: "updates" }
   | { kind: "releases" }
   | { kind: "configurations" }
+  | { kind: "commands" }
+  | { kind: "audit" }
   | { kind: "not-found"; path: string };
 
 export function parseRoute(pathname: string): Route {
@@ -20,6 +22,8 @@ export function parseRoute(pathname: string): Route {
   if (segments.length === 1 && segments[0] === "updates") return { kind: "updates" };
   if (segments.length === 1 && segments[0] === "available-releases") return { kind: "releases" };
   if (segments.length === 1 && segments[0] === "configuration-packages") return { kind: "configurations" };
+  if (segments.length === 1 && segments[0] === "commands") return { kind: "commands" };
+  if (segments.length === 1 && segments[0] === "audit") return { kind: "audit" };
   if (segments[0] === "installations") {
     if (segments.length === 1) return { kind: "installations" };
     if (segments.length === 2) return { kind: "installation", installationId: segments[1]! };
@@ -48,6 +52,14 @@ export function availableReleasesPath(): string {
 
 export function configurationPackagesPath(): string {
   return "/configuration-packages";
+}
+
+export function commandsPath(): string {
+  return "/commands";
+}
+
+export function auditPath(): string {
+  return "/audit";
 }
 
 export function installationPath(installationId: string): string {

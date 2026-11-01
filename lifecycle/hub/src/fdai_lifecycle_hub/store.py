@@ -905,6 +905,35 @@ class HubStore:
         with self._sessions() as session:
             return audit.chain_intact(session)
 
+    def audit_records(
+        self, *, installation_id: str | None = None, limit: int = 100
+    ) -> dict[str, object]:
+        """Read-only hash-chained audit records, newest first, with chain integrity state."""
+
+        if not 1 <= limit <= 200:
+            raise ValueError("audit limit must be between 1 and 200")
+        with self._sessions() as session:
+            intact = audit.chain_intact(session)
+            stmt = select(models.AuditRecord).order_by(models.AuditRecord.sequence.desc())
+            if installation_id is not None:
+                stmt = stmt.where(models.AuditRecord.installation_id == installation_id)
+            records = session.scalars(stmt.limit(limit)).all()
+            return {
+                "chain_intact": intact,
+                "records": [
+                    {
+                        "sequence": record.sequence,
+                        "recorded_at": record.recorded_at.isoformat(),
+                        "action": record.action,
+                        "installation_id": record.installation_id,
+                        "subject": record.subject,
+                        "previous_hash": record.previous_hash,
+                        "record_hash": record.record_hash,
+                    }
+                    for record in records
+                ],
+            }
+
 
 def _is_unique_violation(error: IntegrityError) -> bool:
     """Only a duplicate key means another writer won. Other violations are faults."""

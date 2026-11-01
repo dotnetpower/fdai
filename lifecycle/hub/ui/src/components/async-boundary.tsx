@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import type { AsyncState } from "../hooks/use-async";
+import { classifyHubError } from "../readiness-status";
 
 export function AsyncBoundary<T>({
   state,
@@ -26,10 +27,11 @@ export function AsyncBoundary<T>({
     );
   }
   if (state.status === "error") {
+    const classified = classifyHubError(state.error);
     return (
       <div class="banner fail" role="alert">
-        <strong>Could not load Hub data</strong>
-        <span>{state.error.message}</span>
+        <strong>{classified.title}</strong>
+        <span>{state.error.message} - {classified.guidance}</span>
         <div><button class="btn" type="button" onClick={state.reload}>Try again</button></div>
       </div>
     );

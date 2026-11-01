@@ -290,6 +290,35 @@ export interface BindableInstallation {
   status: BindableStatus;
 }
 
+export interface AuditRecordItem {
+  sequence: number;
+  recorded_at: string;
+  action: string;
+  installation_id: string;
+  subject: string;
+  previous_hash: string;
+  record_hash: string;
+}
+
+export interface AuditListResponse {
+  chain_intact: boolean;
+  records: readonly AuditRecordItem[];
+}
+
+export interface SuppressionCommandPayload {
+  scope: string;
+  starts_at: string;
+  ends_at: string;
+  reason: string;
+  confirmation: string;
+}
+
+export interface LiftSuppressionPayload {
+  scope: string;
+  reason: string;
+  confirmation: string;
+}
+
 export class HubApiError extends Error {
   constructor(
     readonly status: number,
@@ -429,5 +458,30 @@ export const hubApi = {
     request<{ rejected: string }>(
       `/v1/installations/${encodeURIComponent(installationId)}/enrollment/reject`,
       { method: "POST", body: JSON.stringify({ approver, reason }) },
+    ),
+  listAudit: (installationId = "", limit = 50) => {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (installationId.trim()) params.set("installation_id", installationId.trim());
+    return request<AuditListResponse>(`/v1/audit?${params}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+  },
+  addSuppression: (installationId: string, body: SuppressionCommandPayload) =>
+    request<{ suppressed: string; scope: string; ends_at: string }>(
+      `/v1/installations/${encodeURIComponent(installationId)}/suppressions`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      },
+    ),
+  liftSuppression: (installationId: string, body: LiftSuppressionPayload) =>
+    request<{ lifted: string; scope: string }>(
+      `/v1/installations/${encodeURIComponent(installationId)}/suppressions/lift`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      },
     ),
 };

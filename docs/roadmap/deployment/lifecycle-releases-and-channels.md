@@ -539,8 +539,9 @@ it also contains the Target Hub.
 ## Honest limits
 
 - Signed deployment bundles and offline kits implement the one-way channel migration. The local
-  Release Hub also has the bounded development capabilities listed above; production catalog trust,
-  automated promotion and distribution remain open.
+  Release Hub also provides transactional stage promotion (`POST /v1/releases/{release_id}/promote`),
+  active capability-recall blocker inspection, and one-click reviewed confirmation in the vendor
+  workspace; production catalog trust and distribution remain open.
 - The production trust-root ceremony hasn't run. A vendor release key must exist before any Hub
   path can verify Releases.
 - Reproducible double-build verification of the signed bundle remains open.

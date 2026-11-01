@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 60d464af89284ae07c178ab2b0998b6960e12b55
-translation_revised: 2026-10-31
+translation_source_sha: 75a12023ff081530a2126e7dac5a2a4560427fa7
+translation_revised: 2026-11-02
 ---
 # Hub 관리형 수명 주기
 
@@ -788,8 +788,10 @@ Apollo에는 런타임 재정의 계층이 없습니다. 가장 가까운 개념
 > 비상 해제 명령이 활성 상태인 동안에는 시크릿 검사를 통과한 비상 재정의(`configuration-change`
 > Plan)를 적용하고 선언된 구간·버전 범위 제약만 우회하되 회수, 스키마, 산출물, 데이터 상주 검사는
 > 그대로 유지합니다. 만료 시점에는 병합된 변경이 비상 재정의를 채택하지 않은 경우 `plan_next`가
-> 승인된 구성 개정으로 되돌리는 `drift-reconciliation` Plan을 발급합니다. 전용 Hub 명령 HTTP/UI
-> 경로는 별도로 유지됩니다.
+> 승인된 구성 개정으로 되돌리는 `drift-reconciliation` Plan을 발급합니다. 운영자 확인 기반 억제
+> 구간 생성·해제 경로(`POST /v1/installations/{id}/suppressions`, `/suppressions/lift`), 해시 체인
+> 감사 조회(`GET /v1/audit`), Lifecycle Hub의 Commands, Audit, Configuration 및 업데이트 준비·복구
+> 화면은 로컬에 구현되어 있으며, 설치 내부 비상 해제 CLI 실행은 별도로 유지됩니다.
 
 ## 운영 루프와의 분리
 

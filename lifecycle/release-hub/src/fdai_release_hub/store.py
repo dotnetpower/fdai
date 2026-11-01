@@ -101,6 +101,28 @@ class CapabilityChange(CatalogConfirmation):
     lifting_release_id: str | None = Field(default=None, max_length=64)
 
 
+class CanaryObservationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    installation_id: str = Field(min_length=1, max_length=160)
+    release_id: str = Field(min_length=1, max_length=64)
+    healthy: bool
+    soak_seconds: int = Field(ge=0)
+
+
+class StagePromotion(CatalogConfirmation):
+    source_channel: str = Field(min_length=1, max_length=64)
+    target_channel: str = Field(min_length=1, max_length=64)
+    channel_confirmation: str | None = Field(default=None, max_length=64)
+    required_labels: tuple[str, ...] = ()
+    labels: tuple[str, ...] = ()
+    min_soak_seconds: int = Field(default=0, ge=0)
+    min_healthy_canaries: int = Field(default=0, ge=0)
+    max_stage_timeout_seconds: int = Field(default=3600, ge=1)
+    elapsed_stage_seconds: int = Field(default=0, ge=0)
+    canary_observations: tuple[CanaryObservationInput, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class SignedExport:
     """Exact export bytes, their digest and the Release key's detached signature."""
@@ -469,37 +491,91 @@ class ReleaseStore:
     ) -> dict[str, Any]:
         """Promote ``release_id`` to ``criteria.target_channel`` only when pipeline checks pass."""
 
-        current = self.snapshot()
-        release_entries = {item["id"]: item for item in current["releases"]}
-        if release_id not in release_entries:
-            raise CatalogError("Release was not found.", 404)
-        release = parse_lifecycle_release_manifest(release_entries[release_id]["manifest"].encode())
-        present_in_source = release_id in current["channels"].get(criteria.source_channel, [])
-        events_asc = list(reversed(current["events"]))
-        stage_input = PromotionStageInput(
-            release_id=release_id,
-            present_in_source_channel=present_in_source,
-            labels=labels,
-            canary_observations=canary_observations,
-            elapsed_stage_seconds=elapsed_stage_seconds,
-            capability_ids=tuple(sorted(release.capability_maximums)),
-            recall_records=self._recall_records_from_events(events_asc),
-        )
-        decision = evaluate_promotion_stage(criteria, stage_input)
-        if not decision.allowed:
-            raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
-        return self.change(
-            "contribute",
-            release_id,
-            Change(
-                revision=change.revision,
-                confirmation=change.confirmation,
-                reason=change.reason,
+        if not actor.strip() or len(actor) > 160:
+            raise CatalogError("An attributed operator is required.")
+        if not is_release_id(release_id):
+            raise CatalogError("Release id must be canonical SemVer.")
+        if change.confirmation != release_id:
+            raise CatalogError("Type the exact Release id to confirm.")
+        if not change.reason.strip():
+            raise CatalogError("A non-blank reason is required.")
+        if criteria.target_channel not in CHANNELS and not _is_custom_channel(
+            criteria.target_channel
+        ):
+            raise CatalogError("Choose a built-in channel or a custom- channel name.")
+        if _is_custom_channel(criteria.target_channel):
+            if change.channel_confirmation != criteria.target_channel:
+                raise CatalogError("Type the exact custom channel name to confirm.")
+        elif change.channel_confirmation is not None:
+            raise CatalogError("Custom channel confirmation is not valid for a built-in channel.")
+
+        with self.connect() as db:
+            self._lock_revision(db, change.revision)
+            now = self.clock().isoformat()
+            row = db.execute(select(releases).where(releases.c.id == release_id)).mappings().first()
+            if row is None:
+                raise CatalogError("Release was not found.", 404)
+            self._verify_release_state(
+                row["manifest"],
+                row["signature"],
+                row["published_at"],
+                row["recalled_at"],
+            )
+            if row["recalled_at"]:
+                raise CatalogError("Recalled Releases cannot be changed or re-promoted.", 409)
+            if not row["signature"]:
+                raise CatalogError("Publish the Release before adding it to a channel.", 409)
+            release = parse_lifecycle_release_manifest(row["manifest"].encode())
+            present_in_source = (
+                db.execute(
+                    select(membership).where(
+                        membership.c.channel == criteria.source_channel,
+                        membership.c.release_id == release_id,
+                    )
+                ).first()
+                is not None
+            )
+            events_asc = [
+                dict(event_row)
+                for event_row in db.execute(
+                    select(events).order_by(events.c.revision.asc())
+                ).mappings()
+            ]
+            stage_input = PromotionStageInput(
+                release_id=release_id,
+                present_in_source_channel=present_in_source,
+                labels=labels,
+                canary_observations=canary_observations,
+                elapsed_stage_seconds=elapsed_stage_seconds,
+                capability_ids=tuple(sorted(release.capability_maximums)),
+                recall_records=self._recall_records_from_events(events_asc),
+            )
+            decision = evaluate_promotion_stage(criteria, stage_input)
+            if not decision.allowed:
+                raise CatalogError(f"Promotion stage blocked ({decision.reason_code}).", 409)
+            exists = db.execute(
+                select(membership).where(
+                    membership.c.channel == criteria.target_channel,
+                    membership.c.release_id == release_id,
+                )
+            ).first()
+            if exists:
+                raise CatalogError("Release already belongs to this channel.", 409)
+            db.execute(
+                membership.insert().values(channel=criteria.target_channel, release_id=release_id)
+            )
+            self._record_event(
+                db,
+                "contribute",
+                release_id,
+                change,
+                actor,
+                now,
                 channel=criteria.target_channel,
-                channel_confirmation=change.channel_confirmation,
-            ),
-            actor=actor,
-        )
+            )
+            snapshot = self._snapshot_locked(db)
+            self.export_snapshot(snapshot)
+        return snapshot
 
     @staticmethod
     def _validate_configuration_version(release_id: str, release: LifecycleRelease) -> None:

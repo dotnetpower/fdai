@@ -582,6 +582,7 @@ def test_static_ui_brand_and_unknown_api_routes(store: ReleaseStore, tmp_path: P
     (tmp_path / "brand").mkdir()
     (tmp_path / "index.html").write_text("<main>Release Hub</main>")
     (tmp_path / "brand" / "logo.svg").write_text("<svg/>")
+    (tmp_path / "favicon.svg").write_text("<svg id='fav'/>")
     client = TestClient(
         create_app(store, static_dir=tmp_path),
         base_url="http://127.0.0.1:8091",
@@ -589,8 +590,22 @@ def test_static_ui_brand_and_unknown_api_routes(store: ReleaseStore, tmp_path: P
     )
     assert client.get("/releases/1.6.0").text == "<main>Release Hub</main>"
     assert client.get("/brand/logo.svg").text == "<svg/>"
+    assert client.get("/favicon.svg").text == "<svg id='fav'/>"
     assert client.get("/v1/unknown").status_code == 404
     assert "frame-ancestors 'none'" in client.get("/").headers["content-security-policy"]
+
+
+def test_static_ui_without_optional_subdirs_serves_shell(
+    store: ReleaseStore, tmp_path: Path
+) -> None:
+    (tmp_path / "index.html").write_text("<main>Minimal Shell</main>")
+    client = TestClient(
+        create_app(store, static_dir=tmp_path),
+        base_url="http://127.0.0.1:8091",
+        client=("127.0.0.1", 50001),
+    )
+    assert client.get("/").text == "<main>Minimal Shell</main>"
+    assert client.get("/releases").text == "<main>Minimal Shell</main>"
 
 
 def test_api_errors_origin_and_loopback_boundary(client: TestClient, store: ReleaseStore) -> None:
@@ -1222,3 +1237,82 @@ def test_promotion_pipeline_enforces_labels_soak_canary_health_and_timeouts(
     admitted = admit(store)
     assert admitted.channels["RELEASE_CANDIDATE"] == frozenset({"1.6.0"})
     assert admitted.channels["RELEASE"] == frozenset({"1.6.0"})
+
+
+def test_api_stage_promotion_route_enforces_gates_and_revision_lock(
+    client: TestClient, store: ReleaseStore
+) -> None:
+    publish(store)
+    rev = store.snapshot()["revision"]
+    # Missing required label returns 409 without advancing revision.
+    blocked = client.post(
+        "/v1/releases/1.6.0/promote",
+        json={
+            "revision": rev,
+            "confirmation": "1.6.0",
+            "reason": "Attempt gated promotion",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+            "required_labels": ["security-reviewed", "qa-passed"],
+            "labels": ["security-reviewed"],
+            "min_soak_seconds": 3600,
+            "min_healthy_canaries": 1,
+            "max_stage_timeout_seconds": 7200,
+            "elapsed_stage_seconds": 3600,
+            "canary_observations": [
+                {
+                    "installation_id": "canary-1",
+                    "release_id": "1.6.0",
+                    "healthy": True,
+                    "soak_seconds": 3600,
+                }
+            ],
+        },
+    )
+    assert blocked.status_code == 409
+    assert "promotion_labels_missing" in blocked.json()["error"]
+    assert store.snapshot()["revision"] == rev
+
+    # Stale revision returns 409 before mutating.
+    stale = client.post(
+        "/v1/releases/1.6.0/promote",
+        json={
+            "revision": rev - 1,
+            "confirmation": "1.6.0",
+            "reason": "Stale revision promotion",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+        },
+    )
+    assert stale.status_code == 409
+    assert "Catalog changed" in stale.json()["error"]
+
+    # Satisfied gates advance 1.6.0 to RELEASE_CANDIDATE atomically.
+    promoted = client.post(
+        "/v1/releases/1.6.0/promote",
+        json={
+            "revision": rev,
+            "confirmation": "1.6.0",
+            "reason": "Passed QA and canary soak",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+            "required_labels": ["security-reviewed", "qa-passed"],
+            "labels": ["security-reviewed", "qa-passed"],
+            "min_soak_seconds": 3600,
+            "min_healthy_canaries": 1,
+            "max_stage_timeout_seconds": 7200,
+            "elapsed_stage_seconds": 3600,
+            "canary_observations": [
+                {
+                    "installation_id": "canary-1",
+                    "release_id": "1.6.0",
+                    "healthy": True,
+                    "soak_seconds": 3600,
+                }
+            ],
+        },
+    )
+    assert promoted.status_code == 200
+    body = promoted.json()
+    assert body["revision"] == rev + 1
+    assert "1.6.0" in body["channels"]["RELEASE_CANDIDATE"]

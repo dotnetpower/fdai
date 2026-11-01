@@ -146,6 +146,28 @@ class RejectionRequest(BaseModel):
     reason: ReasonCode
 
 
+class SuppressionCommandRequest(BaseModel):
+    """An operator's request body to add an expiring manual suppression window."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scope: str = Field(min_length=1, max_length=128)
+    starts_at: AwareDatetime
+    ends_at: AwareDatetime
+    reason: ReasonCode
+    confirmation: str = Field(min_length=1, max_length=256)
+
+
+class LiftSuppressionRequest(BaseModel):
+    """An operator's request body to lift an active suppression scope."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    scope: str = Field(min_length=1, max_length=128)
+    reason: ReasonCode
+    confirmation: str = Field(min_length=1, max_length=256)
+
+
 def sign_enrollment(
     template: Mapping[str, object], key: Ed25519PrivateKey, at: datetime
 ) -> EnrollmentRequest:

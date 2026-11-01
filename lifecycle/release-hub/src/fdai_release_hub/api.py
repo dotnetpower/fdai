@@ -10,6 +10,10 @@ from functools import partial
 from pathlib import Path
 from threading import BoundedSemaphore
 
+from fdai_deployment_cli.lifecycle_promotion import (
+    CanaryObservation,
+    PromotionStageCriteria,
+)
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.applications import Starlette
@@ -35,6 +39,7 @@ from fdai_release_hub.store import (
     CatalogError,
     Change,
     ReleaseStore,
+    StagePromotion,
 )
 
 MAX_BODY = 2 * 1024 * 1024
@@ -137,6 +142,43 @@ def create_app(
                     request.path_params["capability_id"],
                     cap_payload,
                     actor=actor,
+                )
+            elif action == "promote":
+                promotion = StagePromotion.model_validate_json(bytes(body))
+                criteria = PromotionStageCriteria(
+                    source_channel=promotion.source_channel,
+                    target_channel=promotion.target_channel,
+                    required_labels=frozenset(promotion.required_labels),
+                    min_soak_seconds=promotion.min_soak_seconds,
+                    min_healthy_canaries=promotion.min_healthy_canaries,
+                    max_stage_timeout_seconds=promotion.max_stage_timeout_seconds,
+                )
+                observations = tuple(
+                    CanaryObservation(
+                        installation_id=obs.installation_id,
+                        release_id=obs.release_id,
+                        healthy=obs.healthy,
+                        soak_seconds=obs.soak_seconds,
+                    )
+                    for obs in promotion.canary_observations
+                )
+                result = await run_in_threadpool(
+                    partial(
+                        store.promote_stage,
+                        request.path_params["release_id"],
+                        criteria,
+                        Change(
+                            revision=promotion.revision,
+                            confirmation=promotion.confirmation,
+                            reason=promotion.reason,
+                            channel=promotion.target_channel,
+                            channel_confirmation=promotion.channel_confirmation,
+                        ),
+                        labels=frozenset(promotion.labels),
+                        canary_observations=observations,
+                        elapsed_stage_seconds=promotion.elapsed_stage_seconds,
+                        actor=actor,
+                    )
                 )
             else:
                 payload = Change.model_validate_json(bytes(body))
@@ -260,7 +302,7 @@ def create_app(
             partial(change, action=action),
             methods=["POST"],
         )
-        for action in ("register", "publish", "contribute", "recall")
+        for action in ("register", "publish", "contribute", "promote", "recall")
     ]
     routes += [
         Route(
@@ -309,12 +351,18 @@ def create_app(
 
     app.add_middleware(BaseHTTPMiddleware, dispatch=local_boundary)
     if static_dir is not None and (static_dir / "index.html").is_file():
-        app.routes.append(Mount("/assets", app=StaticFiles(directory=static_dir / "assets")))
-        app.routes.append(Mount("/brand", app=StaticFiles(directory=static_dir / "brand")))
+        resolved_static_dir = static_dir.resolve()
+        if (static_dir / "assets").is_dir():
+            app.routes.append(Mount("/assets", app=StaticFiles(directory=static_dir / "assets")))
+        if (static_dir / "brand").is_dir():
+            app.routes.append(Mount("/brand", app=StaticFiles(directory=static_dir / "brand")))
 
         async def index(request: Request) -> Response:
             if request.url.path.startswith("/v1/"):
                 return JSONResponse({"error": "Unknown API route."}, status_code=404)
+            requested = (static_dir / request.path_params["path"]).resolve()
+            if requested.is_relative_to(resolved_static_dir) and requested.is_file():
+                return FileResponse(requested)
             return FileResponse(static_dir / "index.html")
 
         app.routes.append(Route("/{path:path}", index))
