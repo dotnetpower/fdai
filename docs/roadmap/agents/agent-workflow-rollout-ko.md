@@ -1,7 +1,7 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: f191f200748c46c227465d7f5f7689ac75df61ff
+translation_source_sha: 8386876bf28883e93f6438108b1718887a172411
 translation_revised: 2026-11-01
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
@@ -26,6 +26,7 @@ translation_revised: 2026-11-01
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-01 | implemented | `AgentSpec`, topic 및 shadow 권한 경계를 유지하면서 `HeimdallCodeSecurityMixin.code_security_facts`(`heimdall_code_security.py`)에 UTC 타임스탬프 정렬, 저장소별 `critical_issue_count`·`high_issue_count`·`p0_issue_count`·`p1_issue_count`·`known_exploited_count`·`exposure`, 전체 저장소 기준 `code_security_urgent_repository_count`·`code_security_incomplete_repository_count`·`code_security_zero_risk_repository_count` 집계를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_code_security_drift.py` (5 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-11-01 | implemented | `AgentSpec`, topic, 소유권 및 shadow 권한 경계를 바꾸지 않고 Heimdall의 기존 `HeimdallCodeSecurityMixin`과 `read_drift_status` 내부 상태 조회에 MSRC CSAF 취약점 드리프트 프로젝션(`MsrcCsafDriftProjector`, `publish_msrc_csaf_drift`, `msrc_csaf_facts`)을 추가했습니다. | `current change`; `heimdall_code_security.py`, `heimdall.py`, `test_msrc_csaf_drift.py` (집중 CSAF/에이전트 테스트 82개 통과); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-11-01 | implemented | `AgentSpec`, topic 또는 shadow 권한 경계를 바꾸지 않고 `HeimdallCodeSecurityMixin.publish_msrc_csaf_drift`(`C25`)의 발행 경계에서 shadow 권한 상한을 검증하고 `msrc_csaf_facts`(`C24`)에 `critical_affected_count`, 상위 5개로 제한된 `top_cve_ids`, `recommended_action_types`를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (2 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-11-01 | implemented | `AgentSpec`, topic 및 shadow 권한 경계를 유지하면서 `HeimdallCodeSecurityMixin.msrc_csaf_facts`(`V18`)에 전체 워크로드 기준 `msrc_csaf_urgent_workload_count`와 `msrc_csaf_incomplete_workload_count` 집계를 추가했습니다. | `current change`; `heimdall_code_security.py`, `test_msrc_csaf_drift.py` (3 passed); Ruff 및 strict mypy 통과 | 런타임 종료 게이트와 승격 근거는 변경 없이 남아 있습니다. |

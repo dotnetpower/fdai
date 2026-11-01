@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:70ee4bef9837138f39070ad66634f08727a78a8bc7fdd1e64caeb8cdd66345b6",
+  "catalog_digest": "sha256:3a812a060d8de3d3a5f23b954f591d58dc58a97c02381902973b89aa166d44f3",
   "execution_authority": false,
-  "generated_at": "2026-11-01T03:57:56.137802Z",
+  "generated_at": "2026-11-01T13:36:45.389281Z",
   "records": [
     {
       "designed_behavior": [
@@ -53,18 +53,18 @@
       ],
       "execution_authority": false,
       "implemented_behavior": [
-        "The provider contracts and in-memory retrieval with tracked-source freshness validation are present."
+        "The provider contracts, 13 reference seeds, OperatorBehaviorKnowledgeResolver, and PostgresBehaviorKnowledgeIndex are implemented."
       ],
       "knowledge_id": "behavior-knowledge",
       "limitations": [
-        "Reference seeds, an Operator answer path, persistence, and current runtime evidence are not restored."
+        "Reference citations describe repository contracts and are never treated as live tenant observations."
       ],
       "owner": "Muninn and Bragi",
       "question_aliases": [
         "How does FDAI explain its own behavior?",
         "FDAI는 자신의 동작을 어떻게 설명하나요?"
       ],
-      "record_digest": "sha256:a07823c44c1ee8c6ba1c206511800ff8add93d184bdb3f2996defb8a571c9f84",
+      "record_digest": "sha256:1b22598b0820276b6fbe27da4d2ae856da4b761b4ec10d765e49f91294ca787c",
       "sources": [
         {
           "authority_role": "design",
@@ -85,7 +85,7 @@
           "symbol": "InMemoryBehaviorKnowledgeIndex"
         }
       ],
-      "status": "in_progress",
+      "status": "implemented",
       "subject_id": "behavior-knowledge",
       "title": "Structured behavior knowledge"
     },
@@ -130,6 +130,92 @@
       "status": "implemented",
       "subject_id": "bragi",
       "title": "Bragi conversation boundary"
+    },
+    {
+      "designed_behavior": [
+        "SARIF findings from deterministic, LLM-lens, and external scanners collapse into canonical issues with P0-P4 priorities and Ed25519-signed remediation packs.",
+        "Operator projections on /code-security expose bounded triage counts and opaque issue IDs without leaking source code or scanner prose."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "Review signal validation, Heimdall drift publication, pack signing, and Operator /code-security projections are implemented."
+      ],
+      "knowledge_id": "code-security-review",
+      "limitations": [
+        "Code security scan projections never auto-merge code or grant execution authority."
+      ],
+      "owner": "Heimdall, Forseti, and Saga",
+      "question_aliases": [
+        "How does FDAI Code Security Review work?",
+        "FDAI 코드 보안 검토는 어떻게 동작하나요?"
+      ],
+      "record_digest": "sha256:b95a5de03b0eb93a0d69083e4114291e1d65eb26d069f5f829c42e2a3f7655e7",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "8c90435b5e4538e20f2f21a5eb681963be114efa",
+          "line_end": 350,
+          "line_start": 350,
+          "path": "services/operator-service/src/fdai_operator_service/code_security_review_projection.py",
+          "source_kind": "code",
+          "symbol": "code_security_reviews_projection"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "f049a308209128fc33a28196a319b5f795f9e370",
+          "line_end": 96,
+          "line_start": 96,
+          "path": "services/core-control-plane/src/fdai/core/security/code_findings/review_signal.py",
+          "source_kind": "code",
+          "symbol": "build_review_package"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "code-security-review",
+      "title": "Code Security Review and verification packs"
+    },
+    {
+      "designed_behavior": [
+        "The Console SPA holds zero cloud or executor credentials, enforces Entra ID with server-verified GET /iam/self RBAC, and keeps all views read-only (execution_authority=false).",
+        "Guidance assets are SHA-256 digest-verified, arbitrary HTML/SVG/JS execution is forbidden, and state changes require the 5-role ActionType pipeline with 7 safeguards."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "OperatorAuthenticator, RBAC projections, digest-pinned framework guidance, and /code-security plus /rules posture views are implemented."
+      ],
+      "knowledge_id": "console-web-security",
+      "limitations": [
+        "Architectural SPA isolation does not substitute for live tenant TLS, network, or IAM verification in a deployed environment."
+      ],
+      "owner": "Operator Service and Console SPA",
+      "question_aliases": [
+        "Is the FDAI Console web application secure?",
+        "FDAI 콘솔웹이 보안상 문제가 없나?"
+      ],
+      "record_digest": "sha256:6e40a0039cba0e689d68c6b2918af63671808bcabe0bd875482c19dc25bced76",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "1fea8d7fc4ad4b84bc23906d82126410fc1a9701",
+          "line_end": 114,
+          "line_start": 114,
+          "path": "services/operator-service/src/fdai_operator_service/auth.py",
+          "source_kind": "code",
+          "symbol": "OperatorAuthenticator"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "7b60dcb5530d3a4d9bbc1b70ce151a6172d88436",
+          "line_end": 28,
+          "line_start": 28,
+          "path": ".github/instructions/app-shape.instructions.md",
+          "source_kind": "doc",
+          "symbol": "Layer Boundaries (security)"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "console-web-security",
+      "title": "FDAI Console web security boundary"
     },
     {
       "designed_behavior": [
@@ -286,6 +372,49 @@
     },
     {
       "designed_behavior": [
+        "MSRC CSAF 2.0 advisories and CISA KEV status are evaluated deterministically against resource version windows to assign P0-P3 remediation SLA tiers.",
+        "Untrusted prompts and documents are isolated from system instructions, checked by V-CLAIM and multi-model QualityGate consensus, and aligned with MCSB v2 AI-1..AI-7, OWASP LLM Top 10, and MITRE ATLAS."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "MsrcCsafAssessmentRuntime, Heimdall CSAF drift projection, and QualityGate grounding verification are implemented."
+      ],
+      "knowledge_id": "msrc-csaf-and-ai-security",
+      "limitations": [
+        "Missing or stale resource version telemetry is reported as unknown rather than assumed patched."
+      ],
+      "owner": "Heimdall, Bragi, QualityGate, and RiskGate",
+      "question_aliases": [
+        "How does FDAI govern MSRC CSAF vulnerabilities and AI prompt security?",
+        "MSRC CSAF 취약점 평가와 AI 보안 가드레일은 어떻게 동작하나요?"
+      ],
+      "record_digest": "sha256:7e064f0749d8d6446b9c5a49ec484b9b988973bbe4825155a1631d5738896da2",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "0edec10aec0d457c2644defa69634489066f1f2a",
+          "line_end": 309,
+          "line_start": 309,
+          "path": "services/core-control-plane/src/fdai/core/quality_gate/gate.py",
+          "source_kind": "code",
+          "symbol": "QualityGate"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "d1fb29a4e20574cc53dd28a13175c095f69a51d0",
+          "line_end": 198,
+          "line_start": 198,
+          "path": "services/core-control-plane/src/fdai/core/security/csaf/runtime.py",
+          "source_kind": "code",
+          "symbol": "MsrcCsafAssessmentRuntime"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "msrc-csaf-and-ai-security",
+      "title": "MSRC CSAF 2.0 vulnerability and AI security guardrails"
+    },
+    {
+      "designed_behavior": [
         "The ontology validates shared object, relationship, evidence, action, and time meaning.",
         "It constrains interpretation but does not observe, judge, approve, execute, or grant permission."
       ],
@@ -397,6 +526,49 @@
     },
     {
       "designed_behavior": [
+        "52 active T0 Rego rules, 8,517 collected reference rules, and WARA, WAF, CAF, MCSB v1/v2, and MSRC CSAF 2.0 controls evaluate in shadow mode with execution_authority=false.",
+        "Rule activation generation pointer changes require distinct requester and approver principals."
+      ],
+      "execution_authority": false,
+      "implemented_behavior": [
+        "Catalog projections, bidirectional MSRC CSAF CVE citations, illustrated 5-node diagrams, and catalog.search_rules retrieval are implemented."
+      ],
+      "knowledge_id": "rules-and-framework-governance",
+      "limitations": [
+        "Collected reference rules remain inert until promoted and activated through dual-principal governance."
+      ],
+      "owner": "Mimir, Forseti, and Operator Service",
+      "question_aliases": [
+        "How are FDAI detection rules and framework assessments governed?",
+        "FDAI 규칙 화면과 WARA/WAF/CAF/MCSB 평가는 안전한가요?"
+      ],
+      "record_digest": "sha256:2394c0f40ee0f0e2b275adec58589ee5a9e1b92bbba870de7cbb640cc3df5cf6",
+      "sources": [
+        {
+          "authority_role": "implementation",
+          "blob_sha": "4be339a31ca80d0f22fc69ff5267199acf5fd8d8",
+          "line_end": 47,
+          "line_start": 47,
+          "path": "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py",
+          "source_kind": "code",
+          "symbol": "catalog_search_rules_function_type"
+        },
+        {
+          "authority_role": "implementation",
+          "blob_sha": "a564e97f43fbd0fbcf96c223526f575aedd0bc2e",
+          "line_end": 519,
+          "line_start": 519,
+          "path": "services/operator-service/src/fdai_operator_service/workflow_rule_projection.py",
+          "source_kind": "code",
+          "symbol": "rule_activation_status_payload"
+        }
+      ],
+      "status": "implemented",
+      "subject_id": "rules-and-framework-governance",
+      "title": "Detection Rules and Framework Assessments governance"
+    },
+    {
+      "designed_behavior": [
         "A schema-validated model proposes typed meaning and deterministic code validates and dispatches it.",
         "Runtime keyword lists and regular expressions do not select conversational capabilities."
       ],
@@ -448,11 +620,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:188986718e2c09371e4c532f956da142493f1bd85bd3fab2bd22b1f59fa9bc1b",
+      "record_digest": "sha256:dce463ca6e7128cd7f3061cd779e48fcfa62c3039eb76e22ef598bcf2a248a50",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9d12ce5af5e672e7245b31ddd13126ac7659ac47",
+          "blob_sha": "d6df56397b2d830d098540dc5c7aead7a19308c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -491,11 +663,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:c132ce1649809a87fc1c6034c98b4fbe8737c3d3b36a1fa0dea1de754895f0b3",
+      "record_digest": "sha256:757ebdf8878b55c002cfcc20ee0de97d832e7af9d338641ba08ed9e51f0002a9",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "9d12ce5af5e672e7245b31ddd13126ac7659ac47",
+          "blob_sha": "d6df56397b2d830d098540dc5c7aead7a19308c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -553,5 +725,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "079b9427a3685a78d584311d313f82922bdc5c2b"
+  "source_revision": "ac3ab16cd41c42aa64e385904d2dbf7d6fa4b9f3"
 }

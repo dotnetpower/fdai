@@ -86,6 +86,10 @@ describe("viewContextWithUser wiring", () => {
     const ctx = parsed?.view_context ?? {};
     expect(typeof ctx._route_actions).toBe("string");
     expect(String(ctx._route_actions).toLowerCase()).toContain("live cockpit");
+    expect(ctx._console_security_posture).toMatchObject({
+      execution_authority: false,
+      verification_routes: expect.arrayContaining(["/code-security"]),
+    });
   });
 
   test("describes Console approval decisions without implying execution", async () => {
