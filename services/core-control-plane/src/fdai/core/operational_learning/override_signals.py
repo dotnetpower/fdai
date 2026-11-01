@@ -27,6 +27,11 @@ class OverrideSignalThresholds:
     min_shadow_hits: int = 100
 
     def __post_init__(self) -> None:
+        if any(
+            isinstance(v, bool)
+            for v in (self.min_distinct_scopes, self.min_dwell_days, self.min_shadow_hits)
+        ):
+            raise ValueError("override discovery thresholds MUST be integers")
         if min(self.min_distinct_scopes, self.min_dwell_days, self.min_shadow_hits) < 1:
             raise ValueError("override discovery thresholds MUST be positive")
 
@@ -75,9 +80,14 @@ class OverrideDiscoverySignalSource:
         window_end: datetime,
         limit: int,
     ) -> DiscoveryObservationBatch:
-        if window_start.tzinfo is None or window_end.tzinfo is None:
+        if (
+            window_start.tzinfo is None
+            or window_start.utcoffset() is None
+            or window_end.tzinfo is None
+            or window_end.utcoffset() is None
+        ):
             raise ValueError("override discovery window MUST be timezone-aware")
-        if window_end < window_start or limit < 1:
+        if window_end < window_start or isinstance(limit, bool) or limit < 1:
             raise ValueError("override discovery window and limit MUST be valid")
         page = await self._reader.list_override_resolutions(
             window_start=window_start,

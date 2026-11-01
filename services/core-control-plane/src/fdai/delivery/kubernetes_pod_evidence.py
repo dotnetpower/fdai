@@ -87,7 +87,14 @@ class LivePodLifecycleEvidenceSource:
         timeout_seconds: float = 60,
         now: Callable[[], datetime] | None = None,
     ) -> None:
-        if freshness_seconds < 1 or max_resources < 1 or not math.isfinite(timeout_seconds):
+        if (
+            isinstance(freshness_seconds, bool)
+            or isinstance(max_resources, bool)
+            or isinstance(timeout_seconds, bool)
+            or freshness_seconds < 1
+            or max_resources < 1
+            or not math.isfinite(timeout_seconds)
+        ):
             raise ValueError("Pod evidence bounds MUST be positive and finite")
         if timeout_seconds <= 0 or len(collectors) > 32:
             raise ValueError("Pod evidence source bounds exceeded")
@@ -125,7 +132,13 @@ class LivePodLifecycleEvidenceSource:
         ).status
 
     async def observe_pod(self, *, resource_ref: str, window_seconds: float) -> PodFailureEvidence:
-        if not math.isfinite(window_seconds) or not 0 < window_seconds <= 86_400:
+        if not resource_ref.strip():
+            raise ValueError("Pod evidence resource_ref MUST be non-empty")
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or not 0 < window_seconds <= 86_400
+        ):
             raise ValueError("Pod evidence window MUST be in (0, 86400] seconds")
         try:
             async with asyncio.timeout(self._timeout):

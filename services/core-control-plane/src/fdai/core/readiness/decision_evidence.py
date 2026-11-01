@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -104,7 +105,11 @@ class DecisionEvidenceReadinessGate:
         registry: DecisionEvidenceVerifierRegistry,
         timeout_seconds: float = 10.0,
     ) -> None:
-        if not 0 < timeout_seconds <= 30:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 30
+        ):
             raise ValueError("decision evidence verification timeout MUST be in (0, 30]")
         self._registry = registry
         self._timeout_seconds = timeout_seconds

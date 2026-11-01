@@ -129,6 +129,16 @@ class ResourceAvailabilityAssessment:
     recovery_status: str | None = None
     evidence_gaps: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.evidence_complete, bool) or (
+            self.recovery_closed is not None and not isinstance(self.recovery_closed, bool)
+        ):
+            raise ValueError("ResourceAvailabilityAssessment boolean flags MUST be booleans")
+        if not self.status.strip():
+            raise ValueError("ResourceAvailabilityAssessment.status MUST be non-empty")
+        if any(not gap.strip() for gap in self.evidence_gaps):
+            raise ValueError("ResourceAvailabilityAssessment.evidence_gaps MUST be non-empty")
+
 
 def assess_resource_availability(
     evidence: ResourceAvailabilityEvidence,

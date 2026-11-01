@@ -98,6 +98,8 @@ class ShadowFaultInjector:
     """
 
     def __init__(self, *, fault_type: str = "*") -> None:
+        if not fault_type.strip():
+            raise ValueError("fault_type MUST be non-empty")
         self._fault_type = fault_type
         self.injected: list[str] = []
         self.stopped: list[str] = []
@@ -117,7 +119,7 @@ class DetectionOnlyInjector:
     """Marker for a read-only scenario that probes without perturbation."""
 
     def __init__(self, *, fault_type: str) -> None:
-        if not fault_type:
+        if not fault_type.strip():
             raise ValueError("fault_type MUST be non-empty")
         self._fault_type = fault_type
 

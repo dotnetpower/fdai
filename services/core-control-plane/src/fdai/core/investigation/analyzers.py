@@ -43,6 +43,8 @@ KIND_MYSQL = "mysql_flexible_server"
 KIND_POSTGRESQL = "postgresql_flexible_server"
 KIND_REDIS = "redis_cache"
 KIND_KEY_VAULT = "key_vault"
+KIND_COSMOS_DB = "cosmos_db"
+KIND_SERVICE_BUS = "service_bus"
 KIND_AZURE_OPENAI = "azure_openai"
 KIND_AKS = "aks_cluster"
 KIND_API_MANAGEMENT = "api_management"
@@ -287,6 +289,60 @@ def key_vault_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -
     )
 
 
+def cosmos_db_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> ThresholdAnalyzer:
+    return ThresholdAnalyzer(
+        resource_kind=KIND_COSMOS_DB,
+        provider=provider,
+        wall_clock=wall_clock,
+        thresholds=(
+            Threshold(
+                metric="cosmos_normalized_ru_consumption_percent",
+                compare=Comparison.GTE,
+                bound=90.0,
+                severity=Severity.HIGH,
+                signal="cosmos_ru_saturation",
+                observation="Cosmos DB normalized RU consumption is saturated.",
+            ),
+            Threshold(
+                metric="cosmos_http_429_rate",
+                compare=Comparison.GTE,
+                bound=0.05,
+                severity=Severity.HIGH,
+                signal="cosmos_rate_limit",
+                observation="Cosmos DB is returning HTTP 429 request-rate-too-large errors.",
+            ),
+        ),
+    )
+
+
+def service_bus_analyzer(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> ThresholdAnalyzer:
+    return ThresholdAnalyzer(
+        resource_kind=KIND_SERVICE_BUS,
+        provider=provider,
+        wall_clock=wall_clock,
+        thresholds=(
+            Threshold(
+                metric="service_bus_dead_lettered_messages",
+                compare=Comparison.GTE,
+                bound=1.0,
+                severity=Severity.HIGH,
+                signal="service_bus_dead_letter",
+                observation="Service Bus dead-lettered messages detected in the window.",
+            ),
+            Threshold(
+                metric="service_bus_throttled_requests",
+                compare=Comparison.GTE,
+                bound=5.0,
+                severity=Severity.MEDIUM,
+                signal="service_bus_throttled",
+                observation="Service Bus throttled requests exceeded threshold.",
+            ),
+        ),
+    )
+
+
 #: Reviewed map from the neutral ``rule-catalog/vocabulary/resource-types.yaml``
 #: id an inventory projection records on ``Resource.type`` to the analyzer kind
 #: that observes it. An inventory
@@ -343,17 +399,21 @@ __all__ = [
     "KIND_API_MANAGEMENT",
     "KIND_APP_GATEWAY",
     "KIND_AZURE_OPENAI",
+    "KIND_COSMOS_DB",
     "KIND_KEY_VAULT",
     "KIND_MYSQL",
     "KIND_POSTGRESQL",
     "KIND_REDIS",
+    "KIND_SERVICE_BUS",
     "aks_analyzer",
     "api_management_analyzer",
     "app_gateway_analyzer",
     "azure_openai_analyzer",
+    "cosmos_db_analyzer",
     "default_analyzers",
     "key_vault_analyzer",
     "mysql_analyzer",
     "postgresql_analyzer",
     "redis_analyzer",
+    "service_bus_analyzer",
 ]

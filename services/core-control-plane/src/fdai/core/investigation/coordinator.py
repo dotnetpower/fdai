@@ -62,6 +62,8 @@ class InvestigationRequest:
             not ref.strip() or not kind.strip() for ref, kind in self.resources
         ):
             raise ValueError("InvestigationRequest.resources MUST be non-empty")
+        deduped = tuple(dict.fromkeys((ref.strip(), kind.strip()) for ref, kind in self.resources))
+        object.__setattr__(self, "resources", deduped)
         if (
             type(self.window_seconds) is bool
             or not math.isfinite(self.window_seconds)

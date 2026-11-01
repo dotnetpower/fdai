@@ -10,7 +10,7 @@ from pydantic import AfterValidator, StringConstraints
 
 
 def _without_controls(value: str) -> str:
-    if any(category(character) in {"Cc", "Cf"} for character in value):
+    if any(category(character) in {"Cc", "Cf", "Cs", "Zl", "Zp"} for character in value):
         raise ValueError("text MUST NOT contain control or format characters")
     return value
 

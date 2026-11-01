@@ -14,6 +14,19 @@ from fdai_evaluation_sdk import EVALUATION_API_VERSION, ArtifactRef
 from fdai_bench_cybergym.adapter import CyberGymAdapter, CyberGymMode, CyberGymTaskConfig
 
 _MANIFEST_ENV = "CYBERGYM_TASK_MANIFEST"
+_ALLOWED_MANIFEST_KEYS = frozenset(
+    {
+        "session_id",
+        "task_id",
+        "mode",
+        "source_workspace_ref",
+        "deadline",
+        "crash_log",
+        "supplied_poc",
+        "max_poc_bytes",
+        "max_patch_bytes",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +51,18 @@ class CyberGymPlugin:
 
 
 def _task_config(payload: dict[str, Any]) -> CyberGymTaskConfig:
+    if set(payload) - _ALLOWED_MANIFEST_KEYS:
+        raise RuntimeError("CyberGym task manifest does not satisfy the adapter contract")
     try:
+        max_poc = payload.get("max_poc_bytes", 1_048_576)
+        max_patch = payload.get("max_patch_bytes", 4_194_304)
+        if (
+            isinstance(max_poc, bool)
+            or not isinstance(max_poc, int)
+            or isinstance(max_patch, bool)
+            or not isinstance(max_patch, int)
+        ):
+            raise TypeError("artifact byte limits must be integers")
         return CyberGymTaskConfig(
             session_id=payload["session_id"],
             task_id=payload["task_id"],
@@ -47,8 +71,8 @@ def _task_config(payload: dict[str, Any]) -> CyberGymTaskConfig:
             deadline=datetime.fromisoformat(payload["deadline"]),
             crash_log=_artifact(payload.get("crash_log")),
             supplied_poc=_artifact(payload.get("supplied_poc")),
-            max_poc_bytes=payload.get("max_poc_bytes", 1_048_576),
-            max_patch_bytes=payload.get("max_patch_bytes", 4_194_304),
+            max_poc_bytes=max_poc,
+            max_patch_bytes=max_patch,
         )
     except (KeyError, TypeError, ValueError) as exc:
         raise RuntimeError("CyberGym task manifest does not satisfy the adapter contract") from exc

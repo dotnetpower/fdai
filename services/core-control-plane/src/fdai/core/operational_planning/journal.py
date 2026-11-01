@@ -44,11 +44,18 @@ async def append_planning_phase(
 ) -> bool:
     if snapshot.status.terminal:
         raise PlanningPhaseOrderError("terminal Process cannot accept planning phases")
-    if recorded_at.tzinfo is None:
+    if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
         raise ValueError("planning phase timestamp MUST be timezone-aware")
-    if not all((actor_agent, decision_case_id, context_digest, logic_release_digest)):
+    if not all(
+        (
+            actor_agent.strip(),
+            decision_case_id.strip(),
+            context_digest.strip(),
+            logic_release_digest.strip(),
+        )
+    ):
         raise ValueError("planning phase identities MUST be non-empty")
-    if not evidence_refs:
+    if not evidence_refs or any(not ref.strip() for ref in evidence_refs):
         raise ValueError("planning phase requires evidence")
     events = await store.events(snapshot.process_id)
     recorded = tuple(

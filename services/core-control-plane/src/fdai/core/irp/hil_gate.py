@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Awaitable, Callable
 
@@ -50,9 +51,13 @@ class HilChannelApprovalGate:
         sleeper: Callable[[float], Awaitable[None]] | None = None,
         monotonic: Callable[[], float] | None = None,
     ) -> None:
-        if poll_interval_seconds <= 0:
+        if (
+            isinstance(poll_interval_seconds, bool)
+            or not math.isfinite(poll_interval_seconds)
+            or poll_interval_seconds <= 0
+        ):
             raise ValueError("poll_interval_seconds MUST be positive")
-        if ttl_seconds <= 0:
+        if isinstance(ttl_seconds, bool) or ttl_seconds <= 0:
             raise ValueError("ttl_seconds MUST be positive")
         self._channel = channel
         self._interval = poll_interval_seconds
@@ -70,7 +75,7 @@ class HilChannelApprovalGate:
             action_id=proposal.proposal_id,
             action_type=proposal.remediation_ref or "irp.mitigation",
             rule_ids=proposal.citations,
-            target_resource_ref=proposal.alert_id,
+            target_resource_ref=proposal.target_resource_ref or proposal.alert_id,
             blast_radius_summary=f"IRP mitigation for alert {proposal.alert_id}",
             reasons=(f"priority={proposal.priority.value}",),
             ttl_seconds=self._ttl,

@@ -68,11 +68,15 @@ class SpecialistContribution:
     assumptions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not all((self.agent, self.domain, self.recommendation)):
+        if not all((self.agent.strip(), self.domain.strip(), self.recommendation.strip())):
             raise ValueError("specialist contribution identities MUST be non-empty")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
             raise ValueError("specialist contribution timestamp MUST be timezone-aware")
-        if not isfinite(self.impact) or not 0.0 <= self.impact <= 1.0:
+        if (
+            isinstance(self.impact, bool)
+            or not isfinite(self.impact)
+            or not 0.0 <= self.impact <= 1.0
+        ):
             raise ValueError("specialist contribution impact MUST be in [0, 1]")
         if not self.evidence_refs:
             raise ValueError("specialist contribution requires evidence")
@@ -102,9 +106,9 @@ class ConstraintEvaluation:
     evidence_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        if not self.constraint_id or not self.reason_code:
+        if not self.constraint_id.strip() or not self.reason_code.strip():
             raise ValueError("constraint evaluation identity MUST be non-empty")
-        if not 1 <= self.precedence <= 6:
+        if isinstance(self.precedence, bool) or not 1 <= self.precedence <= 6:
             raise ValueError("constraint precedence MUST be in [1, 6]")
         if not self.evidence_refs:
             raise ValueError("constraint evaluation requires evidence")
@@ -131,10 +135,20 @@ class SimulationReceipt:
 
     def __post_init__(self) -> None:
         if not all(
-            (self.receipt_id, self.candidate_id, self.snapshot_id, self.logic_invocation_id)
+            (
+                self.receipt_id.strip(),
+                self.candidate_id.strip(),
+                self.snapshot_id.strip(),
+                self.logic_invocation_id.strip(),
+            )
         ):
             raise ValueError("simulation receipt identities MUST be non-empty")
-        if self.started_at.tzinfo is None or self.completed_at.tzinfo is None:
+        if (
+            self.started_at.tzinfo is None
+            or self.started_at.utcoffset() is None
+            or self.completed_at.tzinfo is None
+            or self.completed_at.utcoffset() is None
+        ):
             raise ValueError("simulation receipt timestamps MUST be timezone-aware")
         if self.completed_at < self.started_at:
             raise ValueError("simulation receipt completion MUST follow start")

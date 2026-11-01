@@ -37,6 +37,12 @@ class AuditRow:
     actor_oid: str | None
     body: Mapping[str, object]
 
+    def __post_init__(self) -> None:
+        if not self.kind.strip():
+            raise ValueError("AuditRow.kind MUST be non-empty")
+        if self.at.tzinfo is None or self.at.utcoffset() is None:
+            raise ValueError("AuditRow.at MUST be timezone-aware")
+
 
 @dataclass(frozen=True, slots=True)
 class PostmortemDraft:
@@ -117,9 +123,11 @@ class PostmortemGenerator:
                 if _NO_EVIDENCE_SENTINEL in template:
                     continue
                 try:
-                    sections[name] = await self._llm.expand(
+                    expanded = await self._llm.expand(
                         section=name, template=template, audit_rows=audit_rows
                     )
+                    if expanded.strip():
+                        sections[name] = expanded
                 except Exception:  # noqa: BLE001, S112 - fail-closed to template renderer
                     # Any LLM error preserves the deterministic template
                     # so the draft is still shippable without narrative.
@@ -153,7 +161,7 @@ def _render_timeline(rows: Sequence[AuditRow]) -> str:
     if not rows:
         return "no audit rows linked to this incident (no evidence recorded)."
     lines = []
-    for row in rows:
+    for row in sorted(rows, key=lambda item: item.at):
         who = row.actor_oid or "system"
         lines.append(f"- **{_iso(row.at)}** `{row.kind}` (actor: `{who}`)")
     return "\n".join(lines)
@@ -194,7 +202,10 @@ def _render_contributing(rows: Sequence[AuditRow]) -> str:
 
 
 def _render_actions_taken(rows: Sequence[AuditRow]) -> str:
-    action_rows = [r for r in rows if r.kind.startswith("action.")]
+    action_rows = sorted(
+        (r for r in rows if r.kind.startswith("action.")),
+        key=lambda item: item.at,
+    )
     if not action_rows:
         return "no autonomous or operator actions linked to this incident (no evidence recorded)."
     lines = []

@@ -149,7 +149,11 @@ class SpecialistPlanningCoordinator:
         decision_coordinator: DomainDecisionCoordinator | None = None,
         recorder: PlanningProjectionRecorder | None = None,
     ) -> None:
-        if not logic_release_digest.startswith("sha256:") or len(logic_release_digest) != 71:
+        if (
+            not logic_release_digest.startswith("sha256:")
+            or len(logic_release_digest) != 71
+            or any(c not in "0123456789abcdef" for c in logic_release_digest[7:])
+        ):
             raise ValueError("planning logic release digest MUST be SHA-256")
         self._logic_release_digest = logic_release_digest
         self._constraint_evaluator = constraint_evaluator
@@ -168,6 +172,10 @@ class SpecialistPlanningCoordinator:
         arguments_by_domain: dict[str, dict[str, object]] | None = None,
         evidence_by_domain: dict[str, DomainOptionEvidence] | None = None,
     ) -> SpecialistPlanningProjection | None:
+        if not correlation_id.strip():
+            raise ValueError("specialist planning correlation_id MUST be non-empty")
+        if created_at.tzinfo is None or created_at.utcoffset() is None:
+            raise ValueError("specialist planning created_at MUST be timezone-aware")
         if len(advice) > MAX_PLAN_SPECIALIST_DOMAINS or len(impacts) > MAX_PLAN_SPECIALIST_DOMAINS:
             raise ValueError("specialist planning domain count exceeds the hard limit")
         objective_ids = {

@@ -169,3 +169,76 @@ def test_objective_rejects_format_characters() -> None:
 
 def test_status_vocabulary_is_benchmark_neutral() -> None:
     assert tuple(status.value for status in EvaluationStatus) == ("completed", "held", "failed")
+
+
+def test_decision_receipt_result_and_workspace_file_integrity() -> None:
+    from hashlib import sha256
+
+    from fdai_evaluation_sdk import (
+        DecisionReceipt,
+        EvaluationResult,
+        ExternalValidationReceipt,
+        ExternalValidationStage,
+        QualityGateStatus,
+        WorkspaceFile,
+    )
+
+    with pytest.raises(ValidationError, match="cited_rule_refs MUST be unique"):
+        DecisionReceipt(
+            selected_tier="t0",
+            control_loop_outcome="executed",
+            decision="complete",
+            autonomy_mode=AuthorityCeiling.SHADOW,
+            cited_rule_refs=("rule-1", "rule-1"),
+            verifier_passed=True,
+            quality_gate_status=QualityGateStatus.PASSED,
+            authority_ceiling=AuthorityCeiling.SHADOW,
+        )
+
+    receipt = DecisionReceipt(
+        selected_tier="t0",
+        control_loop_outcome="executed",
+        decision="complete",
+        autonomy_mode=AuthorityCeiling.SHADOW,
+        verifier_passed=True,
+        quality_gate_status=QualityGateStatus.PASSED,
+        authority_ceiling=AuthorityCeiling.SHADOW,
+    )
+    with pytest.raises(ValidationError, match="belong to the result session"):
+        EvaluationResult(
+            session_id="session-1",
+            task_id="task-1",
+            phase="patch",
+            status=EvaluationStatus.COMPLETED,
+            summary="Done.",
+            output_artifacts=(_artifact(session_id="session-2"),),
+            terminal_audit_ref="audit/1",
+            decision_receipt=receipt,
+        )
+
+    stage_art = _artifact()
+    with pytest.raises(ValidationError, match="stages MUST be unique"):
+        ExternalValidationReceipt(
+            session_id="session-1",
+            task_id="task-1",
+            stages=(
+                ExternalValidationStage(stage_id="s1", passed=True, receipt_ref=stage_art),
+                ExternalValidationStage(stage_id="s1", passed=True, receipt_ref=stage_art),
+            ),
+        )
+
+    payload = b"verified"
+    valid_file = WorkspaceFile(
+        path="src/app.py",
+        size_bytes=len(payload),
+        sha256=sha256(payload).hexdigest(),
+        content=payload,
+    )
+    assert valid_file.size_bytes == 8
+    with pytest.raises(ValidationError, match="size_bytes MUST match"):
+        WorkspaceFile(
+            path="src/app.py",
+            size_bytes=99,
+            sha256=sha256(payload).hexdigest(),
+            content=payload,
+        )

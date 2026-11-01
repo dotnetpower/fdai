@@ -133,6 +133,11 @@ class NetworkPolicy(ContractModel):
     deny_by_default: Literal[True] = True
     allowed_origins: tuple[Identifier, ...] = ()
 
+    @model_validator(mode="after")
+    def _unique_origins(self) -> NetworkPolicy:
+        _require_unique(self.allowed_origins, key=lambda item: item, label="allowed_origins")
+        return self
+
 
 class EvidenceRequirements(ContractModel):
     """Evidence and audit obligations for terminal results."""
@@ -235,6 +240,16 @@ class DecisionReceipt(ContractModel):
     quality_gate_status: QualityGateStatus
     authority_ceiling: AuthorityCeiling
 
+    @model_validator(mode="after")
+    def _validate_collections(self) -> DecisionReceipt:
+        _require_unique(self.cited_rule_refs, key=lambda item: item, label="cited_rule_refs")
+        _require_unique(
+            self.cited_evidence_refs, key=lambda item: item, label="cited_evidence_refs"
+        )
+        _require_unique(self.action_refs, key=lambda item: item, label="action_refs")
+        _require_unique(self.rollback_refs, key=lambda item: item, label="rollback_refs")
+        return self
+
 
 class EvaluationResult(ContractModel):
     """Correlated terminal FDAI result returned to an external driver."""
@@ -249,6 +264,22 @@ class EvaluationResult(ContractModel):
     terminal_audit_ref: Identifier
     decision_receipt: DecisionReceipt
     reason_code: Identifier | None = None
+
+    @model_validator(mode="after")
+    def _validate_outputs(self) -> EvaluationResult:
+        _require_unique(
+            self.output_artifacts, key=lambda item: item.artifact_id, label="output artifact ids"
+        )
+        _require_unique(
+            self.output_artifacts, key=lambda item: item.name, label="output artifact names"
+        )
+        _require_unique(self.evidence_refs, key=lambda item: item, label="evidence_refs")
+        if any(
+            item.session_id != self.session_id or item.task_id != self.task_id
+            for item in self.output_artifacts
+        ):
+            raise ValueError("output artifacts MUST belong to the result session and task")
+        return self
 
 
 class ExternalValidationStage(ContractModel):
@@ -266,6 +297,17 @@ class ExternalValidationReceipt(ContractModel):
     task_id: Identifier
     trusted_for_execution: Literal[False] = False
     stages: tuple[ExternalValidationStage, ...] = Field(min_length=1, max_length=32)
+
+    @model_validator(mode="after")
+    def _validate_stages(self) -> ExternalValidationReceipt:
+        _require_unique(self.stages, key=lambda item: item.stage_id, label="stages")
+        if any(
+            item.receipt_ref.session_id != self.session_id
+            or item.receipt_ref.task_id != self.task_id
+            for item in self.stages
+        ):
+            raise ValueError("external validation stage receipts MUST belong to the task session")
+        return self
 
 
 def _require_unique[T](

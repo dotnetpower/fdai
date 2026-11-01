@@ -64,7 +64,7 @@ def transition_chaos_run(
     idempotency_key: str,
     at: datetime,
 ) -> ChaosRunSnapshot:
-    if not idempotency_key.strip() or at.tzinfo is None:
+    if not idempotency_key.strip() or at.tzinfo is None or at.utcoffset() is None:
         raise ValueError("transition idempotency key and aware timestamp are required")
     if idempotency_key == snapshot.last_idempotency_key:
         return snapshot

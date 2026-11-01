@@ -58,9 +58,11 @@ class HostCpuPolicy:
             Aggregation.MAX,
             Aggregation.AVG,
             Aggregation.LAST,
+            Aggregation.P50,
             Aggregation.P95,
+            Aggregation.P99,
         }:
-            raise ValueError("host CPU aggregation MUST be max, avg, last or p95")
+            raise ValueError("host CPU aggregation MUST be max, avg, last, p50, p95, or p99")
         for value in (
             self.max_age_seconds,
             self.sample_period_seconds,
@@ -86,9 +88,17 @@ def assess_host_cpu(
 ) -> FindingAssessment:
     """Canonical deterministic reducer; no metric absence can close recovery."""
 
-    if since.tzinfo is None or until.tzinfo is None or since >= until:
+    if (
+        since.tzinfo is None
+        or since.utcoffset() is None
+        or until.tzinfo is None
+        or until.utcoffset() is None
+        or since >= until
+    ):
         raise ValueError("host CPU window MUST be aware and positive")
-    if prior_fault_at is not None and prior_fault_at.tzinfo is None:
+    if prior_fault_at is not None and (
+        prior_fault_at.tzinfo is None or prior_fault_at.utcoffset() is None
+    ):
         raise ValueError("host CPU prior fault timestamp MUST be aware")
     gaps: list[str] = []
     if unavailable_reason is not None:
@@ -229,7 +239,12 @@ class HostCpuAnalyzer:
         prior_finding: AnalyzerFinding | None = None,
         finding_ref: str | None = None,
     ) -> Sequence[AnalyzerFinding]:
-        if not resource_ref or not math.isfinite(window_seconds) or window_seconds <= 0:
+        if (
+            not resource_ref.strip()
+            or isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
             raise ValueError("host CPU target and finite positive window MUST be supplied")
         until = self._clock()
         since = until - timedelta(seconds=window_seconds)

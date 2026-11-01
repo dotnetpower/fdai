@@ -72,10 +72,16 @@ class WarmCapacityConfig:
     """Replica floor when warm is required."""
 
     def __post_init__(self) -> None:
-        if self.cold_min_replicas < 0:
+        if not isinstance(self.storm_forces_warm, bool) or not isinstance(
+            self.off_hours_forces_warm, bool
+        ):
+            raise ValueError("warm capacity boolean flags MUST be booleans")
+        if isinstance(self.cold_min_replicas, bool) or self.cold_min_replicas < 0:
             raise ValueError("cold_min_replicas MUST be >= 0")
-        if self.warm_min_replicas < 1:
+        if isinstance(self.warm_min_replicas, bool) or self.warm_min_replicas < 1:
             raise ValueError("warm_min_replicas MUST be >= 1 (warm means not zero)")
+        if self.warm_min_replicas < self.cold_min_replicas:
+            raise ValueError("warm_min_replicas MUST be >= cold_min_replicas")
 
 
 @dataclass(frozen=True, slots=True)

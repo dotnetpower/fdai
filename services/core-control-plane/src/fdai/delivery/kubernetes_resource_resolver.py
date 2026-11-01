@@ -27,6 +27,16 @@ class KubernetesResourceResolution:
     complete: bool
     reason: str | None
 
+    def __post_init__(self) -> None:
+        if isinstance(self.candidate_count, bool) or self.candidate_count < 0:
+            raise ValueError("Kubernetes resolver candidate_count MUST be non-negative")
+        if not isinstance(self.complete, bool):
+            raise ValueError("Kubernetes resolver complete MUST be a boolean")
+        if self.status is KubernetesResourceResolutionStatus.RESOLVED and (
+            self.resource is None or self.candidate_count != 1 or not self.complete
+        ):
+            raise ValueError("resolved Kubernetes resource requires one complete candidate")
+
 
 def resolve_kubernetes_resource(
     resources: tuple[ResourceRecord, ...],

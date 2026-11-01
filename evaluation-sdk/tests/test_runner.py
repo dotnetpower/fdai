@@ -193,3 +193,17 @@ def test_runner_rejects_incompatible_host_api() -> None:
 
     with pytest.raises(EvaluationRunError, match="incompatible"):
         EvaluationRunner(adapter=_Adapter(()), host=host)
+
+
+def test_run_summary_validates_count_consistency() -> None:
+    from fdai_evaluation_sdk import EvaluationRunSummary
+
+    with pytest.raises(ValueError, match="sum of status counts"):
+        EvaluationRunSummary(
+            adapter_id="sregym",
+            session_id="session-1",
+            task_count=3,
+            completed_count=1,
+            held_count=1,
+            failed_count=0,
+        )

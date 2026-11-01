@@ -45,6 +45,22 @@ class OnCallResolution:
     reason (``no_schedule_bound`` / ``no_coverage`` / ``lookup_failed:<type>``)
     the caller records in audit before applying role-based routing."""
 
+    def __post_init__(self) -> None:
+        if not self.rotation.strip():
+            raise ValueError("OnCallResolution.rotation MUST be non-empty")
+        if not isinstance(self.from_schedule, bool):
+            raise ValueError("OnCallResolution.from_schedule MUST be a boolean")
+        if self.from_schedule and (self.fallback_reason is not None or self.primary_oid is None):
+            raise ValueError(
+                "OnCallResolution from_schedule=True requires primary_oid and no fallback_reason"
+            )
+        if not self.from_schedule and (
+            self.fallback_reason is None or not self.fallback_reason.strip()
+        ):
+            raise ValueError(
+                "OnCallResolution from_schedule=False requires a non-empty fallback_reason"
+            )
+
     @property
     def has_responder(self) -> bool:
         """True when a concrete on-call primary was resolved from the schedule."""
@@ -66,6 +82,10 @@ class OnCallResolver:
         lookup fails, the result carries ``from_schedule=False`` and a
         ``fallback_reason`` so the caller routes by role instead.
         """
+        if not rotation.strip():
+            raise ValueError("OnCallResolver.rotation MUST be non-empty")
+        if at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("OnCallResolver.at MUST be timezone-aware")
         if self._schedule is None:
             return OnCallResolution(
                 rotation=rotation,

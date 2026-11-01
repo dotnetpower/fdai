@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -72,7 +73,11 @@ class KubernetesDirectApiConfig:
             raise ValueError("Kubernetes namespace allowlist must contain 1 to 32 items")
         if any(_NAME.fullmatch(namespace) is None for namespace in self.allowed_namespaces):
             raise ValueError("Kubernetes namespace allowlist contains an invalid name")
-        if not 0.1 <= self.timeout_seconds <= 120:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 120
+        ):
             raise ValueError("Kubernetes API timeout must be in [0.1, 120]")
 
 
@@ -83,6 +88,12 @@ class KubernetesApiResponse:
     status_code: int
     body: Mapping[str, object]
     resource_version: str | None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.status_code, bool) or not 100 <= self.status_code <= 599:
+            raise ValueError(
+                "KubernetesApiResponse status_code MUST be an HTTP status in [100, 599]"
+            )
 
 
 class KubernetesApiTransport(Protocol):

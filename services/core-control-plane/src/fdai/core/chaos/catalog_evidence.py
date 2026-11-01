@@ -64,13 +64,15 @@ class CatalogValidationSummary:
     schema_version: int = 1
 
     def __post_init__(self) -> None:
-        if self.generated_at.tzinfo is None:
+        if self.generated_at.tzinfo is None or self.generated_at.utcoffset() is None:
             raise ValueError("generated_at MUST be timezone-aware")
+        if not self.runner_version.strip():
+            raise ValueError("runner_version MUST be non-empty")
         if not _SHA256.fullmatch(self.catalog_fingerprint):
             raise ValueError("catalog_fingerprint MUST be a SHA-256 hex digest")
         if self.full_bundle_sha256 is not None and not _SHA256.fullmatch(self.full_bundle_sha256):
             raise ValueError("full_bundle_sha256 MUST be a SHA-256 hex digest")
-        if self.full_bundle_retention_days < 1:
+        if isinstance(self.full_bundle_retention_days, bool) or self.full_bundle_retention_days < 1:
             raise ValueError("full_bundle_retention_days MUST be positive")
 
     def to_dict(self) -> dict[str, object]:

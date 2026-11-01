@@ -81,9 +81,9 @@ class ScenarioCoverageAggregator:
         gap_threshold: int = 3,
         sample_incidents_cap: int = 5,
     ) -> None:
-        if gap_threshold < 1:
+        if isinstance(gap_threshold, bool) or gap_threshold < 1:
             raise ValueError("gap_threshold MUST be >= 1")
-        if sample_incidents_cap < 1:
+        if isinstance(sample_incidents_cap, bool) or sample_incidents_cap < 1:
             raise ValueError("sample_incidents_cap MUST be >= 1")
         self._index = index
         self._gap_threshold = gap_threshold
@@ -122,9 +122,9 @@ class ScenarioCoverageAggregator:
         severity: str,
     ) -> None:
         """Record one observation. Emits nothing until the threshold is met."""
-        if not incident_id:
+        if not incident_id.strip():
             raise ValueError("incident_id MUST be non-empty")
-        if not signal:
+        if not signal.strip():
             raise ValueError("signal MUST be non-empty")
         # Covered by the catalog? Then this is not a gap - drop.
         hits = self._index.lookup_widening(

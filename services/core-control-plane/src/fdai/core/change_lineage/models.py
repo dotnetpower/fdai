@@ -131,7 +131,12 @@ class ChangeLineageRecord:
             and self.resilience.observed_at > self.outcome_at
         ):
             raise ValueError("change lineage resilience observation MUST NOT follow outcome")
-        if self.execution_authority or self.promotion_authority:
+        if (
+            not isinstance(self.execution_authority, bool)
+            or not isinstance(self.promotion_authority, bool)
+            or self.execution_authority
+            or self.promotion_authority
+        ):
             raise ValueError("change lineage MUST NOT grant execution or promotion authority")
 
     def to_mapping(self) -> dict[str, Any]:

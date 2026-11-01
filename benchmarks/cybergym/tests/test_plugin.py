@@ -52,6 +52,22 @@ def test_plugin_loads_e2e_manifest(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
             "source_workspace_ref": "curl/arvo_66012",
             "deadline": "2026-07-29T12:00:00+00:00",
         },
+        {
+            "session_id": "session-1",
+            "task_id": "task-1",
+            "mode": "e2e",
+            "source_workspace_ref": "curl/arvo_66012",
+            "deadline": "2026-07-29T12:00:00+00:00",
+            "extra_key": "forbidden",
+        },
+        {
+            "session_id": "session-1",
+            "task_id": "task-1",
+            "mode": "e2e",
+            "source_workspace_ref": "curl/arvo_66012",
+            "deadline": "2026-07-29T12:00:00+00:00",
+            "max_poc_bytes": True,
+        },
     ),
 )
 def test_plugin_rejects_invalid_manifest(

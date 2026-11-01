@@ -36,6 +36,20 @@ class SreScenarioContract:
     recovery_probes: tuple[RecoveryProbeKind, ...]
     recovery_action_types: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if (
+            not self.scenario_id.strip()
+            or not self.title.strip()
+            or not self.causal_mechanism.strip()
+        ):
+            raise ValueError(
+                "SreScenarioContract scenario_id, title, and causal_mechanism MUST be non-empty"
+            )
+        if not isinstance(self.fault, bool):
+            raise ValueError("SreScenarioContract.fault MUST be a boolean")
+        if not self.signals or any(not item.strip() for item in self.signals):
+            raise ValueError("SreScenarioContract.signals MUST be non-empty")
+
 
 def sre_scenario_contracts() -> tuple[SreScenarioContract, ...]:
     return (

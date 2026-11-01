@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import sys
 from collections.abc import Mapping, Sequence
@@ -99,6 +100,8 @@ def _validate_measurements(
             item = measurement.get(key)
             if key == "value":
                 if not isinstance(item, (int, float, str)) or isinstance(item, bool):
+                    errors.append(f"{field}[{index}].value MUST be numeric or non-empty text")
+                elif isinstance(item, float) and not math.isfinite(item):
                     errors.append(f"{field}[{index}].value MUST be numeric or non-empty text")
                 elif isinstance(item, str) and not item.strip():
                     errors.append(f"{field}[{index}].value MUST be numeric or non-empty text")

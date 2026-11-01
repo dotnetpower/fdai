@@ -165,7 +165,7 @@ def build_remediation_proposals(
         raise SelfApprovalError(
             "operational-readiness remediation requires an approver distinct from the submitter"
         )
-    if not report.transfer_id:
+    if not report.transfer_id or not report.transfer_id.strip():
         raise ValueError("operational-readiness remediation requires an exact transfer identity")
 
     proposals: dict[str, RemediationProposal] = {}

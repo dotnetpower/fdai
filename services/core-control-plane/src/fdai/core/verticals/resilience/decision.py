@@ -24,7 +24,7 @@ def decide_experiment(
     config: DrSchedulerConfig,
 ) -> SchedulerDecision:
     """Apply freeze, window, opt-out, and concurrency checks in order."""
-    if in_flight_experiments < 0:
+    if isinstance(in_flight_experiments, bool) or in_flight_experiments < 0:
         raise ValueError("in_flight_experiments MUST be >= 0")
     for freeze in freezes:
         if freeze.contains(at):

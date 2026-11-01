@@ -17,6 +17,10 @@ class ImpactEnvelopeProjector:
         experiment_ids: tuple[str, ...] = (),
         action_option_ids: tuple[str, ...] = (),
     ) -> None:
+        if any(not item.strip() for item in (*experiment_ids, *action_option_ids)):
+            raise ValueError(
+                "ImpactEnvelopeProjector experiment_ids and action_option_ids MUST be non-empty"
+            )
         record = envelope.to_ontology_object()
         existing = await self._store.get_object(record.id)
         if existing is not None:

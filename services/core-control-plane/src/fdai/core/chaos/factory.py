@@ -113,7 +113,7 @@ class ScenarioFactory:
         starts with ``<prefix>:``. Exact registrations take precedence
         so a per-kind adapter can override the generic one.
         """
-        if not injector_ref:
+        if not injector_ref.strip():
             raise ValueError("injector_ref MUST be non-empty")
         if ":" in injector_ref:
             self._injectors_exact[injector_ref] = builder
@@ -122,7 +122,7 @@ class ScenarioFactory:
 
     def register_probe(self, expected_signal: str, builder: ProbeBuilder) -> None:
         """Register a probe builder for one expected_signal."""
-        if not expected_signal:
+        if not expected_signal.strip():
             raise ValueError("expected_signal MUST be non-empty")
         self._probes[expected_signal] = builder
 

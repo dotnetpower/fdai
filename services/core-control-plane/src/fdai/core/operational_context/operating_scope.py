@@ -29,6 +29,8 @@ class ResourceScopeCoverage:
     def __post_init__(self) -> None:
         if not self.resource_id.strip() or not self.service_ref.strip():
             raise ValueError("ResourceScopeCoverage requires non-empty resource_id and service_ref")
+        if any(not item.strip() for item in (*self.workload_ids, *self.service_ids)):
+            raise ValueError("ResourceScopeCoverage workload_ids and service_ids MUST be non-empty")
 
     @property
     def mapped(self) -> bool:

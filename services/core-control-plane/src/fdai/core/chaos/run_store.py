@@ -22,7 +22,7 @@ class ChaosRunStore:
         self._store = state_store
 
     async def create(self, *, run_id: str, at: datetime) -> ChaosRunSnapshot:
-        if not run_id.strip() or at.tzinfo is None:
+        if not run_id.strip() or at.tzinfo is None or at.utcoffset() is None:
             raise ValueError("run_id and aware timestamp are required")
         snapshot = ChaosRunSnapshot(
             run_id=run_id,

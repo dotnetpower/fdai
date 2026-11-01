@@ -30,6 +30,8 @@ class ReadInvestigationModeSelector:
         transport: str,
         policy: InvestigationExecutionPolicy,
     ) -> None:
+        if not transport.strip():
+            raise ValueError("ReadInvestigationModeSelector.transport MUST be non-empty")
         self._latency_store = latency_store
         self._transport = transport
         self._policy = policy

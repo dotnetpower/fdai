@@ -30,6 +30,7 @@ binds a live source while a bounded scenario binds
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -129,10 +130,16 @@ class PodLifecycleEvidence:
             raise ValueError("Pod lifecycle evidence MUST carry a bounded candidate set")
         for field_name in ("correlation_window_start", "cutoff"):
             value: datetime = getattr(self, field_name)
-            if value.tzinfo is None:
+            if value.tzinfo is None or value.utcoffset() is None:
                 raise ValueError(f"Pod lifecycle evidence {field_name} MUST be timezone-aware")
         if self.correlation_window_start >= self.cutoff:
             raise ValueError("Pod lifecycle evidence window MUST be positive")
+        if not isinstance(self.graph_complete, bool) or not isinstance(
+            self.ownership_complete, bool
+        ):
+            raise ValueError(
+                "Pod lifecycle evidence graph_complete and ownership_complete MUST be booleans"
+            )
         if self.termination is not None and self.termination_unavailable_reason is not None:
             raise ValueError(
                 "Pod lifecycle evidence termination_unavailable_reason requires absent termination"
@@ -144,7 +151,9 @@ class PodLifecycleEvidence:
             raise ValueError(
                 "Pod lifecycle evidence termination_unavailable_reason is not reviewed"
             )
-        if self.detected_at is not None and self.detected_at.tzinfo is None:
+        if self.detected_at is not None and (
+            self.detected_at.tzinfo is None or self.detected_at.utcoffset() is None
+        ):
             raise ValueError("Pod lifecycle evidence detected_at MUST be timezone-aware")
         if self.restart_history.pod_id != self.recovery_pod.pod_id:
             raise ValueError("Pod restart history MUST describe the assessed Pod")
@@ -193,7 +202,13 @@ class StaticPodLifecycleEvidenceSource:
         resource_ref: str,
         window_seconds: float,
     ) -> PodLifecycleEvidence | None:
-        if window_seconds <= 0:
+        if not resource_ref.strip():
+            raise ValueError("Pod lifecycle resource_ref MUST be non-empty")
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
             raise ValueError("Pod lifecycle window_seconds MUST be positive")
         return self._evidence.get(resource_ref)
 
@@ -225,7 +240,11 @@ class KubernetesPodLifecycleAnalyzer:
         """Return at most one typed finding for ``resource_ref``."""
         if not resource_ref.strip():
             raise ValueError("KubernetesPodLifecycleAnalyzer.resource_ref MUST be non-empty")
-        if window_seconds <= 0:
+        if (
+            isinstance(window_seconds, bool)
+            or not math.isfinite(window_seconds)
+            or window_seconds <= 0
+        ):
             raise ValueError("KubernetesPodLifecycleAnalyzer.window_seconds MUST be positive")
 
         evidence = await self._source.observe(

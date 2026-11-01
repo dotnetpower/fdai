@@ -51,6 +51,14 @@ class BurnRateEvaluation:
     insufficient_data: bool
     evaluated_at: datetime
 
+    def __post_init__(self) -> None:
+        if not self.slo_id.strip():
+            raise ValueError("BurnRateEvaluation.slo_id MUST be non-empty")
+        if not isinstance(self.insufficient_data, bool):
+            raise ValueError("BurnRateEvaluation.insufficient_data MUST be a boolean")
+        if self.evaluated_at.tzinfo is None or self.evaluated_at.utcoffset() is None:
+            raise ValueError("BurnRateEvaluation.evaluated_at MUST be timezone-aware")
+
     @property
     def breached(self) -> bool:
         """True when at least one multi-window burn-rate alert fired."""
@@ -72,9 +80,11 @@ class MetricBurnRateSource:
         evaluator: BurnRateEvaluator | None = None,
         source: str = _DEFAULT_SOURCE,
     ) -> None:
+        if not source.strip():
+            raise ValueError("MetricBurnRateSource.source MUST be non-empty")
         self._metrics = metric_provider
         self._evaluator = evaluator if evaluator is not None else BurnRateEvaluator()
-        self._source = source
+        self._source = source.strip()
 
     async def evaluate(self, slo: SLO, *, now: datetime) -> BurnRateEvaluation:
         """Evaluate ``slo``'s burn-rate alerts against metrics up to ``now``.

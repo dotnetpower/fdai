@@ -27,6 +27,8 @@ def reduce_startup_readiness(
     deployment_ceilings: Mapping[str, AuthorityCeiling] | None = None,
 ) -> StartupReadinessReport:
     """Reduce one complete probe pass without raising deployment authority."""
+    if generated_at.tzinfo is None or generated_at.utcoffset() is None:
+        raise ValueError("startup readiness generated_at MUST be timezone-aware")
     ordered_specs = tuple(sorted(specs, key=lambda item: item.probe_id))
     if len({spec.probe_id for spec in ordered_specs}) != len(ordered_specs):
         raise ValueError("startup probe ids MUST be unique")

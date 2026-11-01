@@ -20,6 +20,7 @@ See:
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -121,6 +122,12 @@ class AnalyzerFinding:
             raise ValueError("AnalyzerFinding.signal MUST be non-empty")
         if not self.observation.strip():
             raise ValueError("AnalyzerFinding.observation MUST be non-empty")
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
+            raise ValueError("AnalyzerFinding.occurred_at MUST be timezone-aware")
+        if self.remediation_ref is not None and not self.remediation_ref.strip():
+            raise ValueError("AnalyzerFinding.remediation_ref MUST be non-empty when set")
+        if any(not ref.strip() for ref in self.evidence_refs):
+            raise ValueError("AnalyzerFinding.evidence_refs MUST contain non-empty strings")
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +189,8 @@ class TimelineEntry:
             raise ValueError(
                 "TimelineEntry resource_ref, resource_kind, and description MUST be non-empty"
             )
+        if self.occurred_at.tzinfo is None or self.occurred_at.utcoffset() is None:
+            raise ValueError("TimelineEntry.occurred_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,6 +212,10 @@ class Recommendation:
     def __post_init__(self) -> None:
         if not self.title.strip() or not self.detail.strip() or not self.resource_ref.strip():
             raise ValueError("Recommendation title, detail, and resource_ref MUST be non-empty")
+        if self.remediation_ref is not None and not self.remediation_ref.strip():
+            raise ValueError("Recommendation.remediation_ref MUST be non-empty when set")
+        if any(not ref.strip() for ref in self.citations):
+            raise ValueError("Recommendation.citations MUST contain non-empty strings")
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +241,26 @@ class InvestigationReport:
     elapsed_seconds: float
     budget_seconds: float
     analyzer_errors: tuple[tuple[str, str], ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.investigation_id.strip() or not self.requested_by.strip():
+            raise ValueError(
+                "InvestigationReport investigation_id and requested_by MUST be non-empty"
+            )
+        if self.requested_at.tzinfo is None or self.requested_at.utcoffset() is None:
+            raise ValueError("InvestigationReport.requested_at MUST be timezone-aware")
+        if (
+            isinstance(self.window_seconds, bool)
+            or not math.isfinite(self.window_seconds)
+            or self.window_seconds <= 0
+            or isinstance(self.budget_seconds, bool)
+            or not math.isfinite(self.budget_seconds)
+            or self.budget_seconds <= 0
+            or isinstance(self.elapsed_seconds, bool)
+            or not math.isfinite(self.elapsed_seconds)
+            or self.elapsed_seconds < 0
+        ):
+            raise ValueError("InvestigationReport window, budget, and elapsed MUST be valid")
 
     @property
     def within_budget(self) -> bool:

@@ -196,8 +196,14 @@ async def gate_toggle_publication(
     re-run the gate without double-submitting.
     """
 
-    if not math.isfinite(max_evidence_age_seconds) or max_evidence_age_seconds <= 0:
+    if (
+        isinstance(max_evidence_age_seconds, bool)
+        or not math.isfinite(max_evidence_age_seconds)
+        or max_evidence_age_seconds <= 0
+    ):
         raise ValueError("max_evidence_age_seconds MUST be a finite value > 0")
+    if not initiator_principal.strip():
+        raise ValueError("initiator_principal MUST be a non-empty string")
     expected_scope = expected_scope.strip()
     if not expected_scope:
         raise ValueError("expected_scope MUST be a non-empty string")

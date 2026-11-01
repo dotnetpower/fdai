@@ -15,6 +15,8 @@ from fdai.core.recovery.models import (
 
 
 def reverse_topological_compensation(actions: tuple[RecoveryAction, ...]) -> tuple[str, ...]:
+    if not actions:
+        raise ValueError("recovery actions MUST be non-empty")
     by_id = {item.action_id: item for item in actions}
     if len(by_id) != len(actions):
         raise ValueError("recovery action ids MUST be unique")

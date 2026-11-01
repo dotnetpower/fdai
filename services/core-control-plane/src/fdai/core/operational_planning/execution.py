@@ -28,6 +28,15 @@ def compile_selected_mutation_plan(
     created_at: datetime,
     max_affected_objects: int,
 ) -> MutationPlan:
+    if not planner_ref.strip() or not command_ref.strip() or not rollback_command_ref.strip():
+        raise ValueError(
+            "compile_selected_mutation_plan planner_ref, command_ref, "
+            "and rollback_command_ref MUST be non-empty"
+        )
+    if created_at.tzinfo is None or created_at.utcoffset() is None:
+        raise ValueError("compile_selected_mutation_plan created_at MUST be timezone-aware")
+    if isinstance(max_affected_objects, bool) or max_affected_objects < 1:
+        raise ValueError("compile_selected_mutation_plan max_affected_objects MUST be >= 1")
     selected_id = plan.selection.selected_option_id
     if not plan.complete or selected_id is None:
         raise ValueError("operational plan has no complete selection")

@@ -17,7 +17,12 @@ def evaluate_recovery_readiness(
     required_telemetry_sources: frozenset[str],
     max_rehearsal_age: timedelta,
 ) -> RecoveryReadiness:
-    if now.tzinfo is None or max_rehearsal_age <= timedelta(0):
+    if (
+        now.tzinfo is None
+        or now.utcoffset() is None
+        or max_rehearsal_age <= timedelta(0)
+        or not current_graph_revision.strip()
+    ):
         raise ValueError("readiness time MUST be aware and rehearsal age MUST be positive")
     reasons: list[str] = []
     if plan.status is not RecoveryPlanStatus.READY:
@@ -44,7 +49,15 @@ def preauthorization_covers(
     now: datetime,
     destructive: bool = False,
 ) -> bool:
-    if now.tzinfo is None or now > plan.expires_at or destructive:
+    if (
+        now.tzinfo is None
+        or now.utcoffset() is None
+        or now > plan.expires_at
+        or not isinstance(destructive, bool)
+        or destructive
+        or not target_ids
+        or not action_versions
+    ):
         return False
     if not set(target_ids) <= set(plan.direct_target_ids):
         return False

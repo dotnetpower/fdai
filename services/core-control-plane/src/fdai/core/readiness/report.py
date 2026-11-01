@@ -56,6 +56,10 @@ class ReadinessFinding:
     def __post_init__(self) -> None:
         if not self.evidence.strip():
             raise ValueError("ReadinessFinding.evidence MUST cite a rule/probe id")
+        if not self.severity.strip() or not self.resource.strip() or not self.source.strip():
+            raise ValueError("ReadinessFinding severity, resource, and source MUST be non-empty")
+        if not isinstance(self.blocking, bool):
+            raise ValueError("ReadinessFinding.blocking MUST be a boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +77,18 @@ class ReadinessReport:
     decision_evidence_receipt_digest: str | None = None
     decision_evidence_verification_bundle_digest: str | None = None
     decision_evidence_rejection_reasons: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if (
+            not self.scope.strip()
+            or not self.submitter.strip()
+            or not self.target_environment.strip()
+            or not self.generated_at.strip()
+        ):
+            raise ValueError(
+                "ReadinessReport scope, submitter, target_environment, "
+                "and generated_at MUST be non-empty"
+            )
 
     @property
     def blocking_findings(self) -> tuple[ReadinessFinding, ...]:

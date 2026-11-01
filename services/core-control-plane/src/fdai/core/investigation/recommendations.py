@@ -61,7 +61,14 @@ def build_recommendations(
             or severity_rank(finding.severity) < severity_rank(current.severity)
             or (
                 severity_rank(finding.severity) == severity_rank(current.severity)
-                and finding.occurred_at > current.occurred_at
+                and (
+                    finding.occurred_at > current.occurred_at
+                    or (
+                        finding.occurred_at == current.occurred_at
+                        and current.remediation_ref is None
+                        and finding.remediation_ref is not None
+                    )
+                )
             )
         ):
             best[key] = finding

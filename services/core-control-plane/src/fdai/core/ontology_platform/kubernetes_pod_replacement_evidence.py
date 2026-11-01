@@ -77,8 +77,12 @@ class PodLifecycleObservation:
             value = getattr(self, field_name)
             if value is not None and (not value.strip() or len(value) > _MAX_ID_LENGTH):
                 raise ValueError(f"{field_name} MUST be bounded non-empty text or null")
-        if self.created_at is not None and self.created_at.tzinfo is None:
+        if self.created_at is not None and (
+            self.created_at.tzinfo is None or self.created_at.utcoffset() is None
+        ):
             raise ValueError("Pod creation time MUST be timezone-aware")
+        if self.ready is not None and not isinstance(self.ready, bool):
+            raise ValueError("ready MUST be a boolean or null")
         for field_name in ("container_count", "ready_container_count", "restart_count"):
             value = getattr(self, field_name)
             if value is not None and (
@@ -91,13 +95,15 @@ class PodLifecycleObservation:
             and self.ready_container_count > self.container_count
         ):
             raise ValueError("ready_container_count MUST NOT exceed container_count")
-        if len(self.waiting_reasons) != len(set(self.waiting_reasons)):
+        if len(self.waiting_reasons) != len(set(self.waiting_reasons)) or any(
+            not reason.strip() for reason in self.waiting_reasons
+        ):
             raise ValueError("waiting_reasons MUST be unique")
         if self.workload_revision is not None and (
             not self.workload_revision.strip() or len(self.workload_revision) > _MAX_ID_LENGTH
         ):
             raise ValueError("workload_revision MUST be bounded non-empty text or null")
-        if not self.evidence_refs or any(not item for item in self.evidence_refs):
+        if not self.evidence_refs or any(not item.strip() for item in self.evidence_refs):
             raise ValueError("Pod lifecycle observation MUST cite evidence")
 
 

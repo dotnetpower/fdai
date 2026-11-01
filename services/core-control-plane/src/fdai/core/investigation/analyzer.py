@@ -42,13 +42,17 @@ class Aggregation(StrEnum):
     AVG = "avg"
     SUM = "sum"
     LAST = "last"
+    P50 = "p50"
     P95 = "p95"
+    P99 = "p99"
 
 
 def reduce_values(values: Sequence[float], how: Aggregation) -> float | None:
     """Reduce ``values`` to one float; ``None`` when the series is empty."""
     if not values:
         return None
+    if any(isinstance(v, bool) or not math.isfinite(v) for v in values):
+        raise ValueError("metric values MUST be finite numbers")
     if how is Aggregation.MAX:
         return max(values)
     if how is Aggregation.MIN:
@@ -57,9 +61,14 @@ def reduce_values(values: Sequence[float], how: Aggregation) -> float | None:
         return sum(values)
     if how is Aggregation.AVG:
         return sum(values) / len(values)
-    if how is Aggregation.P95:
+    if how in {Aggregation.P50, Aggregation.P95, Aggregation.P99}:
+        quantile = {
+            Aggregation.P50: 0.50,
+            Aggregation.P95: 0.95,
+            Aggregation.P99: 0.99,
+        }[how]
         ordered = sorted(values)
-        idx = min(len(ordered) - 1, max(0, math.ceil(0.95 * len(ordered)) - 1))
+        idx = min(len(ordered) - 1, max(0, math.ceil(quantile * len(ordered)) - 1))
         return ordered[idx]
     return values[-1]  # LAST
 
@@ -111,6 +120,8 @@ class Threshold:
             raise ValueError("Threshold metric, signal, and observation MUST be non-empty")
         if type(self.bound) is bool or not math.isfinite(self.bound):
             raise ValueError("Threshold bound MUST be a finite number")
+        if self.remediation_ref is not None and not self.remediation_ref.strip():
+            raise ValueError("Threshold remediation_ref MUST be non-empty when set")
 
     def breached(self, value: float) -> bool:
         """True iff ``value`` breaches this threshold."""

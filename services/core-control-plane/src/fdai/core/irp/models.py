@@ -62,9 +62,9 @@ class ResponseStep:
     description: str
 
     def __post_init__(self) -> None:
-        if not self.step_id:
+        if not self.step_id.strip():
             raise ValueError("ResponseStep.step_id MUST be non-empty")
-        if not self.action_ref:
+        if not self.action_ref.strip():
             raise ValueError("ResponseStep.action_ref MUST be non-empty")
 
 
@@ -92,12 +92,18 @@ class ResponsePlan:
     metadata: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        if not self.plan_id:
+        if not self.plan_id.strip():
             raise ValueError("ResponsePlan.plan_id MUST be non-empty")
-        if not self.trigger_signal:
+        if not self.name.strip():
+            raise ValueError("ResponsePlan.name MUST be non-empty")
+        if not self.trigger_signal.strip():
             raise ValueError("ResponsePlan.trigger_signal MUST be non-empty")
-        if not self.created_by:
+        if not self.approver_role.strip():
+            raise ValueError("ResponsePlan.approver_role MUST be non-empty")
+        if not self.created_by.strip():
             raise ValueError("ResponsePlan.created_by MUST be non-empty")
+        if self.created_at.tzinfo is None or self.created_at.utcoffset() is None:
+            raise ValueError("ResponsePlan.created_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,6 +127,10 @@ class HistoricalIncident:
     signals: tuple[str, ...]
     resolved_by_action: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.incident_ref.strip():
+            raise ValueError("HistoricalIncident.incident_ref MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class PretestReport:
@@ -130,6 +140,18 @@ class PretestReport:
     matched: int
     total: int
     unmatched_incident_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.plan_id.strip():
+            raise ValueError("PretestReport.plan_id MUST be non-empty")
+        if (
+            isinstance(self.matched, bool)
+            or isinstance(self.total, bool)
+            or self.matched < 0
+            or self.total < 0
+            or self.matched > self.total
+        ):
+            raise ValueError("PretestReport matched and total MUST satisfy 0 <= matched <= total")
 
     @property
     def coverage(self) -> float:

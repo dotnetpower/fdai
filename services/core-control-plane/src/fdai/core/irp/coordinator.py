@@ -82,10 +82,16 @@ class Alert:
     fired_at: datetime
 
     def __post_init__(self) -> None:
-        if not self.alert_id:
+        if not self.alert_id.strip():
             raise ValueError("Alert.alert_id MUST be non-empty")
-        if not self.resources:
+        if not self.signal.strip():
+            raise ValueError("Alert.signal MUST be non-empty")
+        if not self.resources or any(
+            not ref.strip() or not kind.strip() for ref, kind in self.resources
+        ):
             raise ValueError("Alert.resources MUST be non-empty")
+        if self.fired_at.tzinfo is None or self.fired_at.utcoffset() is None:
+            raise ValueError("Alert.fired_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +107,18 @@ class MitigationProposal:
     citations: tuple[str, ...]
     requested_at: datetime
     target_resource_ref: str = ""
+
+    def __post_init__(self) -> None:
+        if (
+            not self.proposal_id.strip()
+            or not self.alert_id.strip()
+            or not self.approver_role.strip()
+        ):
+            raise ValueError(
+                "MitigationProposal proposal_id, alert_id, and approver_role MUST be non-empty"
+            )
+        if self.requested_at.tzinfo is None or self.requested_at.utcoffset() is None:
+            raise ValueError("MitigationProposal.requested_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,7 +201,11 @@ class IrpCoordinator:
         # infinite hang can then block respond() forever, defeating the whole
         # bounded-execution guarantee - and a non-positive budget makes every
         # investigation time out instantly. Require a finite, positive budget.
-        if not math.isfinite(investigation_budget_seconds) or investigation_budget_seconds <= 0:
+        if (
+            isinstance(investigation_budget_seconds, bool)
+            or not math.isfinite(investigation_budget_seconds)
+            or investigation_budget_seconds <= 0
+        ):
             raise ValueError("investigation_budget_seconds MUST be finite and > 0")
         self._investigator = investigator
         self._approval: ApprovalGate = approval_gate or DenyByDefaultApprovalGate()

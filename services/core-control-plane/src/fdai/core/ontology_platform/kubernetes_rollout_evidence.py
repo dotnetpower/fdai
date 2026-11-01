@@ -73,6 +73,8 @@ class PodRolloutObservation:
         _validate_id(self.pod_id, field="pod_id")
         _validate_id(self.deployment_id, field="deployment_id")
         _validate_reason(self.phase, field="phase")
+        if self.ready is not None and not isinstance(self.ready, bool):
+            raise ValueError("ready MUST be a boolean or null")
         for field_name, value in (
             ("container_count", self.container_count),
             ("ready_container_count", self.ready_container_count),
@@ -128,8 +130,10 @@ def evaluate_kubernetes_rollout(
     never promotes a waiting reason, replica mismatch, or chronology to root cause.
     """
 
-    if cutoff.tzinfo is None:
+    if cutoff.tzinfo is None or cutoff.utcoffset() is None:
         raise ValueError("rollout evidence cutoff MUST be timezone-aware")
+    if not isinstance(graph_complete, bool):
+        raise ValueError("rollout graph_complete MUST be a boolean")
     if len({pod.pod_id for pod in pods}) != len(pods):
         raise ValueError("rollout Pod identities MUST be unique")
     for pod in pods:

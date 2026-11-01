@@ -39,8 +39,10 @@ def evaluate_best_practices(
 ) -> tuple[ChecklistControlResult, ...]:
     """Evaluate controls without treating missing or cross-scope evidence as a pass."""
 
-    if evaluated_at.tzinfo is None:
+    if evaluated_at.tzinfo is None or evaluated_at.utcoffset() is None:
         raise ValueError("evaluated_at MUST be timezone-aware")
+    if scope is not None and not scope.strip():
+        raise ValueError("scope MUST be non-empty when set")
     by_key: dict[tuple[object, str], RequirementOutcome] = {}
     for provided_outcome in outcomes:
         if scope is not None and provided_outcome.scope != scope:

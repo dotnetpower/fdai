@@ -62,7 +62,9 @@ class ContainerTerminationEvidence:
             value = getattr(self, field_name)
             if value is not None and (isinstance(value, bool) or value < 0):
                 raise ValueError(f"{field_name} MUST be a non-negative integer or null")
-        if self.finished_at is not None and self.finished_at.tzinfo is None:
+        if self.finished_at is not None and (
+            self.finished_at.tzinfo is None or self.finished_at.utcoffset() is None
+        ):
             raise ValueError("termination finished_at MUST be timezone-aware")
         _require_bounded_unique(self.lifecycle_reasons, "lifecycle_reasons", _MAX_REASONS)
         _require_bounded_unique(self.evidence_refs, "evidence_refs", _MAX_REFS)
@@ -95,9 +97,15 @@ class KubernetesPodLogEvidence:
             value = getattr(self, field_name)
             if not value.strip() or len(value) > _MAX_ID_LENGTH:
                 raise ValueError(f"{field_name} MUST be bounded non-empty text")
-        if self.start.tzinfo is None or self.end.tzinfo is None or self.start >= self.end:
+        if (
+            self.start.tzinfo is None
+            or self.start.utcoffset() is None
+            or self.end.tzinfo is None
+            or self.end.utcoffset() is None
+            or self.start >= self.end
+        ):
             raise ValueError("Pod log evidence MUST have an aware positive interval")
-        if self.complete != (self.limitation is None):
+        if not isinstance(self.complete, bool) or self.complete != (self.limitation is None):
             raise ValueError("Pod log evidence completeness and limitation are inconsistent")
         if self.limitation is not None and self.limitation not in _LOG_LIMITATIONS:
             raise ValueError("Pod log evidence limitation is not reviewed")
@@ -106,12 +114,19 @@ class KubernetesPodLogEvidence:
         if (self.provider_cutoff is None) != (self.coverage_receipt_ref is None):
             raise ValueError("Pod log provider cutoff and coverage receipt MUST be paired")
         if self.provider_cutoff is not None and (
-            self.provider_cutoff.tzinfo is None or self.provider_cutoff < self.end
+            self.provider_cutoff.tzinfo is None
+            or self.provider_cutoff.utcoffset() is None
+            or self.provider_cutoff < self.end
         ):
             raise ValueError("Pod log provider cutoff MUST cover the requested end")
         if self.complete and self.coverage_receipt_ref is None:
             raise ValueError("complete Pod log evidence requires provider coverage")
-        if self.total_records < 0 or not 0 <= self.error_records <= self.total_records:
+        if (
+            isinstance(self.total_records, bool)
+            or isinstance(self.error_records, bool)
+            or self.total_records < 0
+            or not 0 <= self.error_records <= self.total_records
+        ):
             raise ValueError("Pod log evidence counts are inconsistent")
         if len(self.record_digests) != self.total_records:
             raise ValueError("Pod log evidence MUST retain one digest per record")
@@ -127,7 +142,9 @@ class KubernetesPodLogEvidence:
             self.first_recorded_at is None
             or self.last_recorded_at is None
             or self.first_recorded_at.tzinfo is None
+            or self.first_recorded_at.utcoffset() is None
             or self.last_recorded_at.tzinfo is None
+            or self.last_recorded_at.utcoffset() is None
             or not self.start <= self.first_recorded_at <= self.last_recorded_at <= self.end
         ):
             raise ValueError("Pod log evidence timestamps are outside the query interval")

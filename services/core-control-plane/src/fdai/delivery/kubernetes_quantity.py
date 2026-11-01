@@ -71,9 +71,20 @@ def storage_bytes(value: object) -> int:
 
 
 def _integer_units(value: object, *, scale: int) -> int:
+    if isinstance(scale, bool) or scale < 1:
+        raise KubernetesQuantityError("Kubernetes resource accounting scale MUST be >= 1")
     parsed = parse_resource_quantity(value)
     with localcontext(Context(prec=128, Emin=-256, Emax=256)):
         result = int((parsed * scale).to_integral_value(rounding=ROUND_CEILING))
     if result > MAX_RESOURCE_QUANTITY:
         raise KubernetesQuantityError("Kubernetes resource accounting units exceed their bound")
     return result
+
+
+__all__ = [
+    "KubernetesQuantityError",
+    "MAX_RESOURCE_QUANTITY",
+    "cpu_millicores",
+    "parse_resource_quantity",
+    "storage_bytes",
+]

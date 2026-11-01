@@ -40,10 +40,16 @@ class SloRegistry:
             self._by_id[slo.id] = slo
 
     def get(self, slo_id: str) -> SLO | None:
-        return self._by_id.get(slo_id)
+        return self._by_id.get(slo_id.strip())
 
     def all(self) -> tuple[SLO, ...]:
         return tuple(self._by_id.values())
+
+    def __len__(self) -> int:
+        return len(self._by_id)
+
+    def __contains__(self, slo_id: object) -> bool:
+        return isinstance(slo_id, str) and slo_id.strip() in self._by_id
 
     @classmethod
     def from_directory(cls, root: Path | str) -> SloRegistry:

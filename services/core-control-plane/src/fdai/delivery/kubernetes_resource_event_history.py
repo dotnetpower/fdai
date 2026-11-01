@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import ssl
 from collections.abc import Callable, Mapping, Sequence
@@ -74,9 +75,16 @@ class KubernetesResourceEventHistoryConfig:
             raise ValueError("Kubernetes event api_server MUST be credential-free HTTPS")
         if not self.cluster_ref.strip() or len(self.cluster_ref) > 512:
             raise ValueError("Kubernetes event cluster_ref MUST be bounded non-empty text")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if (
+            isinstance(self.timeout_seconds, bool)
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 30
+        ):
             raise ValueError("Kubernetes event timeout_seconds MUST be in [0.1, 30]")
-        if not 1_024 <= self.max_response_bytes <= _MAX_RESPONSE_BYTES:
+        if (
+            isinstance(self.max_response_bytes, bool)
+            or not 1_024 <= self.max_response_bytes <= _MAX_RESPONSE_BYTES
+        ):
             raise ValueError("Kubernetes event max_response_bytes MUST be in [1024, 262144]")
         if self.ca_path is not None and self.ca_pem is not None:
             raise ValueError("Kubernetes event reader accepts exactly one CA binding")

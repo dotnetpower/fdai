@@ -83,6 +83,14 @@ class AffectedSet:
     truncated: bool = False
     incomplete_reasons: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if not self.graph_revision.strip():
+            raise ValueError("AffectedSet.graph_revision MUST be non-empty")
+        if not isinstance(self.truncated, bool):
+            raise ValueError("AffectedSet.truncated MUST be a boolean")
+        if not self.direct_targets or any(not item.strip() for item in self.direct_targets):
+            raise ValueError("AffectedSet.direct_targets MUST be non-empty")
+
     @property
     def all_resource_ids(self) -> tuple[str, ...]:
         return tuple(

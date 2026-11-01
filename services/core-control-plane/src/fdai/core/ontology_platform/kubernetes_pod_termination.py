@@ -58,7 +58,7 @@ class PodTerminationObservation:
                 raise ValueError(f"termination {field_name} MUST be bounded non-empty text")
         for field_name in ("finished_at", "event_time", "recorded_at"):
             value = getattr(self, field_name)
-            if value is not None and value.tzinfo is None:
+            if value is not None and (value.tzinfo is None or value.utcoffset() is None):
                 raise ValueError(f"termination {field_name} MUST be timezone-aware")
         for field_name in ("exit_code", "signal"):
             value = getattr(self, field_name)
@@ -66,11 +66,11 @@ class PodTerminationObservation:
                 isinstance(value, bool) or not isinstance(value, int) or value < 0
             ):
                 raise ValueError(f"termination {field_name} MUST be a non-negative integer or null")
-        for field_name in ("source_identity", "source_revision"):
+        for field_name in ("event_type", "reason", "source_identity", "source_revision"):
             value = getattr(self, field_name)
             if value is not None and (not value.strip() or len(value) > _MAX_ID_LENGTH):
                 raise ValueError(f"termination {field_name} MUST be bounded non-empty text or null")
-        if not self.evidence_refs or any(not item for item in self.evidence_refs):
+        if not self.evidence_refs or any(not item.strip() for item in self.evidence_refs):
             raise ValueError("termination observation MUST cite evidence")
 
 
