@@ -44,6 +44,14 @@ class AnchoredRelation:
     endpoint_object_type: str | None = None
     implied: bool = False
 
+    def __post_init__(self) -> None:
+        if not self.anchor.strip():
+            raise ValueError("anchored relation anchor MUST be non-empty")
+        if any(not item.strip() for item in self.subject_types):
+            raise ValueError("anchored relation subject_types MUST be non-empty")
+        if self.endpoint_object_type is not None and not self.endpoint_object_type.strip():
+            raise ValueError("anchored relation endpoint_object_type MUST be non-empty")
+
 
 def anchored_relation(goal: FormGoal, ctx: CompileContext) -> AnchoredRelation | OperatorResult:
     """Return the anchor, its stored end, and endpoint restrictions for one goal."""

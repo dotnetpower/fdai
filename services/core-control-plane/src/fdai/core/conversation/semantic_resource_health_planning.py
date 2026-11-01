@@ -51,6 +51,10 @@ def compile_resource_health_plan(
     )
     if not health_concepts:
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource health plan requires timezone-aware evaluation_time")
+    if not purpose.strip():
+        raise ValueError("resource health plan purpose MUST be non-empty")
     state_concepts = tuple(sorted(_STATE_MEASURES.intersection(frame.measure_concepts)))
     definition = resource_collection_definition(
         utterance=utterance,

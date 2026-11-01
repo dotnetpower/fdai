@@ -36,7 +36,9 @@ def normalize_network_path_clarification(
         frozenset({"Agent", "BusinessService", "Resource", "Workload"}),
     }:
         return proposal, frame
-    facets = {facet.replace("-", "_") for facet in proposal.measure_concepts}
+    facets = {
+        facet.strip().replace("-", "_") for facet in proposal.measure_concepts if facet.strip()
+    }
     targetless_topology = frame.output_shape == SemanticOutputShape.TOPOLOGY_GRAPH and (
         bool(stated_value_filters(utterance, descriptors).get(("Resource", "type")))
         or ("Resource" in frame.subject_constraints and len(frame.subject_constraints) > 1)

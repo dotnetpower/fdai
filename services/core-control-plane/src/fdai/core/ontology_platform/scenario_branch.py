@@ -44,6 +44,12 @@ class OntologyScenarioChangeSet:
         upsert_ids = [item.id for item in self.upsert_objects]
         if len(upsert_ids) != len(set(upsert_ids)):
             raise ValueError("ontology scenario object upserts MUST be unique")
+        if any(not item.strip() for item in self.delete_object_ids):
+            raise ValueError("ontology scenario object delete ids MUST be non-empty")
+        if any(
+            len(key) != 3 or any(not part.strip() for part in key) for key in self.delete_link_keys
+        ):
+            raise ValueError("ontology scenario link delete keys MUST contain three non-empty ids")
         if len(self.delete_object_ids) != len(set(self.delete_object_ids)):
             raise ValueError("ontology scenario object deletes MUST be unique")
         if set(upsert_ids) & set(self.delete_object_ids):
@@ -70,6 +76,17 @@ class OntologyScenarioResult:
     mutation_authority: bool = False
     execution_authority: bool = False
     promotion_required: bool = True
+
+    def __post_init__(self) -> None:
+        if (
+            self.production_write
+            or self.mutation_authority
+            or self.execution_authority
+            or not self.promotion_required
+        ):
+            raise ValueError(
+                "ontology scenario result MUST NOT carry production or execution authority"
+            )
 
 
 class OntologyScenarioBranch:

@@ -44,11 +44,11 @@ def validate_diagnostic_ledger(payload: Mapping[str, Any]) -> DiagnosticLedger:
     if tuple(payload.get("validation_axes") or ()) != VALIDATION_AXES:
         raise ValueError("diagnostic ledger validation_axes are incompatible")
     groups = payload.get("groups")
-    if not isinstance(groups, list):
+    if not isinstance(groups, (list, tuple)):
         raise ValueError("diagnostic ledger groups MUST be an array")
     source_commits: list[str] = []
     for group in groups:
-        if not isinstance(group, Mapping) or not isinstance(group.get("commits"), list):
+        if not isinstance(group, Mapping) or not isinstance(group.get("commits"), (list, tuple)):
             raise ValueError("diagnostic ledger group commits MUST be arrays")
         source_commits.extend(_commit_list(group["commits"], field="group commits"))
     if len(source_commits) != 124 or payload.get("source_commit_count") != len(source_commits):
@@ -76,7 +76,7 @@ def validate_diagnostic_ledger(payload: Mapping[str, Any]) -> DiagnosticLedger:
         raise ValueError("diagnostic ledger archive digest is not the frozen archive")
 
     mechanisms = payload.get("absorbed_mechanisms")
-    if not isinstance(mechanisms, list):
+    if not isinstance(mechanisms, (list, tuple)):
         raise ValueError("diagnostic ledger mechanisms MUST be an array")
     if payload.get("absorbed_mechanism_count") != 61 or len(mechanisms) != 61:
         raise ValueError("diagnostic ledger mechanism count is incomplete")
@@ -121,7 +121,7 @@ def validate_diagnostic_ledger(payload: Mapping[str, Any]) -> DiagnosticLedger:
 
 
 def _commit_list(value: object, *, field: str) -> list[str]:
-    if not isinstance(value, list) or any(
+    if not isinstance(value, (list, tuple)) or any(
         not isinstance(item, str) or _SHA1.fullmatch(item) is None for item in value
     ):
         raise ValueError(f"diagnostic ledger {field} MUST contain full lowercase revisions")

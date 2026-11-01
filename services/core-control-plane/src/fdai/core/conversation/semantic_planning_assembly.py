@@ -46,7 +46,10 @@ def plan_assembly_keys(frame: SemanticProblemFrame) -> tuple[str, ...]:
 def frame_result_keys(proposal: Mapping[str, Any]) -> tuple[str, ...]:
     """Return the output-shape key a frame proposal produced."""
 
-    shape = proposal.get("output_shape")
+    raw_shape = proposal.get("output_shape")
+    if raw_shape is None:
+        return ()
+    shape = str(getattr(raw_shape, "value", raw_shape))
     return (f"shape:{shape}",) if isinstance(shape, str) and _KEY_VALUE.fullmatch(shape) else ()
 
 
@@ -72,8 +75,11 @@ def plan_descriptors(
         and (
             guidance is None
             or descriptor.get("kind") != "function"
-            or descriptor.get("name") in named
-            or str(descriptor.get("name")) in guidance
+            or (
+                isinstance(name := descriptor.get("name"), str)
+                and bool(name)
+                and (name in named or name in guidance)
+            )
         )
     )
 

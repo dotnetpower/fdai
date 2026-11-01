@@ -162,7 +162,7 @@ def compile_resource_configuration_plan(
         or frame.investigation_intent_digest is not None
         or frame.measure_concepts
         or purpose != "operations-review"
-        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not {
             RESOURCE_CONFIGURATION_FUNCTION_NAME,
             RESOURCE_CONFIGURATION_SNAPSHOT_FUNCTION_NAME,
@@ -282,7 +282,7 @@ def _scope_predicates(constraints: tuple[str, ...]) -> tuple[ObjectPredicate, ..
         predicates[name] = ObjectPredicate(
             property=name,
             operator=ObjectPredicateOperator.EQUALS,
-            equals=value,
+            equals=value.strip(),
         )
     if "id" in predicates and "name" in predicates:
         return None

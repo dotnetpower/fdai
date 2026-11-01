@@ -176,6 +176,8 @@ def _ensure_size(payload: JsonObject, capabilities: PresentationCapabilities) ->
 
 
 def _chunks(value: str, maximum: int) -> tuple[str, ...]:
+    if isinstance(maximum, bool) or maximum < 1:
+        raise ValueError("chunk maximum MUST be a positive integer")
     return tuple(value[index : index + maximum] for index in range(0, len(value), maximum))
 
 

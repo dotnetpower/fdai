@@ -30,6 +30,8 @@ _CLIENT_SCOPE_KEYS = frozenset(
 
 async def read_json_body(request: Request, *, maximum: int) -> JsonObject:
     """Read one bounded JSON object and remove client-asserted identity fields."""
+    if isinstance(maximum, bool) or maximum < 1:
+        raise ValueError("read_json_body maximum MUST be a positive integer")
     declared = request.headers.get("content-length")
     if declared is not None:
         try:
@@ -73,7 +75,7 @@ def bounded_path_params(request: Request) -> JsonObject:
     """Return bounded path parameters supplied by Starlette converters."""
     result: JsonObject = {}
     for key, value in request.path_params.items():
-        if not isinstance(value, str) or not value or len(value) > MAX_PATH_VALUE_CHARS:
+        if not isinstance(value, str) or not value.strip() or len(value) > MAX_PATH_VALUE_CHARS:
             raise _bad_request(400, f"{key} MUST be a bounded path value")
         result[key] = value
     return result

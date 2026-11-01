@@ -48,6 +48,21 @@ class MaterializedConversationDocument:
     included_rows: int
     sha256: str
 
+    def __post_init__(self) -> None:
+        if not self.source_request_id.strip() or not self.markdown.strip():
+            raise ValueError(
+                "materialized document source_request_id and markdown MUST be non-empty"
+            )
+        if (
+            isinstance(self.expected_rows, bool)
+            or isinstance(self.included_rows, bool)
+            or self.expected_rows < 0
+            or self.included_rows < 0
+        ):
+            raise ValueError("materialized document row counts MUST be non-negative integers")
+        if len(self.sha256) != 64:
+            raise ValueError("materialized document sha256 MUST be a 64-character hex digest")
+
     def metadata(self, *, pdf_available: bool) -> JsonObject:
         return cast(
             JsonObject,

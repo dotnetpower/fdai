@@ -212,6 +212,8 @@ class CatalogQueryManifestProvider:
 def semantic_principal_scope_digest(*, principal: Principal, purpose: str) -> str:
     """Return the exact authenticated principal scope shared by planning and execution."""
 
+    if not principal.id.strip() or not purpose.strip():
+        raise ValueError("semantic principal scope requires non-empty principal_id and purpose")
     return content_digest(
         {
             "principal_id": principal.id,

@@ -27,7 +27,8 @@ def build_diagnostic_catalog_projection(
     creates an ActionType, approval, promotion, or execution authority.
     """
 
-    if not benchmark_id.strip():
+    normalized_benchmark_id = benchmark_id.strip()
+    if not normalized_benchmark_id:
         raise ValueError("diagnostic benchmark_id MUST be non-empty")
     objects: list[OntologyObjectRecord] = []
     links: list[OntologyLinkRecord] = []
@@ -39,7 +40,7 @@ def build_diagnostic_catalog_projection(
         seen_ids.add(mechanism_id)
         source_commits = mechanism.get("source_commits")
         if (
-            not isinstance(source_commits, list)
+            not isinstance(source_commits, (list, tuple))
             or not source_commits
             or any(
                 not isinstance(item, str) or _SHA1.fullmatch(item) is None
@@ -73,7 +74,7 @@ def build_diagnostic_catalog_projection(
             receipt_properties = _validation_receipt(
                 mechanism=mechanism,
                 mechanism_id=mechanism_id,
-                benchmark_id=benchmark_id,
+                benchmark_id=normalized_benchmark_id,
                 axis=axis,
                 passed=axes[axis],
             )

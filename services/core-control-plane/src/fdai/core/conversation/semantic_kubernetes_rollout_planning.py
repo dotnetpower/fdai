@@ -65,7 +65,11 @@ def compile_kubernetes_rollout_plan(
     identity_property = _resource_identity_property(manifest.descriptors)
     if identity_property is None:
         return None
-    target_value = targets[0].span.text
+    target_value = targets[0].span.text.strip()
+    if not target_value:
+        return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("kubernetes rollout plan requires timezone-aware evaluation_time")
     as_of = evaluation_time.astimezone(UTC)
     target_definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),

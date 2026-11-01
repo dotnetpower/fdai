@@ -41,8 +41,10 @@ class HardeningDecision:
     automatic_merge: bool = False
 
     def __post_init__(self) -> None:
-        if self.automatic_merge:
+        if not isinstance(self.automatic_merge, bool) or self.automatic_merge:
             raise ValueError("Pantheon diagnostic hardening MUST NOT merge automatically")
+        if not self.reason.strip():
+            raise ValueError("Pantheon hardening decision reason MUST be non-empty")
 
 
 _PROMPT = frozenset(tuple(PantheonRubric)[5:10])
@@ -63,7 +65,7 @@ def classify_hardening(
         return HardeningDecision(
             disposition=HardeningDisposition.HOLD,
             weaknesses=(PantheonWeakness.EXTERNAL_HOLD,),
-            reason=hold_reason,
+            reason=hold_reason.strip(),
         )
     if diagnostic is None or diagnostic.verdict is PantheonDiagnosticVerdict.PASS:
         return HardeningDecision(

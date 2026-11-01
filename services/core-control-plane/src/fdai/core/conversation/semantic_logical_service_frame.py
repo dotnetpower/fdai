@@ -108,13 +108,20 @@ def _exact_operating_target(
 ) -> tuple[str, str] | None:
     if judgment.ambiguous:
         return None
-    candidates = tuple(
-        (target.canonical_value, target.value)
-        for target in judgment.targets
-        if target.canonical_value in {"BusinessService", "Workload"}
-        and target.kind != "object_type"
-        and utterance[target.source_start : target.source_end] == target.value
-    )
+    deduped: dict[tuple[str, str], tuple[str, str]] = {}
+    for target in judgment.targets:
+        if (
+            target.canonical_value in {"BusinessService", "Workload"}
+            and target.kind != "object_type"
+            and 0 <= target.source_start < target.source_end <= len(utterance)
+            and utterance[target.source_start : target.source_end] == target.value
+            and target.value.strip()
+        ):
+            trimmed = target.value.strip()
+            deduped.setdefault(
+                (target.canonical_value, trimmed.casefold()), (target.canonical_value, trimmed)
+            )
+    candidates = tuple(deduped.values())
     return candidates[0] if len(candidates) == 1 else None
 
 

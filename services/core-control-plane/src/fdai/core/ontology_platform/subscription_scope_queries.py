@@ -57,7 +57,7 @@ class SubscriptionScopeObservation:
             raise ValueError("subscription state MUST be a reviewed Azure state")
         if not _MASKED_ID.fullmatch(self.masked_subscription_id):
             raise ValueError("masked_subscription_id MUST retain only four boundary characters")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.utcoffset() is None:
             raise ValueError("subscription observed_at MUST be timezone-aware")
         if not _DIGEST.fullmatch(self.evidence_digest):
             raise ValueError("subscription evidence_digest MUST be a SHA-256 reference")
@@ -74,7 +74,9 @@ class SubscriptionScopeCollection:
     attempt_ref: str
 
     def __post_init__(self) -> None:
-        if self.observed_at.tzinfo is None:
+        if not isinstance(self.complete, bool):
+            raise ValueError("subscription collection complete MUST be a boolean")
+        if self.observed_at.utcoffset() is None:
             raise ValueError("subscription collection time MUST be timezone-aware")
         if self.complete != (self.observation is not None):
             raise ValueError("complete subscription collection requires exactly one observation")

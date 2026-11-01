@@ -39,7 +39,7 @@ async def reclaim_retired_index(
             f"ontology-context-evidence:v1:terminal-seal:{terminal.command.digest}"
         )
         if (
-            raw_seal is None
+            not isinstance(raw_seal, Mapping)
             or not isinstance(raw_seal.get("terminal"), Mapping)
             or IndexTerminal.model_validate(raw_seal["terminal"]) != terminal
         ):

@@ -41,6 +41,10 @@ def causal_topology_limitation(
     views, infer the inverse of a dependency, or treat path absence as causal refutation.
     """
 
+    if not cause_id.strip() or not effect_id.strip():
+        raise ValueError("causal topology cause_id and effect_id MUST be non-empty")
+    if cutoff.utcoffset() is None or window_start.utcoffset() is None:
+        raise ValueError("causal topology cutoff and window_start MUST be timezone-aware")
     if topology.before is None or topology.after is None:
         return "topology_path_evidence_unavailable"
     if (

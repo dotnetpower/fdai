@@ -123,8 +123,13 @@ class ChannelDeliveryRecord:
             raise ValueError("channel delivery response digest does not match response")
         if not self.created_at <= self.due_at < self.expires_at <= self.retention_until:
             raise ValueError("channel delivery times are not ordered")
-        if not 0 <= self.attempt_count <= MAX_DELIVERY_ATTEMPTS:
+        if (
+            isinstance(self.attempt_count, bool)
+            or not 0 <= self.attempt_count <= MAX_DELIVERY_ATTEMPTS
+        ):
             raise ValueError("channel delivery attempt_count is outside the bounded range")
+        if not isinstance(self.duplicate_risk, bool):
+            raise ValueError("channel delivery duplicate_risk MUST be a boolean")
         sending = self.state is ChannelDeliveryState.SENDING
         if sending != (self.lease_owner is not None and self.lease_expires_at is not None):
             raise ValueError("channel delivery lease fields MUST match sending state")
@@ -173,11 +178,13 @@ class ChannelAdapterBreaker:
     reason: str = "initialized"
 
     def __post_init__(self) -> None:
-        if self.revision < 0:
+        if not self.adapter_id.strip():
+            raise ValueError("channel adapter breaker adapter_id MUST be non-empty")
+        if isinstance(self.revision, bool) or self.revision < 0:
             raise ValueError("channel adapter breaker revision MUST be non-negative")
         if self.updated_at is None:
             raise ValueError("channel adapter breaker updated_at MUST be set")
-        if not self.reason or len(self.reason) > 512:
+        if not self.reason.strip() or len(self.reason) > 512:
             raise ValueError("channel adapter breaker reason MUST be bounded")
 
 

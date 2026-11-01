@@ -126,7 +126,7 @@ async def _latest_postgres_refs(
     session_id: str,
     limit: int,
 ) -> tuple[ResultHandleRef, ...]:
-    if not 1 <= limit <= 4:
+    if isinstance(limit, bool) or not 1 <= limit <= 4:
         raise ValueError("result handle ref limit MUST be in [1, 4]")
     rows = await fetch_all(
         """

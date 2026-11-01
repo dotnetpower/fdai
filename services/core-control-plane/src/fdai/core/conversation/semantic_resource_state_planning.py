@@ -406,6 +406,8 @@ def resource_collection_definition(
 
     if require_operational_state_metadata and require_state_metadata:
         raise ValueError("resource collection state metadata modes are mutually exclusive")
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource collection definition requires timezone-aware evaluation_time")
     filters = stated_value_filters(
         utterance,
         descriptors,
@@ -466,8 +468,8 @@ def _operational_type_values(descriptors: tuple[dict[str, Any], ...]) -> tuple[s
         ),
         None,
     )
-    properties = descriptor.get("properties") if isinstance(descriptor, dict) else None
-    type_property = properties.get("type") if isinstance(properties, dict) else None
+    properties = descriptor.get("properties") if isinstance(descriptor, Mapping) else None
+    type_property = properties.get("type") if isinstance(properties, Mapping) else None
     declared = declared_property_values(type_property)
     values = reviewed if declared is None else reviewed.intersection(declared)
     if not values:
@@ -487,20 +489,20 @@ def _state_descriptor_metadata(
     if len(selected) != 1:
         return frozenset(), ()
     output_schema = selected[0].get("output_schema")
-    if not isinstance(output_schema, dict):
+    if not isinstance(output_schema, Mapping):
         return frozenset(), ()
     measures = output_schema.get("x-fdai-measure-concepts")
-    if not isinstance(measures, list):
+    if not isinstance(measures, (list, tuple)):
         return frozenset(), ()
     groups = output_schema.get("x-fdai-measure-value-groups")
     value_groups: list[tuple[str, tuple[str, ...]]] = []
-    if isinstance(groups, list):
+    if isinstance(groups, (list, tuple)):
         for group in groups:
-            if not isinstance(group, dict):
+            if not isinstance(group, Mapping):
                 continue
             concept = group.get("concept")
             terms = group.get("terms")
-            if not isinstance(concept, str) or not isinstance(terms, list):
+            if not isinstance(concept, str) or not isinstance(terms, (list, tuple)):
                 continue
             bounded_terms = tuple(term for term in terms if isinstance(term, str) and term.strip())
             if bounded_terms:
