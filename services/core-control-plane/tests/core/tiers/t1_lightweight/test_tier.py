@@ -283,3 +283,61 @@ async def test_contextless_upsert_cannot_erase_operational_context() -> None:
 
     matches = await library.search([0.2] * 8, k=1)
     assert matches[0].action.operational_case == context
+
+
+def test_t1_config_from_env_parses_and_validates() -> None:
+    cfg = T1Config.from_env(
+        {
+            "FDAI_T1_SIMILARITY_THRESHOLD": "0.75",
+            "FDAI_T1_MIN_SUCCESS_RATE": "0.85",
+            "FDAI_T1_TIMEOUT_SECONDS": "8.0",
+            "FDAI_T1_COMPARE_ELIGIBILITY": "true",
+        }
+    )
+    assert cfg.similarity_threshold == pytest.approx(0.75)
+    assert cfg.min_success_rate == pytest.approx(0.85)
+    assert cfg.timeout_seconds == pytest.approx(8.0)
+    assert cfg.compare_eligibility is True
+
+    with pytest.raises(ValueError, match="FDAI_T1_SIMILARITY_THRESHOLD"):
+        T1Config.from_env({"FDAI_T1_SIMILARITY_THRESHOLD": "1.5"})
+    with pytest.raises(ValueError, match="FDAI_T1_MIN_SUCCESS_RATE"):
+        T1Config.from_env({"FDAI_T1_MIN_SUCCESS_RATE": "-0.1"})
+    with pytest.raises(ValueError, match="FDAI_T1_TIMEOUT_SECONDS"):
+        T1Config.from_env({"FDAI_T1_TIMEOUT_SECONDS": "0"})
+
+
+def test_in_memory_pattern_library_seed_patterns_is_idempotent() -> None:
+    library = InMemoryPatternLibrary()
+    first = _action(signature="seed-1")
+    second = _action(signature="seed-2")
+    added = library.seed_patterns([([0.1] * 8, first), ([0.2] * 8, second), ([0.3] * 8, first)])
+    assert added == 2
+    assert library.signatures() == ("seed-1", "seed-2")
+    assert library.seed_patterns([([0.1] * 8, first)]) == 0
+
+
+def test_event_embedding_projection_includes_optional_semantic_facets() -> None:
+    from fdai.core.tiers.t1_lightweight import event_embedding_projection
+
+    basic = _event(payload={"resource": {"type": "compute.vm", "props": {"sku": "D2s"}}})
+    assert (
+        event_embedding_projection(basic)
+        == "event_type=change_detected;resource_type=compute.vm;props=sku"
+    )
+
+    enriched = _event(
+        payload={
+            "resource_type": "compute.vm",
+            "signal_kind": "metric.anomaly",
+            "metric": "cpu_percent",
+            "severity": "high",
+            "domain": "resilience",
+        }
+    )
+    projected = event_embedding_projection(enriched)
+    assert "resource_type=compute.vm" in projected
+    assert "signal_kind=metric.anomaly" in projected
+    assert "metric=cpu_percent" in projected
+    assert "severity=high" in projected
+    assert "domain=resilience" in projected

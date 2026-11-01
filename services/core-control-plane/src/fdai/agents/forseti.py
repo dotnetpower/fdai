@@ -174,6 +174,8 @@ class Forseti(
         rule_staleness_window: timedelta = _DEFAULT_RULE_STALENESS_WINDOW,
         state_store: StateStore | None = None,
         historical_replay_source: ForsetiHistoricalReplaySource | None = None,
+        t1_advisor: Callable[[dict[str, Any]], Any] | None = None,
+        t2_advisor: Callable[[dict[str, Any]], Any] | None = None,
     ) -> None:
         if (
             isinstance(cross_vertical_timeout_seconds, bool)
@@ -209,6 +211,8 @@ class Forseti(
         self._judgment_table = judgment_table or DEFAULT_JUDGMENT_TABLE
         self._forseti_state_store = state_store
         self._historical_replay_source = historical_replay_source
+        self._t1_advisor = t1_advisor
+        self._t2_advisor = t2_advisor
         self._baseline_scheduler: ForsetiBaselineScheduler | None = None
         self._operational_context = operational_context
         self._test_context_source = test_context_source
@@ -345,6 +349,14 @@ class Forseti(
     def bind_judgment_table(self, judgment_table: JudgmentTable) -> None:
         """Bind or replace the digest-stamped deterministic judgment table."""
         self._judgment_table = judgment_table
+
+    def bind_t1_advisor(self, advisor: Callable[[dict[str, Any]], Any] | None) -> None:
+        """Bind an optional T1 similarity reuse advisor for unmatched events."""
+        self._t1_advisor = advisor
+
+    def bind_t2_advisor(self, advisor: Callable[[dict[str, Any]], Any] | None) -> None:
+        """Bind an optional T2 reasoning advisor for unmatched events."""
+        self._t2_advisor = advisor
 
     def bind_kinetic_proposal_source(
         self,

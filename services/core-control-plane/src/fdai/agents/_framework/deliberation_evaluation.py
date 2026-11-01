@@ -9,7 +9,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-_IDENTITY_FIELDS = ("resource_id", "scope_ref", "id", "correlation_id")
+_IDENTITY_FIELDS = (
+    "resource_id",
+    "scope_ref",
+    "id",
+    "correlation_id",
+    "resource_ref",
+    "target_resource_ref",
+    "incident_id",
+)
 _CONCLUSION_FIELDS = (
     "state",
     "status",
@@ -18,6 +26,10 @@ _CONCLUSION_FIELDS = (
     "health",
     "outcome",
     "recommendation",
+    "decision",
+    "risk_verdict",
+    "posture",
+    "tier",
 )
 _MAX_CANONICAL_BYTES = 2_048
 
