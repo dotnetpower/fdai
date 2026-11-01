@@ -111,12 +111,10 @@ describe("browser notification boundary", () => {
       detail: {
         gate_decision: "hil",
         hil_request_outcome: "parked",
-        subject_key: "49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2",
-        approval_id: "f2289b2f55844026b7aacf02f82ead1e",
+        subject_key: "s".repeat(64),
+        approval_id: "a".repeat(32),
       },
-    }))?.tag).toBe(
-      "fdai:subject:49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2",
-    );
+    }))?.tag).toBe(`fdai:subject:${"s".repeat(64)}`);
   });
 
   test("accepts only runtime-observed events with safe identifiers", () => {
@@ -835,7 +833,7 @@ describe("browser notification boundary", () => {
       removeItem: (key: string) => { values.delete(key); },
     };
     const now = 1_800_000_000_000;
-    const tag = "fdai:subject:49a33efb6bbfafa71f717e87d7d9029ab2d291b2002859bbeb5b92dbc1b57cc2";
+    const tag = `fdai:subject:${"s".repeat(64)}`;
     expect(await claimBrowserAlertDelivery(tag, "principal-a", now, storage)).toBe("claimed");
     await recordBrowserAlertDelivered(
       tag,

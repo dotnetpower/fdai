@@ -24,3 +24,5 @@ b6b9a831d4005a70155a9b21291bbfa8e85f72f2:console/src/routes/licensing-status-bad
 b6b9a831d4005a70155a9b21291bbfa8e85f72f2:services/operator-service/tests/test_licensing_warning_projection.py:generic-api-key:112
 # Shortened synthetic idempotency_key fixture to idem-1; ignore only this historical PR fingerprint.
 9250c8a6c8f676311e6dda12c979e123bbd337fb:services/core-control-plane/tests/core/architecture_review/test_effect_closure.py:generic-api-key:31
+# Replaced synthetic subject_key hex fixture with runtime repeat expression; ignore only this historical PR fingerprint.
+f2e1a0fb158800cb2127635c834e80f0f6d9836e:console/src/browser-notifications.test.ts:generic-api-key:114
