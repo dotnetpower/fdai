@@ -36,6 +36,11 @@ from fdai_lifecycle_hub.configuration_import_models import (
 from fdai_lifecycle_hub.configuration_key_store import resolve_binding
 from fdai_lifecycle_hub.configuration_keys import KeyBindingError
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus, KeyProofVerifier
+from fdai_lifecycle_hub.entitlement_handoff import (
+    GovernedEntitlementRotationReceipt,
+    HubEntitlementHandoffStore,
+    OpaqueEntitlementCarrierHandoff,
+)
 from fdai_lifecycle_hub.entity import EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
@@ -81,6 +86,7 @@ class HubStore:
     def __init__(self, engine: Engine) -> None:
         self.engine = engine
         self._sessions = sessionmaker(engine, expire_on_commit=False)
+        self.entitlement_handoffs = HubEntitlementHandoffStore()
 
     def with_connection(self, connection: Connection) -> HubStore:
         """Join an owning catalog transaction without committing it from a nested store method."""
@@ -88,7 +94,32 @@ class HubStore:
         bound._sessions = sessionmaker(
             connection, expire_on_commit=False, join_transaction_mode="create_savepoint"
         )
+        bound.entitlement_handoffs = self.entitlement_handoffs
         return bound
+
+    def stage_entitlement_handoff(
+        self,
+        handoff: OpaqueEntitlementCarrierHandoff | None = None,
+        **kwargs: object,
+    ) -> OpaqueEntitlementCarrierHandoff:
+        """Stage an opaque entitlement carrier handoff onto a Hub Plan."""
+        return self.entitlement_handoffs.stage_plan_handoff(handoff, **kwargs)
+
+    def record_governed_entitlement_rotation(
+        self,
+        receipt: GovernedEntitlementRotationReceipt | None = None,
+        **kwargs: object,
+    ) -> GovernedEntitlementRotationReceipt:
+        """Record a separately governed entitlement rotation receipt."""
+        return self.entitlement_handoffs.record_governed_rotation(receipt, **kwargs)
+
+    def entitlement_handoff(self, installation_id: str) -> OpaqueEntitlementCarrierHandoff | None:
+        """Return the active staged entitlement carrier handoff for an installation."""
+        return self.entitlement_handoffs.get_handoff(installation_id)
+
+    def plan_entitlement_handoff(self, plan_id: str) -> OpaqueEntitlementCarrierHandoff | None:
+        """Return the opaque entitlement carrier handoff staged for a Plan ID."""
+        return self.entitlement_handoffs.get_plan_handoff(plan_id)
 
     @classmethod
     def connect(cls, url: str) -> Self:

@@ -24,6 +24,16 @@ from fdai_service_contracts.ontology_query import (
     QueryNodeKind,
 )
 
+from .promotion_program_verifiers import (
+    BlindReadingRoleSpec,
+    CompiledPlanRoleBinding,
+    PlanRoleCoverageVerdict,
+    TerminalClarificationDecision,
+    VarianceAndAmbiguityEvaluation,
+    enforce_terminal_clarification_hold,
+    evaluate_single_sample_variance_and_ambiguity,
+    verify_plan_role_coverage,
+)
 from .semantic_operand_provenance import (
     IdentityBindingReceipt,
     ProvenanceScope,
@@ -429,9 +439,17 @@ __all__ = [
     "PLAN_CONSTRAINT_UNCOVERED",
     "PLAN_READING_UNVERIFIED",
     "BlindReading",
+    "BlindReadingRoleSpec",
+    "CompiledPlanRoleBinding",
+    "PlanRoleCoverageVerdict",
     "PlanVeto",
+    "TerminalClarificationDecision",
+    "VarianceAndAmbiguityEvaluation",
+    "enforce_terminal_clarification_hold",
+    "evaluate_single_sample_variance_and_ambiguity",
     "narrower_plan_outcome",
     "plan_answers_schema_for_instance",
     "plan_reads_only_a_list",
     "plan_uncovered_roles",
+    "verify_plan_role_coverage",
 ]

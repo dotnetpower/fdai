@@ -16,7 +16,9 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Generic, Literal, Protocol, TypeVar
+from typing import Any, Generic, Literal, Protocol, TypeVar
+
+from fdai_deployment_cli.cli_help import command
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
@@ -406,6 +408,61 @@ class TemporaryPublicAccessCoordinator:
         return outcome
 
 
+def register_temporary_public_access_command(provision_commands: Any) -> None:
+    """Register `fdaictl provision temporary-access` in the provision command group."""
+    temp_access = command(
+        provision_commands,
+        "temporary-access",
+        "Validate a bounded /32 temporary public-access request and emit Phase 1 audit",
+    )
+    temp_access.add_argument("--correlation-id", required=True)
+    temp_access.add_argument("--target-resource-id", required=True)
+    temp_access.add_argument("--caller-cidr", required=True)
+    temp_access.add_argument("--ttl-seconds", type=int, default=900)
+    temp_access.add_argument("--principal-id", default="authenticated-operator")
+    temp_access.set_defaults(handler=run_temporary_public_access_command)
+
+
+def run_temporary_public_access_command(args: Any) -> int:
+    """Validate and print a bounded /32 temporary public-access preparation receipt."""
+    now = datetime.now(UTC)
+    req = TemporaryPublicAccessRequest(
+        correlation_id=str(args.correlation_id),
+        target_resource_id=str(args.target_resource_id),
+        caller_cidr=str(args.caller_cidr),
+        ttl_seconds=int(args.ttl_seconds),
+        requested_at=now,
+        caller_principal_id=str(args.principal_id),
+    )
+    audit = TemporaryAccessAuditRecord(
+        phase="phase_1",
+        phase_status="prepared",
+        correlation_id=req.correlation_id,
+        rule_id=req.rule_id,
+        target_resource_id=req.target_resource_id,
+        caller_cidr=req.caller_cidr,
+        caller_principal_id=req.caller_principal_id,
+        ttl_seconds=req.ttl_seconds,
+        recorded_at=now,
+        expires_at=req.expires_at,
+        readback_verified_absent=False,
+        requires_operator_remediation=False,
+    )
+    print(
+        json.dumps(
+            {
+                "rule_id": req.rule_id,
+                "caller_cidr": req.caller_cidr,
+                "ttl_seconds": req.ttl_seconds,
+                "phase1_receipt_digest": audit.receipt_digest,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    )
+    return 0
+
+
 __all__ = [
     "AccessOutcomeStatus",
     "MAX_TEMPORARY_ACCESS_TTL_SECONDS",
@@ -418,6 +475,8 @@ __all__ = [
     "TemporaryPublicAccessError",
     "TemporaryPublicAccessOutcome",
     "TemporaryPublicAccessRequest",
+    "register_temporary_public_access_command",
+    "run_temporary_public_access_command",
     "validate_caller_ipv4_host_cidr",
     "validate_ttl_seconds",
 ]

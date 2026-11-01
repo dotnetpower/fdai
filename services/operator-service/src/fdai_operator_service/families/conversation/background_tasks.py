@@ -16,8 +16,14 @@ from fdai_operator_service.families.conversation.contracts import (
     JsonObject,
     StreamEvent,
 )
+from fdai_operator_service.task_worker_projection import (
+    FetchAll,
+    SqlTaskWorkerProjectionStore,
+    TaskWorkerProjectionMaterializer,
+)
 
 _READ_OPERATIONS = frozenset({"background.list", "background.get", "background.progress"})
+_WORKER_OPERATIONS = frozenset({"workers.list", "workers.get", "workers.events"})
 _EXECUTION_WORKER = "background-task-coordinator"
 _TERMINAL_STATUSES = frozenset({"succeeded", "failed", "cancelled", "timed_out", "unknown"})
 
@@ -91,6 +97,19 @@ class BackgroundTaskProjectionStore(Protocol):
         after_sequence: int,
         limit: int,
     ) -> tuple[BackgroundTaskProgressProjection, ...]: ...
+
+
+async def materialize_task_worker(
+    query: ConversationQuery,
+    *,
+    fetch_all: FetchAll | None = None,
+) -> ConversationResponse | None:
+    """Materialize one owner-scoped task-worker read projection."""
+
+    if query.operation not in _WORKER_OPERATIONS or fetch_all is None:
+        return None
+    store = SqlTaskWorkerProjectionStore(fetch_all=fetch_all)
+    return await TaskWorkerProjectionMaterializer(store=store).read(query)
 
 
 async def materialize_background_task(

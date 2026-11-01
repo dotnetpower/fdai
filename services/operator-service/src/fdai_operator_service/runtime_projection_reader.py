@@ -17,9 +17,7 @@ from typing import Any, cast
 import psycopg
 from psycopg.rows import dict_row
 
-from fdai_operator_service.analyzer_lifecycle_projection import (
-    project_analyzer_lifecycle,
-)
+from fdai_operator_service.analyzer_lifecycle_projection import project_analyzer_lifecycle
 from fdai_operator_service.analyzer_run_projection import (
     project_analyzer_run,
     project_latest_analyzer_coverage,
@@ -28,14 +26,16 @@ from fdai_operator_service.assurance_twin_posture_projection import (
     ASSURANCE_TWIN_OPERATIONS,
     read_assurance_twin_projection,
 )
-from fdai_operator_service.autonomy_measurement_projection import (
-    validate_autonomy_measurement,
-)
+from fdai_operator_service.autonomy_measurement_projection import validate_autonomy_measurement
 from fdai_operator_service.code_security_review_projection import (
     CODE_SECURITY_OPERATIONS,
     read_code_security_projection,
 )
 from fdai_operator_service.console_inbox_projection import read_console_inbox
+from fdai_operator_service.conversation_delivery_panel_route import (
+    BoundedProgressiveConversationCollector,
+    ConversationDeliveryPanelRoute,
+)
 from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
 from fdai_operator_service.dashboard_source import (
     MEASUREMENT_KINDS,
@@ -43,9 +43,13 @@ from fdai_operator_service.dashboard_source import (
     MEASUREMENT_SNAPSHOT_SQL,
     decode_dashboard_snapshot,
 )
-from fdai_operator_service.detection_lifecycle_projection import (
-    detection_lifecycle_projection,
+from fdai_operator_service.declared_intent_review_projection import (
+    DeclaredIntentReviewerContext,
+    DeclaredIntentSourceAccessMetadata,
+    build_declared_intent_general_topic_summary,
+    build_declared_intent_review_projection,
 )
+from fdai_operator_service.detection_lifecycle_projection import detection_lifecycle_projection
 from fdai_operator_service.families.conversation.channel_delivery_models import ChannelBreakerMode
 from fdai_operator_service.families.operations import (
     ProjectionNotFoundError,
@@ -54,15 +58,15 @@ from fdai_operator_service.families.operations import (
     ProjectionUnavailableError,
 )
 from fdai_operator_service.finding_projection import read_findings
-from fdai_operator_service.investigation_projection import (
-    project_adaptive_investigation,
-)
+from fdai_operator_service.investigation_projection import project_adaptive_investigation
+from fdai_operator_service.licensing_warning_projection import build_licensing_warning_projection
 from fdai_operator_service.outcome_assurance_projection import read_outcome_assurance_projection
 from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     project_process_control,
 )
 from fdai_operator_service.runtime_model_scope_projection import project_runtime_operational_state
+from fdai_operator_service.skill_source_projection import SkillSourceWorkflowBridge
 
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 _AUTOMATION_BLUEPRINT_AGGREGATE_SQL = "SELECT COUNT(*) AS proposed, COUNT(*) FILTER (WHERE state = 'accepted') AS accepted, COUNT(*) FILTER (WHERE state = 'rejected') AS rejected, COUNT(*) FILTER (WHERE state = 'expired') AS expired, COUNT(*) FILTER (WHERE state = 'materialized') AS materialized, COALESCE(SUM(realized_usage_count), 0)::bigint AS realized_usage, COALESCE(jsonb_object_agg(review_reason, reason_count) FILTER (WHERE review_reason IS NOT NULL), '{}'::jsonb) AS rejection_reasons FROM (SELECT state, realized_usage_count, CASE WHEN state = 'rejected' THEN review_reason ELSE NULL END AS review_reason, COUNT(*) OVER (PARTITION BY CASE WHEN state = 'rejected' THEN review_reason END) AS reason_count FROM automation_blueprint_candidate) AS aggregate_source"  # noqa: E501
@@ -119,6 +123,16 @@ class RuntimeProjectionReader:
             return await read_console_inbox(self._fetch_all, query)
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
+        if query.operation == "licensing.warning":
+            return cast(
+                Mapping[str, object],
+                build_licensing_warning_projection(
+                    principal_id=query.principal_id or "operator-reader",
+                    license_status="absent",
+                    acting_available=False,
+                    observed_at=None,
+                ).model_dump(mode="json"),
+            )
         if query.operation == "runtime.operational-state":
             return await self._operational_state()
         if query.operation in ASSURANCE_TWIN_OPERATIONS:
@@ -747,14 +761,7 @@ class RuntimeProjectionReader:
             for row in (*readiness_rows, *receipt_rows, *run_rows, *pod_lifecycle_rows)
             if row.get("updated_at") is not None
         ]
-        decision_keys = (
-            "ready",
-            "partial",
-            "blocked",
-            "stale",
-            "unauthorized",
-            "unknown",
-        )
+        decision_keys = ("ready", "partial", "blocked", "stale", "unauthorized", "unknown")
         return {
             "source": "postgresql:state_kv:detection-readiness",
             "observed_at": max(observed).isoformat() if observed else None,
@@ -787,16 +794,8 @@ class RuntimeProjectionReader:
                 "unknown_count": 0,
             },
             "versions": [],
-            "drift": {
-                "verdict": "not-evaluated",
-                "observed_at": None,
-                "finding_count": 0,
-            },
-            "knowledge": {
-                "status": "not-indexed",
-                "citation_count": 0,
-                "citations": [],
-            },
+            "drift": {"verdict": "not-evaluated", "observed_at": None, "finding_count": 0},
+            "knowledge": {"status": "not-indexed", "citation_count": 0, "citations": []},
             "safety": {
                 "mutation_count": 0,
                 "approval_request_count": 0,
@@ -934,4 +933,15 @@ def _psycopg_dsn(value: str) -> str:
     return normalized
 
 
-__all__ = ["RuntimeProjectionReader", "RuntimeProjectionReaderConfig"]
+__all__ = [
+    "BoundedProgressiveConversationCollector",
+    "ConversationDeliveryPanelRoute",
+    "DeclaredIntentReviewerContext",
+    "DeclaredIntentSourceAccessMetadata",
+    "RuntimeProjectionReader",
+    "RuntimeProjectionReaderConfig",
+    "SkillSourceWorkflowBridge",
+    "build_declared_intent_general_topic_summary",
+    "build_declared_intent_review_projection",
+    "build_licensing_warning_projection",
+]

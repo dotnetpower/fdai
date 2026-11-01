@@ -35,6 +35,12 @@ from fdai.delivery.persistence.postgres_background_task_projection_feed import (
     PostgresBackgroundTaskProjectionFeed,
     PostgresBackgroundTaskProjectionFeedConfig,
 )
+from fdai.delivery.persistence.postgres_behavior_knowledge import (
+    BehaviorSeedSyncReceipt,
+    PostgresBehaviorKnowledgeConfig,
+    PostgresBehaviorKnowledgeIndex,
+    sync_behavior_knowledge_seeds,
+)
 from fdai.delivery.persistence.postgres_briefing import (
     PostgresBriefingRunStore,
     PostgresBriefingStoreConfig,
@@ -299,6 +305,10 @@ __all__ = [
     "PostgresBackgroundTaskStoreConfig",
     "PostgresBackgroundTaskProjectionFeed",
     "PostgresBackgroundTaskProjectionFeedConfig",
+    "BehaviorSeedSyncReceipt",
+    "PostgresBehaviorKnowledgeConfig",
+    "PostgresBehaviorKnowledgeIndex",
+    "sync_behavior_knowledge_seeds",
     "PostgresBrowserEvidenceArtifactStore",
     "PostgresBrowserEvidenceArtifactStoreConfig",
     "ReadLatencyStoreConflictError",

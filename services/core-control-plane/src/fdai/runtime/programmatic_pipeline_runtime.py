@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from fdai.core.programmatic_pipeline import (
     InMemoryProgrammaticPipelineStore,
@@ -41,6 +42,45 @@ DEFAULT_PIPELINE_SANDBOX_PROFILES: tuple[ProgrammaticPipelineSandboxProfile, ...
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ProgrammaticPipelineRuntimeBundle:
+    """Bundled runtime state for ProgrammaticPipelineService execution."""
+
+    service: ProgrammaticPipelineService
+    store: ProgrammaticPipelineStore
+    sandbox_profiles: ProgrammaticPipelineSandboxCatalog
+    authority: PipelineCapabilityAuthority
+
+
+def build_programmatic_pipeline_runtime(
+    *,
+    runner: ProgrammaticPipelineRunner,
+    executor: ToolExecutor,
+    store: ProgrammaticPipelineStore | None = None,
+    sandbox_profiles: Sequence[ProgrammaticPipelineSandboxProfile] | None = None,
+    authority: PipelineCapabilityAuthority | None = None,
+) -> ProgrammaticPipelineRuntimeBundle:
+    """Compose a ProgrammaticPipelineRuntimeBundle over the registered ToolExecutor and store."""
+    resolved_store = store or InMemoryProgrammaticPipelineStore()
+    catalog = ProgrammaticPipelineSandboxCatalog(
+        tuple(sandbox_profiles or DEFAULT_PIPELINE_SANDBOX_PROFILES)
+    )
+    resolved_authority = authority or PipelineCapabilityAuthority()
+    service = ProgrammaticPipelineService(
+        runner=runner,
+        executor=executor,
+        store=resolved_store,
+        sandbox_profiles=catalog,
+        authority=resolved_authority,
+    )
+    return ProgrammaticPipelineRuntimeBundle(
+        service=service,
+        store=resolved_store,
+        sandbox_profiles=catalog,
+        authority=resolved_authority,
+    )
+
+
 def build_programmatic_pipeline_service(
     *,
     runner: ProgrammaticPipelineRunner,
@@ -50,17 +90,18 @@ def build_programmatic_pipeline_service(
     authority: PipelineCapabilityAuthority | None = None,
 ) -> ProgrammaticPipelineService:
     """Compose ProgrammaticPipelineService over the registered ToolExecutor and store."""
-    profiles = tuple(sandbox_profiles or DEFAULT_PIPELINE_SANDBOX_PROFILES)
-    return ProgrammaticPipelineService(
+    return build_programmatic_pipeline_runtime(
         runner=runner,
         executor=executor,
-        store=store or InMemoryProgrammaticPipelineStore(),
-        sandbox_profiles=ProgrammaticPipelineSandboxCatalog(profiles),
-        authority=authority or PipelineCapabilityAuthority(),
-    )
+        store=store,
+        sandbox_profiles=sandbox_profiles,
+        authority=authority,
+    ).service
 
 
 __all__ = [
     "DEFAULT_PIPELINE_SANDBOX_PROFILES",
+    "ProgrammaticPipelineRuntimeBundle",
+    "build_programmatic_pipeline_runtime",
     "build_programmatic_pipeline_service",
 ]

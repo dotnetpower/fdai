@@ -11,6 +11,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai.core.measurement.cohort_claim_policy import load_cohort_claim_policy
+from fdai.delivery.measurement.cohort_observation_export import (
+    build_cohort_observation_batch,
+    export_cohort_observation_batch,
+)
 from fdai.delivery.measurement.cohort_observation_import import (
     CohortObservationImportContext,
     import_cohort_observation_batch,
@@ -94,3 +98,9 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+__all__ = [
+    "build_cohort_observation_batch",
+    "export_cohort_observation_batch",
+    "main",
+]

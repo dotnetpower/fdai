@@ -194,3 +194,18 @@ def _build_envelope(result: TaskWorkerResult) -> DetachedWorkerCompletionEnvelop
         started_at=result.started_at.isoformat(),
         finished_at=result.finished_at.isoformat(),
     )
+
+
+TaskWorkerCompletionSink = DetachedSessionTaskWorkerCompletionSink
+CompletionSinkDeliveryReceipt = DetachedWorkerCompletionReceipt
+
+__all__ = [
+    "COMPLETION_FAILURE_EVENT_KIND",
+    "CompletionSinkDeliveryReceipt",
+    "DetachedSessionReplySink",
+    "DetachedSessionTaskWorkerCompletionSink",
+    "DetachedWorkerCompletionEnvelope",
+    "DetachedWorkerCompletionReceipt",
+    "InMemoryDetachedSessionReplyLedger",
+    "TaskWorkerCompletionSink",
+]

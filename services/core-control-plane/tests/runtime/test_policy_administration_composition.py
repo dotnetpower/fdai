@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -146,6 +146,32 @@ def test_unbound_release_source_does_not_claim_an_authenticated_maximum(
     action_type: str,
 ) -> None:
     assert composition.FailClosedReleaseMaximums().maximum_mode_for_action_type(action_type) is None
+
+
+def test_verified_release_capability_maximums_enforces_binding_and_recall() -> None:
+    valid = composition.VerifiedReleaseCapabilityMaximums(
+        installed_release_id="release-2026.11.0",
+        manifest_release_id="release-2026.11.0",
+        signature_verified=True,
+        metadata_current=True,
+        rollback_protected=True,
+        capability_maximums={"ops.restart-pod": PolicyMode.ENFORCE},
+        recalled_action_types=frozenset({"ops.recalled-action"}),
+    )
+    assert valid.maximum_mode_for_action_type("ops.restart-pod") is PolicyMode.ENFORCE
+    assert valid.maximum_mode_for_action_type("ops.unregistered") is None
+    assert valid.maximum_mode_for_action_type("ops.recalled-action") is None
+
+    for kwargs in (
+        {"installed_release_id": ""},
+        {"manifest_release_id": "release-other"},
+        {"signature_verified": False},
+        {"metadata_current": False},
+        {"rollback_protected": False},
+        {"recalled_action_types": frozenset({"ops.restart-pod"})},
+    ):
+        broken = replace(valid, **kwargs)  # type: ignore[arg-type]
+        assert broken.maximum_mode_for_action_type("ops.restart-pod") is None
 
 
 @pytest.mark.parametrize(

@@ -20,6 +20,12 @@ from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.delivery.chatops.slack_binding import build_slack_hil_channel
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
+from fdai.delivery.outbound_delivery_origin_delete import (
+    InMemoryOriginDeletionAuditSink,
+    OriginDeletionAuditSink,
+    OriginScopedOutboundDeliveryDeleter,
+    OutboundDeliveryOriginDeleteReceipt,
+)
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.runtime.github_auth import build_github_token_provider
 from fdai.runtime.human_access import build_human_access_direct_api
@@ -53,18 +59,10 @@ def _build_publisher(
 ) -> Any:
     """Select the :class:`RemediationPrPublisher` backend for this process.
 
-    A static ``FDAI_GITOPS_TOKEN`` or complete GitHub App credential set opts
-    into the real :class:`GitOpsPrAdapter`; missing credentials fall back to the in-memory
-    :class:`RecordingRemediationPrPublisher` fake. The
-    ``RemediationPrPublisher`` Protocol is the contract, so ``core/``
-    neither knows nor cares which backend is active.
-
-    Fail-fast contract: opting in requires ``owner`` + ``repo``. A
-    partial configuration (token without owner/repo) is a deployment
-    bug and raises immediately so the container never masquerades as
-    a real GitOps publisher. ``http_client`` MUST be non-None when the token is set - the
-    adapter never opens its own connection; the composition root owns
-    the client lifecycle.
+    A static ``FDAI_GITOPS_TOKEN`` or complete GitHub App credential set opts into
+    :class:`GitOpsPrAdapter`; missing credentials fall back to
+    :class:`RecordingRemediationPrPublisher`. Opting in requires ``owner``, ``repo``,
+    and a composition-owned ``http_client``.
     """
     if not live_delivery_enabled:
         _LOGGER.info(
@@ -154,19 +152,10 @@ def _build_hil_channel(
 ) -> Any:
     """Select the :class:`HilChannel` backend for this process.
 
-    A complete Slack approval configuration selects the outbound-only Slack
-    adapter without allocating a Teams Bot identity. Otherwise the Teams
-    activity endpoint selects :class:`TeamsHilAdapter`. Missing channel configuration
-    returns ``None`` so the caller
-    falls back to its persisted HIL queue (existing P1 behavior - see
-    ``docs/roadmap/interfaces/channels-and-notifications.md § 6``). The
-    ``HilChannel`` Protocol is the contract, so ``core/`` neither knows
-    nor cares which backend is active.
-    Env vars (Bot Framework mode):
-
-    The injected workload identity requests the Bot Framework token. ``http_client`` remains
-    composition-owned, and Incoming Webhooks are not accepted because they cannot deliver
-    ``Action.Execute`` approval callbacks.
+    A complete Slack approval configuration selects the outbound-only Slack adapter without
+    allocating a Teams Bot identity; otherwise the Teams activity endpoint selects
+    :class:`TeamsHilAdapter`. Missing channel configuration returns ``None`` so the caller
+    falls back to its persisted HIL queue. Incoming Webhooks are rejected.
     """
     webhook_url = os.environ.get("FDAI_CHATOPS_WEBHOOK_URL", "").strip()
     activity_url = os.environ.get("FDAI_TEAMS_APPROVAL_ACTIVITY_URL", "").strip()
@@ -473,16 +462,8 @@ def _build_tool_executor(
 ) -> ToolCallShadowExecutor | None:
     """Select the tool-call executor for this process.
 
-    Opt-in via ``FDAI_TOOL_CALL_FAKE=1``: composes a
-    :class:`RecordingToolExecutor` fake behind the
-    :class:`ToolCallShadowExecutor` so an operator can exercise the
-    ``execution_path: tool_call`` dispatch path end-to-end without a real
-    tool registry. Absent -> returns ``None`` so :class:`ControlLoop`
-    falls back to PR-native routing (the P1 default).
-
-    A real tool adapter (a native Python registry, an MCP client, an HTTP
-    callout) is fork-authored and binds here through the same env-gated
-    shape.
+    Opt-in via ``FDAI_TOOL_CALL_FAKE=1`` composes :class:`RecordingToolExecutor` behind
+    :class:`ToolCallShadowExecutor`; absent returns ``None``.
     """
 
     routes: dict[str, Any] = {}
@@ -793,3 +774,26 @@ def _build_notification_router(
         hil_sink=StateStoreHilEscalationSink(state_store=audit_store),
         delivery_store=notification_delivery_store,
     )
+
+
+def build_outbound_delivery_origin_deleter(
+    store: Any,
+    *,
+    audit: OriginDeletionAuditSink | None = None,
+    fence: Any = None,
+) -> OriginScopedOutboundDeliveryDeleter:
+    """Bind OriginScopedOutboundDeliveryDeleter over the outbound delivery store."""
+    return OriginScopedOutboundDeliveryDeleter(
+        store=store,
+        audit=audit or InMemoryOriginDeletionAuditSink(),
+        fence=fence,
+    )
+
+
+__all__ = [
+    "OriginScopedOutboundDeliveryDeleter",
+    "OutboundDeliveryOriginDeleteReceipt",
+    "build_notification_delivery_store",
+    "build_outbound_delivery_origin_deleter",
+    "with_console_inbox",
+]

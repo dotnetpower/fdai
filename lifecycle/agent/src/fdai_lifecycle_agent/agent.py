@@ -87,6 +87,12 @@ from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadSt
 from fdai_lifecycle_agent.native_cluster import NativeCluster
 from fdai_lifecycle_agent.native_state import NativeStateStore
 from fdai_lifecycle_agent.runtime_bundle import RuntimeBundle
+from fdai_lifecycle_agent.self_upgrade_fencing import (
+    ComponentSelfUpgradeController,
+    ComponentSlotFence,
+    SelfUpgradeTransitionRecord,
+    SlotId,
+)
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     MAX_REPORT_HISTORY,
@@ -234,6 +240,7 @@ class AgentDependencies:
     compute_change_set: ChangeSetCalculator = compute_change_set
     apply: ApplyMode | None = None
     configuration_binding: FullRevisionBinding | None = field(default=None, repr=False)
+    self_upgrade_controller: ComponentSelfUpgradeController | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -256,6 +263,29 @@ class LifecycleAgent:
     def __init__(self, settings: AgentSettings, deps: AgentDependencies) -> None:
         self._settings = settings
         self._deps = deps
+
+    def verify_active_slot_fence(
+        self,
+        *,
+        slot: SlotId,
+        epoch: int,
+        now: datetime | None = None,
+    ) -> ComponentSlotFence | None:
+        """Verify that this agent slot holds the active fenced role when a controller is bound."""
+        controller = self._deps.self_upgrade_controller
+        if controller is None:
+            return None
+        return controller.assert_execution_allowed(
+            "lifecycle_agent",
+            slot,
+            epoch,
+            now or self._deps.clock(),
+        )
+
+    def self_upgrade_transitions(self) -> tuple[SelfUpgradeTransitionRecord, ...]:
+        """Return durable self-upgrade transition records when a controller is bound."""
+        controller = self._deps.self_upgrade_controller
+        return () if controller is None else controller.transition_log
 
     def poll_once(self) -> PollResult:
         """Run one poll under the exclusive state lock.

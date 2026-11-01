@@ -224,7 +224,30 @@ def _bounded_id(payload: Mapping[str, Any], key: str) -> str:
     return value
 
 
+@dataclass(frozen=True, slots=True)
+class ProgrammaticPipelineOperatorEndpoint:
+    """Operator API submission boundary wrapper for `/pipelines/programmatic/submit`."""
+
+    reviewed_digest_allowlist: frozenset[str] = frozenset()
+    route_path: str = "/pipelines/programmatic/submit"
+
+    def submit(
+        self,
+        *,
+        principal_id: str,
+        roles: frozenset[str] | set[str],
+        payload: Mapping[str, Any],
+    ) -> dict[str, object]:
+        return submit_reviewed_programmatic_pipeline(
+            principal_id=principal_id,
+            roles=roles,
+            payload=payload,
+            reviewed_digest_allowlist=self.reviewed_digest_allowlist,
+        )
+
+
 __all__ = [
+    "ProgrammaticPipelineOperatorEndpoint",
     "ProgrammaticPipelineSubmissionError",
     "ValidatedPipelineSubmission",
     "submit_reviewed_programmatic_pipeline",

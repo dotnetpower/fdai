@@ -265,14 +265,35 @@ def _outcome_digest_payload(outcome: SemanticPlanningOutcome) -> Mapping[str, ob
     }
 
 
+from .production_shadow_expiry_store import (  # noqa: E402
+    ExpiringProductionShadowStore,
+    ProductionShadowCleanupReceipt,
+    SemanticProductionShadowRecord,
+)
+
+
+class ExpiringProductionShadowSink:
+    """ProductionShadowSink backed by ExpiringProductionShadowStore."""
+
+    def __init__(self, store: ExpiringProductionShadowStore | None = None) -> None:
+        self.store = store or ExpiringProductionShadowStore()
+
+    def write(self, record: ProductionShadowRecord) -> None:
+        self.store.record(SemanticProductionShadowRecord.from_production_shadow_record(record))
+
+
 __all__ = [
     "PRODUCTION_SHADOW_ABSENT",
     "PRODUCTION_SHADOW_LINKED",
+    "ExpiringProductionShadowSink",
+    "ExpiringProductionShadowStore",
     "InMemoryProductionShadowSink",
+    "ProductionShadowCleanupReceipt",
     "ProductionShadowRecord",
     "ProductionShadowRecorder",
     "ProductionShadowSettings",
     "ProductionShadowSink",
+    "SemanticProductionShadowRecord",
     "StateStoreProductionShadowSink",
     "production_shadow_record",
     "record_planned_shadow",

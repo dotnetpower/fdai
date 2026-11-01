@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fdai.core.conversation.busy_input_coordinator import BusyInputCoordinator
 from fdai.core.conversation.model_call_progress import (
     ModelCallProgress,
     bind_model_call_progress_observer,
@@ -28,6 +29,11 @@ from fdai.core.conversation.work_progress import bind_semantic_work_progress_pub
 from fdai.core.ontology_platform.query_execution import QueryNodeProgress
 from fdai.core.working_context.governance import ContextSelectionPolicyAuthority
 from fdai.core.working_context.shadow import ContextSelectionShadowRunner
+from fdai.delivery.busy_input_active_turn import (
+    ActiveTurnExecutionResult,
+    ActiveTurnSSEFrame,
+    BusyInputActiveTurnExecutor,
+)
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
@@ -63,6 +69,18 @@ _LOGGER = logging.getLogger(__name__)
 def _emit_runtime_call_record(record: str) -> None:
     sys.stdout.write(f"{record}\n")
     sys.stdout.flush()
+
+
+def build_busy_input_active_turn_executor(
+    coordinator: BusyInputCoordinator,
+    *,
+    max_steer_reruns: int = 3,
+) -> BusyInputActiveTurnExecutor:
+    """Bind BusyInputActiveTurnExecutor over a session BusyInputCoordinator."""
+    return BusyInputActiveTurnExecutor(
+        coordinator=coordinator,
+        max_steer_reruns=max_steer_reruns,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -758,9 +776,13 @@ def _claim_audit(action_kind: str) -> dict[str, str]:
 
 
 __all__ = [
+    "ActiveTurnExecutionResult",
+    "ActiveTurnSSEFrame",
+    "BusyInputActiveTurnExecutor",
     "RuntimeCallEndpointObserver",
     "SemanticTurnConsumerBinding",
     "StateStoreSemanticTurnResultStore",
+    "build_busy_input_active_turn_executor",
     "build_semantic_turn_processor",
     "consume_semantic_turns",
     "semantic_turn_binding_from_config",

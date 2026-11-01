@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fdai_operator_service.families.workflow.contracts import WorkflowOperation
+from fdai_operator_service.skill_source_projection import (
+    SkillSourceProposalEventSink,
+    SkillSourceWorkflowBridge,
+)
 from fdai_service_contracts import OperatorRole
 
 READER_ROLES = frozenset(
@@ -420,6 +424,14 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
 )
 
 
+def build_skill_source_workflow_bridge(
+    *,
+    event_sink: SkillSourceProposalEventSink | None = None,
+) -> SkillSourceWorkflowBridge:
+    """Build the workflow-family skill-source projection and proposal bridge."""
+    return SkillSourceWorkflowBridge(event_sink=event_sink)
+
+
 __all__ = [
     "APPROVER_ROLES",
     "CONTRIBUTOR_ROLES",
@@ -428,4 +440,5 @@ __all__ = [
     "READER_ROLES",
     "WORKFLOW_FAMILY_ROUTE_MANIFEST",
     "WorkflowRouteSpec",
+    "build_skill_source_workflow_bridge",
 ]

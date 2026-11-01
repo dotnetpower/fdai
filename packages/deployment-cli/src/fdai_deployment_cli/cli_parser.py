@@ -23,10 +23,9 @@ from fdai_deployment_cli.cli_help import (
 from fdai_deployment_cli.foundation_plan import register_foundation_plan_command
 from fdai_deployment_cli.lifecycle_configuration_cli import register_configuration_commands
 from fdai_deployment_cli.runtime_profile import DATABASE_SKUS
-from fdai_deployment_cli.security_and_preflight_cli import (
-    register_security_and_preflight_commands,
-)
+from fdai_deployment_cli.security_and_preflight_cli import register_security_and_preflight_commands
 from fdai_deployment_cli.state_handoff import register_state_handoff_command
+from fdai_deployment_cli.temporary_public_access import register_temporary_public_access_command
 from fdai_deployment_cli.trajectory_cli import register_trajectory_commands
 
 CommandHandler = Callable[[argparse.Namespace], int]
@@ -611,6 +610,7 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     console_apply.set_defaults(handler=handlers["provision_console_update_apply"])
     register_state_handoff_command(provision_commands)
     register_foundation_plan_command(provision_commands)
+    register_temporary_public_access_command(provision_commands)
     initialize = command(provision_commands, "init", "Create a private manual deployment profile")
     initialize.add_argument(
         "--profile",
@@ -736,34 +736,19 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         "Seal an existing token to an independently supplied installation recipient",
     )
     license_seal.add_argument(
-        "--token",
-        type=Path,
-        required=True,
-        help="Private file containing existing original token bytes",
+        "--token", type=Path, required=True, help="Private file with original token bytes"
     )
     license_seal.add_argument(
-        "--recipient-public-key",
-        type=Path,
-        required=True,
-        help="Private file containing the independently provisioned X25519 recipient public key",
+        "--recipient-public-key", type=Path, required=True, help="X25519 recipient public key file"
     )
     license_seal.add_argument(
-        "--installation-binding",
-        required=True,
-        metavar="DIGEST",
-        help="Exact installation SHA-256 binding",
+        "--installation-binding", required=True, metavar="DIGEST", help="Installation SHA-256"
     )
     license_seal.add_argument(
-        "--deployment-binding",
-        required=True,
-        metavar="DIGEST",
-        help="Exact deployment SHA-256 binding",
+        "--deployment-binding", required=True, metavar="DIGEST", help="Deployment SHA-256"
     )
     license_seal.add_argument(
-        "--destination",
-        type=Path,
-        required=True,
-        help="New owner-only encrypted carrier output file",
+        "--destination", type=Path, required=True, help="Encrypted carrier output file"
     )
     license_seal.set_defaults(handler=handlers["license_seal_entitlement"])
 

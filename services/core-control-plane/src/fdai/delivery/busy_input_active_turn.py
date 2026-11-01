@@ -13,6 +13,19 @@ MAX_STEER_RERUNS = 3
 
 
 @dataclass(frozen=True, slots=True)
+class ActiveTurnSSEFrame:
+    """Single SSE frame emitted during an active streaming turn."""
+
+    event: str
+    data: str
+    turn_id: str
+    sequence: int = 0
+
+    def encode(self) -> str:
+        return f"event: {self.event}\ndata: {self.data}\n\n"
+
+
+@dataclass(frozen=True, slots=True)
 class ActiveTurnExecutionResult:
     """Terminal result of one JSON or SSE turn coordinated by BusyInputCoordinator."""
 
@@ -198,6 +211,7 @@ class BusyInputActiveTurnExecutor:
 
 __all__ = [
     "ActiveTurnExecutionResult",
+    "ActiveTurnSSEFrame",
     "BusyInputActiveTurnExecutor",
     "MAX_STEER_RERUNS",
 ]

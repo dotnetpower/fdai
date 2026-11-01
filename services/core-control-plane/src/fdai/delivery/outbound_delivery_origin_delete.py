@@ -296,10 +296,13 @@ def _ensure_aware(timestamp: datetime) -> datetime:
     return timestamp.astimezone(UTC)
 
 
+OutboundDeliveryOriginDeleteReceipt = OriginDeletionAuditReceipt
+
 __all__ = [
     "InMemoryOriginDeletionAuditSink",
     "OriginDeletionAuditReceipt",
     "OriginDeletionAuditSink",
     "OriginDeletionPreconditionError",
     "OriginScopedOutboundDeliveryDeleter",
+    "OutboundDeliveryOriginDeleteReceipt",
 ]

@@ -47,6 +47,19 @@ import {
 } from "./settings-teams-workflow.model";
 import { TeamsA1OnboardingGuide } from "./settings-teams-a1-onboarding";
 import { DocumentOcrSettingsPanel } from "./document-ocr-settings";
+import {
+  decodeLicensingWarningProjection,
+  formatLicensingStatusBadge,
+  type LicensingStatusBadgeViewModel,
+  type LicensingWarningProjectionPayload,
+} from "./licensing-status-badge.model";
+
+export {
+  decodeLicensingWarningProjection,
+  formatLicensingStatusBadge,
+  type LicensingStatusBadgeViewModel,
+  type LicensingWarningProjectionPayload,
+};
 /**
  * A1 approvals, A2/A4 notifications, and A3 conversations use separate
  * transports and separate trust. Grouping them here keeps an operator from

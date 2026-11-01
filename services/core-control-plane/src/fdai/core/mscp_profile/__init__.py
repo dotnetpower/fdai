@@ -46,6 +46,18 @@ from fdai.core.mscp_profile.failure_policy import (
     MscpFailureDisposition,
     decide_mscp_failure,
 )
+from fdai.core.mscp_profile.governed_ceiling_binding import (
+    AuthorityCeilingResult,
+    BindingLifecycleMode,
+    ControlDecisionLevel,
+    GovernedCeilingBindingError,
+    GovernedCeilingDecisionInput,
+    GovernedLifecycleSnapshot,
+    GovernedMscpCeilingBinding,
+    GovernedReadinessWindowReceipt,
+    apply_authority_ceiling,
+    normalize_decision_level,
+)
 from fdai.core.mscp_profile.observation_worker import (
     ObservationWorkerReport,
     PendingEffectObservationWorker,
@@ -96,6 +108,9 @@ from fdai.core.mscp_profile.shadow_effect import (
 )
 
 __all__ = [
+    "AuthorityCeilingResult",
+    "BindingLifecycleMode",
+    "ControlDecisionLevel",
     "DEFAULT_PROFILE",
     "CycleBudget",
     "CycleGuardDecision",
@@ -109,6 +124,11 @@ __all__ = [
     "EffectVerificationStatus",
     "ExpectedEffect",
     "ExpectedEffectProvider",
+    "GovernedCeilingBindingError",
+    "GovernedCeilingDecisionInput",
+    "GovernedLifecycleSnapshot",
+    "GovernedMscpCeilingBinding",
+    "GovernedReadinessWindowReceipt",
     "IndependentEffectObserver",
     "IndependentProfileReview",
     "MscpAuthorityCeiling",
@@ -145,6 +165,7 @@ __all__ = [
     "StateStoreMscpProfileLifecycle",
     "StateStoreMscpDecisionContext",
     "StateStorePendingEffectStore",
+    "apply_authority_ceiling",
     "default_runtime_manifest",
     "admissible_effect_evidence",
     "build_shadow_effect_audit",
@@ -154,6 +175,7 @@ __all__ = [
     "evaluate_cycle_guard",
     "evaluate_mscp_candidate_groups",
     "evaluate_mscp_readiness",
+    "normalize_decision_level",
     "project_decision_context",
     "decide_mscp_failure",
     "readiness_digest",

@@ -49,7 +49,7 @@ POLICY_ADMIN_OPERATOR_PRODUCER_ID_ENV = "FDAI_OPERATOR_REQUEST_OPERATOR_PRODUCER
 
 @dataclass(frozen=True, slots=True)
 class FailClosedReleaseMaximums:
-    """Report unavailable authority until #1822 supplies current signed Release data.
+    """Report unavailable authority when no verified installed Release source is bound.
 
     Mimir permits shadow-only policy requests without a source. Returning a made-up
     shadow maximum would hide missing provenance as an authenticated Release limit.
@@ -58,6 +58,40 @@ class FailClosedReleaseMaximums:
     def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
         del action_type
         return None
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedReleaseCapabilityMaximums:
+    """Evaluate Mimir Release maximums from a verified installed Release capabilities manifest.
+
+    Verifies the installed-Release binding, official signature, exact ActionType identity,
+    current metadata, rollback protection, and recall before allowing an ``enforce`` maximum.
+    Any missing, stale, unverified, or recalled input returns ``None`` so modes above
+    ``shadow`` fail closed with ``release_maximum_unavailable``.
+    """
+
+    installed_release_id: str
+    manifest_release_id: str
+    signature_verified: bool
+    metadata_current: bool
+    rollback_protected: bool
+    capability_maximums: Mapping[str, PolicyMode]
+    recalled_action_types: frozenset[str] = frozenset()
+
+    def maximum_mode_for_action_type(self, action_type: str) -> PolicyMode | None:
+        normalized_action = action_type.strip()
+        if (
+            not normalized_action
+            or not self.installed_release_id.strip()
+            or not self.manifest_release_id.strip()
+            or self.installed_release_id.strip() != self.manifest_release_id.strip()
+            or not self.signature_verified
+            or not self.metadata_current
+            or not self.rollback_protected
+            or normalized_action in self.recalled_action_types
+        ):
+            return None
+        return self.capability_maximums.get(normalized_action)
 
 
 def policy_administration_selected(profile: ProductProfile) -> bool:

@@ -25,6 +25,19 @@ import {
   panelRecord,
   panelStringArray,
 } from "./panel-decode";
+import {
+  decodeOutcomeAssuranceOperatorProjection,
+  formatOutcomeAssuranceViewModel,
+  type OutcomeAssuranceOperatorProjectionPayload,
+  type OutcomeAssuranceViewModel,
+} from "./outcome-assurance.model";
+
+export {
+  decodeOutcomeAssuranceOperatorProjection,
+  formatOutcomeAssuranceViewModel,
+  type OutcomeAssuranceOperatorProjectionPayload,
+  type OutcomeAssuranceViewModel,
+};
 
 const SEVERITIES = ["low", "medium", "high", "critical"] as const;
 type Severity = (typeof SEVERITIES)[number];

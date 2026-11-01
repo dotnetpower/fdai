@@ -457,3 +457,19 @@ def _require_bounded(name: str, value: str) -> str:
     if not isinstance(value, str) or not (1 <= len(value.strip()) <= _MAX_TEXT):
         raise RemediationBridgeError(f"{name} MUST be non-empty and at most {_MAX_TEXT} chars")
     return value.strip()
+
+
+__all__ = [
+    "AbstainedQueryDiscoveryReceipt",
+    "AssuranceTwinRemediationProposalBridge",
+    "GOVERNED_REVIEWED_ACTION_EFFECTS",
+    "GovernedRemediationProposalEnvelope",
+    "InMemoryRiskGatedRemediationSink",
+    "RemediationBridgeAuthorityError",
+    "RemediationBridgeError",
+    "RiskGatedRemediationSink",
+    "SubmittedWhatIfPairReceipt",
+    "TypedPipelineWhatIfProducer",
+    "TypedProposalIntakeTarget",
+    "build_reviewed_action_effect_catalog",
+]

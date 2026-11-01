@@ -5,6 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from fdai_operator_service.behavior_knowledge_resolver import (
+    BehaviorSearchIndexPort,
+    OperatorBehaviorKnowledgeResolver,
+)
+from fdai_operator_service.busy_input_materializer import BusyInputOperatorMaterializer
+
 RouteMode = Literal["action_confirmation", "read", "proposal", "stream"]
 RouteMethod = Literal["DELETE", "GET", "POST", "PUT"]
 
@@ -303,4 +309,21 @@ CONVERSATION_ROUTE_MANIFEST: tuple[ConversationRouteSpec, ...] = (
 )
 
 
-__all__ = ["CONVERSATION_ROUTE_MANIFEST", "ConversationRouteSpec"]
+def build_busy_input_materializer() -> BusyInputOperatorMaterializer:
+    """Create the conversation-family busy-input materializer."""
+    return BusyInputOperatorMaterializer()
+
+
+def build_behavior_knowledge_resolver(
+    index: BehaviorSearchIndexPort,
+) -> OperatorBehaviorKnowledgeResolver:
+    """Create the server-owned behavior-knowledge resolver for conversation turns."""
+    return OperatorBehaviorKnowledgeResolver(index)
+
+
+__all__ = [
+    "CONVERSATION_ROUTE_MANIFEST",
+    "ConversationRouteSpec",
+    "build_behavior_knowledge_resolver",
+    "build_busy_input_materializer",
+]

@@ -49,6 +49,11 @@ from fdai.delivery.inventory_live_evidence import (
 )
 from fdai.delivery.kubernetes_pod_log_evidence import KubernetesPodLogEvidenceCollector
 from fdai.delivery.operational_activity import EventBusOperationalActivityPublisher
+from fdai.delivery.persistence.postgres_behavior_knowledge import (
+    PostgresBehaviorKnowledgeConfig,
+    PostgresBehaviorKnowledgeIndex,
+    sync_behavior_knowledge_seeds,
+)
 from fdai.delivery.persistence.postgres_inventory_delta import PostgresInventoryDeltaProjector
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
@@ -196,6 +201,7 @@ class SemanticRuntime:
     readiness_probes: tuple[Any, ...]
     t1_mini_probe: T1MiniProbe | None = None
     ontology_index_runtime: OntologyIndexRuntime | None = None
+    behavior_knowledge_index: PostgresBehaviorKnowledgeIndex | None = None
 
     @property
     def context_index_workers(self) -> ContextIndexWorkerBindings | None:
@@ -205,6 +211,22 @@ class SemanticRuntime:
             if runtime is not None and runtime.workers is not None
             else None
         )
+
+
+def build_behavior_knowledge_index(
+    *,
+    dsn: str | None,
+    validator: Any,
+    embedder: Any = None,
+) -> PostgresBehaviorKnowledgeIndex | None:
+    """Build a PostgresBehaviorKnowledgeIndex when a DSN and freshness validator are present."""
+    if not dsn or validator is None:
+        return None
+    return PostgresBehaviorKnowledgeIndex(
+        config=PostgresBehaviorKnowledgeConfig(dsn=dsn),
+        validator=validator,
+        embedder=embedder,
+    )
 
 
 async def build_semantic_runtime(
@@ -574,4 +596,10 @@ async def build_semantic_runtime(
     )
 
 
-__all__ = ["SemanticRuntime", "build_semantic_runtime"]
+__all__ = [
+    "PostgresBehaviorKnowledgeIndex",
+    "SemanticRuntime",
+    "build_behavior_knowledge_index",
+    "build_semantic_runtime",
+    "sync_behavior_knowledge_seeds",
+]

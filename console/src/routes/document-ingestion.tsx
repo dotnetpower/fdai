@@ -21,6 +21,19 @@ import { handoverText } from "../deck/handover-i18n";
 import { HandoverGoalChecklist } from "../components/handover-goal-checklist";
 import type { HandoverSlot } from "../handover-model";
 import { handoverConversationKey, handoverLoginSessionId } from "../handover-invitation";
+import {
+  decodeDeclaredIntentGeneralTopicSummary,
+  decodeDeclaredIntentReviewProjection,
+  formatDeclaredIntentReviewViewModel,
+  type DeclaredIntentReviewViewModel,
+} from "./declared-intent-review.model";
+
+export {
+  decodeDeclaredIntentGeneralTopicSummary,
+  decodeDeclaredIntentReviewProjection,
+  formatDeclaredIntentReviewViewModel,
+  type DeclaredIntentReviewViewModel,
+};
 
 const DocumentLibrary = lazy(async () => ({
   default: (await import("./document-library")).DocumentLibrary,

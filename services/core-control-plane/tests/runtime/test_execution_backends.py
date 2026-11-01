@@ -6,9 +6,12 @@ import json
 from pathlib import Path
 
 import pytest
+from fdai.composition import Container
+from fdai.core.execution_backend import ExecutionBackendKind, InMemoryExecutionSubmissionLedger
 from fdai.runtime.execution_backends import (
     REGISTRY_MAX_BYTES_VARIABLE,
     REGISTRY_PATH_VARIABLE,
+    bind_execution_backends_from_env,
     load_execution_backend_registry_from_env,
 )
 
@@ -129,3 +132,27 @@ def test_a_non_regular_registry_path_fails_startup(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="regular file"):
         load_execution_backend_registry_from_env(env={REGISTRY_PATH_VARIABLE: str(directory)})
+
+
+def test_bind_execution_backends_from_env_wires_coordinator_on_startup(
+    tmp_path: Path, container: Container
+) -> None:
+    path = _write(tmp_path, _document())
+    ledger = InMemoryExecutionSubmissionLedger()
+    backend = object()
+
+    unconfigured = bind_execution_backends_from_env(
+        container,
+        backends={},
+        ledger=ledger,
+        env={},
+    )
+    assert unconfigured.execution_backend_coordinator is None
+
+    bound = bind_execution_backends_from_env(
+        container,
+        backends={ExecutionBackendKind.VM_TASK: backend},  # type: ignore[dict-item]
+        ledger=ledger,
+        env={REGISTRY_PATH_VARIABLE: str(path)},
+    )
+    assert bound.execution_backend_coordinator is not None

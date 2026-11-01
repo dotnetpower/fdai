@@ -159,6 +159,7 @@ class T0Engine:
         resource_type: str,
         resource_props: Mapping[str, Any],
         signal_type: str | None = None,
+        target_object_type: str | None = None,
     ) -> Verdict:
         """Evaluate every rule that applies to this Signal.
 
@@ -173,7 +174,9 @@ class T0Engine:
         broken rule cannot silence the rest of the catalog.
         """
         candidates = self._index.rules_for_signal(
-            resource_type=resource_type, signal_type=signal_type
+            resource_type=resource_type,
+            signal_type=signal_type,
+            target_object_type=target_object_type,
         )
         findings: list[Finding] = []
         citing: list[str] = []

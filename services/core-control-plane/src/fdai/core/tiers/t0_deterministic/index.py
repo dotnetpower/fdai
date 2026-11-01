@@ -80,7 +80,9 @@ class RuleIndex:
                 # bypasses it, fail loudly rather than silently overwrite.
                 raise ValueError(f"duplicate rule id in index build: {rule.id!r}")
             by_id[rule.id] = rule
-            applies_to = rule.applies_to or [rule.resource_type]
+            applies_to = list(rule.applies_to or [rule.resource_type])
+            if rule.target_object_type is not None and rule.target_object_type not in applies_to:
+                applies_to.append(rule.target_object_type)
             for resource_type in applies_to:
                 by_type.setdefault(resource_type, []).append(rule)
             for signal_type in rule.triggered_by or ["*"]:
@@ -101,12 +103,16 @@ class RuleIndex:
         return self._by_resource_type.get(resource_type.strip(), ())
 
     def rules_for_signal(
-        self, *, resource_type: str, signal_type: str | None = None
+        self,
+        *,
+        resource_type: str,
+        signal_type: str | None = None,
+        target_object_type: str | None = None,
     ) -> tuple[Rule, ...]:
         """Return every rule that would evaluate for this Signal.
 
-        The result is the ``applies_to`` resource candidates intersected
-        with catalog-resolved ``triggered_by`` matches plus legacy ``*`` rules.
+        The result is the ``applies_to`` (or ``target_object_type``) candidates
+        intersected with catalog-resolved ``triggered_by`` matches plus legacy ``*`` rules.
         """
         allowed_ids = set(self._by_signal_type.get("*", ()))
         if self._signal_types is not None:
@@ -124,7 +130,8 @@ class RuleIndex:
             resolved = frozenset({signal_type}) if signal_type is not None else frozenset()
         for resolved_type in resolved:
             allowed_ids.update(self._by_signal_type.get(resolved_type, ()))
-        return tuple(rule for rule in self.rules_for_type(resource_type) if rule.id in allowed_ids)
+        lookup_key = target_object_type.strip() if target_object_type else resource_type
+        return tuple(rule for rule in self.rules_for_type(lookup_key) if rule.id in allowed_ids)
 
     def rule(self, rule_id: str) -> Rule:
         try:

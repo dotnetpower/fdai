@@ -21,6 +21,11 @@ from fdai_lifecycle_hub.configuration_key_api import key_routes
 from fdai_lifecycle_hub.configuration_key_store import ConfigurationKeyStore
 from fdai_lifecycle_hub.domain import Clock, utc_now
 from fdai_lifecycle_hub.enrollment import EnrollmentStatus, KeyProofVerifier
+from fdai_lifecycle_hub.entitlement_handoff import (
+    GovernedEntitlementRotationReceipt,
+    HubEntitlementHandoffStore,
+    OpaqueEntitlementCarrierHandoff,
+)
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
     EnrollmentProofError,
@@ -92,14 +97,23 @@ def create_app(
         plan = await run_in_threadpool(store.current_plan, installation_id, now=clock())
         if plan is None:
             return Response(status_code=204)
-        return JSONResponse(
-            {
-                "plan": {
-                    "signed_payload": b64encode(plan.signed_payload).decode("ascii"),
-                    "signature": b64encode(plan.signature).decode("ascii"),
-                }
+        payload: dict[str, object] = {
+            "plan": {
+                "signed_payload": b64encode(plan.signed_payload).decode("ascii"),
+                "signature": b64encode(plan.signature).decode("ascii"),
             }
-        )
+        }
+        handoff = await run_in_threadpool(store.plan_entitlement_handoff, plan.plan_id)
+        if handoff is not None:
+            payload["entitlement_handoff"] = handoff.to_plan_attachment()
+        return JSONResponse(payload)
+
+    async def get_entitlement_handoff(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        handoff = await run_in_threadpool(store.entitlement_handoff, installation_id)
+        if handoff is None:
+            return Response(status_code=204)
+        return JSONResponse({"entitlement_handoff": handoff.to_plan_attachment()})
 
     async def post_enrollment(
         request: Request,
@@ -361,6 +375,10 @@ def create_app(
         Route("/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]),
         Route("/v1/installations/{installation_id}/plan", get_plan),
         Route(
+            "/v1/installations/{installation_id}/entitlement-handoff",
+            get_entitlement_handoff,
+        ),
+        Route(
             "/v1/installations/{installation_id}/plans/{plan_id}/reports",
             post_report,
             methods=["POST"],
@@ -486,3 +504,16 @@ async def _read_limited(request: Request, limit: int) -> bytes | None:
 
 def _error(status_code: int, reason_code: str) -> Response:
     return JSONResponse({"error": reason_code}, status_code=status_code)
+
+
+__all__ = [
+    "DEFAULT_UI_DIST",
+    "GovernedEntitlementRotationReceipt",
+    "HubEntitlementHandoffStore",
+    "MAX_APPROVAL_BYTES",
+    "MAX_ENROLLMENT_BYTES",
+    "MAX_REPORT_BYTES",
+    "MAX_STATE_BYTES",
+    "OpaqueEntitlementCarrierHandoff",
+    "create_app",
+]

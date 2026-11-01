@@ -10,6 +10,12 @@ import {
   type BusyPending,
   type BusyState,
 } from "./busy-input-client";
+import {
+  buildBusyInputControlViewModel,
+  decodeBusySessionProjection,
+} from "./busy-input-controls.model";
+
+export { buildBusyInputControlViewModel, decodeBusySessionProjection };
 
 interface BusyInputControlsProps {
   readonly sessionId: string;

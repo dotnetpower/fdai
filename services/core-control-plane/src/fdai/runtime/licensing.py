@@ -18,6 +18,14 @@ from fdai.core.licensing import (
 )
 from fdai.core.licensing.entitlement import EntitlementTokenSource
 from fdai.core.licensing.trial_entitlement import TrialEntitlementResolver
+from fdai.delivery.licensing_capability_map import (
+    ActionTypeCapabilityRegistry,
+    SelectiveActingLicenseDecision,
+    SelectiveActingLicenseVerifier,
+    TrustedTimeRollbackDetector,
+    evaluate_selective_capability,
+    required_license_capabilities_for_action_type,
+)
 from fdai.delivery.persistence.postgres_licensing_trial import PostgresTrialStore
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trust import (
@@ -206,4 +214,32 @@ def _optional_value(value: str | None) -> str | None:
     return normalized or None
 
 
-__all__ = ["build_runtime_license_authority", "gate_execution"]
+def evaluate_runtime_action_capability(
+    authority: LicenseEntitlementAuthority,
+    *,
+    action_type_id: str,
+    now: datetime | None = None,
+    trusted_now: datetime | None = None,
+    clock_detector: TrustedTimeRollbackDetector | None = None,
+) -> SelectiveActingLicenseDecision:
+    """Evaluate selective ActionType capability availability under runtime licensing."""
+    return evaluate_selective_capability(
+        authority,
+        action_type_id=action_type_id,
+        now=now or datetime.now(tz=UTC),
+        trusted_now=trusted_now,
+        clock_detector=clock_detector,
+    )
+
+
+__all__ = [
+    "ActionTypeCapabilityRegistry",
+    "SelectiveActingLicenseDecision",
+    "SelectiveActingLicenseVerifier",
+    "TrustedTimeRollbackDetector",
+    "build_runtime_license_authority",
+    "evaluate_runtime_action_capability",
+    "evaluate_selective_capability",
+    "gate_execution",
+    "required_license_capabilities_for_action_type",
+]
