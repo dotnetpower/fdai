@@ -61,6 +61,8 @@ def object_value(value: Mapping[str, Any], key: str) -> Mapping[str, Any]:
 
 def list_value(value: object, *, maximum: int = 2000) -> list[Any]:
     """Require a bounded native array; tuples and JSON text are not native arrays."""
+    if type(maximum) is not int or maximum < 1:
+        raise ValueError("maximum MUST be a positive integer")
     if not isinstance(value, list) or len(value) > maximum:
         raise ValueError("provider array is malformed or exceeds its bound")
     return value
@@ -76,7 +78,11 @@ def native_scope(value: object) -> str:
 
 def within_scope(resource: str, scope: str) -> bool:
     """Compare canonical ARM segments, not ambiguous resource-group name prefixes."""
-    return resource == scope or resource.startswith(scope + "/")
+    norm_res = resource.strip().rstrip("/").casefold()
+    norm_scope = scope.strip().rstrip("/").casefold()
+    return bool(norm_res and norm_scope) and (
+        norm_res == norm_scope or norm_res.startswith(norm_scope + "/")
+    )
 
 
 def native_resource(raw: Mapping[str, Any], expected_type: str) -> str:

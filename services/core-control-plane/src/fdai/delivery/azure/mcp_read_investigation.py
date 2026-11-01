@@ -61,16 +61,27 @@ class AzureMcpClientConfig:
     namespaces: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not 0.1 <= self.startup_timeout_seconds <= 10.0:
+        if (
+            type(self.startup_timeout_seconds) is bool
+            or not 0.1 <= self.startup_timeout_seconds <= 10.0
+        ):
             raise ValueError("Azure MCP startup timeout MUST be in [0.1, 10]")
-        if not 0.1 <= self.call_timeout_seconds <= 120.0:
+        if type(self.call_timeout_seconds) is bool or not 0.1 <= self.call_timeout_seconds <= 120.0:
             raise ValueError("Azure MCP call timeout MUST be in [0.1, 120]")
-        if not 1_024 <= self.max_output_bytes <= 1_000_000:
+        if (
+            type(self.max_output_bytes) is not int
+            or not 1_024 <= self.max_output_bytes <= 1_000_000
+        ):
             raise ValueError("Azure MCP output bound MUST be in [1024, 1000000]")
         if len(self.namespaces) > 16 or any(
-            not value.strip() or len(value) > 64 for value in self.namespaces
+            not value.strip() or len(value.strip()) > 64 for value in self.namespaces
         ):
             raise ValueError("Azure MCP namespaces MUST contain <= 16 bounded values")
+        object.__setattr__(
+            self,
+            "namespaces",
+            tuple(dict.fromkeys(value.strip() for value in self.namespaces)),
+        )
 
 
 class StdioAzureMcpSessionFactory:

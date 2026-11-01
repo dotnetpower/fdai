@@ -597,27 +597,28 @@ def _resource_group_parent(arm_id: str) -> str | None:
 
 def provider_parent_id(arm_id: str) -> str | None:
     """Return the immediate parent for a structurally valid nested provider id."""
+    trimmed = arm_id.strip().rstrip("/")
     marker = "/providers/"
-    marker_index = arm_id.casefold().find(marker)
+    marker_index = trimmed.casefold().rfind(marker)
     if marker_index == -1:
         return None
-    provider_path = arm_id[marker_index + len(marker) :].split("/")
-    if len(provider_path) < 5 or len(provider_path) % 2 == 0:
+    provider_path = trimmed[marker_index + len(marker) :].split("/")
+    if len(provider_path) < 5 or len(provider_path) % 2 == 0 or any(not p for p in provider_path):
         return None
-    return arm_id.rsplit("/", maxsplit=2)[0]
+    return trimmed.rsplit("/", maxsplit=2)[0]
 
 
 def provider_root_id(arm_id: str) -> str | None:
     """Return the top-level provider resource for a structurally valid ARM id."""
-
+    trimmed = arm_id.strip().rstrip("/")
     marker = "/providers/"
-    marker_index = arm_id.casefold().find(marker)
+    marker_index = trimmed.casefold().rfind(marker)
     if marker_index == -1:
         return None
-    provider_path = arm_id[marker_index + len(marker) :].split("/")
-    if len(provider_path) < 3 or len(provider_path) % 2 == 0:
+    provider_path = trimmed[marker_index + len(marker) :].split("/")
+    if len(provider_path) < 3 or len(provider_path) % 2 == 0 or any(not p for p in provider_path):
         return None
-    return arm_id[: marker_index + len(marker)] + "/".join(provider_path[:3])
+    return trimmed[: marker_index + len(marker)] + "/".join(provider_path[:3])
 
 
 __all__ = [

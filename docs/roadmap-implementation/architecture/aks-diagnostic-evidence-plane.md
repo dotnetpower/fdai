@@ -106,6 +106,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 | 2026-10-07 | implemented | The shared Operator composition, route tests, and Console panel registry gained the read-only code-security review and pack routes from #1966. AKS diagnostic evidence scope, evidence, projections, topics, and authority are unchanged. | `current change`; focused Operator projection, operations-family, and composition tests and Console panel tests passed. | No AKS diagnostic evidence behavior changed. |
 
 | 2026-10-19 | implemented | Reconciled the shared semantic-bootstrap boundary with the default-disabled governed typed-read binder. Existing AKS provider/runner authority, observations and diagnostic routing are unchanged. | Current change for #2275; `runtime/bootstrap_semantics.py`; [governed read owner](../../roadmap/interfaces/governed-typed-selection-read.md); 145 prior focused local checks, not AKS runtime or deployment evidence. | Full bootstrap, database, AKS live evidence and operational qualification remain unverified by this bounded change. |
+| 2026-11-01 | implemented | Hardened Azure Resource Graph, Azure Advisor, and Azure Monitor delivery adapters, extended platform metric templates, and tightened fail-closed config/row validation across 20 rounds (`A01`-`A60`). | `current change`; focused Azure delivery unit test suites, Ruff, and strict mypy checks passed. | Live AKS and Azure Monitor tenant validation remain separate operational evidence. |
 
 ### Remaining work
 

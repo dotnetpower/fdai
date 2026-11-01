@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import re
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -93,7 +94,12 @@ class AzureContainerAppRevisionVerifier:
             or parsed.fragment
         ):
             raise ValueError("runtime call management endpoint MUST be an HTTPS origin")
-        if not management_audience.strip() or timeout_seconds <= 0:
+        if (
+            not management_audience.strip()
+            or type(timeout_seconds) is bool
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
             raise ValueError("runtime call ARM verifier configuration is invalid")
         self._identity = identity
         self._http = http_client
@@ -243,15 +249,19 @@ class AzureRuntimeCallTelemetrySource:
         endpoint_verification_deadline_seconds: float = 30.0,
         pending_grace_seconds: int = _DEFAULT_PENDING_GRACE_SECONDS,
     ) -> None:
-        if not 1 <= max_rows <= _MAX_ROWS:
+        if type(max_rows) is not int or not 1 <= max_rows <= _MAX_ROWS:
             raise ValueError(f"runtime call telemetry max_rows MUST be in [1, {_MAX_ROWS}]")
         if not scope_ref.strip() or not source_identity.strip() or not source_revision.strip():
             raise ValueError("runtime call telemetry source identity fields MUST be non-empty")
-        if freshness_ceiling_seconds < 1:
+        if type(freshness_ceiling_seconds) is not int or freshness_ceiling_seconds < 1:
             raise ValueError("runtime call telemetry freshness ceiling MUST be positive")
-        if not 0 < endpoint_verification_deadline_seconds <= 120:
+        if (
+            type(endpoint_verification_deadline_seconds) is bool
+            or not math.isfinite(endpoint_verification_deadline_seconds)
+            or not 0 < endpoint_verification_deadline_seconds <= 120
+        ):
             raise ValueError("runtime call endpoint verification deadline MUST be in (0, 120]")
-        if not 1 <= pending_grace_seconds <= 300:
+        if type(pending_grace_seconds) is not int or not 1 <= pending_grace_seconds <= 300:
             raise ValueError("runtime call pending grace MUST be in [1, 300]")
         self._provider = provider
         self._context_provider = context_provider

@@ -442,6 +442,17 @@ class FrameworkRequirementResult:
     evidence_digests: tuple[str, ...]
     limitations: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        _require_text("framework requirement_id", self.requirement_id)
+        if not isinstance(self.status, FrameworkSatisfactionStatus):
+            raise ValueError("framework requirement status MUST be a FrameworkSatisfactionStatus")
+        for digest in self.evidence_digests:
+            _require_digest("framework requirement evidence_digest", digest)
+        if self.limitations != tuple(sorted(set(self.limitations))) or any(
+            not item.strip() for item in self.limitations
+        ):
+            raise ValueError("framework requirement limitations MUST be unique, ordered codes")
+
     def to_dict(self) -> dict[str, object]:
         return {
             "requirement_id": self.requirement_id,
@@ -470,6 +481,27 @@ class FrameworkControlResult:
     limitations: tuple[str, ...]
     requirements: tuple[FrameworkRequirementResult, ...]
     enablement: ControlEnablement | None = None
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("framework control_id", self.control_id),
+            ("framework control title", self.title),
+            ("framework control area", self.area),
+            ("framework control reference_state", self.reference_state),
+            ("framework control mapping_state", self.mapping_state),
+            ("framework control owner_slot", self.owner_slot),
+        ):
+            _require_text(label, value)
+        if type(self.evidence_complete) is not bool:
+            raise ValueError("framework control evidence_complete MUST be a boolean")
+        if not 1 <= self.cadence_days <= 365:
+            raise ValueError("framework control cadence_days MUST be in [1, 365]")
+        for digest in self.evidence_digests:
+            _require_digest("framework control evidence_digest", digest)
+        if self.limitations != tuple(sorted(set(self.limitations))) or any(
+            not item.strip() for item in self.limitations
+        ):
+            raise ValueError("framework control limitations MUST be unique, ordered codes")
 
     def to_dict(self) -> dict[str, object]:
         value: dict[str, object] = {
@@ -517,6 +549,29 @@ class FrameworkAssessmentResult:
     tradeoffs: tuple[FrameworkTradeoffRecord, ...]
     aggregate_counts: dict[str, int]
     result_digest: str
+
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("framework assessment_id", self.assessment_id),
+            ("framework assessment mode", self.mode),
+            ("framework assessment framework_id", self.framework_id),
+            ("framework assessment framework_version", self.framework_version),
+            ("framework assessment profile_id", self.profile_id),
+            ("framework assessment profile_reviewed_by", self.profile_reviewed_by),
+            ("framework assessment ontology_release", self.ontology_release),
+        ):
+            _require_text(label, value)
+        if type(self.execution_authority) is not bool or self.execution_authority:
+            raise ValueError("framework assessment execution_authority MUST be False")
+        _require_digest("framework assessment catalog_digest", self.catalog_digest)
+        _require_digest("framework assessment profile_digest", self.profile_digest)
+        _require_digest("framework assessment scope_digest", self.scope_digest)
+        _require_digest("framework assessment result_digest", self.result_digest)
+        _require_aware("framework assessment profile_reviewed_at", self.profile_reviewed_at)
+        _require_aware("framework assessment evaluated_at", self.evaluated_at)
+        _require_aware("framework assessment recorded_at", self.recorded_at)
+        if self.recorded_at < self.evaluated_at:
+            raise ValueError("framework assessment recorded_at MUST follow evaluated_at")
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         value: dict[str, object] = {

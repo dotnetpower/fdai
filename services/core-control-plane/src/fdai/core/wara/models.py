@@ -159,6 +159,23 @@ class WaraControlResult:
     limitations: tuple[str, ...]
     enablement: ControlEnablement | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.recommendation_id.strip()
+            or not self.catalog_state.strip()
+            or not self.mapping_state.strip()
+        ):
+            raise ValueError("WARA control result identity fields MUST be non-empty")
+        if type(self.evidence_complete) is not bool:
+            raise ValueError("WARA control result evidence_complete MUST be a boolean")
+        for digest in self.evidence_digests:
+            if re.fullmatch(r"sha256:[a-f0-9]{64}", digest) is None:
+                raise ValueError("WARA control evidence digest MUST be lowercase SHA-256")
+        if self.limitations != tuple(sorted(set(self.limitations))) or any(
+            not item.strip() for item in self.limitations
+        ):
+            raise ValueError("WARA control limitations MUST be unique and ordered")
+
     def to_dict(self) -> dict[str, object]:
         value: dict[str, object] = {
             "recommendation_id": self.recommendation_id,
@@ -196,6 +213,33 @@ class WaraAssessmentResult:
     result_digest: str
     rule_bindings_digest: str | None = None
     enablement_profile: ControlEnablementProfile | None = None
+
+    def __post_init__(self) -> None:
+        if any(
+            not value.strip()
+            for value in (
+                self.assessment_id,
+                self.mode,
+                self.framework_revision,
+                self.ontology_release,
+                self.inventory_generation,
+                self.workload_id,
+            )
+        ):
+            raise ValueError("WARA assessment result identity fields MUST be non-empty")
+        if type(self.execution_authority) is not bool or self.execution_authority:
+            raise ValueError("WARA assessment result execution_authority MUST be False")
+        for label, digest in (
+            ("crosswalk_digest", self.crosswalk_digest),
+            ("scope_digest", self.scope_digest),
+            ("result_digest", self.result_digest),
+        ):
+            if re.fullmatch(r"sha256:[a-f0-9]{64}", digest) is None:
+                raise ValueError(f"WARA assessment result {label} MUST be lowercase SHA-256")
+        if self.evaluated_at.tzinfo is None or self.recorded_at.tzinfo is None:
+            raise ValueError("WARA assessment result timestamps MUST be timezone-aware")
+        if self.recorded_at < self.evaluated_at:
+            raise ValueError("WARA assessment result recorded_at MUST follow evaluated_at")
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         value: dict[str, object] = {

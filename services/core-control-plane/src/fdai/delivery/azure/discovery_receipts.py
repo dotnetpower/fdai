@@ -45,10 +45,14 @@ def build_provider_execution_receipt(
         raise ValueError("provider execution receipt requires an executed Azure read backend")
     if plan.operation_id != operation.operation_id or plan.backend is not operation.backend:
         raise ValueError("execution receipt operation MUST match the exact plan")
+    if page_count < 1 or count < 0:
+        raise ValueError("execution receipt page_count MUST be >= 1 and count MUST be >= 0")
     if page_count > plan.limits.max_pages or count > plan.limits.max_results:
         raise ValueError("execution receipt exceeds the exact plan limits")
     rendered = render_registered_azure_command(plan=plan, operation=operation)
     preview = tuple(_preview(row) for row in preview_rows[:10])
+    if count < len(preview):
+        raise ValueError("execution receipt count MUST NOT be smaller than preview row count")
     result = ProviderExecutionResult(
         count=count,
         preview=preview,
@@ -86,7 +90,10 @@ def build_provider_coverage_canary_receipt(
     discovered_count: int,
 ) -> ProviderExecutionReceipt:
     """Record an executed aggregate-only ARG canary without accepting provider rows."""
-
+    if discovered_count < 0:
+        raise ValueError("coverage canary discovered_count MUST be >= 0")
+    if plan.operation_id != operation.operation_id or plan.backend is not operation.backend:
+        raise ValueError("coverage canary operation MUST match the exact plan")
     rendered = render_coverage_canary_command(plan=plan, operation=operation)
     command = ProviderExecutionCommand(
         label=(
@@ -120,11 +127,11 @@ def provider_execution_projection(receipt: ProviderExecutionReceipt) -> dict[str
 
 
 def _preview(row: Mapping[str, object]) -> ProviderExecutionPreview:
-    projected = {
-        key: value
-        for key, value in row.items()
-        if key in _PREVIEW_FIELDS and isinstance(value, str) and value
-    }
+    projected: dict[str, str] = {}
+    for key, value in row.items():
+        target_key = "resource_group" if key == "resourceGroup" else key
+        if target_key in _PREVIEW_FIELDS and isinstance(value, str) and value.strip():
+            projected.setdefault(target_key, value.strip())
     return ProviderExecutionPreview.model_validate(projected)
 
 

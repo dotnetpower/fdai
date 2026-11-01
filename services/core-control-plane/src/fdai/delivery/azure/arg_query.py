@@ -19,6 +19,7 @@ from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import isfinite
 from pathlib import Path
 from typing import Any, Final
 from urllib.parse import urlparse
@@ -203,13 +204,15 @@ class AzureArgQueryFactory:
         config: AzureArgQueryFactoryConfig,
         page_observer: ArgPageObserver | None = None,
     ) -> None:
-        if not config.subscription_scopes:
+        if not config.subscription_scopes or any(
+            not isinstance(scope, str) or not scope.strip() for scope in config.subscription_scopes
+        ):
             raise ValueError("AzureArgQueryFactoryConfig.subscription_scopes MUST NOT be empty")
         if config.page_size < 1 or config.page_size > 1000:
             raise ValueError("page_size MUST be in [1, 1000]")
         if config.max_pages < 1:
             raise ValueError("max_pages MUST be >= 1")
-        if config.timeout_seconds <= 0:
+        if not isfinite(config.timeout_seconds) or config.timeout_seconds <= 0:
             raise ValueError("timeout_seconds MUST be > 0")
         if config.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
@@ -224,16 +227,11 @@ class AzureArgQueryFactory:
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
         self._page_observer = page_observer
-        self._throttle_gate = ArgThrottleGate(
-            max_defer_seconds=config.throttle_max_defer_seconds,
-        )
+        self._throttle_gate = ArgThrottleGate(max_defer_seconds=config.throttle_max_defer_seconds)
         self._rate_limiter = ArgRateLimiter(
             requests_per_second=config.requests_per_second,
             burst=config.requests_burst,
         )
-        # Pre-compute the ARM-type → neutral-id reverse map once. Every
-        # `attached_to` extraction hits this map per referenced id; a
-        # fresh iteration per row would be O(vocabulary_size * rows).
         self._arm_to_neutral: Final[Mapping[str, str]] = _build_arm_to_neutral_map(resource_types)
         self._mapped_provider_types: Final[frozenset[str]] = frozenset(
             entry.azure_arm_type.lower()
@@ -683,6 +681,7 @@ class AzureArgQueryFactory:
             "kind",
             "sku",
             "identity",
+            "zones",
             "tags",
             "properties",
             "resourceGroup",

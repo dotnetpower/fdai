@@ -40,8 +40,9 @@ async def subscription_role_assignments(
     read_graph: ReadJson,
 ) -> list[dict[str, Any]]:
     """Return the projected assignments for one subscription, or raise when incomplete."""
-
-    scope = f"/subscriptions/{quote(subscription_id, safe='')}"
+    if not isinstance(subscription_id, str) or not subscription_id.strip():
+        raise RoleAssignmentReadError("subscription_id MUST be non-empty")
+    scope = f"/subscriptions/{quote(subscription_id.strip(), safe='')}"
     assignments = await _pages(
         read_arm,
         f"{arm_endpoint}{scope}/providers/Microsoft.Authorization/roleAssignments"
@@ -91,9 +92,13 @@ async def subscription_role_assignments(
 async def _pages(read: ReadJson, url: str, *, prefix: str) -> list[Mapping[str, Any]]:
     collected: list[Mapping[str, Any]] = []
     current: str | None = url
+    seen_urls: set[str] = set()
     for _page in range(MAX_PAGES):
         if current is None:
             return collected
+        if current in seen_urls:
+            raise RoleAssignmentReadError("listing continuation did not advance")
+        seen_urls.add(current)
         payload = await read(current)
         rows = payload.get("value")
         if not isinstance(rows, Sequence) or isinstance(rows, str):

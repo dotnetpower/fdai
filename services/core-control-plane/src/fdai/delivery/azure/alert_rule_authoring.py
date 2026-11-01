@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 
@@ -45,6 +46,28 @@ class MaterializedMetricAlert:
     window_size: str
     evaluation_frequency: str
 
+    def __post_init__(self) -> None:
+        for label, value in (
+            ("alert_id", self.alert_id),
+            ("name", self.name),
+            ("metric_namespace", self.metric_namespace),
+            ("metric_name", self.metric_name),
+            ("aggregation", self.aggregation),
+            ("operator", self.operator),
+            ("window_size", self.window_size),
+            ("evaluation_frequency", self.evaluation_frequency),
+        ):
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"MaterializedMetricAlert.{label} MUST be a non-empty string")
+        if type(self.severity) is not int or not 0 <= self.severity <= 4:
+            raise ValueError("MaterializedMetricAlert.severity MUST be an integer in [0, 4]")
+        if (
+            type(self.threshold) is bool
+            or not isinstance(self.threshold, int | float)
+            or not math.isfinite(self.threshold)
+        ):
+            raise ValueError("MaterializedMetricAlert.threshold MUST be a finite number")
+
 
 @dataclass(frozen=True, slots=True)
 class MetricAlertRefusal:
@@ -53,11 +76,22 @@ class MetricAlertRefusal:
     alert_id: str
     reason: str
 
+    def __post_init__(self) -> None:
+        if not self.alert_id.strip() or not self.reason.strip():
+            raise ValueError("MetricAlertRefusal requires non-empty alert_id and reason")
+
 
 @dataclass(frozen=True, slots=True)
 class MetricAlertMaterialization:
     alerts: tuple[MaterializedMetricAlert, ...]
     refusals: tuple[MetricAlertRefusal, ...]
+
+    def __post_init__(self) -> None:
+        alert_ids = [item.alert_id for item in self.alerts]
+        refusal_ids = [item.alert_id for item in self.refusals]
+        all_ids = [*alert_ids, *refusal_ids]
+        if len(all_ids) != len(set(all_ids)):
+            raise ValueError("MetricAlertMaterialization MUST NOT contain duplicate alert_ids")
 
     def document(self) -> dict[str, object]:
         """Return the canonical JSON document, including its content digest."""

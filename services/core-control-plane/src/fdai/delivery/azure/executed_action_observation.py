@@ -50,14 +50,14 @@ class AzureScaleOutObservationCollector:
         max_snapshot_age: timedelta = timedelta(minutes=5),
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not observer_identity or not source_identity:
+        if not observer_identity.strip() or not source_identity.strip():
             raise ValueError("Azure effect observation identities MUST be non-empty")
         if observation_window <= timedelta(0) or max_snapshot_age <= timedelta(0):
             raise ValueError("Azure effect observation timing bounds MUST be positive")
         self._snapshots = snapshots
         self._context_issuer = context_issuer
-        self._observer_identity = observer_identity
-        self._source_identity = source_identity
+        self._observer_identity = observer_identity.strip()
+        self._source_identity = source_identity.strip()
         self._observation_window = observation_window
         self._max_snapshot_age = max_snapshot_age
         self._clock = clock or (lambda: datetime.now(tz=UTC))

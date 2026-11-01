@@ -42,6 +42,12 @@ class ArmStateCapability:
     api_version: str
     extract: Callable[[Mapping[str, Any]], str | None]
 
+    def __post_init__(self) -> None:
+        if not self.provider_type.strip() or not self.api_version.strip():
+            raise ValueError("ArmStateCapability requires non-empty provider_type and api_version")
+        if not callable(self.extract):
+            raise ValueError("ArmStateCapability.extract MUST be callable")
+
 
 def _power_state(payload: Mapping[str, Any]) -> str | None:
     statuses = payload.get("statuses")
@@ -62,8 +68,16 @@ def _properties_state(payload: Mapping[str, Any]) -> str | None:
     properties = payload.get("properties")
     if not isinstance(properties, Mapping):
         return None
-    state = properties.get("state")
-    return state if isinstance(state, str) and state.strip() else None
+    for key in ("state", "runningStatus"):
+        state = properties.get(key)
+        if isinstance(state, str) and state.strip():
+            return state.strip()
+    power_state = properties.get("powerState")
+    if isinstance(power_state, Mapping):
+        code = power_state.get("code")
+        if isinstance(code, str) and code.strip():
+            return code.strip()
+    return None
 
 
 #: Reviewed capabilities keyed by FDAI Resource type. The extracted values use the same vocabulary
@@ -85,6 +99,28 @@ ARM_STATE_CAPABILITIES: Final[Mapping[str, ArmStateCapability]] = {
         provider_type="microsoft.dbformysql/flexibleservers",
         path_suffix="",
         api_version="2023-12-30",
+        extract=_properties_state,
+    ),
+}
+
+EXTENDED_ARM_STATE_CAPABILITIES: Final[Mapping[str, ArmStateCapability]] = {
+    **ARM_STATE_CAPABILITIES,
+    "compute.container-app": ArmStateCapability(
+        provider_type="microsoft.app/containerapps",
+        path_suffix="",
+        api_version="2024-03-01",
+        extract=_properties_state,
+    ),
+    "compute.function": ArmStateCapability(
+        provider_type="microsoft.web/sites",
+        path_suffix="",
+        api_version="2023-12-01",
+        extract=_properties_state,
+    ),
+    "kubernetes-cluster": ArmStateCapability(
+        provider_type="microsoft.containerservice/managedclusters",
+        path_suffix="",
+        api_version="2024-08-01",
         extract=_properties_state,
     ),
 }
@@ -199,4 +235,9 @@ def _evidence_ref(
     return "arm-state:sha256:" + hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
-__all__ = ["ARM_STATE_CAPABILITIES", "ArmStateCapability", "AzureArmExactStateReader"]
+__all__ = [
+    "ARM_STATE_CAPABILITIES",
+    "EXTENDED_ARM_STATE_CAPABILITIES",
+    "ArmStateCapability",
+    "AzureArmExactStateReader",
+]

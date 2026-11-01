@@ -44,12 +44,13 @@ class AzureVmProcessCpuReader:
             raise ValueError("VM process resource_id MUST be bounded and non-empty")
         if start.tzinfo is None or end.tzinfo is None or start >= end:
             raise ValueError("VM process query window MUST be aware and positive")
-        if not 1 <= limit <= _MAX_PROCESSES:
+        if type(limit) is not int or not 1 <= limit <= _MAX_PROCESSES:
             raise ValueError("VM process query limit MUST be in [1, 32]")
-        attempt_ref = _evidence_ref("attempt", resource_id, start, end)
+        clean_resource_id = resource_id.strip()
+        attempt_ref = _evidence_ref("attempt", clean_resource_id, start, end)
         try:
             result = await self._provider.query_log(
-                query=_process_cpu_kql(resource_id=resource_id, start=start, end=end),
+                query=_process_cpu_kql(resource_id=clean_resource_id, start=start, end=end),
                 window=_duration(end - start),
                 max_rows=limit,
             )
@@ -133,6 +134,8 @@ def _observation(
     sample_count = _integer(row, "sample_count")
     first = _timestamp(row, "first_observed_at")
     last = _timestamp(row, "last_observed_at")
+    if average < 0 or maximum < average or sample_count < 1 or first > last:
+        raise ValueError("Azure VM process row has inconsistent CPU or timestamp aggregates")
     return VmProcessCpuObservation(
         resource_id=resource_id,
         process_name=process_name,
