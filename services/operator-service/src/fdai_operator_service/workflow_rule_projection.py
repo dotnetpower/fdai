@@ -228,6 +228,9 @@ def _rule_search_titles(detail: object) -> tuple[str, ...]:
         title_ko = exp_details.get("title_ko")
         if isinstance(title_ko, str) and title_ko:
             values.append(title_ko)
+        desc_ko = exp_details.get("description_ko")
+        if isinstance(desc_ko, str) and desc_ko:
+            values.append(desc_ko)
     return tuple(values)
 
 
@@ -283,6 +286,9 @@ def _rule_catalog_payload(
                 (
                     str(item.get("id", "")),
                     str(item.get("resource_type", "")),
+                    str(item.get("remediates", "")),
+                    str(item.get("source", "")),
+                    str(item.get("category", "")),
                     *_rule_search_titles(
                         details_value.get(f"{item.get('origin')}:{item.get('id')}")
                     ),
@@ -746,7 +752,7 @@ def _best_practice_catalog_payload(
                 [
                     *(
                         str(item.get(field, ""))
-                        for field in ("id", "control_id", "title", "rationale")
+                        for field in ("id", "control_id", "title", "rationale", "pillar", "owner")
                     ),
                     korean_titles.get(str(item.get("control_id", "")), ""),
                 ]

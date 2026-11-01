@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { Tooltip } from "../components/tooltip";
 import {
+  CopyButton,
   DataTable,
   ErrorState,
   KpiCard,
@@ -35,6 +36,11 @@ import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
+import { bestPracticeHref } from "./best-practice-controls.model";
+import { mcsbControlsHref } from "./mcsb-controls.model";
+import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
+
+const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
 const PAGE_SIZE = 100;
 const EMPTY_FILTERS: CafFilters = {
@@ -241,6 +247,13 @@ function CafControlsBody({
                       { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
                       { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
                       { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                      { key: "selected_verification", value: guidanceText(guidance.verification_steps[0]!, locale), group: "selection" },
+                      { key: "selected_caution", value: guidanceText(guidance.cautions[0]!, locale), group: "selection" },
+                      {
+                        key: "selected_diagram_flow",
+                        value: guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> "),
+                        group: "selection",
+                      },
                     ]
                   : []),
               ]
@@ -335,6 +348,18 @@ function CafControlsBody({
             <span class="sr-only">{t("governance.rules.caf.filter.searchAria")}</span>
             <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.caf.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
+          {Boolean(filters.area || filters.applicability || filters.satisfaction || filters.q || searchInput) ? (
+            <button
+              type="button"
+              class="btn"
+              onClick={() => {
+                onSearch("");
+                onFilter(EMPTY_FILTERS);
+              }}
+            >
+              {t("governance.common.clearFilter")}
+            </button>
+          ) : null}
         </div>
         <div class="table-toolbar">
           <p class="muted">{t("governance.rules.caf.result.showing", { filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
@@ -369,6 +394,11 @@ function CafDrawer({
     panelRef.current?.focus();
     return () => previous?.focus?.();
   }, []);
+  const selectedControlId = detail.status === "ready" ? detail.data.control_id : "";
+  useEffect(() => {
+    const body = panelRef.current?.querySelector<HTMLElement>(".rule-drawer-body");
+    if (body) body.scrollTop = 0;
+  }, [selectedControlId]);
 
   function trapFocus(event: KeyboardEvent): void {
     if (event.key === "Escape") {
@@ -402,7 +432,11 @@ function CafDrawer({
       <aside id="caf-control-detail" ref={panelRef} tabIndex={-1} class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`} role="dialog" aria-modal="true" aria-label={t("governance.rules.caf.detail.aria")} onClick={(event) => event.stopPropagation()} onKeyDown={trapFocus}>
         <header class="rule-drawer-head">
           <h3 class="mono">{detail.status === "ready" ? detail.data.control_id : t("governance.rules.caf.detail.title")}</h3>
-          <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          <div class="rule-drawer-actions">
+            {detail.status === "ready" ? <CopyButton text={detail.data.control_id} label={t("governance.common.copyId")} /> : null}
+            <CopyButton text={window.location.href} label={t("governance.common.copyLink")} />
+            <button type="button" class="btn" onClick={onClose} aria-label={t("governance.common.close")}>{t("governance.common.close")}</button>
+          </div>
         </header>
         <div class="rule-drawer-body">
           {detail.status === "loading" ? (
@@ -458,7 +492,19 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
         <div class="control-requirement-list">
           {data.evidence_specifications.map((item) => (
             <article key={item.requirement_id} class="control-requirement-row">
-              <div><span class="muted small">{displayValue("controlRequirementKind", item.kind)} - {displayValue("cafProcessPhase", item.process_phase)}</span><code>{item.source_ref}</code></div>
+              <div>
+                <span class="muted small">
+                  {displayValue("controlRequirementKind", item.kind)} - {displayValue("cafProcessPhase", item.process_phase)}
+                  {item.freshness_ceiling_seconds > 0
+                    ? ` · ${
+                        item.freshness_ceiling_seconds % 86400 === 0
+                          ? t("governance.rules.wara.detail.days", { count: item.freshness_ceiling_seconds / 86400 })
+                          : t("governance.rules.wara.detail.seconds", { count: item.freshness_ceiling_seconds })
+                      }`
+                    : ""}
+                </span>
+                <code>{item.source_ref}</code>
+              </div>
               <span>{item.authoritative_producer ?? item.blocked_dependency}</span>
             </article>
           ))}
@@ -466,12 +512,32 @@ function CafDetailContent({ data, expanded, onExpand }: { readonly data: CafCont
       </DetailSection>
       <DetailSection title={t("governance.rules.caf.detail.crosswalk")}>
         <div class="control-requirement-list">
-          {data.crosswalk.map((item) => (
-            <article key={`${item.target_kind}:${item.target_ref}`} class="control-requirement-row">
-              <div><span class="muted small">{displayValue("cafTargetKind", item.target_kind)}</span><code>{item.target_ref ?? "unmapped"}</code></div>
-              <span>{displayValue("cafRelationship", item.relationship)}</span>
-            </article>
-          ))}
+          {data.crosswalk.map((item) => {
+            const ref = item.target_ref;
+            const linkHref =
+              ref && item.target_kind === "rule"
+                ? ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: ref, origin: "active" })
+                : ref && item.target_kind === "waf"
+                  ? bestPracticeHref({ pillar: "", status: "", q: ref }, null)
+                  : ref && item.target_kind === "mcsb"
+                    ? mcsbControlsHref("v1", { domain: "", coverage: "", q: "" }, ref)
+                    : null;
+            return (
+              <article key={`${item.target_kind}:${item.target_ref}`} class="control-requirement-row">
+                <div>
+                  <span class="muted small">{displayValue("cafTargetKind", item.target_kind)}</span>
+                  {linkHref ? (
+                    <a href={linkHref}>
+                      <code>{ref}</code>
+                    </a>
+                  ) : (
+                    <code>{ref ?? "unmapped"}</code>
+                  )}
+                </div>
+                <span>{displayValue("cafRelationship", item.relationship)}</span>
+              </article>
+            );
+          })}
         </div>
       </DetailSection>
     </div>

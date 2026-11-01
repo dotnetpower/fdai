@@ -1140,7 +1140,8 @@ remain open.
 - CI enforces the gates referenced above-formatter/linter, secret scanning, dependency audit,
   coverage, and regression-before review; see
   [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md).
-  Bilingual rule localization (`delivery/rule_explanation_localization.py`) and Console guidance
+  Bilingual rule localization (`delivery/rule_explanation_localization.py`, including category and
+  phrase translations for collected `azure_policy` and `kube_bench` rules) and Console guidance
   modules (`console/src/routes/*-guidance.ts`, `reference-images.catalog.ts`) remain pure
   presentation helpers that import no cross-service runtime and grant no execution authority.
 

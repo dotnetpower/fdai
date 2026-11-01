@@ -1763,6 +1763,19 @@ def test_rule_list_attaches_and_searches_korean_title_from_matching_detail() -> 
             "title_ko": "캐시 영역 중복 구성 필수",
         }
     ]
+    by_remediates = _rule_catalog_payload(
+        {
+            "rules": [{**rule, "remediates": "remediate.enable-zone-redundancy"}],
+            "details": details,
+        },
+        WorkflowReadRequest(
+            operation=WorkflowOperation.RULE_LIST,
+            principal_id="operator-a",
+            query={"q": "enable-zone-redundancy"},
+            path_parameters={},
+        ),
+    )
+    assert by_remediates["filtered_total"] == 1
 
 
 def test_framework_lists_attach_and_search_korean_titles_when_source_pins_match() -> None:

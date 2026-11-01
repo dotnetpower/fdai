@@ -21,7 +21,7 @@ import shard16 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-
 import shard17 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-17.json";
 import shard18 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-18.json";
 import shard19 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-19.json";
-import { msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
+import { computeCvePriorityTier, msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import {
   panelArray,
   panelBoolean,
@@ -643,7 +643,7 @@ export function filterMsrcCsafRows(
     }
     if (filters.kev_sla_tier && row.kev_sla_tier !== filters.kev_sla_tier) return false;
     if (tokens.length === 0) return true;
-    // C32 & V35: Multi-token AND search across CVE, English/Korean title, product, rule, action, KB, and SLA
+    // C32, V35 & TR48: Multi-token AND search across CVE, English/Korean title, product, rule, action, workaround, KB, SLA, and priority tier
     return tokens.every(
       (query) =>
         row.cve_id.toLowerCase().includes(query)
@@ -655,8 +655,10 @@ export function filterMsrcCsafRows(
         || row.primary_resource_type.toLowerCase().includes(query)
         || row.exploit_status.toLowerCase().includes(query)
         || row.kev_sla_tier.toLowerCase().includes(query)
+        || computeCvePriorityTier(row).toLowerCase() === query
         || (row.existing_rule_id?.toLowerCase().includes(query) ?? false)
         || (row.candidate_action_type?.toLowerCase().includes(query) ?? false)
+        || (row.workaround_property?.toLowerCase().includes(query) ?? false)
         || row.product_ids.some((pid) => pid.toLowerCase().includes(query))
         || row.products.some((prod) => prod.product_name.toLowerCase().includes(query))
         || row.remediations.some((rem) => rem.kb_article?.toLowerCase().includes(query) ?? false),

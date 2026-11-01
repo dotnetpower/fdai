@@ -19,6 +19,43 @@ function TextList({ items, ordered = false }: { readonly items: readonly Guidanc
   return ordered ? <ol class="wara-guidance-steps">{contents}</ol> : <ul>{contents}</ul>;
 }
 
+export function formatGuidanceMarkdownBrief(
+  controlId: string,
+  guidance: GuidancePresentation,
+  locale: string,
+): string {
+  const title = guidanceText(guidance.title, locale);
+  const summary = guidanceText(guidance.summary, locale);
+  const benefits = guidanceText(guidance.benefits, locale);
+  const before = guidance.configuration.before.map((item) => `- ${guidanceText(item, locale)}`).join("\n");
+  const after = guidance.configuration.after.map((item) => `- ${guidanceText(item, locale)}`).join("\n");
+  const steps = guidance.implementation_steps.map((item, idx) => `${idx + 1}. ${guidanceText(item, locale)}`).join("\n");
+  const verify = guidance.verification_steps.map((item, idx) => `${idx + 1}. ${guidanceText(item, locale)}`).join("\n");
+  const flow = guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> ");
+  const sources = guidance.sources.map((src) => `- [${guidanceText(src.label, locale)}](${src.url})`).join("\n");
+  return [
+    `# [${controlId}] ${title}`,
+    "",
+    `> ${summary}`,
+    "",
+    `- **Benefits**: ${benefits}`,
+    `- **Architecture Flow**: ${flow}`,
+    "",
+    "## Before",
+    before,
+    "",
+    "## After",
+    after,
+    "",
+    "## Implementation",
+    steps,
+    "",
+    "## Verification",
+    verify,
+    ...(sources ? ["", "## Sources", sources] : []),
+  ].join("\n");
+}
+
 export function WaraGuidanceContent({ control, expanded, onExpand }: {
   readonly control: WaraControl;
   readonly expanded: boolean;

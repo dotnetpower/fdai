@@ -5,6 +5,7 @@ import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import {
+  CopyButton,
   DataTable,
   ErrorState,
   KpiCard,
@@ -259,6 +260,13 @@ function WaraControlsBody({
                       { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
                       { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
                       { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                      { key: "selected_verification", value: guidanceText(guidance.verification_steps[0]!, locale), group: "selection" },
+                      { key: "selected_caution", value: guidanceText(guidance.cautions[0]!, locale), group: "selection" },
+                      {
+                        key: "selected_diagram_flow",
+                        value: guidance.diagram.nodes.map((node) => guidanceText(node.label, locale)).join(" -> "),
+                        group: "selection",
+                      },
                     ]
                   : []),
               ]
@@ -373,8 +381,20 @@ function WaraControlsBody({
           <FacetSelect label={t("governance.rules.wara.filter.satisfaction")} value={filters.satisfaction} counts={facet("by_satisfaction")} displayGroup="controlStatus" onChange={(value) => onFilter({ satisfaction: value })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.wara.filter.searchAria")}</span>
-            <input type="search" value={searchInput} placeholder={t("governance.rules.wara.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
+            <input type="search" maxLength={256} value={searchInput} placeholder={t("governance.rules.wara.filter.searchPlaceholder")} onInput={(event) => onSearch((event.target as HTMLInputElement).value)} />
           </label>
+          {Object.values(filters).some(Boolean) || Boolean(searchInput) ? (
+            <button
+              type="button"
+              class="btn"
+              onClick={() => {
+                onSearch("");
+                onFilter(EMPTY_FILTERS);
+              }}
+            >
+              {t("governance.common.clearFilter")}
+            </button>
+          ) : null}
         </div>
         <div class="table-toolbar">
           <p class="muted">{t("governance.rules.wara.result.showing", { start: pageStart, end: pageEnd, filtered: data.filtered_total, total: data.total })}{loading ? t("governance.rules.result.updating") : ""}</p>
@@ -408,6 +428,11 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
     panelRef.current?.focus();
     return () => previous?.focus?.();
   }, []);
+  const selectedWaraId = detail.status === "ready" ? detail.data.id : "";
+  useEffect(() => {
+    const body = panelRef.current?.querySelector<HTMLElement>(".rule-drawer-body");
+    if (body) body.scrollTop = 0;
+  }, [selectedWaraId]);
 
   function trapFocus(event: KeyboardEvent): void {
     if (event.key === "Escape") {
@@ -489,14 +514,14 @@ function WaraDrawer({ detail, onClose }: { readonly detail: DetailState; readonl
                 <dl class="detail-grid">
                   <DetailRow label={t("governance.rules.wara.detail.limitations")} value={detail.data.limitations.join(", ") || "-"} mono />
                   {detail.data.manual_evidence ? <DetailRow label={t("governance.rules.wara.detail.manualEvidence")} value={JSON.stringify(detail.data.manual_evidence, null, 2)} mono /> : null}
-                  <DetailRow label={t("governance.rules.wara.guidance.recommendationId")} value={detail.data.id} mono />
+                  <DetailRow label={t("governance.rules.wara.guidance.recommendationId")} value={<span class="pill-row"><code>{detail.data.id}</code><CopyButton text={detail.data.id} label={t("governance.common.copyId")} /></span>} />
                   <DetailRow label={t("governance.rules.wara.column.resourceType")} value={detail.data.resource_type} mono />
                   <DetailRow label={t("governance.rules.wara.column.control")} value={detail.data.recommendation_control} />
                   <DetailRow label={t("governance.rules.wara.column.impact")} value={detail.data.impact} />
                   <DetailRow label={t("governance.rules.wara.detail.aprlSource")} value={<a href={detail.data.source_url} target="_blank" rel="noreferrer">{detail.data.source_path}</a>} />
                   <DetailRow label={t("governance.rules.wara.detail.sourceVersion")} value={detail.data.source_version} mono />
                   <DetailRow label={t("governance.rules.wara.detail.sourceRevision")} value={detail.data.source_revision} mono />
-                  <DetailRow label={t("governance.rules.wara.detail.sourceDigest")} value={detail.data.source_digest} mono />
+                  <DetailRow label={t("governance.rules.wara.detail.sourceDigest")} value={<span class="pill-row"><code>{detail.data.source_digest}</code><CopyButton text={detail.data.source_digest} label={t("governance.common.copy")} /></span>} />
                   <DetailRow label={t("governance.rules.wara.detail.retrievedAt")} value={detail.data.retrieved_at} mono />
                   <DetailRow label={t("governance.rules.wara.detail.license")} value={detail.data.source_license} />
                   <DetailRow label={t("governance.rules.wara.detail.learnMore")} value={detail.data.learn_more_url === null ? "-" : <a href={detail.data.learn_more_url} target="_blank" rel="noreferrer">{detail.data.learn_more_name}</a>} />

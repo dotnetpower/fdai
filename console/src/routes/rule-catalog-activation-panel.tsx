@@ -88,13 +88,18 @@ function ActivationRequestForm({
     <DetailSection title={t("governance.rules.activation.requestTitle")}>
       <form class="rule-activation-form" onSubmit={(event) => void submit(event)}>
         <label>
-          <span>{t("governance.rules.activation.reason")}</span>
+          <span>{t("governance.rules.activation.reason")} ({reason.trim().length}/1000)</span>
           <textarea
             required
             minLength={20}
             maxLength={1000}
             value={reason}
             onInput={(event) => setReason((event.target as HTMLTextAreaElement).value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter" && reason.trim().length >= 20 && state !== "submitting") {
+                void submit(event);
+              }
+            }}
           />
         </label>
         <button class="btn primary" type="submit" disabled={state === "submitting" || reason.trim().length < 20}>

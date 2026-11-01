@@ -450,11 +450,11 @@ def test_rule_snapshot_attaches_bilingual_explanations_for_active_and_collected_
     ap_exp = details[f"collected:{collected_ap.id}"]["explanation"]
     assert ap_exp["title"] == "API Management services should use a virtual network"
     assert ap_exp["description"]
-    assert ap_exp["details"]["title_ko"]
+    assert "가상 네트워크(VNet) 통합 사용 필요" in ap_exp["details"]["title_ko"]
     assert ap_exp["details"]["description_ko"]
 
     kb_exp = details[f"collected:{collected_kb.id}"]["explanation"]
     assert "Ensure that the cni file ownership is set to root root" in kb_exp["title"]
     assert kb_exp["description"]
-    assert kb_exp["details"]["title_ko"]
+    assert "파일 소유권(root:root) 설정 준수" in kb_exp["details"]["title_ko"]
     assert kb_exp["details"]["description_ko"]

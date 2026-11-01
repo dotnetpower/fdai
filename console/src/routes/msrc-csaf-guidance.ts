@@ -17,13 +17,29 @@ const VULNERABILITY_SUFFIX_TRANSLATIONS: readonly (readonly [RegExp, string])[] 
   [/\bTampering Vulnerability$/i, "데이터·구성 변조(Tampering) 취약점"],
   [/\bCross-Site Scripting \(XSS\) Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
   [/\bCross-Site Scripting Vulnerability$/i, "사이트 간 스크립팅(XSS) 취약점"],
+  [/\bCross-Site Request Forgery \(CSRF\) Vulnerability$/i, "사이트 간 요청 위조(CSRF) 취약점"],
+  [/\bCross-Site Request Forgery Vulnerability$/i, "사이트 간 요청 위조(CSRF) 취약점"],
   [/\bAuthentication Bypass Vulnerability$/i, "인증 우회 취약점"],
+  [/\bImproper Access Control Vulnerability$/i, "부적절한 접근 통제 취약점"],
+  [/\bImproper Certificate Validation Vulnerability$/i, "인증서 검증 미흡 취약점"],
+  [/\bDeserialization of Untrusted Data Vulnerability$/i, "비신뢰 데이터 역직렬화 취약점"],
+  [/\bCommand Injection Vulnerability$/i, "명령어 인젝션 취약점"],
+  [/\bPrompt Injection Vulnerability$/i, "프롬프트 인젝션(Prompt Injection) 취약점"],
+  [/\bModel Weight Exfiltration Vulnerability$/i, "모델 가중치 유출 취약점"],
+  [/\bDirectory Traversal Vulnerability$/i, "디렉터리 트래버설(경로 조작) 취약점"],
+  [/\bPath Traversal Vulnerability$/i, "경로 탐색(Path Traversal) 취약점"],
+  [/\bInteger Overflow Vulnerability$/i, "정수 오버플로(Integer Overflow) 취약점"],
+  [/\bRace Condition Vulnerability$/i, "경쟁 조건(Race Condition) 취약점"],
+  [/\bCryptographic Weakness Vulnerability$/i, "암호화 약점 취약점"],
+  [/\bNull Pointer Dereference Vulnerability$/i, "널 포인터 역참조 취약점"],
   [/\bMemory Corruption Vulnerability$/i, "메모리 손상 취약점"],
   [/\bOut-of-bounds Read Vulnerability$/i, "경계 밖 읽기(OOB Read) 취약점"],
   [/\bOut-of-bounds Write Vulnerability$/i, "경계 밖 쓰기(OOB Write) 취약점"],
   [/\bUse After Free Vulnerability$/i, "해제 후 재사용(UAF) 취약점"],
   [/\bHeap-based Buffer Overflow Vulnerability$/i, "힙 버퍼 오버플로 취약점"],
+  [/\bStack-based Buffer Overflow Vulnerability$/i, "스택 버퍼 오버플로 취약점"],
   [/\bServer-Side Request Forgery \(SSRF\) Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
+  [/\bServer-Side Request Forgery Vulnerability$/i, "서버 측 요청 위조(SSRF) 취약점"],
   [/\bSQL Injection Vulnerability$/i, "SQL 인젝션 취약점"],
   [/\bArbitrary Code Execution Vulnerability$/i, "임의 코드 실행 취약점"],
   [/\bLocal Privilege Escalation Vulnerability$/i, "로컬 권한 상승 취약점"],
@@ -41,6 +57,87 @@ const VULNERABILITY_SUFFIX_TRANSLATIONS: readonly (readonly [RegExp, string])[] 
   [/\bUnauthenticated Administrative API Exposure$/i, "비인증 관리 API 노출 취약점"],
   [/\bVulnerability$/i, "보안 취약점"],
 ];
+
+export type CvePriorityTier = "P0" | "P1" | "P2" | "P3";
+
+export function computeCvePriorityTier(
+  row: Pick<MsrcCsafControlRow, "exploit_status" | "publicly_disclosed" | "cvss_base_score" | "exposure">,
+): CvePriorityTier {
+  if (
+    row.exploit_status === "exploited"
+    || (row.publicly_disclosed && row.cvss_base_score >= 9.0)
+    || (row.exposure === "affected" && row.cvss_base_score >= 8.5)
+  ) {
+    return "P0";
+  }
+  if (
+    row.exploit_status === "exploitation_more_likely"
+    || row.cvss_base_score >= 8.0
+    || row.exposure === "affected"
+  ) {
+    return "P1";
+  }
+  if (row.cvss_base_score >= 6.5 || row.publicly_disclosed) {
+    return "P2";
+  }
+  return "P3";
+}
+
+export interface AttackSurfaceSummary {
+  readonly summary: GuidanceText;
+  readonly tone: "danger" | "warning" | "info" | "neutral";
+}
+
+export function summarizeAttackSurface(cvssVector: string): AttackSurfaceSummary {
+  const tokens = new Map<string, string>();
+  for (const part of cvssVector.split("/")) {
+    const [key, val] = part.split(":");
+    if (key && val) tokens.set(key, val);
+  }
+  const isRemote = tokens.get("AV") === "N";
+  const isUnauth = tokens.get("PR") === "N";
+  const isZeroClick = tokens.get("UI") === "N";
+  const isScopeChanged = tokens.get("S") === "C";
+
+  if (isRemote && isUnauth && isZeroClick) {
+    return {
+      summary: text(
+        isScopeChanged
+          ? "Remote · Unauthenticated · Zero-Click · Cross-Boundary Scope (Critical exposure)"
+          : "Remote · Unauthenticated · Zero-Click (High network exposure)",
+        isScopeChanged
+          ? "원격 네트워크 · 무인증 · 제로클릭 · 타 계층 확산(Scope Changed) - 최우선 격리 대상"
+          : "원격 네트워크 · 무인증 · 제로클릭 - 고위험 네트워크 노출",
+      ),
+      tone: "danger",
+    };
+  }
+  if (isRemote && (isUnauth || isZeroClick)) {
+    return {
+      summary: text(
+        `Remote Network Vector · ${isUnauth ? "Unauthenticated" : "Authenticated"} · ${isZeroClick ? "Zero-Click" : "User Interaction Required"}`,
+        `원격 네트워크 경로 · ${isUnauth ? "무인증 공격 가능" : "인증 권한 필요"} · ${isZeroClick ? "제로클릭" : "사용자 상호작용 필요"}`,
+      ),
+      tone: "warning",
+    };
+  }
+  if (tokens.get("AV") === "A") {
+    return {
+      summary: text(
+        "Adjacent Network Vector (VNet / Subnet / L2 broadcast domain)",
+        "인접 네트워크 경로 (동일 VNet·서브넷·브로드캐스트 도메인)",
+      ),
+      tone: "warning",
+    };
+  }
+  return {
+    summary: text(
+      `Local / Authenticated Vector (${isScopeChanged ? "Cross-Boundary Scope" : "Component-Local Scope"})`,
+      `로컬·인증 필요 경로 (${isScopeChanged ? "타 계층 확산 가능" : "단일 구성요소 내 제한"})`,
+    ),
+    tone: isScopeChanged ? "warning" : "info",
+  };
+}
 
 export interface CweCategoryClassification {
   readonly cweId: string;

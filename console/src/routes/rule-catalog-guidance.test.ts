@@ -1,10 +1,17 @@
 import { describe, expect, test } from "vitest";
-import { buildMcsbV2Guidance, mcsbDisplayTitle } from "./mcsb-v2-guidance";
-import { PINNED_MSRC_CSAF_CATALOG } from "./msrc-csaf-controls.model";
-import { buildMsrcCsafGuidance, msrcCsafDisplayTitle, parseCvssVector } from "./msrc-csaf-guidance";
+import { buildMcsbV2Guidance, mcsbDisplayTitle, resolveMcsbAiTaxonomy } from "./mcsb-v2-guidance";
+import { EMPTY_MSRC_CSAF_FILTERS, PINNED_MSRC_CSAF_CATALOG, filterMsrcCsafRows } from "./msrc-csaf-controls.model";
+import {
+  buildMsrcCsafGuidance,
+  computeCvePriorityTier,
+  msrcCsafDisplayTitle,
+  parseCvssVector,
+  summarizeAttackSurface,
+} from "./msrc-csaf-guidance";
 import { frameworkDisplayTitle, resolveControlReferenceImage } from "./reference-images.catalog";
 import { ACTIVE_RULE_GUIDANCE_SPECS, buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
 import type { RuleDetailDto } from "./rule-catalog-types";
+import { formatGuidanceMarkdownBrief } from "./wara-guidance";
 import { guidanceMissingKoreanFields } from "./wara-guidance.model";
 
 function sampleRuleDetail(overrides: Partial<RuleDetailDto> = {}): RuleDetailDto {
@@ -144,5 +151,37 @@ describe("rule, MCSB v2-preview, and MSRC CSAF illustrated guidance", () => {
         "ko",
       ),
     ).toContain("가상 네트워크(VNet) 통합 필요");
+    expect(
+      ruleDisplayTitle(
+        {
+          id: "kube-bench.aks-1.0.1-2-1.ensure-that-the-anonymous-auth-argument-is-set-to-false-a",
+          title: "CIS aks-1.0 1.2.1: Ensure that the --anonymous-auth argument is set to false",
+        },
+        "ko",
+      ),
+    ).toContain("익명 인증 비활성화");
+  });
+
+  test("computes CISA KEV / exploitability priority tiers, attack surface summaries, OWASP LLM mappings, and markdown briefs", () => {
+    const row = PINNED_MSRC_CSAF_CATALOG.rows[0]!;
+    expect(["P0", "P1", "P2", "P3"]).toContain(computeCvePriorityTier(row));
+    const surface = summarizeAttackSurface("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H");
+    expect(surface.tone).toBe("danger");
+    expect(surface.summary.ko).toContain("원격 네트워크");
+    expect(filterMsrcCsafRows(PINNED_MSRC_CSAF_CATALOG.rows.slice(0, 50), { ...EMPTY_MSRC_CSAF_FILTERS, q: "P0" }).length).toBeGreaterThan(0);
+
+    for (const id of ["AI-1", "AI-2", "AI-3", "AI-4", "AI-5", "AI-6", "AI-7"]) {
+      const taxonomy = resolveMcsbAiTaxonomy(id);
+      expect(taxonomy?.owaspLlmRef).toContain("OWASP LLM");
+      expect(taxonomy?.mitreAtlasRef).toContain("AML.T");
+    }
+
+    const detail = sampleRuleDetail({
+      parameters: { kube_bench_audit: "ps -ef | grep kube-apiserver" },
+    });
+    const guidance = buildRuleGuidance(detail);
+    const brief = formatGuidanceMarkdownBrief(detail.id, guidance, "ko");
+    expect(brief).toContain(`# [${detail.id}]`);
+    expect(brief).toContain("ps -ef | grep kube-apiserver");
   });
 });

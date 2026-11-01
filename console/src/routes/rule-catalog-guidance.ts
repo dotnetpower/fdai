@@ -646,15 +646,56 @@ export const ACTIVE_RULE_GUIDANCE_SPECS: Readonly<Record<string, ActiveRuleGuida
   },
 };
 
-const COLLECTED_POLICY_PHRASES_KO: readonly (readonly [string, string])[] = [
-  ["should use a customer-managed key", "고객 관리형 키(CMK) 사용 필요"],
-  ["should use private link", "Private Link 사설 연결 사용 필요"],
-  ["should use private endpoints", "프라이빗 엔드포인트 사용 필요"],
-  ["should disable public network access", "공용 네트워크 접근 비활성화 필요"],
-  ["should use a virtual network", "가상 네트워크(VNet) 통합 필요"],
-  ["should be associated with a data collection rule", "데이터 수집 규칙(DCR) 연결 필요"],
-  ["should have diagnostic settings", "진단 설정 활성화 필요"],
-  ["should have firewall rules", "방화벽 규칙 구성 필요"],
+const COLLECTED_POLICY_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
+  [/should use a customer-managed key/i, "고객 관리형 키(CMK) 사용 필요"],
+  [/should use customer-managed keys/i, "고객 관리형 키(CMK) 사용 필요"],
+  [/infrastructure encryption/i, "인프라 이중 암호화 활성화 필요"],
+  [/double encryption/i, "이중 암호화 사용 필요"],
+  [/should use private link/i, "Private Link 사설 연결 사용 필요"],
+  [/should use private endpoints/i, "프라이빗 엔드포인트 사용 필요"],
+  [/private endpoint connections should be enabled/i, "프라이빗 엔드포인트 연결 활성화 필요"],
+  [/should disable public network access/i, "공용 네트워크 접근 비활성화 필요"],
+  [/public network access should be disabled/i, "공용 네트워크 접근 비활성화 필요"],
+  [/should not have a public ip/i, "공용 IP 주소 할당 금지"],
+  [/should use a virtual network/i, "가상 네트워크(VNet) 통합 필요"],
+  [/should be associated with a data collection rule/i, "데이터 수집 규칙(DCR) 연결 필요"],
+  [/should have diagnostic settings/i, "진단 설정 활성화 필요"],
+  [/resource logs should be enabled/i, "리소스 진단 로그 활성화 필요"],
+  [/audit logs should be enabled/i, "감사 로그 활성화 필요"],
+  [/should have firewall rules/i, "방화벽 규칙 구성 필요"],
+  [/should use managed identity/i, "관리 ID(Managed Identity) 사용 필요"],
+  [/system-assigned managed identity/i, "시스템 할당 관리 ID 활성화 필요"],
+  [/local authentication methods should be disabled/i, "로컬 인증 방식 비활성화 필요"],
+  [/shared key access should be disabled/i, "공유 키 접근 비활성화 필요"],
+  [/anonymous access should be disabled/i, "익명 접근 비활성화 필요"],
+  [/should be zone redundant/i, "영역 중복(Zone Redundant) 구성 필요"],
+  [/minimum tls version/i, "최소 TLS 버전(TLS 1.2+) 강제 필요"],
+  [/latest tls version/i, "최신 TLS 버전(TLS 1.2+) 사용 필요"],
+  [/secure transfer to storage accounts/i, "보안 전송(HTTPS 전용) 활성화 필요"],
+  [/only be accessible over https/i, "HTTPS 보안 연결만 허용 필요"],
+  [/soft delete should be enabled/i, "일시 삭제(Soft Delete) 보호 활성화 필요"],
+  [/purge protection should be enabled/i, "영구 삭제 방지(Purge Protection) 활성화 필요"],
+  [/azure backup should be enabled/i, "Azure Backup 백업 보호 활성화 필요"],
+  [/ddos protection standard/i, "DDoS 네트워크 보호 표준 플랜 활성화 필요"],
+  [/microsoft defender for/i, "Microsoft Defender 클라우드 워크로드 보호 활성화 필요"],
+  [/vulnerability assessment should be enabled/i, "취약점 평가 활성화 필요"],
+  [/disk encryption should be applied/i, "디스크 암호화 적용 필요"],
+  [/flow logs should be enabled/i, "NSG 흐름 로그 활성화 필요"],
+];
+
+const COLLECTED_KUBE_BENCH_PHRASES_KO: readonly (readonly [RegExp, string])[] = [
+  [/anonymous-auth/i, "익명 인증 비활성화"],
+  [/authorization-mode/i, "인가 모드(RBAC/Node) 설정 준수"],
+  [/client-ca-file/i, "클라이언트 CA 인증서 설정 준수"],
+  [/audit-log/i, "감사 로그(Audit Log) 보존·경로 설정 준수"],
+  [/profiling/i, "프로파일링 비활성화"],
+  [/read-only-port/i, "읽기 전용 포트 비활성화"],
+  [/protect-kernel-defaults/i, "커널 기본값 보호 활성화"],
+  [/kubelet-https/i, "Kubelet HTTPS 암호화 통신 강제"],
+  [/file permissions/i, "파일 권한 설정 준수"],
+  [/file ownership/i, "파일 소유권(root:root) 설정 준수"],
+  [/admission control plugin/i, "어드미션 컨트롤 플러그인 활성화"],
+  [/minimize the admission of/i, "컨테이너 고위험 권한 허용 최소화"],
 ];
 
 export function ruleDisplayTitle(
@@ -670,12 +711,16 @@ export function ruleDisplayTitle(
     const parts = rule.id.split(".");
     const ruleset = parts.slice(1, 3).join(".");
     const slug = (parts[parts.length - 1] ?? "").replace(/-(?:automated|manual|m|a)$/, "").replace(/-/g, " ");
+    for (const [pattern, koPhrase] of COLLECTED_KUBE_BENCH_PHRASES_KO) {
+      if (pattern.test(slug) || pattern.test(baseTitle)) {
+        return `CIS ${ruleset} Kubernetes ${koPhrase} (${slug || baseTitle})`;
+      }
+    }
     return `CIS ${ruleset} Kubernetes 보안 점검: ${slug || baseTitle}`;
   }
   if (rule.id.startsWith("azure-builtin.")) {
-    const lower = baseTitle.toLowerCase();
     for (const [pattern, koPhrase] of COLLECTED_POLICY_PHRASES_KO) {
-      if (lower.includes(pattern)) {
+      if (pattern.test(baseTitle)) {
         return `[Azure Policy] ${baseTitle} - ${koPhrase}`;
       }
     }
@@ -826,12 +871,27 @@ export function buildRuleGuidance(data: RuleDetailDto): GuidancePresentation {
     ],
     verification_steps: [
       verify,
+      ...(typeof data.parameters["kube_bench_audit"] === "string" && data.parameters["kube_bench_audit"].trim()
+        ? [
+            text(
+              `Run CIS audit command on the node/control-plane: \`${data.parameters["kube_bench_audit"].trim()}\`.`,
+              `대상 노드·컨트롤 플레인에서 CIS 감사 명령어(\`${data.parameters["kube_bench_audit"].trim()}\`)를 실행하여 설정값을 직접 검증합니다.`,
+            ),
+          ]
+        : typeof data.parameters["azure_policy_effect_default"] === "string" && data.parameters["azure_policy_effect_default"].trim()
+          ? [
+              text(
+                `Verify Azure Policy assignment default effect (\`${data.parameters["azure_policy_effect_default"].trim()}\`) and compliance state on \`${data.resource_type}\`.`,
+                `\`${data.resource_type}\` 범위에서 Azure Policy 할당 기본 효과(\`${data.parameters["azure_policy_effect_default"].trim()}\`) 및 정책 준수 상태를 확인합니다.`,
+              ),
+            ]
+          : []),
       text(
         `Confirm Forseti records a compliant terminal outcome for ${data.id} on the updated inventory generation.`,
         `갱신된 인벤토리 세대에서 Forseti가 ${data.id} 규칙에 대해 준수(Compliant) 최종 판정을 기록하는지 확인합니다.`,
       ),
       text(
-        "Check citar WAF/MCSB framework controls if this rule supplies supporting or decisive rule evidence.",
+        "Check citing WAF/MCSB framework controls if this rule supplies supporting or decisive rule evidence.",
         "이 규칙을 인용하는 WAF/MCSB 프레임워크 통제 항목에서 규칙 커버리지 수치가 정상 갱신되었는지 확인합니다.",
       ),
     ],

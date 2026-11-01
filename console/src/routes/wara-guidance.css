@@ -1,6 +1,8 @@
 .wara-drawer.rule-drawer { width: min(1280px, calc(100vw - 32px)); max-width: none; }
 .wara-drawer.is-expanded { width: calc(100vw - 32px); }
-.wara-drawer .rule-drawer-head { gap: 16px; }
+.wara-drawer .rule-drawer-head { gap: 16px; flex-wrap: wrap; }
+.wara-drawer .rule-drawer-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+#framework-runtime, #rule-runtime, #wara-runtime { scroll-margin-top: 16px; }
 .wara-drawer .wara-drawer-label { font-size: var(--cs-type-panel-title-size); font-weight: 600; overflow-wrap: anywhere; min-width: 0; margin: 0; }
 .wara-drawer .rule-drawer-body { padding: 24px; container: wara-doc / inline-size; }
 .wara-drawer .detail-grid { grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); }
@@ -154,7 +156,7 @@
   body:has(.wara-drawer) :not(:has(.wara-drawer)):not(.wara-drawer):not(.wara-drawer *) { display: none !important; }
   body:has(.wara-drawer) :has(.wara-drawer) { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
   .wara-drawer.rule-drawer, .wara-drawer.is-expanded { display: block; position: static; width: 100%; height: auto; overflow: visible; border: 0; box-shadow: none; animation: none; }
-  .wara-drawer .rule-drawer-head button, .wara-guidance-figure button { display: none; }
+  .wara-drawer .rule-drawer-head button, .wara-drawer .rule-drawer-actions, .wara-guidance-figure button { display: none; }
   .wara-drawer .rule-drawer-body { overflow: visible; padding: 24px 0; }
   .wara-guidance-figure, .wara-guidance-comparison tr, .wara-guidance-node { break-inside: avoid; page-break-inside: avoid; }
   .wara-guidance-section h3, .wara-runtime h3 { break-after: avoid; }
