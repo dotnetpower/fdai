@@ -19,6 +19,8 @@ import {
   EMPTY_MSRC_CSAF_FILTERS,
   PINNED_MSRC_CSAF_CATALOG,
   buildMsrcCsafFacets,
+  buildSevenSafeguardPlan,
+  evaluateCatalogZeroRiskAssurance,
   exportMsrcCsafRowsCsv,
   exportMsrcCsafRowsJson,
   filterMsrcCsafRows,
@@ -164,6 +166,7 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
   );
 
   const posture = useMemo(() => summarizeMsrcCsafPosture(catalog.rows), [catalog.rows]);
+  const zeroRiskAssurance = useMemo(() => evaluateCatalogZeroRiskAssurance(catalog.rows), [catalog.rows]);
   const exploitedCount = posture.exploitedCount;
   const mappedCount = posture.mappedCount;
   const blockedCount = catalog.rows.filter((r) => r.evaluation_status === "blocked").length;
@@ -213,6 +216,8 @@ export function MsrcCsafControlsRoute({ client }: { readonly client?: OperatorAp
         capturedAt: new Date().toISOString(),
         facts: [
           { key: "total_cves", value: catalog.rows.length, group: "catalog" },
+          { key: "zero_risk_status", value: zeroRiskAssurance.status, group: "catalog" },
+          { key: "zero_risk_posture_score", value: zeroRiskAssurance.posture_score, group: "catalog" },
           { key: "exploited_cves", value: exploitedCount, group: "catalog" },
           { key: "wormable_cves", value: posture.wormableCount, group: "catalog" },
           { key: "zero_click_cves", value: posture.zeroClickCount, group: "catalog" },
@@ -571,6 +576,7 @@ function MsrcCsafDrawer({
   const priorityTier = useMemo(() => computeCvePriorityTier(row), [row]);
   const attackSurface = useMemo(() => summarizeAttackSurface(row.cvss_vector), [row.cvss_vector]);
   const cweCategory = useMemo(() => inferCweCategory(row.title), [row.title]);
+  const safeguardPlan = useMemo(() => buildSevenSafeguardPlan(row, sourceRevision), [row, sourceRevision]);
   useLayoutEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -811,6 +817,17 @@ function MsrcCsafDrawer({
                   ))}
                 </div>
               )}
+            </DetailSection>
+
+            <DetailSection title={t("governance.rules.msrcCsaf.detail.safeguardSection")}>
+              <dl class="detail-grid">
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.stopCondition")} value={safeguardPlan.stop_condition} />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.rollbackPlan")} value={safeguardPlan.tested_rollback_plan} />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.blastRadius")} value={`${safeguardPlan.blast_radius_limit} (dry_run=${String(safeguardPlan.dry_run_required)})`} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.targetLock")} value={safeguardPlan.logical_target_lock} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.idempotencyKey")} value={safeguardPlan.idempotency_key} mono />
+                <DetailRow label={t("governance.rules.msrcCsaf.detail.effectVerification")} value={safeguardPlan.effect_verification_contract} />
+              </dl>
             </DetailSection>
 
             <DetailSection title={t("governance.rules.msrcCsaf.detail.pantheonSection")}>

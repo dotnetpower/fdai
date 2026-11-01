@@ -548,9 +548,13 @@ def _msrc_csaf_catalog_payload(
         },
         "controls": [dict(item) for item in matched[offset : offset + limit]],
     }
-    # C30: Preserve optional summary, last_workload_id, and last_evaluated_at metadata
+    # C30 & Z50: Preserve summary, zero_risk_assurance, last_workload_id, and last_evaluated_at
     if isinstance(stored.get("summary"), Mapping):
         response["summary"] = dict(cast(Mapping[str, object], stored["summary"]))
+    if isinstance(stored.get("zero_risk_assurance"), Mapping):
+        response["zero_risk_assurance"] = dict(
+            cast(Mapping[str, object], stored["zero_risk_assurance"])
+        )
     if isinstance(stored.get("last_workload_id"), str):
         response["last_workload_id"] = stored["last_workload_id"]
     if isinstance(stored.get("last_evaluated_at"), str):

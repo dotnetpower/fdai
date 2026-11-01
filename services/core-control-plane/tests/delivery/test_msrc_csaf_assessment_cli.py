@@ -85,6 +85,11 @@ def test_runner_evaluates_9058_cves_and_builds_shadow_operator_projection() -> N
     assert "by_kev_sla_tier" in proj["summary"]
     assert aks_row["kev_sla_tier"] == "immediate_24h"
     assert aks_row["vex_justification"] == "affected_requires_remediation"
+    assert receipt.zero_risk_certificate is not None
+    assert receipt.zero_risk_certificate.execution_authority is False
+    assert isinstance(proj["zero_risk_assurance"], dict)
+    assert proj["zero_risk_assurance"]["status"] == "at_risk"
+    assert proj["zero_risk_assurance"]["toxic_combination_count"] == 1
 
     static_proj = build_msrc_csaf_operator_projection(catalog, None)
     assert static_proj["evaluation_source"] == "repository-catalog"

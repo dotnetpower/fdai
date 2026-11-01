@@ -970,3 +970,103 @@ export function exportMsrcCsafRowsJson(
     2,
   );
 }
+
+export interface MsrcCsafSevenSafeguardPlan {
+  readonly cve_id: string;
+  readonly action_type: string;
+  readonly stop_condition: string;
+  readonly tested_rollback_plan: string;
+  readonly blast_radius_limit: number;
+  readonly dry_run_required: true;
+  readonly logical_target_lock: string;
+  readonly idempotency_key: string;
+  readonly two_phase_audit_required: true;
+  readonly distinct_approver_executor_required: true;
+  readonly effect_verification_contract: string;
+  readonly mode: "shadow";
+  readonly execution_authority: false;
+}
+
+export function buildSevenSafeguardPlan(
+  row: MsrcCsafControlRow,
+  sourceRevision: string,
+): MsrcCsafSevenSafeguardPlan {
+  const actionType = row.candidate_action_type ?? "ops.apply-security-update";
+  return {
+    cve_id: row.cve_id,
+    action_type: actionType,
+    stop_condition: `Abort immediately on health-probe failure, error-rate > 1%, or revision drift from ${sourceRevision}.`,
+    tested_rollback_plan: `Restore pre-patch resource snapshot or version pin prior to ${row.cve_id} update (${row.version_window}).`,
+    blast_radius_limit: 1,
+    dry_run_required: true,
+    logical_target_lock: `lock:${row.primary_resource_type}:${row.cve_id}`,
+    idempotency_key: `idem:${sourceRevision}:${row.cve_id}:${actionType}`,
+    two_phase_audit_required: true,
+    distinct_approver_executor_required: true,
+    effect_verification_contract: `Observe independent post-action inventory generation and verify ${row.primary_resource_type} exits ${row.version_window}.`,
+    mode: "shadow",
+    execution_authority: false,
+  };
+}
+
+export interface MsrcCsafZeroRiskAssuranceSummary {
+  readonly status: "certified_zero_risk" | "at_risk" | "coverage_incomplete";
+  readonly posture_score: number;
+  readonly affected_count: number;
+  readonly mitigated_count: number;
+  readonly fixed_count: number;
+  readonly unknown_count: number;
+  readonly exploited_affected_count: number;
+  readonly wormable_affected_count: number;
+  readonly change_freeze_recommended: boolean;
+  readonly execution_authority: false;
+}
+
+export function evaluateCatalogZeroRiskAssurance(
+  rows: readonly MsrcCsafControlRow[],
+): MsrcCsafZeroRiskAssuranceSummary {
+  let affected = 0;
+  let mitigated = 0;
+  let fixed = 0;
+  let unknown = 0;
+  let exploitedAffected = 0;
+  let wormableAffected = 0;
+  let criticalAffected = 0;
+  for (const row of rows) {
+    if (row.exposure === "affected") {
+      affected += 1;
+      if (row.exploit_status === "exploited") exploitedAffected += 1;
+      if (row.severity === "critical") criticalAffected += 1;
+      if (row.attack_surface_tags.some((tag) => tag === "wormable")) wormableAffected += 1;
+    } else if (row.exposure === "mitigated") {
+      mitigated += 1;
+    } else if (row.exposure === "fixed") {
+      fixed += 1;
+    } else if (row.exposure === "unknown") {
+      unknown += 1;
+    }
+  }
+  const status = affected > 0
+    ? "at_risk"
+    : unknown > 0
+      ? "coverage_incomplete"
+      : "certified_zero_risk";
+  const deduction =
+    exploitedAffected * 35
+    + criticalAffected * 25
+    + affected * 10
+    + mitigated * 3
+    + Math.min(20, unknown > 0 ? 15 : 0);
+  return {
+    status,
+    posture_score: Math.max(0, 100 - Math.min(100, deduction)),
+    affected_count: affected,
+    mitigated_count: mitigated,
+    fixed_count: fixed,
+    unknown_count: unknown,
+    exploited_affected_count: exploitedAffected,
+    wormable_affected_count: wormableAffected,
+    change_freeze_recommended: exploitedAffected > 0 || wormableAffected > 0,
+    execution_authority: false,
+  };
+}
