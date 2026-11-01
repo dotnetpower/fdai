@@ -1,7 +1,7 @@
 {
-  "authoring_digest": "sha256:b2eb2dd1229f3faa6144ed182ed942197f45277e43a7638545caf3d0930d964f",
-  "catalog_digest": "sha256:18bbac367c26d30d6e390296916c3f36591b0468a28bb1ad515e1bb3df3828f6",
-  "manifest_digest": "sha256:ed285753e64faebcab8541d64dd5bba2275e73e3f9eb6d0bbcdba620847b29c5",
+  "authoring_digest": "sha256:84d24762a04980988fb60c02b9e214821a0a667096d51301307878a34441b9f2",
+  "catalog_digest": "sha256:bec2f1e024019e76b7467daf3ec12c4c22f9bd879973103c78f46d04b17295f5",
+  "manifest_digest": "sha256:2c59b12cf02ecb88118c09d2f2ae002a68c97f605508dc2a5ed2902073c78884",
   "official_sources": [
     {
       "content_hash": "git:687e8febe6ddfa4646952220e057a50b1046a75a",
@@ -177,52 +177,52 @@
   "schema_version": "1.0.0",
   "shards": [
     {
-      "digest": "sha256:a86aa4b3594420c95e21a52e73bfe352acb593eab40e329cd0efa0d2f776a726",
+      "digest": "sha256:7888bf9660d3007404be73753bfea2bbcb022f8f6ff8449044b960e260a2e401",
       "entry_count": 16,
       "file": "framework-guidance-00.json"
     },
     {
-      "digest": "sha256:e172021dd0a1797f5fd6222277380319ae2c79a2151731d215413c0c45e5c772",
+      "digest": "sha256:e8e36e274e776e6413fb53185464c57be1825d9fadd5d6db3c901a2d3149f34f",
       "entry_count": 16,
       "file": "framework-guidance-01.json"
     },
     {
-      "digest": "sha256:6944b9e8aedb8dceef8efe3810f77ebcc713de065e439dff4a25bd4172e3cfd6",
+      "digest": "sha256:d7c45068c0b73f34089a3a4f66502e0965a2cea97923557f8ab87f47f3f17304",
       "entry_count": 16,
       "file": "framework-guidance-02.json"
     },
     {
-      "digest": "sha256:4bd233c19cf9d7a90376eb241f35558d4bcd80156550066dbf3ba219d2fa72bb",
+      "digest": "sha256:254823925bc060deba65cd065cbabf6a73770d0160b6bb5124909085ff353d2b",
       "entry_count": 16,
       "file": "framework-guidance-03.json"
     },
     {
-      "digest": "sha256:33e70505344733048323a954f9ee7e7bf8888db7d56c084a457634440a43b84c",
+      "digest": "sha256:c42fc6b59fcc971d9f9d8f525ae71bcf83a7be4bc2e97c4ee821f8f3ef7cfddb",
       "entry_count": 16,
       "file": "framework-guidance-04.json"
     },
     {
-      "digest": "sha256:fcf4ecd7902d59b3a7a3cc6323c3503c104d2d0e6fd3fc3701b826bc7f17657a",
+      "digest": "sha256:ceb184649c2d3c90512888d83f3671dd89ee9246d85ce4e7278540e1c56d4d6f",
       "entry_count": 16,
       "file": "framework-guidance-05.json"
     },
     {
-      "digest": "sha256:d879f2b7e0ca1a8f771c80025cadf38d25bf6efa5aeecfd59d1cd105ea9cdaa1",
+      "digest": "sha256:9c88ffa30ac21b187988fae4a7e1b4a903831f6f189841015c0f42e79fe6e884",
       "entry_count": 16,
       "file": "framework-guidance-06.json"
     },
     {
-      "digest": "sha256:1a99f5c6add1be93880fc22ac5951f99a0a74b3de43610d607116058734dd20f",
+      "digest": "sha256:c5bddeba5d2f7cc17707e65bd3a59ad9b2808a0e9a1879cc354954755fd1b567",
       "entry_count": 16,
       "file": "framework-guidance-07.json"
     },
     {
-      "digest": "sha256:84e025f7066b99df1af753b8c905a345a1b4a9ee38ed7d498f5e8efe6499357b",
+      "digest": "sha256:f20dda0b7945dc2509532ee6dae41d18d47f67b6e5c324c3ea5eedbb7ece7ea0",
       "entry_count": 16,
       "file": "framework-guidance-08.json"
     },
     {
-      "digest": "sha256:0ebbd2bc993f2914fc497a1b424033d676e2294ca589cc9f2c90071260c07c08",
+      "digest": "sha256:5a5a151c465baf8ff1d4e86b8cd70d6af1813d42e41fae8675319d02c6e43f5c",
       "entry_count": 16,
       "file": "framework-guidance-09.json"
     }

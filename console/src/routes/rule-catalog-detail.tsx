@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import {
   CopyButton,
   ErrorState,
@@ -6,6 +6,7 @@ import {
   LoadingState,
   StatusPill,
 } from "../components/ui";
+import { getLocale } from "../i18n";
 import { routeHref } from "../router";
 import { CONTROL_STATUS_PILL } from "./best-practice-controls-body";
 import { bestPracticeHref } from "./best-practice-controls.model";
@@ -13,6 +14,8 @@ import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { RuleActivationPanel } from "./rule-catalog-activation-panel";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
+import { buildRuleGuidance, ruleDisplayTitle } from "./rule-catalog-guidance";
+import { IllustratedGuidanceContent } from "./wara-guidance";
 import {
   type ActivationHistoryState,
   type ActivationState,
@@ -48,6 +51,7 @@ export function RuleDetailDrawer({
   // WCAG dialog behaviour: move focus into the drawer on open, restore
   // it to the trigger on close, and trap Tab within the drawer.
   const panelRef = useRef<HTMLElement>(null);
+  const [expanded, setExpanded] = useState(false);
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
@@ -85,7 +89,7 @@ export function RuleDetailDrawer({
         id="rule-detail-drawer"
         ref={panelRef}
         tabIndex={-1}
-        class="rule-drawer"
+        class={`rule-drawer wara-drawer${expanded ? " is-expanded" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={t("governance.rules.detail.aria")}
@@ -126,6 +130,8 @@ export function RuleDetailDrawer({
               activation={activation}
               activationHistory={activationHistory}
               controlCitations={controlCitations}
+              expanded={expanded}
+              onExpand={() => setExpanded((value) => !value)}
               onRequestActivation={onRequestActivation}
               onApproveActivation={onApproveActivation}
             />
@@ -142,6 +148,8 @@ function RuleDetailContent({
   activation,
   activationHistory,
   controlCitations,
+  expanded,
+  onExpand,
   onRequestActivation,
   onApproveActivation,
 }: {
@@ -150,19 +158,39 @@ function RuleDetailContent({
   readonly activation: ActivationState;
   readonly activationHistory: ActivationHistoryState;
   readonly controlCitations: ControlCitationState;
+  readonly expanded: boolean;
+  readonly onExpand: () => void;
   readonly onRequestActivation: RuleDetailDrawerProps["onRequestActivation"];
   readonly onApproveActivation: RuleDetailDrawerProps["onApproveActivation"];
 }) {
+  const guidance = useMemo(() => buildRuleGuidance(data), [data]);
+  const locale = getLocale();
   return (
     <div class="stack">
       <div class="pill-row">
-        <StatusPill kind={data.origin === "active" ? "enforce" : "neutral"} label={data.origin} />
-        <StatusPill kind={SEVERITY_PILL[data.severity] ?? "neutral"} label={data.severity} />
-        <StatusPill kind="info" label={data.category} />
+        <StatusPill kind={data.origin === "active" ? "enforce" : "neutral"} label={displayValue("origin", data.origin)} />
+        <StatusPill kind={SEVERITY_PILL[data.severity] ?? "neutral"} label={displayValue("severity", data.severity)} />
+        <StatusPill kind="info" label={displayValue("category", data.category)} />
+        <StatusPill kind="neutral" label={displayValue("ruleSource", data.source)} />
       </div>
+
+      <IllustratedGuidanceContent
+        control={{
+          id: data.id,
+          title: ruleDisplayTitle(data, locale),
+          description: data.explanation.description,
+          guidance,
+          source_url: data.provenance.source_url,
+          source_version: data.version,
+        }}
+        expanded={expanded}
+        onExpand={onExpand}
+        prefix="rule"
+      />
 
       <RuleOverview data={data} />
 
+      <div id="rule-runtime" tabIndex={-1} />
       <RuleActivationPanel
         ruleId={data.id}
         activation={activation}
@@ -248,8 +276,15 @@ function RuleDetailContent({
 
 function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
   const { explanation } = data;
-  const heading = explanation.title ?? data.id;
-  const detailEntries = Object.entries(explanation.details ?? {});
+  const locale = getLocale();
+  const expDetails = explanation.details ?? {};
+  const heading = locale === "ko"
+    ? ruleDisplayTitle(data, "ko")
+    : (explanation.title ?? data.id);
+  const desc = locale === "ko" && typeof expDetails["description_ko"] === "string" && expDetails["description_ko"]
+    ? expDetails["description_ko"]
+    : explanation.description;
+  const detailEntries = Object.entries(expDetails).filter(([key]) => key !== "title_ko" && key !== "description_ko");
   return (
     <section class="rule-overview">
       <h4 class="rule-overview-title">{heading}</h4>
@@ -258,8 +293,8 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
           ? t("governance.rules.detail.severityFallback", { severity: data.severity })
           : t(`governance.rules.severityRisk.${data.severity}`)}
       </p>
-      {explanation.description ? (
-        <p class="rule-overview-desc">{explanation.description}</p>
+      {desc ? (
+        <p class="rule-overview-desc">{desc}</p>
       ) : (
         <p class="muted footnote">
           {t("governance.rules.detail.noDescription")}
@@ -268,7 +303,7 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
       {detailEntries.length > 0 ? (
         <dl class="detail-grid">
           {detailEntries.map(([key, value]) => (
-            <DetailRow key={key} label={key.replace(/_/g, " ")} value={String(value)} mono />
+            <DetailRow key={key} label={displayValue("ruleDetailKey", key)} value={String(value)} mono />
           ))}
         </dl>
       ) : null}

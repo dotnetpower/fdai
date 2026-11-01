@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
 import { getLocale } from "../i18n";
 import {
   DataTable,
@@ -20,7 +22,7 @@ import { SEVERITY_PILL } from "./rule-catalog-types";
 import { WaraGuidanceContent } from "./wara-guidance";
 import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
-import { verifyWaraGuidanceDigest } from "./wara-guidance.model";
+import { guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import {
   decodeWaraDetail,
   decodeWaraResponse,
@@ -182,6 +184,7 @@ export function WaraControlsRoute({ client }: { readonly client: OperatorApiClie
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
         selected={selected}
+        detail={detail}
         onFilter={updateFilter}
         onSearch={setSearchInput}
         onSelect={(id) => {
@@ -207,6 +210,7 @@ function WaraControlsBody({
   searchInput,
   loading,
   selected,
+  detail,
   onFilter,
   onSearch,
   onSelect,
@@ -217,11 +221,63 @@ function WaraControlsBody({
   readonly searchInput: string;
   readonly loading: boolean;
   readonly selected: string | null;
+  readonly detail: DetailState;
   readonly onFilter: (patch: Partial<WaraFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (id: string) => void;
   readonly onPage: (offset: number) => void;
 }) {
+  usePublishViewContext(
+    () => {
+      const locale = getLocale();
+      const selectedDetail = selected !== null && detail.status === "ready" ? detail.data : null;
+      const guidance = selectedDetail?.guidance ?? null;
+      return {
+        routeId: "rules",
+        routeLabel: "Azure WARA",
+        purpose: t("governance.rules.wara.banner.body"),
+        glossary: composeGlossary([]),
+        headline: selectedDetail
+          ? `WARA ${selectedDetail.id.slice(0, 8)}: ${waraDisplayTitle(selectedDetail, locale)}`
+          : `Azure WARA: ${data.total} recommendations (${data.inventory.active_recommendations} active)`,
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "total_wara_recommendations", value: data.total, group: "catalog" },
+          { key: "active_wara_recommendations", value: data.inventory.active_recommendations, group: "catalog" },
+          { key: "automated_wara_recommendations", value: data.inventory.automated_recommendations, group: "catalog" },
+          { key: "filtered_wara_recommendations", value: data.filtered_total, group: "filter" },
+          ...(selectedDetail
+            ? [
+                { key: "selected_recommendation_id", value: selectedDetail.id, group: "selection" },
+                { key: "selected_title", value: waraDisplayTitle(selectedDetail, locale), group: "selection" },
+                { key: "selected_resource_type", value: selectedDetail.resource_type, group: "selection" },
+                { key: "selected_impact", value: selectedDetail.impact, group: "selection" },
+                { key: "selected_satisfaction", value: selectedDetail.satisfaction, group: "selection" },
+                ...(guidance
+                  ? [
+                      { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
+                      { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+                      { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+                      { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        records: {
+          recommendations: data.controls.slice(0, 25).map((item) => ({
+            id: item.id,
+            title: waraDisplayTitle(item, locale),
+            resource_type: item.resource_type,
+            impact: item.impact,
+            lifecycle: item.lifecycle,
+            satisfaction: item.satisfaction,
+          })),
+        },
+      };
+    },
+    [data, detail, selected],
+  );
   const columns: readonly Column<WaraControl>[] = useMemo(
     () => [
       {

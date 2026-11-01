@@ -6,6 +6,8 @@ import type { McsbDetailState } from "./mcsb-controls";
 import type { McsbControlDetail } from "./mcsb-controls.model";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { FrameworkGuidanceContent } from "./framework-guidance";
+import { IllustratedGuidanceContent } from "./wara-guidance";
+import { buildMcsbV2Guidance } from "./mcsb-v2-guidance";
 import { ControlEnablementSection } from "./control-enablement";
 import { ControlRemediationSection } from "./control-remediation";
 
@@ -75,9 +77,25 @@ function McsbControlDetailContent({ data, expanded, onExpand }: { readonly data:
   const source = Object.fromEntries(
     Object.entries(data.source).filter(([, value]) => typeof value === "string" && value.length > 0),
   ) as Readonly<Record<string, string>>;
+  const sourceRevision = typeof source["resolved_ref"] === "string" ? source["resolved_ref"] : "";
   return (
     <div class="stack">
-      <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={t("governance.rules.mcsb.detail.boundary")} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      {data.benchmark_version === "v2-preview" && !data.guidance ? (
+        <IllustratedGuidanceContent
+          control={{
+            id: data.control_id,
+            title: data.title,
+            description: t("governance.rules.mcsb.detail.boundary"),
+            guidance: buildMcsbV2Guidance(data),
+            source_version: sourceRevision,
+          }}
+          expanded={expanded}
+          onExpand={onExpand}
+          prefix="framework"
+        />
+      ) : (
+        <FrameworkGuidanceContent guidance={data.guidance} controlId={data.control_id} title={data.title} description={t("governance.rules.mcsb.detail.boundary")} expanded={expanded} onExpand={onExpand} unavailableReason={data.guidance_unavailable_reason} />
+      )}
       <h3 id="framework-runtime" tabIndex={-1}>{t("governance.rules.wara.guidance.runtime")}</h3>
       <ControlEnablementSection value={data.enablement} severitySource={data.severity_source} />
       <ControlRemediationSection value={data.remediation} />

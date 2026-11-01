@@ -34,6 +34,7 @@ export interface BestPracticeControl {
   readonly framework: string;
   readonly control_id: string;
   readonly title: string;
+  readonly title_ko?: string | null;
   readonly rationale: string;
   readonly severity: string;
   readonly category: string;
@@ -203,6 +204,7 @@ function decodeControl(value: unknown, index: number): BestPracticeControl {
     framework: panelNonEmptyString(row, "framework", label),
     control_id: panelNonEmptyString(row, "control_id", label),
     title: panelNonEmptyString(row, "title", label),
+    ...(row["title_ko"] === undefined ? {} : { title_ko: panelNullableString(row, "title_ko", label) }),
     rationale: panelNonEmptyString(row, "rationale", label),
     severity: panelNonEmptyString(row, "severity", label),
     category: panelNonEmptyString(row, "category", label),

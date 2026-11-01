@@ -360,3 +360,101 @@ def test_loader_rejects_drifted_bindings(
             rules=_release_rules(ROOT),
             rule_digest=rule_digest,
         )
+
+
+def test_rule_snapshot_attaches_bilingual_explanations_for_active_and_collected_rules() -> None:
+    from fdai.delivery.authoritative_rule_projection import rule_snapshot
+
+    active_rules = tuple(_release_rules(ROOT))
+    assert len(active_rules) >= 52
+    collected_ap = Rule.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "id": "azure-builtin.api-management.vnet-enabled",
+            "version": "1.0.0",
+            "source": "azure_policy",
+            "severity": "medium",
+            "category": "security",
+            "resource_type": "azure.apimanagement.service",
+            "check_logic": {"kind": "expression", "reference": "azure-policy://sample"},
+            "remediation": {
+                "template_ref": "remediation/azure-builtin/sample.md",
+                "cost_impact_monthly_usd": None,
+            },
+            "remediates": "remediate.azure-policy-managed",
+            "parameters": {
+                "azure_policy_name": "sample",
+                "azure_policy_display_name": "API Management services should use a virtual network",
+                "azure_policy_effect_default": "Audit",
+                "azure_policy_category": "API Management",
+            },
+            "provenance": {
+                "source_url": "https://github.com/Azure/azure-policy",
+                "resolved_ref": "a" * 40,
+                "content_hash": "sha256:" + "b" * 64,
+                "license": "MIT",
+                "redistribution": "embeddable",
+                "retrieved_at": "2026-10-08T00:00:00Z",
+            },
+        }
+    )
+    collected_kb = Rule.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "id": (
+                "kube-bench.ack-1.0.1-1-10.ensure-that-the-cni-file-ownership-is-set-to-root-root-m"
+            ),
+            "version": "1.0.0",
+            "source": "kube_bench",
+            "severity": "low",
+            "category": "security",
+            "resource_type": "kubernetes-cluster.control-plane",
+            "check_logic": {"kind": "expression", "reference": "kube-bench://ack-1.0/1.1.10"},
+            "remediation": {
+                "template_ref": "remediation/kube-bench/ack-1.0/1.1.10.md",
+                "cost_impact_monthly_usd": None,
+            },
+            "remediates": "remediate.azure-policy-managed",
+            "parameters": {
+                "kube_bench_id": "1.1.10",
+                "kube_bench_ruleset": "ack-1.0",
+                "kube_bench_group_id": "1.1",
+                "kube_bench_scored": False,
+                "kube_bench_audit": "stat -c %U:%G /etc/cni/net.d",
+            },
+            "provenance": {
+                "source_url": "https://github.com/aquasecurity/kube-bench",
+                "resolved_ref": "a" * 40,
+                "content_hash": "sha256:" + "0" * 64,
+                "license": "Apache-2.0",
+                "redistribution": "embeddable",
+                "retrieved_at": "2026-07-07T00:00:00Z",
+            },
+        }
+    )
+    snapshot = rule_snapshot(
+        active_rules,
+        collected_rules=(collected_ap, collected_kb),
+        policies_root=ROOT / "policies",
+        remediation_root=ROOT / "rule-catalog/remediation",
+    )
+    details = snapshot["details"]
+    assert isinstance(details, dict)
+    for rule in active_rules:
+        exp = details[f"active:{rule.id}"]["explanation"]
+        assert exp["title"]
+        assert exp["description"]
+        assert exp["details"]["title_ko"]
+        assert exp["details"]["description_ko"]
+
+    ap_exp = details[f"collected:{collected_ap.id}"]["explanation"]
+    assert ap_exp["title"] == "API Management services should use a virtual network"
+    assert ap_exp["description"]
+    assert ap_exp["details"]["title_ko"]
+    assert ap_exp["details"]["description_ko"]
+
+    kb_exp = details[f"collected:{collected_kb.id}"]["explanation"]
+    assert "Ensure that the cni file ownership is set to root root" in kb_exp["title"]
+    assert kb_exp["description"]
+    assert kb_exp["details"]["title_ko"]
+    assert kb_exp["details"]["description_ko"]

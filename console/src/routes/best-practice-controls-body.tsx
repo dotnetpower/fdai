@@ -1,4 +1,5 @@
 import { useMemo } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   KpiCard,
@@ -9,6 +10,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import {
   bestPracticeHref,
   type BestPracticeControl,
@@ -17,6 +19,7 @@ import {
   type ControlStatus,
 } from "./best-practice-controls.model";
 import { displayValue, t } from "./i18n/governance";
+import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { FacetChips } from "./rule-catalog-components";
 import { SEVERITY_PILL } from "./rule-catalog-types";
 import { ControlEnablementBadge } from "./control-enablement";
@@ -54,12 +57,21 @@ export function BestPracticeControlsBody({
       {
         key: "control",
         header: t("governance.rules.controls.column.control"),
-        render: (control) => (
-          <span class="control-table-identity">
-            <code>{control.control_id}</code>
-            <span>{control.title}</span>
-          </span>
-        ),
+        render: (control) => {
+          const displayTitle = frameworkDisplayTitle("azure-waf", control, getLocale());
+          return (
+            <span class="control-table-identity">
+              <code>{control.control_id}</code>
+              {displayTitle === control.title ? (
+                <span>{control.title}</span>
+              ) : (
+                <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: control.title })} placement="top">
+                  <span>{displayTitle}</span>
+                </Tooltip>
+              )}
+            </span>
+          );
+        },
       },
       {
         key: "pillar",
@@ -208,7 +220,7 @@ export function BestPracticeControlsBody({
             empty={t("governance.rules.controls.result.empty")}
             onRowClick={(control) => onSelect(control.id)}
             isRowActive={(control) => selected === control.id}
-            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: control.title })}
+            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: frameworkDisplayTitle("azure-waf", control, getLocale()) })}
             rowActionControls="best-practice-control-detail"
           />
         </div>

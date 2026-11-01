@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:ec2f27429eeda9d72edfc24f1b1bdc87ef585063d53c49d0b22057bc1ba384d3",
+      "content_digest": "sha256:9ebf96d29368bfe1978484e1ab6c19c1bce3e1a51180f5653e08aae449583e70",
       "control_id": "BR-1",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.br-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-backup-recovery",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Automated backup and immutability",
+              "ko": "자동 백업 및 불변성 보호 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Restore drill and vault verification",
+              "ko": "복원 훈련 및 보존 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Scheduled backups create recovery points without relying on manual memory.",
+              "ko": "예정된 백업은 수동 작업을 기억하는 데 의존하지 않고 복구 시점을 만듭니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Isolated vault and RPO/RTO boundary",
+              "ko": "격리 자격 증명 모음 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -242,7 +272,7 @@
           }
         ]
       },
-      "content_digest": "sha256:651f14ba7d67e3dfd0d10079a690a8fe295cfe9819442126057257d181cb6115",
+      "content_digest": "sha256:9d18bb16e141694231ddb03a134c329ca0515abaea277f6a60be49da6ec1f4d8",
       "control_id": "BR-2",
       "diagram": {
         "description": {
@@ -260,12 +290,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -279,7 +327,7 @@
           }
         ],
         "id": "azure-mcsb.br-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-backup-recovery",
         "nodes": [
           {
             "detail": {
@@ -300,8 +348,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Automated backup and immutability",
+              "ko": "자동 백업 및 불변성 보호 설계"
             },
             "role": "configuration"
           },
@@ -312,10 +360,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Restore drill and vault verification",
+              "ko": "복원 훈련 및 보존 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Separate access and protection controls reduce the chance that production compromise destroys backups.",
+              "ko": "별도 접근 및 보호 통제는 운영 환경 침해로 백업까지 파괴될 가능성을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Isolated vault and RPO/RTO boundary",
+              "ko": "격리 자격 증명 모음 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -437,7 +497,7 @@
           }
         ]
       },
-      "content_digest": "sha256:fe8874a64aca6273d3612ad5a51335d15fb61de9b44e79c01cd5262d4f054bd6",
+      "content_digest": "sha256:734243c059439c034444dbadd3866ae134e86ce4bc79cea364ace0043c3cfaa8",
       "control_id": "BR-3",
       "diagram": {
         "description": {
@@ -455,12 +515,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -474,7 +552,7 @@
           }
         ],
         "id": "azure-mcsb.br-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-backup-recovery",
         "nodes": [
           {
             "detail": {
@@ -495,8 +573,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Automated backup and immutability",
+              "ko": "자동 백업 및 불변성 보호 설계"
             },
             "role": "configuration"
           },
@@ -507,10 +585,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Restore drill and vault verification",
+              "ko": "복원 훈련 및 보존 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Backup monitoring turns failed jobs and stale recovery points into owned alerts.",
+              "ko": "백업 모니터링은 실패한 작업과 오래된 복구 시점을 담당자 경고로 바꿉니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Isolated vault and RPO/RTO boundary",
+              "ko": "격리 자격 증명 모음 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -632,7 +722,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b5c7c3b83b977d6050b3529698a42bc55dc9a734450066ab8aa21005473f490c",
+      "content_digest": "sha256:ed2c1050abec43b85a9b59a5109b107ddc4a9912e352788d3f659d873d2521ef",
       "control_id": "BR-4",
       "diagram": {
         "description": {
@@ -650,12 +740,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -669,7 +777,7 @@
           }
         ],
         "id": "azure-mcsb.br-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-backup-recovery",
         "nodes": [
           {
             "detail": {
@@ -690,8 +798,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Automated backup and immutability",
+              "ko": "자동 백업 및 불변성 보호 설계"
             },
             "role": "configuration"
           },
@@ -702,10 +810,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Restore drill and vault verification",
+              "ko": "복원 훈련 및 보존 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Restore exercises verify that retained copies can reconstruct needed data.",
+              "ko": "복원 연습은 보존 사본으로 필요한 데이터를 재구성할 수 있는지 검증합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Isolated vault and RPO/RTO boundary",
+              "ko": "격리 자격 증명 모음 및 복구 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -827,7 +947,7 @@
           }
         ]
       },
-      "content_digest": "sha256:cb656d4081a60ee5248510030a810ceda1bdf6c11b55c90501150c73c10953f1",
+      "content_digest": "sha256:73ce12da0c03d0ac17b8d973d74eb1ee491561b8e087ba3716e336b0093bf32b",
       "control_id": "DP-1",
       "diagram": {
         "description": {
@@ -845,12 +965,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -864,7 +1002,7 @@
           }
         ],
         "id": "azure-mcsb.dp-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -885,8 +1023,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -897,10 +1035,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Discovery and labels connect data sensitivity to handling rules.",
+              "ko": "탐색과 표시는 데이터 민감도를 처리 규칙과 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1022,7 +1172,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6681e566b97bc60e2adeaad22d045fcfd5e66ef90bb8c0dba57753585e144ad5",
+      "content_digest": "sha256:619e1689ec27f8137ed51da05c9c0cb8c3252f4749a9fa28bc49454e2d7f95fd",
       "control_id": "DP-2",
       "diagram": {
         "description": {
@@ -1040,12 +1190,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1059,7 +1227,7 @@
           }
         ],
         "id": "azure-mcsb.dp-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -1080,8 +1248,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -1092,10 +1260,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Data-access signals reveal suspicious reads, exports and changes involving sensitive information.",
+              "ko": "데이터 접근 신호는 민감한 정보의 의심스러운 읽기, 내보내기, 변경을 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1217,7 +1397,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9f742cd4487f8e6df7969a07d698cf559efc711e10fb2692efebf64daf09bbfc",
+      "content_digest": "sha256:dac0a4142f3a708e961972d2af0579553220e72ddf05d53855e38a5d3efe1d92",
       "control_id": "DP-3",
       "diagram": {
         "description": {
@@ -1235,12 +1415,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1254,7 +1452,7 @@
           }
         ],
         "id": "azure-mcsb.dp-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -1275,8 +1473,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -1287,10 +1485,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Authenticated transport encryption protects data moving between endpoints.",
+              "ko": "인증된 전송 암호화는 엔드포인트 사이를 이동하는 데이터를 보호합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1424,7 +1634,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b370fc3519671a66ba06fd851174b31cf52076586fb98237b7f909d74d2b2e22",
+      "content_digest": "sha256:c599ed6fe5f88f1b06b35aa8692839773cfc8163218905a6441e08a46172107d",
       "control_id": "DP-4",
       "diagram": {
         "description": {
@@ -1442,12 +1652,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1461,7 +1689,7 @@
           }
         ],
         "id": "azure-mcsb.dp-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -1482,8 +1710,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -1494,10 +1722,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Storage encryption protects persisted data independently of transport encryption.",
+              "ko": "저장 암호화는 전송 암호화와 별개로 저장된 데이터를 보호합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1631,7 +1871,7 @@
           }
         ]
       },
-      "content_digest": "sha256:8d15f9a9f9195d30dea164bd45db7329e0ece246c0c607be993afef3713be29b",
+      "content_digest": "sha256:1ce3807c4430b5242b085ce9604fb6cace34dfd18fa1d5abfef94410d5e3d75c",
       "control_id": "DP-5",
       "diagram": {
         "description": {
@@ -1649,12 +1889,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1668,7 +1926,7 @@
           }
         ],
         "id": "azure-mcsb.dp-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -1689,8 +1947,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -1701,10 +1959,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Customer-managed keys separate key lifecycle decisions from service-managed defaults.",
+              "ko": "고객 관리 키는 키 수명 주기 결정을 서비스 관리 기본값과 분리합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1826,7 +2096,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9e081be1ec1286f6fcb9e48c37e28a19e8df64180707e082057de589681a9e61",
+      "content_digest": "sha256:9f621aac5525e971155b68f483c47bfcf4825ae6d43c486d5c17bbb6bc8cfd15",
       "control_id": "DP-6",
       "diagram": {
         "description": {
@@ -1844,12 +2114,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1863,7 +2151,7 @@
           }
         ],
         "id": "azure-mcsb.dp-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -1884,8 +2172,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -1896,10 +2184,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Key generation, rotation and recovery controls preserve confidentiality throughout the key lifecycle.",
+              "ko": "키 생성, 교체, 복구 통제는 키 수명 주기 전반의 기밀성을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2025,7 +2325,7 @@
           }
         ]
       },
-      "content_digest": "sha256:625fddfa348cb036c7683aa92771c964bcf9fd47d23f4cde899f2239d82d117f",
+      "content_digest": "sha256:ecde44447c5b9c44f6ea93573c73c7c19ef2000b8b25e5d6d1b7a190f31e1478",
       "control_id": "DP-7",
       "diagram": {
         "description": {
@@ -2043,12 +2343,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2062,7 +2380,7 @@
           }
         ],
         "id": "azure-mcsb.dp-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -2083,8 +2401,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -2095,10 +2413,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Certificate inventory and renewal controls preserve trusted endpoint identity.",
+              "ko": "인증서 목록과 갱신 통제는 신뢰할 수 있는 엔드포인트 신원을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2220,7 +2550,7 @@
           }
         ]
       },
-      "content_digest": "sha256:1f28dfa258b347ddcb037b67127bc0eafbeecfc3f0bf96a1961efee4dd788561",
+      "content_digest": "sha256:d32a29fa6451ba7d240370e6b5c360b67a0c18e744fee7cc769a401856480ce6",
       "control_id": "DP-8",
       "diagram": {
         "description": {
@@ -2238,12 +2568,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2257,7 +2605,7 @@
           }
         ],
         "id": "azure-mcsb.dp-8",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-data-protection",
         "nodes": [
           {
             "detail": {
@@ -2278,8 +2626,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Classification and encryption policy",
+              "ko": "데이터 분류 및 암호화 정책 설계"
             },
             "role": "configuration"
           },
@@ -2290,10 +2638,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Key rotation and cipher verification",
+              "ko": "키 회전 및 암호화 상태 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Repository access, network and audit controls protect high-value cryptographic material.",
+              "ko": "저장소 접근, 네트워크, 감사 통제는 중요한 암호 자료를 보호합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "In-transit TLS, at-rest CMK and vault",
+              "ko": "전송·저장 암호화 및 키 보관소 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2423,7 +2783,7 @@
           }
         ]
       },
-      "content_digest": "sha256:c8af0fc8c13d14482d58c942ec1033049aa51b63e6c1642831c09504f535329d",
+      "content_digest": "sha256:fc740215e59a6807872ca33ff0dce436fa3b0c74c7f2ff5f7f97931b317808b3",
       "control_id": "DS-1",
       "diagram": {
         "description": {
@@ -2441,12 +2801,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2460,7 +2838,7 @@
           }
         ],
         "id": "azure-mcsb.ds-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -2481,8 +2859,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -2493,10 +2871,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Threat modeling relates trust boundaries and misuse cases to design decisions.",
+              "ko": "위협 모델링은 신뢰 경계와 악용 사례를 설계 결정에 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2618,7 +3008,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e2dc29610b258214dff73cea67826de6fddabab1392cbcfa227ffdc52e080325",
+      "content_digest": "sha256:dc5abd61ce8cef907d39587407d5d3d605f46074dd5dded04a3dbacace64c530",
       "control_id": "DS-2",
       "diagram": {
         "description": {
@@ -2636,12 +3026,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2655,7 +3063,7 @@
           }
         ],
         "id": "azure-mcsb.ds-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -2676,8 +3084,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -2688,10 +3096,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Verified dependencies and artifact provenance constrain untrusted build inputs.",
+              "ko": "검증한 의존성과 산출물 출처는 신뢰하지 않는 빌드 입력을 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2813,7 +3233,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4076340d08f6a47e9fa256a3614e1e3e423ce43f031d7288382a0edcf9dc0583",
+      "content_digest": "sha256:501521399b03378a9f0dbdae9c7fb2e9fd001e0deeb6c5bebe8c106b8bfb02bf",
       "control_id": "DS-3",
       "diagram": {
         "description": {
@@ -2831,12 +3251,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2850,7 +3288,7 @@
           }
         ],
         "id": "azure-mcsb.ds-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -2871,8 +3309,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -2883,10 +3321,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Isolated build agents and scoped pipeline identities protect the delivery environment.",
+              "ko": "격리된 빌드 에이전트와 제한된 파이프라인 신원은 전달 환경을 보호합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3008,7 +3458,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b2d59b5aef81edce18a0111d72053c58541becb094df9e8ae052497057dfa53a",
+      "content_digest": "sha256:3773950f73fd0d559d44f9d7e8d3e03bb55812f1f4dfd552117f5f050163207c",
       "control_id": "DS-4",
       "diagram": {
         "description": {
@@ -3026,12 +3476,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3045,7 +3513,7 @@
           }
         ],
         "id": "azure-mcsb.ds-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -3066,8 +3534,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -3078,10 +3546,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Static analysis examines code and configuration before execution.",
+              "ko": "정적 분석은 실행 전에 코드와 구성을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

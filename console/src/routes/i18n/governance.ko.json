@@ -932,10 +932,37 @@
       "knowledge": "지식",
       "reporting": "보고",
       "resilience": "복원력",
+      "reliability": "안정성",
+      "config_drift": "구성 드리프트",
+      "compliance": "규정 준수",
       "change-safety": "변경 안전",
       "security": "보안",
       "governance": "거버넌스",
       "operations": "운영"
+    },
+    "ruleSource": {
+      "mcsb": "MCSB 보안 벤치마크",
+      "waf": "Azure WAF",
+      "cis": "CIS 벤치마크",
+      "aks_baseline": "AKS 보안 기준선",
+      "custom": "FDAI 기본 규칙",
+      "azure_policy": "Azure Policy",
+      "kube_bench": "CIS kube-bench"
+    },
+    "cafArea": {
+      "methodology": "도입 방법론",
+      "landing-zone": "랜딩 존 설계 영역"
+    },
+    "ruleDetailKey": {
+      "title_ko": "한국어 제목",
+      "description_ko": "한국어 설명",
+      "evaluated_properties": "평가 대상 속성",
+      "trigger_signals": "트리거 관측 신호",
+      "remediation_action": "교정 ActionType",
+      "azure_policy_effect_default": "기본 정책 효과",
+      "azure_policy_category": "정책 범주",
+      "kube_bench_audit": "감사 명령어",
+      "kube_bench_scored": "CIS 점수 반영 여부"
     },
     "sideEffect": {
       "read": "읽기",

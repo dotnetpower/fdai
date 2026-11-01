@@ -11,7 +11,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from importlib import resources
 from typing import Annotated, Literal
@@ -375,6 +375,48 @@ def framework_guidance_detail(
     return result
 
 
+@lru_cache(maxsize=1)
+def _korean_titles_by_framework() -> dict[tuple[str, str], tuple[str, str, str]]:
+    return {
+        (entry.framework_id, entry.control_id): (
+            entry.title.ko,
+            entry.source_revision,
+            entry.source_digest,
+        )
+        for entry in packaged_framework_guidance().entries
+        if entry.title.ko is not None
+    }
+
+
+def localized_framework_titles(
+    controls: Iterable[Mapping[str, object]], *, framework_id: str
+) -> dict[str, str]:
+    """Return Korean titles keyed by control_id when exact source pins match."""
+
+    try:
+        known = _korean_titles_by_framework()
+    except ValueError:
+        return {}
+    titles: dict[str, str] = {}
+    for control in controls:
+        if framework_id == "azure-mcsb" and control.get("benchmark_version", "v1") != "v1":
+            continue
+        control_id = control.get("control_id", control.get("id"))
+        if not isinstance(control_id, str):
+            continue
+        record = known.get((framework_id, control_id))
+        if (
+            record is not None
+            and (
+                control.get("guidance_source_revision"),
+                control.get("guidance_source_digest"),
+            )
+            == record[1:]
+        ):
+            titles[control_id] = record[0]
+    return titles
+
+
 __all__ = [
     "EXPECTED_COUNTS",
     "FrameworkGuidance",
@@ -384,6 +426,7 @@ __all__ = [
     "assert_framework_guidance_catalog",
     "framework_guidance_detail",
     "load_framework_guidance",
+    "localized_framework_titles",
     "packaged_framework_guidance",
     "resolve_framework_guidance",
 ]

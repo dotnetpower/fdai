@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { Tooltip } from "../components/tooltip";
 import {
   DataTable,
   ErrorState,
@@ -11,6 +12,9 @@ import {
   type Column,
   type PillKind,
 } from "../components/ui";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import {
   cafHref,
@@ -24,7 +28,9 @@ import {
   type CafSatisfaction,
 } from "./caf-controls.model";
 import { displayValue, t } from "./i18n/governance";
+import { frameworkDisplayTitle } from "./reference-images.catalog";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { guidanceText, verifyWaraGuidanceDigest } from "./wara-guidance.model";
 import { verifyFrameworkGuidanceDigest } from "./framework-guidance.model";
 import { FrameworkGuidanceContent } from "./framework-guidance";
 import { ControlEnablementBadge, ControlEnablementSection } from "./control-enablement";
@@ -170,6 +176,8 @@ export function CafControlsRoute({ client }: { readonly client: OperatorApiClien
         filters={filters}
         searchInput={searchInput}
         loading={status === "loading" || searchInput !== filters.q}
+        selected={selected}
+        detail={detail}
         onFilter={updateFilter}
         onSearch={setSearchInput}
         onSelect={(controlId) => navigate(cafHref(filters, controlId))}
@@ -186,6 +194,8 @@ function CafControlsBody({
   filters,
   searchInput,
   loading,
+  selected,
+  detail,
   onFilter,
   onSearch,
   onSelect,
@@ -194,26 +204,87 @@ function CafControlsBody({
   readonly filters: CafFilters;
   readonly searchInput: string;
   readonly loading: boolean;
+  readonly selected: string | null;
+  readonly detail: DetailState;
   readonly onFilter: (patch: Partial<CafFilters>) => void;
   readonly onSearch: (value: string) => void;
   readonly onSelect: (controlId: string) => void;
 }) {
+  usePublishViewContext(
+    () => {
+      const locale = getLocale();
+      const selectedDetail = selected !== null && detail.status === "ready" ? detail.data : null;
+      const guidance = selectedDetail?.guidance ?? null;
+      return {
+        routeId: "rules",
+        routeLabel: "Azure CAF",
+        purpose: t("governance.rules.caf.banner.body"),
+        glossary: composeGlossary([]),
+        headline: selectedDetail
+          ? `CAF ${selectedDetail.control_id}: ${frameworkDisplayTitle("azure-caf", selectedDetail, locale)}`
+          : `Azure CAF: ${data.total} controls (${data.filtered_total} shown)`,
+        capturedAt: new Date().toISOString(),
+        facts: [
+          { key: "total_caf_controls", value: data.total, group: "catalog" },
+          { key: "filtered_caf_controls", value: data.filtered_total, group: "catalog" },
+          { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+          ...(selectedDetail
+            ? [
+                { key: "selected_control_id", value: selectedDetail.control_id, group: "selection" },
+                { key: "selected_title", value: frameworkDisplayTitle("azure-caf", selectedDetail, locale), group: "selection" },
+                { key: "selected_area", value: selectedDetail.area, group: "selection" },
+                { key: "selected_owner", value: selectedDetail.owner_slot, group: "selection" },
+                { key: "selected_satisfaction", value: selectedDetail.satisfaction, group: "selection" },
+                ...(guidance
+                  ? [
+                      { key: "selected_summary", value: guidanceText(guidance.summary, locale), group: "selection" },
+                      { key: "selected_benefits", value: guidanceText(guidance.benefits, locale), group: "selection" },
+                      { key: "selected_before_state", value: guidanceText(guidance.configuration.before[0]!, locale), group: "selection" },
+                      { key: "selected_after_state", value: guidanceText(guidance.configuration.after[0]!, locale), group: "selection" },
+                    ]
+                  : []),
+              ]
+            : []),
+        ],
+        records: {
+          controls: data.controls.map((control) => ({
+            control_id: control.control_id,
+            title: frameworkDisplayTitle("azure-caf", control, locale),
+            area: control.area,
+            owner_slot: control.owner_slot,
+            evaluation_status: control.evaluation_status,
+            satisfaction: control.satisfaction,
+          })),
+        },
+      };
+    },
+    [data, detail, selected],
+  );
   const columns: readonly Column<CafControl>[] = useMemo(
     () => [
       {
         key: "control",
         header: t("governance.rules.caf.column.control"),
-        render: (item) => (
-          <span class="control-table-identity">
-            <code>{item.control_id}</code>
-            <span>{item.title}</span>
-          </span>
-        ),
+        render: (item) => {
+          const displayTitle = frameworkDisplayTitle("azure-caf", item, getLocale());
+          return (
+            <span class="control-table-identity">
+              <code>{item.control_id}</code>
+              {displayTitle === item.title ? (
+                <span>{item.title}</span>
+              ) : (
+                <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: item.title })} placement="top">
+                  <span>{displayTitle}</span>
+                </Tooltip>
+              )}
+            </span>
+          );
+        },
       },
       {
         key: "area",
         header: t("governance.rules.caf.column.area"),
-        render: (item) => item.area,
+        render: (item) => displayValue("cafArea", item.area),
       },
       {
         key: "enablement",
@@ -257,7 +328,7 @@ function CafControlsBody({
       </KpiGrid>
       <section class="stack-section">
         <div class="rule-facet-toolbar">
-          <FacetSelect label={t("governance.rules.caf.filter.area")} value={filters.area} counts={facet("by_area")} onChange={(area) => onFilter({ area })} />
+          <FacetSelect label={t("governance.rules.caf.filter.area")} value={filters.area} counts={facet("by_area")} displayGroup="cafArea" onChange={(area) => onFilter({ area })} />
           <FacetSelect label={t("governance.rules.caf.filter.applicability")} value={filters.applicability} counts={facet("by_applicability")} displayGroup="controlStatus" onChange={(applicability) => onFilter({ applicability })} />
           <FacetSelect label={t("governance.rules.caf.filter.satisfaction")} value={filters.satisfaction} counts={facet("by_satisfaction")} displayGroup="controlStatus" onChange={(satisfaction) => onFilter({ satisfaction })} />
           <label class="rule-facet-search">
@@ -274,7 +345,7 @@ function CafControlsBody({
           rows={data.controls}
           keyOf={(item) => item.control_id}
           onRowClick={(item) => onSelect(item.control_id)}
-          rowActionLabel={(item) => t("governance.rules.caf.openRow", { title: item.title })}
+          rowActionLabel={(item) => t("governance.rules.caf.openRow", { title: frameworkDisplayTitle("azure-caf", item, getLocale()) })}
           rowActionControls="caf-control-detail"
           empty={t("governance.rules.caf.result.empty")}
         />

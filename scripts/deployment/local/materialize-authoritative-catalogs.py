@@ -255,7 +255,9 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         WARA_LIST_KEY: _revisioned(
             _wara_snapshot(wara_framework, wara_assessment, wara_evaluators, wara_rules)
         ),
-        MCSB_LIST_KEY: _revisioned(_mcsb_snapshot(mcsb_catalogs)),
+        MCSB_LIST_KEY: _revisioned(
+            _mcsb_snapshot(mcsb_catalogs, assessment=framework_assessments["azure-mcsb"])
+        ),
         MCSB_ASSESSMENT_LIST_KEY: _revisioned(
             _mcsb_assessment_snapshot(framework_assessments["azure-mcsb"])
         ),

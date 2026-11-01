@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b62c58f90d6834dd0f71f9c4faf3ae0b6d6112d09c39ee923e71264ca6e72297",
+      "content_digest": "sha256:4052598054a585c9ae8438c30fb6dc89bfbc99cc210c8e2d049a22fb64f4e043",
       "control_id": "PV-7",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.pv-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-posture-vulnerability",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Secure baseline and patch automation",
+              "ko": "보안 기준선 및 패치 자동화 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Baseline compliance and fix check",
+              "ko": "기준선 준수 및 조치 결과 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Authorized adversarial exercises examine detection and response against realistic attack paths.",
+              "ko": "승인된 공격자 관점 훈련은 현실적인 공격 경로에 대한 감지와 대응을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Configuration drift and CVE scanner",
+              "ko": "구성 드리프트 및 취약점 스캔 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -242,7 +272,7 @@
           }
         ]
       },
-      "content_digest": "sha256:80371437854f592c7016646eead22d6d7e4fdd8d287a673d8239f63e992c05d3",
+      "content_digest": "sha256:e5758c9d99a160ab1cd85f69063db3a60ce0bc87a3dd8a7d7b5876cf75430e15",
       "control_id": "adopt",
       "diagram": {
         "description": {
@@ -260,12 +290,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -279,7 +327,7 @@
           }
         ],
         "id": "azure-caf.adopt",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -300,8 +348,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -312,10 +360,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A governed delivery procedure coordinates workload migration or modernization with release approval.",
+              "ko": "통제된 전달 절차는 워크로드 이전 또는 현대화를 배포 승인과 조정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -445,7 +505,7 @@
           }
         ]
       },
-      "content_digest": "sha256:e11a63a8cbc1ddca297c9c96a9eb2a94232cce254bd61049ff03e05cca1269ed",
+      "content_digest": "sha256:99f0e1b4868376a224cc44847eafb490f11539b4ee0f96351b87fa73a770add7",
       "control_id": "govern",
       "diagram": {
         "description": {
@@ -463,12 +523,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -482,7 +560,7 @@
           }
         ],
         "id": "azure-caf.govern",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -503,8 +581,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -515,10 +593,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Governance assigns decision rights and turns policy intent into reviewable estate controls.",
+              "ko": "거버넌스는 결정 권한을 배정하고 정책 의도를 검토 가능한 전체 환경의 통제로 바꿉니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -652,7 +742,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b4bc2a84c4b736c3c8bf6cdaf545a470f1f227ac764a1b381ec593a1890a6b51",
+      "content_digest": "sha256:292579d31b98191912faea81c4e58d16d4e353ad8f793b804519fd61e74c8c5b",
       "control_id": "landing-zone.billing-tenant",
       "diagram": {
         "description": {
@@ -670,12 +760,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -689,7 +797,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.billing-tenant",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -710,8 +818,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -722,10 +830,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Tenant and billing decisions define commercial ownership and identity boundaries for the platform.",
+              "ko": "테넌트 및 청구 결정은 플랫폼의 계약상 책임과 신원 경계를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -851,7 +971,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6f79b23ab249bd23b5a12a09f00386f20d79a2180a7696e05a60c36574c00533",
+      "content_digest": "sha256:fb3bd6a7792800041691d0c7b330d39a8fb7981f8808da5f4572a3413227af6b",
       "control_id": "landing-zone.governance",
       "diagram": {
         "description": {
@@ -869,12 +989,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -888,7 +1026,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.governance",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -909,8 +1047,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -921,10 +1059,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Policy placement and exception design translate estate governance into landing-zone guardrails.",
+              "ko": "정책 배치와 예외 설계는 전체 환경의 거버넌스를 랜딩 존 제한 정책으로 구체화합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1054,7 +1204,7 @@
           }
         ]
       },
-      "content_digest": "sha256:5a06dc8cf4010cbfa273b911a22e23316deafa2152203331fc13f1e5323886b0",
+      "content_digest": "sha256:638eb2fd9010c5b3a68441071909d3afeef8e15308ae28c8b16fb49118b9b67c",
       "control_id": "landing-zone.identity-access",
       "diagram": {
         "description": {
@@ -1072,12 +1222,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1091,7 +1259,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.identity-access",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -1112,8 +1280,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -1124,10 +1292,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Platform identity design separates administrative roles from workload and user access.",
+              "ko": "플랫폼 신원 설계는 관리 역할과 워크로드 및 사용자 접근을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1253,7 +1433,7 @@
           }
         ]
       },
-      "content_digest": "sha256:266f698cf6db5329c1cd6feccafa040f90bb0a8be562278795261946315c0a9c",
+      "content_digest": "sha256:3bc783e0efd37d9ee992a84a394f972176bd35386c9166f8ebff205a9ad4d4a1",
       "control_id": "landing-zone.management",
       "diagram": {
         "description": {
@@ -1271,12 +1451,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1290,7 +1488,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.management",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -1311,8 +1509,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -1323,10 +1521,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Shared monitoring and recovery services make platform operational responsibilities concrete.",
+              "ko": "공통 모니터링과 복구 서비스는 플랫폼 운영 책임을 구체화합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1456,7 +1666,7 @@
           }
         ]
       },
-      "content_digest": "sha256:da237a2f494fc69bc554eb302b8e31667e17e5648ebf12801d5caa608765b774",
+      "content_digest": "sha256:04d9d9da94104a667a70fee847b5d5aa1fa36666219b6b7986dfb6df73043d39",
       "control_id": "landing-zone.network-connectivity",
       "diagram": {
         "description": {
@@ -1474,12 +1684,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1493,7 +1721,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.network-connectivity",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -1514,8 +1742,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -1526,10 +1754,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Topology and routing decisions determine connectivity and isolation across the estate.",
+              "ko": "토폴로지와 라우팅 결정은 전체 환경의 연결 및 격리를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1659,7 +1899,7 @@
           }
         ]
       },
-      "content_digest": "sha256:56892bd58541790c86bd32c23ed53e3bee7cf53a48b2130d77a907a10a9b5a32",
+      "content_digest": "sha256:8e107cce69355a2eff19d507de16f6b4f4079f8f6eecbb80613dede165c4239e",
       "control_id": "landing-zone.platform-automation-devops",
       "diagram": {
         "description": {
@@ -1677,12 +1917,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1696,7 +1954,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.platform-automation-devops",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -1717,8 +1975,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -1729,10 +1987,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Versioned platform delivery makes landing-zone changes reviewable and repeatable.",
+              "ko": "버전 관리한 플랫폼 전달은 랜딩 존 변경을 검토하고 반복할 수 있게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1862,7 +2132,7 @@
           }
         ]
       },
-      "content_digest": "sha256:03ef10a1113d5a46fc1ac1db180df58a1041f259d75e2f24ffa089a9e720b4f9",
+      "content_digest": "sha256:d16fdb7e3dad970b62aeb80b2e7c99ef7a14c3ad103907b9a20e993a5337b2c3",
       "control_id": "landing-zone.resource-organization",
       "diagram": {
         "description": {
@@ -1880,12 +2150,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1899,7 +2187,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.resource-organization",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -1920,8 +2208,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -1932,10 +2220,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Management hierarchy and subscription boundaries organize ownership and policy inheritance.",
+              "ko": "관리 계층과 구독 경계는 소유권 및 정책 상속을 정리합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2061,7 +2361,7 @@
           }
         ]
       },
-      "content_digest": "sha256:1395e186eaa141824965e5a396ff21bef27559183589a80ac473c7efd09586dd",
+      "content_digest": "sha256:745ae4c14ea80dff55d09700013115a45642ac863a60fb7a2d4f7f4402d1dbeb",
       "control_id": "landing-zone.security",
       "diagram": {
         "description": {
@@ -2079,12 +2379,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2098,7 +2416,7 @@
           }
         ],
         "id": "azure-caf.landing-zone.security",
-        "kind": "control-evidence-flow",
+        "kind": "caf-landing-zone-architecture",
         "nodes": [
           {
             "detail": {
@@ -2119,8 +2437,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Landing-zone platform governance",
+              "ko": "랜딩 존 플랫폼 거버넌스 설계"
             },
             "role": "configuration"
           },
@@ -2131,10 +2449,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Platform and workload readiness check",
+              "ko": "플랫폼 및 워크로드 준비도 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Platform security design establishes shared protective and detection controls for hosted workloads.",
+              "ko": "플랫폼 보안 설계는 배치된 워크로드를 위한 공통 보호 및 감지 통제를 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Shared subscription and policy boundary",
+              "ko": "공통 구독·네트워크·정책 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2260,7 +2590,7 @@
           }
         ]
       },
-      "content_digest": "sha256:bfffa30ee7353266a675fda6626699fefabe3e083c3f4682e09184a8a6f75c07",
+      "content_digest": "sha256:76e781467f8be66622cbba156e082dc194a94149a51c7b71e5f2228d8b9b952d",
       "control_id": "manage",
       "diagram": {
         "description": {
@@ -2278,12 +2608,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2297,7 +2645,7 @@
           }
         ],
         "id": "azure-caf.manage",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -2318,8 +2666,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -2330,10 +2678,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "An operating model connects platform monitoring, recovery and service ownership to recurring work.",
+              "ko": "운영 모델은 플랫폼 모니터링, 복구, 서비스 책임을 반복 작업과 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2467,7 +2827,7 @@
           }
         ]
       },
-      "content_digest": "sha256:06f97d3004649e29c1f218c8e43bc7af6437ae39032ba7bbebd4f7f6296fae62",
+      "content_digest": "sha256:4f8dfd0d0db416438d5904ae6006b5a2c44e05121a8755d57353fcdc9051b5c0",
       "control_id": "plan",
       "diagram": {
         "description": {
@@ -2485,12 +2845,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2504,7 +2882,7 @@
           }
         ],
         "id": "azure-caf.plan",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -2525,8 +2903,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -2537,10 +2915,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A sequenced adoption plan connects skills, workload discovery and ownership to delivery waves.",
+              "ko": "순서가 있는 도입 계획은 역량, 워크로드 조사, 책임을 실행 단계와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2670,7 +3060,7 @@
           }
         ]
       },
-      "content_digest": "sha256:73d6ea6df1dd1dd6228d23998e814cde06121a23b3d8f10935bc80bb0516deae",
+      "content_digest": "sha256:65830f66fc05716e388d4291de43afb88b05a8274ef7d760aa75744f122f9873",
       "control_id": "ready",
       "diagram": {
         "description": {
@@ -2688,12 +3078,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2707,7 +3115,7 @@
           }
         ],
         "id": "azure-caf.ready",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -2728,8 +3136,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -2740,10 +3148,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A reviewed landing zone supplies the shared identity, network and governance foundations for adoption.",
+              "ko": "검토된 랜딩 존은 도입에 필요한 공통 신원, 네트워크, 거버넌스 기반을 제공합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2873,7 +3293,7 @@
           }
         ]
       },
-      "content_digest": "sha256:2fc8304b28515785c71e21c4f1c44636a23dbc1d64521f3dbddbe4a523c8bfa7",
+      "content_digest": "sha256:68c80577ae62842085455c663886216e7c0af4c4b961b2db9eab18b286bd32a6",
       "control_id": "secure",
       "diagram": {
         "description": {
@@ -2891,12 +3311,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2910,7 +3348,7 @@
           }
         ],
         "id": "azure-caf.secure",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -2931,8 +3369,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -2943,10 +3381,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Estate security responsibilities align protection, detection and response across platform and workloads.",
+              "ko": "전체 환경의 보안 책임은 플랫폼과 워크로드의 보호, 감지, 대응을 정렬합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -3080,7 +3530,7 @@
           }
         ]
       },
-      "content_digest": "sha256:8c25c77873863864a0ee30f3f06517077eeeb1c630ad71521079ded66fbfb88c",
+      "content_digest": "sha256:4ab81ddbd31cfc1d6124d2a2fd196cf38214c0f738445e7dc47e2b3c882498fa",
       "control_id": "strategy",
       "diagram": {
         "description": {
@@ -3098,12 +3548,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3117,7 +3585,7 @@
           }
         ],
         "id": "azure-caf.strategy",
-        "kind": "control-evidence-flow",
+        "kind": "caf-estate-methodology",
         "nodes": [
           {
             "detail": {
@@ -3138,8 +3606,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Estate operating procedure and ownership",
+              "ko": "클라우드 자산 운영 절차 및 책임 설계"
             },
             "role": "configuration"
           },
@@ -3150,10 +3618,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Procedure and execution evidence check",
+              "ko": "절차 및 실행 근거 대조 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Business outcomes and motivations give cloud adoption a measurable purpose.",
+              "ko": "사업 성과와 도입 동기는 클라우드 도입에 측정 가능한 목적을 제공합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Cross-subscription governance boundary",
+              "ko": "구독 간 거버넌스 및 인수인계 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

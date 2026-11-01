@@ -932,10 +932,37 @@
       "knowledge": "Knowledge",
       "reporting": "Reporting",
       "resilience": "Resilience",
+      "reliability": "Reliability",
+      "config_drift": "Configuration drift",
+      "compliance": "Compliance",
       "change-safety": "Change safety",
       "security": "Security",
       "governance": "Governance",
       "operations": "Operations"
+    },
+    "ruleSource": {
+      "mcsb": "mcsb",
+      "waf": "waf",
+      "cis": "cis",
+      "aks_baseline": "aks_baseline",
+      "custom": "custom",
+      "azure_policy": "azure_policy",
+      "kube_bench": "kube_bench"
+    },
+    "cafArea": {
+      "methodology": "Methodology",
+      "landing-zone": "Landing zone"
+    },
+    "ruleDetailKey": {
+      "title_ko": "Korean title",
+      "description_ko": "Korean summary",
+      "evaluated_properties": "Evaluated properties",
+      "trigger_signals": "Trigger signals",
+      "remediation_action": "Remediation ActionType",
+      "azure_policy_effect_default": "Default policy effect",
+      "azure_policy_category": "Policy category",
+      "kube_bench_audit": "Audit command",
+      "kube_bench_scored": "CIS scored"
     },
     "sideEffect": {
       "read": "Read",

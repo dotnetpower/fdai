@@ -42,6 +42,18 @@ def build_discovery_catalog_search_documents(
         if rule.id in seen_ids:
             raise ValueError(f"duplicate discovery Rule id {rule.id!r}")
         seen_ids.add(rule.id)
+        param_terms = tuple(
+            str(rule.parameters[key]).strip()
+            for key in (
+                "azure_policy_display_name",
+                "azure_policy_category",
+                "azure_policy_effect_default",
+                "kube_bench_id",
+                "kube_bench_ruleset",
+                "kube_bench_audit",
+            )
+            if rule.parameters.get(key) is not None and str(rule.parameters[key]).strip()
+        )
         text = "\n".join(
             (
                 rule.id,
@@ -55,6 +67,7 @@ def build_discovery_catalog_search_documents(
                 rule.provenance.source_version or "",
                 *rule.triggered_by,
                 *rule.evaluates,
+                *param_terms,
             )
         )
         neighbors = tuple(

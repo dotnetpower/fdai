@@ -70,6 +70,7 @@ export interface McsbControl {
   readonly severity_source?: SeveritySource | null;
   readonly control_id: string;
   readonly title: string;
+  readonly title_ko?: string | null;
   readonly domain: string;
   readonly coverage: McsbCoverage;
   readonly rule_count: number;
@@ -232,6 +233,7 @@ function decodeControl(value: unknown, index: number): McsbControl {
     enablement: decodeControlEnablement(raw["enablement"]),
     severity_source: decodeSeveritySource(raw["severity_source"]),
     title: panelNonEmptyString(raw, "title", label),
+    ...(raw["title_ko"] === undefined ? {} : { title_ko: panelNullableString(raw, "title_ko", label) }),
     domain: panelNonEmptyString(raw, "domain", label),
     coverage: decodeCoverage(panelNonEmptyString(raw, "coverage", label), label),
     rule_count: panelNonNegativeInteger(raw, "rule_count", label),

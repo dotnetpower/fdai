@@ -1,6 +1,7 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 import msrcCsafCatalogJson from "./msrc-csaf-catalog.json";
+import { msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import {
   panelArray,
   panelBoolean,
@@ -409,6 +410,7 @@ export function filterMsrcCsafRows(
     return (
       row.cve_id.toLowerCase().includes(query)
       || row.title.toLowerCase().includes(query)
+      || msrcCsafDisplayTitle(row, "ko").toLowerCase().includes(query)
       || row.advisory_tracking_id.toLowerCase().includes(query)
       || row.advisory_title.toLowerCase().includes(query)
       || row.primary_resource_type.toLowerCase().includes(query)

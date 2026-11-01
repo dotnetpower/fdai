@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:fa98757ab4eeed30786072ac78d80276182e4fe0985d6160c2db2850a74210e3",
+      "content_digest": "sha256:a5f1ee2eab47f2a893da02b4777971c2b66f6901fbb37c5611b8afffd2811736",
       "control_id": "DS-5",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.ds-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Dynamic tests inspect a running application's externally observable behavior.",
+              "ko": "동적 테스트는 실행 중인 애플리케이션의 외부에서 관측 가능한 동작을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -242,7 +272,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9842aa0a04202cec7c6132c674aa04a992f3efccac9789aa94e81aeeab28f936",
+      "content_digest": "sha256:b32cf5acd102f817d0566cfdce7cdb71026856524bda5bd3c089d9b6e59fab26",
       "control_id": "DS-6",
       "diagram": {
         "description": {
@@ -260,12 +290,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -279,7 +327,7 @@
           }
         ],
         "id": "azure-mcsb.ds-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -300,8 +348,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -312,10 +360,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Lifecycle security gates preserve required decisions from design through deployment.",
+              "ko": "수명 주기 보안 검토 단계는 설계부터 배포까지 필요한 결정을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -437,7 +497,7 @@
           }
         ]
       },
-      "content_digest": "sha256:92dce173682c98c7c38d367b31729eac10b96ad9ea39b8fa654a4a45d1ed7ae9",
+      "content_digest": "sha256:6af851b5e13fa9fdd76542cbf28afb45b7a6ec5691fbdb59bd688300a6889f24",
       "control_id": "DS-7",
       "diagram": {
         "description": {
@@ -455,12 +515,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -474,7 +552,7 @@
           }
         ],
         "id": "azure-mcsb.ds-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-devops-security",
         "nodes": [
           {
             "detail": {
@@ -495,8 +573,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Supply chain and pipeline security",
+              "ko": "공급망 및 파이프라인 보안 설계"
             },
             "role": "configuration"
           },
@@ -507,10 +585,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Pipeline audit and dependency check",
+              "ko": "파이프라인 감사 및 의존성 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Delivery audit events expose changes to source, pipelines and release permissions.",
+              "ko": "전달 감사 이벤트는 소스, 파이프라인, 배포 권한의 변경을 드러냅니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "SAST/DAST gate and artifact signing",
+              "ko": "정적·동적 분석 게이트 및 서명 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -632,7 +722,7 @@
           }
         ]
       },
-      "content_digest": "sha256:7f0e0018278239098905f5511548481be8ade986b0909058d1d325acd380295e",
+      "content_digest": "sha256:b254d9186a24697c0f066cc55b3e3a74414f7ae1f75bad622ebb796b91e172e1",
       "control_id": "ES-1",
       "diagram": {
         "description": {
@@ -650,12 +740,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -669,7 +777,7 @@
           }
         ],
         "id": "azure-mcsb.es-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-endpoint-security",
         "nodes": [
           {
             "detail": {
@@ -690,8 +798,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "EDR and anti-malware enforcement",
+              "ko": "EDR 및 맬웨어 방지 강제 설계"
             },
             "role": "configuration"
           },
@@ -702,10 +810,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Endpoint health and telemetry check",
+              "ko": "엔드포인트 상태 및 원격 분석 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Endpoint detection correlates host activity with suspicious behavior and response workflows.",
+              "ko": "엔드포인트 감지는 호스트 활동을 의심스러운 동작 및 대응 절차와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Host agent and signature update loop",
+              "ko": "호스트 에이전트 및 서명 갱신 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -827,7 +947,7 @@
           }
         ]
       },
-      "content_digest": "sha256:4ffe06af62f12b0362230d9d294ce60b3e885e2549c73c9118fcc243f183a670",
+      "content_digest": "sha256:bc1b8b54f90d9bade50c6e0a6081b3fcb18d8475d8767e431827d0f8ee0f8686",
       "control_id": "ES-2",
       "diagram": {
         "description": {
@@ -845,12 +965,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -864,7 +1002,7 @@
           }
         ],
         "id": "azure-mcsb.es-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-endpoint-security",
         "nodes": [
           {
             "detail": {
@@ -885,8 +1023,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "EDR and anti-malware enforcement",
+              "ko": "EDR 및 맬웨어 방지 강제 설계"
             },
             "role": "configuration"
           },
@@ -897,10 +1035,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Endpoint health and telemetry check",
+              "ko": "엔드포인트 상태 및 원격 분석 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Malware protection examines files and execution for recognized harmful content.",
+              "ko": "맬웨어 보호는 파일과 실행에서 알려진 악성 내용을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Host agent and signature update loop",
+              "ko": "호스트 에이전트 및 서명 갱신 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1022,7 +1172,7 @@
           }
         ]
       },
-      "content_digest": "sha256:58c01fd8694d2ca9c7f89522dbd5ad9dfe247c6d8f56e79a1460ccd946b91fb9",
+      "content_digest": "sha256:6874b2075add41039ce620f0d4242a4be23c349bc5a02cf4cc4a82c1fa83cd7c",
       "control_id": "ES-3",
       "diagram": {
         "description": {
@@ -1040,12 +1190,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1059,7 +1227,7 @@
           }
         ],
         "id": "azure-mcsb.es-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-endpoint-security",
         "nodes": [
           {
             "detail": {
@@ -1080,8 +1248,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "EDR and anti-malware enforcement",
+              "ko": "EDR 및 맬웨어 방지 강제 설계"
             },
             "role": "configuration"
           },
@@ -1092,10 +1260,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Endpoint health and telemetry check",
+              "ko": "엔드포인트 상태 및 원격 분석 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Current engines and signatures maintain protection against newly recognized threats.",
+              "ko": "최신 엔진과 서명은 새로 알려진 위협에 대한 보호를 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Host agent and signature update loop",
+              "ko": "호스트 에이전트 및 서명 갱신 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1217,7 +1397,7 @@
           }
         ]
       },
-      "content_digest": "sha256:b127074252227fc9ff4b2689d3b2a2b437cfcdfb5abf2d48471679fbaf4033e5",
+      "content_digest": "sha256:53df161edcfa771b98a0797c8cbcccd07200323644df19a357f67d75550d8a97",
       "control_id": "GS-1",
       "diagram": {
         "description": {
@@ -1235,12 +1415,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1254,7 +1452,7 @@
           }
         ],
         "id": "azure-mcsb.gs-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -1275,8 +1473,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -1287,10 +1485,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Explicit accountabilities connect security decisions to named organizational duties.",
+              "ko": "명시적인 책임은 보안 결정을 정해진 조직 업무와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1412,7 +1622,7 @@
           }
         ]
       },
-      "content_digest": "sha256:03b9717bbe1a48cbc5e04761d355ceead5812ab763b75439ce97fe4c956e8b39",
+      "content_digest": "sha256:ed3ce5c052eece1afeed40cfa0ce9c1a65edbcc1a77f5083df4457789d57fff2",
       "control_id": "GS-10",
       "diagram": {
         "description": {
@@ -1430,12 +1640,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1449,7 +1677,7 @@
           }
         ],
         "id": "azure-mcsb.gs-10",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -1470,8 +1698,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -1482,10 +1710,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Delivery security strategy aligns development controls with release trust and ownership.",
+              "ko": "전달 보안 전략은 개발 통제와 배포 신뢰 및 책임을 정렬합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1607,7 +1847,7 @@
           }
         ]
       },
-      "content_digest": "sha256:56188d8334e27942d766d2ff4652adfb46336ab9ce9e24b27599ee97c2ba9e7c",
+      "content_digest": "sha256:e4354b9b0c08f0f4242ea1b6a93f5915df5b3cbdd3365e927d598334a63f9b51",
       "control_id": "GS-11",
       "diagram": {
         "description": {
@@ -1625,12 +1865,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1644,7 +1902,7 @@
           }
         ],
         "id": "azure-mcsb.gs-11",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -1665,8 +1923,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -1677,10 +1935,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A multi-cloud strategy distinguishes common security intent from provider-specific responsibilities.",
+              "ko": "다중 클라우드 전략은 공통 보안 의도와 공급자별 책임을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1802,7 +2072,7 @@
           }
         ]
       },
-      "content_digest": "sha256:a1f4aa7178ef51935b1aa1446b4ecbd44e28406fa310bc0f844170f3c2c11087",
+      "content_digest": "sha256:c43cdcdc2d60e159bbf4ff0905a1058a7132806f246e28344f9e39bd6f7469b0",
       "control_id": "GS-2",
       "diagram": {
         "description": {
@@ -1820,12 +2090,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1839,7 +2127,7 @@
           }
         ],
         "id": "azure-mcsb.gs-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -1860,8 +2148,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -1872,10 +2160,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Organizational segmentation separates trust domains and conflicting responsibilities.",
+              "ko": "조직 분할은 신뢰 영역과 상충하는 책임을 구분합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1997,7 +2297,7 @@
           }
         ]
       },
-      "content_digest": "sha256:84fd8b228c82fdd953d2ab6b04cb9183c536c980069ee314e6f1252cdbda4425",
+      "content_digest": "sha256:05d5ca36666f3c1e8a0c8616f70bfb021312ae8c34ae818823e5287d86595a9c",
       "control_id": "GS-3",
       "diagram": {
         "description": {
@@ -2015,12 +2315,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2034,7 +2352,7 @@
           }
         ],
         "id": "azure-mcsb.gs-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -2055,8 +2373,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -2067,10 +2385,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A data protection strategy connects classification, access, encryption and retention responsibilities.",
+              "ko": "데이터 보호 전략은 분류, 접근, 암호화, 보존 책임을 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2192,7 +2522,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f55bc1992f97692dfd65dc36ce700167bccf37c28182ffb0e31369362f6c8d3a",
+      "content_digest": "sha256:6bad3890c3f57be438f69d64613f73e27b12699d8c99489f8c4fd3dc73962ea8",
       "control_id": "GS-4",
       "diagram": {
         "description": {
@@ -2210,12 +2540,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2229,7 +2577,7 @@
           }
         ],
         "id": "azure-mcsb.gs-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -2250,8 +2598,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -2262,10 +2610,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "A network strategy aligns connectivity, segmentation and inspection responsibilities.",
+              "ko": "네트워크 전략은 연결, 분할, 검사 책임을 정렬합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2387,7 +2747,7 @@
           }
         ]
       },
-      "content_digest": "sha256:61d8a4f806d10bba5e6e5f014d405c0c70f65332fa226b4d912845f3d1de8bab",
+      "content_digest": "sha256:3c79e42774020d3acb44bae0a0883a990f6a740df1e380d2ecfb159764236807",
       "control_id": "GS-5",
       "diagram": {
         "description": {
@@ -2405,12 +2765,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2424,7 +2802,7 @@
           }
         ],
         "id": "azure-mcsb.gs-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -2445,8 +2823,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -2457,10 +2835,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Posture management assigns ownership to baseline drift and risk prioritization.",
+              "ko": "보안 태세 관리는 기준선 이탈과 위험 우선순위의 책임을 정합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2582,7 +2972,7 @@
           }
         ]
       },
-      "content_digest": "sha256:48e418caa9c14e16dc9d305ef81a6ca8f866bf88c9b88f47cf1f048f9cc113f9",
+      "content_digest": "sha256:8730e7be303753623400bc9aecd4c4c64dfb7078e0fba8640c5dc1796ed279cf",
       "control_id": "GS-6",
       "diagram": {
         "description": {
@@ -2600,12 +2990,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2619,7 +3027,7 @@
           }
         ],
         "id": "azure-mcsb.gs-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -2640,8 +3048,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -2652,10 +3060,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Identity strategy connects authoritative identity sources to privilege lifecycle and access decisions.",
+              "ko": "신원 전략은 권위 있는 신원 원천을 권한 수명 주기 및 접근 결정과 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2777,7 +3197,7 @@
           }
         ]
       },
-      "content_digest": "sha256:8b60bc90cab12b89e4bde5ddbe69321e36a4b534ee437104292b20c23f11fb0c",
+      "content_digest": "sha256:5ff7943345860a974fa51d8ec482b72f156c6edcfc0e1b5a80feae1ca35db661",
       "control_id": "GS-7",
       "diagram": {
         "description": {
@@ -2795,12 +3215,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2814,7 +3252,7 @@
           }
         ],
         "id": "azure-mcsb.gs-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -2835,8 +3273,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -2847,10 +3285,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Detection strategy links telemetry coverage to investigation and response responsibilities.",
+              "ko": "감지 전략은 원격 분석 범위를 조사 및 대응 책임과 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2972,7 +3422,7 @@
           }
         ]
       },
-      "content_digest": "sha256:81d0b06e7a0222d7a0fb53286d492fcc68bdae65e6bc09a66e610b03887bc840",
+      "content_digest": "sha256:33306056bd460628eede9386e0bec8c7a2d7becdf9306b387dfdf056626fad65",
       "control_id": "GS-8",
       "diagram": {
         "description": {
@@ -2990,12 +3440,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3009,7 +3477,7 @@
           }
         ],
         "id": "azure-mcsb.gs-8",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-governance-strategy",
         "nodes": [
           {
             "detail": {
@@ -3030,8 +3498,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Security governance and duty separation",
+              "ko": "보안 거버넌스 및 직무 분리 설계"
             },
             "role": "configuration"
           },
@@ -3042,10 +3510,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Governance review and exception check",
+              "ko": "거버넌스 검토 및 예외 추적 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Recovery strategy aligns protected assets, recovery targets and operational ownership.",
+              "ko": "복구 전략은 보호 자산, 복구 목표, 운영 책임을 정렬합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Accountable owner and policy hierarchy",
+              "ko": "책임 역할 및 전사 정책 계층 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {

@@ -28,7 +28,14 @@ from fdai_operator_service.postgres_family_store import (
     StoredProposal,
 )
 from fdai_operator_service.process_transition_projection import ProcessTransitionDeniedError
-from fdai_operator_service.workflow_rule_projection import _rule_catalog_payload
+from fdai_operator_service.workflow_framework_projection import (
+    _caf_catalog_payload,
+    _mcsb_catalog_payload,
+)
+from fdai_operator_service.workflow_rule_projection import (
+    _best_practice_catalog_payload,
+    _rule_catalog_payload,
+)
 from fdai_service_contracts import (
     GoalTaskReceipt,
     OperatorPrincipal,
@@ -1679,3 +1686,120 @@ async def test_malformed_comparison_fails_closed(overrides: dict[str, object]) -
         )
 
     assert error.value.status_code == 503
+
+
+def test_rule_list_attaches_and_searches_korean_title_from_matching_detail() -> None:
+    rule = {"id": "cache.zone-redundant", "origin": "active", "resource_type": "cache"}
+    details = {
+        "active:cache.zone-redundant": {
+            "explanation": {
+                "title": "Require zone-redundant cache",
+                "details": {"title_ko": "캐시 영역 중복 구성 필수"},
+            }
+        }
+    }
+    request = WorkflowReadRequest(
+        operation=WorkflowOperation.RULE_LIST,
+        principal_id="operator-a",
+        query={"q": "영역 중복"},
+        path_parameters={},
+    )
+    payload = _rule_catalog_payload({"rules": [rule], "details": details}, request)
+    assert payload["filtered_total"] == 1
+    assert payload["rules"] == [
+        {
+            **rule,
+            "title": "Require zone-redundant cache",
+            "title_ko": "캐시 영역 중복 구성 필수",
+        }
+    ]
+
+
+def test_framework_lists_attach_and_search_korean_titles_when_source_pins_match() -> None:
+    from fdai_service_contracts.framework_guidance import packaged_framework_guidance
+
+    catalog = packaged_framework_guidance()
+    waf_guide = next(item for item in catalog.entries if item.framework_id == "azure-waf")
+    caf_guide = next(item for item in catalog.entries if item.framework_id == "azure-caf")
+    mcsb_guide = next(item for item in catalog.entries if item.framework_id == "azure-mcsb")
+
+    waf_payload = _best_practice_catalog_payload(
+        {
+            "evaluation_source": "repository-catalog",
+            "controls": [
+                {
+                    "id": f"azure-waf.{waf_guide.control_id.lower()}",
+                    "control_id": waf_guide.control_id,
+                    "title": waf_guide.title.en,
+                    "rationale": "Rationale",
+                    "pillar": "reliability",
+                    "status": "unknown",
+                    "severity": "high",
+                    "guidance_source_revision": waf_guide.source_revision,
+                    "guidance_source_digest": waf_guide.source_digest,
+                }
+            ],
+        },
+        WorkflowReadRequest(
+            operation=WorkflowOperation.BEST_PRACTICE_LIST,
+            principal_id="operator-a",
+            query={"q": waf_guide.title.ko or ""},
+            path_parameters={},
+        ),
+    )
+    assert waf_payload["filtered_total"] == 1
+    assert waf_payload["controls"][0]["title_ko"] == waf_guide.title.ko
+
+    caf_payload = _caf_catalog_payload(
+        {
+            "evaluation_source": "not_connected",
+            "controls": [
+                {
+                    "control_id": caf_guide.control_id,
+                    "title": caf_guide.title.en,
+                    "description": "Desc",
+                    "area": "methodology",
+                    "guidance_source_revision": caf_guide.source_revision,
+                    "guidance_source_digest": caf_guide.source_digest,
+                }
+            ],
+        },
+        WorkflowReadRequest(
+            operation=WorkflowOperation.CAF_LIST,
+            principal_id="operator-a",
+            query={"q": caf_guide.title.ko or ""},
+            path_parameters={},
+        ),
+    )
+    assert caf_payload["filtered_total"] == 1
+    assert caf_payload["controls"][0]["title_ko"] == caf_guide.title.ko
+
+    mcsb_payload = _mcsb_catalog_payload(
+        {
+            "evaluation_source": "catalog-crosswalk",
+            "catalogs": [
+                {
+                    "benchmark": {"benchmark_version": "v1"},
+                    "controls": [
+                        {
+                            "control_id": mcsb_guide.control_id,
+                            "title": mcsb_guide.title.en,
+                            "domain": "NS",
+                            "coverage": "partial",
+                            "benchmark_version": "v1",
+                            "guidance_source_revision": mcsb_guide.source_revision,
+                            "guidance_source_digest": mcsb_guide.source_digest,
+                        }
+                    ],
+                }
+            ],
+        },
+        WorkflowReadRequest(
+            operation=WorkflowOperation.MCSB_LIST,
+            principal_id="operator-a",
+            query={"version": "v1", "q": mcsb_guide.title.ko or ""},
+            path_parameters={},
+        ),
+    )
+    assert mcsb_payload["filtered_total"] == 1
+    assert mcsb_payload["controls"][0]["title_ko"] == mcsb_guide.title.ko

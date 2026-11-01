@@ -1,7 +1,9 @@
 import { useMemo } from "preact/hooks";
+import { Tooltip } from "../components/tooltip";
 import { DataTable, KpiCard, KpiGrid, StatusPill, type Column, type PillKind } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { displayValue, t } from "./i18n/governance";
 import {
   mcsbControlsHref,
@@ -12,6 +14,7 @@ import {
   type McsbAssessmentSummary,
   type McsbSatisfaction,
 } from "./mcsb-controls.model";
+import { mcsbDisplayTitle } from "./mcsb-v2-guidance";
 import { FacetChips, FacetSelect } from "./rule-catalog-components";
 import { ControlEnablementBadge } from "./control-enablement";
 
@@ -76,12 +79,21 @@ export function McsbControlsBody({
       {
         key: "control",
         header: t("governance.rules.controls.column.control"),
-        render: (control) => (
-          <span class="control-table-identity">
-            <code>{control.control_id}</code>
-            <span>{control.title}</span>
-          </span>
-        ),
+        render: (control) => {
+          const displayTitle = mcsbDisplayTitle(version, control, getLocale());
+          return (
+            <span class="control-table-identity">
+              <code>{control.control_id}</code>
+              {displayTitle === control.title ? (
+                <span>{control.title}</span>
+              ) : (
+                <Tooltip content={t("governance.rules.wara.detail.sourceTitle", { title: control.title })} placement="top">
+                  <span>{displayTitle}</span>
+                </Tooltip>
+              )}
+            </span>
+          );
+        },
       },
       {
         key: "domain",
@@ -238,7 +250,7 @@ export function McsbControlsBody({
       </KpiGrid>
       <section class="stack-section">
         <div class="rule-facet-toolbar">
-          <FacetSelect label={t("governance.rules.mcsb.filter.domain")} value={filters.domain} counts={data.facets.by_domain} onChange={(domain) => onFilter({ domain })} />
+          <FacetSelect label={t("governance.rules.mcsb.filter.domain")} value={filters.domain} counts={data.facets.by_domain} displayGroup="mcsbDomain" onChange={(domain) => onFilter({ domain })} />
           <FacetChips label={t("governance.rules.mcsb.filter.coverage")} value={filters.coverage} counts={data.facets.by_coverage} displayGroup="mcsbCoverage" onChange={(coverageValue) => onFilter({ coverage: coverageValue })} />
           <label class="rule-facet-search">
             <span class="sr-only">{t("governance.rules.mcsb.filter.searchAria")}</span>
@@ -256,7 +268,7 @@ export function McsbControlsBody({
             empty={t(metadataOnly ? "governance.rules.mcsb.result.metadataOnly" : "governance.rules.mcsb.result.empty")}
             onRowClick={(control) => onSelect(control.control_id)}
             isRowActive={(control) => selected === control.control_id}
-            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: control.title })}
+            rowActionLabel={(control) => t("governance.rules.frameworkGuidance.openRow", { title: mcsbDisplayTitle(version, control, getLocale()) })}
             rowActionControls="mcsb-control-detail"
           />
         </div>

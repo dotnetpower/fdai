@@ -47,7 +47,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9edeab5de9f9c3e65c614bc73e61e1a8c7f9233853a548675dc577f90a51a4eb",
+      "content_digest": "sha256:7c89b9154ae01f88d70f8884eac0bbd0693169b0b7b088f5e878132306257e98",
       "control_id": "IR-7",
       "diagram": {
         "description": {
@@ -65,12 +65,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -84,7 +102,7 @@
           }
         ],
         "id": "azure-mcsb.ir-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-incident-response",
         "nodes": [
           {
             "detail": {
@@ -105,8 +123,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Incident response plan and routing",
+              "ko": "인시던트 대응 계획 및 라우팅 설계"
             },
             "role": "configuration"
           },
@@ -117,10 +135,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Response drill and postmortem check",
+              "ko": "대응 훈련 및 사후 검토 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Post-incident review connects contributing factors to owned improvements and retained evidence.",
+              "ko": "사후 검토는 기여 요인을 담당자가 있는 개선 및 보존 증거와 연결합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Triage, containment and recovery loop",
+              "ko": "분류·격리·복구 실행 경계"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -242,7 +272,7 @@
           }
         ]
       },
-      "content_digest": "sha256:c2295137f2a09abaab037fa3464a403a6bc849466172930e3352494a6668bf94",
+      "content_digest": "sha256:105acb5b04506326f22410329f23e24ab1a7a3faf353993e8cd41a8a1785b056",
       "control_id": "LT-1",
       "diagram": {
         "description": {
@@ -260,12 +290,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -279,7 +327,7 @@
           }
         ],
         "id": "azure-mcsb.lt-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -300,8 +348,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -312,10 +360,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Enabled detection capabilities analyze supported resource signals for suspicious activity.",
+              "ko": "활성 감지 기능은 지원 리소스 신호에서 의심스러운 활동을 분석합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -437,7 +497,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6e8fa2ddc811fdb6ee3668d1f62e6baa85d693c73a9b4aae0392207fb34136f5",
+      "content_digest": "sha256:891d7f22c2f06c65b92769557d1b48503f607c0d15c4524d30b4e414b0500623",
       "control_id": "LT-2",
       "diagram": {
         "description": {
@@ -455,12 +515,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -474,7 +552,7 @@
           }
         ],
         "id": "azure-mcsb.lt-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -495,8 +573,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -507,10 +585,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Identity detections examine authentication and privilege activity for suspicious patterns.",
+              "ko": "신원 감지는 인증 및 권한 활동에서 의심스러운 패턴을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -632,7 +722,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9f3d4ab9a3e56734ebfa56a60562e2687f70742463caa52964b022b1faaacd08",
+      "content_digest": "sha256:28c1d891ce098714a80e2f52cafff0de6b6a31a771199f584c4e323f72cfb75a",
       "control_id": "LT-3",
       "diagram": {
         "description": {
@@ -650,12 +740,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -669,7 +777,7 @@
           }
         ],
         "id": "azure-mcsb.lt-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -690,8 +798,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -702,10 +810,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Security audit logging records relevant access and administrative activity.",
+              "ko": "보안 감사 로그는 관련 접근 및 관리 활동을 기록합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -835,7 +955,7 @@
           }
         ]
       },
-      "content_digest": "sha256:06780e76e2872588240b4f31731c348db7cdabe69088853ee6142304b0adbf61",
+      "content_digest": "sha256:1a7e96f584947469fea39dbb920174d3eb1ae67fdd8a77a47ce73f1aa2424aad",
       "control_id": "LT-4",
       "diagram": {
         "description": {
@@ -853,12 +973,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -872,7 +1010,7 @@
           }
         ],
         "id": "azure-mcsb.lt-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -893,8 +1031,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -905,10 +1043,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Network telemetry records connectivity and flow context for investigations.",
+              "ko": "네트워크 원격 분석은 조사에 필요한 연결 및 흐름 맥락을 기록합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1030,7 +1180,7 @@
           }
         ]
       },
-      "content_digest": "sha256:892e8383cb5c0d51296aa9f38373543e0b13f7463007d09c3c50e5594b50c746",
+      "content_digest": "sha256:53473bc3c32372edb2d208050e7371971f376e72921b8f64df3e27989c8fa8db",
       "control_id": "LT-5",
       "diagram": {
         "description": {
@@ -1048,12 +1198,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1067,7 +1235,7 @@
           }
         ],
         "id": "azure-mcsb.lt-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -1088,8 +1256,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -1100,10 +1268,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Central collection joins security events while retaining source and access boundaries.",
+              "ko": "중앙 수집은 출처와 접근 경계를 유지하면서 보안 이벤트를 묶습니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1225,7 +1405,7 @@
           }
         ]
       },
-      "content_digest": "sha256:1ca6296f0a80962a25bc47c674dfc320c19cde3c1613283eab8be1e653dbbba6",
+      "content_digest": "sha256:740b0973e25bdb8dadbd9880eab5ed2e7aab0320d20bf46d293705aed6328f32",
       "control_id": "LT-6",
       "diagram": {
         "description": {
@@ -1243,12 +1423,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1262,7 +1460,7 @@
           }
         ],
         "id": "azure-mcsb.lt-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -1283,8 +1481,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -1295,10 +1493,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Retention policies keep investigation records available for the required window.",
+              "ko": "보존 정책은 필요한 조사 구간의 기록을 사용할 수 있게 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1420,7 +1630,7 @@
           }
         ]
       },
-      "content_digest": "sha256:6f3818c2b10d5e63da25dedaeadb76edf115f5b30c3e2d3be51d0f582a89f043",
+      "content_digest": "sha256:7fc5ae4d53ba26dbc1578f1a14640b4d62d7c4460c90b1da6d11df19d9f53dcf",
       "control_id": "LT-7",
       "diagram": {
         "description": {
@@ -1438,12 +1648,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1457,7 +1685,7 @@
           }
         ],
         "id": "azure-mcsb.lt-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-logging-threat-detection",
         "nodes": [
           {
             "detail": {
@@ -1478,8 +1706,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Diagnostic collection and alert rules",
+              "ko": "진단 수집 및 위협 탐지 규칙 설계"
             },
             "role": "configuration"
           },
@@ -1490,10 +1718,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Log completeness and alert verification",
+              "ko": "로그 완전성 및 경보 전달 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Consistent trusted time makes security-event ordering comparable across systems.",
+              "ko": "일관된 신뢰 시간은 시스템 간 보안 이벤트 순서를 비교할 수 있게 합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Central SIEM and Log Analytics pipeline",
+              "ko": "중앙 로그 분석 및 보존 파이프라인"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1615,7 +1855,7 @@
           }
         ]
       },
-      "content_digest": "sha256:2e60d48f92ed84a2887029bc19e65989f5f9d1f8f65c9520b8a06685231f8dca",
+      "content_digest": "sha256:035ac490709001987cc89cae43e5aa12d4f1ec43cfe41c1c18d66181dfbef91d",
       "control_id": "NS-1",
       "diagram": {
         "description": {
@@ -1633,12 +1873,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1652,7 +1910,7 @@
           }
         ],
         "id": "azure-mcsb.ns-1",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -1673,8 +1931,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -1685,10 +1943,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Segmentation limits reachability between components with different trust requirements.",
+              "ko": "네트워크 분할은 신뢰 요구가 다른 구성 요소 사이의 연결을 제한합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -1810,7 +2080,7 @@
           }
         ]
       },
-      "content_digest": "sha256:04cadfbe01b0ab9d3c2fe64e430507ab56b0c2b8b5f5766f191dbb1ee1cae2f2",
+      "content_digest": "sha256:65e107bab20038df7c0b04d3cb3080b660e5068170c8a8cb4e7ff77125db09dd",
       "control_id": "NS-10",
       "diagram": {
         "description": {
@@ -1828,12 +2098,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -1847,7 +2135,7 @@
           }
         ],
         "id": "azure-mcsb.ns-10",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -1868,8 +2156,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -1880,10 +2168,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Controlled resolution and protected DNS administration preserve trusted name mapping.",
+              "ko": "통제된 이름 확인과 보호된 DNS 관리는 신뢰할 수 있는 이름 매핑을 유지합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2005,7 +2305,7 @@
           }
         ]
       },
-      "content_digest": "sha256:485d0d320287898d7f56106ac2899dbb194b98abe323a15f86c7e00bf1b5dc1a",
+      "content_digest": "sha256:5fc1c9fb91e6c3d8c81b955eaf2a66f25eb93de028326d88560cad38ff3b1b5e",
       "control_id": "NS-2",
       "diagram": {
         "description": {
@@ -2023,12 +2323,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2042,7 +2360,7 @@
           }
         ],
         "id": "azure-mcsb.ns-2",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -2063,8 +2381,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -2075,10 +2393,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Service-level network restrictions reduce unnecessary public reachability.",
+              "ko": "서비스 수준의 네트워크 제한은 불필요한 공개 연결을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2212,7 +2542,7 @@
           }
         ]
       },
-      "content_digest": "sha256:ce4108ac3956cd27785f8fac2b19eddc44a10ae8abe318476a8938af6f655349",
+      "content_digest": "sha256:5fa05087f44c59e69b9d85d99a42e27334a32b1670ce07853d5f873ee66bcc8c",
       "control_id": "NS-3",
       "diagram": {
         "description": {
@@ -2230,12 +2560,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2249,7 +2597,7 @@
           }
         ],
         "id": "azure-mcsb.ns-3",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -2270,8 +2618,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -2282,10 +2630,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Edge filtering inspects traffic crossing the enterprise trust boundary.",
+              "ko": "경계 필터링은 조직의 신뢰 경계를 통과하는 트래픽을 검사합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2407,7 +2767,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f8509efcd6275e065c743d1f996c2f746c88126f8c5dbe9985f5bd1465f7aa0b",
+      "content_digest": "sha256:b0fa4e32b9c054a2e44d2577f7bda148850dee7cd0254a4eb7b17033c340a812",
       "control_id": "NS-4",
       "diagram": {
         "description": {
@@ -2425,12 +2785,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2444,7 +2822,7 @@
           }
         ],
         "id": "azure-mcsb.ns-4",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -2465,8 +2843,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -2477,10 +2855,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Network intrusion detection analyzes traffic patterns for recognized attack behavior.",
+              "ko": "네트워크 침입 감지는 트래픽 패턴에서 알려진 공격 동작을 분석합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2602,7 +2992,7 @@
           }
         ]
       },
-      "content_digest": "sha256:9aff45f30520fc8298954e94e8e6ae0d5b5b5c07c5cf877ce4202d038bd304ed",
+      "content_digest": "sha256:f879a9268b3e684b9a2fe5852471540b97770131ab756af34b60150b5a8e6a09",
       "control_id": "NS-5",
       "diagram": {
         "description": {
@@ -2620,12 +3010,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2639,7 +3047,7 @@
           }
         ],
         "id": "azure-mcsb.ns-5",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -2660,8 +3068,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -2672,10 +3080,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Denial-of-service protection addresses volumetric attack exposure at supported endpoints.",
+              "ko": "서비스 거부 보호는 지원 엔드포인트의 대량 공격 노출에 대응합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2801,7 +3221,7 @@
           }
         ]
       },
-      "content_digest": "sha256:f06007b8ce87653915aae60c520b3e54f571ef65b05e4a76964407239ac4dc72",
+      "content_digest": "sha256:55d2b81ef4d8dc9d87d843ab469cc40eb356b75d352dee4d487ad587b06ce398",
       "control_id": "NS-6",
       "diagram": {
         "description": {
@@ -2819,12 +3239,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -2838,7 +3276,7 @@
           }
         ],
         "id": "azure-mcsb.ns-6",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -2859,8 +3297,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -2871,10 +3309,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Application-layer filtering evaluates HTTP requests against reviewed protection rules.",
+              "ko": "애플리케이션 계층 필터링은 검토된 보호 규칙으로 HTTP 요청을 평가합니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
@@ -2996,7 +3446,7 @@
           }
         ]
       },
-      "content_digest": "sha256:d67f3281a47ff5afc1223d5c5339cfe76a84fe1f400a87aaf331a98292388568",
+      "content_digest": "sha256:c8f71fdee2f7db2ef09961d074c5624be4b19c64e608135fd7d7bb4d9cf3ffc5",
       "control_id": "NS-7",
       "diagram": {
         "description": {
@@ -3014,12 +3464,30 @@
             "to": "configuration"
           },
           {
+            "from": "subject",
+            "label": {
+              "en": "Bind architectural boundary",
+              "ko": "아키텍처 경계 결합"
+            },
+            "style": "solid",
+            "to": "mechanism"
+          },
+          {
             "from": "configuration",
             "label": {
               "en": "Verify independently",
               "ko": "독립적으로 검증"
             },
             "style": "solid",
+            "to": "evidence"
+          },
+          {
+            "from": "mechanism",
+            "label": {
+              "en": "Inspect boundary telemetry",
+              "ko": "경계 상태 및 근거 확인"
+            },
+            "style": "dashed",
             "to": "evidence"
           },
           {
@@ -3033,7 +3501,7 @@
           }
         ],
         "id": "azure-mcsb.ns-7",
-        "kind": "control-evidence-flow",
+        "kind": "mcsb-network-security",
         "nodes": [
           {
             "detail": {
@@ -3054,8 +3522,8 @@
             },
             "id": "configuration",
             "label": {
-              "en": "Reviewed design",
-              "ko": "검토한 설계"
+              "en": "Network segmentation and edge control",
+              "ko": "네트워크 분할 및 경계 통제 설계"
             },
             "role": "configuration"
           },
@@ -3066,10 +3534,22 @@
             },
             "id": "evidence",
             "label": {
-              "en": "Independent check",
-              "ko": "독립 확인"
+              "en": "Traffic flow and rule verification",
+              "ko": "트래픽 흐름 및 방화벽 규칙 검증"
             },
             "role": "evidence"
+          },
+          {
+            "detail": {
+              "en": "Reusable reviewed rule patterns reduce manual inconsistency and rule sprawl.",
+              "ko": "재사용하는 검토 규칙은 수동 불일치와 규칙 난립을 줄입니다."
+            },
+            "id": "mechanism",
+            "label": {
+              "en": "Zero-trust perimeter and private link",
+              "ko": "제로 트러스트 경계 및 사설 연결"
+            },
+            "role": "dependency"
           },
           {
             "detail": {
