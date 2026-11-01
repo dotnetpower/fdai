@@ -25,18 +25,24 @@ class AnalyzerResourceTypeResolution:
     held_reason_counts: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.resource_type or len(self.resource_type) > 128:
+        if not self.resource_type.strip() or len(self.resource_type) > 128:
             raise ValueError("analyzer coverage resource_type MUST be bounded text")
-        if min(self.candidate_count, self.selected_count, self.held_count) < 0:
+        if (
+            type(self.candidate_count) is not int
+            or type(self.selected_count) is not int
+            or type(self.held_count) is not int
+            or min(self.candidate_count, self.selected_count, self.held_count) < 0
+        ):
             raise ValueError("analyzer coverage counts MUST be non-negative")
         if self.candidate_count != self.selected_count + self.held_count:
             raise ValueError("analyzer coverage candidate totals MUST reconcile")
         if (
-            sum(count for _reason, count in self.held_reason_counts) != self.held_count
+            sum(count for _reason, count in self.held_reason_counts if type(count) is int)
+            != self.held_count
             or len({reason for reason, _count in self.held_reason_counts})
             != len(self.held_reason_counts)
             or any(
-                not reason or len(reason) > 128 or count <= 0
+                not reason.strip() or len(reason) > 128 or type(count) is not int or count <= 0
                 for reason, count in self.held_reason_counts
             )
         ):

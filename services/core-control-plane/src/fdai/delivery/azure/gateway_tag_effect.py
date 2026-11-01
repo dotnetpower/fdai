@@ -44,10 +44,10 @@ class GatewayTagEffectVerifier:
             or parsed.fragment
         ):
             raise ValueError("tag effect gateway base_url MUST be an HTTPS origin")
-        if not audience or len(audience) > 256:
+        if not audience.strip() or len(audience) > 256:
             raise ValueError("tag effect gateway audience MUST be bounded")
         self._base_url = base_url.rstrip("/")
-        self._audience = audience
+        self._audience = audience.strip()
         self._identity = identity
         self._http = http_client
 

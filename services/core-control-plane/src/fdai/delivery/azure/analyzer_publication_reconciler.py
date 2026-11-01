@@ -38,6 +38,10 @@ class KafkaAnalyzerPublicationReconciler:
     async def reconcile(
         self, *, event_id: UUID, idempotency_key: str, topic: str
     ) -> PublishReceipt | None:
+        if not isinstance(topic, str) or not topic.strip():
+            raise ValueError("analyzer publication topic MUST be non-empty")
+        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+            raise ValueError("analyzer publication idempotency_key MUST be non-empty")
         token_provider = (
             _EntraTokenProvider(
                 self.identity,
@@ -96,6 +100,8 @@ class KafkaAnalyzerPublicationReconciler:
                                 raise RuntimeError("analyzer publication lookup bound exceeded")
                             positions[partition] = record.offset + 1
                             payload = decode_payload(record.value, topic=topic)
+                            if payload.get("_decode_error") is True:
+                                continue
                             if payload.get("event_id") != str(event_id):
                                 continue
                             if (

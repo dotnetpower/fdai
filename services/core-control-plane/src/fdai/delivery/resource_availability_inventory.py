@@ -64,7 +64,11 @@ class InventoryResourceAvailabilitySource:
         timeout_seconds: float = 10.0,
         wall_clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        if (
+            type(timeout_seconds) is bool
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
             raise ValueError("availability source timeout MUST be finite and positive")
         self._bindings = {item.resource_ref: item for item in bindings}
         if len(self._bindings) != len(bindings) or len(

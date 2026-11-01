@@ -66,7 +66,13 @@ def inventory_subject_semantic_digest(record: NormalizedInventoryObservation) ->
         }
     else:
         raise ValueError("inventory subject semantic digest requires a snapshot member")
-    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    encoded = json.dumps(
+        body,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
@@ -121,7 +127,13 @@ def inventory_semantic_digest(observation: PromotedInventoryObservation) -> str:
         "links": links,
         "relationship_drops": drops,
     }
-    encoded = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    encoded = json.dumps(
+        body,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    )
     return "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 

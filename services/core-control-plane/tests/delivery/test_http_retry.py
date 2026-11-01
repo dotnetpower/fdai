@@ -36,6 +36,9 @@ def test_unrepresentable_positive_delay_never_becomes_an_early_retry() -> None:
 
 def test_numeric_parser_keeps_existing_arg_behavior() -> None:
     assert retry_after_seconds("0.5") == 0.5
+    assert retry_after_seconds("00:02:30") == 150.0
+    assert retry_after_seconds("01:00:00.5") == 3600.5
+    assert retry_after_seconds("00:65:00") is None
     assert retry_after_seconds(None) is None
     assert retry_after_seconds("NaN") is None
 

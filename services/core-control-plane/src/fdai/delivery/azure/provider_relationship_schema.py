@@ -97,6 +97,8 @@ class AzureProviderRelationshipSchemaSnapshot:
             raise ProviderSchemaError(
                 "provider schema digest MUST be sha256-prefixed lowercase hex"
             )
+        if type(extension_document_count) is not int or extension_document_count < 0:
+            raise ProviderSchemaError("extension_document_count MUST be a non-negative integer")
         references = tuple(
             sorted(
                 arm_id_references,

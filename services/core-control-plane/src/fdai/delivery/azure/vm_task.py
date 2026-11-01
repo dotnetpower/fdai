@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import math
 import re
 import shlex
 from dataclasses import dataclass
@@ -61,9 +62,13 @@ class AzureVmTaskRunnerConfig:
             or ".." in PurePosixPath(self.launcher_path).parts
         ):
             raise ValueError("launcher_path MUST be an absolute traversal-free path")
-        if self.request_timeout_seconds <= 0:
+        if (
+            type(self.request_timeout_seconds) is bool
+            or not math.isfinite(self.request_timeout_seconds)
+            or self.request_timeout_seconds <= 0
+        ):
             raise ValueError("request_timeout_seconds MUST be positive")
-        if self.max_error_body_bytes < 64:
+        if type(self.max_error_body_bytes) is not int or self.max_error_body_bytes < 64:
             raise ValueError("max_error_body_bytes MUST be >= 64")
 
 

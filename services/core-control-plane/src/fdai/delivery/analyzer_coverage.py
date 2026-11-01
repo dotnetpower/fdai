@@ -12,7 +12,13 @@ PUBLICATION_STATES = tuple(item.value for item in AnalyzerPublicationStatus)
 
 
 def normalize_publication_counts(counts: Mapping[str, int]) -> dict[str, int]:
-    return {state: counts.get(state, 0) for state in PUBLICATION_STATES}
+    result: dict[str, int] = {}
+    for state in PUBLICATION_STATES:
+        val = counts.get(state, 0)
+        if type(val) is not int or val < 0:
+            raise ValueError("analyzer coverage publication count MUST be a non-negative integer")
+        result[state] = val
+    return result
 
 
 def coverage_by_resource_type(
@@ -48,9 +54,12 @@ def coverage_by_resource_type(
             not isinstance(resource_type, str)
             or resource_type not in rows
             or not isinstance(evaluation_state, str)
-            or not isinstance(finding_count, int)
-            or not isinstance(unsupported_count, int)
-            or not isinstance(error_count, int)
+            or type(finding_count) is not int
+            or finding_count < 0
+            or type(unsupported_count) is not int
+            or unsupported_count < 0
+            or type(error_count) is not int
+            or error_count < 0
             or not isinstance(error_codes, list)
             or any(not isinstance(code, str) for code in error_codes)
             or not isinstance(publication_counts, Mapping)
@@ -73,7 +82,7 @@ def coverage_by_resource_type(
         for state in PUBLICATION_STATES:
             value = publication_counts.get(state)
             current = row_publications.get(state)
-            if not isinstance(value, int) or not isinstance(current, int):
+            if type(value) is not int or value < 0 or type(current) is not int:
                 raise ValueError("analyzer coverage publication count is malformed")
             row_publications[state] = current + value
     for resolution in resolutions:

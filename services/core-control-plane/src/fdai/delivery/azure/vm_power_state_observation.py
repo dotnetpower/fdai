@@ -46,14 +46,14 @@ class AzureVmStartObservationCollector:
     ) -> None:
         if not observer_identity.strip() or not source_identity.strip():
             raise ValueError("VM start observation identities MUST be non-empty")
-        if observer_identity.casefold() == source_identity.casefold():
+        if observer_identity.strip().casefold() == source_identity.strip().casefold():
             raise ValueError("VM start observer and source identities MUST be distinct")
         if observation_window <= timedelta(0):
             raise ValueError("VM start observation window MUST be positive")
         self._source = source
         self._context_issuer = context_issuer
-        self._observer_identity = observer_identity
-        self._source_identity = source_identity
+        self._observer_identity = observer_identity.strip()
+        self._source_identity = source_identity.strip()
         self._observation_window = observation_window
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -34,13 +35,19 @@ ObservationOwner = Literal["Huginn", "Heimdall", "Njord", "Freyr", "Vidar"]
 _LEGACY_OBSERVATION_OWNER_BY_SOURCE: Mapping[str, ObservationOwner] = {
     "inventory": "Huginn",
     "activity-log": "Huginn",
+    "resource-changes": "Huginn",
+    "policy-states": "Huginn",
     "resource-health": "Heimdall",
     "service-health": "Heimdall",
+    "security-assessments": "Heimdall",
+    "update-assessments": "Heimdall",
     "metrics": "Heimdall",
     "logs": "Heimdall",
     "guest-logs": "Heimdall",
     "network-config": "Heimdall",
     "cost": "Njord",
+    "advisor-recommendations": "Njord",
+    "quota-usages": "Njord",
     "recovery": "Vidar",
 }
 
@@ -99,18 +106,24 @@ class ObservationSourceSpec:
     def __post_init__(self) -> None:
         if not _IDENTIFIER.fullmatch(self.source_id):
             raise ValueError("observation source_id MUST be a bounded lowercase identifier")
-        if not 60 <= self.interval_seconds <= 2_592_000:
+        if type(self.interval_seconds) is not int or not 60 <= self.interval_seconds <= 2_592_000:
             raise ValueError("observation interval_seconds MUST be in [60, 2592000]")
-        if not 60 <= self.lookback_seconds <= 7_776_000:
+        if type(self.lookback_seconds) is not int or not 60 <= self.lookback_seconds <= 7_776_000:
             raise ValueError("observation lookback_seconds MUST be in [60, 7776000]")
-        if not 0 < self.timeout_seconds <= 300:
+        if (
+            type(self.timeout_seconds) is bool
+            or not math.isfinite(self.timeout_seconds)
+            or not 0 < self.timeout_seconds <= 300
+        ):
             raise ValueError("observation timeout_seconds MUST be in (0, 300]")
-        if not 1 <= self.max_targets <= 100:
+        if type(self.max_targets) is not int or not 1 <= self.max_targets <= 100:
             raise ValueError("observation max_targets MUST be in [1, 100]")
-        if not 1 <= self.max_results <= 10_000:
+        if type(self.max_results) is not int or not 1 <= self.max_results <= 10_000:
             raise ValueError("observation max_results MUST be in [1, 10000]")
-        if not 1 <= self.max_output_bytes <= 2_000_000:
+        if type(self.max_output_bytes) is not int or not 1 <= self.max_output_bytes <= 2_000_000:
             raise ValueError("observation max_output_bytes MUST be in [1, 2000000]")
+        if type(self.required) is not bool:
+            raise ValueError("observation required MUST be a boolean")
         _validate_owner(self.domain, self.owner_agent)
 
 
@@ -125,13 +138,15 @@ class ObservationProbeResult:
     retry_not_before: datetime | None = None
 
     def __post_init__(self) -> None:
-        if not 0 <= self.evidence_count <= 1_000_000:
+        if type(self.evidence_count) is not int or not 0 <= self.evidence_count <= 1_000_000:
             raise ValueError("observation evidence_count MUST be in [0, 1000000]")
-        if self.cursor is not None and not 1 <= len(self.cursor) <= 4096:
+        if self.cursor is not None and (
+            not self.cursor.strip() or not 1 <= len(self.cursor) <= 4096
+        ):
             raise ValueError("observation cursor MUST be bounded non-empty text")
         if len(self.reason_codes) > 16 or len(set(self.reason_codes)) != len(self.reason_codes):
             raise ValueError("observation reason_codes MUST contain up to 16 unique values")
-        if any(not code or len(code) > 128 for code in self.reason_codes):
+        if any(not code.strip() or len(code) > 128 for code in self.reason_codes):
             raise ValueError("observation reason codes MUST be bounded non-empty text")
         if self.coverage is not ObservationCoverage.READY and not self.reason_codes:
             raise ValueError("non-ready observation results MUST include a reason code")
@@ -206,7 +221,7 @@ class ObservationCampaignRunner:
         source_ids = [source.source_id for source in sources]
         if len(set(source_ids)) != len(source_ids):
             raise ValueError("observation campaign source ids MUST be unique")
-        if not 1 <= max_concurrency <= 4:
+        if type(max_concurrency) is not int or not 1 <= max_concurrency <= 4:
             raise ValueError("observation campaign max_concurrency MUST be in [1, 4]")
         self._sources = tuple(sources)
         self._probes = dict(probes)

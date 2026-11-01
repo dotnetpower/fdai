@@ -206,8 +206,24 @@ def _profile(
     )
 
 
+def resolve_azure_discovery_profile(
+    identifier: str,
+    *,
+    revision: str = AZURE_DISCOVERY_CATALOG_VERSION,
+) -> DiscoveryProfile | None:
+    """Resolve a registered Azure discovery profile by profile_id or provider_type."""
+    if not isinstance(identifier, str) or not identifier.strip():
+        return None
+    folded = identifier.strip().casefold()
+    for profile in default_azure_discovery_profiles(revision=revision):
+        if profile.profile_id.casefold() == folded or profile.provider_type.casefold() == folded:
+            return profile
+    return None
+
+
 __all__ = [
     "AZURE_DISCOVERY_CATALOG_VERSION",
     "default_azure_discovery_profiles",
     "profile_by_id",
+    "resolve_azure_discovery_profile",
 ]

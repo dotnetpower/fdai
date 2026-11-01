@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
@@ -14,6 +15,11 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 _STORAGE_AUDIENCE = "https://storage.azure.com/.default"
 _STORAGE_API_VERSION = "2025-05-05"
 _MAX_RECORD_BYTES = 64 * 1024
+_ALLOWED_BLOB_SUFFIXES = (
+    ".blob.core.windows.net",
+    ".blob.core.usgovcloudapi.net",
+    ".blob.core.chinacloudapi.cn",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,13 +42,19 @@ class AzureBlobInventoryProgressConfig:
             or parsed.fragment
         ):
             raise ValueError("inventory progress container URL MUST be credential-free HTTPS")
-        if parsed.hostname is None or not parsed.hostname.endswith(".blob.core.windows.net"):
+        if parsed.hostname is None or not parsed.hostname.endswith(_ALLOWED_BLOB_SUFFIXES):
             raise ValueError("inventory progress container URL MUST use Azure Blob Storage")
         if len([part for part in parsed.path.split("/") if part]) != 1:
             raise ValueError("inventory progress container URL MUST name exactly one container")
-        if not self.prefix or any(part in {"", ".", ".."} for part in self.prefix.split("/")):
+        clean_prefix = self.prefix.strip()
+        if not clean_prefix or any(part in {"", ".", ".."} for part in clean_prefix.split("/")):
             raise ValueError("inventory progress Blob prefix is invalid")
-        if self.timeout_seconds <= 0:
+        object.__setattr__(self, "prefix", clean_prefix)
+        if (
+            type(self.timeout_seconds) is bool
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("inventory progress Blob timeout MUST be positive")
 
 

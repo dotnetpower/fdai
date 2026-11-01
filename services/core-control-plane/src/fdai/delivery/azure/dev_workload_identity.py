@@ -99,17 +99,22 @@ class AzureCliWorkloadIdentity:
     def get_token_sync(self, audience: str) -> IdentityToken:
         """Return a cached or freshly-fetched token for ``audience``."""
 
-        if not audience:
+        clean_audience = audience.strip() if isinstance(audience, str) else ""
+        if not clean_audience:
             raise ValueError("audience MUST NOT be empty")
 
-        cached = self._cache.get(audience)
+        cached = self._cache.get(clean_audience)
         now = datetime.now(tz=UTC)
         if cached is not None and cached.token.expires_at - self.skew > now:
             return cached.token
 
-        token = self._fetch(audience)
-        self._cache[audience] = _CacheEntry(token=token)
+        token = self._fetch(clean_audience)
+        self._cache[clean_audience] = _CacheEntry(token=token)
         return token
+
+    def clear_cache(self) -> None:
+        """Clear all cached CLI tokens."""
+        self._cache.clear()
 
     def _fetch(self, audience: str) -> IdentityToken:
         # `az account get-access-token --resource` expects an AAD

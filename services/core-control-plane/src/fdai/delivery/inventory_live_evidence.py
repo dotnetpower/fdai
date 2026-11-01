@@ -46,6 +46,17 @@ class LiveEvidenceWriteThroughReceipt:
     mutation_authority: bool = False
     execution_authority: bool = False
 
+    def __post_init__(self) -> None:
+        if (
+            type(self.observation_authority) is not bool
+            or type(self.mutation_authority) is not bool
+            or type(self.execution_authority) is not bool
+            or self.observation_authority
+            or self.mutation_authority
+            or self.execution_authority
+        ):
+            raise ValueError("LiveEvidenceWriteThroughReceipt MUST remain no-authority")
+
 
 class InventoryLiveEvidenceWriter:
     """Convert verified live evidence to a partial overlay upsert."""
@@ -147,7 +158,7 @@ class InventoryGraphLiveRefreshProvider:
             raise ValueError("inventory graph refresh scope_ref MUST be non-empty")
         self._provider = provider
         self._writer = writer
-        self._scope_ref = scope_ref
+        self._scope_ref = scope_ref.strip()
         self._limits = ReadToolLimits(
             timeout_seconds=3.0,
             max_results=10,

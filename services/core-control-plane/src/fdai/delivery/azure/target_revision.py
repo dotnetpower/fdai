@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
@@ -53,16 +54,22 @@ class AzureTargetRevisionReader:
         timeout_seconds: float = 10.0,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
-        if not 0 < timeout_seconds <= 30:
+        if (
+            type(timeout_seconds) is bool
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 30
+        ):
             raise ValueError("revision read timeout MUST be between 0 and 30 seconds")
         self._http, self._identity = http, identity
         self._timeout, self._clock = timeout_seconds, clock
 
     async def read_revision(self, target_ref: str) -> str | None:
         """Return the exact current revision digest of ``target_ref``, or ``None``."""
-        match = _RESOURCE.fullmatch(target_ref)
+        clean_ref = target_ref.strip() if isinstance(target_ref, str) else ""
+        match = _RESOURCE.fullmatch(clean_ref)
         if match is None:
             return None
+        target_ref = clean_ref
         resource_type = match.group("type").casefold()
         version = next(
             (
