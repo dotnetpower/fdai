@@ -32,6 +32,8 @@ class DialogueStateShadow:
     ) -> DialogueState | None:
         """Return Core's own accounting; ``None`` when nothing is compacted or it failed."""
 
+        if not session_id.strip() or not prior_turns:
+            return None
         try:
             state = compact_prior_turns(session_id, tuple(prior_turns))
         except ValueError:

@@ -58,6 +58,8 @@ def operational_function_types(
 ) -> tuple[OntologyFunctionType, ...]:
     """Combine reviewed catalog functions with source-derived competency functions."""
 
+    if any(not item.name.strip() for item in catalog_functions):
+        raise ValueError("operational ontology FunctionType names MUST be non-empty")
     combined = tuple(catalog_functions) + (
         catalog_search_rules_function_type(),
         contextual_resource_function_type(),

@@ -63,6 +63,8 @@ def telemetry_link_subject(link: OntologyLinkRecord) -> str:
 def telemetry_object_subject(object_id: str) -> str:
     """Return the stable state-evidence subject for one graph object."""
 
+    if not object_id.strip():
+        raise ValueError("telemetry object_id MUST be non-empty")
     return f"object:{object_id}"
 
 
@@ -73,8 +75,12 @@ def evaluate_state_fact_metadata(
 ) -> tuple[TelemetrySegmentStatus, tuple[str, ...]]:
     """Classify one immutable state fact without raising evidence authority."""
 
+    if cutoff.utcoffset() is None:
+        raise ValueError("telemetry cutoff MUST be timezone-aware")
     if metadata is None:
         return TelemetrySegmentStatus.UNVERIFIED, ("state_evidence_missing",)
+    if metadata.evidence_cutoff.utcoffset() is None:
+        raise ValueError("telemetry state fact evidence_cutoff MUST be timezone-aware")
     evidence_cutoff = metadata.evidence_cutoff.astimezone(UTC)
     normalized_cutoff = cutoff.astimezone(UTC)
     if evidence_cutoff > normalized_cutoff:

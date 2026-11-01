@@ -84,12 +84,13 @@ class ServiceHealthObservation:
                 not optional_value.strip() or len(optional_value) > maximum
             ):
                 raise ValueError(f"Service Health {name} MUST be bounded when present")
-        if self.impact_start_at.tzinfo is None or self.observed_at.tzinfo is None:
+        if self.impact_start_at.utcoffset() is None or self.observed_at.utcoffset() is None:
             raise ValueError("Service Health timestamps MUST be timezone-aware")
         if self.impact_start_at > self.observed_at:
             raise ValueError("Service Health impact start cannot follow observation time")
-        if self.impacted_resource_count is not None and not (
-            0 <= self.impacted_resource_count <= _MAX_ROWS
+        if self.impacted_resource_count is not None and (
+            isinstance(self.impacted_resource_count, bool)
+            or not (0 <= self.impacted_resource_count <= _MAX_ROWS)
         ):
             raise ValueError("Service Health impacted_resource_count is out of bounds")
         has_impact = self.impact_evidence_ref is not None
@@ -138,7 +139,7 @@ class ServiceHealthCollection:
         )
         if ordering != tuple(sorted(ordering)):
             raise ValueError("Service Health observations MUST be deterministically ordered")
-        if self.observed_at.tzinfo is None:
+        if self.observed_at.utcoffset() is None:
             raise ValueError("Service Health collection time MUST be timezone-aware")
         if any(item.observed_at != self.observed_at for item in self.observations):
             raise ValueError("Service Health rows MUST share the collection observation time")

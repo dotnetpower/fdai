@@ -232,3 +232,35 @@ def test_rounds_17_to_20_operator_presentation_and_progress_hardening() -> None:
     assert inline_images_present({"images": ("img-1",)}) is True
     with pytest.raises(ValueError, match="non-empty DSN"):
         PostgresAuthenticationReceiptWriter(dsn="   ")
+
+    # F106-F120: Operator channel edge, document refs, and document export guards
+    from types import MappingProxyType
+    from uuid import uuid4
+
+    from fdai_operator_service.families.conversation.channel_edge.models import (
+        ChannelDeliveryError,
+    )
+    from fdai_operator_service.families.conversation.channel_edge.renderers import _chunks
+    from fdai_operator_service.families.conversation.document_export import (
+        MaterializedConversationDocument,
+    )
+    from fdai_operator_service.families.conversation.document_refs import parse_document_refs
+
+    with pytest.raises(ValueError, match="invalid"):
+        ChannelDeliveryError("err", code="   ", acknowledgement_ambiguous=False)
+    with pytest.raises(ValueError, match="positive integer"):
+        _chunks("hello", True)
+    doc_id, ver_id = str(uuid4()), str(uuid4())
+    parsed_refs = parse_document_refs(
+        (MappingProxyType({"document_id": doc_id, "version_id": ver_id}),)  # type: ignore[arg-type]
+    )
+    assert len(parsed_refs) == 1
+    with pytest.raises(ValueError, match="non-empty"):
+        MaterializedConversationDocument(
+            source_request_id="   ",
+            markdown="md",
+            report={},
+            expected_rows=1,
+            included_rows=1,
+            sha256="a" * 64,
+        )

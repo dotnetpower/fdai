@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ class TeamsTokenConfig:
     jwks_cache_ttl: timedelta = timedelta(minutes=5)
 
     def __post_init__(self) -> None:
-        if not self.application_id or len(self.application_id) > 200:
+        if not self.application_id.strip() or len(self.application_id) > 200:
             raise ValueError("Teams application_id MUST be bounded and non-empty")
         if self.issuer != "https://api.botframework.com":
             raise ValueError("Teams issuer MUST be the Bot Framework service issuer")
@@ -141,6 +142,7 @@ class TeamsServiceTokenVerifier:
         refreshed_at = self._keys_refreshed_at
         return (
             refreshed_at is not None
+            and math.isfinite(now)
             and 0 <= now - refreshed_at < self._config.jwks_cache_ttl.total_seconds()
         )
 

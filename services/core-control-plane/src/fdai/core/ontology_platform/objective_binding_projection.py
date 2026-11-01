@@ -36,6 +36,8 @@ def build_objective_binding_projection(
     objects: list[OntologyObjectRecord] = []
     links: list[OntologyLinkRecord] = []
     for receipt in receipts:
+        if not receipt.reviewer.strip():
+            raise ValueError("equivalence validation receipt reviewer MUST be non-empty")
         objects.append(
             OntologyObjectRecord(
                 id=f"equivalence-validation-receipt:{receipt.ref}",

@@ -123,6 +123,8 @@ class SemanticQueryService:
             raise ValueError("ontology function registry declaration does not match query profile")
         if plan.target_ref != active_ref:
             raise ValueError("semantic query plan targets a stale ontology function")
+        if not context.caller_agent.strip():
+            raise ValueError("semantic query caller_agent MUST be non-empty")
         if profile.purpose not in context.purposes:
             raise PermissionError("semantic query purpose does not match query profile")
         arguments = {"object_set": profile.object_set_template.model_dump(mode="json")}

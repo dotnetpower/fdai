@@ -30,8 +30,13 @@ class AppliedChatPolicy:
     stage: PolicyStage
 
     def __post_init__(self) -> None:
-        if not self.candidate_id.strip() or not self.principal_scope.strip():
-            raise ValueError("applied chat policy identity MUST be non-empty")
+        if (
+            not self.candidate_id.strip()
+            or self.candidate_id != self.candidate_id.strip()
+            or not self.principal_scope.strip()
+            or self.principal_scope != self.principal_scope.strip()
+        ):
+            raise ValueError("applied chat policy identity MUST be trimmed and non-empty")
         if not self.policy_text.strip() or len(self.policy_text) > 2_000:
             raise ValueError("applied chat policy text MUST contain 1..2000 characters")
         if hashlib.sha256(self.policy_text.encode()).hexdigest() != self.policy_digest:

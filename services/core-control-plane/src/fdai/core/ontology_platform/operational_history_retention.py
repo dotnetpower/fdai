@@ -38,11 +38,15 @@ class ObservationRetentionPolicy:
             ("purpose", self.purpose),
             ("archive_class", self.archive_class),
         ):
-            if not value or len(value) > 512:
+            if not value.strip() or len(value) > 512:
                 raise ValueError(f"{name} MUST be bounded non-empty text")
-        if not 0 <= self.hot_retention_seconds <= self.warm_retention_seconds:
+        if (
+            isinstance(self.hot_retention_seconds, bool)
+            or isinstance(self.warm_retention_seconds, bool)
+            or not 0 <= self.hot_retention_seconds <= self.warm_retention_seconds
+        ):
             raise ValueError("retention windows MUST be monotonic and non-negative")
-        if self.review_at.tzinfo is None:
+        if self.review_at.utcoffset() is None:
             raise ValueError("retention policy review_at MUST be timezone-aware")
         if self.digest != _sha256(_policy_body(self)):
             raise ValueError("retention policy digest does not match content")

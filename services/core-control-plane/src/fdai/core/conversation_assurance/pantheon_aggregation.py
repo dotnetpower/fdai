@@ -68,6 +68,8 @@ def _agent_summary(
     agent: str,
     rows: tuple[PantheonTurnDiagnostic, ...],
 ) -> AgentDiagnosticSummary:
+    if not agent.strip() or not rows:
+        raise ValueError("agent diagnostic summary requires a non-empty agent and rows")
     return AgentDiagnosticSummary(
         agent=agent,
         turns=len(rows),
@@ -88,6 +90,8 @@ def _count(
 
 
 def _rate(values: tuple[bool, ...]) -> float | None:
+    if any(not isinstance(item, bool) for item in values):
+        raise ValueError("diagnostic rate values MUST be booleans")
     return None if not values else sum(values) / len(values)
 
 

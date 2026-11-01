@@ -136,6 +136,8 @@ def compile_resource_metric_plan(
     window_seconds = _window_seconds(frame.temporal_scope)
     if window_seconds is None:
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource metric plan requires timezone-aware evaluation_time")
     definition = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,
@@ -225,6 +227,8 @@ def compile_exact_resource_metric_plan(
         or identity_property is None
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("exact resource metric plan requires timezone-aware evaluation_time")
     collection = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,
@@ -327,6 +331,10 @@ def compile_exact_resource_metric_series_plan(
         or identity_property is None
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError(
+            "exact resource metric series plan requires timezone-aware evaluation_time"
+        )
     collection = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,

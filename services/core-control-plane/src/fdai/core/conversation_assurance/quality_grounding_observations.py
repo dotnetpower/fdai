@@ -35,6 +35,12 @@ def observe_grounding_scenario(
     """Measure items 12, 14, and 15 from owned evidence without inference."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip():
+        raise ValueError("grounding scenario case_id MUST be non-empty")
+    if not isinstance(result.expected_injection_escape, bool) or not isinstance(
+        result.actual_injection_escape, bool
+    ):
+        raise ValueError("grounding scenario injection_escape flags MUST be booleans")
     _validate_linkage(result.actual_turn, result.actual_assessment)
     expected_citations = tuple(sorted(set(result.expected_citation_digests)))
     if any(not _is_digest(value) for value in expected_citations):

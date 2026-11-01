@@ -77,7 +77,7 @@ class PrivateQuestionReviewRecord:
         ):
             raise ValueError("question review scores MUST be integers in [0, 4]")
         _require_digest("question review adequacy receipt", self.adequacy_receipt_digest)
-        if self.recorded_at.tzinfo is None or self.delete_after.tzinfo is None:
+        if self.recorded_at.utcoffset() is None or self.delete_after.utcoffset() is None:
             raise ValueError("question review timestamps MUST be timezone-aware")
         if self.delete_after <= self.recorded_at:
             raise ValueError("question review delete_after MUST follow recorded_at")
@@ -124,7 +124,7 @@ class RepositorySafeQuestionReview:
             isinstance(score, bool) or not 0 <= score <= 4 for _, score in self.criterion_scores
         ):
             raise ValueError("safe question review scores MUST be integers in [0, 4]")
-        if self.recorded_at.tzinfo is None or self.delete_after.tzinfo is None:
+        if self.recorded_at.utcoffset() is None or self.delete_after.utcoffset() is None:
             raise ValueError("safe question review timestamps MUST be timezone-aware")
         if self.delete_after <= self.recorded_at:
             raise ValueError("safe question review delete_after MUST follow recorded_at")

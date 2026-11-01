@@ -39,8 +39,10 @@ class InteractiveReadInvestigationCompletionPublisher:
         topic: str = READ_INVESTIGATION_COMPLETION_TOPIC,
         clock: Clock | None = None,
     ) -> None:
+        if not topic.strip():
+            raise ValueError("read investigation completion topic MUST be non-empty")
         self._store = store
-        self._topic = topic
+        self._topic = topic.strip()
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def run_once(self, *, bus: EventBus) -> int:
@@ -80,7 +82,10 @@ class InteractiveReadInvestigationCompletionPublisher:
 
 
 def _retry_seconds(attempt_count: int) -> int:
-    delay = 1 << max(0, attempt_count - 1)
+    if isinstance(attempt_count, bool):
+        raise ValueError("attempt_count MUST be an integer")
+    bounded_shift = min(10, max(0, attempt_count - 1))
+    delay = 1 << bounded_shift
     return min(300, delay)
 
 

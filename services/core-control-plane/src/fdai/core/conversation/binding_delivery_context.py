@@ -49,8 +49,10 @@ class VerifiedBindingDeliveryContextResolver:
         session_id: str,
     ) -> ChannelDeliveryContext | None:
         del session_id
+        if not principal.id.strip():
+            return None
         scope_ref = await self._scopes.resolve_scope(turn=turn, principal=principal)
-        if scope_ref is None:
+        if scope_ref is None or not scope_ref.strip():
             return None
         try:
             endpoint = await self._identities.verify_external(
