@@ -50,6 +50,9 @@ from fdai_operator_service.adapters.narrator_payloads import (
     vision_probe_content,
     vision_targets,
 )
+from fdai_operator_service.behavior_knowledge_resolver import (
+    grounded_behavior_code_artifacts,
+)
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationEventStream,
@@ -288,6 +291,7 @@ class LocalAzureNarratorAdapters:
         if any("가" <= ch <= "힣" for ch in prompt):
             locale_hint = "ko"
         behavior_grounding = resolve_narrator_behavior_grounding(prompt.strip(), locale_hint)
+        code_artifacts = grounded_behavior_code_artifacts(prompt.strip(), locale=locale_hint)
         if behavior_grounding is not None:
             evidence_refs = [
                 f"{c.path}:{c.line_start}-{c.line_end}#{c.symbol}"
@@ -339,6 +343,7 @@ class LocalAzureNarratorAdapters:
                         "verification": verification,
                         "usage": cast(JsonObject | None, usage),
                         "context_selection": context_receipt,
+                        **({"code_artifacts": cast(Any, code_artifacts)} if code_artifacts else {}),
                     },
                 ),
             )

@@ -7,6 +7,9 @@ import json
 from collections.abc import Mapping
 from typing import cast
 
+from fdai_operator_service.behavior_knowledge_resolver import (
+    grounded_behavior_code_artifacts,
+)
 from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
     compile_presentation_artifact_v2,
@@ -93,6 +96,7 @@ def semantic_done_event_data(
     projection: Mapping[str, object],
     *,
     locale: str = "en",
+    utterance: str | None = None,
 ) -> JsonObject:
     """Compile one bounded terminal event from a validated durable projection."""
     pantheon = _pantheon_assurance_payload(projection)
@@ -102,7 +106,7 @@ def semantic_done_event_data(
     if not isinstance(semantic, Mapping):
         raise ValueError("stored semantic projection is missing semantic_result")
     if semantic.get("disposition") == "advisory_response":
-        return _advisory_done_event_data(projection, semantic, locale=locale)
+        return _advisory_done_event_data(projection, semantic, locale=locale, utterance=utterance)
     semantic_receipt = _semantic_receipt(projection, semantic)
     answer = semantic.get("answer")
     disposition = semantic.get("disposition")
@@ -299,47 +303,37 @@ def semantic_done_event_data(
             ),
             **({"trajectory_detail": trajectory_detail} if trajectory_detail is not None else {}),
             **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
+            **(
+                {"code_artifacts": code_artifacts}
+                if not direct_response
+                and isinstance(utterance, str)
+                and (code_artifacts := grounded_behavior_code_artifacts(utterance, locale=locale))
+                else {}
+            ),
         },
     )
 
 
-def _advisory_done_event_data(
-    projection: Mapping[str, object],
-    semantic: Mapping[str, object],
-    *,
-    locale: str,
+# fmt: off
+def _advisory_done_event_data(  # noqa: E501
+    projection: Mapping[str, object], semantic: Mapping[str, object], *, locale: str, utterance: str | None = None  # noqa: E501
 ) -> JsonObject:
     """Preserve bounded advisory metadata without minting whole-answer verification."""
     result = SemanticTurnResult.model_validate(semantic)
-    adaptive = result.adaptive_answer
-    if adaptive is None:
+    if (adaptive := result.adaptive_answer) is None:
         raise ValueError("stored advisory response is missing its adaptive answer")
     payload = projection.get("payload")
-    metadata = (
-        {
-            name: payload[name]
-            for name in ("model", "latency_ms", "usage", "model_trace", "turn_timing")
-            if name in payload
-        }
-        if isinstance(payload, Mapping)
-        else {}
-    )
-    return cast(
-        JsonObject,
-        {
-            "seq": 1,
-            "revision": 0,
-            "status": "advisory_response",
-            "source": "semantic-advisory-response",
-            "answer": adaptive.answer,
-            "adaptive_answer": adaptive.model_dump(mode="json"),
-            "semantic_result": result.model_dump(mode="json", exclude_none=True),
-            "request_id": projection.get("request_id"),
-            "execution_authority": False,
-            "locale": "ko" if locale.lower().startswith("ko") else "en",
-            **metadata,
-        },
-    )
+    keys = ("model", "latency_ms", "usage", "model_trace", "turn_timing")
+    metadata = {k: payload[k] for k in keys if k in payload} if isinstance(payload, Mapping) else {}
+    has_q = isinstance(utterance, str) and bool(utterance.strip())
+    arts = grounded_behavior_code_artifacts(str(utterance), locale=locale) if has_q else []
+    loc = "ko" if locale.lower().startswith("ko") else "en"
+    sem_dump = result.model_dump(mode="json", exclude_none=True)
+    out: dict[str, object] = {"seq": 1, "revision": 0, "status": "advisory_response", "answer": adaptive.answer}  # noqa: E501
+    out.update({"source": "semantic-advisory-response", "adaptive_answer": adaptive.model_dump(mode="json")})  # noqa: E501
+    out.update({"semantic_result": sem_dump, "request_id": projection.get("request_id"), "locale": loc})  # noqa: E501
+    return cast(JsonObject, {**out, "execution_authority": False, **({"code_artifacts": arts} if arts else {}), **metadata})  # noqa: E501
+# fmt: on
 
 
 def _redacted_intent_graph(value: object) -> JsonObject | None:

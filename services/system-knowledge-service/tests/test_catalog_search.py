@@ -63,7 +63,7 @@ def test_packaged_catalog_matches_current_reviewed_sources() -> None:
         for record in packaged.records:
             for source in record.sources:
                 assert _git("hash-object", source.path).stdout.strip() == source.blob_sha
-    assert len(rebuilt.records) == 18
+    assert len(rebuilt.records) == 21
 
 
 def test_protected_main_resolver_ignores_side_branch_head(tmp_path: Path) -> None:
@@ -90,12 +90,27 @@ def test_exact_alias_and_korean_paraphrase_return_grounded_records() -> None:
     exact = index.search(_request("How does FDAI keep actions safe?"))
     korean = index.search(_request("FDAI 시스템 지식 봇은 어떻게 동작하나요?", locale="ko"))
     console_sec = index.search(_request("FDAI 콘솔웹이 보안상 문제가 없나?", locale="ko"))
+    iam_sec = index.search(
+        _request("FDAI에서 권한이나 RBAC, Entra ID 토큰 보안은 어떻게 검증하나요?", locale="ko")
+    )
+    safeguard_sec = index.search(
+        _request("FDAI 자율 실행의 7대 안전장치와 위험 등급 관문은 무엇인가요?", locale="ko")
+    )
+    audit_sec = index.search(
+        _request(
+            "감사 로그 위변조 방지와 Saga 해시 체인 및 DSSE 서명 검증은 어떻게 동작하나요?",
+            locale="ko",
+        )
+    )
 
     assert exact.matches[0].match_kind == "exact_alias"
     assert exact.matches[0].record.knowledge_id == "action-safety"
     assert korean.matches[0].record.knowledge_id == "system-knowledge-service"
     assert console_sec.matches[0].match_kind == "exact_alias"
     assert console_sec.matches[0].record.knowledge_id == "console-web-security"
+    assert iam_sec.matches[0].record.knowledge_id == "iam-rbac-and-jwt-boundary"
+    assert safeguard_sec.matches[0].record.knowledge_id == "seven-safeguard-execution-boundary"
+    assert audit_sec.matches[0].record.knowledge_id == "audit-chain-and-tamper-evidence"
     assert all(match.record.sources for match in korean.matches)
     assert exact.execution_authority is False
     assert console_sec.execution_authority is False

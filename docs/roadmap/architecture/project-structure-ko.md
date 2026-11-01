@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c415e816f57821897dfda398e8b8dd75f07f35f2
+translation_source_sha: c7c2b4fee0eebb44d3e7805a61613c90b7b11561
 translation_revised: 2026-11-01
 ---
 # 프로젝트 구조
@@ -823,7 +823,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 순수 모듈 `verifier_constants.py`로 고정된 조건을 계산하고, `verifier_lists.py`로 지역 리스트의 원소를
 추적합니다. `verifier_evaluation.py`의 Core 요건 판정은 반올림한 증적 값이 아니라 참 양성과 거짓 양성의 정확한 개수를 사용합니다. `java_constant_guard.py`는 SQL과 경로 verifier sink의 Java 소스 수준 상수 증명, 범위가 제한된 정확한 지역 JDK map 키, 지배적인 대입을 처리합니다. `java_external_constants.py`는 저장소 코드를 실행하지 않고 source root 안의 고유하고 크기가 제한된 일반 파일에서만 정확한 정규화 이름의 `static final String` initializer를 읽습니다. 심각도 루브릭은
 `rule-catalog/code-security/severity-rubric.yaml`의 카탈로그 데이터이며, 그 버전이 모든 커버리지
-증적에 기록되므로 루브릭이 바뀌면 이전 재스캔과 동등하지 않게 됩니다. Operator 읽기 측은
+증적에 기록되므로 루브릭이 바뀌면 이전 재스캔과 동등하지 않게 됩니다. 또한
+`wire_adaptive_conversation.py`는 18개 검증된 저장소 시드(`SEEDS` + `SECURITY_SEEDS`) 기반의
+`lookup_repository_behavior_context`를 `execution_authority=false`로
+`AdaptiveConversationService`에 연결합니다. Operator 읽기 측은
 `code_security_review_projection.py`와 `code_security_issue_projection.py`이고, Console 경로는 요청,
 등록, 이슈 상세 모듈을 갖춘 `routes/code-security.tsx`입니다. 핵심 control-plane 패키지는
 `fdai.delivery.code_security_cli:main`에서 지원되는 `fdai-code-security` 실행 파일을 제공하며,

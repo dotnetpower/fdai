@@ -217,6 +217,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-11-01 | implemented | Added `Rule.target_object_type` and `SubmissionCriterionKind.OBJECT_TYPE_REGISTERED` cross-reference validation against registered `ObjectType` declarations in the rule catalog loader. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/rule.py`; `services/core-control-plane/tests/rule_catalog/test_rule_target_object_type.py` (`6 passed`). | Provider-observed topology and live runtime evidence remain tracked in the existing rows. |
 | 2026-11-01 | implemented | Forwarded `object_labels` into `concept_catalogs` in `semantic_slot_grounding.py` and `semantic_type_grounding.py`, and expanded Korean/English security-issue and state-inspection vocabulary in `rule-catalog/vocabulary/inventory-query-language.yaml` (`G14`-`G18`). | `current change`; `test_semantic_slot_grounding.py`, `test_semantic_type_grounding.py`, `test_inventory_query_language.py` (`52 passed`). | Existing ontology identity and authority invariants remain unchanged. |
+| 2026-11-01 | implemented | Wired `behavior_knowledge_index` in `bootstrap_semantics.py` and forwarded `utterance` into `semantic_done_event_data` (`semantic_turn_runtime.py`) for read-only behavior-artifact projection without changing ontology identity or authority (`W07`-`W18`). | `current change`; `test_behavior_seeds.py`, `test_semantic_turn_bridge.py` (`216 passed`). | Existing ontology identity and authority invariants remain unchanged. |
 
 ### Remaining work
 

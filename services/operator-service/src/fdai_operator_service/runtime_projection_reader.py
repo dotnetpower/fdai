@@ -66,6 +66,12 @@ from fdai_operator_service.process_transition_projection import (
     project_process_control,
 )
 from fdai_operator_service.runtime_model_scope_projection import project_runtime_operational_state
+from fdai_operator_service.runtime_projection_operations_helpers import (
+    build_configuration_baselines_from_state_rows,
+    derive_detection_targets_from_coverage,
+    derive_pod_lifecycle_from_analyzer_lifecycle,
+    project_scheduler_runs,
+)
 from fdai_operator_service.skill_source_projection import SkillSourceWorkflowBridge
 
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
@@ -123,6 +129,8 @@ class RuntimeProjectionReader:
             return await read_console_inbox(self._fetch_all, query)
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
+        if query.operation == "scheduler-runs":
+            return await project_scheduler_runs(query.params, self._fetch_all)
         if query.operation == "licensing.warning":
             return cast(
                 Mapping[str, object],
@@ -756,61 +764,47 @@ class RuntimeProjectionReader:
         )
         targets = [_json_mapping(row["value"]) for row in readiness_rows]
         decisions = Counter(str(target.get("decision", "unknown")) for target in targets)
+        lifecycle = project_analyzer_lifecycle(receipt_rows)
+        analyzer_coverage = project_latest_analyzer_coverage(run_rows)
+        pod_lifecycle = detection_lifecycle_projection(pod_lifecycle_rows)
+        decision_keys = ("ready", "partial", "blocked", "stale", "unauthorized", "unknown")
+        counts = {key: decisions.get(key, 0) for key in decision_keys}
+        if not targets:
+            targets, counts = derive_detection_targets_from_coverage(analyzer_coverage, lifecycle)
+        if pod_lifecycle.get("target_count") in (0, None):
+            derived_pod = derive_pod_lifecycle_from_analyzer_lifecycle(lifecycle)
+            if derived_pod is not None:
+                pod_lifecycle = derived_pod
         observed = [
             _required_timestamp(row["updated_at"])
             for row in (*readiness_rows, *receipt_rows, *run_rows, *pod_lifecycle_rows)
             if row.get("updated_at") is not None
         ]
-        decision_keys = ("ready", "partial", "blocked", "stale", "unauthorized", "unknown")
         return {
             "source": "postgresql:state_kv:detection-readiness",
             "observed_at": max(observed).isoformat() if observed else None,
             "target_count": len(targets),
-            "counts": {key: decisions.get(key, 0) for key in decision_keys},
+            "counts": counts,
             "targets": targets,
-            "lifecycle": project_analyzer_lifecycle(receipt_rows),
-            "analyzer_coverage": project_latest_analyzer_coverage(run_rows),
+            "lifecycle": lifecycle,
+            "analyzer_coverage": analyzer_coverage,
             "analyzer_run": project_analyzer_run(run_rows),
-            "pod_lifecycle": detection_lifecycle_projection(pod_lifecycle_rows),
+            "pod_lifecycle": pod_lifecycle,
         }
 
     async def _configuration_baselines(self) -> Mapping[str, object]:
         rows = await self._fetch_all(
-            "SELECT value, updated_at FROM state_kv "
+            "SELECT key, value, updated_at FROM state_kv "
             "WHERE key LIKE 'runtime:configuration-baseline:%%' "
-            "ORDER BY value ->> 'observed_at' DESC NULLS LAST, updated_at DESC, key LIMIT 1"
+            "OR key = 'inventory-configuration:delivery' "
+            "OR key LIKE 'inventory-configuration:generations:%%:projection' "
+            "OR key IN ("
+            "'baseline-evaluation:status:latest', 'baseline-evaluation:latest:coverage'"
+            ") "
+            "ORDER BY CASE WHEN key LIKE 'runtime:configuration-baseline:%%' THEN 0 ELSE 1 END, "
+            "value ->> 'observed_at' DESC NULLS LAST, updated_at DESC, key"
         )
-        if rows:
-            return _json_mapping(rows[0]["value"])
-        return {
-            "baseline": {
-                "version": "not-published",
-                "scope": "none",
-                "created_at": None,
-                "document_name": "No published configuration baseline",
-                "lifecycle": "not-published",
-                "resource_count": 0,
-                "topology_count": 0,
-                "unknown_count": 0,
-            },
-            "versions": [],
-            "drift": {"verdict": "not-evaluated", "observed_at": None, "finding_count": 0},
-            "knowledge": {"status": "not-indexed", "citation_count": 0, "citations": []},
-            "safety": {
-                "mutation_count": 0,
-                "approval_request_count": 0,
-                "mitigation_execution_count": 0,
-                "unsupported_claim_count": 0,
-            },
-            "performance": None,
-            "review": {
-                "configured": False,
-                "state": "not-configured",
-                "completed_runs": 0,
-                "required_runs": 0,
-                "failed_attempts": 0,
-            },
-        }
+        return build_configuration_baselines_from_state_rows(rows)
 
     async def _fetch_all(
         self,

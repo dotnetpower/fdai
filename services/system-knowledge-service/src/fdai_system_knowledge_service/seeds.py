@@ -604,6 +604,99 @@ REFERENCE_SEEDS = (
             ),
         ),
     ),
+    KnowledgeSeed(
+        knowledge_id="iam-rbac-and-jwt-boundary",
+        subject_id="iam-rbac-and-jwt-boundary",
+        title="Entra ID JWT verification and five-role RBAC boundary",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Operator Service",
+        question_aliases=(
+            "How does FDAI enforce Entra ID authentication and RBAC JWT security?",
+            "FDAI에서 권한이나 RBAC, Entra ID 토큰 보안은 어떻게 검증하나요?",
+        ),
+        designed_behavior=(
+            "Every Operator API route verifies Entra ID JWT issuer, audience, signature, and expiry and resolves group claims into Reader, Contributor, Approver, Owner, or BreakGlass.",
+            "GET /iam/self projects the server-verified role set with execution_authority=false; client-supplied role headers are rejected.",
+        ),
+        implemented_behavior=(
+            "EntraJwtVerifier and OperatorFamilyAuthorizer enforce route-level role floors and fail closed on missing or expired credentials.",
+        ),
+        limitations=(
+            "An Operator RBAC role never grants direct cloud-provider or executor credentials to the browser.",
+        ),
+        sources=(
+            _code(
+                "services/operator-service/src/fdai_operator_service/auth.py",
+                "EntraJwtVerifier",
+            ),
+            _code(
+                "services/operator-service/src/fdai_operator_service/family_authorization.py",
+                "OperatorFamilyAuthorizer",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="seven-safeguard-execution-boundary",
+        subject_id="seven-safeguard-execution-boundary",
+        title="Seven constitutional execution safeguards and risk gating",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Forseti, Var, Thor, Vidar, and Saga",
+        question_aliases=(
+            "What are FDAI's seven constitutional execution safeguards?",
+            "FDAI 자율 실행의 7대 안전장치와 위험 등급 관문은 무엇인가요?",
+        ),
+        designed_behavior=(
+            "State-changing actions require all seven safeguards: stop condition, tested rollback, blast-radius limit, dry-run success, logical-target lock, idempotency key, and two-phase audit.",
+            "Actions are classified into A1-A4 risk tiers where A4 is denied and new capabilities start in shadow mode.",
+        ),
+        implemented_behavior=(
+            "ShadowExecutor and _missing_safety_invariant enforce durable pre-dispatch audit intent, idempotency deduplication, and safeguard completeness before publication.",
+        ),
+        limitations=(
+            "Natural-language utterances and Console UI interactions never grant execution authority.",
+        ),
+        sources=(
+            _code(
+                "services/core-control-plane/src/fdai/core/executor/executor.py",
+                "_missing_safety_invariant",
+            ),
+            _code(
+                "services/core-control-plane/src/fdai/core/executor/executor.py",
+                "ExecutorConfig",
+            ),
+        ),
+    ),
+    KnowledgeSeed(
+        knowledge_id="audit-chain-and-tamper-evidence",
+        subject_id="audit-chain-and-tamper-evidence",
+        title="Saga hash-chained audit ledger and DSSE pack verification",
+        status=SystemKnowledgeStatus.IMPLEMENTED,
+        owner="Saga and Heimdall",
+        question_aliases=(
+            "How does FDAI prevent audit log tampering and verify DSSE remediation packs?",
+            "감사 로그 위변조 방지와 Saga 해시 체인 및 DSSE 서명 검증은 어떻게 동작하나요?",
+        ),
+        designed_behavior=(
+            "Saga chains every audit entry to its predecessor SHA-256 digest and recovers canonical audit windows by committed head-hash ancestry rather than sequence-only selection.",
+            "Code-security remediation packs are signed with Ed25519 DSSE envelopes and checked against the revocation registry before export.",
+        ),
+        implemented_behavior=(
+            "read_audit_chain_window, read_audit_chain_entries, and DSSE build_envelope / verify_envelope are implemented.",
+        ),
+        limitations=(
+            "Audit verification and DSSE signature checks are read-only integrity guarantees with execution_authority=false.",
+        ),
+        sources=(
+            _code(
+                "services/core-control-plane/src/fdai/delivery/persistence/postgres_audit_history.py",
+                "read_audit_chain_window",
+            ),
+            _code(
+                "services/core-control-plane/src/fdai/core/security/code_findings/signing.py",
+                "verify_envelope",
+            ),
+        ),
+    ),
 )
 
 

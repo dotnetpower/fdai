@@ -14,6 +14,7 @@ from fdai_operator_service.alert_quality_config import (
     alert_quality_dependencies_from_environment,
     parse_alert_quality_principal_scopes,
 )
+from fdai_operator_service.alert_quality_history import StateKvAlertQualityRequestSource
 from fdai_operator_service.alert_quality_runtime import AlertQualityBridge, AlertQualityTransport
 from fdai_operator_service.alert_quality_settings import StateKvAlertQualityPreferenceStore
 from fdai_operator_service.auth import OperatorAuthenticator
@@ -55,7 +56,15 @@ def build_alert_quality_bindings(
         store=store,
         proposal_writer=proposal_writer,
         producer_ready=bridge.producer_ready if bridge else None,
-        request_source=bridge.requests if bridge else None,
+        request_source=(
+            bridge.requests
+            if bridge
+            else StateKvAlertQualityRequestSource(
+                store, transport_key=b"operator-alert-quality-read-only-key-32b"
+            )
+            if store is not None and scopes
+            else None
+        ),
         preference_store=StateKvAlertQualityPreferenceStore(store) if store is not None else None,
     )
     return dependencies, bridge

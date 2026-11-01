@@ -831,7 +831,9 @@ local list elements through `verifier_lists.py`. Core qualification in `verifier
 `java_constant_guard.py` handles Java source-level constant proofs for SQL and path verifier sinks, including bounded exact local JDK map keys and dominating assignments. `java_external_constants.py` reads exact fully qualified
 `static final String` initializers only from unique, size-bounded regular files inside the source root, without executing repository code. The severity rubric is catalog data in
 `rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
-receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
+receipt, so a rubric change makes earlier rescans non-equivalent. `wire_adaptive_conversation.py`
+also binds `lookup_repository_behavior_context` over the 18 verified repository seeds (`SEEDS` +
+`SECURITY_SEEDS`) into `AdaptiveConversationService` with `execution_authority=false`. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route
 is `routes/code-security.tsx` with its request, registration, and issue-detail modules. The
 scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`.

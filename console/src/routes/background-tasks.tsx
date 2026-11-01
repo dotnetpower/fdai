@@ -176,6 +176,9 @@ export function BackgroundTasksRoute({
       setPageState((current) => cursor !== null && current.status === "ready"
         ? { status: "ready", data: appendBackgroundTaskPage(current.data, cursor, page) }
         : { status: "ready", data: page });
+      if (cursor === null && page.tasks.length > 0 && (currentRoute().segments[0] ?? null) === null) {
+        setSelectedTaskId((current) => current ?? page.tasks[0]!.task_id);
+      }
     } catch (error) {
       if (request !== generation.current) return;
       const message = error instanceof Error ? error.message : String(error);

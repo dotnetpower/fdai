@@ -193,3 +193,28 @@ def test_generated_artifact_is_deterministic_and_has_no_source_bodies() -> None:
     assert raw == generator.serialized_manifest(ROOT)
     assert '"source_body"' not in raw
     assert '"execution_authority"' not in raw
+
+
+async def test_security_seeds_and_lookup_repository_behavior_context_eighteen_contracts() -> None:
+    all_specs = generator.build_all_seed_behavior_specs(ROOT, indexed_commit=_commit_sha())
+    assert len(all_specs) == 18
+    security_ids = {seed.behavior_id for seed in catalog.SECURITY_SEEDS}
+    assert security_ids <= {spec.behavior_id for spec in all_specs}
+    index = await generator.build_seeded_in_memory_behavior_index(
+        ROOT, indexed_commit=_commit_sha()
+    )
+    for seed in catalog.SECURITY_SEEDS:
+        for alias in seed.aliases:
+            result = (await index.search(alias, k=1))[0]
+            assert result.spec.behavior_id == seed.behavior_id
+            assert not result.stale
+    ko_context = await generator.lookup_repository_behavior_context(
+        "FDAI 콘솔웹이 보안상 문제가 없나?",
+        locale="ko",
+        root=ROOT,
+    )
+    assert ko_context
+    assert any(
+        item["behavior_id"] == "security.code-security-review-projection" for item in ko_context
+    )
+    assert all(item["execution_authority"] is False for item in ko_context)

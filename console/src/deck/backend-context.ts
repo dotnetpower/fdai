@@ -1,6 +1,7 @@
 import { readConsolePreferences } from "../preferences";
+import type { AdaptiveAnswer } from "./adaptive-answer";
 import { ROUTE_ACTION_HINTS } from "./answerer";
-import type { AnswerVerification, BackendTurn } from "./backend-types";
+import type { AnswerVerification, BackendTurn, GroundedCodeArtifact } from "./backend-types";
 import type { ChatAttachment } from "./composer-attachment-store";
 import type { ViewSnapshot } from "./context";
 import { normalizeIncidentBinding } from "./conversation-sessions";
@@ -40,6 +41,13 @@ function viewContextWithUser(
   base._console_security_posture = {
     summary:
       "Read-only SPA with zero cloud/executor credentials, Entra ID + server-verified GET /iam/self RBAC, SHA-256 digest-verified guidance, no dangerouslySetInnerHTML/arbitrary SVG/JS, and 5-role ActionType + 7-safeguard mutation gating",
+    security_behavior_contracts_count: 15,
+    auth_boundary:
+      "Entra ID JWT + server-verified GET /iam/self (5 roles: Reader, Contributor, Approver, Owner, BreakGlass)",
+    xss_and_content_boundary:
+      "No dangerouslySetInnerHTML, active HTML/SVG/meta-refresh/CSS-@import rejected at persistence and projection boundaries",
+    audit_boundary:
+      "Saga SHA-256 hash-chained immutable audit ledger + two-phase execution receipts",
     verification_routes: [
       "/code-security",
       "/rules?view=controls&framework=msrc-csaf",
@@ -261,12 +269,48 @@ export function recordCitationPreview(
 export function citationsForVerification(
   snapshot: ViewSnapshot | null,
   verification: AnswerVerification | undefined,
+  codeArtifacts?: readonly GroundedCodeArtifact[],
 ): readonly { readonly label: string; readonly value?: string }[] {
+  const artifactCitations = (codeArtifacts ?? []).map((artifact, index) => ({
+    label: `behavior.${index + 1}`,
+    value: artifact.validation_detail ?? artifact.artifact_ref,
+  }));
   if (verification) {
-    return verification.evidence_refs.map((reference, index) => ({
+    const refs = verification.evidence_refs.map((reference, index) => ({
       label: `evidence.${index + 1}`,
       value: reference,
     }));
+    return [...refs, ...artifactCitations];
   }
-  return snapshotCitations(snapshot);
+  return [...snapshotCitations(snapshot), ...artifactCitations];
+}
+
+export function citationsForAdvisoryResponse(
+  advisoryAnswer: AdaptiveAnswer,
+  codeArtifacts?: readonly GroundedCodeArtifact[],
+): readonly { readonly label: string; readonly value?: string }[] {
+  const citations: { readonly label: string; readonly value?: string }[] = [];
+  const seen = new Set<string>();
+  for (const goal of advisoryAnswer.goals) {
+    for (const ref of goal.evidence_refs) {
+      if (!seen.has(ref)) {
+        seen.add(ref);
+        citations.push({
+          label: `evidence.${citations.length + 1}`,
+          value: ref,
+        });
+      }
+    }
+  }
+  for (const [index, artifact] of (codeArtifacts ?? []).entries()) {
+    const detail = artifact.validation_detail ?? artifact.artifact_ref;
+    if (!seen.has(detail)) {
+      seen.add(detail);
+      citations.push({
+        label: `behavior.${index + 1}`,
+        value: detail,
+      });
+    }
+  }
+  return citations;
 }
