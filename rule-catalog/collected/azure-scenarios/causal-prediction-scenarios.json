@@ -1,0 +1,4940 @@
+{
+  "scenarios": [
+    {
+      "amba_alert_ids": [
+        "amba.compute_gallery_image_version.secondary",
+        "amba.compute_vm.availability_critical",
+        "amba.compute_vm.primary",
+        "amba.compute_vm.secondary",
+        "amba.kubernetes_limit_range.availability_critical",
+        "amba.kubernetes_service.secondary",
+        "amba.network_private_access_scope.secondary",
+        "amba.prometheus_rule_group.primary",
+        "amba.sql_managed_instance.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "advisorresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.vm",
+        "network.private-dns-zone",
+        "directory.managed-domain"
+      ],
+      "causal_mechanisms": [
+        "failed_requests"
+      ],
+      "cause_metric_id": "network_private_dns_zone.primary_utilization",
+      "diagnostic_probe_ids": [
+        "blast_radius_classifier"
+      ],
+      "failure_resource_type": "compute.vm",
+      "family_id": "compute_saturation_and_shutdown",
+      "family_title": "Compute & VMSS Cascading CPU/Memory Saturation & Shutdown",
+      "intermediate_resource_type": "directory.managed-domain",
+      "kql_recipe_ids": [
+        "compute_vm.kql_telemetry",
+        "directory_managed_domain.kql_telemetry",
+        "network_private_dns_zone.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Applications"
+      ],
+      "monitor_log_tables": [
+        "AACAudit",
+        "ACSJobRouterIncomingOperations",
+        "ASCAuditLogs",
+        "AZFWNetworkRuleAggregation",
+        "AmlRegistryReadEventsLog",
+        "AzureSQLErrors",
+        "CoreAzureBackup",
+        "DatabricksModelRegistry",
+        "DeviceSkypeSignIn",
+        "GKEControllerManager",
+        "IntuneDevices",
+        "MNFSystemSessionHistoryUpdates",
+        "OEPElasticOperator",
+        "RemoteNetworkHealthLogs",
+        "SynapseDXCommand",
+        "W3CIISLog"
+      ],
+      "platform_metric_ids": [
+        "compute_vm.primary_utilization",
+        "compute_vm.secondary_health",
+        "directory_managed_domain.primary_utilization",
+        "kubernetes_daemon_set.secondary_health",
+        "managed_certificate.secondary_health",
+        "network_private_dns_zone.primary_utilization",
+        "network_private_dns_zone.secondary_health",
+        "network_user_vpn_gateway.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_vm.primary",
+      "primary_metric_id": "compute_vm.primary_utilization",
+      "read_tool_ids": [
+        "resolve_resource"
+      ],
+      "relationship_mapping_ids": [
+        "azure.resource-group-contains-resource",
+        "azure.snapshot-depends-on-source-disk",
+        "kubernetes.hpa-attached-to-replica-set",
+        "azure-arg.ext.kubernetes-job.01.depends_on",
+        "azure-arg.ext.network-application-gateway.02.depends_on",
+        "azure-arg.ext.secret-store.01.attached_to",
+        "azure-arg.ext.event-grid-topic.02.attached_to",
+        "azure-arg.ext.network-private-circuit.01.attached_to"
+      ],
+      "root_cause_resource_type": "network.private-dns-zone",
+      "round_code": "D001",
+      "round_number": 1,
+      "scenario_id": "scenario.d001.compute_saturation_and_shutdown.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_gallery_image.primary",
+        "amba.compute_image.availability_critical",
+        "amba.compute_image.primary",
+        "amba.compute_image.secondary",
+        "amba.compute_vm.secondary",
+        "amba.kubernetes_service.availability_critical",
+        "amba.network_registered_domain.primary",
+        "amba.prometheus_rule_group.secondary",
+        "amba.sql_managed_instance.secondary",
+        "amba.workflow_logic_app.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "aksresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.image",
+        "network.private-dns-zone-link",
+        "application-configuration"
+      ],
+      "causal_mechanisms": [
+        "error_timeline"
+      ],
+      "cause_metric_id": "network_private_dns_zone_link.primary_utilization",
+      "diagnostic_probe_ids": [
+        "lb_backend_health"
+      ],
+      "failure_resource_type": "compute.image",
+      "family_id": "compute_saturation_and_shutdown",
+      "family_title": "Compute & VMSS Cascading CPU/Memory Saturation & Shutdown",
+      "intermediate_resource_type": "application-configuration",
+      "kql_recipe_ids": [
+        "application_configuration.kql_telemetry",
+        "compute_image.kql_telemetry",
+        "network_private_dns_zone_link.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Audit"
+      ],
+      "monitor_log_tables": [
+        "AACHttpRequest",
+        "ACSOptOutManagementOperations",
+        "ASCDeviceEvents",
+        "AZFWThreatIntel",
+        "AmlRegistryWriteEventsLog",
+        "AzureSQLQueryStoreRuntimeStatistics",
+        "CrowdStrikeAlerts",
+        "DatabricksNotebook",
+        "DeviceTvmSecureConfigurationAssessment",
+        "GKEHPADecision",
+        "IntuneOperationalLogs",
+        "MNFSystemStateMessageUpdates",
+        "OEPElasticsearch",
+        "ResourceManagementPublicAccessLogs",
+        "SynapseDXFailedIngestion",
+        "WDAVStatus"
+      ],
+      "platform_metric_ids": [
+        "compute_image.primary_utilization",
+        "compute_image.secondary_health",
+        "compute_vm.secondary_health",
+        "directory_managed_domain.secondary_health",
+        "kubernetes_stateful_set.primary_utilization",
+        "network_dns_routing_profile.primary_utilization",
+        "network_private_dns_zone.secondary_health",
+        "network_private_dns_zone_link.primary_utilization",
+        "network_private_dns_zone_link.secondary_health",
+        "ssh_public_key.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.compute_image.primary",
+      "primary_metric_id": "compute_image.primary_utilization",
+      "read_tool_ids": [
+        "get_resource_state"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-environment-contains-managed-certificate",
+        "azure.application-gateway-routes-to-configured-backend",
+        "kubernetes.hpa-attached-to-stateful-set",
+        "azure-arg.ext.kubernetes-job.02.depends_on",
+        "azure-arg.ext.api-gateway.01.attached_to",
+        "azure-arg.ext.secret-store.02.attached_to",
+        "azure-arg.ext.communication-service.01.attached_to",
+        "azure-arg.ext.network-private-circuit.02.depends_on"
+      ],
+      "root_cause_resource_type": "network.private-dns-zone-link",
+      "round_code": "D002",
+      "round_number": 2,
+      "scenario_id": "scenario.d002.compute_saturation_and_shutdown.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.anomaly_alert_rule.primary",
+        "amba.compute_gallery_image.secondary",
+        "amba.compute_vm.availability_critical",
+        "amba.compute_vm_extension.availability_critical",
+        "amba.compute_vm_extension.primary",
+        "amba.compute_vm_extension.secondary",
+        "amba.kubernetes_endpoints.primary",
+        "amba.network_registered_domain.secondary",
+        "amba.stream_analytics_job.primary",
+        "amba.workflow_logic_app.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "alertsmanagementresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.vm-extension",
+        "network.private-dns-zone-group",
+        "automation-account"
+      ],
+      "causal_mechanisms": [
+        "dependency_latency"
+      ],
+      "cause_metric_id": "network_private_dns_zone_group.primary_utilization",
+      "diagnostic_probe_ids": [
+        "storage_access_log"
+      ],
+      "failure_resource_type": "compute.vm-extension",
+      "family_id": "compute_saturation_and_shutdown",
+      "family_title": "Compute & VMSS Cascading CPU/Memory Saturation & Shutdown",
+      "intermediate_resource_type": "automation-account",
+      "kql_recipe_ids": [
+        "automation_account.kql_telemetry",
+        "compute_vm_extension.kql_telemetry",
+        "network_private_dns_zone_group.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Monitor"
+      ],
+      "monitor_log_tables": [
+        "AADAgentRiskEvents",
+        "ACSRoomsIncomingOperations",
+        "ASRJobs",
+        "AZKVAuditLogs",
+        "AmlRunEvent",
+        "AzureSQLQueryStoreWaitStatistics",
+        "CrowdStrikeAuditEvents",
+        "DatabricksOnlineTables",
+        "DeviceTvmSecureConfigurationAssessmentKB",
+        "GKEScheduler",
+        "KubeEvents",
+        "MPCAuditLogs",
+        "OEWAuditLogs",
+        "RetinaNetworkFlowLogs",
+        "SynapseDXIngestionBatching",
+        "WDAVThreat"
+      ],
+      "platform_metric_ids": [
+        "application_configuration.primary_utilization",
+        "compute_image.primary_utilization",
+        "compute_vm_extension.primary_utilization",
+        "compute_vm_extension.secondary_health",
+        "kubernetes_stateful_set.secondary_health",
+        "network_dns_routing_profile.secondary_health",
+        "network_private_dns_zone_group.primary_utilization",
+        "network_private_dns_zone_group.secondary_health",
+        "network_private_dns_zone_link.primary_utilization",
+        "ssh_public_key.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_vm_extension.primary",
+      "primary_metric_id": "compute_vm_extension.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_activity"
+      ],
+      "relationship_mapping_ids": [
+        "azure.cognitive-account-contains-project",
+        "azure.load-balancer-routes-to-configured-backend",
+        "kubernetes.pdb-selects-pod",
+        "azure-arg.ext.kubernetes-cron-job.01.attached_to",
+        "azure-arg.ext.api-gateway.02.attached_to",
+        "azure-arg.ext.managed-identity.01.attached_to",
+        "azure-arg.ext.communication-service.02.depends_on",
+        "azure-arg.ext.network-private-circuit-gateway.01.depends_on"
+      ],
+      "root_cause_resource_type": "network.private-dns-zone-group",
+      "round_code": "D003",
+      "round_number": 3,
+      "scenario_id": "scenario.d003.compute_saturation_and_shutdown.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.analytics_workspace.primary",
+        "amba.anomaly_alert_rule.secondary",
+        "amba.compute_image.primary",
+        "amba.compute_vm_run_command.availability_critical",
+        "amba.compute_vm_run_command.primary",
+        "amba.compute_vm_run_command.secondary",
+        "amba.diagnostic_settings.primary",
+        "amba.kubernetes_endpoints.secondary",
+        "amba.stream_analytics_job.secondary",
+        "amba.workflow_logic_app.availability_critical"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "appserviceresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.vm-run-command",
+        "network.dns-resolver",
+        "compute.private-virtualization-cloud"
+      ],
+      "causal_mechanisms": [
+        "slow_traces"
+      ],
+      "cause_metric_id": "network_dns_resolver.primary_utilization",
+      "diagnostic_probe_ids": [
+        "vm_traffic_last_5m"
+      ],
+      "failure_resource_type": "compute.vm-run-command",
+      "family_id": "compute_saturation_and_shutdown",
+      "family_title": "Compute & VMSS Cascading CPU/Memory Saturation & Shutdown",
+      "intermediate_resource_type": "compute.private-virtualization-cloud",
+      "kql_recipe_ids": [
+        "compute_private_virtualization_cloud.kql_telemetry",
+        "compute_vm_run_command.kql_telemetry",
+        "network_dns_resolver.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Resources"
+      ],
+      "monitor_log_tables": [
+        "AADB2CRequestLogs",
+        "ACSSMSIncomingOperations",
+        "ASRReplicatedItems",
+        "AZKVPolicyEvaluationDetailsLogs",
+        "AmlRunStatusChangedEvent",
+        "AzureSQLResourceUsageStats",
+        "CrowdStrikeCases",
+        "DatabricksPartnerHub",
+        "DeviceTvmSoftwareInventory",
+        "GoogleCloudSCC",
+        "KubeMonAgentEvents",
+        "MPCIngestionLogs",
+        "OEWExperimentAssignmentSummary",
+        "SCCMAssessmentRecommendation",
+        "SynapseDXQuery",
+        "WOUserAudits"
+      ],
+      "platform_metric_ids": [
+        "application_configuration.secondary_health",
+        "compute_image.secondary_health",
+        "compute_vm_run_command.primary_utilization",
+        "compute_vm_run_command.secondary_health",
+        "kubernetes_persistent_volume_claim.primary_utilization",
+        "log_workspace.primary_utilization",
+        "network_dns_resolver.primary_utilization",
+        "network_dns_resolver.secondary_health",
+        "network_private_dns_zone_link.secondary_health",
+        "network_virtual_hub.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.compute_vm_run_command.primary",
+      "primary_metric_id": "compute_vm_run_command.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_health"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-contains-extension",
+        "azure.sql-server-contains-database",
+        "kubernetes.network-policy-selects-pod",
+        "azure-arg.ext.kubernetes-cron-job.02.attached_to",
+        "azure-arg.ext.network-dns-zone.01.attached_to",
+        "azure-arg.ext.managed-identity.02.depends_on",
+        "azure-arg.ext.email-service.01.depends_on",
+        "azure-arg.ext.network-private-circuit-gateway.02.depends_on"
+      ],
+      "root_cause_resource_type": "network.dns-resolver",
+      "round_code": "D004",
+      "round_number": 4,
+      "scenario_id": "scenario.d004.compute_saturation_and_shutdown.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.analytics_workspace.secondary",
+        "amba.compute_image.secondary",
+        "amba.compute_image_template.primary",
+        "amba.compute_vm_shutdown_schedule.availability_critical",
+        "amba.compute_vm_shutdown_schedule.primary",
+        "amba.compute_vm_shutdown_schedule.secondary",
+        "amba.diagnostic_settings.secondary",
+        "amba.kubernetes_endpoints.availability_critical",
+        "amba.metric_alert_rule.primary",
+        "amba.workflow_api_connection.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "authorizationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.vm-shutdown-schedule",
+        "network.dns-resolver-inbound-endpoint",
+        "compute.batch-account"
+      ],
+      "causal_mechanisms": [
+        "guest_shutdown"
+      ],
+      "cause_metric_id": "network_dns_resolver_inbound_endpoint.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.failed_requests.window_01"
+      ],
+      "failure_resource_type": "compute.vm-shutdown-schedule",
+      "family_id": "compute_saturation_and_shutdown",
+      "family_title": "Compute & VMSS Cascading CPU/Memory Saturation & Shutdown",
+      "intermediate_resource_type": "compute.batch-account",
+      "kql_recipe_ids": [
+        "compute_batch_account.kql_telemetry",
+        "compute_vm_shutdown_schedule.kql_telemetry",
+        "network_dns_resolver_inbound_endpoint.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Virtual Desktop"
+      ],
+      "monitor_log_tables": [
+        "AADCustomSecurityAttributeAuditLogs",
+        "ADAssessmentRecommendation",
+        "ASRv2HealthEvents",
+        "AZMSApplicationMetricLogs",
+        "Anomalies",
+        "AzureSQLTimeouts",
+        "CrowdStrikeDetections",
+        "DatabricksPredictiveOptimization",
+        "DeviceTvmSoftwareVulnerabilities",
+        "GoogleWorkspaceReports",
+        "KubeNodeInventory",
+        "McasShadowItReporting",
+        "OEWExperimentScorecardMetricPairs",
+        "SCGPoolExecutionLog",
+        "SynapseDXSucceededIngestion",
+        "WOUserDiagnostics"
+      ],
+      "platform_metric_ids": [
+        "automation_account.primary_utilization",
+        "compute_vm_extension.primary_utilization",
+        "compute_vm_shutdown_schedule.primary_utilization",
+        "compute_vm_shutdown_schedule.secondary_health",
+        "kubernetes_persistent_volume_claim.secondary_health",
+        "log_workspace.secondary_health",
+        "network_dns_resolver_inbound_endpoint.primary_utilization",
+        "network_dns_resolver_inbound_endpoint.secondary_health",
+        "network_private_dns_zone_group.primary_utilization",
+        "network_virtual_hub.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_vm_shutdown_schedule.primary",
+      "primary_metric_id": "compute_vm_shutdown_schedule.primary_utilization",
+      "read_tool_ids": [
+        "query_guest_shutdown_events"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-contains-run-command",
+        "azure.storage-account-contains-file-share",
+        "kubernetes.service-exposes-endpoints",
+        "azure-arg.ext.kubernetes-deployment.01.attached_to",
+        "azure-arg.ext.network-dns-zone.02.depends_on",
+        "azure-arg.ext.authorization-role-assignment.01.depends_on",
+        "azure-arg.ext.email-service.02.depends_on",
+        "azure-arg.ext.network-private-peering-port.01.attached_to"
+      ],
+      "root_cause_resource_type": "network.dns-resolver-inbound-endpoint",
+      "round_code": "D005",
+      "round_number": 5,
+      "scenario_id": "scenario.d005.compute_saturation_and_shutdown.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_desktop_host_pool.primary",
+        "amba.compute_image.availability_critical",
+        "amba.compute_image_template.secondary",
+        "amba.compute_vm_scale_set.availability_critical",
+        "amba.compute_vm_scale_set.primary",
+        "amba.compute_vm_scale_set.secondary",
+        "amba.kubernetes_endpoint_slice.primary",
+        "amba.metric_alert_rule.secondary",
+        "amba.object_storage.primary",
+        "amba.workflow_api_connection.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "awsresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.vm-scale-set",
+        "network.route-table",
+        "network.cdn-profile"
+      ],
+      "causal_mechanisms": [
+        "container_restarts"
+      ],
+      "cause_metric_id": "network_route_table.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.error_timeline.window_02"
+      ],
+      "failure_resource_type": "compute.vm-scale-set",
+      "family_id": "kubernetes_and_container_lifecycle",
+      "family_title": "AKS & Container Apps Rollout Stall, OOMKilling & Replacement",
+      "intermediate_resource_type": "network.cdn-profile",
+      "kql_recipe_ids": [
+        "compute_vm_scale_set.kql_telemetry",
+        "network_cdn_profile.kql_telemetry",
+        "network_route_table.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Containers"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesAccountLogon",
+        "ADFActivityRun",
+        "ASRv2JobEvents",
+        "AZMSArchiveLogs",
+        "ApiManagementGatewayLogs",
+        "BehaviorAnalytics",
+        "CrowdStrikeHosts",
+        "DatabricksRBAC",
+        "DeviceTvmSoftwareVulnerabilitiesKB",
+        "GraphNotificationsActivityLogs",
+        "KubePVInventory",
+        "MeshControlPlane",
+        "OEWExperimentScorecards",
+        "SCGPoolRequestLog",
+        "SynapseDXTableDetails",
+        "WUDOAggregatedStatus"
+      ],
+      "platform_metric_ids": [
+        "automation_account.secondary_health",
+        "compute_vm_extension.secondary_health",
+        "compute_vm_scale_set.primary_utilization",
+        "compute_vm_scale_set.secondary_health",
+        "kubernetes_persistent_volume.primary_utilization",
+        "metrics_workspace.primary_utilization",
+        "network_private_dns_zone_group.secondary_health",
+        "network_route_table.primary_utilization",
+        "network_route_table.secondary_health",
+        "network_virtual_router.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.compute_vm_scale_set.primary",
+      "primary_metric_id": "compute_vm_scale_set.primary_utilization",
+      "read_tool_ids": [
+        "query_network_security"
+      ],
+      "relationship_mapping_ids": [
+        "azure.cdn-profile-contains-origin-group",
+        "azure.vnet-contains-subnet",
+        "kubernetes.endpoint-slice-exposed-by-service",
+        "azure-arg.ext.kubernetes-deployment.02.depends_on",
+        "azure-arg.ext.network-public-ip.01.depends_on",
+        "azure-arg.ext.authorization-role-assignment.02.depends_on",
+        "azure-arg.ext.email-domain.01.attached_to",
+        "azure-arg.ext.network-private-peering-port.02.attached_to"
+      ],
+      "root_cause_resource_type": "network.route-table",
+      "round_code": "D006",
+      "round_number": 6,
+      "scenario_id": "scenario.d006.kubernetes_and_container_lifecycle.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.bot_service.primary",
+        "amba.compute_app_slot.primary",
+        "amba.compute_container_app.availability_critical",
+        "amba.compute_container_app.primary",
+        "amba.compute_container_app.secondary",
+        "amba.compute_desktop_host_pool.secondary",
+        "amba.compute_vm_extension.primary",
+        "amba.kubernetes_endpoint_slice.secondary",
+        "amba.managed_sre_agent.primary",
+        "amba.object_storage.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "azurebusinesscontinuityresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.container-app",
+        "network.virtual-network-gateway",
+        "network.cdn-origin-group"
+      ],
+      "causal_mechanisms": [
+        "throttling"
+      ],
+      "cause_metric_id": "network_virtual_network_gateway.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.dependency_latency.window_03"
+      ],
+      "failure_resource_type": "compute.container-app",
+      "family_id": "kubernetes_and_container_lifecycle",
+      "family_title": "AKS & Container Apps Rollout Stall, OOMKilling & Replacement",
+      "intermediate_resource_type": "network.cdn-origin-group",
+      "kql_recipe_ids": [
+        "compute_container_app.kql_telemetry",
+        "network_cdn_origin_group.kql_telemetry",
+        "network_virtual_network_gateway.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Desktop Analytics"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesAccountManagement",
+        "ADFPipelineRun",
+        "ASRv2ProtectedItems",
+        "AZMSAutoscaleLogs",
+        "ApiManagementWebSocketConnectionLogs",
+        "BehaviorEntities",
+        "CrowdStrikeIncidents",
+        "DatabricksRFA",
+        "DiscoveryBookshelfAuditLogs",
+        "HDInsightAmbariClusterAlerts",
+        "KubePodInventory",
+        "MessageEvents",
+        "OLPSupplyChainEntityOperations",
+        "SCOMAssessmentRecommendation",
+        "SynapseDXTableUsageStatistics",
+        "WUDOStatus"
+      ],
+      "platform_metric_ids": [
+        "compute_container_app.primary_utilization",
+        "compute_container_app.secondary_health",
+        "compute_private_virtualization_cloud.primary_utilization",
+        "compute_vm_run_command.primary_utilization",
+        "kubernetes_persistent_volume.secondary_health",
+        "metrics_workspace.secondary_health",
+        "network_dns_resolver.primary_utilization",
+        "network_virtual_network_gateway.primary_utilization",
+        "network_virtual_network_gateway.secondary_health",
+        "network_virtual_router.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_container_app.primary",
+      "primary_metric_id": "compute_container_app.primary_utilization",
+      "read_tool_ids": [
+        "query_network_peerings"
+      ],
+      "relationship_mapping_ids": [
+        "azure.image-gallery-contains-image",
+        "azure.nic-attached-to-subnet",
+        "kubernetes.endpoint-slice-routes-to-pod",
+        "azure-arg.ext.kubernetes-replica-set.01.depends_on",
+        "azure-arg.ext.network-public-ip.02.depends_on",
+        "azure-arg.ext.certificate.01.attached_to",
+        "azure-arg.ext.email-domain.02.attached_to",
+        "azure-arg.ext.observability-network-flow-log.01.attached_to"
+      ],
+      "root_cause_resource_type": "network.virtual-network-gateway",
+      "round_code": "D007",
+      "round_number": 7,
+      "scenario_id": "scenario.d007.kubernetes_and_container_lifecycle.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.bot_service.secondary",
+        "amba.compute_app_slot.secondary",
+        "amba.compute_container_app_job.availability_critical",
+        "amba.compute_container_app_job.primary",
+        "amba.compute_container_app_job.secondary",
+        "amba.compute_desktop_scaling_plan.primary",
+        "amba.compute_vm_extension.secondary",
+        "amba.container_registry.primary",
+        "amba.kubernetes_endpoint_slice.availability_critical",
+        "amba.managed_sre_agent.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "azuredevopsplatformresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.container-app-job",
+        "network.bastion-host",
+        "compute.image-gallery"
+      ],
+      "causal_mechanisms": [
+        "resource_saturation"
+      ],
+      "cause_metric_id": "network_bastion_host.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.slow_traces.window_04"
+      ],
+      "failure_resource_type": "compute.container-app-job",
+      "family_id": "kubernetes_and_container_lifecycle",
+      "family_title": "AKS & Container Apps Rollout Stall, OOMKilling & Replacement",
+      "intermediate_resource_type": "compute.image-gallery",
+      "kql_recipe_ids": [
+        "compute_container_app_job.kql_telemetry",
+        "compute_image_gallery.kql_telemetry",
+        "network_bastion_host.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "IT & Management Tools"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesDirectoryServiceAccess",
+        "ADFSSignInLogs",
+        "ASRv2ReplicationExtensions",
+        "AZMSCustomerManagedKeyUserLogs",
+        "AppAvailabilityResults",
+        "BehaviorInfo",
+        "CrowdStrikeVulnerabilities",
+        "DatabricksRemoteHistoryService",
+        "DiscoverySupercomputerAuditLogs",
+        "HDInsightAmbariSystemMetrics",
+        "KubeServices",
+        "MessagePostDeliveryEvents",
+        "OLPSupplyChainEvents",
+        "SPAssessmentRecommendation",
+        "SynapseGatewayApiRequests",
+        "WVDAgentHealthStatus"
+      ],
+      "platform_metric_ids": [
+        "application_insights.primary_utilization",
+        "compute_container_app_job.primary_utilization",
+        "compute_container_app_job.secondary_health",
+        "compute_private_virtualization_cloud.secondary_health",
+        "compute_vm_run_command.secondary_health",
+        "kubernetes_storage_class.primary_utilization",
+        "network_bastion_host.primary_utilization",
+        "network_bastion_host.secondary_health",
+        "network_dns_resolver.secondary_health",
+        "network_site_vpn_gateway.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.compute_container_app_job.primary",
+      "primary_metric_id": "compute_container_app_job.primary_utilization",
+      "read_tool_ids": [
+        "query_arg_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.gallery-image-contains-version",
+        "azure.web-app-attached-to-subnet",
+        "kubernetes.ingress-routes-to-service",
+        "azure-arg.ext.kubernetes-replica-set.02.depends_on",
+        "azure-arg.ext.network-nat-gateway.01.attached_to",
+        "azure-arg.ext.certificate.02.attached_to",
+        "azure-arg.ext.search-service.01.attached_to",
+        "azure-arg.ext.observability-network-flow-log.02.depends_on"
+      ],
+      "root_cause_resource_type": "network.bastion-host",
+      "round_code": "D008",
+      "round_number": 8,
+      "scenario_id": "scenario.d008.kubernetes_and_container_lifecycle.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.ai_project.primary",
+        "amba.compute_container_app_environment.availability_critical",
+        "amba.compute_container_app_environment.primary",
+        "amba.compute_container_app_environment.secondary",
+        "amba.compute_desktop_scaling_plan.secondary",
+        "amba.compute_vm_extension.availability_critical",
+        "amba.container_registry.secondary",
+        "amba.database_dedicated_infrastructure.primary",
+        "amba.kubernetes_ingress.primary",
+        "amba.observability_dashboard_service.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "batchresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.container-app-environment",
+        "network.private-access-scope",
+        "compute.gallery-image-version"
+      ],
+      "causal_mechanisms": [
+        "network_flow_drop"
+      ],
+      "cause_metric_id": "network_private_access_scope.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.guest_shutdown.window_05"
+      ],
+      "failure_resource_type": "compute.container-app-environment",
+      "family_id": "kubernetes_and_container_lifecycle",
+      "family_title": "AKS & Container Apps Rollout Stall, OOMKilling & Replacement",
+      "intermediate_resource_type": "compute.gallery-image-version",
+      "kql_recipe_ids": [
+        "compute_container_app_environment.kql_telemetry",
+        "compute_gallery_image_version.kql_telemetry",
+        "network_private_access_scope.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Network"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesLogonLogoff",
+        "ADFSandboxActivityRun",
+        "ASRv2ReplicationPolicies",
+        "AZMSDiagnosticErrorLogs",
+        "AppBrowserTimings",
+        "BlockchainApplicationLog",
+        "DCRLogErrors",
+        "DatabricksRepos",
+        "DiscoveryWorkspaceAuditLogs",
+        "HDInsightGatewayAuditLogs",
+        "LAJobLogs",
+        "MessageUrlInfo",
+        "OTelEvents",
+        "SQLAssessmentRecommendation",
+        "SynapseIntegrationActivityRuns",
+        "WVDAutoscaleEvaluationPooled"
+      ],
+      "platform_metric_ids": [
+        "application_insights.secondary_health",
+        "compute_batch_account.primary_utilization",
+        "compute_container_app_environment.primary_utilization",
+        "compute_container_app_environment.secondary_health",
+        "compute_vm_shutdown_schedule.primary_utilization",
+        "kubernetes_storage_class.secondary_health",
+        "network_dns_resolver_inbound_endpoint.primary_utilization",
+        "network_private_access_scope.primary_utilization",
+        "network_private_access_scope.secondary_health",
+        "network_site_vpn_gateway.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_container_app_environment.primary",
+      "primary_metric_id": "compute_container_app_environment.primary_utilization",
+      "read_tool_ids": [
+        "query_monitor_log_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.file-account-contains-capacity-pool",
+        "azure.subnet-attached-to-nsg",
+        "kubernetes.ingress-attached-to-class",
+        "azure-arg.ext.kubernetes-daemon-set.01.attached_to",
+        "azure-arg.ext.network-nat-gateway.02.attached_to",
+        "azure-arg.ext.managed-certificate.01.attached_to",
+        "azure-arg.ext.search-service.02.depends_on",
+        "azure-arg.ext.network-user-vpn-gateway.01.depends_on"
+      ],
+      "root_cause_resource_type": "network.private-access-scope",
+      "round_code": "D009",
+      "round_number": 9,
+      "scenario_id": "scenario.d009.kubernetes_and_container_lifecycle.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.ai_project.secondary",
+        "amba.compute_function.availability_critical",
+        "amba.compute_function.primary",
+        "amba.compute_function.secondary",
+        "amba.compute_vm_run_command.primary",
+        "amba.database_dedicated_infrastructure.secondary",
+        "amba.file_share.primary",
+        "amba.iot_hub.primary",
+        "amba.kubernetes_ingress.secondary",
+        "amba.observability_dashboard_service.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "capabilityresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.function",
+        "network.registered-domain",
+        "compute.gallery-image"
+      ],
+      "causal_mechanisms": [
+        "firewall_deny"
+      ],
+      "cause_metric_id": "network_registered_domain.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.container_restarts.window_06"
+      ],
+      "failure_resource_type": "compute.function",
+      "family_id": "kubernetes_and_container_lifecycle",
+      "family_title": "AKS & Container Apps Rollout Stall, OOMKilling & Replacement",
+      "intermediate_resource_type": "compute.gallery-image",
+      "kql_recipe_ids": [
+        "compute_function.kql_telemetry",
+        "compute_gallery_image.kql_telemetry",
+        "network_registered_domain.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Security"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesPolicyChange",
+        "ADFSandboxPipelineRun",
+        "ASRv2ReplicationVaults",
+        "AZMSHybridConnectionsEvents",
+        "AppDependencies",
+        "BlockchainProxyLog",
+        "DHAppReliability",
+        "DatabricksSQLPermissions",
+        "DisruptionAndResponseEvents",
+        "HDInsightHBaseLogs",
+        "LAQueryLogs",
+        "MicrosoftAzureBastionAuditLogs",
+        "OTelLogs",
+        "SQLSecurityAuditEvents",
+        "SynapseIntegrationPipelineRuns",
+        "WVDCheckpoints"
+      ],
+      "platform_metric_ids": [
+        "compute_batch_account.secondary_health",
+        "compute_function.primary_utilization",
+        "compute_function.secondary_health",
+        "compute_vm_shutdown_schedule.secondary_health",
+        "data_collection_rule.primary_utilization",
+        "kubernetes_horizontal_pod_autoscaler.primary_utilization",
+        "network_dns_resolver_inbound_endpoint.secondary_health",
+        "network_registered_domain.primary_utilization",
+        "network_registered_domain.secondary_health",
+        "network_vpn_site.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.compute_function.primary",
+      "primary_metric_id": "compute_function.primary_utilization",
+      "read_tool_ids": [
+        "query_platform_metrics"
+      ],
+      "relationship_mapping_ids": [
+        "azure.file-capacity-pool-contains-volume",
+        "azure.subnet-attached-to-nat-gateway",
+        "azure-arg.ext.compute-vm.01.attached_to",
+        "azure-arg.ext.kubernetes-daemon-set.02.attached_to",
+        "azure-arg.ext.network-private-dns-zone.01.attached_to",
+        "azure-arg.ext.managed-certificate.02.depends_on",
+        "azure-arg.ext.directory-managed-domain.01.depends_on",
+        "azure-arg.ext.network-user-vpn-gateway.02.depends_on"
+      ],
+      "root_cause_resource_type": "network.registered-domain",
+      "round_code": "D010",
+      "round_number": 10,
+      "scenario_id": "scenario.d010.kubernetes_and_container_lifecycle.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_vm_run_command.secondary",
+        "amba.compute_web_app.availability_critical",
+        "amba.compute_web_app.primary",
+        "amba.compute_web_app.secondary",
+        "amba.database_vm_cluster.primary",
+        "amba.file_share.secondary",
+        "amba.iot_hub.secondary",
+        "amba.kubernetes_ingress.availability_critical",
+        "amba.observability_network_monitor.primary",
+        "amba.web_search_service.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "chaosresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "compute.web-app",
+        "diagnostic-settings",
+        "analytics.workspace"
+      ],
+      "causal_mechanisms": [
+        "dns_resolution_failure"
+      ],
+      "cause_metric_id": "diagnostic_settings.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.throttling.window_07"
+      ],
+      "failure_resource_type": "compute.web-app",
+      "family_id": "database_contention_and_replication",
+      "family_title": "Database Deadlock, Blocking Sessions, Replication Lag & Storage",
+      "intermediate_resource_type": "analytics.workspace",
+      "kql_recipe_ids": [
+        "analytics_workspace.kql_telemetry",
+        "compute_web_app.kql_telemetry",
+        "diagnostic_settings.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Virtual Machines"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesPrivilegeUse",
+        "ADFTriggerRun",
+        "ASimAgentEventLogs",
+        "AZMSKafkaCoordinatorLogs",
+        "AppEnvSessionConsoleLogs",
+        "CCFApplicationLogs",
+        "DHDriverReliability",
+        "DatabricksSSH",
+        "DnsAuditEvents",
+        "HDInsightHBaseMetrics",
+        "LASummaryLogs",
+        "MicrosoftDataShareReceivedSnapshotLog",
+        "OTelResources",
+        "SVMPoolExecutionLog",
+        "SynapseIntegrationTriggerRuns",
+        "WVDConnectionGraphicsDataPreview"
+      ],
+      "platform_metric_ids": [
+        "compute_vm_scale_set.primary_utilization",
+        "compute_web_app.primary_utilization",
+        "compute_web_app.secondary_health",
+        "data_collection_rule.secondary_health",
+        "diagnostic_settings.primary_utilization",
+        "diagnostic_settings.secondary_health",
+        "kubernetes_horizontal_pod_autoscaler.secondary_health",
+        "network_cdn_profile.primary_utilization",
+        "network_route_table.primary_utilization",
+        "network_vpn_site.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.compute_web_app.primary",
+      "primary_metric_id": "compute_web_app.primary_utilization",
+      "read_tool_ids": [
+        "query_amba_alerts"
+      ],
+      "relationship_mapping_ids": [
+        "azure.network-watcher-contains-flow-log",
+        "azure.subnet-attached-to-route-table",
+        "azure-arg.ext.compute-vm.02.attached_to",
+        "azure-arg.ext.kubernetes-stateful-set.01.attached_to",
+        "azure-arg.ext.network-private-dns-zone.02.depends_on",
+        "azure-arg.ext.ssh-public-key.01.depends_on",
+        "azure-arg.ext.directory-managed-domain.02.depends_on",
+        "azure-arg.ext.network-dns-routing-profile.01.attached_to"
+      ],
+      "root_cause_resource_type": "diagnostic-settings",
+      "round_code": "D011",
+      "round_number": 11,
+      "scenario_id": "scenario.d011.database_contention_and_replication.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.app_service_plan.availability_critical",
+        "amba.app_service_plan.primary",
+        "amba.app_service_plan.secondary",
+        "amba.compute_vm_run_command.availability_critical",
+        "amba.database_vm_cluster.secondary",
+        "amba.disk_snapshot.primary",
+        "amba.event_topic.primary",
+        "amba.kubernetes_ingress_class.primary",
+        "amba.observability_network_monitor.secondary",
+        "amba.web_search_service.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "communitygalleryresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "app-service-plan",
+        "object-storage",
+        "compute.desktop-host-pool"
+      ],
+      "causal_mechanisms": [
+        "tls_handshake_failure"
+      ],
+      "cause_metric_id": "object_storage.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.resource_saturation.window_08"
+      ],
+      "failure_resource_type": "app-service-plan",
+      "family_id": "database_contention_and_replication",
+      "family_title": "Database Deadlock, Blocking Sessions, Replication Lag & Storage",
+      "intermediate_resource_type": "compute.desktop-host-pool",
+      "kql_recipe_ids": [
+        "app_service_plan.kql_telemetry",
+        "compute_desktop_host_pool.kql_telemetry",
+        "object_storage.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Workloads"
+      ],
+      "monitor_log_tables": [
+        "AADDomainServicesSystemSecurity",
+        "ADReplicationResult",
+        "ASimAlertEventLogs",
+        "AZMSKafkaUserErrorLogs",
+        "AppEnvSessionLifecycleLogs",
+        "CDBCassandraRequests",
+        "DHLogonFailures",
+        "DatabricksSecrets",
+        "DnsEvents",
+        "HDInsightHadoopAndYarnLogs",
+        "LIATrackingEvents",
+        "MicrosoftDataShareSentSnapshotLog",
+        "OTelSpans",
+        "SVMPoolRequestLog",
+        "SynapseLinkEvent",
+        "WVDConnectionNetworkData"
+      ],
+      "platform_metric_ids": [
+        "app_service_plan.primary_utilization",
+        "app_service_plan.secondary_health",
+        "compute_vm_scale_set.secondary_health",
+        "data_collection_endpoint.primary_utilization",
+        "kubernetes_pod_disruption_budget.primary_utilization",
+        "network_cdn_profile.secondary_health",
+        "network_route_table.secondary_health",
+        "object_storage.primary_utilization",
+        "object_storage.secondary_health",
+        "observability_traffic_collector.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.app_service_plan.primary",
+      "primary_metric_id": "app_service_plan.primary_utilization",
+      "read_tool_ids": [
+        "query_causal_mechanism"
+      ],
+      "relationship_mapping_ids": [
+        "azure.app-service-contains-slot",
+        "azure.nic-attached-to-public-ip",
+        "azure-arg.ext.compute-image.01.attached_to",
+        "azure-arg.ext.kubernetes-stateful-set.02.depends_on",
+        "azure-arg.ext.network-private-dns-zone-link.01.depends_on",
+        "azure-arg.ext.ssh-public-key.02.depends_on",
+        "azure-arg.ext.application-configuration.01.attached_to",
+        "azure-arg.ext.network-dns-routing-profile.02.attached_to"
+      ],
+      "root_cause_resource_type": "object-storage",
+      "round_code": "D012",
+      "round_number": 12,
+      "scenario_id": "scenario.d012.database_contention_and_replication.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_vm_shutdown_schedule.primary",
+        "amba.devops_account.primary",
+        "amba.disk_snapshot.secondary",
+        "amba.event_topic.secondary",
+        "amba.kubernetes_ingress_class.secondary",
+        "amba.network_vnet.primary",
+        "amba.observability_query_pack.primary",
+        "amba.static_web_app.availability_critical",
+        "amba.static_web_app.primary",
+        "amba.static_web_app.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "computeresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "static-web-app",
+        "container-registry",
+        "compute.desktop-scaling-plan"
+      ],
+      "causal_mechanisms": [
+        "certificate_expiry"
+      ],
+      "cause_metric_id": "container_registry.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.network_flow_drop.window_09"
+      ],
+      "failure_resource_type": "static-web-app",
+      "family_id": "database_contention_and_replication",
+      "family_title": "Database Deadlock, Blocking Sessions, Replication Lag & Storage",
+      "intermediate_resource_type": "compute.desktop-scaling-plan",
+      "kql_recipe_ids": [
+        "compute_desktop_scaling_plan.kql_telemetry",
+        "container_registry.kql_telemetry",
+        "static_web_app.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Applications"
+      ],
+      "monitor_log_tables": [
+        "AADGraphActivityLogs",
+        "ADSecurityAssessmentRecommendation",
+        "ASimAssetEntityLogs",
+        "AZMSOperationalLogs",
+        "AppEnvSessionPoolEventLogs",
+        "CDBControlPlaneRequests",
+        "DHLogonMetrics",
+        "DatabricksServerlessRealTimeInference",
+        "DnsInventory",
+        "HDInsightHadoopAndYarnMetrics",
+        "LedgerTransactionLogs",
+        "MicrosoftGraphActivityLogs",
+        "OTelTraces",
+        "SalesforceAuditTrail",
+        "SynapseRbacOperations",
+        "WVDConnections"
+      ],
+      "platform_metric_ids": [
+        "compute_container_app.primary_utilization",
+        "container_registry.primary_utilization",
+        "container_registry.secondary_health",
+        "data_collection_endpoint.secondary_health",
+        "kubernetes_pod_disruption_budget.secondary_health",
+        "network_cdn_origin_group.primary_utilization",
+        "network_virtual_network_gateway.primary_utilization",
+        "observability_traffic_collector.secondary_health",
+        "static_web_app.primary_utilization",
+        "static_web_app.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.static_web_app.primary",
+      "primary_metric_id": "static_web_app.primary_utilization",
+      "read_tool_ids": [
+        "query_diagnostic_probe"
+      ],
+      "relationship_mapping_ids": [
+        "azure.resource-attached-to-managed-identity",
+        "azure.nic-attached-to-nsg",
+        "azure-arg.ext.compute-image.02.depends_on",
+        "azure-arg.ext.kubernetes-persistent-volume-claim.01.depends_on",
+        "azure-arg.ext.network-private-dns-zone-link.02.depends_on",
+        "azure-arg.ext.log-workspace.01.attached_to",
+        "azure-arg.ext.application-configuration.02.attached_to",
+        "azure-arg.ext.network-virtual-hub.01.attached_to"
+      ],
+      "root_cause_resource_type": "container-registry",
+      "round_code": "D013",
+      "round_number": 13,
+      "scenario_id": "scenario.d013.database_contention_and_replication.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.activity_log_alert.primary",
+        "amba.compute_vm_shutdown_schedule.secondary",
+        "amba.devops_account.secondary",
+        "amba.disk.primary",
+        "amba.kubernetes_cluster.availability_critical",
+        "amba.kubernetes_cluster.primary",
+        "amba.kubernetes_cluster.secondary",
+        "amba.kubernetes_ingress_class.availability_critical",
+        "amba.network_vnet.secondary",
+        "amba.observability_query_pack.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "deploymentresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes-cluster",
+        "file-share",
+        "iot-hub"
+      ],
+      "causal_mechanisms": [
+        "sql_deadlock"
+      ],
+      "cause_metric_id": "file_share.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.firewall_deny.window_10"
+      ],
+      "failure_resource_type": "kubernetes-cluster",
+      "family_id": "database_contention_and_replication",
+      "family_title": "Database Deadlock, Blocking Sessions, Replication Lag & Storage",
+      "intermediate_resource_type": "iot-hub",
+      "kql_recipe_ids": [
+        "file_share.kql_telemetry",
+        "iot_hub.kql_telemetry",
+        "kubernetes_cluster.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Audit"
+      ],
+      "monitor_log_tables": [
+        "AADManagedIdentitySignInLogs",
+        "ADTDataHistoryOperation",
+        "ASimAuditEventLogs",
+        "AZMSRunTimeAuditLogs",
+        "AppEnvSpringAppConsoleLogs",
+        "CDBDataPlaneRequests",
+        "DHOSCrashData",
+        "DatabricksTables",
+        "DurableTaskSchedulerLogs",
+        "HDInsightHiveAndLLAPLogs",
+        "LedgerUserDefinedLogs",
+        "MicrosoftGraphPolicyLogs",
+        "OTelTracesAgent",
+        "SalesforceLoginHistory",
+        "SynapseScopePoolScopeJobsEnded",
+        "WVDErrors"
+      ],
+      "platform_metric_ids": [
+        "alert_rule.primary_utilization",
+        "backup_vault.primary_utilization",
+        "compute_container_app.secondary_health",
+        "file_share.primary_utilization",
+        "file_share.secondary_health",
+        "kubernetes_cluster.primary_utilization",
+        "kubernetes_cluster.secondary_health",
+        "kubernetes_network_policy.primary_utilization",
+        "network_cdn_origin_group.secondary_health",
+        "network_virtual_network_gateway.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_cluster.primary",
+      "primary_metric_id": "kubernetes_cluster.primary_utilization",
+      "read_tool_ids": [
+        "query_advisor_recommendations"
+      ],
+      "relationship_mapping_ids": [
+        "azure.role-assignment-attached-to-scope",
+        "azure.private-endpoint-attached-to-network-interface",
+        "azure-arg.ext.compute-vm-extension.01.depends_on",
+        "azure-arg.ext.kubernetes-persistent-volume-claim.02.depends_on",
+        "azure-arg.ext.network-private-dns-zone-group.01.attached_to",
+        "azure-arg.ext.log-workspace.02.attached_to",
+        "azure-arg.ext.automation-account.01.attached_to",
+        "azure-arg.ext.network-virtual-hub.02.depends_on"
+      ],
+      "root_cause_resource_type": "file-share",
+      "round_code": "D014",
+      "round_number": 14,
+      "scenario_id": "scenario.d014.database_contention_and_replication.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.activity_log_alert.secondary",
+        "amba.compute_vm_shutdown_schedule.availability_critical",
+        "amba.disk.secondary",
+        "amba.kubernetes_job.primary",
+        "amba.kubernetes_node_pool.availability_critical",
+        "amba.kubernetes_node_pool.primary",
+        "amba.kubernetes_node_pool.secondary",
+        "amba.network_subnet.primary",
+        "amba.observability_solution.primary",
+        "amba.resource_group.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "desktopvirtualizationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes-node-pool",
+        "disk-snapshot",
+        "event-topic"
+      ],
+      "causal_mechanisms": [
+        "sql_blocking_session"
+      ],
+      "cause_metric_id": "disk_snapshot.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.dns_resolution_failure.window_11"
+      ],
+      "failure_resource_type": "kubernetes-node-pool",
+      "family_id": "database_contention_and_replication",
+      "family_title": "Database Deadlock, Blocking Sessions, Replication Lag & Storage",
+      "intermediate_resource_type": "event-topic",
+      "kql_recipe_ids": [
+        "disk_snapshot.kql_telemetry",
+        "event_topic.kql_telemetry",
+        "kubernetes_node_pool.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Monitor"
+      ],
+      "monitor_log_tables": [
+        "AADNonInteractiveUserSignInLogs",
+        "ADTDigitalTwinsOperation",
+        "ASimAuthenticationEventLogs",
+        "AZMSVnetConnectionEvents",
+        "AppEvents",
+        "CDBDataPlaneRequests15M",
+        "DHOSReliability",
+        "DatabricksUnityCatalog",
+        "DynamicEventCollection",
+        "HDInsightHiveAndLLAPMetrics",
+        "LinuxAuditLog",
+        "MicrosoftHealthcareApisAuditLogs",
+        "OfficeActivity",
+        "SecurityAlert",
+        "SynapseScopePoolScopeJobsStateChange",
+        "WVDFeeds"
+      ],
+      "platform_metric_ids": [
+        "alert_rule.secondary_health",
+        "backup_vault.secondary_health",
+        "compute_container_app_job.primary_utilization",
+        "compute_image_gallery.primary_utilization",
+        "disk_snapshot.primary_utilization",
+        "disk_snapshot.secondary_health",
+        "kubernetes_network_policy.secondary_health",
+        "kubernetes_node_pool.primary_utilization",
+        "kubernetes_node_pool.secondary_health",
+        "network_bastion_host.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_node_pool.primary",
+      "primary_metric_id": "kubernetes_node_pool.primary_utilization",
+      "read_tool_ids": [
+        "query_policy_compliance"
+      ],
+      "relationship_mapping_ids": [
+        "azure.role-assignment-attached-to-managed-identity",
+        "azure.private-endpoint-attached-to-subnet",
+        "azure-arg.ext.compute-vm-extension.02.depends_on",
+        "azure-arg.ext.kubernetes-persistent-volume.01.attached_to",
+        "azure-arg.ext.network-private-dns-zone-group.02.attached_to",
+        "azure-arg.ext.metrics-workspace.01.attached_to",
+        "azure-arg.ext.automation-account.02.depends_on",
+        "azure-arg.ext.network-virtual-router.01.depends_on"
+      ],
+      "root_cause_resource_type": "disk-snapshot",
+      "round_code": "D015",
+      "round_number": 15,
+      "scenario_id": "scenario.d015.database_contention_and_replication.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_vm_scale_set.primary",
+        "amba.kubernetes_job.secondary",
+        "amba.kubernetes_namespace.availability_critical",
+        "amba.kubernetes_namespace.primary",
+        "amba.kubernetes_namespace.secondary",
+        "amba.ml_model_registry.primary",
+        "amba.network_subnet.secondary",
+        "amba.observability_solution.secondary",
+        "amba.resource_group.secondary",
+        "amba.sql_server.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "dnsresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.namespace",
+        "disk",
+        "activity-log-alert"
+      ],
+      "causal_mechanisms": [
+        "storage_iops_saturation"
+      ],
+      "cause_metric_id": "disk.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.tls_handshake_failure.window_12"
+      ],
+      "failure_resource_type": "kubernetes.namespace",
+      "family_id": "network_routing_and_gateway_degradation",
+      "family_title": "Network Firewall Deny, NSG Drift, DNS Failure & Gateway 5xx",
+      "intermediate_resource_type": "activity-log-alert",
+      "kql_recipe_ids": [
+        "activity_log_alert.kql_telemetry",
+        "disk.kql_telemetry",
+        "kubernetes_namespace.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Resources"
+      ],
+      "monitor_log_tables": [
+        "AADProvisioningLogs",
+        "ADTEventRoutesOperation",
+        "ASimDhcpEventLogs",
+        "AddonAzureBackupAlerts",
+        "AppExceptions",
+        "CDBDataPlaneRequests5M",
+        "DHWipAppLearning",
+        "DatabricksVectorSearch",
+        "EGNFailedHttpDataPlaneOperations",
+        "HDInsightHiveQueryAppStats",
+        "LogicAppWorkflowRuntime",
+        "MicrosoftPurviewInformationProtection",
+        "OktaSystemLogs",
+        "SecurityAttackPathData",
+        "SynapseSqlPoolDmsWorkers",
+        "WVDHostRegistrations"
+      ],
+      "platform_metric_ids": [
+        "action_group.primary_utilization",
+        "compute_container_app_job.secondary_health",
+        "compute_image_gallery.secondary_health",
+        "disk.primary_utilization",
+        "disk.secondary_health",
+        "kubernetes_namespace.primary_utilization",
+        "kubernetes_namespace.secondary_health",
+        "kubernetes_resource_quota.primary_utilization",
+        "network_bastion_host.secondary_health",
+        "realtime_messaging_service.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_namespace.primary",
+      "primary_metric_id": "kubernetes_namespace.primary_utilization",
+      "read_tool_ids": [
+        "query_security_assessments"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-app-depends-on-managed-environment",
+        "azure.private-endpoint-contains-dns-zone-group",
+        "azure-arg.ext.compute-vm-run-command.01.attached_to",
+        "azure-arg.ext.kubernetes-persistent-volume.02.attached_to",
+        "azure-arg.ext.network-dns-resolver.01.attached_to",
+        "azure-arg.ext.metrics-workspace.02.depends_on",
+        "azure-arg.ext.compute-private-virtualization-cloud.01.depends_on",
+        "azure-arg.ext.network-virtual-router.02.depends_on"
+      ],
+      "root_cause_resource_type": "disk",
+      "round_code": "D016",
+      "round_number": 16,
+      "scenario_id": "scenario.d016.network_routing_and_gateway_degradation.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_vm_scale_set.secondary",
+        "amba.kubernetes_job.availability_critical",
+        "amba.kubernetes_node.availability_critical",
+        "amba.kubernetes_node.primary",
+        "amba.kubernetes_node.secondary",
+        "amba.ml_model_registry.secondary",
+        "amba.network_nsg.primary",
+        "amba.observability_dashboard.primary",
+        "amba.sql_server.secondary",
+        "amba.subscription.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "edgeorderresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.node",
+        "sql-server",
+        "ml-model-registry"
+      ],
+      "causal_mechanisms": [
+        "disk_queue_saturation"
+      ],
+      "cause_metric_id": "sql_server.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.certificate_expiry.window_13"
+      ],
+      "failure_resource_type": "kubernetes.node",
+      "family_id": "network_routing_and_gateway_degradation",
+      "family_title": "Network Firewall Deny, NSG Drift, DNS Failure & Gateway 5xx",
+      "intermediate_resource_type": "ml-model-registry",
+      "kql_recipe_ids": [
+        "kubernetes_node.kql_telemetry",
+        "ml_model_registry.kql_telemetry",
+        "sql_server.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Virtual Desktop"
+      ],
+      "monitor_log_tables": [
+        "AADRiskyAgents",
+        "ADTQueryOperation",
+        "ASimDnsActivityLogs",
+        "AddonAzureBackupJobs",
+        "AppGenAIContent",
+        "CDBGremlinRequests",
+        "DNSQueryLogs",
+        "DatabricksWebTerminal",
+        "EGNFailedMqttConnections",
+        "HDInsightHiveTezAppStats",
+        "MAApplication",
+        "MicrosoftServicePrincipalSignInLogs",
+        "Operation",
+        "SecurityBaseline",
+        "SynapseSqlPoolExecRequests",
+        "WVDManagement"
+      ],
+      "platform_metric_ids": [
+        "action_group.secondary_health",
+        "compute_container_app_environment.primary_utilization",
+        "compute_gallery_image_version.primary_utilization",
+        "kubernetes_node.primary_utilization",
+        "kubernetes_node.secondary_health",
+        "kubernetes_resource_quota.secondary_health",
+        "network_private_access_scope.primary_utilization",
+        "realtime_messaging_service.secondary_health",
+        "sql_server.primary_utilization",
+        "sql_server.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_node.primary",
+      "primary_metric_id": "kubernetes_node.primary_utilization",
+      "read_tool_ids": [
+        "query_update_assessments"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-job-depends-on-managed-environment",
+        "azure.private-dns-zone-group-attached-to-zone",
+        "azure-arg.ext.compute-vm-run-command.02.attached_to",
+        "azure-arg.ext.kubernetes-storage-class.01.attached_to",
+        "azure-arg.ext.network-dns-resolver.02.depends_on",
+        "azure-arg.ext.application-insights.01.depends_on",
+        "azure-arg.ext.compute-private-virtualization-cloud.02.depends_on",
+        "azure-arg.ext.network-site-vpn-gateway.01.attached_to"
+      ],
+      "root_cause_resource_type": "sql-server",
+      "round_code": "D017",
+      "round_number": 17,
+      "scenario_id": "scenario.d017.network_routing_and_gateway_degradation.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_vm_scale_set.availability_critical",
+        "amba.kubernetes_cron_job.primary",
+        "amba.kubernetes_pod.availability_critical",
+        "amba.kubernetes_pod.primary",
+        "amba.kubernetes_pod.secondary",
+        "amba.ml_workspace.primary",
+        "amba.network_nsg.secondary",
+        "amba.observability_dashboard.secondary",
+        "amba.sql_database.primary",
+        "amba.subscription.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "elasticsanresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.pod",
+        "sql-database",
+        "ml-workspace"
+      ],
+      "causal_mechanisms": [
+        "memory_oom_pressure"
+      ],
+      "cause_metric_id": "sql_database.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.sql_deadlock.window_14"
+      ],
+      "failure_resource_type": "kubernetes.pod",
+      "family_id": "network_routing_and_gateway_degradation",
+      "family_title": "Network Firewall Deny, NSG Drift, DNS Failure & Gateway 5xx",
+      "intermediate_resource_type": "ml-workspace",
+      "kql_recipe_ids": [
+        "kubernetes_pod.kql_telemetry",
+        "ml_workspace.kql_telemetry",
+        "sql_database.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Containers"
+      ],
+      "monitor_log_tables": [
+        "AADRiskyServicePrincipals",
+        "ADXJournal",
+        "ASimFileEventLogs",
+        "AddonAzureBackupPolicy",
+        "AppMetrics",
+        "CDBMongoRequests",
+        "DSMDataClassificationLogs",
+        "DatabricksWebhookNotifications",
+        "EGNFailedMqttPublishedMessages",
+        "HDInsightJupyterNotebookEvents",
+        "MAApplicationHealth",
+        "MySqlAuditLogs",
+        "OracleCloudDatabase",
+        "SecurityBaselineSummary",
+        "SynapseSqlPoolRequestSteps",
+        "WVDMultiLinkAdd"
+      ],
+      "platform_metric_ids": [
+        "compute_container_app_environment.secondary_health",
+        "compute_gallery_image_version.secondary_health",
+        "kubernetes_limit_range.primary_utilization",
+        "kubernetes_pod.primary_utilization",
+        "kubernetes_pod.secondary_health",
+        "network_private_access_scope.secondary_health",
+        "prometheus_rule_group.primary_utilization",
+        "sql_database.primary_utilization",
+        "sql_database.secondary_health",
+        "sql_managed_instance.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_pod.primary",
+      "primary_metric_id": "kubernetes_pod.primary_utilization",
+      "read_tool_ids": [
+        "query_service_health"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-workload-depends-on-registry",
+        "azure.load-balancer-attached-to-public-ip",
+        "azure-arg.ext.compute-vm-shutdown-schedule.01.attached_to",
+        "azure-arg.ext.kubernetes-storage-class.02.depends_on",
+        "azure-arg.ext.network-dns-resolver-inbound-endpoint.01.depends_on",
+        "azure-arg.ext.application-insights.02.depends_on",
+        "azure-arg.ext.compute-batch-account.01.attached_to",
+        "azure-arg.ext.network-site-vpn-gateway.02.attached_to"
+      ],
+      "root_cause_resource_type": "sql-database",
+      "round_code": "D018",
+      "round_number": 18,
+      "scenario_id": "scenario.d018.network_routing_and_gateway_degradation.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app.primary",
+        "amba.kubernetes_cron_job.secondary",
+        "amba.kubernetes_service.availability_critical",
+        "amba.kubernetes_service.primary",
+        "amba.kubernetes_service.secondary",
+        "amba.ml_workspace.secondary",
+        "amba.network_firewall.primary",
+        "amba.observability_workbook.primary",
+        "amba.sql_database.secondary",
+        "amba.unclassified_resource.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "extendedlocationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.service",
+        "postgresql-server",
+        "file-volume"
+      ],
+      "causal_mechanisms": [
+        "autoscale_flapping"
+      ],
+      "cause_metric_id": "postgresql_server.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.sql_blocking_session.window_15"
+      ],
+      "failure_resource_type": "kubernetes.service",
+      "family_id": "network_routing_and_gateway_degradation",
+      "family_title": "Network Firewall Deny, NSG Drift, DNS Failure & Gateway 5xx",
+      "intermediate_resource_type": "file-volume",
+      "kql_recipe_ids": [
+        "file_volume.kql_telemetry",
+        "kubernetes_service.kql_telemetry",
+        "postgresql_server.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Desktop Analytics"
+      ],
+      "monitor_log_tables": [
+        "AADRiskyUsers",
+        "ADXTableDetails",
+        "ASimNetworkSessionLogs",
+        "AddonAzureBackupProtectedInstance",
+        "AppPageViews",
+        "CDBPartitionKeyRUConsumption",
+        "DSMDataLabelingLogs",
+        "DatabricksWorkspace",
+        "EGNFailedMqttSubscriptions",
+        "HDInsightKafkaLogs",
+        "MAApplicationHealthAlternativeVersions",
+        "MySqlSlowLogs",
+        "PFTitleAuditLogs",
+        "SecurityCaseEvent",
+        "SynapseSqlPoolSqlRequests",
+        "WVDSessionHostManagement"
+      ],
+      "platform_metric_ids": [
+        "compute_function.primary_utilization",
+        "compute_gallery_image.primary_utilization",
+        "kubernetes_limit_range.secondary_health",
+        "kubernetes_service.primary_utilization",
+        "kubernetes_service.secondary_health",
+        "network_registered_domain.primary_utilization",
+        "postgresql_server.primary_utilization",
+        "postgresql_server.secondary_health",
+        "prometheus_rule_group.secondary_health",
+        "sql_managed_instance.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_service.primary",
+      "primary_metric_id": "kubernetes_service.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_changes"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-workload-depends-on-configured-endpoint",
+        "azure.application-gateway-attached-to-public-ip",
+        "azure-arg.ext.compute-vm-shutdown-schedule.02.depends_on",
+        "azure-arg.ext.kubernetes-horizontal-pod-autoscaler.01.depends_on",
+        "azure-arg.ext.network-dns-resolver-inbound-endpoint.02.depends_on",
+        "azure-arg.ext.data-collection-rule.01.attached_to",
+        "azure-arg.ext.compute-batch-account.02.attached_to",
+        "azure-arg.ext.network-vpn-site.01.attached_to"
+      ],
+      "root_cause_resource_type": "postgresql-server",
+      "round_code": "D019",
+      "round_number": 19,
+      "scenario_id": "scenario.d019.network_routing_and_gateway_degradation.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app.secondary",
+        "amba.file_volume.primary",
+        "amba.kubernetes_cron_job.availability_critical",
+        "amba.kubernetes_endpoints.availability_critical",
+        "amba.kubernetes_endpoints.primary",
+        "amba.kubernetes_endpoints.secondary",
+        "amba.network_firewall.secondary",
+        "amba.observability_workbook.secondary",
+        "amba.postgresql_server.primary",
+        "amba.unclassified_resource.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "extensibilityresourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.endpoints",
+        "mysql-server",
+        "storage.file-account"
+      ],
+      "causal_mechanisms": [
+        "deployment_operation_failure"
+      ],
+      "cause_metric_id": "mysql_server.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.storage_iops_saturation.window_16"
+      ],
+      "failure_resource_type": "kubernetes.endpoints",
+      "family_id": "network_routing_and_gateway_degradation",
+      "family_title": "Network Firewall Deny, NSG Drift, DNS Failure & Gateway 5xx",
+      "intermediate_resource_type": "storage.file-account",
+      "kql_recipe_ids": [
+        "kubernetes_endpoints.kql_telemetry",
+        "mysql_server.kql_telemetry",
+        "storage_file_account.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "IT & Management Tools"
+      ],
+      "monitor_log_tables": [
+        "AADServicePrincipalRiskEvents",
+        "AEWAssignmentBlobLogs",
+        "ASimProcessEventLogs",
+        "AddonAzureBackupStorage",
+        "AppPerformanceCounters",
+        "CDBPartitionKeyStatistics",
+        "DataSetOutput",
+        "DatabricksWorkspaceFiles",
+        "EGNMqttDisconnections",
+        "HDInsightKafkaMetrics",
+        "MAApplicationHealthIssues",
+        "NCBMBreakGlassAuditLogs",
+        "PGSQLAutovacuumStats",
+        "SecurityDetection",
+        "SynapseSqlPoolWaits",
+        "WaaSDeploymentStatus"
+      ],
+      "platform_metric_ids": [
+        "anomaly_alert_rule.primary_utilization",
+        "compute_function.secondary_health",
+        "compute_gallery_image.secondary_health",
+        "kubernetes_endpoints.primary_utilization",
+        "kubernetes_endpoints.secondary_health",
+        "mysql_server.primary_utilization",
+        "mysql_server.secondary_health",
+        "network_registered_domain.secondary_health",
+        "stream_analytics_job.primary_utilization",
+        "workflow_logic_app.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_endpoints.primary",
+      "primary_metric_id": "kubernetes_endpoints.primary_utilization",
+      "read_tool_ids": [
+        "query_topology_relationships"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-workload-depends-on-key-vault-secret",
+        "azure.application-gateway-attached-to-subnet",
+        "azure-arg.ext.compute-vm-scale-set.01.depends_on",
+        "azure-arg.ext.kubernetes-horizontal-pod-autoscaler.02.depends_on",
+        "azure-arg.ext.network-route-table.01.attached_to",
+        "azure-arg.ext.data-collection-rule.02.attached_to",
+        "azure-arg.ext.network-cdn-profile.01.attached_to",
+        "azure-arg.ext.network-vpn-site.02.depends_on"
+      ],
+      "root_cause_resource_type": "mysql-server",
+      "round_code": "D020",
+      "round_number": 20,
+      "scenario_id": "scenario.d020.network_routing_and_gateway_degradation.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app.availability_critical",
+        "amba.file_volume.secondary",
+        "amba.kubernetes_deployment.primary",
+        "amba.kubernetes_endpoint_slice.availability_critical",
+        "amba.kubernetes_endpoint_slice.primary",
+        "amba.kubernetes_endpoint_slice.secondary",
+        "amba.llm_endpoint.primary",
+        "amba.network_firewall_policy.primary",
+        "amba.postgresql_server.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "featureresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.endpoint-slice",
+        "nosql-database",
+        "storage.file-capacity-pool"
+      ],
+      "causal_mechanisms": [
+        "policy_non_compliance_event"
+      ],
+      "cause_metric_id": "nosql_database.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.disk_queue_saturation.window_17"
+      ],
+      "failure_resource_type": "kubernetes.endpoint-slice",
+      "family_id": "ai_ml_quota_and_throttling",
+      "family_title": "AI/ML & Azure OpenAI Token Throttling (HTTP 429) & Quota Surge",
+      "intermediate_resource_type": "storage.file-capacity-pool",
+      "kql_recipe_ids": [
+        "kubernetes_endpoint_slice.kql_telemetry",
+        "nosql_database.kql_telemetry",
+        "storage_file_capacity_pool.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Network"
+      ],
+      "monitor_log_tables": [
+        "AADServicePrincipalSignInLogs",
+        "AEWAuditLogs",
+        "ASimRegistryEventLogs",
+        "AegDataPlaneRequests",
+        "AppPlatformContainerEventLogs",
+        "CDBQueryRuntimeStatistics",
+        "DataSetRuns",
+        "DataverseActivity",
+        "EGNSuccessfulHttpDataPlaneOperations",
+        "HDInsightOozieLogs",
+        "MAApplicationInstance",
+        "NCBMSecurityDefenderLogs",
+        "PGSQLDbTransactionsStats",
+        "SecurityEvent",
+        "Syslog",
+        "WaaSInsiderStatus"
+      ],
+      "platform_metric_ids": [
+        "analytics_workspace.primary_utilization",
+        "anomaly_alert_rule.secondary_health",
+        "compute_web_app.primary_utilization",
+        "diagnostic_settings.primary_utilization",
+        "kubernetes_endpoint_slice.primary_utilization",
+        "kubernetes_endpoint_slice.secondary_health",
+        "nosql_database.primary_utilization",
+        "nosql_database.secondary_health",
+        "stream_analytics_job.secondary_health",
+        "workflow_logic_app.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_endpoint_slice.primary",
+      "primary_metric_id": "kubernetes_endpoint_slice.primary_utilization",
+      "read_tool_ids": [
+        "resolve_resource"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-workload-depends-on-arm-resource",
+        "azure.dns-resolver-attached-to-vnet",
+        "azure-arg.ext.compute-vm-scale-set.02.depends_on",
+        "azure-arg.ext.kubernetes-pod-disruption-budget.01.attached_to",
+        "azure-arg.ext.network-route-table.02.attached_to",
+        "azure-arg.ext.data-collection-endpoint.01.attached_to",
+        "azure-arg.ext.network-cdn-profile.02.depends_on",
+        "azure-arg.ext.observability-traffic-collector.01.depends_on"
+      ],
+      "root_cause_resource_type": "nosql-database",
+      "round_code": "D021",
+      "round_number": 21,
+      "scenario_id": "scenario.d021.ai_ml_quota_and_throttling.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app_job.primary",
+        "amba.kubernetes_deployment.secondary",
+        "amba.kubernetes_ingress.availability_critical",
+        "amba.kubernetes_ingress.primary",
+        "amba.kubernetes_ingress.secondary",
+        "amba.llm_endpoint.secondary",
+        "amba.mysql_server.primary",
+        "amba.network_firewall_policy.secondary",
+        "amba.storage_file_account.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "guestconfigurationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.ingress",
+        "cache",
+        "network.connection"
+      ],
+      "causal_mechanisms": [
+        "security_alert_triggered"
+      ],
+      "cause_metric_id": "cache.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.memory_oom_pressure.window_18"
+      ],
+      "failure_resource_type": "kubernetes.ingress",
+      "family_id": "ai_ml_quota_and_throttling",
+      "family_title": "AI/ML & Azure OpenAI Token Throttling (HTTP 429) & Quota Surge",
+      "intermediate_resource_type": "network.connection",
+      "kql_recipe_ids": [
+        "cache.kql_telemetry",
+        "kubernetes_ingress.kql_telemetry",
+        "network_connection.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Security"
+      ],
+      "monitor_log_tables": [
+        "AADUserRiskEvents",
+        "AEWComputePipelinesLogs",
+        "ASimUserManagementActivityLogs",
+        "AegDeliveryFailureLogs",
+        "AppPlatformIngressLogs",
+        "CDBTableApiRequests",
+        "DataTransferOperations",
+        "DevCenterAgentHealthLogs",
+        "EGNSuccessfulMqttConnections",
+        "HDInsightRangerAuditLogs",
+        "MAApplicationInstanceReadiness",
+        "NCBMSecurityLogs",
+        "PGSQLPgBouncer",
+        "SecurityIoTRawEvent",
+        "TOUserAudits",
+        "WaaSUpdateStatus"
+      ],
+      "platform_metric_ids": [
+        "analytics_workspace.secondary_health",
+        "cache.primary_utilization",
+        "cache.secondary_health",
+        "compute_image_template.primary_utilization",
+        "compute_web_app.secondary_health",
+        "diagnostic_settings.secondary_health",
+        "kubernetes_ingress.primary_utilization",
+        "kubernetes_ingress.secondary_health",
+        "metric_alert_rule.primary_utilization",
+        "workflow_api_connection.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_ingress.primary",
+      "primary_metric_id": "kubernetes_ingress.primary_utilization",
+      "read_tool_ids": [
+        "get_resource_state"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-environment-depends-on-log-workspace",
+        "azure.dns-resolver-contains-inbound-endpoint",
+        "azure-arg.ext.compute-container-app.01.attached_to",
+        "azure-arg.ext.kubernetes-pod-disruption-budget.02.attached_to",
+        "azure-arg.ext.network-virtual-network-gateway.01.attached_to",
+        "azure-arg.ext.data-collection-endpoint.02.depends_on",
+        "azure-arg.ext.network-cdn-origin-group.01.depends_on",
+        "azure-arg.ext.observability-traffic-collector.02.depends_on"
+      ],
+      "root_cause_resource_type": "cache",
+      "round_code": "D022",
+      "round_number": 22,
+      "scenario_id": "scenario.d022.ai_ml_quota_and_throttling.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app_job.secondary",
+        "amba.kubernetes_deployment.availability_critical",
+        "amba.kubernetes_ingress_class.availability_critical",
+        "amba.kubernetes_ingress_class.primary",
+        "amba.kubernetes_ingress_class.secondary",
+        "amba.llm_model_deployment.primary",
+        "amba.mysql_server.secondary",
+        "amba.network_interface.primary",
+        "amba.storage_file_account.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "healthresourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.ingress-class",
+        "redis-enterprise",
+        "network.ddos-protection-plan"
+      ],
+      "causal_mechanisms": [
+        "backup_job_failure"
+      ],
+      "cause_metric_id": "redis_enterprise.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.autoscale_flapping.window_19"
+      ],
+      "failure_resource_type": "kubernetes.ingress-class",
+      "family_id": "ai_ml_quota_and_throttling",
+      "family_title": "AI/ML & Azure OpenAI Token Throttling (HTTP 429) & Quota Surge",
+      "intermediate_resource_type": "network.ddos-protection-plan",
+      "kql_recipe_ids": [
+        "kubernetes_ingress_class.kql_telemetry",
+        "network_ddos_protection_plan.kql_telemetry",
+        "redis_enterprise.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Virtual Machines"
+      ],
+      "monitor_log_tables": [
+        "ABAPAuditLog",
+        "AEWExperimentAssignmentSummary",
+        "ASimWebSessionLogs",
+        "AegPublishFailureLogs",
+        "AppPlatformLogsforSpring",
+        "CIEventsAudit",
+        "DatabricksAccounts",
+        "DevCenterBillingEventLogs",
+        "ETWEvent",
+        "HDInsightSecurityLogs",
+        "MAApplicationReadiness",
+        "NCBMSystemLogs",
+        "PGSQLPgStatActivitySessions",
+        "SecurityRecommendation",
+        "TOUserDiagnostics",
+        "Watchlist"
+      ],
+      "platform_metric_ids": [
+        "app_service_plan.primary_utilization",
+        "compute_desktop_host_pool.primary_utilization",
+        "compute_image_template.secondary_health",
+        "kubernetes_ingress_class.primary_utilization",
+        "kubernetes_ingress_class.secondary_health",
+        "metric_alert_rule.secondary_health",
+        "object_storage.primary_utilization",
+        "redis_enterprise.primary_utilization",
+        "redis_enterprise.secondary_health",
+        "workflow_api_connection.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_ingress_class.primary",
+      "primary_metric_id": "kubernetes_ingress_class.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_activity"
+      ],
+      "relationship_mapping_ids": [
+        "azure.container-environment-attached-to-infrastructure-subnet",
+        "azure.dns-resolver-inbound-endpoint-attached-to-subnet",
+        "azure-arg.ext.compute-container-app.02.attached_to",
+        "azure-arg.ext.kubernetes-network-policy.01.attached_to",
+        "azure-arg.ext.network-virtual-network-gateway.02.depends_on",
+        "azure-arg.ext.alert-rule.01.depends_on",
+        "azure-arg.ext.network-cdn-origin-group.02.depends_on",
+        "azure-arg.ext.backup-vault.01.attached_to"
+      ],
+      "root_cause_resource_type": "redis-enterprise",
+      "round_code": "D023",
+      "round_number": 23,
+      "scenario_id": "scenario.d023.ai_ml_quota_and_throttling.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app_job.availability_critical",
+        "amba.kubernetes_job.availability_critical",
+        "amba.kubernetes_job.primary",
+        "amba.kubernetes_job.secondary",
+        "amba.kubernetes_replica_set.primary",
+        "amba.llm_model_deployment.secondary",
+        "amba.network_interface.secondary",
+        "amba.nosql_database.primary",
+        "amba.storage_file_capacity_pool.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "healthresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.job",
+        "secret-store",
+        "network.private-circuit"
+      ],
+      "causal_mechanisms": [
+        "replication_lag_breach"
+      ],
+      "cause_metric_id": "secret_store.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.deployment_operation_failure.window_20"
+      ],
+      "failure_resource_type": "kubernetes.job",
+      "family_id": "ai_ml_quota_and_throttling",
+      "family_title": "AI/ML & Azure OpenAI Token Throttling (HTTP 429) & Quota Surge",
+      "intermediate_resource_type": "network.private-circuit",
+      "kql_recipe_ids": [
+        "kubernetes_job.kql_telemetry",
+        "network_private_circuit.kql_telemetry",
+        "secret_store.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Workloads"
+      ],
+      "monitor_log_tables": [
+        "ABAPAuthorizationDetails",
+        "AEWExperimentScorecardMetricPairs",
+        "ATCExpressRouteCircuitIpfix",
+        "AgentsInfo",
+        "AppPlatformSystemLogs",
+        "CIEventsOperational",
+        "DatabricksApps",
+        "DevCenterConnectionLogs",
+        "EdgeActionConsoleLog",
+        "HDInsightSparkApplicationEvents",
+        "MADeploymentPlan",
+        "NCCIDRACLogs",
+        "PGSQLQueryStoreQueryText",
+        "SentinelAlibabaCloudAPIGatewayLogs",
+        "TSIIngress",
+        "WebPubSubConnectivity"
+      ],
+      "platform_metric_ids": [
+        "app_service_plan.secondary_health",
+        "bot_service.primary_utilization",
+        "compute_app_slot.primary_utilization",
+        "compute_desktop_host_pool.secondary_health",
+        "kubernetes_job.primary_utilization",
+        "kubernetes_job.secondary_health",
+        "managed_sre_agent.primary_utilization",
+        "object_storage.secondary_health",
+        "secret_store.primary_utilization",
+        "secret_store.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_job.primary",
+      "primary_metric_id": "kubernetes_job.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_health"
+      ],
+      "relationship_mapping_ids": [
+        "azure.application-insights-depends-on-workspace",
+        "azure.load-balancer-attached-to-subnet",
+        "azure-arg.ext.compute-container-app-job.01.attached_to",
+        "azure-arg.ext.kubernetes-network-policy.02.depends_on",
+        "azure-arg.ext.network-bastion-host.01.depends_on",
+        "azure-arg.ext.alert-rule.02.depends_on",
+        "azure-arg.ext.compute-image-gallery.01.attached_to",
+        "azure-arg.ext.backup-vault.02.attached_to"
+      ],
+      "root_cause_resource_type": "secret-store",
+      "round_code": "D024",
+      "round_number": 24,
+      "scenario_id": "scenario.d024.ai_ml_quota_and_throttling.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_container_app_environment.primary",
+        "amba.event_hub.primary",
+        "amba.kubernetes_cron_job.availability_critical",
+        "amba.kubernetes_cron_job.primary",
+        "amba.kubernetes_cron_job.secondary",
+        "amba.kubernetes_replica_set.secondary",
+        "amba.network_private_endpoint.primary",
+        "amba.nosql_database.secondary",
+        "amba.storage_file_capacity_pool.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "impactreportresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.cron-job",
+        "managed-identity",
+        "network.private-circuit-gateway"
+      ],
+      "causal_mechanisms": [
+        "failed_requests"
+      ],
+      "cause_metric_id": "managed_identity.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.policy_non_compliance_event.window_21"
+      ],
+      "failure_resource_type": "kubernetes.cron-job",
+      "family_id": "ai_ml_quota_and_throttling",
+      "family_title": "AI/ML & Azure OpenAI Token Throttling (HTTP 429) & Quota Surge",
+      "intermediate_resource_type": "network.private-circuit-gateway",
+      "kql_recipe_ids": [
+        "kubernetes_cron_job.kql_telemetry",
+        "managed_identity.kql_telemetry",
+        "network_private_circuit_gateway.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Applications"
+      ],
+      "monitor_log_tables": [
+        "ABAPChangeDocsLog",
+        "AEWExperimentScorecards",
+        "ATCMicrosoftPeeringMetadata",
+        "AggregatedSecurityAlert",
+        "AppRequests",
+        "CampaignInfo",
+        "DatabricksBrickStoreHttpGateway",
+        "DevCenterDiagnosticLogs",
+        "EdgeActionServiceLog",
+        "HDInsightSparkBlockManagerEvents",
+        "MADevice",
+        "NCCKubernetesAPIAuditLogs",
+        "PGSQLQueryStoreRuntime",
+        "SentinelAlibabaCloudVPCFlowLogs",
+        "ThreatIntelExportOperation",
+        "WebPubSubHttpRequest"
+      ],
+      "platform_metric_ids": [
+        "bot_service.secondary_health",
+        "compute_app_slot.secondary_health",
+        "compute_desktop_scaling_plan.primary_utilization",
+        "container_registry.primary_utilization",
+        "kubernetes_cron_job.primary_utilization",
+        "kubernetes_cron_job.secondary_health",
+        "managed_identity.primary_utilization",
+        "managed_identity.secondary_health",
+        "managed_sre_agent.secondary_health",
+        "static_web_app.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_cron_job.primary",
+      "primary_metric_id": "kubernetes_cron_job.primary_utilization",
+      "read_tool_ids": [
+        "query_guest_shutdown_events"
+      ],
+      "relationship_mapping_ids": [
+        "azure.alert-rule-routes-to-action-group",
+        "azure.load-balancer-depends-on-backend-subnet",
+        "azure-arg.ext.compute-container-app-job.02.depends_on",
+        "azure-arg.ext.kubernetes-resource-quota.01.depends_on",
+        "azure-arg.ext.network-bastion-host.02.depends_on",
+        "azure-arg.ext.action-group.01.attached_to",
+        "azure-arg.ext.compute-image-gallery.02.attached_to",
+        "azure-arg.ext.realtime-messaging-service.01.attached_to"
+      ],
+      "root_cause_resource_type": "managed-identity",
+      "round_code": "D025",
+      "round_number": 25,
+      "scenario_id": "scenario.d025.ai_ml_quota_and_throttling.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.cache.primary",
+        "amba.compute_container_app_environment.secondary",
+        "amba.event_hub.secondary",
+        "amba.kubernetes_deployment.availability_critical",
+        "amba.kubernetes_deployment.primary",
+        "amba.kubernetes_deployment.secondary",
+        "amba.kubernetes_replica_set.availability_critical",
+        "amba.network_connection.primary",
+        "amba.network_private_endpoint.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "insightresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.deployment",
+        "authorization.role-assignment",
+        "network.private-peering-port"
+      ],
+      "causal_mechanisms": [
+        "error_timeline"
+      ],
+      "cause_metric_id": "authorization_role_assignment.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.security_alert_triggered.window_22"
+      ],
+      "failure_resource_type": "kubernetes.deployment",
+      "family_id": "storage_and_secret_saturation",
+      "family_title": "Storage IOPS Saturation, Elastic SAN Latency & Key Vault Throttling",
+      "intermediate_resource_type": "network.private-peering-port",
+      "kql_recipe_ids": [
+        "authorization_role_assignment.kql_telemetry",
+        "kubernetes_deployment.kql_telemetry",
+        "network_private_peering_port.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Audit"
+      ],
+      "monitor_log_tables": [
+        "ABAPTableDataLog",
+        "AFSAuditLogs",
+        "ATCPrivatePeeringMetadata",
+        "AgriFoodApplicationAuditLogs",
+        "AppServiceAntivirusScanAuditLogs",
+        "CassandraAudit",
+        "DatabricksBudgetPolicyCentral",
+        "DevCenterResourceOperationLogs",
+        "EmailAttachmentInfo",
+        "HDInsightSparkEnvironmentEvents",
+        "MADeviceNRT",
+        "NCCKubernetesLogs",
+        "PGSQLQueryStoreWaits",
+        "SentinelAlibabaCloudWAFLogs",
+        "ThreatIntelIndicators",
+        "WebPubSubMessaging"
+      ],
+      "platform_metric_ids": [
+        "ai_project.primary_utilization",
+        "authorization_role_assignment.primary_utilization",
+        "authorization_role_assignment.secondary_health",
+        "compute_desktop_scaling_plan.secondary_health",
+        "container_registry.secondary_health",
+        "database_dedicated_infrastructure.primary_utilization",
+        "kubernetes_deployment.primary_utilization",
+        "kubernetes_deployment.secondary_health",
+        "observability_dashboard_service.primary_utilization",
+        "static_web_app.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_deployment.primary",
+      "primary_metric_id": "kubernetes_deployment.primary_utilization",
+      "read_tool_ids": [
+        "query_network_security"
+      ],
+      "relationship_mapping_ids": [
+        "azure.alert-rule-depends-on-scope",
+        "azure.load-balancer-depends-on-backend-vnet",
+        "azure-arg.ext.compute-container-app-environment.01.depends_on",
+        "azure-arg.ext.kubernetes-resource-quota.02.depends_on",
+        "azure-arg.ext.network-private-access-scope.01.attached_to",
+        "azure-arg.ext.action-group.02.attached_to",
+        "azure-arg.ext.compute-gallery-image-version.01.attached_to",
+        "azure-arg.ext.realtime-messaging-service.02.depends_on"
+      ],
+      "root_cause_resource_type": "authorization.role-assignment",
+      "round_code": "D026",
+      "round_number": 26,
+      "scenario_id": "scenario.d026.storage_and_secret_saturation.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.cache.secondary",
+        "amba.compute_container_app_environment.availability_critical",
+        "amba.kubernetes_daemon_set.primary",
+        "amba.kubernetes_replica_set.availability_critical",
+        "amba.kubernetes_replica_set.primary",
+        "amba.kubernetes_replica_set.secondary",
+        "amba.network_connection.secondary",
+        "amba.network_load_balancer.primary",
+        "amba.service_bus_namespace.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "iotsecurityresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.replica-set",
+        "certificate",
+        "observability.network-flow-log"
+      ],
+      "causal_mechanisms": [
+        "dependency_latency"
+      ],
+      "cause_metric_id": "certificate.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.backup_job_failure.window_23"
+      ],
+      "failure_resource_type": "kubernetes.replica-set",
+      "family_id": "storage_and_secret_saturation",
+      "family_title": "Storage IOPS Saturation, Elastic SAN Latency & Key Vault Throttling",
+      "intermediate_resource_type": "observability.network-flow-log",
+      "kql_recipe_ids": [
+        "certificate.kql_telemetry",
+        "kubernetes_replica_set.kql_telemetry",
+        "observability_network_flow_log.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Monitor"
+      ],
+      "monitor_log_tables": [
+        "ABAPUserDetails",
+        "AGCAccessLogs",
+        "AVNMConnectivityConfigurationChange",
+        "AgriFoodFarmManagementLogs",
+        "AppServiceAppLogs",
+        "ChaosStudioExperimentEventLogs",
+        "DatabricksCapsule8Dataplane",
+        "DevOpsOperationsAudit",
+        "EmailEvents",
+        "HDInsightSparkExecutorEvents",
+        "MADeviceNotEnrolled",
+        "NCCPlatformOperationsLogs",
+        "PGSQLServerLogs",
+        "SentinelAudit",
+        "ThreatIntelObjects",
+        "Windows365AuditLogs"
+      ],
+      "platform_metric_ids": [
+        "ai_project.secondary_health",
+        "certificate.primary_utilization",
+        "certificate.secondary_health",
+        "database_dedicated_infrastructure.secondary_health",
+        "file_share.primary_utilization",
+        "iot_hub.primary_utilization",
+        "kubernetes_cluster.primary_utilization",
+        "kubernetes_replica_set.primary_utilization",
+        "kubernetes_replica_set.secondary_health",
+        "observability_dashboard_service.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_replica_set.primary",
+      "primary_metric_id": "kubernetes_replica_set.primary_utilization",
+      "read_tool_ids": [
+        "query_network_peerings"
+      ],
+      "relationship_mapping_ids": [
+        "azure.communication-service-depends-on-email-domain",
+        "azure.nat-gateway-attached-to-public-ip",
+        "azure-arg.ext.compute-container-app-environment.02.depends_on",
+        "azure-arg.ext.kubernetes-limit-range.01.attached_to",
+        "azure-arg.ext.network-private-access-scope.02.attached_to",
+        "azure-arg.ext.prometheus-rule-group.01.attached_to",
+        "azure-arg.ext.compute-gallery-image-version.02.depends_on",
+        "azure-arg.ext.sql-managed-instance.01.depends_on"
+      ],
+      "root_cause_resource_type": "certificate",
+      "round_code": "D027",
+      "round_number": 27,
+      "scenario_id": "scenario.d027.storage_and_secret_saturation.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_function.primary",
+        "amba.kubernetes_daemon_set.availability_critical",
+        "amba.kubernetes_daemon_set.primary",
+        "amba.kubernetes_daemon_set.secondary",
+        "amba.network_ddos_protection_plan.primary",
+        "amba.network_load_balancer.secondary",
+        "amba.redis_enterprise.primary",
+        "amba.service_bus_namespace.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "kubernetesconfigurationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.daemon-set",
+        "managed-certificate",
+        "network.user-vpn-gateway"
+      ],
+      "causal_mechanisms": [
+        "slow_traces"
+      ],
+      "cause_metric_id": "managed_certificate.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.replication_lag_breach.window_24"
+      ],
+      "failure_resource_type": "kubernetes.daemon-set",
+      "family_id": "storage_and_secret_saturation",
+      "family_title": "Storage IOPS Saturation, Elastic SAN Latency & Key Vault Throttling",
+      "intermediate_resource_type": "network.user-vpn-gateway",
+      "kql_recipe_ids": [
+        "kubernetes_daemon_set.kql_telemetry",
+        "managed_certificate.kql_telemetry",
+        "network_user_vpn_gateway.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Resources"
+      ],
+      "monitor_log_tables": [
+        "ABSBotRequests",
+        "AGCFirewallLogs",
+        "AVNMIPAMPoolAllocationChange",
+        "AgriFoodFarmOperationLogs",
+        "AppServiceAuditLogs",
+        "CloudAppEvents",
+        "DatabricksClamAVScan",
+        "DeviceAppCrash",
+        "EmailPostDeliveryEvents",
+        "HDInsightSparkExtraEvents",
+        "MADeviceReadiness",
+        "NCCVMOrchestrationLogs",
+        "Perf",
+        "SentinelBehaviorEntities",
+        "ThreatIntelligenceIndicator",
+        "Windows365CheckpointLogs"
+      ],
+      "platform_metric_ids": [
+        "database_vm_cluster.primary_utilization",
+        "file_share.secondary_health",
+        "iot_hub.secondary_health",
+        "kubernetes_cluster.secondary_health",
+        "kubernetes_daemon_set.primary_utilization",
+        "kubernetes_daemon_set.secondary_health",
+        "managed_certificate.primary_utilization",
+        "managed_certificate.secondary_health",
+        "observability_network_monitor.primary_utilization",
+        "web_search_service.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_daemon_set.primary",
+      "primary_metric_id": "kubernetes_daemon_set.primary_utilization",
+      "read_tool_ids": [
+        "query_arg_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.communication-email-service-contains-domain",
+        "azure.private-dns-zone-link-attached-to-vnet",
+        "azure-arg.ext.compute-function.01.attached_to",
+        "azure-arg.ext.kubernetes-limit-range.02.attached_to",
+        "azure-arg.ext.network-registered-domain.01.attached_to",
+        "azure-arg.ext.prometheus-rule-group.02.depends_on",
+        "azure-arg.ext.compute-gallery-image.01.depends_on",
+        "azure-arg.ext.sql-managed-instance.02.depends_on"
+      ],
+      "root_cause_resource_type": "managed-certificate",
+      "round_code": "D028",
+      "round_number": 28,
+      "scenario_id": "scenario.d028.storage_and_secret_saturation.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_function.secondary",
+        "amba.event_grid_topic.primary",
+        "amba.kubernetes_daemon_set.availability_critical",
+        "amba.kubernetes_stateful_set.availability_critical",
+        "amba.kubernetes_stateful_set.primary",
+        "amba.kubernetes_stateful_set.secondary",
+        "amba.network_application_gateway.primary",
+        "amba.network_ddos_protection_plan.secondary",
+        "amba.redis_enterprise.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "kustoresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.stateful-set",
+        "ssh-public-key",
+        "network.dns-routing-profile"
+      ],
+      "causal_mechanisms": [
+        "guest_shutdown"
+      ],
+      "cause_metric_id": "ssh_public_key.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.failed_requests.window_25"
+      ],
+      "failure_resource_type": "kubernetes.stateful-set",
+      "family_id": "storage_and_secret_saturation",
+      "family_title": "Storage IOPS Saturation, Elastic SAN Latency & Key Vault Throttling",
+      "intermediate_resource_type": "network.dns-routing-profile",
+      "kql_recipe_ids": [
+        "kubernetes_stateful_set.kql_telemetry",
+        "network_dns_routing_profile.kql_telemetry",
+        "ssh_public_key.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Virtual Desktop"
+      ],
+      "monitor_log_tables": [
+        "ACICollaborationAudit",
+        "AGSGrafanaLoginEvents",
+        "AVNMNetworkGroupMembershipChange",
+        "AgriFoodInsightLogs",
+        "AppServiceAuthenticationLogs",
+        "CloudAuditEvents",
+        "DatabricksCloudStorageMetadata",
+        "DeviceAppLaunch",
+        "EmailUrlInfo",
+        "HDInsightSparkJobEvents",
+        "MADriverInstanceReadiness",
+        "NCMClusterOperationsLogs",
+        "PerfInsightsFindings",
+        "SentinelBehaviorInfo",
+        "UAApp",
+        "Windows365ConnectionErrorLogs"
+      ],
+      "platform_metric_ids": [
+        "database_vm_cluster.secondary_health",
+        "disk_snapshot.primary_utilization",
+        "event_topic.primary_utilization",
+        "kubernetes_node_pool.primary_utilization",
+        "kubernetes_stateful_set.primary_utilization",
+        "kubernetes_stateful_set.secondary_health",
+        "observability_network_monitor.secondary_health",
+        "ssh_public_key.primary_utilization",
+        "ssh_public_key.secondary_health",
+        "web_search_service.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_stateful_set.primary",
+      "primary_metric_id": "kubernetes_stateful_set.primary_utilization",
+      "read_tool_ids": [
+        "query_monitor_log_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.function-depends-on-app-service-plan",
+        "azure.private-dns-zone-contains-vnet-link",
+        "azure-arg.ext.compute-function.02.attached_to",
+        "azure-arg.ext.workflow-logic-app.01.attached_to",
+        "azure-arg.ext.network-registered-domain.02.depends_on",
+        "azure-arg.ext.anomaly-alert-rule.01.depends_on",
+        "azure-arg.ext.compute-gallery-image.02.depends_on",
+        "azure-arg.ext.stream-analytics-job.01.attached_to"
+      ],
+      "root_cause_resource_type": "ssh-public-key",
+      "round_code": "D029",
+      "round_number": 29,
+      "scenario_id": "scenario.d029.storage_and_secret_saturation.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_function.availability_critical",
+        "amba.event_grid_topic.secondary",
+        "amba.kubernetes_persistent_volume_claim.availability_critical",
+        "amba.kubernetes_persistent_volume_claim.primary",
+        "amba.kubernetes_persistent_volume_claim.secondary",
+        "amba.kubernetes_stateful_set.primary",
+        "amba.network_application_gateway.secondary",
+        "amba.network_private_circuit.primary",
+        "amba.secret_store.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "maintenanceresourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.persistent-volume-claim",
+        "log-workspace",
+        "network.virtual-hub"
+      ],
+      "causal_mechanisms": [
+        "container_restarts"
+      ],
+      "cause_metric_id": "log_workspace.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.error_timeline.window_26"
+      ],
+      "failure_resource_type": "kubernetes.persistent-volume-claim",
+      "family_id": "storage_and_secret_saturation",
+      "family_title": "Storage IOPS Saturation, Elastic SAN Latency & Key Vault Throttling",
+      "intermediate_resource_type": "network.virtual-hub",
+      "kql_recipe_ids": [
+        "kubernetes_persistent_volume_claim.kql_telemetry",
+        "log_workspace.kql_telemetry",
+        "network_virtual_hub.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Containers"
+      ],
+      "monitor_log_tables": [
+        "ACLTransactionLogs",
+        "AGSGrafanaUsageInsightsEvents",
+        "AVNMRuleCollectionChange",
+        "AgriFoodJobProcessedLogs",
+        "AppServiceConsoleLogs",
+        "CloudDnsEvents",
+        "DatabricksClusterLibraries",
+        "DeviceBehaviorEntities",
+        "EnrichedMicrosoft365AuditLogs",
+        "HDInsightSparkLogs",
+        "MADriverReadiness",
+        "NCSStorageAlerts",
+        "PerfInsightsImpactedResources",
+        "SentinelHealth",
+        "UAComputer",
+        "Windows365ConnectionLogs"
+      ],
+      "platform_metric_ids": [
+        "devops_account.primary_utilization",
+        "disk_snapshot.secondary_health",
+        "event_topic.secondary_health",
+        "kubernetes_node_pool.secondary_health",
+        "kubernetes_persistent_volume_claim.primary_utilization",
+        "kubernetes_persistent_volume_claim.secondary_health",
+        "log_workspace.primary_utilization",
+        "log_workspace.secondary_health",
+        "network_vnet.primary_utilization",
+        "observability_query_pack.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_persistent_volume_claim.primary",
+      "primary_metric_id": "kubernetes_persistent_volume_claim.primary_utilization",
+      "read_tool_ids": [
+        "query_platform_metrics"
+      ],
+      "relationship_mapping_ids": [
+        "azure.function-attached-to-subnet",
+        "azure.virtual-network-gateway-attached-to-public-ip",
+        "azure-arg.ext.compute-web-app.01.attached_to",
+        "azure-arg.ext.workflow-logic-app.02.depends_on",
+        "azure-arg.ext.diagnostic-settings.01.depends_on",
+        "azure-arg.ext.anomaly-alert-rule.02.depends_on",
+        "azure-arg.ext.analytics-workspace.01.attached_to",
+        "azure-arg.ext.stream-analytics-job.02.attached_to"
+      ],
+      "root_cause_resource_type": "log-workspace",
+      "round_code": "D030",
+      "round_number": 30,
+      "scenario_id": "scenario.d030.storage_and_secret_saturation.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.api_gateway.primary",
+        "amba.communication_service.primary",
+        "amba.compute_web_app.primary",
+        "amba.kubernetes_persistent_volume.availability_critical",
+        "amba.kubernetes_persistent_volume.primary",
+        "amba.kubernetes_persistent_volume.secondary",
+        "amba.kubernetes_stateful_set.secondary",
+        "amba.network_private_circuit.secondary",
+        "amba.secret_store.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "maintenanceresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.persistent-volume",
+        "metrics-workspace",
+        "network.virtual-router"
+      ],
+      "causal_mechanisms": [
+        "throttling"
+      ],
+      "cause_metric_id": "metrics_workspace.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.dependency_latency.window_27"
+      ],
+      "failure_resource_type": "kubernetes.persistent-volume",
+      "family_id": "messaging_and_integration_backpressure",
+      "family_title": "Messaging, Event Hub & Service Bus Backpressure & Lag",
+      "intermediate_resource_type": "network.virtual-router",
+      "kql_recipe_ids": [
+        "kubernetes_persistent_volume.kql_telemetry",
+        "metrics_workspace.kql_telemetry",
+        "network_virtual_router.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Desktop Analytics"
+      ],
+      "monitor_log_tables": [
+        "ACLUserDefinedLogs",
+        "AGSUpdateEvents",
+        "AWSALBAccessLogs",
+        "AgriFoodModelInferenceLogs",
+        "AppServiceFileAuditLogs",
+        "CloudHsmHardwareOperationAuditLogs",
+        "DatabricksClusterPolicies",
+        "DeviceBehaviorInfo",
+        "Event",
+        "HDInsightSparkSQLExecutionEvents",
+        "MAOfficeAddin",
+        "NCSStorageAudits",
+        "PerfInsightsRun",
+        "SentinelImpervaWAFCloudV2Logs",
+        "UAComputerRank",
+        "Windows365NetworkLogs"
+      ],
+      "platform_metric_ids": [
+        "activity_log_alert.primary_utilization",
+        "devops_account.secondary_health",
+        "disk.primary_utilization",
+        "kubernetes_namespace.primary_utilization",
+        "kubernetes_persistent_volume.primary_utilization",
+        "kubernetes_persistent_volume.secondary_health",
+        "metrics_workspace.primary_utilization",
+        "metrics_workspace.secondary_health",
+        "network_vnet.secondary_health",
+        "observability_query_pack.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_persistent_volume.primary",
+      "primary_metric_id": "kubernetes_persistent_volume.primary_utilization",
+      "read_tool_ids": [
+        "query_amba_alerts"
+      ],
+      "relationship_mapping_ids": [
+        "azure.function-depends-on-deployment-identity",
+        "azure.virtual-network-gateway-attached-to-subnet",
+        "azure-arg.ext.compute-web-app.02.depends_on",
+        "azure-arg.ext.workflow-api-connection.01.depends_on",
+        "azure-arg.ext.diagnostic-settings.02.depends_on",
+        "azure-arg.ext.metric-alert-rule.01.attached_to",
+        "azure-arg.ext.analytics-workspace.02.attached_to",
+        "azure-arg.ext.compute-image-template.01.attached_to"
+      ],
+      "root_cause_resource_type": "metrics-workspace",
+      "round_code": "D031",
+      "round_number": 31,
+      "scenario_id": "scenario.d031.messaging_and_integration_backpressure.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.api_gateway.secondary",
+        "amba.communication_service.secondary",
+        "amba.compute_web_app.secondary",
+        "amba.kubernetes_stateful_set.availability_critical",
+        "amba.kubernetes_storage_class.availability_critical",
+        "amba.kubernetes_storage_class.primary",
+        "amba.kubernetes_storage_class.secondary",
+        "amba.managed_identity.primary",
+        "amba.network_private_circuit_gateway.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "managedserviceresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.storage-class",
+        "application-insights",
+        "network.site-vpn-gateway"
+      ],
+      "causal_mechanisms": [
+        "resource_saturation"
+      ],
+      "cause_metric_id": "application_insights.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.slow_traces.window_28"
+      ],
+      "failure_resource_type": "kubernetes.storage-class",
+      "family_id": "messaging_and_integration_backpressure",
+      "family_title": "Messaging, Event Hub & Service Bus Backpressure & Lag",
+      "intermediate_resource_type": "network.site-vpn-gateway",
+      "kql_recipe_ids": [
+        "application_insights.kql_telemetry",
+        "kubernetes_storage_class.kql_telemetry",
+        "network_site_vpn_gateway.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "IT & Management Tools"
+      ],
+      "monitor_log_tables": [
+        "ACRConnectedClientList",
+        "AGWAccessLogs",
+        "AWSCloudTrail",
+        "AgriFoodProviderAuthLogs",
+        "AppServiceHTTPLogs",
+        "CloudHsmServiceOperationAuditLogs",
+        "DatabricksClusters",
+        "DeviceCalendar",
+        "ExchangeAssessmentRecommendation",
+        "HDInsightSparkStageEvents",
+        "MAOfficeAddinHealthEventNRT",
+        "NCSStorageLogs",
+        "PowerAppsActivity",
+        "ServiceFabricOperationalEvent",
+        "UADriver",
+        "WindowsClientAssessmentRecommendation"
+      ],
+      "platform_metric_ids": [
+        "activity_log_alert.secondary_health",
+        "application_insights.primary_utilization",
+        "application_insights.secondary_health",
+        "disk.secondary_health",
+        "kubernetes_namespace.secondary_health",
+        "kubernetes_storage_class.primary_utilization",
+        "kubernetes_storage_class.secondary_health",
+        "network_subnet.primary_utilization",
+        "observability_solution.primary_utilization",
+        "resource_group.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_storage_class.primary",
+      "primary_metric_id": "kubernetes_storage_class.primary_utilization",
+      "read_tool_ids": [
+        "query_causal_mechanism"
+      ],
+      "relationship_mapping_ids": [
+        "azure.function-depends-on-application-insights",
+        "azure.aca-managed-network-resource-attached-to-environment",
+        "azure-arg.ext.app-service-plan.01.depends_on",
+        "azure-arg.ext.workflow-api-connection.02.depends_on",
+        "azure-arg.ext.object-storage.01.attached_to",
+        "azure-arg.ext.metric-alert-rule.02.attached_to",
+        "azure-arg.ext.compute-desktop-host-pool.01.attached_to",
+        "azure-arg.ext.compute-image-template.02.depends_on"
+      ],
+      "root_cause_resource_type": "application-insights",
+      "round_code": "D032",
+      "round_number": 32,
+      "scenario_id": "scenario.d032.messaging_and_integration_backpressure.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_web_app.availability_critical",
+        "amba.email_service.primary",
+        "amba.kubernetes_horizontal_pod_autoscaler.availability_critical",
+        "amba.kubernetes_horizontal_pod_autoscaler.primary",
+        "amba.kubernetes_horizontal_pod_autoscaler.secondary",
+        "amba.kubernetes_persistent_volume_claim.primary",
+        "amba.managed_identity.secondary",
+        "amba.network_dns_zone.primary",
+        "amba.network_private_circuit_gateway.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "mirgateresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.horizontal-pod-autoscaler",
+        "data-collection-rule",
+        "network.vpn-site"
+      ],
+      "causal_mechanisms": [
+        "network_flow_drop"
+      ],
+      "cause_metric_id": "data_collection_rule.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.guest_shutdown.window_29"
+      ],
+      "failure_resource_type": "kubernetes.horizontal-pod-autoscaler",
+      "family_id": "messaging_and_integration_backpressure",
+      "family_title": "Messaging, Event Hub & Service Bus Backpressure & Lag",
+      "intermediate_resource_type": "network.vpn-site",
+      "kql_recipe_ids": [
+        "data_collection_rule.kql_telemetry",
+        "kubernetes_horizontal_pod_autoscaler.kql_telemetry",
+        "network_vpn_site.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Network"
+      ],
+      "monitor_log_tables": [
+        "ACREntraAuthenticationAuditLog",
+        "AGWFirewallLogs",
+        "AWSCloudWatch",
+        "AgriFoodSatelliteLogs",
+        "AppServicePlatformLogs",
+        "CloudProcessEvents",
+        "DatabricksDBFS",
+        "DeviceCleanup",
+        "ExchangeOnlineAssessmentRecommendation",
+        "HDInsightSparkStageTaskAccumulables",
+        "MAOfficeAddinInstance",
+        "NGXOperationLogs",
+        "PowerAutomateActivity",
+        "ServiceFabricReliableActorEvent",
+        "UADriverProblemCodes",
+        "WindowsEvent"
+      ],
+      "platform_metric_ids": [
+        "data_collection_rule.primary_utilization",
+        "data_collection_rule.secondary_health",
+        "kubernetes_horizontal_pod_autoscaler.primary_utilization",
+        "kubernetes_horizontal_pod_autoscaler.secondary_health",
+        "kubernetes_node.primary_utilization",
+        "ml_model_registry.primary_utilization",
+        "network_subnet.secondary_health",
+        "observability_solution.secondary_health",
+        "resource_group.secondary_health",
+        "sql_server.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_horizontal_pod_autoscaler.primary",
+      "primary_metric_id": "kubernetes_horizontal_pod_autoscaler.primary_utilization",
+      "read_tool_ids": [
+        "query_diagnostic_probe"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-attached-to-subnet",
+        "azure.private-endpoint-attached-to-service",
+        "azure-arg.ext.app-service-plan.02.depends_on",
+        "azure-arg.ext.bot-service.01.attached_to",
+        "azure-arg.ext.object-storage.02.attached_to",
+        "azure-arg.ext.managed-sre-agent.01.attached_to",
+        "azure-arg.ext.compute-desktop-host-pool.02.depends_on",
+        "azure-arg.ext.compute-app-slot.01.depends_on"
+      ],
+      "root_cause_resource_type": "data-collection-rule",
+      "round_code": "D033",
+      "round_number": 33,
+      "scenario_id": "scenario.d033.messaging_and_integration_backpressure.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.app_service_plan.primary",
+        "amba.authorization_role_assignment.primary",
+        "amba.email_service.secondary",
+        "amba.kubernetes_persistent_volume_claim.secondary",
+        "amba.kubernetes_pod_disruption_budget.availability_critical",
+        "amba.kubernetes_pod_disruption_budget.primary",
+        "amba.kubernetes_pod_disruption_budget.secondary",
+        "amba.network_dns_zone.secondary",
+        "amba.network_private_peering_port.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "networkresourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.pod-disruption-budget",
+        "data-collection-endpoint",
+        "observability.traffic-collector"
+      ],
+      "causal_mechanisms": [
+        "firewall_deny"
+      ],
+      "cause_metric_id": "data_collection_endpoint.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.container_restarts.window_30"
+      ],
+      "failure_resource_type": "kubernetes.pod-disruption-budget",
+      "family_id": "messaging_and_integration_backpressure",
+      "family_title": "Messaging, Event Hub & Service Bus Backpressure & Lag",
+      "intermediate_resource_type": "observability.traffic-collector",
+      "kql_recipe_ids": [
+        "data_collection_endpoint.kql_telemetry",
+        "kubernetes_pod_disruption_budget.kql_telemetry",
+        "observability_traffic_collector.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Security"
+      ],
+      "monitor_log_tables": [
+        "ACSAdvancedMessagingOperations",
+        "AGWPerformanceLogs",
+        "AWSEKSLogs",
+        "AgriFoodSensorManagementLogs",
+        "AppServiceServerlessSecurityPluginData",
+        "CloudStorageAggregatedEvents",
+        "DatabricksDashboards",
+        "DeviceConnectSession",
+        "FailedIngestion",
+        "HDInsightSparkTaskEvents",
+        "MAOfficeAddinReadiness",
+        "NGXSecurityLogs",
+        "PowerBIActivity",
+        "ServiceFabricReliableServiceEvent",
+        "UAFeedback",
+        "WindowsFirewall"
+      ],
+      "platform_metric_ids": [
+        "data_collection_endpoint.primary_utilization",
+        "data_collection_endpoint.secondary_health",
+        "kubernetes_node.secondary_health",
+        "kubernetes_pod_disruption_budget.primary_utilization",
+        "kubernetes_pod_disruption_budget.secondary_health",
+        "ml_model_registry.secondary_health",
+        "network_nsg.primary_utilization",
+        "observability_dashboard.primary_utilization",
+        "sql_server.secondary_health",
+        "subscription.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_pod_disruption_budget.primary",
+      "primary_metric_id": "kubernetes_pod_disruption_budget.primary_utilization",
+      "read_tool_ids": [
+        "query_advisor_recommendations"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-attached-to-nsg",
+        "azure.vm-nic-attached-to-vm",
+        "azure-arg.ext.static-web-app.01.attached_to",
+        "azure-arg.ext.bot-service.02.attached_to",
+        "azure-arg.ext.container-registry.01.attached_to",
+        "azure-arg.ext.managed-sre-agent.02.depends_on",
+        "azure-arg.ext.compute-desktop-scaling-plan.01.depends_on",
+        "azure-arg.ext.compute-app-slot.02.depends_on"
+      ],
+      "root_cause_resource_type": "data-collection-endpoint",
+      "round_code": "D034",
+      "round_number": 34,
+      "scenario_id": "scenario.d034.messaging_and_integration_backpressure.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.app_service_plan.secondary",
+        "amba.authorization_role_assignment.secondary",
+        "amba.email_domain.primary",
+        "amba.kubernetes_network_policy.availability_critical",
+        "amba.kubernetes_network_policy.primary",
+        "amba.kubernetes_network_policy.secondary",
+        "amba.kubernetes_persistent_volume_claim.availability_critical",
+        "amba.network_private_peering_port.secondary",
+        "amba.network_public_ip.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "networkresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.network-policy",
+        "alert-rule",
+        "backup-vault"
+      ],
+      "causal_mechanisms": [
+        "dns_resolution_failure"
+      ],
+      "cause_metric_id": "alert_rule.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.throttling.window_31"
+      ],
+      "failure_resource_type": "kubernetes.network-policy",
+      "family_id": "messaging_and_integration_backpressure",
+      "family_title": "Messaging, Event Hub & Service Bus Backpressure & Lag",
+      "intermediate_resource_type": "backup-vault",
+      "kql_recipe_ids": [
+        "alert_rule.kql_telemetry",
+        "backup_vault.kql_telemetry",
+        "kubernetes_network_policy.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Virtual Machines"
+      ],
+      "monitor_log_tables": [
+        "ACSAuthIncomingOperations",
+        "AHCIDiagnosticLogs",
+        "AWSGuardDuty",
+        "AgriFoodWeatherLogs",
+        "AppSystemEvents",
+        "CommonSecurityLog",
+        "DatabricksDataMonitoring",
+        "DeviceCustomFileEvents",
+        "FileMaliciousContentInfo",
+        "HDInsightStormLogs",
+        "MAOfficeAppInstance",
+        "NSPAccessLogs",
+        "PowerBIDatasetsTenant",
+        "SfBAssessmentRecommendation",
+        "UAIESiteDiscovery",
+        "WindowsServerAssessmentRecommendation"
+      ],
+      "platform_metric_ids": [
+        "alert_rule.primary_utilization",
+        "alert_rule.secondary_health",
+        "kubernetes_network_policy.primary_utilization",
+        "kubernetes_network_policy.secondary_health",
+        "kubernetes_pod.primary_utilization",
+        "ml_workspace.primary_utilization",
+        "network_nsg.secondary_health",
+        "observability_dashboard.secondary_health",
+        "sql_database.primary_utilization",
+        "subscription.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_network_policy.primary",
+      "primary_metric_id": "kubernetes_network_policy.primary_utilization",
+      "read_tool_ids": [
+        "query_policy_compliance"
+      ],
+      "relationship_mapping_ids": [
+        "azure.cognitive-account-contains-model-deployment",
+        "azure.vm-os-disk-attached-to-vm",
+        "azure-arg.ext.static-web-app.02.attached_to",
+        "azure-arg.ext.ai-project.01.attached_to",
+        "azure-arg.ext.container-registry.02.depends_on",
+        "azure-arg.ext.observability-dashboard-service.01.depends_on",
+        "azure-arg.ext.compute-desktop-scaling-plan.02.depends_on",
+        "azure-arg.ext.database-dedicated-infrastructure.01.attached_to"
+      ],
+      "root_cause_resource_type": "alert-rule",
+      "round_code": "D035",
+      "round_number": 35,
+      "scenario_id": "scenario.d035.messaging_and_integration_backpressure.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.app_service_plan.availability_critical",
+        "amba.certificate.primary",
+        "amba.email_domain.secondary",
+        "amba.kubernetes_persistent_volume.primary",
+        "amba.kubernetes_resource_quota.availability_critical",
+        "amba.kubernetes_resource_quota.primary",
+        "amba.kubernetes_resource_quota.secondary",
+        "amba.network_public_ip.secondary",
+        "amba.observability_network_flow_log.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "orbitalresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.resource-quota",
+        "action-group",
+        "realtime-messaging-service"
+      ],
+      "causal_mechanisms": [
+        "tls_handshake_failure"
+      ],
+      "cause_metric_id": "action_group.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.resource_saturation.window_32"
+      ],
+      "failure_resource_type": "kubernetes.resource-quota",
+      "family_id": "change_safety_and_policy_drift",
+      "family_title": "Deployment Stack Mutation, Policy Non-Compliance & Drift",
+      "intermediate_resource_type": "realtime-messaging-service",
+      "kql_recipe_ids": [
+        "action_group.kql_telemetry",
+        "kubernetes_resource_quota.kql_telemetry",
+        "realtime_messaging_service.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Workloads"
+      ],
+      "monitor_log_tables": [
+        "ACSBillingUsage",
+        "AHDSDeidAuditLogs",
+        "AWSNLBAccessLogs",
+        "Alert",
+        "AppTraces",
+        "CommunicationComplianceActivity",
+        "DatabricksDataRooms",
+        "DeviceCustomImageLoadEvents",
+        "FunctionAppLogs",
+        "HDInsightStormMetrics",
+        "MAOfficeAppReadiness",
+        "NTAInsights",
+        "PowerBIDatasetsWorkspace",
+        "SfBOnlineAssessmentRecommendation",
+        "UAOfficeAddIn",
+        "WireData"
+      ],
+      "platform_metric_ids": [
+        "action_group.primary_utilization",
+        "action_group.secondary_health",
+        "kubernetes_pod.secondary_health",
+        "kubernetes_resource_quota.primary_utilization",
+        "kubernetes_resource_quota.secondary_health",
+        "ml_workspace.secondary_health",
+        "network_firewall.primary_utilization",
+        "observability_workbook.primary_utilization",
+        "sql_database.secondary_health",
+        "unclassified_resource.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_resource_quota.primary",
+      "primary_metric_id": "kubernetes_resource_quota.primary_utilization",
+      "read_tool_ids": [
+        "query_security_assessments"
+      ],
+      "relationship_mapping_ids": [
+        "azure.arm-cognitive-account-contains-model-deployment",
+        "azure.vm-data-disk-attached-to-vm",
+        "azure-arg.ext.kubernetes-cluster.01.attached_to",
+        "azure-arg.ext.ai-project.02.depends_on",
+        "azure-arg.ext.file-share.01.depends_on",
+        "azure-arg.ext.observability-dashboard-service.02.depends_on",
+        "azure-arg.ext.iot-hub.01.attached_to"
+      ],
+      "root_cause_resource_type": "action-group",
+      "round_code": "D036",
+      "round_number": 36,
+      "scenario_id": "scenario.d036.change_safety_and_policy_drift.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.certificate.secondary",
+        "amba.kubernetes_limit_range.availability_critical",
+        "amba.kubernetes_limit_range.primary",
+        "amba.kubernetes_limit_range.secondary",
+        "amba.kubernetes_persistent_volume.secondary",
+        "amba.network_nat_gateway.primary",
+        "amba.observability_network_flow_log.secondary",
+        "amba.search_service.primary",
+        "amba.static_web_app.primary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "patchassessmentresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "kubernetes.limit-range",
+        "prometheus-rule-group",
+        "sql-managed-instance"
+      ],
+      "causal_mechanisms": [
+        "certificate_expiry"
+      ],
+      "cause_metric_id": "prometheus_rule_group.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.network_flow_drop.window_33"
+      ],
+      "failure_resource_type": "kubernetes.limit-range",
+      "family_id": "change_safety_and_policy_drift",
+      "family_title": "Deployment Stack Mutation, Policy Non-Compliance & Drift",
+      "intermediate_resource_type": "sql-managed-instance",
+      "kql_recipe_ids": [
+        "kubernetes_limit_range.kql_telemetry",
+        "prometheus_rule_group.kql_telemetry",
+        "sql_managed_instance.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Applications"
+      ],
+      "monitor_log_tables": [
+        "ACSCallAutomationIncomingOperations",
+        "AHDSDicomAuditLogs",
+        "AWSNetworkFirewallAlert",
+        "AlertEvidence",
+        "ArcK8sAudit",
+        "ComputerGroup",
+        "DatabricksDatabricksSQL",
+        "DeviceCustomNetworkEvents",
+        "GCPApigee",
+        "HDInsightStormTopologyMetrics",
+        "MAOfficeBuildInfo",
+        "NTAIpDetails",
+        "PowerPlatformAdminActivity",
+        "SharePointOnlineAssessmentRecommendation",
+        "UAProposedActionPlan",
+        "WorkloadDiagnosticLogs"
+      ],
+      "platform_metric_ids": [
+        "file_volume.primary_utilization",
+        "kubernetes_limit_range.primary_utilization",
+        "kubernetes_limit_range.secondary_health",
+        "kubernetes_service.primary_utilization",
+        "network_firewall.secondary_health",
+        "observability_workbook.secondary_health",
+        "postgresql_server.primary_utilization",
+        "prometheus_rule_group.primary_utilization",
+        "prometheus_rule_group.secondary_health",
+        "unclassified_resource.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.kubernetes_limit_range.primary",
+      "primary_metric_id": "kubernetes_limit_range.primary_utilization",
+      "read_tool_ids": [
+        "query_update_assessments"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-contains-vm",
+        "azure.web-app-depends-on-storage",
+        "azure-arg.ext.kubernetes-cluster.02.depends_on",
+        "azure-arg.ext.web-search-service.01.depends_on",
+        "azure-arg.ext.file-share.02.depends_on",
+        "azure-arg.ext.observability-network-monitor.01.attached_to",
+        "azure-arg.ext.iot-hub.02.attached_to"
+      ],
+      "root_cause_resource_type": "prometheus-rule-group",
+      "round_code": "D037",
+      "round_number": 37,
+      "scenario_id": "scenario.d037.change_safety_and_policy_drift.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.kubernetes_persistent_volume.availability_critical",
+        "amba.managed_certificate.primary",
+        "amba.network_nat_gateway.secondary",
+        "amba.network_user_vpn_gateway.primary",
+        "amba.search_service.secondary",
+        "amba.static_web_app.secondary",
+        "amba.workflow_logic_app.availability_critical",
+        "amba.workflow_logic_app.primary",
+        "amba.workflow_logic_app.secondary"
+      ],
+      "arg_resource_types_count": 35,
+      "arg_tables": [
+        "patchinstallationresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "workflow.logic-app",
+        "anomaly-alert-rule",
+        "stream-analytics-job"
+      ],
+      "causal_mechanisms": [
+        "sql_deadlock"
+      ],
+      "cause_metric_id": "anomaly_alert_rule.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.firewall_deny.window_34"
+      ],
+      "failure_resource_type": "workflow.logic-app",
+      "family_id": "change_safety_and_policy_drift",
+      "family_title": "Deployment Stack Mutation, Policy Non-Compliance & Drift",
+      "intermediate_resource_type": "stream-analytics-job",
+      "kql_recipe_ids": [
+        "anomaly_alert_rule.kql_telemetry",
+        "stream_analytics_job.kql_telemetry",
+        "workflow_logic_app.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Audit"
+      ],
+      "monitor_log_tables": [
+        "ACSCallAutomationMediaSummary",
+        "AHDSDicomDiagnosticLogs",
+        "AWSNetworkFirewallFlow",
+        "AlertHistory",
+        "ArcK8sAuditAdmin",
+        "ConfidentialWatchlist",
+        "DatabricksDeltaPipelines",
+        "DeviceCustomProcessEvents",
+        "GCPAuditLogs",
+        "Heartbeat",
+        "MAOfficeCurrencyAssessment",
+        "NTANetAnalytics",
+        "PowerPlatformConnectorActivity",
+        "SignalRServiceDiagnosticLogs",
+        "UASysReqIssue",
+        "WorkloadMonitoringPerf"
+      ],
+      "platform_metric_ids": [
+        "anomaly_alert_rule.primary_utilization",
+        "anomaly_alert_rule.secondary_health",
+        "file_volume.secondary_health",
+        "kubernetes_service.secondary_health",
+        "llm_endpoint.primary_utilization",
+        "network_firewall_policy.primary_utilization",
+        "postgresql_server.secondary_health",
+        "workflow_logic_app.primary_utilization",
+        "workflow_logic_app.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.workflow_logic_app.primary",
+      "primary_metric_id": "workflow_logic_app.primary_utilization",
+      "read_tool_ids": [
+        "query_service_health"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-nic-attached-to-vm",
+        "azure.web-app-depends-on-container-registry",
+        "azure-arg.ext.kubernetes-node-pool.01.depends_on",
+        "azure-arg.ext.web-search-service.02.depends_on",
+        "azure-arg.ext.disk-snapshot.01.attached_to",
+        "azure-arg.ext.observability-network-monitor.02.attached_to",
+        "azure-arg.ext.event-topic.01.attached_to"
+      ],
+      "root_cause_resource_type": "anomaly-alert-rule",
+      "round_code": "D038",
+      "round_number": 38,
+      "scenario_id": "scenario.d038.change_safety_and_policy_drift.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.directory_managed_domain.primary",
+        "amba.kubernetes_storage_class.primary",
+        "amba.managed_certificate.secondary",
+        "amba.network_private_dns_zone.primary",
+        "amba.network_user_vpn_gateway.secondary",
+        "amba.static_web_app.availability_critical",
+        "amba.workflow_api_connection.primary",
+        "amba.workflow_api_connection.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "policyresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "workflow.api-connection",
+        "metric-alert-rule",
+        "compute.image-template"
+      ],
+      "causal_mechanisms": [
+        "sql_blocking_session"
+      ],
+      "cause_metric_id": "metric_alert_rule.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.dns_resolution_failure.window_35"
+      ],
+      "failure_resource_type": "workflow.api-connection",
+      "family_id": "change_safety_and_policy_drift",
+      "family_title": "Deployment Stack Mutation, Policy Non-Compliance & Drift",
+      "intermediate_resource_type": "compute.image-template",
+      "kql_recipe_ids": [
+        "compute_image_template.kql_telemetry",
+        "metric_alert_rule.kql_telemetry",
+        "workflow_api_connection.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Monitor"
+      ],
+      "monitor_log_tables": [
+        "ACSCallAutomationStreamingUsage",
+        "AHDSMedTechDiagnosticLogs",
+        "AWSNetworkFirewallTls",
+        "AlertInfo",
+        "ArcK8sControlPlane",
+        "ConfigurationChange",
+        "DatabricksFeatureStore",
+        "DeviceCustomRegistryEvents",
+        "GCPCDN",
+        "HorizonDBAutovacuumStats",
+        "MAOfficeSuiteInstance",
+        "NTANspRuleRecommendation",
+        "PowerPlatformDlpActivity",
+        "SigninLogs",
+        "UAUpgradedComputer",
+        "ZTSGraph"
+      ],
+      "platform_metric_ids": [
+        "kubernetes_endpoints.primary_utilization",
+        "llm_endpoint.secondary_health",
+        "metric_alert_rule.primary_utilization",
+        "metric_alert_rule.secondary_health",
+        "mysql_server.primary_utilization",
+        "network_firewall_policy.secondary_health",
+        "storage_file_account.primary_utilization",
+        "workflow_api_connection.primary_utilization",
+        "workflow_api_connection.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.workflow_api_connection.primary",
+      "primary_metric_id": "workflow_api_connection.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_changes"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-nic-attached-to-subnet",
+        "azure.diagnostic-setting-depends-on-workspace",
+        "azure-arg.ext.kubernetes-node-pool.02.depends_on",
+        "azure-arg.ext.network-vnet.01.attached_to",
+        "azure-arg.ext.disk-snapshot.02.attached_to",
+        "azure-arg.ext.observability-query-pack.01.attached_to",
+        "azure-arg.ext.event-topic.02.depends_on"
+      ],
+      "root_cause_resource_type": "metric-alert-rule",
+      "round_code": "D039",
+      "round_number": 39,
+      "scenario_id": "scenario.d039.change_safety_and_policy_drift.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.bot_service.primary",
+        "amba.bot_service.secondary",
+        "amba.directory_managed_domain.secondary",
+        "amba.kubernetes_cluster.primary",
+        "amba.kubernetes_storage_class.secondary",
+        "amba.network_dns_routing_profile.primary",
+        "amba.network_private_dns_zone.secondary",
+        "amba.ssh_public_key.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "quotaresourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "bot-service",
+        "managed-sre-agent",
+        "compute.app-slot"
+      ],
+      "causal_mechanisms": [
+        "storage_iops_saturation"
+      ],
+      "cause_metric_id": "managed_sre_agent.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.tls_handshake_failure.window_36"
+      ],
+      "failure_resource_type": "bot-service",
+      "family_id": "change_safety_and_policy_drift",
+      "family_title": "Deployment Stack Mutation, Policy Non-Compliance & Drift",
+      "intermediate_resource_type": "compute.app-slot",
+      "kql_recipe_ids": [
+        "bot_service.kql_telemetry",
+        "compute_app_slot.kql_telemetry",
+        "managed_sre_agent.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Resources"
+      ],
+      "monitor_log_tables": [
+        "ACSCallClientMediaStatsTimeSeries",
+        "AKSAudit",
+        "AWSRoute53Resolver",
+        "AmlComputeClusterEvent",
+        "AuditLogs",
+        "ConfigurationData",
+        "DatabricksFiles",
+        "DeviceCustomScriptEvents",
+        "GCPCloudRun",
+        "HorizonDBPgStatActivitySessions",
+        "MAProposedPilotDevices",
+        "NTARuleRecommendation",
+        "PreAuthenticationDiscoveryLogs",
+        "SqlVulnerabilityAssessmentResult",
+        "UCDOAggregatedStatus",
+        "ZTSJobStatus"
+      ],
+      "platform_metric_ids": [
+        "bot_service.primary_utilization",
+        "bot_service.secondary_health",
+        "kubernetes_endpoints.secondary_health",
+        "llm_model_deployment.primary_utilization",
+        "managed_sre_agent.primary_utilization",
+        "managed_sre_agent.secondary_health",
+        "mysql_server.secondary_health",
+        "network_interface.primary_utilization",
+        "storage_file_account.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.bot_service.primary",
+      "primary_metric_id": "bot_service.primary_utilization",
+      "read_tool_ids": [
+        "query_topology_relationships"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-nic-attached-to-nsg",
+        "azure.vnet-peered-with-vnet",
+        "azure-arg.ext.kubernetes-namespace.01.attached_to",
+        "azure-arg.ext.network-vnet.02.attached_to",
+        "azure-arg.ext.disk.01.attached_to",
+        "azure-arg.ext.observability-query-pack.02.depends_on",
+        "azure-arg.ext.activity-log-alert.01.depends_on"
+      ],
+      "root_cause_resource_type": "managed-sre-agent",
+      "round_code": "D040",
+      "round_number": 40,
+      "scenario_id": "scenario.d040.change_safety_and_policy_drift.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.ai_project.primary",
+        "amba.ai_project.secondary",
+        "amba.application_configuration.primary",
+        "amba.kubernetes_cluster.secondary",
+        "amba.kubernetes_storage_class.availability_critical",
+        "amba.network_dns_routing_profile.secondary",
+        "amba.network_private_dns_zone_link.primary",
+        "amba.ssh_public_key.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "recoveryservicesresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "ai-project",
+        "observability.dashboard-service",
+        "database.dedicated-infrastructure"
+      ],
+      "causal_mechanisms": [
+        "disk_queue_saturation"
+      ],
+      "cause_metric_id": "observability_dashboard_service.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.certificate_expiry.window_37"
+      ],
+      "failure_resource_type": "ai-project",
+      "family_id": "security_and_identity_posture",
+      "family_title": "Security Alert Escalation, RBAC Drift, TLS Expiry & IoT Security",
+      "intermediate_resource_type": "database.dedicated-infrastructure",
+      "kql_recipe_ids": [
+        "ai_project.kql_telemetry",
+        "database_dedicated_infrastructure.kql_telemetry",
+        "observability_dashboard_service.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Virtual Desktop"
+      ],
+      "monitor_log_tables": [
+        "ACSCallClientOperations",
+        "AKSAuditAdmin",
+        "AWSS3ServerAccess",
+        "AmlComputeClusterNodeEvent",
+        "AutoscaleEvaluationsLog",
+        "ContainerAppConsoleLogs",
+        "DatabricksFilesystem",
+        "DeviceEtw",
+        "GCPCloudSQL",
+        "HorizonDBQueryStoreQueryText",
+        "MAWindowsBuildInfo",
+        "NTATopologyDetails",
+        "ProjectActivity",
+        "StorageBlobLogs",
+        "UCDOStatus",
+        "ZTSMetadata"
+      ],
+      "platform_metric_ids": [
+        "ai_project.primary_utilization",
+        "ai_project.secondary_health",
+        "kubernetes_endpoint_slice.primary_utilization",
+        "llm_model_deployment.secondary_health",
+        "network_interface.secondary_health",
+        "nosql_database.primary_utilization",
+        "observability_dashboard_service.primary_utilization",
+        "observability_dashboard_service.secondary_health",
+        "storage_file_capacity_pool.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.ai_project.primary",
+      "primary_metric_id": "ai_project.primary_utilization",
+      "read_tool_ids": [
+        "resolve_resource"
+      ],
+      "relationship_mapping_ids": [
+        "azure.vm-scale-set-nic-attached-to-public-ip",
+        "azure.route-table-routes-to-resource",
+        "azure-arg.ext.kubernetes-namespace.02.attached_to",
+        "azure-arg.ext.network-subnet.01.attached_to",
+        "azure-arg.ext.disk.02.depends_on",
+        "azure-arg.ext.observability-solution.01.depends_on",
+        "azure-arg.ext.activity-log-alert.02.depends_on"
+      ],
+      "root_cause_resource_type": "observability.dashboard-service",
+      "round_code": "D041",
+      "round_number": 41,
+      "scenario_id": "scenario.d041.security_and_identity_posture.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.application_configuration.secondary",
+        "amba.kubernetes_cluster.availability_critical",
+        "amba.kubernetes_horizontal_pod_autoscaler.primary",
+        "amba.log_workspace.primary",
+        "amba.network_private_dns_zone_link.secondary",
+        "amba.network_virtual_hub.primary",
+        "amba.web_search_service.primary",
+        "amba.web_search_service.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "resourcechanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "web-search-service",
+        "observability.network-monitor",
+        "database.vm-cluster"
+      ],
+      "causal_mechanisms": [
+        "memory_oom_pressure"
+      ],
+      "cause_metric_id": "observability_network_monitor.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.sql_deadlock.window_38"
+      ],
+      "failure_resource_type": "web-search-service",
+      "family_id": "security_and_identity_posture",
+      "family_title": "Security Alert Escalation, RBAC Drift, TLS Expiry & IoT Security",
+      "intermediate_resource_type": "database.vm-cluster",
+      "kql_recipe_ids": [
+        "database_vm_cluster.kql_telemetry",
+        "observability_network_monitor.kql_telemetry",
+        "web_search_service.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Containers"
+      ],
+      "monitor_log_tables": [
+        "ACSCallClientServiceRequestAndOutcome",
+        "AKSControlPlane",
+        "AWSSecurityHubFindings",
+        "AmlComputeCpuGpuUtilization",
+        "AutoscaleScaleActionsLog",
+        "ContainerAppHTTPLogs",
+        "DatabricksGenie",
+        "DeviceEvents",
+        "GCPComputeEngine",
+        "HorizonDBQueryStoreRuntimeStats",
+        "MAWindowsCurrencyAssessment",
+        "NWConnectionMonitorDNSResult",
+        "ProtectionStatus",
+        "StorageCacheOperationEvents",
+        "Update",
+        "ZTSRequest"
+      ],
+      "platform_metric_ids": [
+        "event_hub.primary_utilization",
+        "kubernetes_endpoint_slice.secondary_health",
+        "network_private_endpoint.primary_utilization",
+        "nosql_database.secondary_health",
+        "observability_network_monitor.primary_utilization",
+        "observability_network_monitor.secondary_health",
+        "storage_file_capacity_pool.secondary_health",
+        "web_search_service.primary_utilization",
+        "web_search_service.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.web_search_service.primary",
+      "primary_metric_id": "web_search_service.primary_utilization",
+      "read_tool_ids": [
+        "get_resource_state"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-attached-to-agent-subnet",
+        "kubernetes.cluster-contains-namespace",
+        "azure-arg.ext.kubernetes-node.01.attached_to",
+        "azure-arg.ext.network-subnet.02.depends_on",
+        "azure-arg.ext.sql-server.01.depends_on",
+        "azure-arg.ext.observability-solution.02.depends_on",
+        "azure-arg.ext.ml-model-registry.01.attached_to"
+      ],
+      "root_cause_resource_type": "observability.network-monitor",
+      "round_code": "D042",
+      "round_number": 42,
+      "scenario_id": "scenario.d042.security_and_identity_posture.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.automation_account.primary",
+        "amba.kubernetes_horizontal_pod_autoscaler.secondary",
+        "amba.kubernetes_node_pool.primary",
+        "amba.log_workspace.secondary",
+        "amba.network_private_dns_zone_group.primary",
+        "amba.network_virtual_hub.secondary",
+        "amba.network_vnet.primary",
+        "amba.network_vnet.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "resourcecontainerchanges"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.vnet",
+        "observability.query-pack",
+        "devops-account"
+      ],
+      "causal_mechanisms": [
+        "autoscale_flapping"
+      ],
+      "cause_metric_id": "observability_query_pack.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.sql_blocking_session.window_39"
+      ],
+      "failure_resource_type": "network.vnet",
+      "family_id": "security_and_identity_posture",
+      "family_title": "Security Alert Escalation, RBAC Drift, TLS Expiry & IoT Security",
+      "intermediate_resource_type": "devops-account",
+      "kql_recipe_ids": [
+        "devops_account.kql_telemetry",
+        "network_vnet.kql_telemetry",
+        "observability_query_pack.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Desktop Analytics"
+      ],
+      "monitor_log_tables": [
+        "ACSCallClosedCaptionsSummary",
+        "ALBHealthEvent",
+        "AWSVPCFlow",
+        "AmlComputeInstanceEvent",
+        "AzureActivity",
+        "ContainerAppSystemLogs",
+        "DatabricksGitCredentials",
+        "DeviceFileCertificateInfo",
+        "GCPDNS",
+        "HorizonDBQueryStoreWaitsStats",
+        "MAWindowsCurrencyAssessmentDailyCounts",
+        "NWConnectionMonitorPathResult",
+        "PurviewDataSensitivityLogs",
+        "StorageCacheUpgradeEvents",
+        "UpdateRunProgress"
+      ],
+      "platform_metric_ids": [
+        "cache.primary_utilization",
+        "event_hub.secondary_health",
+        "kubernetes_ingress.primary_utilization",
+        "network_connection.primary_utilization",
+        "network_private_endpoint.secondary_health",
+        "network_vnet.primary_utilization",
+        "network_vnet.secondary_health",
+        "observability_query_pack.primary_utilization",
+        "observability_query_pack.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_vnet.primary",
+      "primary_metric_id": "network_vnet.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_activity"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-contains-agent-pool",
+        "kubernetes.namespace-contains-resource",
+        "azure-arg.ext.kubernetes-node.02.depends_on",
+        "azure-arg.ext.network-nsg.01.depends_on",
+        "azure-arg.ext.sql-server.02.depends_on",
+        "azure-arg.ext.observability-dashboard.01.attached_to",
+        "azure-arg.ext.ml-model-registry.02.attached_to"
+      ],
+      "root_cause_resource_type": "observability.query-pack",
+      "round_code": "D043",
+      "round_number": 43,
+      "scenario_id": "scenario.d043.security_and_identity_posture.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.automation_account.secondary",
+        "amba.kubernetes_horizontal_pod_autoscaler.availability_critical",
+        "amba.kubernetes_node_pool.secondary",
+        "amba.metrics_workspace.primary",
+        "amba.network_private_dns_zone_group.secondary",
+        "amba.network_subnet.primary",
+        "amba.network_subnet.secondary",
+        "amba.network_virtual_router.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "resourcecontainers"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.subnet",
+        "observability.solution",
+        "resource-group"
+      ],
+      "causal_mechanisms": [
+        "deployment_operation_failure"
+      ],
+      "cause_metric_id": "observability_solution.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.storage_iops_saturation.window_40"
+      ],
+      "failure_resource_type": "network.subnet",
+      "family_id": "security_and_identity_posture",
+      "family_title": "Security Alert Escalation, RBAC Drift, TLS Expiry & IoT Security",
+      "intermediate_resource_type": "resource-group",
+      "kql_recipe_ids": [
+        "network_subnet.kql_telemetry",
+        "observability_solution.kql_telemetry",
+        "resource_group.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "IT & Management Tools"
+      ],
+      "monitor_log_tables": [
+        "ACSCallDiagnostics",
+        "AMAHealth",
+        "AWSWAF",
+        "AmlComputeJobEvent",
+        "AzureAssessmentRecommendation",
+        "ContainerEvent",
+        "DatabricksGlobalInitScripts",
+        "DeviceFileEvents",
+        "GCPFirewallLogs",
+        "HorizonDBServerLogs",
+        "MAWindowsDeploymentStatus",
+        "NWConnectionMonitorTestResult",
+        "PurviewScanStatusLogs",
+        "StorageCacheWarningEvents",
+        "UpdateSummary"
+      ],
+      "platform_metric_ids": [
+        "cache.secondary_health",
+        "kubernetes_ingress.secondary_health",
+        "network_connection.secondary_health",
+        "network_load_balancer.primary_utilization",
+        "network_subnet.primary_utilization",
+        "network_subnet.secondary_health",
+        "observability_solution.primary_utilization",
+        "observability_solution.secondary_health",
+        "service_bus_namespace.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.network_subnet.primary",
+      "primary_metric_id": "network_subnet.primary_utilization",
+      "read_tool_ids": [
+        "query_resource_health"
+      ],
+      "relationship_mapping_ids": [
+        "azure.agent-pool-attached-to-subnet",
+        "kubernetes.agent-pool-contains-node",
+        "azure-arg.ext.kubernetes-pod.01.depends_on",
+        "azure-arg.ext.network-nsg.02.depends_on",
+        "azure-arg.ext.sql-database.01.attached_to",
+        "azure-arg.ext.observability-dashboard.02.attached_to",
+        "azure-arg.ext.ml-workspace.01.attached_to"
+      ],
+      "root_cause_resource_type": "observability.solution",
+      "round_code": "D044",
+      "round_number": 44,
+      "scenario_id": "scenario.d044.security_and_identity_posture.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_private_virtualization_cloud.primary",
+        "amba.kubernetes_node_pool.availability_critical",
+        "amba.kubernetes_pod_disruption_budget.primary",
+        "amba.metrics_workspace.secondary",
+        "amba.network_dns_resolver.primary",
+        "amba.network_nsg.primary",
+        "amba.network_nsg.secondary",
+        "amba.network_virtual_router.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "resources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.nsg",
+        "observability.dashboard",
+        "subscription"
+      ],
+      "causal_mechanisms": [
+        "policy_non_compliance_event"
+      ],
+      "cause_metric_id": "observability_dashboard.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.disk_queue_saturation.window_41"
+      ],
+      "failure_resource_type": "network.nsg",
+      "family_id": "security_and_identity_posture",
+      "family_title": "Security Alert Escalation, RBAC Drift, TLS Expiry & IoT Security",
+      "intermediate_resource_type": "subscription",
+      "kql_recipe_ids": [
+        "network_nsg.kql_telemetry",
+        "observability_dashboard.kql_telemetry",
+        "subscription.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Network"
+      ],
+      "monitor_log_tables": [
+        "ACSCallDiagnosticsUpdates",
+        "AMSKeyDeliveryRequests",
+        "AZFWApplicationRule",
+        "AmlDataLabelEvent",
+        "AzureAttestationDiagnostics",
+        "ContainerImageInventory",
+        "DatabricksGroups",
+        "DeviceHardwareHealth",
+        "GCPIAM",
+        "HorizonDBTransactionsStats",
+        "MCCEventLogs",
+        "NetworkAccessAlerts",
+        "PurviewSecurityLogs",
+        "StorageFileLogs",
+        "UrlClickEvents"
+      ],
+      "platform_metric_ids": [
+        "kubernetes_ingress_class.primary_utilization",
+        "network_ddos_protection_plan.primary_utilization",
+        "network_load_balancer.secondary_health",
+        "network_nsg.primary_utilization",
+        "network_nsg.secondary_health",
+        "observability_dashboard.primary_utilization",
+        "observability_dashboard.secondary_health",
+        "redis_enterprise.primary_utilization",
+        "service_bus_namespace.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_nsg.primary",
+      "primary_metric_id": "network_nsg.primary_utilization",
+      "read_tool_ids": [
+        "query_guest_shutdown_events"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-attached-to-node-resource-group",
+        "kubernetes.cluster-contains-ingress-class",
+        "azure-arg.ext.kubernetes-pod.02.depends_on",
+        "azure-arg.ext.network-firewall.01.attached_to",
+        "azure-arg.ext.sql-database.02.attached_to",
+        "azure-arg.ext.observability-workbook.01.attached_to",
+        "azure-arg.ext.ml-workspace.02.depends_on"
+      ],
+      "root_cause_resource_type": "observability.dashboard",
+      "round_code": "D045",
+      "round_number": 45,
+      "scenario_id": "scenario.d045.security_and_identity_posture.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.application_insights.primary",
+        "amba.compute_private_virtualization_cloud.secondary",
+        "amba.kubernetes_namespace.primary",
+        "amba.kubernetes_pod_disruption_budget.secondary",
+        "amba.network_dns_resolver.secondary",
+        "amba.network_firewall.primary",
+        "amba.network_firewall.secondary",
+        "amba.network_site_vpn_gateway.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "securityresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.firewall",
+        "observability.workbook",
+        "unclassified-resource"
+      ],
+      "causal_mechanisms": [
+        "security_alert_triggered"
+      ],
+      "cause_metric_id": "observability_workbook.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.memory_oom_pressure.window_42"
+      ],
+      "failure_resource_type": "network.firewall",
+      "family_id": "resilience_backup_and_chaos_recovery",
+      "family_title": "Backup Failure, ASR Replication Breach, Patching & Chaos DR",
+      "intermediate_resource_type": "unclassified-resource",
+      "kql_recipe_ids": [
+        "network_firewall.kql_telemetry",
+        "observability_workbook.kql_telemetry",
+        "unclassified_resource.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Security"
+      ],
+      "monitor_log_tables": [
+        "ACSCallRecordingIncomingOperations",
+        "AMSLiveEventOperations",
+        "AZFWApplicationRuleAggregation",
+        "AmlDataSetEvent",
+        "AzureBackupOperations",
+        "ContainerInstanceLog",
+        "DatabricksIAMRole",
+        "DeviceHealth",
+        "GCPIDS",
+        "HuntingBookmark",
+        "MCVPAuditLogs",
+        "NetworkAccessConnectionEvents",
+        "QualysKnowledgeBase",
+        "StorageMalwareScanningResults",
+        "Usage"
+      ],
+      "platform_metric_ids": [
+        "event_grid_topic.primary_utilization",
+        "kubernetes_ingress_class.secondary_health",
+        "network_application_gateway.primary_utilization",
+        "network_ddos_protection_plan.secondary_health",
+        "network_firewall.primary_utilization",
+        "network_firewall.secondary_health",
+        "observability_workbook.primary_utilization",
+        "observability_workbook.secondary_health",
+        "redis_enterprise.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_firewall.primary",
+      "primary_metric_id": "network_firewall.primary_utilization",
+      "read_tool_ids": [
+        "query_network_security"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-attached-to-kubelet-identity",
+        "kubernetes.cluster-contains-diagnostic-resource",
+        "azure-arg.ext.kubernetes-service.01.attached_to",
+        "azure-arg.ext.network-firewall.02.attached_to",
+        "azure-arg.ext.postgresql-server.01.attached_to",
+        "azure-arg.ext.observability-workbook.02.depends_on",
+        "azure-arg.ext.file-volume.01.depends_on"
+      ],
+      "root_cause_resource_type": "observability.workbook",
+      "round_code": "D046",
+      "round_number": 46,
+      "scenario_id": "scenario.d046.resilience_backup_and_chaos_recovery.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.application_insights.secondary",
+        "amba.compute_batch_account.primary",
+        "amba.kubernetes_namespace.secondary",
+        "amba.kubernetes_pod_disruption_budget.availability_critical",
+        "amba.network_dns_resolver_inbound_endpoint.primary",
+        "amba.network_firewall_policy.primary",
+        "amba.network_firewall_policy.secondary",
+        "amba.network_site_vpn_gateway.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "servicefabricresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.firewall-policy",
+        "llm-endpoint"
+      ],
+      "causal_mechanisms": [
+        "backup_job_failure"
+      ],
+      "cause_metric_id": "llm_endpoint.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.autoscale_flapping.window_43"
+      ],
+      "failure_resource_type": "network.firewall-policy",
+      "family_id": "resilience_backup_and_chaos_recovery",
+      "family_title": "Backup Failure, ASR Replication Breach, Patching & Chaos DR",
+      "intermediate_resource_type": "network.private-endpoint",
+      "kql_recipe_ids": [
+        "llm_endpoint.kql_telemetry",
+        "network_firewall_policy.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Virtual Machines"
+      ],
+      "monitor_log_tables": [
+        "ACSCallRecordingSummary",
+        "AMSMediaAccountHealth",
+        "AZFWDnsFlowTrace",
+        "AmlDataStoreEvent",
+        "AzureDiagnostics",
+        "ContainerInventory",
+        "DatabricksIngestion",
+        "DeviceHeartbeat",
+        "GCPLoadBalancer",
+        "IdentityAccountInfo",
+        "MCVPOperationLogs",
+        "NetworkAccessGenerativeAIInsights",
+        "QuantumProviderAccountDeviceOperationLogs",
+        "StorageMoverAuditLogs",
+        "UserAccessAnalytics"
+      ],
+      "platform_metric_ids": [
+        "event_grid_topic.secondary_health",
+        "kubernetes_job.primary_utilization",
+        "llm_endpoint.primary_utilization",
+        "llm_endpoint.secondary_health",
+        "network_application_gateway.secondary_health",
+        "network_firewall_policy.primary_utilization",
+        "network_firewall_policy.secondary_health",
+        "network_private_circuit.primary_utilization",
+        "secret_store.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.network_firewall_policy.primary",
+      "primary_metric_id": "network_firewall_policy.primary_utilization",
+      "read_tool_ids": [
+        "query_network_peerings"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-attached-to-key-vault-provider-identity",
+        "kubernetes.pod-scheduled-on-node",
+        "azure-arg.ext.kubernetes-service.02.attached_to",
+        "azure-arg.ext.network-firewall-policy.01.attached_to",
+        "azure-arg.ext.postgresql-server.02.depends_on",
+        "azure-arg.ext.llm-endpoint.01.depends_on",
+        "azure-arg.ext.file-volume.02.depends_on"
+      ],
+      "root_cause_resource_type": "llm-endpoint",
+      "round_code": "D047",
+      "round_number": 47,
+      "scenario_id": "scenario.d047.resilience_backup_and_chaos_recovery.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.compute_batch_account.secondary",
+        "amba.data_collection_rule.primary",
+        "amba.kubernetes_namespace.availability_critical",
+        "amba.kubernetes_network_policy.primary",
+        "amba.network_dns_resolver_inbound_endpoint.secondary",
+        "amba.network_interface.primary",
+        "amba.network_interface.secondary",
+        "amba.network_vpn_site.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "servicehealthresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.interface",
+        "llm-model-deployment"
+      ],
+      "causal_mechanisms": [
+        "replication_lag_breach"
+      ],
+      "cause_metric_id": "llm_model_deployment.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.deployment_operation_failure.window_44"
+      ],
+      "failure_resource_type": "network.interface",
+      "family_id": "resilience_backup_and_chaos_recovery",
+      "family_title": "Backup Failure, ASR Replication Breach, Patching & Chaos DR",
+      "intermediate_resource_type": "network.load-balancer",
+      "kql_recipe_ids": [
+        "llm_model_deployment.kql_telemetry",
+        "network_interface.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Workloads"
+      ],
+      "monitor_log_tables": [
+        "ACSCallSummary",
+        "AMSStreamingEndpointRequests",
+        "AZFWDnsQuery",
+        "AmlDeploymentEvent",
+        "AzureLoadTestingOperation",
+        "ContainerLog",
+        "DatabricksInstancePools",
+        "DeviceImageLoadEvents",
+        "GCPMonitoring",
+        "IdentityDirectoryEvents",
+        "MDCDetectionDNSEvents",
+        "NetworkAccessTraffic",
+        "QuantumProviderAccountJobAuditLogs",
+        "StorageMoverCopyLogsFailed",
+        "UserPeerAnalytics"
+      ],
+      "platform_metric_ids": [
+        "api_gateway.primary_utilization",
+        "communication_service.primary_utilization",
+        "kubernetes_job.secondary_health",
+        "llm_model_deployment.primary_utilization",
+        "llm_model_deployment.secondary_health",
+        "network_interface.primary_utilization",
+        "network_interface.secondary_health",
+        "network_private_circuit.secondary_health",
+        "secret_store.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_interface.primary",
+      "primary_metric_id": "network_interface.primary_utilization",
+      "read_tool_ids": [
+        "query_arg_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-attached-to-monitoring-identity",
+        "kubernetes.node-backed-by-vmss-vm",
+        "azure-arg.ext.kubernetes-endpoints.01.attached_to",
+        "azure-arg.ext.network-firewall-policy.02.depends_on",
+        "azure-arg.ext.mysql-server.01.depends_on",
+        "azure-arg.ext.llm-endpoint.02.depends_on",
+        "azure-arg.ext.storage-file-account.01.attached_to"
+      ],
+      "root_cause_resource_type": "llm-model-deployment",
+      "round_code": "D048",
+      "round_number": 48,
+      "scenario_id": "scenario.d048.resilience_backup_and_chaos_recovery.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.data_collection_rule.secondary",
+        "amba.kubernetes_network_policy.secondary",
+        "amba.kubernetes_node.primary",
+        "amba.network_cdn_profile.primary",
+        "amba.network_private_endpoint.primary",
+        "amba.network_private_endpoint.secondary",
+        "amba.network_route_table.primary",
+        "amba.network_vpn_site.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "sportresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.private-endpoint",
+        "event-hub"
+      ],
+      "causal_mechanisms": [
+        "failed_requests"
+      ],
+      "cause_metric_id": "event_hub.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.policy_non_compliance_event.window_45"
+      ],
+      "failure_resource_type": "network.private-endpoint",
+      "family_id": "resilience_backup_and_chaos_recovery",
+      "family_title": "Backup Failure, ASR Replication Breach, Patching & Chaos DR",
+      "intermediate_resource_type": "network.application-gateway",
+      "kql_recipe_ids": [
+        "event_hub.kql_telemetry",
+        "network_private_endpoint.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Applications"
+      ],
+      "monitor_log_tables": [
+        "ACSCallSummaryUpdates",
+        "AMWMetricsUsageDetails",
+        "AZFWFatFlow",
+        "AmlEnvironmentEvent",
+        "AzureMetrics",
+        "ContainerLogV2",
+        "DatabricksJobs",
+        "DeviceInfo",
+        "GCPNAT",
+        "IdentityEvents",
+        "MDCDetectionFimEvents",
+        "NetworkMonitoring",
+        "QuantumProviderAccountMessageAuditLogs",
+        "StorageMoverCopyLogsTransferred",
+        "VCoreMongoRequests"
+      ],
+      "platform_metric_ids": [
+        "api_gateway.secondary_health",
+        "communication_service.secondary_health",
+        "event_hub.primary_utilization",
+        "event_hub.secondary_health",
+        "kubernetes_cron_job.primary_utilization",
+        "managed_identity.primary_utilization",
+        "network_private_circuit_gateway.primary_utilization",
+        "network_private_endpoint.primary_utilization",
+        "network_private_endpoint.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_private_endpoint.primary",
+      "primary_metric_id": "network_private_endpoint.primary_utilization",
+      "read_tool_ids": [
+        "query_monitor_log_table"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-depends-on-log-workspace",
+        "kubernetes.resource-owned-by-controller",
+        "azure-arg.ext.kubernetes-endpoints.02.depends_on",
+        "azure-arg.ext.network-interface.01.depends_on",
+        "azure-arg.ext.mysql-server.02.depends_on",
+        "azure-arg.ext.llm-model-deployment.01.attached_to",
+        "azure-arg.ext.storage-file-account.02.attached_to"
+      ],
+      "root_cause_resource_type": "event-hub",
+      "round_code": "D049",
+      "round_number": 49,
+      "scenario_id": "scenario.d049.resilience_backup_and_chaos_recovery.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.data_collection_endpoint.primary",
+        "amba.kubernetes_network_policy.availability_critical",
+        "amba.kubernetes_node.secondary",
+        "amba.network_cdn_profile.secondary",
+        "amba.network_load_balancer.primary",
+        "amba.network_load_balancer.secondary",
+        "amba.network_route_table.secondary",
+        "amba.observability_traffic_collector.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "tagresources"
+      ],
+      "arm_schema_types_count": 62,
+      "canonical_resource_types": [
+        "network.load-balancer",
+        "service-bus-namespace"
+      ],
+      "causal_mechanisms": [
+        "error_timeline"
+      ],
+      "cause_metric_id": "service_bus_namespace.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.security_alert_triggered.window_46"
+      ],
+      "failure_resource_type": "network.load-balancer",
+      "family_id": "resilience_backup_and_chaos_recovery",
+      "family_title": "Backup Failure, ASR Replication Breach, Patching & Chaos DR",
+      "intermediate_resource_type": "api-gateway",
+      "kql_recipe_ids": [
+        "network_load_balancer.kql_telemetry",
+        "service_bus_namespace.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Audit"
+      ],
+      "monitor_log_tables": [
+        "ACSCallSurvey",
+        "ANFTopClientReadIOPS",
+        "AZFWFlowTrace",
+        "AmlInferencingEvent",
+        "AzureMetricsV2",
+        "ContainerNetworkLogs",
+        "DatabricksLakeviewConfig",
+        "DeviceLogonEvents",
+        "GCPNATAudit",
+        "IdentityLogonEvents",
+        "MDCDetectionGatingValidationEvents",
+        "NetworkSessions",
+        "QuantumProviderAccountQueueAuditLogs",
+        "StorageMoverJobRunLogs",
+        "VIAudit"
+      ],
+      "platform_metric_ids": [
+        "email_service.primary_utilization",
+        "kubernetes_cron_job.secondary_health",
+        "managed_identity.secondary_health",
+        "network_dns_zone.primary_utilization",
+        "network_load_balancer.primary_utilization",
+        "network_load_balancer.secondary_health",
+        "network_private_circuit_gateway.secondary_health",
+        "service_bus_namespace.primary_utilization",
+        "service_bus_namespace.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_load_balancer.primary",
+      "primary_metric_id": "network_load_balancer.primary_utilization",
+      "read_tool_ids": [
+        "query_platform_metrics"
+      ],
+      "relationship_mapping_ids": [
+        "azure.aks-routes-to-effective-outbound-ip",
+        "kubernetes.service-selects-pod",
+        "azure-arg.ext.kubernetes-endpoint-slice.01.depends_on",
+        "azure-arg.ext.network-interface.02.depends_on",
+        "azure-arg.ext.nosql-database.01.attached_to",
+        "azure-arg.ext.llm-model-deployment.02.attached_to",
+        "azure-arg.ext.storage-file-capacity-pool.01.attached_to"
+      ],
+      "root_cause_resource_type": "service-bus-namespace",
+      "round_code": "D050",
+      "round_number": 50,
+      "scenario_id": "scenario.d050.resilience_backup_and_chaos_recovery.05"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.data_collection_endpoint.secondary",
+        "amba.kubernetes_node.availability_critical",
+        "amba.kubernetes_resource_quota.primary",
+        "amba.network_application_gateway.primary",
+        "amba.network_application_gateway.secondary",
+        "amba.network_cdn_origin_group.primary",
+        "amba.network_virtual_network_gateway.primary",
+        "amba.observability_traffic_collector.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "advisorresources"
+      ],
+      "arm_schema_types_count": 61,
+      "canonical_resource_types": [
+        "network.application-gateway",
+        "event-grid-topic"
+      ],
+      "causal_mechanisms": [
+        "dependency_latency"
+      ],
+      "cause_metric_id": "event_grid_topic.primary_utilization",
+      "diagnostic_probe_ids": [
+        "blast_radius_classifier"
+      ],
+      "failure_resource_type": "network.application-gateway",
+      "family_id": "cost_capacity_and_multi_cloud_governance",
+      "family_title": "FinOps Cost Anomaly, Advisor Triage, Spot Eviction & Capacity",
+      "intermediate_resource_type": "network.dns-zone",
+      "kql_recipe_ids": [
+        "event_grid_topic.kql_telemetry",
+        "network_application_gateway.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Monitor"
+      ],
+      "monitor_log_tables": [
+        "ACSCallingMetrics",
+        "ANFTopClientWriteIOPS",
+        "AZFWIdpsSignature",
+        "AmlModelsEvent",
+        "AzureMonitorPipelineLogErrors",
+        "ContainerNodeInventory",
+        "DatabricksLineageTracking",
+        "DeviceNetworkEvents",
+        "GCPResourceManager",
+        "IdentityQueryEvents",
+        "MDCDetectionK8SApiEvents",
+        "NginxUpstreamUpdateLogs",
+        "QuantumProviderAccountTargetAuditLogs",
+        "StorageQueueLogs",
+        "VIIndexing"
+      ],
+      "platform_metric_ids": [
+        "authorization_role_assignment.primary_utilization",
+        "email_service.secondary_health",
+        "event_grid_topic.primary_utilization",
+        "event_grid_topic.secondary_health",
+        "kubernetes_deployment.primary_utilization",
+        "network_application_gateway.primary_utilization",
+        "network_application_gateway.secondary_health",
+        "network_dns_zone.secondary_health",
+        "network_private_peering_port.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.network_application_gateway.primary",
+      "primary_metric_id": "network_application_gateway.primary_utilization",
+      "read_tool_ids": [
+        "query_amba_alerts"
+      ],
+      "relationship_mapping_ids": [
+        "azure.data-collection-rule-depends-on-endpoint",
+        "kubernetes.pod-depends-on-pvc",
+        "azure-arg.ext.kubernetes-endpoint-slice.02.depends_on",
+        "azure-arg.ext.network-private-endpoint.01.attached_to",
+        "azure-arg.ext.nosql-database.02.attached_to",
+        "azure-arg.ext.event-hub.01.attached_to",
+        "azure-arg.ext.storage-file-capacity-pool.02.depends_on"
+      ],
+      "root_cause_resource_type": "event-grid-topic",
+      "round_code": "D051",
+      "round_number": 51,
+      "scenario_id": "scenario.d051.cost_capacity_and_multi_cloud_governance.01"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.alert_rule.primary",
+        "amba.api_gateway.primary",
+        "amba.api_gateway.secondary",
+        "amba.backup_vault.primary",
+        "amba.kubernetes_pod.primary",
+        "amba.kubernetes_resource_quota.secondary",
+        "amba.network_cdn_origin_group.secondary",
+        "amba.network_virtual_network_gateway.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "aksresources"
+      ],
+      "arm_schema_types_count": 61,
+      "canonical_resource_types": [
+        "api-gateway",
+        "communication-service"
+      ],
+      "causal_mechanisms": [
+        "slow_traces"
+      ],
+      "cause_metric_id": "communication_service.primary_utilization",
+      "diagnostic_probe_ids": [
+        "lb_backend_health"
+      ],
+      "failure_resource_type": "api-gateway",
+      "family_id": "cost_capacity_and_multi_cloud_governance",
+      "family_title": "FinOps Cost Anomaly, Advisor Triage, Spot Eviction & Capacity",
+      "intermediate_resource_type": "network.public-ip",
+      "kql_recipe_ids": [
+        "api_gateway.kql_telemetry",
+        "communication_service.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Resources"
+      ],
+      "monitor_log_tables": [
+        "ACSChatIncomingOperations",
+        "ANFTopFileReadIOPS",
+        "AZFWInternalFqdnResolutionFailure",
+        "AmlOnlineEndpointConsoleLog",
+        "AzureSQLAutomaticTuning",
+        "ContainerRegistryLoginEvents",
+        "DatabricksMLflowAcledArtifact",
+        "DeviceNetworkInfo",
+        "GCPVPCFlow",
+        "IlumioInsights",
+        "MDCDetectionProcessV2Events",
+        "OAuthAppInfo",
+        "QuantumWorkspaceJobAuditLogs",
+        "StorageTableLogs",
+        "VMBoundPort"
+      ],
+      "platform_metric_ids": [
+        "api_gateway.primary_utilization",
+        "api_gateway.secondary_health",
+        "authorization_role_assignment.secondary_health",
+        "communication_service.primary_utilization",
+        "communication_service.secondary_health",
+        "email_domain.primary_utilization",
+        "kubernetes_deployment.secondary_health",
+        "network_private_peering_port.secondary_health",
+        "network_public_ip.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.api_gateway.primary",
+      "primary_metric_id": "api_gateway.primary_utilization",
+      "read_tool_ids": [
+        "query_causal_mechanism"
+      ],
+      "relationship_mapping_ids": [
+        "azure.data-collection-rule-routes-to-workspace",
+        "kubernetes.pvc-attached-to-pv",
+        "azure-arg.ext.kubernetes-ingress.01.attached_to",
+        "azure-arg.ext.network-private-endpoint.02.attached_to",
+        "azure-arg.ext.cache.01.attached_to",
+        "azure-arg.ext.event-hub.02.depends_on",
+        "azure-arg.ext.network-connection.01.depends_on"
+      ],
+      "root_cause_resource_type": "communication-service",
+      "round_code": "D052",
+      "round_number": 52,
+      "scenario_id": "scenario.d052.cost_capacity_and_multi_cloud_governance.02"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.alert_rule.secondary",
+        "amba.backup_vault.secondary",
+        "amba.compute_image_gallery.primary",
+        "amba.kubernetes_pod.secondary",
+        "amba.kubernetes_resource_quota.availability_critical",
+        "amba.network_bastion_host.primary",
+        "amba.network_dns_zone.primary",
+        "amba.network_dns_zone.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "alertsmanagementresources"
+      ],
+      "arm_schema_types_count": 61,
+      "canonical_resource_types": [
+        "network.dns-zone",
+        "email-service"
+      ],
+      "causal_mechanisms": [
+        "guest_shutdown"
+      ],
+      "cause_metric_id": "email_service.primary_utilization",
+      "diagnostic_probe_ids": [
+        "storage_access_log"
+      ],
+      "failure_resource_type": "network.dns-zone",
+      "family_id": "cost_capacity_and_multi_cloud_governance",
+      "family_title": "FinOps Cost Anomaly, Advisor Triage, Spot Eviction & Capacity",
+      "intermediate_resource_type": "network.nat-gateway",
+      "kql_recipe_ids": [
+        "email_service.kql_telemetry",
+        "network_dns_zone.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Azure Virtual Desktop"
+      ],
+      "monitor_log_tables": [
+        "ACSEmailSendMailOperational",
+        "ANFTopFileWriteIOPS",
+        "AZFWNatRule",
+        "AmlOnlineEndpointEventLog",
+        "AzureSQLBlocks",
+        "ContainerRegistryRepositoryEvents",
+        "DatabricksMLflowExperiment",
+        "DeviceProcessEvents",
+        "GKEAPIServer",
+        "InsightsMetrics",
+        "MDCFileIntegrityMonitoringEvents",
+        "OEPAirFlowTask",
+        "REDConnectionEvents",
+        "SucceededIngestion",
+        "VMComputer"
+      ],
+      "platform_metric_ids": [
+        "certificate.primary_utilization",
+        "email_domain.secondary_health",
+        "email_service.primary_utilization",
+        "email_service.secondary_health",
+        "kubernetes_replica_set.primary_utilization",
+        "network_dns_zone.primary_utilization",
+        "network_dns_zone.secondary_health",
+        "network_public_ip.secondary_health",
+        "observability_network_flow_log.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.network_dns_zone.primary",
+      "primary_metric_id": "network_dns_zone.primary_utilization",
+      "read_tool_ids": [
+        "query_diagnostic_probe"
+      ],
+      "relationship_mapping_ids": [
+        "azure.data-collection-rule-routes-to-metrics-workspace",
+        "kubernetes.pvc-depends-on-storage-class",
+        "azure-arg.ext.kubernetes-ingress.02.attached_to",
+        "azure-arg.ext.network-load-balancer.01.attached_to",
+        "azure-arg.ext.cache.02.depends_on",
+        "azure-arg.ext.service-bus-namespace.01.depends_on",
+        "azure-arg.ext.network-connection.02.depends_on"
+      ],
+      "root_cause_resource_type": "email-service",
+      "round_code": "D053",
+      "round_number": 53,
+      "scenario_id": "scenario.d053.cost_capacity_and_multi_cloud_governance.03"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.action_group.primary",
+        "amba.compute_image_gallery.secondary",
+        "amba.kubernetes_limit_range.primary",
+        "amba.kubernetes_pod.availability_critical",
+        "amba.network_bastion_host.secondary",
+        "amba.network_public_ip.primary",
+        "amba.network_public_ip.secondary",
+        "amba.realtime_messaging_service.primary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "appserviceresources"
+      ],
+      "arm_schema_types_count": 61,
+      "canonical_resource_types": [
+        "network.public-ip",
+        "email-domain"
+      ],
+      "causal_mechanisms": [
+        "container_restarts"
+      ],
+      "cause_metric_id": "email_domain.primary_utilization",
+      "diagnostic_probe_ids": [
+        "vm_traffic_last_5m"
+      ],
+      "failure_resource_type": "network.public-ip",
+      "family_id": "cost_capacity_and_multi_cloud_governance",
+      "family_title": "FinOps Cost Anomaly, Advisor Triage, Spot Eviction & Capacity",
+      "intermediate_resource_type": "network.private-dns-zone",
+      "kql_recipe_ids": [
+        "email_domain.kql_telemetry",
+        "network_public_ip.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Containers"
+      ],
+      "monitor_log_tables": [
+        "ACSEmailStatusUpdateOperational",
+        "AOIDatabaseQuery",
+        "AZFWNatRuleAggregation",
+        "AmlOnlineEndpointTrafficLog",
+        "AzureSQLDatabaseWaitStatistics",
+        "ContainerServiceLog",
+        "DatabricksMarketplaceConsumer",
+        "DeviceRegistryEvents",
+        "GKEApplication",
+        "IntuneAuditLogs",
+        "MDPResourceLog",
+        "OEPAuditLogs",
+        "Rapid7InsightVMCloudAssets",
+        "SynapseBigDataPoolApplicationsEnded",
+        "VMConnection"
+      ],
+      "platform_metric_ids": [
+        "certificate.secondary_health",
+        "email_domain.primary_utilization",
+        "email_domain.secondary_health",
+        "kubernetes_replica_set.secondary_health",
+        "network_nat_gateway.primary_utilization",
+        "network_public_ip.primary_utilization",
+        "network_public_ip.secondary_health",
+        "observability_network_flow_log.secondary_health",
+        "search_service.primary_utilization"
+      ],
+      "primary_amba_alert_id": "amba.network_public_ip.primary",
+      "primary_metric_id": "network_public_ip.primary_utilization",
+      "read_tool_ids": [
+        "query_advisor_recommendations"
+      ],
+      "relationship_mapping_ids": [
+        "azure.metrics-workspace-depends-on-collection-endpoint",
+        "kubernetes.hpa-attached-to-daemon-set",
+        "azure-arg.ext.kubernetes-ingress-class.01.attached_to",
+        "azure-arg.ext.network-load-balancer.02.depends_on",
+        "azure-arg.ext.redis-enterprise.01.depends_on",
+        "azure-arg.ext.service-bus-namespace.02.depends_on",
+        "azure-arg.ext.network-ddos-protection-plan.01.attached_to"
+      ],
+      "root_cause_resource_type": "email-domain",
+      "round_code": "D054",
+      "round_number": 54,
+      "scenario_id": "scenario.d054.cost_capacity_and_multi_cloud_governance.04"
+    },
+    {
+      "amba_alert_ids": [
+        "amba.action_group.secondary",
+        "amba.compute_gallery_image_version.primary",
+        "amba.kubernetes_limit_range.secondary",
+        "amba.kubernetes_service.primary",
+        "amba.network_nat_gateway.primary",
+        "amba.network_nat_gateway.secondary",
+        "amba.network_private_access_scope.primary",
+        "amba.realtime_messaging_service.secondary"
+      ],
+      "arg_resource_types_count": 34,
+      "arg_tables": [
+        "authorizationresources"
+      ],
+      "arm_schema_types_count": 61,
+      "canonical_resource_types": [
+        "network.nat-gateway",
+        "search-service"
+      ],
+      "causal_mechanisms": [
+        "throttling"
+      ],
+      "cause_metric_id": "search_service.primary_utilization",
+      "diagnostic_probe_ids": [
+        "probe.failed_requests.window_01"
+      ],
+      "failure_resource_type": "network.nat-gateway",
+      "family_id": "cost_capacity_and_multi_cloud_governance",
+      "family_title": "FinOps Cost Anomaly, Advisor Triage, Spot Eviction & Capacity",
+      "intermediate_resource_type": "network.private-dns-zone-link",
+      "kql_recipe_ids": [
+        "network_nat_gateway.kql_telemetry",
+        "search_service.kql_telemetry"
+      ],
+      "monitor_categories": [
+        "Desktop Analytics"
+      ],
+      "monitor_log_tables": [
+        "ACSEmailUserEngagementOperational",
+        "AOIStorage",
+        "AZFWNetworkRule",
+        "AmlPipelineEvent",
+        "AzureSQLDeadlocks",
+        "CopilotActivity",
+        "DatabricksMarketplaceProvider",
+        "DeviceSkypeHeartbeat",
+        "GKEAudit",
+        "IntuneDeviceComplianceOrg",
+        "MNFDeviceUpdates",
+        "OEPDataplaneLogs",
+        "Rapid7InsightVMCloudVulnerabilities",
+        "SynapseBuiltinSqlPoolRequestsEnded",
+        "VMProcess"
+      ],
+      "platform_metric_ids": [
+        "kubernetes_daemon_set.primary_utilization",
+        "managed_certificate.primary_utilization",
+        "network_nat_gateway.primary_utilization",
+        "network_nat_gateway.secondary_health",
+        "network_user_vpn_gateway.primary_utilization",
+        "search_service.primary_utilization",
+        "search_service.secondary_health"
+      ],
+      "primary_amba_alert_id": "amba.network_nat_gateway.primary",
+      "primary_metric_id": "network_nat_gateway.primary_utilization",
+      "read_tool_ids": [
+        "query_policy_compliance"
+      ],
+      "relationship_mapping_ids": [
+        "azure.metrics-workspace-depends-on-collection-rule",
+        "kubernetes.hpa-attached-to-deployment",
+        "azure-arg.ext.kubernetes-ingress-class.02.depends_on",
+        "azure-arg.ext.network-application-gateway.01.depends_on",
+        "azure-arg.ext.redis-enterprise.02.depends_on",
+        "azure-arg.ext.event-grid-topic.01.attached_to",
+        "azure-arg.ext.network-ddos-protection-plan.02.attached_to"
+      ],
+      "root_cause_resource_type": "search-service",
+      "round_code": "D055",
+      "round_number": 55,
+      "scenario_id": "scenario.d055.cost_capacity_and_multi_cloud_governance.05"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "total_families": 11,
+  "total_rounds": 55
+}
