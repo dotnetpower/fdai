@@ -29,6 +29,7 @@ compose an end-to-end external-source capability.
 | 2026-08-14 | implemented | Hardened conditional requests to accept only bounded quoted entity tags and suppressed credential-provider exception context so secrets cannot escape through chained errors. | `current change`; `services/core-control-plane/src/fdai/delivery/github/skill_source.py`; `services/core-control-plane/tests/delivery/github/test_skill_source.py`; focused adapter tests `28 passed`. | Runtime composition, authority-bearing event integration, live persistence, and the read-only projection remain open. |
 | 2026-09-17 | implemented | Connected stored successful refresh timestamps to Skills diagnostics and removed the false ready state for never-refreshed sources. | `current change`; focused Operator and Console checks listed above. | Protected delivery, browser evidence, and independently owned source-runner composition remain separate. |
 | 2026-11-01 | implemented | Added `build_skill_source_runtime_bundle` with duplicate-runner exclusion and restart recovery, `skill_source_projection.py` for role-gated idempotent event-path proposals, and `skill-sources.model.ts` for the read-only Console projection; migrated the owner status to this authoritative ledger. | `current change`; `services/core-control-plane/src/fdai/runtime/skill_source_runtime.py`; `services/core-control-plane/tests/runtime/test_skill_source_runtime.py` (`4 passed`); `services/operator-service/src/fdai_operator_service/skill_source_projection.py`; `services/operator-service/tests/test_skill_source_projection.py` (`5 passed`); `console/src/routes/skill-sources.model.ts`; `console/src/routes/skill-sources.model.test.ts` (`3 passed`). | Run the live PostgreSQL restart/revocation test and retain governed runtime receipts before raising any row to `validated`. |
+| 2026-11-02 | implemented | Exercised `test_postgres_skill_source_integration.py` against the isolated loopback validation PostgreSQL database (`FDAI_DATABASE_URL` via `with-local-test-database.py`), proving that skill-source, quarantine, candidate, trusted-artifact, and revocation records survive restart and preserve provenance with zero skips. | `current change`; `services/core-control-plane/tests/persistence/test_postgres_skill_source_integration.py` (`1 passed, 0 skipped`). | Retain governed runtime receipts for refresh, approval, and revocation before raising any row to `validated`. |
 
 
 ### Remaining work
@@ -44,5 +45,8 @@ compose an end-to-end external-source capability.
   importing core implementations into the Operator Service, and prove approval and revocation remain
   role-gated, idempotent, disabled-by-default, and replayable (`test_skill_source_projection.py`:
   `5 passed`; `skill-sources.model.test.ts`: `3 passed`).
-- [ ] Run the live PostgreSQL restart/revocation test with `FDAI_DATABASE_URL`, add the read-only
-  Console projection, and record governed runtime receipts for refresh, approval, and revocation.
+- [x] Run the live PostgreSQL restart/revocation test with `FDAI_DATABASE_URL` and add the read-only
+  Console projection (`test_postgres_skill_source_integration.py`: `1 passed, 0 skipped`;
+  `skill-sources.model.test.ts`: `3 passed`).
+- [ ] Record governed runtime receipts for refresh, approval, and revocation before raising any scope
+  row to `validated`.
