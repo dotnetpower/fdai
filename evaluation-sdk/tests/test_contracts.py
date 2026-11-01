@@ -242,3 +242,50 @@ def test_decision_receipt_result_and_workspace_file_integrity() -> None:
             sha256=sha256(payload).hexdigest(),
             content=payload,
         )
+    with pytest.raises(ValidationError, match="sha256 MUST match"):
+        WorkspaceFile(
+            path="src/app.py",
+            size_bytes=len(payload),
+            sha256="b" * 64,
+            content=payload,
+        )
+
+    from fdai_evaluation_sdk import WorkspaceCommandStatus, WorkspaceIsolation, WorkspaceReceipt
+
+    isolation = WorkspaceIsolation(
+        isolated_task_root=True,
+        path_escape_blocked=True,
+        symlink_escape_blocked=True,
+        credentials_absent=True,
+        network_denied=True,
+        ephemeral=True,
+    )
+    assert isolation.verified is True
+    with pytest.raises(ValidationError, match="output_artifacts MUST be unique"):
+        WorkspaceReceipt(
+            operation="build",
+            status=WorkspaceCommandStatus.SUCCEEDED,
+            workspace_digest="a" * 64,
+            output_artifacts=(stage_art, stage_art),
+            audit_ref="audit/1",
+        )
+    with pytest.raises(ValidationError, match="allowed_origins MUST be unique"):
+        NetworkPolicy(allowed_origins=("origin-1", "origin-1"))
+    with pytest.raises(ValidationError, match="workspace operations MUST be unique"):
+        WorkspacePolicy(operations=(WorkspaceOperation.READ, WorkspaceOperation.READ))
+    with pytest.raises(ValidationError, match="allowed_media_types"):
+        ArtifactPolicy(allowed_media_types=(), max_artifact_bytes=128)
+    with pytest.raises(ValidationError, match="allowed_media_types MUST be unique"):
+        ArtifactPolicy(allowed_media_types=("text/plain", "text/plain"), max_artifact_bytes=128)
+    with pytest.raises(ValidationError, match="belong to the task session"):
+        ExternalValidationReceipt(
+            session_id="session-1",
+            task_id="task-1",
+            stages=(
+                ExternalValidationStage(
+                    stage_id="s1",
+                    passed=True,
+                    receipt_ref=_artifact(session_id="session-2"),
+                ),
+            ),
+        )

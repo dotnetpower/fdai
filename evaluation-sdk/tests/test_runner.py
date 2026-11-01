@@ -198,6 +198,24 @@ def test_runner_rejects_incompatible_host_api() -> None:
 def test_run_summary_validates_count_consistency() -> None:
     from fdai_evaluation_sdk import EvaluationRunSummary
 
+    with pytest.raises(ValueError, match="non-empty"):
+        EvaluationRunSummary(
+            adapter_id="",
+            session_id="session-1",
+            task_count=0,
+            completed_count=0,
+            held_count=0,
+            failed_count=0,
+        )
+    with pytest.raises(ValueError, match="non-negative integers"):
+        EvaluationRunSummary(
+            adapter_id="sregym",
+            session_id="session-1",
+            task_count=True,  # type: ignore[arg-type]
+            completed_count=1,
+            held_count=0,
+            failed_count=0,
+        )
     with pytest.raises(ValueError, match="sum of status counts"):
         EvaluationRunSummary(
             adapter_id="sregym",
@@ -207,3 +225,81 @@ def test_run_summary_validates_count_consistency() -> None:
             held_count=1,
             failed_count=0,
         )
+
+
+async def test_runner_validates_protocol_bounds_and_cleanup_errors() -> None:
+    with pytest.raises(TypeError, match="EvaluationAdapter"):
+        EvaluationRunner(adapter=object(), host=_Host(_Session()))  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="EvaluationHost"):
+        EvaluationRunner(adapter=_Adapter(()), host=object())  # type: ignore[arg-type]
+
+    class _MismatchedSession(_Session):
+        session_id = "session-other"
+
+    class _PassthroughHost(_Host):
+        async def open(self, request: EvaluationRequest) -> _Session:  # noqa: ARG002
+            return self.session
+
+    with pytest.raises(EvaluationRunError, match="host session identity"):
+        await EvaluationRunner(
+            adapter=_Adapter(()),
+            host=_PassthroughHost(_MismatchedSession()),
+        ).run()
+
+    adapter_limit = _Adapter((_task("t1"), _task("t2"), _task("t3")))
+    with pytest.raises(EvaluationRunError, match="task limit exceeded"):
+        await EvaluationRunner(adapter=adapter_limit, host=_Host(_Session())).run()
+
+    class _InvalidTaskAdapter(_Adapter):
+        async def next_task(self) -> EvaluationTask | None:
+            return "not-a-task"  # type: ignore[return-value]
+
+    with pytest.raises(EvaluationRunError, match="invalid evaluation task"):
+        await EvaluationRunner(adapter=_InvalidTaskAdapter(()), host=_Host(_Session())).run()
+
+    other_session_task = _task("t1").model_copy(update={"session_id": "session-2"})
+    with pytest.raises(EvaluationRunError, match="another evaluation session"):
+        await EvaluationRunner(
+            adapter=_Adapter((other_session_task,)),
+            host=_Host(_Session()),
+        ).run()
+
+    class _BadResultSession(_Session):
+        async def execute(self, task: EvaluationTask) -> EvaluationResult:
+            return _result(task).model_copy(update={"task_id": "wrong-id"})
+
+    with pytest.raises(EvaluationRunError, match="result identity does not match"):
+        await EvaluationRunner(
+            adapter=_Adapter((_task("t1"),)),
+            host=_Host(_BadResultSession()),
+        ).run()
+
+    class _NonResultSession(_Session):
+        async def execute(self, task: EvaluationTask) -> EvaluationResult:
+            return "not-a-result"  # type: ignore[return-value]
+
+    with pytest.raises(EvaluationRunError, match="invalid evaluation result"):
+        await EvaluationRunner(
+            adapter=_Adapter((_task("t1"),)),
+            host=_Host(_NonResultSession()),
+        ).run()
+
+    class _FailingCleanupSession(_Session):
+        async def close(self) -> None:
+            raise RuntimeError("session close failed")
+
+    class _FailingCleanupAdapter(_Adapter):
+        async def close(self) -> None:
+            raise RuntimeError("adapter close failed")
+
+    with pytest.raises(RuntimeError, match="session close failed"):
+        await EvaluationRunner(
+            adapter=_FailingCleanupAdapter(()),
+            host=_Host(_FailingCleanupSession()),
+        ).run()
+
+    with pytest.raises(EvaluationRunError, match="invalid evaluation result"):
+        await EvaluationRunner(
+            adapter=_FailingCleanupAdapter((_task("t1"),)),
+            host=_Host(_NonResultSession()),
+        ).run()
