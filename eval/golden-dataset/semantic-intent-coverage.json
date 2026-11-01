@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:83a36808acca7ac164c2857f56ba42aed4155737a7c9e0a28fdf39738f19ffa5",
+  "inventory_digest": "sha256:7c9b0935f5f4fb238143cdfa62872ce948f345446871aa3bf351c57516b074ea",
   "metric_contract": {
     "ambiguity": [
       {
@@ -944,7 +944,7 @@
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:56bc9d86c6b1faadc9e9089367a1dc2c4905abcdd671c6d9ac4d981c14f7a472",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:c90631cba2a6e97bc83d0d5624693272767c4897a3b097b48a65b98f35a3c8bb",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
@@ -1012,236 +1012,236 @@
     "ontology_query_functions": [
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 2,
         "topic_id": "query.contextual_resources"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.gateway_diagnostic_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 2,
+        "intent_contract_case_count": 2,
         "topic_id": "query.governed_documents"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 15,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 34,
+        "intent_contract_case_count": 35,
         "topic_id": "query.incident_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.inventory_impact"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 21,
+        "intent_contract_case_count": 26,
         "topic_id": "query.kubernetes_pod_diagnosis"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 7,
+        "intent_contract_case_count": 7,
         "topic_id": "query.kubernetes_pod_recovery_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 3,
+        "intent_contract_case_count": 4,
         "topic_id": "query.kubernetes_rollout_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 9,
+        "intent_contract_case_count": 9,
         "topic_id": "query.latency_recovery_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.manifest"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 2,
+        "intent_contract_case_count": 2,
         "topic_id": "query.mysql_demand_metric_bundle"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 21,
+        "intent_contract_case_count": 21,
         "topic_id": "query.mysql_pressure_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 3,
+        "intent_contract_case_count": 3,
         "topic_id": "query.mysql_saturation_metric_bundle"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 30,
+        "intent_contract_case_count": 36,
         "topic_id": "query.network_path_segments"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 14,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 31,
+        "intent_contract_case_count": 36,
         "topic_id": "query.ontology_declaration"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 12,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 3,
+        "intent_contract_case_count": 1,
         "topic_id": "query.ontology_evidence_health"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.ontology_instance_candidates"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 34,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 52,
+        "intent_contract_case_count": 31,
         "topic_id": "query.ontology_relationships"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 11,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 2,
+        "intent_contract_case_count": 1,
         "topic_id": "query.ontology_release_diff"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 2,
+        "intent_contract_case_count": 2,
         "topic_id": "query.pod_telemetry_path"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.recent_resource_changes"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.recent_resource_changes.page"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 12,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 25,
+        "intent_contract_case_count": 29,
         "topic_id": "query.resource_change_activity"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.resource_class_closure"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 6,
+        "intent_contract_case_count": 6,
         "topic_id": "query.resource_configuration_changes"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 3,
+        "intent_contract_case_count": 4,
         "topic_id": "query.resource_configuration_snapshot"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 13,
-        "intent_contract_case_count": 14,
+        "golden_expectation_count": 87,
+        "intent_contract_case_count": 88,
         "topic_id": "query.resource_current_state"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 2,
         "topic_id": "query.resource_error_activity_correlation"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 13,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 3,
         "topic_id": "query.resource_event_history"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.resource_health_inventory"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.resource_ingress_configuration"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.resource_metric_inventory"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 36,
+        "intent_contract_case_count": 36,
         "topic_id": "query.resource_metric_series"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 24,
+        "intent_contract_case_count": 25,
         "topic_id": "query.resource_state_inventory"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.resource_state_transitions"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.subscription_scope_identity"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 13,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 3,
         "topic_id": "query.subscription_service_health"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 1,
+        "intent_contract_case_count": 1,
         "topic_id": "query.target_health_assessment"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 10,
-        "intent_contract_case_count": 11,
+        "golden_expectation_count": 23,
+        "intent_contract_case_count": 23,
         "topic_id": "query.vm_process_cpu_evidence"
       }
     ],
@@ -1330,259 +1330,259 @@
       {
         "agent": "Bragi",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "capability_list"
       },
       {
         "agent": "Bragi",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "help"
       },
       {
         "agent": "Forseti",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "verdict_explain"
       },
       {
         "agent": "Forseti",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "why_denied"
       },
       {
         "agent": "Forseti",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 25,
         "topic_id": "why_rca"
       },
       {
         "agent": "Freyr",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 31,
         "topic_id": "capacity_status"
       },
       {
         "agent": "Freyr",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 2,
         "topic_id": "sizing_recommendation"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 11,
         "topic_id": "anomaly"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "discovery_health"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "drift"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "external_actor"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 25,
         "topic_id": "forecast"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "privilege_escalation_status"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 33,
         "topic_id": "resource_change_history"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 2,
         "topic_id": "security_alert_history"
       },
       {
         "agent": "Huginn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 6,
         "topic_id": "event_source_health"
       },
       {
         "agent": "Huginn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 19,
         "topic_id": "resource_discovery"
       },
       {
         "agent": "Huginn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "resource_discovery_status"
       },
       {
         "agent": "Loki",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "chaos_execution_policy"
       },
       {
         "agent": "Loki",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "chaos_experiment_status"
       },
       {
         "agent": "Loki",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 2,
         "topic_id": "resilience_score"
       },
       {
         "agent": "Mimir",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 24,
         "topic_id": "policy_explain"
       },
       {
         "agent": "Mimir",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "rule_history"
       },
       {
         "agent": "Mimir",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 5,
         "topic_id": "rule_lookup"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 3,
         "topic_id": "bitemporal_state"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 29,
         "topic_id": "case_history"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 94,
         "topic_id": "current_state"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 42,
         "topic_id": "resource_context"
       },
       {
         "agent": "Njord",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 2,
         "topic_id": "budget_status"
       },
       {
         "agent": "Njord",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 2,
         "topic_id": "cost_anomaly"
       },
       {
         "agent": "Njord",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 25,
         "topic_id": "cost_breakdown"
       },
       {
         "agent": "Norns",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "learning_discovery_status"
       },
       {
         "agent": "Norns",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "pattern"
       },
       {
         "agent": "Norns",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 2,
         "topic_id": "recurring_issue"
       },
       {
         "agent": "Norns",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 2,
         "topic_id": "rule_candidate_status"
       },
       {
         "agent": "Odin",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "portfolio_status"
       },
       {
         "agent": "Odin",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 11,
         "topic_id": "priority_conflict"
       },
       {
         "agent": "Saga",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "approval_history"
       },
       {
         "agent": "Saga",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "audit_log"
       },
       {
         "agent": "Saga",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "fdai_action_history"
       },
       {
         "agent": "Thor",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 7,
         "topic_id": "action_status"
       },
       {
         "agent": "Thor",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "execution_history_recent"
       },
       {
         "agent": "Var",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 1,
         "topic_id": "approval_backlog"
       },
       {
@@ -1600,13 +1600,13 @@
       {
         "agent": "Vidar",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 1,
         "topic_id": "rollback_dependency_health"
       },
       {
         "agent": "Vidar",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 5,
         "topic_id": "rollback_status"
       }
     ],

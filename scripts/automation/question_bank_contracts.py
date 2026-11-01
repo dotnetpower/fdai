@@ -214,29 +214,237 @@ def build_bilingual_variations(
     domain: str,
     temporal_scope: str,
 ) -> dict[str, list[dict[str, str]]]:
-    """Generate semantically equivalent English and Korean paraphrase variations."""
+    """Generate natural syntactic English and Korean paraphrase variations without bracket tags."""
     en_base = wording["en"].strip()
     ko_base = wording["ko"].strip()
-    scope_en = _TEMPORAL_LABELS_EN.get(temporal_scope, "current")
-    scope_ko = _TEMPORAL_LABELS_KO.get(temporal_scope, "현재")
+    _ = (domain, temporal_scope)
     en_core = _strip_terminal(en_base)
     ko_core = _strip_terminal(ko_base)
-    en_clause = _clamp(en_core.split(".")[0], 56)
-    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 42)
+    en_clause = _clamp(en_core.split(".")[0], 54)
+    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 40)
+    if en_base.endswith("?"):
+        en_para = _clamp(f"Please verify from ontology evidence: {_lower_first(en_clause)}.", 78)
+    else:
+        en_para = _clamp(f"Can you check from ontology evidence: {_lower_first(en_clause)}?", 78)
+    if ko_base.endswith("?"):
+        ko_para = _clamp(f"온톨로지 근거로 확인해 주세요: {ko_clause}.", 66)
+    else:
+        ko_para = _clamp(f"온톨로지 근거로 다음을 확인할 수 있나요: {ko_clause}?", 66)
     return {
         "en": [
             {
                 "kind": "paraphrase",
-                "text": _clamp(f"[{scope_en}] {_lower_first(en_clause)}?", 75),
+                "text": en_para,
             },
         ],
         "ko": [
             {
                 "kind": "paraphrase",
-                "text": _clamp(f"[{scope_ko}] {ko_clause}?", 65),
+                "text": ko_para,
             },
         ],
     }
+
+
+def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> str:
+    """Select the primary ontology query function from question semantics."""
+    intent = str(item.get("intent", "")).casefold()
+    category = str(item.get("category", "")).casefold()
+    domain = str(item.get("domain", "")).casefold()
+    targets = {str(t).casefold() for t in item.get("target_kinds", [])}
+    temporal = str(item.get("temporal_scope", "")).casefold()
+    text = str(item.get("wording", {}).get("en", "")).casefold()
+
+    candidates: list[str] = []
+    if "mysql" in text or "database" in category or "database" in targets:
+        if "saturation" in text or "connection" in text:
+            candidates.append("query.mysql_saturation_metric_bundle")
+        elif "demand" in text or "throughput" in text or "query" in text:
+            candidates.append("query.mysql_demand_metric_bundle")
+        else:
+            candidates.append("query.mysql_pressure_evidence")
+    if "pod" in text or "kubernetespod" in targets or "aks" in category:
+        if "rollout" in text or "deploy" in text:
+            candidates.append("query.kubernetes_rollout_evidence")
+        elif "restart" in text or "recovery" in text:
+            candidates.append("query.kubernetes_pod_recovery_evidence")
+        elif "telemetry" in text or "metric" in text:
+            candidates.append("query.pod_telemetry_path")
+        else:
+            candidates.append("query.kubernetes_pod_diagnosis")
+    if "gateway" in text or "ingress" in text:
+        candidates.extend(
+            ("query.gateway_diagnostic_evidence", "query.resource_ingress_configuration")
+        )
+    if "network" in text or "dns" in text or "subnet" in text or "nsg" in text:
+        candidates.append("query.network_path_segments")
+    if "document" in text or "runbook" in text or "manual" in text:
+        candidates.append("query.governed_documents")
+    if "vm" in text or "virtualmachine" in targets or "cpu" in text:
+        candidates.append("query.vm_process_cpu_evidence")
+    if "latency" in text:
+        candidates.append("query.latency_recovery_evidence")
+    if "drift" in text or "configuration" in text or "config" in intent:
+        if temporal in {"historical", "comparison"}:
+            candidates.append("query.resource_configuration_changes")
+        else:
+            candidates.append("query.resource_configuration_snapshot")
+    if domain == "change_deployment_impact":
+        candidates.extend(
+            (
+                "query.resource_change_activity",
+                "query.recent_resource_changes",
+                "query.recent_resource_changes.page",
+                "query.resource_state_transitions",
+            )
+        )
+    elif domain == "root_cause_analysis":
+        candidates.extend(
+            (
+                "query.incident_evidence",
+                "query.resource_error_activity_correlation",
+                "query.resource_event_history",
+            )
+        )
+    elif domain == "dependency_impact":
+        candidates.extend(
+            (
+                "query.ontology_relationships",
+                "query.inventory_impact",
+                "query.resource_class_closure",
+            )
+        )
+    elif domain == "capacity_performance_forecast":
+        candidates.extend(
+            (
+                "query.resource_metric_series",
+                "query.resource_metric_inventory",
+                "query.target_health_assessment",
+            )
+        )
+    elif domain == "reliability_policy_automation":
+        candidates.extend(
+            (
+                "query.ontology_declaration",
+                "query.ontology_evidence_health",
+                "query.ontology_release_diff",
+                "query.manifest",
+            )
+        )
+    elif domain == "cost_finops":
+        candidates.extend(
+            (
+                "query.resource_state_inventory",
+                "query.subscription_scope_identity",
+            )
+        )
+    else:
+        candidates.extend(
+            (
+                "query.resource_current_state",
+                "query.resource_health_inventory",
+                "query.subscription_service_health",
+                "query.contextual_resources",
+                "query.ontology_instance_candidates",
+            )
+        )
+    allowed_set = set(allowed)
+    for cand in candidates:
+        if cand in allowed_set:
+            return cand
+    return _DOMAIN_DEFAULT_FUNCTIONS.get(domain, ("query.resource_current_state",))[0]
+
+
+def _semantic_pantheon_domain(item: dict[str, Any], allowed: tuple[str, ...]) -> str:
+    """Select the primary Pantheon agent question domain from question semantics."""
+    intent = str(item.get("intent", "")).casefold()
+    domain = str(item.get("domain", "")).casefold()
+    temporal = str(item.get("temporal_scope", "")).casefold()
+    posture = str(item.get("safety", {}).get("action_posture", "")).casefold()
+    text = str(item.get("wording", {}).get("en", "")).casefold()
+
+    candidates: list[str] = []
+    if posture == "draft_only" or "mitigation" in intent or "action" in intent:
+        candidates.extend(("action_status", "execution_history_recent", "fdai_action_history"))
+    if "rollback" in text or "rollback" in intent:
+        candidates.extend(("rollback_status", "rollback_dependency_health"))
+    if "recovery" in text or "failover" in text or "backup" in text:
+        candidates.append("dr_readiness")
+    if "approval" in text or "hil" in text:
+        candidates.extend(("hil_pending", "approval_backlog", "approval_history"))
+    if "audit" in text:
+        candidates.append("audit_log")
+    if "denied" in text or "refusal" in intent or "guardrail" in text:
+        candidates.extend(("why_denied", "verdict_explain"))
+    if "priority" in text or "conflict" in text or "objective" in text:
+        candidates.extend(("priority_conflict", "portfolio_status"))
+    if "chaos" in text or "resilience" in text or "spof" in text or "single point" in text:
+        candidates.extend(("resilience_score", "chaos_experiment_status", "chaos_execution_policy"))
+    if "sizing" in text or "overprovision" in text or "underprovision" in text:
+        candidates.append("sizing_recommendation")
+    if domain == "cost_finops":
+        if "budget" in text:
+            candidates.append("budget_status")
+        elif "spike" in text or "anomaly" in text or "sudden" in text:
+            candidates.append("cost_anomaly")
+        else:
+            candidates.append("cost_breakdown")
+    elif domain == "capacity_performance_forecast":
+        if temporal == "forecast" or "forecast" in text or "predict" in text:
+            candidates.append("forecast")
+        else:
+            candidates.append("capacity_status")
+    elif domain == "root_cause_analysis":
+        if "recurring" in text or "pattern" in text or "repeat" in text:
+            candidates.extend(("recurring_issue", "pattern"))
+        elif temporal == "historical":
+            candidates.append("case_history")
+        else:
+            candidates.append("why_rca")
+    elif domain == "change_deployment_impact":
+        if "drift" in text:
+            candidates.append("drift")
+        elif "manual" in text or "external" in text:
+            candidates.append("external_actor")
+        else:
+            candidates.append("resource_change_history")
+    elif domain == "dependency_impact":
+        if temporal == "historical":
+            candidates.append("bitemporal_state")
+        else:
+            candidates.append("resource_context")
+    elif domain == "reliability_policy_automation":
+        if "candidate" in text or "collected" in text:
+            candidates.extend(("rule_candidate_status", "learning_discovery_status"))
+        elif "release" in text or "history" in text:
+            candidates.append("rule_history")
+        elif "capability" in text or "manifest" in text:
+            candidates.extend(("capability_list", "help"))
+        elif "rule" in text:
+            candidates.append("rule_lookup")
+        else:
+            candidates.append("policy_explain")
+    else:
+        if "security" in text or "nsg" in text or "alert" in text:
+            candidates.append("security_alert_history")
+        elif "identity" in text or "role" in text or "privilege" in text:
+            candidates.append("privilege_escalation_status")
+        elif "missing" in text or "stale" in text or "gap" in text:
+            candidates.extend(
+                ("event_source_health", "discovery_health", "resource_discovery_status")
+            )
+        elif "inventory" in text or "exist" in text:
+            candidates.append("resource_discovery")
+        elif "spike" in text or "surge" in text or "high" in text:
+            candidates.append("anomaly")
+        else:
+            candidates.append("current_state")
+
+    allowed_set = set(allowed)
+    for cand in candidates:
+        if cand in allowed_set:
+            return cand
+    return _DOMAIN_DEFAULT_PANTHEON.get(domain, ("current_state",))[0]
 
 
 def build_presentation_oracle(item: dict[str, Any]) -> dict[str, Any]:
@@ -295,7 +503,7 @@ def enrich_question_bank_items(questions: list[dict[str, Any]]) -> None:
     )
     non_golden_active = [item for item in active_items if item["source_kind"] != "golden"]
 
-    for idx, item in enumerate(active_items):
+    for item in active_items:
         domain = str(item["domain"])
         temporal_scope = str(item.get("temporal_scope") or "current")
         variations = item["variations"]
@@ -305,18 +513,12 @@ def enrich_question_bank_items(questions: list[dict[str, Any]]) -> None:
                 domain=domain,
                 temporal_scope=temporal_scope,
             )
-        assigned_fn = (
-            ALL_QUERY_FUNCTIONS[idx % fn_limit]
-            if fn_limit > 0
-            else _DOMAIN_DEFAULT_FUNCTIONS.get(domain, ("query.resource_current_state",))[0]
-        )
+        allowed_fns = ALL_QUERY_FUNCTIONS[:fn_limit]
+        assigned_fn = _semantic_query_function(item, allowed_fns)
         item["required_function_types"] = [assigned_fn]
 
-        assigned_pantheon = (
-            ALL_PANTHEON_DOMAINS[idx % pantheon_limit]
-            if pantheon_limit > 0
-            else _DOMAIN_DEFAULT_PANTHEON.get(domain, ("current_state",))[0]
-        )
+        allowed_pantheon = ALL_PANTHEON_DOMAINS[:pantheon_limit]
+        assigned_pantheon = _semantic_pantheon_domain(item, allowed_pantheon)
         item["pantheon_domains"] = [assigned_pantheon]
 
         item["presentation_oracle"] = build_presentation_oracle(item)
