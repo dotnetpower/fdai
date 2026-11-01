@@ -118,11 +118,17 @@ export function buildAgentTrajectories(
 ): readonly AgentTrajectory[] {
   const groups = new Map<string, AuditItem[]>();
   for (const item of items) {
-    if (item.correlation_id === null || !item.correlation_id.trim()) continue;
+    const resolvedCorrelation =
+      (item.correlation_id !== null && item.correlation_id.trim()
+        ? item.correlation_id.trim()
+        : null) ??
+      entryStr(item, "correlation_id") ??
+      entryStr(item, "incident_id");
+    if (resolvedCorrelation === null || !resolvedCorrelation.trim()) continue;
     if (item.action_kind === "startup_readiness.audit_probe") continue;
-    const bucket = groups.get(item.correlation_id) ?? [];
+    const bucket = groups.get(resolvedCorrelation) ?? [];
     bucket.push(item);
-    groups.set(item.correlation_id, bucket);
+    groups.set(resolvedCorrelation, bucket);
   }
   const trajectories: AgentTrajectory[] = [];
   for (const [correlationId, bucket] of groups) {
@@ -139,7 +145,15 @@ export function buildAgentTrajectories(
 
 /** Count of retained audit records that cannot join a trajectory because they lack a correlation. */
 export function uncorrelatedAuditCount(items: readonly AuditItem[]): number {
-  return items.filter((item) => item.correlation_id === null || !item.correlation_id.trim()).length;
+  return items.filter((item) => {
+    const resolved =
+      (item.correlation_id !== null && item.correlation_id.trim()
+        ? item.correlation_id.trim()
+        : null) ??
+      entryStr(item, "correlation_id") ??
+      entryStr(item, "incident_id");
+    return resolved === null || !resolved.trim();
+  }).length;
 }
 
 export function filterAgentTrajectories(

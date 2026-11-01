@@ -150,10 +150,14 @@ class ForsetiQualityRuntimeMixin:
             "no_verdict_fallback": "Forseti" in unavailable_peers,
             "judgment_counters": {
                 "verdicts": verdicts,
+                "t1_reused": int(behavior.get("t1:reused", 0) or 0),
+                "t2_proposed": int(behavior.get("t2:proposed", 0) or 0),
                 "t2_escalations": t2_escalations,
                 "grounding_missing": grounding_missing,
                 "model_disagreements": model_disagreements,
             },
+            "t1_advisor_bound": getattr(self, "_t1_advisor", None) is not None,
+            "t2_advisor_bound": getattr(self, "_t2_advisor", None) is not None,
             "verdict_coherence_self_test": dict(self._last_verdict_coherence),
             "novelty_drift_signal": dict(self._last_novelty_drift),
             "retrospective_what_if": dict(self._last_retrospective_what_if),
@@ -178,7 +182,12 @@ class ForsetiQualityRuntimeMixin:
         key = correlation_id or idempotency_key
         if not key:
             return
-        tier = str(event.get("judgment_tier") or event.get("source_tier") or "T0").upper()
+        tier = str(
+            verdict.get("judgment_tier")
+            or event.get("judgment_tier")
+            or event.get("source_tier")
+            or "T0"
+        ).upper()
         if tier not in {"T0", "T1", "T2"}:
             tier = "T0"
         self._verdict_quality_samples.set(
@@ -191,6 +200,7 @@ class ForsetiQualityRuntimeMixin:
                 "tier": tier,
             },
         )
+        self._compute_novelty_drift_signal()
         try:
             await retain_quality_sample(self, key, self._verdict_quality_samples.get(key) or {})
         except Exception:
@@ -384,7 +394,7 @@ class ForsetiQualityRuntimeMixin:
         else:
             self.record_behavior("verdict_coherence:checked")
 
-    def _refresh_novelty_drift_signal(self) -> None:
+    def _compute_novelty_drift_signal(self) -> float | None:
         tier_mix = {"T0": 0, "T1": 0, "T2": 0}
         for _key, sample in self._verdict_quality_samples.items():
             tier = sample["tier"]
@@ -398,6 +408,10 @@ class ForsetiQualityRuntimeMixin:
             "t2_ratio": t2_ratio,
             "unit": "ratio",
         }
+        return t2_ratio
+
+    def _refresh_novelty_drift_signal(self) -> None:
+        t2_ratio = self._compute_novelty_drift_signal()
         if t2_ratio is not None and t2_ratio > 0.1:
             self.record_behavior("novelty_drift:t2_ratio_high")
         else:

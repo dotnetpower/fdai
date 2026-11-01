@@ -404,10 +404,14 @@ def _build_pattern_library() -> PatternLibrary:
     The production control loop binds this library to the configured
     embedding model through :class:`T1Tier`.
     """
-    dsn = os.environ.get("FDAI_T1_PATTERN_LIBRARY_DSN", "").strip()
+    dsn = (
+        os.environ.get("FDAI_T1_PATTERN_LIBRARY_DSN", "").strip()
+        or os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
     if not dsn:
         _require_durable_backend(
-            env_var="FDAI_T1_PATTERN_LIBRARY_DSN", backend="T1 pattern library"
+            env_var="FDAI_T1_PATTERN_LIBRARY_DSN or FDAI_STATE_STORE_DSN",
+            backend="T1 pattern library",
         )
         _LOGGER.info("pattern_library_backend", extra={"backend": "in-memory"})
         return InMemoryPatternLibrary()

@@ -49,6 +49,7 @@ def build_pantheon_synthesis(
     pricing: PricingTable | None,
     metering: MeteringSink | None,
     held_capabilities: frozenset[str] = frozenset(),
+    timeout_seconds: float = 8.0,
 ) -> PantheonSynthesisBindings | None:
     if (
         resolved is None
@@ -64,7 +65,7 @@ def build_pantheon_synthesis(
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,
             held_capabilities=held_capabilities,
-            timeout_seconds=1.0,
+            timeout_seconds=timeout_seconds,
             max_tokens=1024,
             primary_capability="t2.reasoner.primary",
             reviewer_capability="t2.reasoner.secondary",
