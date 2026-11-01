@@ -50,6 +50,14 @@ class IncidentLifecycleNotice:
     reason: str | None = None
     roster: tuple[Incident, ...] = ()
 
+    def __post_init__(self) -> None:
+        if (
+            not self.actor_oid.strip()
+            or self.occurred_at.tzinfo is None
+            or self.occurred_at.utcoffset() is None
+        ):
+            raise ValueError("incident lifecycle notice requires actor_oid and aware occurred_at")
+
 
 @runtime_checkable
 class IncidentLifecycleNotifier(Protocol):
@@ -111,6 +119,16 @@ class IncidentTicketLink:
     ticket_url: str | None
     linked_at: datetime
     linked_by: str
+
+    def __post_init__(self) -> None:
+        if (
+            not self.provider.strip()
+            or not self.ticket_id.strip()
+            or not self.linked_by.strip()
+            or self.linked_at.tzinfo is None
+            or self.linked_at.utcoffset() is None
+        ):
+            raise ValueError("incident ticket link requires non-empty fields and aware linked_at")
 
 
 __all__ = [

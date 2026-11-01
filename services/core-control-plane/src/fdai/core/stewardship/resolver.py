@@ -60,16 +60,17 @@ def _is_placeholder(oid: str) -> bool:
 
 
 def _validate_oid(oid: str, *, where: str, require_real_bindings: bool) -> str:
-    if not isinstance(oid, str) or not _UUID_RE.match(oid):
+    normalized = oid.strip() if isinstance(oid, str) else ""
+    if not normalized or not _UUID_RE.match(normalized):
         raise StewardshipValidationError(
             f"stewardship config: {where} is not a valid Entra object id (UUID): {oid!r}"
         )
-    if require_real_bindings and _is_placeholder(oid):
+    if require_real_bindings and _is_placeholder(normalized):
         raise StewardshipValidationError(
             f"stewardship config: {where} is still the all-zero placeholder; "
             "deployment configuration MUST supply a real Entra object id"
         )
-    return oid
+    return normalized
 
 
 def load_stewardship_from_yaml(

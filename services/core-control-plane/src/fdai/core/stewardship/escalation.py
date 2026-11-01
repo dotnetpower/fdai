@@ -39,6 +39,10 @@ class EscalationRecipient:
     tier: EscalationTier
     duty: Duty | None = None
 
+    def __post_init__(self) -> None:
+        if not self.id.strip():
+            raise ValueError("EscalationRecipient id MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class EscalationPlan:
@@ -47,6 +51,16 @@ class EscalationPlan:
     agent_name: str
     recipients: tuple[EscalationRecipient, ...]
     hop_timeout_seconds: int
+
+    def __post_init__(self) -> None:
+        if (
+            self.agent_name not in AGENT_NAME_SET
+            or isinstance(self.hop_timeout_seconds, bool)
+            or self.hop_timeout_seconds < 1
+        ):
+            raise ValueError(
+                "EscalationPlan requires a valid agent_name and hop_timeout_seconds>=1"
+            )
 
     def tier(self, tier: EscalationTier) -> tuple[EscalationRecipient, ...]:
         """Recipients on a specific tier, in order."""

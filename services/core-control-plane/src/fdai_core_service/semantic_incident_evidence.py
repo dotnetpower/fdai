@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 
 INCIDENT_TIMELINE_ROW_LIMIT = 10
@@ -53,7 +54,7 @@ def incident_scalar(value: object) -> str | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, int | float):
-        return str(value)
+        return str(value) if math.isfinite(value) else None
     if isinstance(value, list | tuple):
         parts = [item for item in (incident_scalar(entry) for entry in value) if item]
         return ", ".join(parts) or None
@@ -66,7 +67,7 @@ def incident_next_step_actions(
     korean: bool,
 ) -> tuple[str, ...]:
     """Derive concrete read-only steps from the gaps this answer actually found."""
-    present = set(gaps)
+    present = {gap.strip() for gap in gaps if isinstance(gap, str) and gap.strip()}
     return tuple(
         korean_step if korean else english_step
         for key, korean_step, english_step in _INCIDENT_GAP_NEXT_STEPS
@@ -92,7 +93,7 @@ def incident_profile_facts(
 
 def incident_timeline_rows(evidence: object) -> tuple[Mapping[str, str], ...]:
     """Return the most recent bounded audit records in ascending recorded order."""
-    if not isinstance(evidence, list):
+    if not isinstance(evidence, (list, tuple)):
         return ()
     rows: list[Mapping[str, str]] = []
     for entry in evidence[-INCIDENT_TIMELINE_ROW_LIMIT:]:

@@ -141,6 +141,8 @@ def compile_governed_document_plan(
     Mismatch raises without falling back; a missing structured query is unavailable.
     """
 
+    if not purpose.strip():
+        raise ValueError("governed document plan purpose MUST be non-empty")
     if frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
         return None
     mode = document_evidence_mode(frame)

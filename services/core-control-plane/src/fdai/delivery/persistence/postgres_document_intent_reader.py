@@ -35,10 +35,12 @@ class PostgresDocumentIntentReadAdmission:
     def __init__(
         self, repository: PostgresDocumentIntent, principal: Principal, *, purpose: str
     ) -> None:
+        if not purpose.strip():
+            raise ValueError("intent reader purpose MUST be non-empty")
         self.repository = repository
         self.principal = principal
-        self.purpose = purpose
-        self.scope = semantic_principal_scope_digest(principal=principal, purpose=purpose)
+        self.purpose = purpose.strip()
+        self.scope = semantic_principal_scope_digest(principal=principal, purpose=self.purpose)
 
     async def authorize(self, *, principal_scope_digest: str, purpose: str) -> SourceReadAdmission:
         if principal_scope_digest != self.scope or purpose != self.purpose:

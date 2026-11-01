@@ -60,8 +60,15 @@ class DeterministicVerifierEvidence:
             raise ValueError("deterministic evidence producer_id MUST be bounded text")
         if not _is_digest(self.candidate_digest):
             raise ValueError("deterministic evidence candidate_digest MUST be SHA-256")
-        if self.observed_at.tzinfo is None or self.expires_at.tzinfo is None:
+        if (
+            self.observed_at.tzinfo is None
+            or self.observed_at.utcoffset() is None
+            or self.expires_at.tzinfo is None
+            or self.expires_at.utcoffset() is None
+        ):
             raise ValueError("deterministic evidence timestamps MUST include timezone")
+        if not isinstance(self.synthetic, bool):
+            raise ValueError("deterministic evidence synthetic flag MUST be a boolean")
         if self.expires_at < self.observed_at:
             raise ValueError("deterministic evidence expires_at MUST not precede observed_at")
         if self.status is DeterministicEvidenceStatus.PASSED and not self.evidence_refs:

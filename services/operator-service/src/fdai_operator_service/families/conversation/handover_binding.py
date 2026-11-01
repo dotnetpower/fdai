@@ -27,7 +27,10 @@ class HandoverBoundProposalOutbox:
     binder: HandoverConversationBinder
 
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
-        return await self.fallback.append(await self.binder.bind_conversation(proposal))
+        bound = await self.binder.bind_conversation(proposal)
+        if bound.scope.subject_id != proposal.scope.subject_id:
+            raise ValueError("handover binder MUST NOT alter conversation subject_id")
+        return await self.fallback.append(bound)
 
 
 def bind_handover_conversations(

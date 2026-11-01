@@ -594,3 +594,190 @@ def test_campaign_4_f001_to_f105_hardening_invariants() -> None:
     with pytest.raises(ValueError, match="between 1 and 256"):
         argument_name(" arg ")
     validate_projection_allocation([frozenset({"a", "b"})])
+
+
+def test_campaign_5_g001_to_g105_incident_document_rule_opa_pantheon_invariants() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.audit.rule_fire_trace import RuleFireTrace
+    from fdai.core.audit.what_if_replay import EventReconstructionError, reconstruct_event
+    from fdai.core.conversation.semantic_incident_creation import (
+        incident_creation_intent_from_judgment,
+    )
+    from fdai.core.document_ingestion.state_machine import (
+        InvalidDocumentTransitionError,
+        can_transition,
+        transition,
+    )
+    from fdai.core.framework_rule_evidence.coverage import canonical_sha256
+    from fdai.core.incident.auto_open import IncidentAutoOpenDecision
+    from fdai.core.incident.durable_notifications import DurableNotificationResult
+    from fdai.core.incident.metrics import project_incident_metrics
+    from fdai.core.incident.platform_sync import IncidentPlatformSyncReport
+    from fdai.core.incident.state_machine import IncidentTransition
+    from fdai.core.incident.storm import StormSignal
+    from fdai.core.incident.workflow_support import canonical_incident_correlation_keys
+    from fdai.core.knowledge.cloud_applicability import cloud_target_from_arguments
+    from fdai.core.quality_gate.rag_grounding import HashedRuleEmbeddingIndex
+    from fdai.core.rca.causal_chain import CorrelatedEvent
+    from fdai.core.rca.citations import admitted_citations
+    from fdai.core.rca.contract import Citation, CitationKind
+    from fdai.core.rule_catalog_profiles.models import ProfileRule
+    from fdai.core.stewardship.coverage import CoverageReport, Finding, Severity
+    from fdai.core.stewardship.escalation import EscalationPlan, EscalationRecipient
+    from fdai.core.stewardship.model import Responsibility, StewardKind, StewardSubject
+    from fdai.core.tiers.t0_deterministic.engine import PolicyResult
+    from fdai.core.tiers.t0_deterministic.models import RegoEvaluationReceipt
+    from fdai.delivery.agent_activity import AgentState, AgentStateEvent
+    from fdai.delivery.agent_handler_activity import HandlerActivityContext
+    from fdai.delivery.agent_introspection_bus import agent_introspection_server_group_id
+    from fdai.shared.contracts.models import IncidentSeverity, IncidentState
+    from fdai_core_service.semantic_incident_evidence import (
+        incident_next_step_actions,
+        incident_scalar,
+        incident_timeline_rows,
+    )
+
+    # G001-G020: Incident creation, evidence, metrics (including incident.severity), and storm
+    with pytest.raises(ValueError, match="source_input_digest"):
+        incident_creation_intent_from_judgment(None, source_input_digest="   ")
+    assert incident_scalar(float("nan")) is None
+    assert incident_next_step_actions([" root_cause_missing "], korean=False) == (
+        "confirm that an RCA hypothesis with grounded citations has been recorded",
+    )
+    assert (
+        len(
+            incident_timeline_rows(
+                ({"recorded_at": "2026-11-01T00:00:00Z", "audit_ref": "audit:1"},)
+            )
+        )
+        == 1
+    )
+    with pytest.raises(ValueError, match="IncidentAutoOpenDecision"):
+        IncidentAutoOpenDecision(eligible=True, reason="   ")
+    metrics = project_incident_metrics(
+        [
+            {
+                "idempotency_key": "k1",
+                "kind": "incident.open",
+                "incident_id": "00000000-0000-0000-0000-000000000001",
+                "actor_oid": "Heimdall",
+                "opened_at": "2026-11-01T00:00:00+00:00",
+                "state": "open",
+                "severity": "sev3",
+            },
+            {
+                "idempotency_key": "k2",
+                "kind": "incident.severity",
+                "incident_id": "00000000-0000-0000-0000-000000000001",
+                "severity": "sev1",
+            },
+        ],
+        agent_principals=("Heimdall",),
+    )
+    assert metrics.current_by_severity == {"sev1": 1}
+    with pytest.raises(ValueError, match="counts"):
+        IncidentPlatformSyncReport(observed=1, published=2)
+    with pytest.raises(ValueError, match="StormSignal"):
+        StormSignal(
+            signal_id="s1",
+            severity=IncidentSeverity.SEV1,
+            resource_ref="r1",
+            arrived_at=datetime(2026, 11, 1, tzinfo=UTC),
+            blast_radius=True,
+        )
+
+    # G021-G050: Incident RCA, citations, cloud applicability, and document state machine
+    assert canonical_incident_correlation_keys([" resource:aks-1 ", ""]) == ("resource:aks-1",)
+    with pytest.raises(ValueError, match="CorrelatedEvent"):
+        CorrelatedEvent(
+            event_id="   ",
+            at=datetime(2026, 11, 1, tzinfo=UTC),
+            resource_ref="r1",
+            is_change=True,
+        )
+    with pytest.raises(ValueError, match="string"):
+        Citation(kind=CitationKind.RULE, ref=None)  # type: ignore[arg-type]
+    assert admitted_citations(()) is None
+    with pytest.raises(ValueError, match="blank"):
+        cloud_target_from_arguments(
+            {
+                "cloud_provider": "azure",
+                "cloud_resource_type": "   ",
+                "cloud_generation": "v1",
+            }
+        )
+    assert can_transition("invalid", IncidentState.OPEN) is False  # type: ignore[arg-type]
+    with pytest.raises(InvalidDocumentTransitionError):
+        transition("invalid", IncidentState.OPEN)  # type: ignore[arg-type]
+
+    # G051-G080: Rule evidence, profiles, OPA / T0 receipts, audit trace, and quality gate
+    assert canonical_sha256("  " + "a" * 64 + "  ") == "sha256:" + "a" * 64
+    with pytest.raises(ValueError, match="ProfileRule"):
+        ProfileRule(id="   ")
+    with pytest.raises(ValueError, match="PolicyResult"):
+        PolicyResult(denied=1, context={})  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="RegoEvaluationReceipt"):
+        RegoEvaluationReceipt(
+            decision_path="   ",
+            opa_version="1.0",
+            parser_id="p",
+            parser_version="1",
+            policy_source_digest="d",
+            normalized_semantic_digest="n",
+            input_evidence_digest="i",
+            denied=False,
+            result_digest="r",
+        )
+    with pytest.raises(ValueError, match="RuleFireTrace"):
+        RuleFireTrace(correlation_id="   ", steps=())
+    with pytest.raises(EventReconstructionError):
+        reconstruct_event("   ", ())
+    with pytest.raises(ValueError, match="dim"):
+        HashedRuleEmbeddingIndex(dim=True)
+
+    # G081-G105: Pantheon stewardship, agent activity, introspection, and durable notifications
+    with pytest.raises(ValueError, match="non-empty"):
+        Finding(code="   ", severity=Severity.WARN, message="msg")
+    with pytest.raises(ValueError, match="non-negative"):
+        CoverageReport(
+            findings=(),
+            total_agents=True,
+            autonomous_agents=0,
+            maintainer_count=1,
+        )
+    with pytest.raises(ValueError, match="EscalationRecipient"):
+        EscalationRecipient(kind=StewardKind.USER, id="   ", tier="accountable")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="EscalationPlan"):
+        EscalationPlan(agent_name="UnknownAgent", recipients=(), hop_timeout_seconds=10)
+    with pytest.raises(ValueError, match="StewardSubject"):
+        StewardSubject(kind=StewardKind.USER, id="   ", responsibility=Responsibility.ACCOUNTABLE)
+    with pytest.raises(ValueError, match="Pantheon agent"):
+        AgentStateEvent(agent="NotAnAgent", state=AgentState.IDLE, ts="2026-11-01T00:00:00Z")
+    with pytest.raises(ValueError, match="HandlerActivityContext"):
+        HandlerActivityContext(
+            activity_id="   ",
+            activity_correlation_id=None,
+            phase="started",
+            topic="t",
+            event_id=None,
+            event_type=None,
+            resource_ref=None,
+            resource_name=None,
+            resource_type=None,
+            started_at="2026-11-01T00:00:00Z",
+            completed_at=None,
+            duration_ms=None,
+        )
+    with pytest.raises(ValueError, match="positive integer"):
+        agent_introspection_server_group_id(local_process=True, process_id=True)
+    with pytest.raises(ValueError, match="DurableNotificationResult"):
+        DurableNotificationResult(status="   ")
+    with pytest.raises(ValueError, match="IncidentTransition"):
+        IncidentTransition(
+            incident_id=__import__("uuid").uuid4(),
+            from_state=IncidentState.OPEN,
+            to_state=IncidentState.TRIAGING,
+            actor_oid="   ",
+            at=datetime(2026, 11, 1, tzinfo=UTC),
+        )

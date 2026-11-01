@@ -88,6 +88,19 @@ class CausalIncidentGraph:
     provider_generation_refs: tuple[str, ...] = ()
     active_provider_generation: str | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.incident_id.strip()
+            or not self.graph_revision.strip()
+            or self.evidence_cutoff.tzinfo is None
+            or self.evidence_cutoff.utcoffset() is None
+            or (
+                self.known_at is not None
+                and (self.known_at.tzinfo is None or self.known_at.utcoffset() is None)
+            )
+        ):
+            raise ValueError("CausalIncidentGraph requires non-empty ids and aware timestamps")
+
     @property
     def complete(self) -> bool:
         return (

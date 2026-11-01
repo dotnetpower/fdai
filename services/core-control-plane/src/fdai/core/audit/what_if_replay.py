@@ -66,6 +66,8 @@ def reconstruct_event(correlation_id: str, items: Sequence[AuditItemLike]) -> Re
     ``event_ingest`` stage, which records the normalized event payload.
     Missing / malformed payloads raise :class:`EventReconstructionError`.
     """
+    if not correlation_id.strip():
+        raise EventReconstructionError("correlation_id MUST be non-empty")
     if not items:
         raise EventReconstructionError(f"no audit items for correlation_id {correlation_id!r}")
     sorted_items = sorted(items, key=lambda i: i.seq)
@@ -77,13 +79,13 @@ def reconstruct_event(correlation_id: str, items: Sequence[AuditItemLike]) -> Re
     resource = payload.get("resource")
     if not isinstance(resource, Mapping):
         raise EventReconstructionError("payload.resource MUST be a mapping")
-    resource_id = str(resource.get("resource_id") or resource.get("id") or "")
-    resource_type = str(resource.get("type") or "")
+    resource_id = str(resource.get("resource_id") or resource.get("id") or "").strip()
+    resource_type = str(resource.get("type") or "").strip()
     props = resource.get("props") or {}
     if not resource_id or not resource_type or not isinstance(props, Mapping):
         raise EventReconstructionError("payload.resource MUST contain resource_id, type, and props")
     return ReconstructedEvent(
-        correlation_id=correlation_id,
+        correlation_id=correlation_id.strip(),
         resource_id=resource_id,
         resource_type=resource_type,
         props=dict(props),

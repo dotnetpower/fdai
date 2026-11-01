@@ -56,6 +56,15 @@ class ExactRuleGenerationDocumentResolver:
     embedding_model_version: str
     embedding_dimension: int
 
+    def __post_init__(self) -> None:
+        if (
+            not self.embedding_space_id.strip()
+            or not self.embedding_model_version.strip()
+            or isinstance(self.embedding_dimension, bool)
+            or self.embedding_dimension < 1
+        ):
+            raise ValueError("ExactRuleGenerationDocumentResolver embedding metadata is invalid")
+
     async def resolve(
         self,
         request: RuleGenerationBuildRequestEvent,

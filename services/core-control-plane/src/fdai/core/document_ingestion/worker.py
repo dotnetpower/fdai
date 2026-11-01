@@ -63,7 +63,7 @@ class DocumentIngestionWorker:
         clock: Callable[[], datetime] | None = None,
         indexing_stage_timeout_seconds: float = 90.0,
     ) -> None:
-        if indexing_stage_timeout_seconds <= 0:
+        if isinstance(indexing_stage_timeout_seconds, bool) or indexing_stage_timeout_seconds <= 0:
             raise ValueError("indexing_stage_timeout_seconds MUST be positive")
         self._access = access
         self._metadata = metadata

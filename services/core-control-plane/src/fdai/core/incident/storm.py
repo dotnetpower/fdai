@@ -57,6 +57,17 @@ class StormSignal:
     arrived_at: datetime
     blast_radius: int = 1  # estimated count of affected resources
 
+    def __post_init__(self) -> None:
+        if (
+            not self.signal_id.strip()
+            or not self.resource_ref.strip()
+            or isinstance(self.blast_radius, bool)
+            or self.blast_radius < 1
+        ):
+            raise ValueError(
+                "StormSignal requires non-empty ids, aware arrived_at, and positive blast_radius"
+            )
+
 
 @dataclass(frozen=True, slots=True)
 class RemediationStep:

@@ -96,6 +96,10 @@ class AgentStateEvent:
     source: ObservationSource = ObservationSource.UNKNOWN
     activity: HandlerActivityContext | None = None
 
+    def __post_init__(self) -> None:
+        if self.agent not in _PANTHEON_NAMES or not self.ts.strip():
+            raise ValueError("AgentStateEvent requires a Pantheon agent and non-empty timestamp")
+
     def to_payload(self) -> dict[str, object]:
         """Return the stable agent-state wire payload."""
         payload: dict[str, object] = {

@@ -85,6 +85,10 @@ class RuleFireTrace:
     correlation_id: str
     steps: tuple[RuleFireTraceStep, ...]
 
+    def __post_init__(self) -> None:
+        if not self.correlation_id.strip():
+            raise ValueError("RuleFireTrace correlation_id MUST be non-empty")
+
     def as_json(self) -> dict[str, Any]:
         terminal_stage = next(
             (step.stage for step in reversed(self.steps) if step.stage is not None),

@@ -51,6 +51,8 @@ class HistoricalCausalIncidentGraphMaterializer:
         if (
             not isinstance(incident_id, str)
             or not incident_id.strip()
+            or not isinstance(root_ids, (list, tuple))
+            or not isinstance(link_types, (list, tuple))
             or not root_ids
             or not link_types
             or any(

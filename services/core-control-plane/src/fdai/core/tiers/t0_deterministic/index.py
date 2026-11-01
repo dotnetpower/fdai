@@ -98,7 +98,7 @@ class RuleIndex:
 
     def rules_for_type(self, resource_type: str) -> tuple[Rule, ...]:
         """Return every rule whose ``resource_type`` matches, severity-ordered."""
-        return self._by_resource_type.get(resource_type, ())
+        return self._by_resource_type.get(resource_type.strip(), ())
 
     def rules_for_signal(
         self, *, resource_type: str, signal_type: str | None = None

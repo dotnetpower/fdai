@@ -31,6 +31,13 @@ def semantic_technical_trajectory(
     A pinned turn keeps an empty base detail even when no read receipt survived, so its work
     progress fields replay. Receipts or budget alone never create a trajectory.
     """
+    if (
+        isinstance(checks_completed, bool)
+        or isinstance(checks_total, bool)
+        or checks_completed < 0
+        or checks_total < 0
+    ):
+        return None
     semantic = projection.get("semantic_result")
     if not isinstance(semantic, Mapping):
         return None
@@ -49,8 +56,8 @@ def semantic_technical_trajectory(
         or graph.get("schema_version") != 2
         or not isinstance(evidence, Mapping)
         or evidence.get("schema_version") not in {1, 2}
-        or not isinstance(graph_goals, list)
-        or not isinstance(evidence_goals, list)
+        or not isinstance(graph_goals, (list, tuple))
+        or not isinstance(evidence_goals, (list, tuple))
         or not graph_goals
         or len(graph_goals) != len(evidence_goals)
     ):
@@ -62,7 +69,7 @@ def semantic_technical_trajectory(
             for output in outputs
             if isinstance(output, Mapping) and isinstance((node_id := output.get("node_id")), str)
         }
-        if isinstance(outputs, list)
+        if isinstance(outputs, (list, tuple))
         else {}
     )
     activities: list[tuple[JsonObject, bool]] = []

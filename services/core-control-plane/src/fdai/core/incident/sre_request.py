@@ -81,6 +81,10 @@ class OperatorSreRequest:
             _require(self.resource_type, "resource_type")
         if not str(getattr(self.principal, "id", "")).strip():
             raise OperatorSreRequestError("operator SRE request principal id MUST be non-empty")
+        if not isinstance(self.severity, IncidentSeverity) or not isinstance(self.params, Mapping):
+            raise OperatorSreRequestError(
+                "operator SRE request requires IncidentSeverity and mapping params"
+            )
 
 
 @dataclass(frozen=True, slots=True)

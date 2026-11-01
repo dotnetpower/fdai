@@ -83,6 +83,9 @@ class GovernedDocumentEvidenceReadAdapter:
             raise GovernedKnowledgeEvidenceHoldError("query_missing")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
             raise ValueError("governed document evidence limit MUST be in [1, 20]")
+        now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("governed document evidence clock MUST be timezone-aware")
         source = _GovernedDocumentEvidenceSource(
             search=self._search,
             metadata=self._metadata,

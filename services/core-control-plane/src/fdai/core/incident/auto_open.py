@@ -59,6 +59,10 @@ class IncidentAutoOpenDecision:
     reason: str
     severity: IncidentSeverity | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.eligible, bool) or not self.reason.strip():
+            raise ValueError("IncidentAutoOpenDecision requires boolean eligible and reason")
+
 
 def evaluate_incident_auto_open(
     candidate: Mapping[str, object],

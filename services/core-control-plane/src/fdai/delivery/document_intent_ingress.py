@@ -39,9 +39,9 @@ class DocumentIntentIngress:
             or payload.get("event_type") not in {"document.ready", "document.deleted"}
             or payload.get("producer_principal") != "Huginn"
             or not isinstance(record, dict)
-            or not isinstance(purposes, list)
-            or any(not isinstance(purpose, str) for purpose in purposes)
-            or "manual_distillation" not in purposes
+            or not isinstance(purposes, (list, tuple))
+            or any(not isinstance(purpose, str) or not purpose.strip() for purpose in purposes)
+            or "manual_distillation" not in {purpose.strip() for purpose in purposes}
         ):
             return True
         try:

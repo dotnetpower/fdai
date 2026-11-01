@@ -49,8 +49,8 @@ class ControlLoopGovernanceMixin:
         def _text(*keys: str) -> str:
             for key in keys:
                 value = resource_data.get(key, payload.get(key))
-                if isinstance(value, str) and value:
-                    return value
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
             return ""
 
         return ResourceContext(

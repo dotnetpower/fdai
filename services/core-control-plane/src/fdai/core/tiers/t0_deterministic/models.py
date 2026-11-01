@@ -57,6 +57,22 @@ class RegoEvaluationReceipt:
     denied: bool
     result_digest: str
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.denied, bool) or any(
+            not value.strip()
+            for value in (
+                self.decision_path,
+                self.opa_version,
+                self.parser_id,
+                self.parser_version,
+                self.policy_source_digest,
+                self.normalized_semantic_digest,
+                self.input_evidence_digest,
+                self.result_digest,
+            )
+        ):
+            raise ValueError("RegoEvaluationReceipt requires boolean denied and non-empty fields")
+
 
 @dataclass(frozen=True, slots=True)
 class Finding:
