@@ -235,7 +235,7 @@ def build_answer_plan(
     normalized_subject = subject.strip()
     preference_applied = False
 
-    if preferences is not None:
+    if preferences is not None and intent is not AnswerIntent.GREETING:
         preferred_detail = preferences.detail_for(intent)
         preferred_format = preferences.format_for(intent)
         if preferred_detail is not None:

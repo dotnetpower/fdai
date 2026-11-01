@@ -256,3 +256,528 @@ def test_transport_proof_requires_server_wrapper_and_never_enters_prompt() -> No
     assert facts["relationship_status"] == "verified"
     assert proof.principal_id not in prompt
     assert proof.source_revision not in prompt
+
+
+def test_rounds_9_to_12_semantic_judgment_reasoning_and_adaptive_hardening() -> None:
+    from types import MappingProxyType
+
+    from fdai.core.conversation.adaptive_models import (
+        AdaptiveEvidence,
+        AdaptiveGoal,
+        AdaptivePolicy,
+        AdaptiveReview,
+        AdaptiveSection,
+    )
+    from fdai.core.conversation.semantic_catalog_value_mentions import StatedCatalogValue
+    from fdai.core.conversation.semantic_direction_receipt import DirectionCostReceipt
+    from fdai.core.conversation.semantic_judgment_bounds import bounded_context
+    from fdai.core.conversation.semantic_judgment_capabilities import property_canonical_values
+    from fdai.core.conversation.semantic_judgment_schema_repair import names_schema_family
+    from fdai.core.conversation.semantic_reasoning_ambiguity import ambiguity_verdict
+    from fdai.core.conversation.semantic_reasoning_comparison_checks import _metric_scope_operand
+    from fdai_service_contracts.ontology_query import (
+        OntologyQueryNode,
+        QueryNodeKind,
+        canonical_json,
+    )
+
+    # D25: StatedCatalogValue validates positive span and non-empty values
+    with pytest.raises(ValueError, match="positive span"):
+        StatedCatalogValue(
+            object_type="Resource",
+            property_name="type",
+            text="vm",
+            source_start=5,
+            source_end=3,
+            values=("compute.vm",),
+        )
+
+    # D26: DirectionCostReceipt rejects boolean or negative fields
+    with pytest.raises(ValueError, match="1 or 2"):
+        DirectionCostReceipt(
+            readers=True,  # type: ignore[arg-type]
+            calls=1,
+            input_bytes=10,
+            output_tokens=5,
+            wall_ms=10,
+        )
+
+    # D27: bounded_context and property_canonical_values reject blank inputs
+    assert bounded_context(("turn-1", "   ")) == ("turn-1",)
+    with pytest.raises(TypeError, match="sequence of strings"):
+        bounded_context("raw")
+    with pytest.raises(ValueError, match="exact ObjectType"):
+        property_canonical_values(
+            {"kind": "object_type", "name": "Resource", "property_names": ["   "]}
+        )
+
+    # D30: names_schema_family accepts MappingProxyType
+    assert names_schema_family(MappingProxyType({"primary_intent": "query.manifest"}))
+
+    # D31: _metric_scope_operand rejects inverted or naive timestamps
+    bad_node = OntologyQueryNode(
+        node_id="n1",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        depends_on=(),
+        arguments_json=canonical_json(
+            {
+                "concept_id": "cpu_usage",
+                "start": "2026-09-06T05:00:00Z",
+                "end": "2026-09-06T04:00:00Z",
+            }
+        ),
+        output_kind="metric.window",
+    )
+    assert _metric_scope_operand(bad_node) == ["prov_metric_window:n1"]
+
+    # D33: ambiguity_verdict strips and lowercases readings
+    assert ambiguity_verdict({"readings": " ONE "}) == "one"
+
+    # D35 & D36: AdaptiveGoal/Section/Review/Evidence/Policy and NUL byte prompt checks
+    with pytest.raises(ValueError, match="non-empty"):
+        AdaptiveGoal(goal_id="g1", kind="knowledge", question="   ", required=True)
+    with pytest.raises(ValueError, match="non-empty"):
+        AdaptiveSection(goal_id="g1", text="   ")
+    with pytest.raises(ValueError, match="unique"):
+        AdaptiveReview(safe=True, complete=True, supported_goal_ids=("g1", "g1"), issues=())
+    with pytest.raises(ValueError, match="content and references"):
+        AdaptiveEvidence(status="answered", content="   ", evidence_refs=("ref-1",))
+    with pytest.raises(ValueError, match="positive and bounded"):
+        AdaptivePolicy(total_seconds=True, per_stage_seconds=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="server-owned and bounded"):
+        ConversationProfile(agent="Bragi", role_directive="Valid\x00directive")
+
+
+def test_campaign_3_rounds_1_to_18_hardening() -> None:
+    from types import MappingProxyType
+
+    from fdai.core.conversation.causal_grade_receipts import load_causal_mechanism_catalog
+    from fdai.core.conversation.model_observation import ConversationModelObservation
+    from fdai.core.conversation.question_candidates import QuestionModelUsage
+    from fdai.core.conversation.question_novelty import QuestionEmbeddingIdentity
+    from fdai.core.conversation.read_plan import _scalar
+    from fdai.core.conversation.semantic_planning_frame_facets import _facet_affirms_concept
+    from fdai.core.conversation.semantic_planning_value_filters import stated_value_filters
+    from fdai.core.conversation.semantic_reasoning_coverage import (
+        CoverageCell,
+        ReasoningCoverageReceipt,
+    )
+    from fdai.core.conversation.semantic_reasoning_lifecycle import (
+        lifecycle_values,
+        parse_lifecycle,
+    )
+    from fdai.core.conversation.semantic_reasoning_measure_reads import (
+        state_transition_arguments,
+    )
+    from fdai.core.conversation.semantic_reasoning_measures import listed_health_concepts
+    from fdai.core.conversation.semantic_reasoning_metric_selection import MetricStage
+    from fdai.core.conversation.semantic_target_health import (
+        target_health_nodes,
+        target_health_window,
+    )
+    from fdai.core.conversation.turn_reservations import PlannedStage, StageCost
+    from fdai.delivery.catalog_search.ontology_evaluation_replay import embedding_result_payload
+    from fdai.delivery.catalog_search.ontology_selection_errors import (
+        CandidateSelectionError,
+        SelectionFailure,
+    )
+    from fdai.delivery.catalog_search.ontology_semantic_evaluation import (
+        OntologySemanticEvaluationBudget,
+    )
+    from fdai.delivery.catalog_search.ontology_semantic_qualification import clopper_pearson_upper
+    from fdai_core_service.semantic_presentation_semantics import project_presentation_semantics
+
+    # E02 & E03: tuple-backed value_groups and hyphenated/uppercase facets
+    descriptors = (
+        {
+            "kind": "object",
+            "name": "Resource",
+            "properties": {
+                "type": {
+                    "value_groups": (
+                        {"id": "vm", "terms": ("virtual machine",), "values": ("compute.vm",)},
+                    )
+                }
+            },
+        },
+    )
+    assert stated_value_filters("show virtual machines", descriptors) == {
+        ("Resource", "type"): ("compute.vm",)
+    }
+    assert _facet_affirms_concept("Configuration-Drift", "configuration_drift")
+    assert not _facet_affirms_concept("", "")
+
+    # E05: target_health_window and target_health_nodes bounds
+    with pytest.raises(ValueError, match="timezone-aware"):
+        target_health_window(_NOW.replace(tzinfo=None))
+    with pytest.raises(ValueError, match="non-empty"):
+        target_health_nodes(" ", "anchor-1", _NOW)
+
+    # E16 & E18: listed_health_concepts deduplicates and state_transition_arguments rejects bool
+    assert listed_health_concepts(((" h1 ", ("a",)), ("h1", ("b",)), (" ", ("c",)))) == ("h1",)
+    with pytest.raises(ValueError, match="positive integer"):
+        state_transition_arguments(_NOW, True)
+
+    # E20: MetricStage validates window_kind and seconds
+    with pytest.raises(ValueError, match="metric stage"):
+        MetricStage(arguments={}, concept="cpu", window_kind="invalid", seconds=60)
+
+    # E27: parse_lifecycle strips input and lifecycle_values accepts tuple
+    assert parse_lifecycle(" lifecycle:Incident.status=open ") is not None
+    assert (
+        len(
+            lifecycle_values(
+                (
+                    {
+                        "kind": "object",
+                        "name": "Incident",
+                        "properties": {"status": {"lifecycle_state": True, "values": ("open",)}},
+                    },
+                )
+            )
+        )
+        == 1
+    )
+
+    # E35 & E36: QuestionEmbeddingIdentity and QuestionModelUsage guards
+    with pytest.raises(ValueError, match="bounded"):
+        QuestionEmbeddingIdentity(
+            space_digest="sha256:" + "a" * 64,
+            model_version="   ",
+            dimension=8,
+            vector_digest="sha256:" + "b" * 64,
+        )
+    with pytest.raises(ValueError, match="non-negative"):
+        QuestionModelUsage(model_calls=True)  # type: ignore[arg-type]
+
+    # E38 & E39: _scalar rejects NaN/blank and load_causal_mechanism_catalog accepts Mapping
+    assert not _scalar(float("nan"))
+    assert not _scalar("   ")
+    specs = load_causal_mechanism_catalog(
+        MappingProxyType(
+            {
+                "schema_version": "1.0",
+                "mechanisms": (
+                    MappingProxyType(
+                        {
+                            "id": " m1 ",
+                            "required_evidence": (" complete_activity_window ",),
+                            "refutation_reads": (" r1 ",),
+                        }
+                    ),
+                ),
+            }
+        )
+    )
+    assert specs[0].mechanism_id == "m1"
+
+    # E40 & E42: StageCost, PlannedStage, and ConversationModelObservation guards
+    with pytest.raises(ValueError, match="booleans"):
+        StageCost(calls=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="at most 64"):
+        PlannedStage(stage="plan", worst=StageCost(calls=1), max_calls=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-empty model"):
+        ConversationModelObservation(model="   ", usage=None, trace_call={})
+
+    # E47, E49, E50, E51: catalog_search error, budget, qualification, and replay guards
+    assert CandidateSelectionError(SelectionFailure.AMBIGUOUS_REQUEST).clarification is True
+    with pytest.raises(ValueError, match="bounded calls"):
+        OntologySemanticEvaluationBudget(total_timeout_seconds=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="binomial bound"):
+        clopper_pearson_upper(0, True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="non-empty identity"):
+        embedding_result_payload("q", (1.0,), call_index=True, identity=("s", "m", 1))  # type: ignore[arg-type]
+
+    # E52 & E60: project_presentation_semantics rejects blank unit; CoverageCell/Receipt guards
+    assert (
+        project_presentation_semantics(
+            operation="aggregate",
+            output_shape="aggregation_table",
+            outputs=({"rows": ({"values": {"category": "vm", "value": 1, "unit": "   "}},)},),
+        )
+        is None
+    )
+    with pytest.raises(ValueError, match="unique cell_ids"):
+        ReasoningCoverageReceipt(
+            manifest_release_digest="sha256:" + "a" * 64,
+            cells=(CoverageCell("c1", "compiled", ()), CoverageCell("c1", "compiled", ())),
+        )
+
+
+def test_campaign_4_f001_to_f105_hardening_invariants() -> None:
+    from fdai.core.conversation.contextual_translation import _leaf_values
+    from fdai.core.conversation.grounded_answer_validation import validate_grounded_answer
+    from fdai.core.conversation.result_handle_store import result_handle_conversation_id
+    from fdai.core.conversation.semantic_current_evidence import (
+        SemanticCurrentEvidenceObservation,
+    )
+    from fdai.core.conversation.semantic_operand_provenance import (
+        IdentityBindingReceipt,
+        _predicate_operands,
+    )
+    from fdai.core.conversation.semantic_planning_assembly import frame_result_keys
+    from fdai.core.conversation.semantic_planning_judgment import (
+        _semantic_judgment_capabilities,
+    )
+    from fdai.core.conversation.semantic_planning_models import SemanticOutputShape
+    from fdai.core.conversation.semantic_reasoning_filter_coverage import all_zero_identifier
+    from fdai.core.conversation.semantic_reasoning_handles import ReferenceOutcome
+    from fdai.core.conversation.semantic_stored_result_handles import _bind_one
+    from fdai.core.conversation.tools import ToolResult
+    from fdai.core.ontology_platform.inventory_projection_bounds import (
+        validate_projection_allocation,
+    )
+    from fdai.core.ontology_platform.property_values import declared_property_values
+    from fdai.core.ontology_platform.query_handler_values import argument_name
+    from fdai_service_contracts.ontology_query import EvidenceAuthority
+    from fdai_service_contracts.reasoning_handles import TypedRowKey
+    from fdai_service_contracts.semantic_question_form import MentionForm
+
+    # F001: _semantic_judgment_capabilities accepts tuple x-fdai-measure-concepts
+    caps = _semantic_judgment_capabilities(
+        (
+            {
+                "kind": "function",
+                "name": "query.resource_state_inventory",
+                "output_schema": {"x-fdai-measure-concepts": (" m2 ", "m1")},
+            },
+        )
+    )
+    assert caps[0]["measure_concepts"] == ["m1", "m2"]
+
+    # F022, F024, F025, F029, F030: provenance, assembly, zero-UUID, and ordinal boolean guards
+    with pytest.raises(ValueError, match="trimmed"):
+        SemanticCurrentEvidenceObservation(
+            function_name=" query.manifest ",
+            complete=True,
+            authority=EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            principal_scope_digest="sha256:" + "a" * 64,
+        )
+    with pytest.raises(ValueError, match="non-empty"):
+        IdentityBindingReceipt(source=" ", lookup="l", identity="id")
+    assert _predicate_operands(
+        {"property": "name", "operator": "in", "values": ("app-a", "app-b")}
+    ) == ("app-a", "app-b")
+    assert frame_result_keys({"output_shape": SemanticOutputShape.RESOURCE_LIST}) == (
+        "shape:resource_list",
+    )
+    assert all_zero_identifier("  00000000-0000-0000-0000-000000000000  ") is True
+    row_key = TypedRowKey(row_type="semantic_query_row", row_digest="sha256:" + "a" * 64)
+    assert (
+        _bind_one(
+            "m1",
+            MentionForm.ORDINAL,
+            True,
+            handle_ref="h1",
+            row_keys=(row_key,),
+            truncated=False,
+            row_map={},
+            fallback=ReferenceOutcome.BOUND,
+            source_generation="g1",
+        ).outcome
+        is ReferenceOutcome.OUT_OF_RANGE
+    )
+
+    # F036, F038, F045, F051, F052, F061: contextual translation, grounded answer, ontology bounds
+    with pytest.raises(ValueError, match="finite"):
+        _leaf_values({"score": float("nan")})
+    assert (
+        validate_grounded_answer(
+            "   ",
+            ToolResult(status="ok", preview="p", data={}, evidence_refs=()),
+        ).reason_code
+        == "empty_answer"
+    )
+    with pytest.raises(ValueError, match="non-empty"):
+        result_handle_conversation_id("   ")
+    assert declared_property_values({"values": (" Running ", "", 123)}) == frozenset({"Running"})
+    with pytest.raises(ValueError, match="between 1 and 256"):
+        argument_name(" arg ")
+    validate_projection_allocation([frozenset({"a", "b"})])
+
+
+def test_campaign_5_g001_to_g105_incident_document_rule_opa_pantheon_invariants() -> None:
+    from datetime import UTC, datetime
+
+    from fdai.core.audit.rule_fire_trace import RuleFireTrace
+    from fdai.core.audit.what_if_replay import EventReconstructionError, reconstruct_event
+    from fdai.core.conversation.semantic_incident_creation import (
+        incident_creation_intent_from_judgment,
+    )
+    from fdai.core.document_ingestion.state_machine import (
+        InvalidDocumentTransitionError,
+        can_transition,
+        transition,
+    )
+    from fdai.core.framework_rule_evidence.coverage import canonical_sha256
+    from fdai.core.incident.auto_open import IncidentAutoOpenDecision
+    from fdai.core.incident.durable_notifications import DurableNotificationResult
+    from fdai.core.incident.metrics import project_incident_metrics
+    from fdai.core.incident.platform_sync import IncidentPlatformSyncReport
+    from fdai.core.incident.state_machine import IncidentTransition
+    from fdai.core.incident.storm import StormSignal
+    from fdai.core.incident.workflow_support import canonical_incident_correlation_keys
+    from fdai.core.knowledge.cloud_applicability import cloud_target_from_arguments
+    from fdai.core.quality_gate.rag_grounding import HashedRuleEmbeddingIndex
+    from fdai.core.rca.causal_chain import CorrelatedEvent
+    from fdai.core.rca.citations import admitted_citations
+    from fdai.core.rca.contract import Citation, CitationKind
+    from fdai.core.rule_catalog_profiles.models import ProfileRule
+    from fdai.core.stewardship.coverage import CoverageReport, Finding, Severity
+    from fdai.core.stewardship.escalation import EscalationPlan, EscalationRecipient
+    from fdai.core.stewardship.model import Responsibility, StewardKind, StewardSubject
+    from fdai.core.tiers.t0_deterministic.engine import PolicyResult
+    from fdai.core.tiers.t0_deterministic.models import RegoEvaluationReceipt
+    from fdai.delivery.agent_activity import AgentState, AgentStateEvent
+    from fdai.delivery.agent_handler_activity import HandlerActivityContext
+    from fdai.delivery.agent_introspection_bus import agent_introspection_server_group_id
+    from fdai.shared.contracts.models import IncidentSeverity, IncidentState
+    from fdai_core_service.semantic_incident_evidence import (
+        incident_next_step_actions,
+        incident_scalar,
+        incident_timeline_rows,
+    )
+
+    # G001-G020: Incident creation, evidence, metrics (including incident.severity), and storm
+    with pytest.raises(ValueError, match="source_input_digest"):
+        incident_creation_intent_from_judgment(None, source_input_digest="   ")
+    assert incident_scalar(float("nan")) is None
+    assert incident_next_step_actions([" root_cause_missing "], korean=False) == (
+        "confirm that an RCA hypothesis with grounded citations has been recorded",
+    )
+    assert (
+        len(
+            incident_timeline_rows(
+                ({"recorded_at": "2026-11-01T00:00:00Z", "audit_ref": "audit:1"},)
+            )
+        )
+        == 1
+    )
+    with pytest.raises(ValueError, match="IncidentAutoOpenDecision"):
+        IncidentAutoOpenDecision(eligible=True, reason="   ")
+    metrics = project_incident_metrics(
+        [
+            {
+                "idempotency_key": "k1",
+                "kind": "incident.open",
+                "incident_id": "00000000-0000-0000-0000-000000000001",
+                "actor_oid": "Heimdall",
+                "opened_at": "2026-11-01T00:00:00+00:00",
+                "state": "open",
+                "severity": "sev3",
+            },
+            {
+                "idempotency_key": "k2",
+                "kind": "incident.severity",
+                "incident_id": "00000000-0000-0000-0000-000000000001",
+                "severity": "sev1",
+            },
+        ],
+        agent_principals=("Heimdall",),
+    )
+    assert metrics.current_by_severity == {"sev1": 1}
+    with pytest.raises(ValueError, match="counts"):
+        IncidentPlatformSyncReport(observed=1, published=2)
+    with pytest.raises(ValueError, match="StormSignal"):
+        StormSignal(
+            signal_id="s1",
+            severity=IncidentSeverity.SEV1,
+            resource_ref="r1",
+            arrived_at=datetime(2026, 11, 1, tzinfo=UTC),
+            blast_radius=True,
+        )
+
+    # G021-G050: Incident RCA, citations, cloud applicability, and document state machine
+    assert canonical_incident_correlation_keys([" resource:aks-1 ", ""]) == ("resource:aks-1",)
+    with pytest.raises(ValueError, match="CorrelatedEvent"):
+        CorrelatedEvent(
+            event_id="   ",
+            at=datetime(2026, 11, 1, tzinfo=UTC),
+            resource_ref="r1",
+            is_change=True,
+        )
+    with pytest.raises(ValueError, match="string"):
+        Citation(kind=CitationKind.RULE, ref=None)  # type: ignore[arg-type]
+    assert admitted_citations(()) is None
+    with pytest.raises(ValueError, match="blank"):
+        cloud_target_from_arguments(
+            {
+                "cloud_provider": "azure",
+                "cloud_resource_type": "   ",
+                "cloud_generation": "v1",
+            }
+        )
+    assert can_transition("invalid", IncidentState.OPEN) is False  # type: ignore[arg-type]
+    with pytest.raises(InvalidDocumentTransitionError):
+        transition("invalid", IncidentState.OPEN)  # type: ignore[arg-type]
+
+    # G051-G080: Rule evidence, profiles, OPA / T0 receipts, audit trace, and quality gate
+    assert canonical_sha256("  " + "a" * 64 + "  ") == "sha256:" + "a" * 64
+    with pytest.raises(ValueError, match="ProfileRule"):
+        ProfileRule(id="   ")
+    with pytest.raises(ValueError, match="PolicyResult"):
+        PolicyResult(denied=1, context={})  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="RegoEvaluationReceipt"):
+        RegoEvaluationReceipt(
+            decision_path="   ",
+            opa_version="1.0",
+            parser_id="p",
+            parser_version="1",
+            policy_source_digest="d",
+            normalized_semantic_digest="n",
+            input_evidence_digest="i",
+            denied=False,
+            result_digest="r",
+        )
+    with pytest.raises(ValueError, match="RuleFireTrace"):
+        RuleFireTrace(correlation_id="   ", steps=())
+    with pytest.raises(EventReconstructionError):
+        reconstruct_event("   ", ())
+    with pytest.raises(ValueError, match="dim"):
+        HashedRuleEmbeddingIndex(dim=True)
+
+    # G081-G105: Pantheon stewardship, agent activity, introspection, and durable notifications
+    with pytest.raises(ValueError, match="non-empty"):
+        Finding(code="   ", severity=Severity.WARN, message="msg")
+    with pytest.raises(ValueError, match="non-negative"):
+        CoverageReport(
+            findings=(),
+            total_agents=True,
+            autonomous_agents=0,
+            maintainer_count=1,
+        )
+    with pytest.raises(ValueError, match="EscalationRecipient"):
+        EscalationRecipient(kind=StewardKind.USER, id="   ", tier="accountable")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="EscalationPlan"):
+        EscalationPlan(agent_name="UnknownAgent", recipients=(), hop_timeout_seconds=10)
+    with pytest.raises(ValueError, match="StewardSubject"):
+        StewardSubject(kind=StewardKind.USER, id="   ", responsibility=Responsibility.ACCOUNTABLE)
+    with pytest.raises(ValueError, match="Pantheon agent"):
+        AgentStateEvent(agent="NotAnAgent", state=AgentState.IDLE, ts="2026-11-01T00:00:00Z")
+    with pytest.raises(ValueError, match="HandlerActivityContext"):
+        HandlerActivityContext(
+            activity_id="   ",
+            activity_correlation_id=None,
+            phase="started",
+            topic="t",
+            event_id=None,
+            event_type=None,
+            resource_ref=None,
+            resource_name=None,
+            resource_type=None,
+            started_at="2026-11-01T00:00:00Z",
+            completed_at=None,
+            duration_ms=None,
+        )
+    with pytest.raises(ValueError, match="positive integer"):
+        agent_introspection_server_group_id(local_process=True, process_id=True)
+    with pytest.raises(ValueError, match="DurableNotificationResult"):
+        DurableNotificationResult(status="   ")
+    with pytest.raises(ValueError, match="IncidentTransition"):
+        IncidentTransition(
+            incident_id=__import__("uuid").uuid4(),
+            from_state=IncidentState.OPEN,
+            to_state=IncidentState.TRIAGING,
+            actor_oid="   ",
+            at=datetime(2026, 11, 1, tzinfo=UTC),
+        )

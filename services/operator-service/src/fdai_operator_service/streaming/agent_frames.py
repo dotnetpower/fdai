@@ -93,8 +93,29 @@ class AgentActivityProjector:
     def __init__(self) -> None:
         self._incidents: dict[str, _IncidentState] = {}
 
+    @property
+    def active_incident_count(self) -> int:
+        return len(self._incidents)
+
+    def involved_agents_for(self, correlation_id: str) -> tuple[str, ...]:
+        incident = self._incidents.get(correlation_id)
+        return incident.involved if incident is not None else ()
+
+    def incident_status_for(self, correlation_id: str) -> str | None:
+        incident = self._incidents.get(correlation_id)
+        return incident.status if incident is not None else None
+
+    def clear_incidents(self) -> None:
+        self._incidents.clear()
+
+    @staticmethod
+    def known_pantheon_agents() -> frozenset[str]:
+        return _PANTHEON
+
     def project(self, payload: Mapping[str, object]) -> tuple[LiveStreamEvent, ...]:
         """Return only events grounded in a valid runtime or stage observation."""
+        if not isinstance(payload, Mapping):
+            return ()
         operational = _operational_activity_event(payload)
         if operational is not None:
             return (operational,)
@@ -115,10 +136,16 @@ class AgentActivityProjector:
         timestamp = str(payload["ts"])
         detail_raw = payload.get("detail")
         detail = dict(detail_raw) if isinstance(detail_raw, Mapping) else {}
+        explicit_agent = detail.get("owner_agent") or detail.get("producer_principal")
+        resolved_explicit = (
+            explicit_agent.strip()
+            if isinstance(explicit_agent, str) and explicit_agent.strip() in _PANTHEON
+            else None
+        )
         agent = (
             "Var"
             if stage == "gate" and detail.get("gate_decision") == "hil"
-            else _STAGE_AGENT[stage]
+            else (resolved_explicit or _STAGE_AGENT[stage])
         )
         prior = self._incidents.get(correlation_id)
         involved = prior.involved if prior is not None else ()
@@ -138,9 +165,12 @@ class AgentActivityProjector:
             title=(
                 prior.title
                 if prior is not None
-                else f"Rule {detail['rule']}"
-                if _nonempty(detail.get("rule"))
-                else f"Event {event_id}"
+                else _nonempty(detail.get("title"))
+                or (
+                    f"Rule {detail['rule']}"
+                    if _nonempty(detail.get("rule"))
+                    else f"Event {event_id}"
+                )
             ),
             severity=(
                 _nonempty(detail.get("severity"))
@@ -150,12 +180,14 @@ class AgentActivityProjector:
             involved=involved,
             last_agent=agent,
         )
+        self._incidents.pop(correlation_id, None)
         self._incidents[correlation_id] = incident
         if len(self._incidents) > _MAX_INCIDENTS:
             self._incidents.pop(next(iter(self._incidents)))
 
         events: list[LiveStreamEvent] = []
-        if incident_id is not None and incident != prior:
+        rca_text = _nonempty(detail.get("rca")) or _nonempty(detail.get("rca_cause"))
+        if incident_id is not None and (incident != prior or rca_text is not None):
             events.append(
                 _event(
                     event_id,
@@ -167,7 +199,7 @@ class AgentActivityProjector:
                         "title": incident.title,
                         "severity": incident.severity,
                         "involved_agents": list(involved),
-                        "rca": None,
+                        "rca": rca_text,
                         "ts": timestamp,
                         "source": source,
                     },

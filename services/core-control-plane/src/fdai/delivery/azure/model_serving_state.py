@@ -42,7 +42,7 @@ _MODEL_DEPLOYMENT_ARM_ID = re.compile(
 def model_deployment_name(provider_ref: str | None) -> str | None:
     """Return the exact deployment segment from one reviewed ARM child id."""
 
-    match = _MODEL_DEPLOYMENT_ARM_ID.fullmatch(provider_ref or "")
+    match = _MODEL_DEPLOYMENT_ARM_ID.fullmatch((provider_ref or "").strip())
     return match["deployment"] if match is not None else None
 
 
@@ -80,7 +80,10 @@ def model_serving_evidence_ref(
     metric_name: str,
 ) -> str:
     """Bind one serving fact to the exact metric target, time, and value."""
-
+    if not resource_id.strip() or not metric_name.strip():
+        raise ValueError(
+            "model serving evidence_ref requires non-empty resource_id and metric_name"
+        )
     material = json.dumps(
         {
             "metric": metric_name,

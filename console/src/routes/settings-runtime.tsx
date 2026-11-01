@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   RuntimeSettingsCommandError,
   saveRuntimeSettings,
@@ -36,6 +38,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef(0);
+  useSettingsDirtyState("settings-runtime", Object.keys(changes).length > 0);
 
   const applyView = (next: RuntimeSettingsView) => {
     setView(next);
@@ -64,6 +67,11 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   };
 
   useEffect(() => {
+    setView(null);
+    setDraft({});
+    setChanges({});
+    setSaving(false);
+    setNotice(null);
     void load();
     return () => {
       generation.current += 1;
@@ -176,7 +184,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
               {view.updatedAt && view.updatedBy
                 ? t("settings.runtimePolicies.lastUpdated", {
                     actor: view.updatedBy,
-                    time: new Date(view.updatedAt).toLocaleString(),
+                    time: formatConsoleTimestamp(view.updatedAt),
                   })
                 : t("settings.runtimePolicies.neverUpdated")}
             </small>
@@ -315,6 +323,20 @@ function RuntimeSettingRow({
   );
 }
 
+export function parseRuntimeNumericInput(
+  raw: string,
+  setting: Pick<RuntimeSettingView, "valueType" | "minimum" | "maximum">,
+): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  if (setting.valueType === "integer" && !Number.isSafeInteger(parsed)) return null;
+  if (setting.minimum !== null && parsed < setting.minimum) return null;
+  if (setting.maximum !== null && parsed > setting.maximum) return null;
+  return parsed;
+}
+
 function SettingControl({
   setting,
   value,
@@ -373,7 +395,10 @@ function SettingControl({
       max={setting.maximum ?? undefined}
       step={setting.valueType === "integer" ? 1 : "any"}
       disabled={disabled}
-      onInput={(event) => onChange(Number(event.currentTarget.value))}
+      onInput={(event) => {
+        const parsed = parseRuntimeNumericInput(event.currentTarget.value, setting);
+        if (parsed !== null) onChange(parsed);
+      }}
     />
   );
 }

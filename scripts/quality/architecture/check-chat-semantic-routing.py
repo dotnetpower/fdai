@@ -33,21 +33,27 @@ TYPESCRIPT_LEXICAL_ROUTER = re.compile(
 )
 TYPESCRIPT_NORMALIZATION = re.compile(r"\.to(?:Locale)?LowerCase\s*\(")
 TYPESCRIPT_LITERAL_INCLUDES = re.compile(r"\.includes\s*\(\s*['\"]")
+PYTHON_SEMANTIC_DEF_RE = re.compile(
+    r"\bdef\s+\w*(?:answer|classif|compile|decide|intent|introspect|question|route|semantic|suggest)"
+)
 
 
 def _python_lexical_ast(source: str) -> bool:
+    if not PYTHON_SEMANTIC_DEF_RE.search(source):
+        return False
     try:
         tree = ast.parse(source)
     except SyntaxError:
         return False
+    all_nodes = list(ast.walk(tree))
     compile_aliases = {"compile"}
-    for node in ast.walk(tree):
+    for node in all_nodes:
         if isinstance(node, ast.ImportFrom) and node.module == "re":
             compile_aliases.update(
                 alias.asname or alias.name for alias in node.names if alias.name == "compile"
             )
     for function in (
-        node for node in ast.walk(tree) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        node for node in all_nodes if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     ):
         if _function_has_lexical_judgment(function, compile_aliases=compile_aliases):
             return True
@@ -65,6 +71,8 @@ def _function_has_lexical_judgment(
     )
     if semantic_name is None:
         return False
+    func_nodes = list(ast.walk(function))
+    assignments = [node for node in func_nodes if isinstance(node, (ast.Assign, ast.AnnAssign))]
     derived = {
         argument.arg
         for argument in (
@@ -76,9 +84,7 @@ def _function_has_lexical_judgment(
     changed = True
     while changed:
         changed = False
-        for node in ast.walk(function):
-            if not isinstance(node, (ast.Assign, ast.AnnAssign)):
-                continue
+        for node in assignments:
             value = node.value
             if value is None or not _derived_from_input(value, derived):
                 continue
@@ -87,26 +93,26 @@ def _function_has_lexical_judgment(
                 if isinstance(target, ast.Name) and target.id not in derived:
                     derived.add(target.id)
                     changed = True
-    for node in ast.walk(function):
+    for node in func_nodes:
         if isinstance(node, ast.Compare) and _lexical_membership(node, derived):
             return True
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-            if node.func.attr in {"search", "match", "fullmatch"} and any(
-                _derived_from_input(argument, derived) for argument in node.args
-            ):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute) and node.func.attr in {
+                "search",
+                "match",
+                "fullmatch",
+            }:
+                if any(_derived_from_input(argument, derived) for argument in node.args):
+                    return True
+            called = (
+                node.func.id
+                if isinstance(node.func, ast.Name)
+                else node.func.attr
+                if isinstance(node.func, ast.Attribute)
+                else ""
+            )
+            if called in compile_aliases and node.args and isinstance(node.args[0], ast.Constant):
                 return True
-    for node in ast.walk(function):
-        if not isinstance(node, ast.Call):
-            continue
-        called = (
-            node.func.id
-            if isinstance(node.func, ast.Name)
-            else node.func.attr
-            if isinstance(node.func, ast.Attribute)
-            else ""
-        )
-        if called in compile_aliases and node.args and isinstance(node.args[0], ast.Constant):
-            return True
     return False
 
 
@@ -150,13 +156,16 @@ def _lexical_semantic_paths(root: Path = ROOT) -> tuple[str, ...]:
         if not source_root.is_dir():
             continue
         for path in source_root.rglob("*"):
-            if path.suffix not in {".py", ".ts", ".tsx"} or path.name.endswith(".test.ts"):
+            if (
+                "__pycache__" in path.parts
+                or path.suffix not in {".py", ".ts", ".tsx"}
+                or path.name.endswith(".test.ts")
+            ):
                 continue
             source = path.read_text(encoding="utf-8")
             if path.suffix == ".py":
                 lexical = bool(
-                    _python_lexical_ast(source)
-                    or PYTHON_UTTERANCE_NORMALIZATION.search(source)
+                    PYTHON_UTTERANCE_NORMALIZATION.search(source)
                     or PYTHON_NAMED_LEXICON.search(source)
                     or PYTHON_LEXICAL_CLASSIFIER.search(source)
                     or (
@@ -165,6 +174,7 @@ def _lexical_semantic_paths(root: Path = ROOT) -> tuple[str, ...]:
                         and "utterance" in source
                     )
                     or "class DeterministicPatternCompiler" in source
+                    or _python_lexical_ast(source)
                 )
             else:
                 lexical = bool(

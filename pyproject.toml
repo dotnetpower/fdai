@@ -51,7 +51,7 @@ dev = [
     "pydantic>=2.9,<3",
     "pillow>=13.0,<14",
     "pyjwt[crypto]>=2.10,<3",
-    "pypdf>=6.19.0,<7",
+    "pypdf>=6.21.4,<7",
     "pypdfium2>=5.0,<6",
     "pytesseract>=0.3.13,<1",
     # Root CI collects the independently locked deployment CLI's progress tests.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import math
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -50,6 +51,10 @@ class AksUnavailableScope:
     scope_digest: str
     reason: str
 
+    def __post_init__(self) -> None:
+        if not self.scope_digest.strip() or not self.reason.strip():
+            raise ValueError("AKS unavailable scope_digest and reason MUST be non-empty")
+
 
 @dataclass(frozen=True, slots=True)
 class AksPrivateClusterObservation:
@@ -58,6 +63,12 @@ class AksPrivateClusterObservation:
     cluster_ref: str
     observed_at: datetime
     source_digest: str
+
+    def __post_init__(self) -> None:
+        if not self.cluster_ref.strip() or not self.source_digest.strip():
+            raise ValueError("AKS private cluster_ref and source_digest MUST be non-empty")
+        if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
+            raise ValueError("AKS private cluster observed_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +201,15 @@ class AksSubscriptionDiscoveryConfig:
             raise ValueError("AKS discovery management endpoint MUST be an HTTPS origin")
         if not self.management_audience.strip() or not self.api_version.strip():
             raise ValueError("AKS discovery audience and API version MUST be non-empty")
-        if self.max_pages < 1 or self.max_clusters < 1 or self.timeout_seconds <= 0:
+        if (
+            type(self.max_pages) is not int
+            or type(self.max_clusters) is not int
+            or type(self.timeout_seconds) is bool
+            or not math.isfinite(self.timeout_seconds)
+            or self.max_pages < 1
+            or self.max_clusters < 1
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("AKS discovery limits MUST be positive")
 
 
@@ -215,9 +234,10 @@ class AzureAksSubscriptionBindingDiscovery:
 
     async def discover(self, subscription_id: str) -> AksSubscriptionDiscoveryResult:
         """Discover current clusters and discard credential responses after minimization."""
-
-        if _SUBSCRIPTION_PATTERN.fullmatch(subscription_id) is None:
+        clean_sub = subscription_id.strip() if isinstance(subscription_id, str) else ""
+        if _SUBSCRIPTION_PATTERN.fullmatch(clean_sub) is None:
             raise ValueError("AKS discovery requires one canonical subscription id")
+        subscription_id = clean_sub.lower()
         credential = await self._identity.get_token(self._config.management_audience)
         if credential.audience != self._config.management_audience or not credential.token.strip():
             raise AksSubscriptionDiscoveryError("AKS discovery management token is invalid")

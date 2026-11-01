@@ -3,7 +3,7 @@ import {
   type RecordedResourceStates,
   type RecordedStateAxis,
 } from "../recorded-resource-state";
-import { getLocale } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   recordedStateReasonText,
   recordedStateValueText,
@@ -14,7 +14,7 @@ import "./recorded-state-facts.css";
 function time(value: string | null): string {
   return value === null
     ? recordedText("unknown")
-    : new Date(value).toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US");
+    : formatConsoleTimestamp(value);
 }
 
 /** Both resource screens show the same source values and qualifications, never a computed verdict. */

@@ -160,7 +160,7 @@ def _metric_window(value: object) -> Mapping[str, Any]:
         or not isinstance(value.get("start"), str)
         or not isinstance(value.get("end"), str)
         or not isinstance(value.get("complete"), bool)
-        or not isinstance(value.get("samples"), list)
+        or not isinstance(value.get("samples"), (list, tuple))
     ):
         raise ValueError("request.errors metric window evidence is invalid")
     return value
@@ -173,7 +173,7 @@ def _query_table(value: object) -> QueryTable:
     complete = value.get("complete")
     reason = value.get("truncation_reason")
     if (
-        not isinstance(raw_rows, list)
+        not isinstance(raw_rows, (list, tuple))
         or not isinstance(complete, bool)
         or (reason is not None and not isinstance(reason, str))
     ):
@@ -219,14 +219,14 @@ def _timestamp(value: object) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError("request error window timestamp is invalid") from exc
-    if parsed.tzinfo is None:
+    if parsed.utcoffset() is None:
         raise ValueError("request error window timestamp MUST include a timezone")
     return parsed
 
 
 def _sample_total(window: Mapping[str, Any]) -> float | None:
     samples = window.get("samples")
-    if not isinstance(samples, list) or not samples:
+    if not isinstance(samples, (list, tuple)) or not samples:
         return None
     total = 0.0
     for sample in samples:

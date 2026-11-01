@@ -56,9 +56,7 @@ def build_payloads(
     if not isinstance(coverage_entries, list):
         raise ValueError("golden coverage MUST contain expectations")
     coverage_by_id = {
-        entry["expectation_id"]: entry
-        for entry in coverage_entries
-        if isinstance(entry, dict)
+        entry["expectation_id"]: entry for entry in coverage_entries if isinstance(entry, dict)
     }
 
     source_digest = "sha256:" + hashlib.sha256(source_bytes).hexdigest()
@@ -79,9 +77,7 @@ def build_payloads(
         for locale in ("en", "ko"):
             request_text = request.get(locale)
             if not isinstance(request_text, str) or not request_text.strip():
-                raise ValueError(
-                    f"golden question request is missing {locale}: {expectation_id}"
-                )
+                raise ValueError(f"golden question request is missing {locale}: {expectation_id}")
             rendered = _render_variations(
                 locale=locale,
                 request=request_text.strip(),
@@ -91,9 +87,7 @@ def build_payloads(
                 {
                     "case_id": f"{expectation_id}.{variation_kind}",
                     "expectation_id": expectation_id,
-                    "runtime_context": coverage_by_id[expectation_id][
-                        "runtime_context"
-                    ],
+                    "runtime_context": coverage_by_id[expectation_id]["runtime_context"],
                     "variation_kind": variation_kind,
                     "question": rendered[variation_kind],
                 }
@@ -125,14 +119,10 @@ def _render_variations(*, locale: str, request: str, perspective: str) -> dict[s
         return {
             "audit_oriented": f"For an audit-ready view, {request}.",
             "concise": f"Quick check: {request}.",
-            "contrastive": (
-                f"{direct}. Contrast observed facts with unsupported assumptions."
-            ),
+            "contrastive": (f"{direct}. Contrast observed facts with unsupported assumptions."),
             "direct": f"{direct}.",
             "evidence_first": f"Using only verified evidence, {request}.",
-            "investigative": (
-                f"Investigate this from the {perspective} perspective: {request}."
-            ),
+            "investigative": (f"Investigate this from the {perspective} perspective: {request}."),
             "operator_colloquial": f"Could you {request}?",
             "uncertainty_aware": (
                 f"{direct}. Separate what is verified from what remains unknown."
@@ -149,9 +139,7 @@ def _render_variations(*, locale: str, request: str, perspective: str) -> dict[s
         "evidence_first": f"검증된 근거만 사용해 주세요. {request}.",
         "investigative": f"{perspective_label} 관점에서 조사해 주세요. {request}.",
         "operator_colloquial": f"지금 운영자가 확인해야 해요. {request}.",
-        "uncertainty_aware": (
-            f"{request}. 확인된 사실과 알 수 없는 부분을 나눠 주세요."
-        ),
+        "uncertainty_aware": (f"{request}. 확인된 사실과 알 수 없는 부분을 나눠 주세요."),
     }
 
 

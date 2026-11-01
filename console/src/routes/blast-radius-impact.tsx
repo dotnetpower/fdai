@@ -225,6 +225,11 @@ export function BlastImpact({
   useEffect(() => {
     setSelectedId(data.target);
   }, [data.source_generation, data.target]);
+  useEffect(() => {
+    if (!graphNodes.some((node) => node.resource_id === selectedId)) {
+      setSelectedId(data.target);
+    }
+  }, [data.target, graphNodes, selectedId]);
   const selectedNode = graphNodes.find((node) => node.resource_id === selectedId) ?? targetNode;
   const selectedEdges = data.edges.filter(
     (edge) => edge.source === selectedNode.resource_id

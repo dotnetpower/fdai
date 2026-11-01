@@ -57,6 +57,12 @@ class AgentDiscussionPresenter:
         source_revision: str,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
+        if (
+            not installation_ref.strip()
+            or not access_scope_digest.strip()
+            or not source_revision.strip()
+        ):
+            raise ValueError("agent discussion presenter bindings MUST be non-empty")
         self._runtime = runtime
         self._admission = admission
         self._evidence = evidence
@@ -140,10 +146,10 @@ class AgentDiscussionPresenter:
             and isinstance(verification["request_sha256"], str)
             and re.fullmatch(r"[a-f0-9]{64}", verification["request_sha256"]) is not None
             and verification["conclusion_sha256"] == hashlib.sha256(conclusion.encode()).hexdigest()
-            and isinstance(verification["evidence_refs"], list)
+            and isinstance(verification["evidence_refs"], (list, tuple))
             and bool(verification["evidence_refs"])
             and all(
-                isinstance(ref, str) and 0 < len(ref) <= 256
+                isinstance(ref, str) and 0 < len(ref.strip()) <= 256
                 for ref in verification["evidence_refs"]
             )
             and discussion.get("status") == "completed"

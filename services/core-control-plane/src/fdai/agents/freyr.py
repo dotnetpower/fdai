@@ -7,6 +7,7 @@ smoothing forecast, and exposes a sizing advisory hook.
 from __future__ import annotations
 
 import asyncio
+import math
 from collections import OrderedDict
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -87,6 +88,26 @@ class Freyr(
         recurring_sample_timeout: timedelta = timedelta(seconds=5),
     ) -> None:
         super().__init__(spec=_FREYR)
+        if (
+            isinstance(smoothing_alpha, bool)
+            or not math.isfinite(smoothing_alpha)
+            or not 0.0 < smoothing_alpha <= 1.0
+        ):
+            raise ValueError("smoothing_alpha MUST be in (0, 1]")
+        if (
+            isinstance(scale_up_threshold, bool)
+            or isinstance(scale_down_threshold, bool)
+            or not math.isfinite(scale_up_threshold)
+            or not math.isfinite(scale_down_threshold)
+            or not 0.0 <= scale_down_threshold < scale_up_threshold <= 1.0
+        ):
+            raise ValueError("scale thresholds MUST satisfy 0 <= down < up <= 1")
+        if (
+            isinstance(recurring_sample_limit, bool)
+            or not isinstance(recurring_sample_limit, int)
+            or not 1 <= recurring_sample_limit <= MAX_RECURRING_SAMPLES
+        ):
+            raise ValueError("recurring_sample_limit MUST be in [1, MAX_RECURRING_SAMPLES]")
         if recurring_sample_timeout <= timedelta(0):
             raise ValueError("recurring_sample_timeout MUST be positive")
         self.bus = bus
@@ -118,6 +139,10 @@ class Freyr(
 
     def bind_utilization_sampler(self, sampler: CapacityUtilizationSampler | None) -> None:
         self._utilization_sampler = sampler
+
+    @property
+    def tracked_resource_count(self) -> int:
+        return len(self._samples)
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic == "object.cost-anomaly":

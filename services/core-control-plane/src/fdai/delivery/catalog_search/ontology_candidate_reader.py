@@ -96,7 +96,12 @@ class OntologyInstanceCandidateReader:
         typed_selection_available: bool = False,
         typed_selection_shadow: bool = False,
     ) -> None:
-        if not 1 <= max_prepared_scopes <= 32 or not 1 <= max_prepared_documents <= 20_000:
+        if (
+            isinstance(max_prepared_scopes, bool)
+            or isinstance(max_prepared_documents, bool)
+            or not 1 <= max_prepared_scopes <= 32
+            or not 1 <= max_prepared_documents <= 20_000
+        ):
             raise ValueError("ontology candidate cache capacity must be bounded")
         self._snapshots, self._vectors, self._policy = snapshots, vectors, ranking_policy
         self._semantic_search_available = semantic_search_available
@@ -258,7 +263,12 @@ class OntologyInstanceCandidateReader:
         selection: OntologyCandidateSelection | None,
         typed_permitted: bool,
     ) -> OntologyCandidateSearchResult:
-        if not query.strip() or len(query.encode("utf-8")) > 16_384 or not 1 <= limit <= 100:
+        if (
+            isinstance(limit, bool)
+            or not query.strip()
+            or len(query.encode("utf-8")) > 16_384
+            or not 1 <= limit <= 100
+        ):
             raise ValueError("ontology candidate query and result limit must be bounded")
         scope = _scope_key(manifest)
         prepared = self._prepared.get(scope)
@@ -274,12 +284,13 @@ class OntologyInstanceCandidateReader:
             scope_receipts: tuple[str, ...] = ()
             selection_digest: str | None = None
             score_kind: Literal["hybrid_ranking", "exact_identity", "predicate_membership"]
+            stripped_query = query.strip()
             exact_tokens = _object_document_id_tokens(query)
             exact = tuple(
                 document
                 for document in prepared.documents
-                if query == document.rule_id
-                or query == json.loads(document.text)["id"]
+                if stripped_query == document.rule_id
+                or stripped_query == json.loads(document.text)["id"]
                 or document.rule_id in exact_tokens
             )
             if selection is not None:

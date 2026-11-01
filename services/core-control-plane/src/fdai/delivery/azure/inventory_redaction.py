@@ -19,7 +19,7 @@ def redact_runtime_environment(resource: ResourceRecord) -> ResourceRecord:
     if not isinstance(template, dict):
         return resource
     changed = False
-    for container_family in ("containers", "initContainers"):
+    for container_family in ("containers", "initContainers", "ephemeralContainers"):
         containers = template.get(container_family)
         if not isinstance(containers, list):
             continue

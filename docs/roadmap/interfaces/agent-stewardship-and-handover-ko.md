@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: ee04581a9effeeabce4bf1e533c204acdf72060e
-translation_revised: 2026-10-18
+translation_source_sha: f9374806368c5855b6f3ab1348c051614439a193
+translation_revised: 2026-11-01
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -68,6 +68,7 @@ ID는 별도 디렉터리만 해석합니다. 이 검사는 초안 전용 동작
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-01 | implemented | RBAC이나 실행 권한을 바꾸지 않고 `G081`~`G088`에 걸쳐 판테온 15대 에이전트 담당 체계(`coverage.py`, `directory.py`, `escalation.py`, `governance.py`, `model.py`, `migration.py`, `notify.py`, `resolver.py`)를 강화했습니다. | `current change`; 집중 `tests/core/stewardship` 모음, Ruff, strict mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |
 | 2026-10-15 | implemented | 1.1 모델 출처, 정확한 원문/제안 검증, 영속 두-call 예약과 측정 가격을 갖춘 독립 검토 적응형 해석을 실제 Worker consumer에 연결했습니다. | `current change`; Worker/Ingestion API 검사 16개; scripted 검토/원문/정체성/버전 거절, mock HTTP/DB와 저장 초안 재생; 일곱 파일 mypy·Ruff 통과. | 검토된 비공개 target·프롬프트·가격을 구성하고 실제 모델 품질·정체성·백업·DB/재시작·알림 수락 증거를 보존해야 합니다. |
 | 2026-10-15 | implemented | 실제 Document Worker 인수인계 경로에서 역할 키워드·사람 이름 추측을 제거하고 구조화 원문을 완전한 제한 인용 구간으로 보존했습니다. | `current change`; Worker 인수인계 동등성·산문 기권·무손실 인용 검사 5개 통과; Ruff와 집중 mypy 통과. | 독립 검토된 적응형 Worker 해석과 실제 사람·백업·알림 증거는 남아 있습니다. |
 | 2026-10-15 | implemented | 인용 객체 유무만 보던 모델 검사를 실제 문서·행·인용·사람, 고정 에이전트, 유한 신뢰도와 디렉터리 전용 정체성 검사로 바꿨습니다. | `current change`; 일곱 가지 치환 반례; stewardship 검사 91개 통과; 구조 관문: 에이전트 15개, maintainer 2명; Ruff와 집중 mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |

@@ -149,3 +149,14 @@ def test_invalid_or_duplicate_definitions_fail_closed() -> None:
             metric_provider=StaticMetricProvider(()),
             definitions=(_definition(), _definition()),
         )
+    with pytest.raises(BlastProbeConfigError, match="window_minutes"):
+        AzureMonitorProbeDefinition(
+            probe_id="p1",
+            metric_name="m1",
+            aggregation="maximum",
+            window_minutes=True,  # type: ignore[arg-type]
+            timeout_seconds=5,
+            result_field="f1",
+            quiet_below=1.0,
+            active_below=2.0,
+        )

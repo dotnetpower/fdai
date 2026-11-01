@@ -40,6 +40,8 @@ def compile_subscription_scope_plan(
         or not _has_subscription_scope_function(manifest.descriptors)
     ):
         return None
+    if not purpose.strip():
+        raise ValueError("subscription scope plan purpose MUST be non-empty")
     node = OntologyQueryNode(
         node_id="subscription-scope-identity",
         kind=QueryNodeKind.FUNCTION,
@@ -79,7 +81,8 @@ def compile_subscription_scope_plan(
 def _has_subscription_scope_function(descriptors: tuple[dict[str, Any], ...]) -> bool:
     return any(
         descriptor.get("kind") == "function"
-        and descriptor.get("name") == SUBSCRIPTION_SCOPE_FUNCTION_NAME
+        and isinstance(name := descriptor.get("name"), str)
+        and name.strip() == SUBSCRIPTION_SCOPE_FUNCTION_NAME
         for descriptor in descriptors
     )
 

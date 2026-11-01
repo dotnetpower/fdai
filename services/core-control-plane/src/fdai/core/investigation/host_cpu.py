@@ -48,20 +48,25 @@ class HostCpuPolicy:
     max_points: int = 1024
 
     def __post_init__(self) -> None:
-        if not math.isfinite(self.threshold_percent) or not 0 <= self.threshold_percent <= 100:
+        if (
+            type(self.threshold_percent) is bool
+            or not math.isfinite(self.threshold_percent)
+            or not 0 <= self.threshold_percent <= 100
+        ):
             raise ValueError("host CPU threshold MUST be a finite percentage")
         if not isinstance(self.aggregation, Aggregation) or self.aggregation not in {
             Aggregation.MAX,
             Aggregation.AVG,
             Aggregation.LAST,
+            Aggregation.P95,
         }:
-            raise ValueError("host CPU aggregation MUST be max, avg or last")
+            raise ValueError("host CPU aggregation MUST be max, avg, last or p95")
         for value in (
             self.max_age_seconds,
             self.sample_period_seconds,
             self.query_timeout_seconds,
         ):
-            if not math.isfinite(value) or value <= 0:
+            if type(value) is bool or not math.isfinite(value) or value <= 0:
                 raise ValueError("host CPU timing policy MUST be finite and positive")
         if type(self.max_points) is not int or not 1 <= self.max_points <= 10_000:
             raise ValueError("host CPU point limit MUST be between 1 and 10000")

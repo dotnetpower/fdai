@@ -50,6 +50,11 @@ _VM_TYPE = "Microsoft.Compute/virtualMachines"
 _AKS_TYPE = "Microsoft.ContainerService/managedClusters"
 _APIM_TYPE = "Microsoft.ApiManagement/service"
 _MODEL_TYPE = "Microsoft.CognitiveServices/accounts"
+_POSTGRES_TYPE = "Microsoft.DBforPostgreSQL/flexibleServers"
+_REDIS_TYPE = "Microsoft.Cache/redis"
+_KEYVAULT_TYPE = "Microsoft.KeyVault/vaults"
+_EVENTHUB_TYPE = "Microsoft.EventHub/namespaces"
+_STORAGE_TYPE = "Microsoft.Storage/storageAccounts"
 
 # MySQL Flexible Server - both live on the resource directly.
 _MYSQL_CPU_PERCENT = MetricsApiTemplate(
@@ -222,6 +227,102 @@ def azure_metrics_api_queries() -> Mapping[str, MetricsApiTemplate]:
     return MappingProxyType({**_QUERIES, **vmss_cpu_metric_templates()})
 
 
+_EXTENDED_PLATFORM_QUERIES: Mapping[str, MetricsApiTemplate] = MappingProxyType(
+    {
+        "postgresql.cpu_percent": MetricsApiTemplate(
+            "cpu_percent", "Average", resource_type=_POSTGRES_TYPE
+        ),
+        "postgresql.memory_percent": MetricsApiTemplate(
+            "memory_percent", "Average", resource_type=_POSTGRES_TYPE
+        ),
+        "postgresql.active_connections": MetricsApiTemplate(
+            "active_connections", "Maximum", resource_type=_POSTGRES_TYPE
+        ),
+        "postgresql.storage_percent": MetricsApiTemplate(
+            "storage_percent", "Maximum", resource_type=_POSTGRES_TYPE
+        ),
+        "redis.server_load": MetricsApiTemplate(
+            "allserverLoad", "Maximum", resource_type=_REDIS_TYPE
+        ),
+        "redis.used_memory_percentage": MetricsApiTemplate(
+            "allusedmemorypercentage", "Maximum", resource_type=_REDIS_TYPE
+        ),
+        "redis.connected_clients": MetricsApiTemplate(
+            "allconnectedclients", "Maximum", resource_type=_REDIS_TYPE
+        ),
+        "key_vault.service_api_latency_ms": MetricsApiTemplate(
+            "ServiceApiLatency", "Average", resource_type=_KEYVAULT_TYPE
+        ),
+        "key_vault.service_api_hit_count": MetricsApiTemplate(
+            "ServiceApiHit", "Total", resource_type=_KEYVAULT_TYPE
+        ),
+        "key_vault.saturation_shoebox": MetricsApiTemplate(
+            "SaturationShoebox", "Maximum", resource_type=_KEYVAULT_TYPE
+        ),
+        "event_hub.incoming_messages": MetricsApiTemplate(
+            "IncomingMessages", "Total", resource_type=_EVENTHUB_TYPE
+        ),
+        "event_hub.outgoing_messages": MetricsApiTemplate(
+            "OutgoingMessages", "Total", resource_type=_EVENTHUB_TYPE
+        ),
+        "event_hub.throttled_requests": MetricsApiTemplate(
+            "ThrottledRequests", "Total", resource_type=_EVENTHUB_TYPE
+        ),
+        "storage.availability": MetricsApiTemplate(
+            "Availability", "Average", resource_type=_STORAGE_TYPE
+        ),
+        "storage.success_e2e_latency_ms": MetricsApiTemplate(
+            "SuccessE2ELatency", "Average", resource_type=_STORAGE_TYPE
+        ),
+        "storage.transactions": MetricsApiTemplate(
+            "Transactions", "Total", resource_type=_STORAGE_TYPE
+        ),
+        "aks.node_memory_working_set_percentage": MetricsApiTemplate(
+            "node_memory_working_set_percentage", "Maximum", resource_type=_AKS_TYPE
+        ),
+        "aks.node_disk_usage_percentage": MetricsApiTemplate(
+            "node_disk_usage_percentage", "Maximum", resource_type=_AKS_TYPE
+        ),
+    }
+)
+
+
+def azure_extended_platform_metrics_api_queries(
+    *,
+    include_defaults: bool = True,
+) -> Mapping[str, MetricsApiTemplate]:
+    """Return extended Azure Monitor platform metric templates for PaaS and AKS resources."""
+    if not include_defaults:
+        return _EXTENDED_PLATFORM_QUERIES
+    return MappingProxyType({**azure_metrics_api_queries(), **_EXTENDED_PLATFORM_QUERIES})
+
+
+def resolve_azure_metrics_api_template(
+    metric_name: str,
+    *,
+    include_extended: bool = True,
+) -> MetricsApiTemplate | None:
+    """Resolve a metric name (case-insensitively) to a reviewed MetricsApiTemplate."""
+    if not isinstance(metric_name, str) or not metric_name.strip():
+        return None
+    clean = metric_name.strip()
+    catalog = (
+        azure_extended_platform_metrics_api_queries(include_defaults=True)
+        if include_extended
+        else azure_metrics_api_queries()
+    )
+    direct = catalog.get(clean)
+    if direct is not None:
+        return direct
+    folded = clean.casefold()
+    for key, template in catalog.items():
+        if key.casefold() == folded:
+            return template
+    return None
+
+
 __all__ = [
+    "azure_extended_platform_metrics_api_queries",
     "azure_metrics_api_queries",
+    "resolve_azure_metrics_api_template",
 ]

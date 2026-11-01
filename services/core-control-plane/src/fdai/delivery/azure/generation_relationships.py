@@ -193,11 +193,17 @@ def _path_values(value: object, path: str) -> tuple[str, ...]:
         mapping_values = segment.endswith("{values}")
         collection = segment.endswith("[]")
         key = segment[:-8] if mapping_values else segment[:-2] if collection else segment
+        key_folded = key.casefold()
         next_values: list[object] = []
         for current in values:
             if not isinstance(current, Mapping):
                 continue
             child = current.get(key)
+            if child is None and key not in current:
+                for cand_key, cand_val in current.items():
+                    if str(cand_key).casefold() == key_folded:
+                        child = cand_val
+                        break
             if mapping_values and isinstance(child, Mapping):
                 next_values.extend(child.values())
             elif collection and isinstance(child, Sequence) and not isinstance(child, (str, bytes)):

@@ -39,6 +39,11 @@ def history_lookback_seconds(
 ) -> tuple[int, bool] | str:
     """Return the trusted lookback for a history goal or why it is unusable."""
 
+    if (
+        isinstance(default_seconds, bool)
+        or not MIN_LOOKBACK_SECONDS <= default_seconds <= MAX_LOOKBACK_SECONDS
+    ):
+        return "time_window_out_of_bounds"
     kind = goal.time.kind
     if kind in _CURRENT_TIMES:
         return default_seconds, True

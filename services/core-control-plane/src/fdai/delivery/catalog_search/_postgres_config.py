@@ -26,8 +26,24 @@ class PostgresCatalogSemanticIndexConfig:
     validation_cache_bytes: int = 33_554_432
 
     def __post_init__(self) -> None:
-        if not self.dsn:
+        if not self.dsn.strip():
             raise ValueError("PostgresCatalogSemanticIndexConfig.dsn MUST NOT be empty")
+        if any(
+            isinstance(value, bool)
+            for value in (
+                self.statement_timeout_ms,
+                self.connect_timeout_s,
+                self.ivfflat_probes,
+                self.write_batch_size,
+                self.embedding_batch_size,
+                self.embedding_dimension,
+                self.validation_cache_entries,
+                self.validation_cache_bytes,
+            )
+        ):
+            raise ValueError(
+                "PostgresCatalogSemanticIndexConfig integer fields MUST NOT be booleans"
+            )
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
             raise ValueError("database timeouts MUST be >= 1")
         if self.ivfflat_probes < 1:

@@ -254,7 +254,7 @@ async def test_stalled_preparation_stops_at_the_call_deadline() -> None:
     embedder = _BoundEmbedder()
     embedder.stall = True
     with pytest.raises(OntologyRetrievalExecutionAbortedError) as failure:
-        await _execute(harness, embedder, budget=replace(_BUDGET, call_timeout_seconds=0.01))
+        await _execute(harness, embedder, budget=replace(_BUDGET, call_timeout_seconds=0.1))
     assert failure.value.stage == "preparation"
     assert failure.value.embedding_calls == embedder.calls == 1
 

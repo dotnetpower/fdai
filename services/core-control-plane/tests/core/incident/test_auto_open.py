@@ -272,3 +272,16 @@ async def test_episode_does_not_reuse_a_broader_manual_correlation() -> None:
     assert detected is not None and detected.created is True
     assert detected.incident.incident_id != manual.incident_id
     assert len(registry.snapshot()) == 2
+
+
+def test_auto_open_falls_back_to_evidence_key_when_evidence_keys_is_none() -> None:
+    decision = evaluate_incident_auto_open(
+        _candidate(evidence_keys=None, evidence_key="evidence-fallback"),
+        IncidentAutoOpenPolicy(),
+    )
+    assert decision.eligible is True
+    non_str_severity = evaluate_incident_auto_open(
+        _candidate(severity=IncidentSeverity.SEV1),
+        IncidentAutoOpenPolicy(),
+    )
+    assert non_str_severity.severity is IncidentSeverity.SEV1

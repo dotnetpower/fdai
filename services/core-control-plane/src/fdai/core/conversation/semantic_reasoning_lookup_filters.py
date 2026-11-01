@@ -55,8 +55,8 @@ def lookup_filter_failure(goal: FormGoal, ctx: CompileContext) -> OperatorResult
             return failure
         if ctx.mention(item.mention).domain not in RESOURCE_TYPE_DOMAINS or not values:
             return OperatorResult(unsupported=(_UNSUPPORTED,))
-        if anchor is None or anchor.resource_type is None:
+        if anchor is None or anchor.resource_type is None or not anchor.resource_type.strip():
             return OperatorResult(unsupported=("lookup_type_unverified",))
-        if anchor.resource_type not in values:
+        if anchor.resource_type.strip() not in values:
             return OperatorResult(clarify=("anchor_type_mismatch",))
     return None

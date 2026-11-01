@@ -1,5 +1,6 @@
 import { tForLocale } from "../i18n";
 import { Tooltip } from "../components/tooltip";
+import { formatConsoleTimestamp } from "../time-format";
 import type { AgentActivityItem } from "./agent-activity-block";
 
 export function AgentActivityTimeline({
@@ -9,7 +10,6 @@ export function AgentActivityTimeline({
   readonly items: readonly AgentActivityItem[];
   readonly locale: "en" | "ko";
 }) {
-  const localeTag = locale === "ko" ? "ko-KR" : "en-US";
   return (
     <section class="deck-agent-activity" aria-label={tForLocale(locale, "deck.rich.agentActivity.title")}>
       <header>
@@ -18,7 +18,7 @@ export function AgentActivityTimeline({
       </header>
       <ol>
         {items.map((item, index) => (
-          <li key={`${item.agent}-${item.event}-${item.at}`}>
+          <li key={`${item.agent}-${item.event}-${item.at}-${index}`}>
             <span
               class="deck-agent-activity-icon"
               style={{ "--deck-agent-icon": agentIconUrl(item.agent) }}
@@ -40,10 +40,7 @@ export function AgentActivityTimeline({
                 <code>{item.event}</code>
                 <Tooltip content={item.at}>
                   <time dateTime={item.at}>
-                    {new Date(item.at).toLocaleString(localeTag, {
-                      dateStyle: "medium",
-                      timeStyle: "medium",
-                    })}
+                    {formatConsoleTimestamp(item.at)}
                   </time>
                 </Tooltip>
               </span>

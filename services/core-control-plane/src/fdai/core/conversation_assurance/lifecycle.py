@@ -27,8 +27,12 @@ class ChatPolicyProposal:
     policy_text: str
 
     def __post_init__(self) -> None:
-        if len(self.policy_digest) != 64 or len(self.incumbent_policy_digest) != 64:
-            raise ValueError("policy proposal digests MUST be 64 characters")
+        if (
+            len(self.policy_digest) != 64
+            or len(self.incumbent_policy_digest.strip()) != 64
+            or any(character.isspace() for character in self.incumbent_policy_digest)
+        ):
+            raise ValueError("policy proposal digests MUST be 64 non-whitespace characters")
         if not self.policy_text.strip() or len(self.policy_text) > 2_000:
             raise ValueError("policy proposal text MUST contain 1..2000 characters")
         if hashlib.sha256(self.policy_text.encode()).hexdigest() != self.policy_digest:
@@ -81,6 +85,8 @@ class ConversationAssuranceLifecycleCoordinator:
         promotion_config: PromotionConfig | None = None,
         min_cluster_samples: int = 3,
     ) -> None:
+        if isinstance(min_cluster_samples, bool) or min_cluster_samples < 1:
+            raise ValueError("min_cluster_samples MUST be a positive integer")
         self._store = store
         self._proposer = proposer
         self._measurer = measurer

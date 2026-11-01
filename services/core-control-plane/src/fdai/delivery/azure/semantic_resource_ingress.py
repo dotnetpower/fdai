@@ -37,6 +37,8 @@ def semantic_resource_ingress_function(
     ) -> object:
         if invocation_context.purposes != ("operations-review",):
             raise PermissionError("resource ingress purpose does not match invocation context")
+        if "query_result" not in arguments:
+            raise ValueError("resource ingress requires a query_result argument")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         objects = secured.materialization.graph.objects
         if secured.receipt.truncated or not secured.receipt.complete:
@@ -132,11 +134,13 @@ def _traffic_rules(value: object) -> tuple[list[dict[str, object]], str | None]:
         if not isinstance(item, Mapping):
             malformed = True
             continue
+        raw_weight = _integer(item.get("weight"))
+        weight = raw_weight if raw_weight is not None and 0 <= raw_weight <= 100 else None
         rules.append(
             {
                 "revision_name": _text(item.get("revisionName")),
                 "label": _text(item.get("label")),
-                "weight": _integer(item.get("weight")),
+                "weight": weight,
                 "latest_revision": _boolean(item.get("latestRevision")),
             }
         )

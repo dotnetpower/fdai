@@ -819,3 +819,43 @@ def test_verifier_rejects_a_fragment_no_declared_value_can_contain() -> None:
 
     with pytest.raises(ValueError, match="matches no value in the declared domain"):
         verifier.verify(plan, manifest=manifest)
+
+
+def test_verifier_checks_lineage_aggregate_limit_and_disallows_field_or_group_by() -> None:
+    release, manifest = _manifest()
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    source = OntologyQueryNode(
+        node_id="resources",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.AGGREGATE)
+    )
+    for bad_args in (
+        {"operation": "count_by_nearest_container", "container_kind": "rg", "field": "id"},
+        {"operation": "count_by_nearest_container", "container_kind": "rg", "limit": 0},
+        {"operation": "count_by_nearest_container", "container_kind": "   "},
+    ):
+        agg = OntologyQueryNode(
+            node_id="agg",
+            kind=QueryNodeKind.AGGREGATE,
+            depends_on=("resources",),
+            arguments_json=canonical_json(bad_args),
+            output_kind="query.table",
+        )
+        with pytest.raises(ValueError):
+            verifier.verify(
+                _plan(
+                    (source, agg),
+                    release_digest=release.digest,
+                    manifest_digest=manifest.manifest_digest,
+                ),
+                manifest=manifest,
+            )

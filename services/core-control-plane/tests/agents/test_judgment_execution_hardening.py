@@ -218,6 +218,38 @@ def test_forseti_rejects_specialist_advice_from_wrong_owner() -> None:
     assert bus.messages_on("object.arbitration-request") == []
 
 
+def test_forseti_t1_and_t2_advisors_populate_tier_and_novelty_drift() -> None:
+    bus = _bus()
+    f = Forseti(
+        bus=bus,
+        t1_advisor=lambda evt: (
+            "ops.restart-service" if evt.get("event_type") == "t1.event" else None
+        ),
+        t2_advisor=lambda evt: "ops.scale-out" if evt.get("event_type") == "t2.event" else None,
+    )
+
+    t1_verdict = asyncio.run(
+        f.judge({"event_type": "t1.event", "resource_id": "r-1", "correlation_id": "c-1"})
+    )
+    t2_verdict = asyncio.run(
+        f.judge({"event_type": "t2.event", "resource_id": "r-2", "correlation_id": "c-2"})
+    )
+
+    assert t1_verdict is not None
+    assert t1_verdict["action_type"] == "ops.restart-service"
+    assert t2_verdict is not None
+    assert t2_verdict["action_type"] == "ops.scale-out"
+    health = f.health()
+    assert health["t1_advisor_bound"] is True
+    assert health["t2_advisor_bound"] is True
+    assert f.t1_advisor_bound is True
+    assert f.t2_advisor_bound is True
+    assert f.no_rule_fold_count == 0
+    assert health["judgment_counters"]["t1_reused"] == 1
+    assert health["judgment_counters"]["t2_proposed"] == 1
+    assert health["novelty_drift_signal"]["tier_mix"] == {"T0": 0, "T1": 1, "T2": 1}
+
+
 def test_security_and_arbitration_publications_have_stable_keys() -> None:
     bus = _bus()
     f = Forseti(bus=bus, rbac={"guest@example.com": frozenset()})

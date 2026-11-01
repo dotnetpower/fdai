@@ -15,7 +15,7 @@ rejected before it can reach view context or terminal verification.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -106,6 +106,8 @@ class ResolvedDocumentAuthorization:
             raise ValueError("resolved document citations are outside the bounded count")
         if len(self.citations) != len(set(self.citations)):
             raise ValueError("resolved document citations MUST be unique")
+        if any(not item.startswith("doc:") or len(item.split(":")) != 3 for item in self.citations):
+            raise ValueError("resolved document citations MUST use canonical doc:uuid:uuid format")
         if _DIGEST.fullmatch(self.authorization_digest) is None:
             raise ValueError("resolved document authorization digest is invalid")
 
@@ -127,7 +129,7 @@ def parse_document_refs(value: JsonValue | None) -> tuple[DocumentRef, ...]:
 
     if value is None:
         return ()
-    if not isinstance(value, list):
+    if not isinstance(value, (list, tuple)):
         raise DocumentRefSyntaxError("document_refs MUST be a list")
     if len(value) > MAX_DOCUMENT_REFS:
         raise DocumentRefSyntaxError(
@@ -136,7 +138,7 @@ def parse_document_refs(value: JsonValue | None) -> tuple[DocumentRef, ...]:
     refs: list[DocumentRef] = []
     seen: set[tuple[UUID, UUID]] = set()
     for entry in value:
-        if not isinstance(entry, dict):
+        if not isinstance(entry, Mapping):
             raise DocumentRefSyntaxError("each document ref MUST be an object")
         if set(entry) != {"document_id", "version_id"}:
             raise DocumentRefSyntaxError(
@@ -196,7 +198,11 @@ async def resolve_web_document_context(
 
     if not refs:
         return None
-    if not conversation_ref.strip() or len(conversation_ref) > 256:
+    if (
+        not conversation_ref.strip()
+        or len(conversation_ref) > 256
+        or any(ord(char) < 32 for char in conversation_ref)
+    ):
         raise DocumentRefSyntaxError(
             "session_id MUST be a bounded non-empty string when document_refs are present"
         )
@@ -215,6 +221,8 @@ async def resolve_web_document_context(
     except Exception as exc:  # noqa: BLE001 - never disclose provider internals
         raise DocumentRefResolutionFailedError() from exc
     expected = tuple(ref.citation for ref in refs)
+    if len(resolved.citations) != len(expected):
+        raise DocumentRefAccessDeniedError()
     if resolved.citations != expected:
         raise DocumentRefIntegrityError(
             "resolver returned substituted, reordered, or malformed citations"

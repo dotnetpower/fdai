@@ -39,7 +39,7 @@ class StateStoreAnalyzerReceiptStore:
     retain_newest: int = DEFAULT_ANALYZER_RECEIPT_RETENTION
 
     def __post_init__(self) -> None:
-        if not 1 <= self.retain_newest <= 10_000:
+        if type(self.retain_newest) is not int or not 1 <= self.retain_newest <= 10_000:
             raise ValueError("analyzer receipt retention MUST be in [1, 10000]")
 
     async def aclose(self) -> None:
@@ -80,7 +80,7 @@ class StateStoreAnalyzerRunReceiptStore:
     retain_newest: int = DEFAULT_ANALYZER_RECEIPT_RETENTION
 
     def __post_init__(self) -> None:
-        if not 1 <= self.retain_newest <= 10_000:
+        if type(self.retain_newest) is not int or not 1 <= self.retain_newest <= 10_000:
             raise ValueError("analyzer run receipt retention MUST be in [1, 10000]")
 
     async def aclose(self) -> None:

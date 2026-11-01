@@ -93,7 +93,10 @@ def filter_coverage(plans: Sequence[OntologyQueryPlan], stated: StatedRestrictio
     ):
         if concepts and not any(
             function_name(node) == name
-            and (node.arguments.get("arguments") or {}).get(argument) == list(concepts)
+            and isinstance(
+                raw_arg := (node.arguments.get("arguments") or {}).get(argument), (list, tuple)
+            )
+            and tuple(raw_arg) == tuple(concepts)
             and _filters_the_answer(node, plan)
             for plan in plans
             for node in plan.nodes
@@ -181,10 +184,11 @@ def _filters_the_answer(node: OntologyQueryNode, plan: OntologyQueryPlan) -> boo
 def all_zero_identifier(value: object) -> bool:
     """Return whether a string contains only zero UUID punctuation."""
 
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         return False
-    stripped = value.replace("-", "").replace("0", "")
-    return not stripped and "0" in value
+    trimmed = value.strip()
+    stripped = trimmed.replace("-", "").replace("0", "")
+    return not stripped and "0" in trimmed
 
 
 __all__ = [

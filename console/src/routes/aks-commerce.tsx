@@ -13,12 +13,37 @@ import {
   type AsyncState,
 } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
+import {
+  currentRoute,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/aks-commerce";
 import { sampleAksCommerce } from "./aks-commerce.sample";
 import "./aks-commerce.css";
 
-type ServiceId = "catalog-browse" | "order-fulfillment";
+export type ServiceId = "catalog-browse" | "order-fulfillment";
+
+export function aksCommerceServiceFromSearch(search: URLSearchParams): ServiceId {
+  return search.get("service") === "catalog-browse"
+    ? "catalog-browse"
+    : "order-fulfillment";
+}
+
+export function aksCommerceServiceHref(
+  serviceId: ServiceId,
+  search: URLSearchParams,
+): string {
+  const params = Object.fromEntries(search.entries());
+  return routeHref("aks-commerce", {
+    params: {
+      ...params,
+      service: serviceId === "order-fulfillment" ? null : serviceId,
+    },
+  });
+}
 
 export function AksCommerceRoute({
   client,
@@ -27,10 +52,26 @@ export function AksCommerceRoute({
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
 }) {
-  const [serviceId, setServiceId] = useState<ServiceId>("order-fulfillment");
+  const [serviceId, setServiceId] = useState<ServiceId>(() =>
+    aksCommerceServiceFromSearch(currentRoute().search),
+  );
   const [state, setState] = useState<AsyncState<AksCommerceProjection>>({
     status: "loading",
   });
+
+  useEffect(() => {
+    const syncService = () => {
+      setServiceId(aksCommerceServiceFromSearch(currentRoute().search));
+    };
+    window.addEventListener("popstate", syncService);
+    window.addEventListener("fdai:route-changed", syncService);
+    window.addEventListener(ROUTE_STATE_EVENT, syncService);
+    return () => {
+      window.removeEventListener("popstate", syncService);
+      window.removeEventListener("fdai:route-changed", syncService);
+      window.removeEventListener(ROUTE_STATE_EVENT, syncService);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,10 +106,14 @@ export function AksCommerceRoute({
       <div class="aks-commerce-service-picker" role="group" aria-label={t("aksCommerce.serviceLabel")}>
         {(["order-fulfillment", "catalog-browse"] as const).map((candidate) => (
           <button
+            key={candidate}
             type="button"
             class={candidate === serviceId ? "active" : ""}
             aria-pressed={candidate === serviceId}
-            onClick={() => setServiceId(candidate)}
+            onClick={() => {
+              setServiceId(candidate);
+              replaceRouteState(aksCommerceServiceHref(candidate, currentRoute().search));
+            }}
           >
             {t(`aksCommerce.services.${candidate}`)}
           </button>
@@ -101,7 +146,7 @@ function AksCommerceWorkspace({ projection }: { readonly projection: AksCommerce
         <h3>{t("aksCommerce.sloTitle")}</h3>
         <div class="aks-commerce-slo-grid">
           {projection.slos.map((slo) => (
-            <article>
+            <article key={slo.slo_id}>
               <header>
                 <strong>{slo.slo_id}</strong>
                 <StatusPill kind={slo.breached === true ? "danger" : slo.state === "complete" ? "success" : "warning"} label={evidenceLabel(slo.state)} />
@@ -123,7 +168,7 @@ function AksCommerceWorkspace({ projection }: { readonly projection: AksCommerce
           {projection.dependency_path.map((workloadId) => {
             const workload = projection.workloads.find((item) => item.workload_id === workloadId);
             return (
-              <li>
+              <li key={workloadId}>
                 <span>{workload?.display_name ?? workloadId}</span>
                 <StatusPill
                   kind={workload?.ready === true ? "success" : workload?.ready === false ? "danger" : "neutral"}
@@ -141,11 +186,11 @@ function AksCommerceWorkspace({ projection }: { readonly projection: AksCommerce
         <div class="aks-commerce-table-wrap">
           <table>
             <thead>
-              <tr><th>Signal</th><th>{t("aksCommerce.current")}</th><th>{t("aksCommerce.previous")}</th><th>{t("aksCommerce.source")}</th></tr>
+              <tr><th>{t("aksCommerce.signal")}</th><th>{t("aksCommerce.current")}</th><th>{t("aksCommerce.previous")}</th><th>{t("aksCommerce.source")}</th></tr>
             </thead>
             <tbody>
               {projection.metrics.map((metric) => (
-                <tr>
+                <tr key={`${metric.name}:${metric.source_ref}`}>
                   <td><strong>{metric.name}</strong><small>{evidenceLabel(metric.state)}</small></td>
                   <td>{metricValue(metric.current, metric.unit)}</td>
                   <td>{metricValue(metric.previous, metric.unit)}</td>
@@ -162,7 +207,7 @@ function AksCommerceWorkspace({ projection }: { readonly projection: AksCommerce
           <h3>{t("aksCommerce.gapsTitle")}</h3>
           {projection.evidence_gaps.length === 0
             ? <p>{t("aksCommerce.noGaps")}</p>
-            : <ul>{projection.evidence_gaps.map((gap) => <li><code>{gap}</code></li>)}</ul>}
+            : <ul>{projection.evidence_gaps.map((gap) => <li key={gap}><code>{gap}</code></li>)}</ul>}
         </article>
         <article>
           <h3>{t("aksCommerce.actionTitle")}</h3>

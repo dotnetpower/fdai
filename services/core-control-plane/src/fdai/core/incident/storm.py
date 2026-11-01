@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fdai.shared.contracts.models import IncidentSeverity
 
@@ -56,6 +56,17 @@ class StormSignal:
     resource_ref: str
     arrived_at: datetime
     blast_radius: int = 1  # estimated count of affected resources
+
+    def __post_init__(self) -> None:
+        if (
+            not self.signal_id.strip()
+            or not self.resource_ref.strip()
+            or isinstance(self.blast_radius, bool)
+            or self.blast_radius < 1
+        ):
+            raise ValueError(
+                "StormSignal requires non-empty ids, aware arrived_at, and positive blast_radius"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,11 +108,16 @@ class StormCoordinator:
         storm_concurrency: int = 1,
         storm_hil_at_or_above: IncidentSeverity = IncidentSeverity.SEV3,
     ) -> None:
-        if storm_threshold < 1:
+        if isinstance(storm_threshold, bool) or storm_threshold < 1:
             raise ValueError("storm_threshold MUST be >= 1")
         if window <= timedelta(0):
             raise ValueError("window MUST be positive")
-        if base_concurrency < 1 or storm_concurrency < 1:
+        if (
+            isinstance(base_concurrency, bool)
+            or isinstance(storm_concurrency, bool)
+            or base_concurrency < 1
+            or storm_concurrency < 1
+        ):
             raise ValueError("concurrency caps MUST be >= 1")
         self._storm_threshold = storm_threshold
         self._window = window
@@ -144,10 +160,23 @@ class StormCoordinator:
         into waves of at most ``concurrency_cap`` so a storm executes in
         capped, sequenced batches rather than all at once.
         """
-        if concurrency_cap < 1:
+        if isinstance(concurrency_cap, bool) or concurrency_cap < 1:
             raise ValueError("concurrency_cap MUST be >= 1")
+        deduped: dict[str, StormSignal] = {}
+        for s in signals:
+            prior = deduped.get(s.signal_id)
+            if prior is None or (
+                _SEVERITY_RANK.get(s.severity, 99),
+                -s.blast_radius,
+                s.resource_ref,
+            ) < (
+                _SEVERITY_RANK.get(prior.severity, 99),
+                -prior.blast_radius,
+                prior.resource_ref,
+            ):
+                deduped[s.signal_id] = s
         ordered = sorted(
-            signals,
+            deduped.values(),
             key=lambda s: (
                 _SEVERITY_RANK.get(s.severity, 99),
                 -s.blast_radius,
@@ -184,7 +213,19 @@ class StormCoordinator:
 
     def _within_window(self, signals: Iterable[StormSignal], *, now: datetime) -> list[StormSignal]:
         """Signals whose ``arrived_at`` falls inside ``window`` ending at ``now``."""
-        return [s for s in signals if timedelta(0) <= now - s.arrived_at <= self._window]
+        now_utc = now.astimezone(UTC) if now.tzinfo is not None else now.replace(tzinfo=UTC)
+        return [
+            s
+            for s in signals
+            if timedelta(0)
+            <= now_utc
+            - (
+                s.arrived_at.astimezone(UTC)
+                if s.arrived_at.tzinfo is not None
+                else s.arrived_at.replace(tzinfo=UTC)
+            )
+            <= self._window
+        ]
 
 
 __all__ = [

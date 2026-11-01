@@ -1,10 +1,10 @@
 /** Operations alert quality: authorized scope selection and inert, single-axis proposals only. */
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { AuthContext } from "../auth";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, UnavailableState } from "../components/ui";
 import type { ConsoleDataMode } from "../console-data-mode";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import {
   useAlertQualityIdentity, useAlertQualityReport, useAlertQualityScopes, useAlertQualitySettings, type AlertQualityIdentity,
 } from "./alert-quality.controller";
@@ -33,6 +33,18 @@ export function AlertQualityRoute({ client, auth, dataMode }: {
   readonly auth: AuthContext;
   readonly dataMode: ConsoleDataMode;
 }) {
+  const [, setRouteRevision] = useState(0);
+  useEffect(() => {
+    const sync = () => setRouteRevision((revision) => revision + 1);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
   const identity = useAlertQualityIdentity(client, auth, dataMode);
   const discovery = useAlertQualityScopes(identity);
   const search = currentRoute().search;
@@ -61,7 +73,7 @@ export function AlertQualityRoute({ client, auth, dataMode }: {
                   <AlertQualityScopePicker scopes={scopes} selected={selected.status === "selected" ? selected.scope : null}
                     onSelect={(scope) => {
                       if (identity.current() && identity.scopeCurrent(scopes) && scopes.scope_refs.includes(scope)) {
-                        navigate(routeHref("alert-quality", { params: { scope_ref: scope } }));
+                        navigate(routeHref("alert-quality", { params: { scope_ref: scope, rule_ref: rule } }));
                       }
                     }} />
                 </div>

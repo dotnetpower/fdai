@@ -276,3 +276,23 @@ def test_merge_preserves_each_nonnumeric_statistic_family() -> None:
         result = merge_semantic_rollups(policy, (first, second))
 
         assert result.statistics_json == expected
+
+
+def test_rollup_rejects_boolean_interval_nonfinite_decimal_and_digest_collision() -> None:
+    from dataclasses import replace
+
+    policy = _policy(RollupFactKind.GAUGE, ("count", "sum"))
+    with pytest.raises(ValueError, match="positive"):
+        replace(policy, expected_interval_seconds=True)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="Decimal"):
+        _observation(policy, 0, Decimal("NaN"))
+
+    first = build_semantic_rollup(
+        policy,
+        (_observation(policy, 0, Decimal(1)),),
+        window_start=_START,
+        window_end=_START + timedelta(minutes=1),
+    )
+    tampered = replace(first, observation_count=99)
+    with pytest.raises(ValueError, match="digest collision"):
+        merge_semantic_rollups(policy, (first, tampered))

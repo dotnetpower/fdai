@@ -606,3 +606,39 @@ async def test_consult_t2_proposer_abstain_maps(tmp_path: Path) -> None:
         if r["entry"].get("action_kind") == "control_loop.t2_evaluate"
     ]
     assert rows[0]["t2_candidate"] is None
+    assert rows[0]["tier"] == "t2"
+
+
+@pytest.mark.asyncio
+async def test_consult_t2_resolves_resource_type_rules_when_routed_via_t1(tmp_path: Path) -> None:
+    audit = InMemoryStateStore()
+    proposer = _Proposer(_candidate())
+    tier = T2Tier(proposer=proposer, quality_gate=_FakeGate(QualityOutcome.ELIGIBLE))
+    loop = _make_loop(t2_engine=tier, audit=audit, tmp_path=tmp_path)
+    event = await _ingest("evt-t1-to-t2-fallback")
+    decision = RoutingDecision(
+        tier=RoutingTier.T1,
+        resource_type="compute.vm.novel",
+        candidate_rule_ids=(),
+        reason="no_rule_matches_resource_and_signal_type",
+    )
+
+    result = await loop._consult_t2(  # noqa: SLF001 - test hook
+        event=event,
+        decision=decision,
+        citing=(),
+        cs_decision=None,
+        t1_decision=None,
+        event_id=str(event.event_id),
+        correlation_id=str(event.event_id),
+    )
+
+    assert result is not None
+    assert proposer.calls == 1
+    assert result.tier == "t2"
+    assert result.t2_decision is not None
+    assert result.t2_decision.outcome is T2Outcome.PROPOSED
+    assert result.t2_decision.proposed_action_type == "remediate.tag-add"
+    assert result.t2_decision.cited_rule_ids == ("r1",)
+    assert result.t2_decision.aggregate_confidence == pytest.approx(0.0)
+    assert tier.has_self_consistency is False

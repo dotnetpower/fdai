@@ -54,7 +54,7 @@ export function assurancePostureHref(
   context: Readonly<Record<string, string>> = {},
 ): string {
   if (attention.policyEscapes !== null && attention.policyEscapes > 0) {
-    return routeHref("promotion-gates", { params: { status: "blocked" } });
+    return routeHref("promotion-gates", { params: { ...context, status: "blocked" } });
   }
   if (attention.failedGuardKey !== null) {
     return assuranceSectionHref("promotion-guards", {
@@ -62,9 +62,9 @@ export function assurancePostureHref(
       guard: attention.failedGuardKey,
     });
   }
-  if (attention.pendingApprovals > 0) return routeHref("hil-queue");
+  if (attention.pendingApprovals > 0) return routeHref("hil-queue", { params: context });
   if (attention.blockedCapabilities !== null && attention.blockedCapabilities > 0) {
-    return routeHref("promotion-gates", { params: { status: "blocked" } });
+    return routeHref("promotion-gates", { params: { ...context, status: "blocked" } });
   }
   if (attention.shadowShare < 0.95) {
     return routeHref("audit", {
@@ -146,9 +146,9 @@ export function ControlAssuranceBody({ data, evidence, guardKey, context }: Prop
         />
       </section>
       <nav class="analytics-links" aria-label={t("analytics.relatedEvidence")}>
-        <a href={routeHref("promotion-gates", { params: { status: "blocked" } })}>{t("analytics.viewPromotion")}</a>
-        <a href={routeHref("hil-queue")}>{t("analytics.viewApprovals")}</a>
-        <a href={routeHref("audit", { params: { mode: "shadow" } })}>{t("analytics.viewShadowAudit")}</a>
+        <a href={routeHref("promotion-gates", { params: { ...context, status: "blocked" } })}>{t("analytics.viewPromotion")}</a>
+        <a href={routeHref("hil-queue", { params: context })}>{t("analytics.viewApprovals")}</a>
+        <a href={routeHref("audit", { params: { ...context, mode: "shadow" } })}>{t("analytics.viewShadowAudit")}</a>
       </nav>
     </div>
   );

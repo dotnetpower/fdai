@@ -44,14 +44,18 @@ class AzureMonitorTestObservationProvider:
         scope: OperatingScopeObservationReader,
         source_anchor: str,
     ) -> None:
+        if not isinstance(source_anchor, str) or not source_anchor.strip():
+            raise ValueError("source_anchor MUST be a non-empty string")
         self._metrics = metrics
         self._scope = scope
-        self._source_anchor = source_anchor
+        self._source_anchor = source_anchor.strip()
 
     async def observation(self, **coordinates: str) -> Mapping[str, object] | None:
         target_ref = coordinates["target_ref"]
         signal_code = coordinates["signal_code"]
         observed_at = datetime.fromisoformat(coordinates["observed_at"].replace("Z", "+00:00"))
+        if observed_at.tzinfo is None:
+            raise ValueError("observed_at MUST be timezone-aware")
         scope = await self._scope.scope_state(
             target_ref=target_ref,
             signal_code=signal_code,

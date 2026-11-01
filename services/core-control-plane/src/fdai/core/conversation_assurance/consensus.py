@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import math
 from collections.abc import Iterable
 
 from fdai.core.conversation_assurance.models import (
@@ -45,7 +46,10 @@ class MixedFamilyAssuranceReviewer:
             raise ValueError("assurance evaluator identities MUST be distinct")
         if len(families) != len(evaluators):
             raise ValueError("assurance evaluator families MUST be distinct")
-        if prospective_cost_microusd_per_call < 0:
+        if (
+            isinstance(prospective_cost_microusd_per_call, bool)
+            or prospective_cost_microusd_per_call < 0
+        ):
             raise ValueError("prospective model cost MUST be non-negative")
         self._first = first
         self._second = second
@@ -183,7 +187,7 @@ def _validate_outputs(
 ) -> str | None:
     allowed_refs = set(turn.evidence_refs)
     for output in outputs:
-        if output.confidence < _MINIMUM_CONFIDENCE:
+        if not math.isfinite(output.confidence) or output.confidence < _MINIMUM_CONFIDENCE:
             return "evaluator_confidence_below_threshold"
         criteria = [score.criterion for score in output.scores]
         if len(criteria) != len(set(criteria)):
@@ -283,7 +287,12 @@ def _inconclusive(
         confidence=0.0,
         reasons=(reason,),
         evaluator_identities=tuple(output.model_identity for output in outputs),
-        disagreement=reason == "model_disagreement",
+        disagreement=reason
+        in {
+            "model_disagreement",
+            "model_verdict_disagreement",
+            "model_criterion_disagreement",
+        },
         model_calls=len(outputs),
         prompt_tokens=sum(output.prompt_tokens for output in outputs),
         completion_tokens=sum(output.completion_tokens for output in outputs),

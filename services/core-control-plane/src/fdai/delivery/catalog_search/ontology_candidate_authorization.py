@@ -75,7 +75,12 @@ async def reauthorize_ontology_candidates(
     Every returned property comes from a current ACL-projected graph. Index text
     is used only for exact comparison; even self-consistent fabricated rows fail.
     """
-    if not 1 <= len(candidates) <= 100 or len(manifest.purposes) != 1:
+    if (
+        not 1 <= len(candidates) <= 100
+        or len(manifest.purposes) != 1
+        or as_of.tzinfo is None
+        or as_of.utcoffset() is None
+    ):
         raise ValueError("ontology candidates require bounded single-purpose reauthorization")
     by_type: dict[str, list[str]] = {}
     expected: dict[tuple[str, str], CatalogSearchDocument] = {}
@@ -165,6 +170,13 @@ async def reauthorize_ontology_candidates(
 
 def projected_candidate_record(record: OntologyObjectRecord) -> OntologyObjectRecord:
     """Remove redaction markers and withheld values before comparison or presentation."""
+    raw_redactions = record.properties.get("__redactions__")
+    redacted_keys = (
+        frozenset(str(key) for key in raw_redactions)
+        if isinstance(raw_redactions, (Mapping, Sequence, set, frozenset))
+        and not isinstance(raw_redactions, (str, bytes, bytearray))
+        else frozenset()
+    )
     return OntologyObjectRecord(
         id=record.id,
         object_type=record.object_type,
@@ -174,8 +186,7 @@ def projected_candidate_record(record: OntologyObjectRecord) -> OntologyObjectRe
             {
                 name: value
                 for name, value in record.properties.items()
-                if name != "__redactions__"
-                and name not in record.properties.get("__redactions__", {})
+                if name != "__redactions__" and name not in redacted_keys
             }
         ),
     )

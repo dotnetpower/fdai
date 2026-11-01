@@ -88,6 +88,19 @@ class CausalIncidentGraph:
     provider_generation_refs: tuple[str, ...] = ()
     active_provider_generation: str | None = None
 
+    def __post_init__(self) -> None:
+        if (
+            not self.incident_id.strip()
+            or not self.graph_revision.strip()
+            or self.evidence_cutoff.tzinfo is None
+            or self.evidence_cutoff.utcoffset() is None
+            or (
+                self.known_at is not None
+                and (self.known_at.tzinfo is None or self.known_at.utcoffset() is None)
+            )
+        ):
+            raise ValueError("CausalIncidentGraph requires non-empty ids and aware timestamps")
+
     @property
     def complete(self) -> bool:
         return (
@@ -115,12 +128,22 @@ class CausalIncidentGraphMaterializer:
         The cutoff bounds both event time and knowledge time. Late-recorded facts require a
         retained historical context, which ``OntologyInstanceStore.traverse`` cannot supply.
         """
-        if not incident_id.strip() or not root_ids or any(not item.strip() for item in root_ids):
+        if (
+            not isinstance(incident_id, str)
+            or not incident_id.strip()
+            or not root_ids
+            or any(not isinstance(item, str) or not item.strip() for item in root_ids)
+        ):
             raise ValueError("incident_id and root_ids MUST be non-empty")
-        if not link_types or any(not item.strip() for item in link_types):
+        if not link_types or any(
+            not isinstance(item, str) or not item.strip() for item in link_types
+        ):
             raise ValueError("link_types MUST be non-empty")
         if evidence_cutoff.utcoffset() is None:
             raise ValueError("evidence_cutoff MUST be timezone-aware")
+        incident_id = incident_id.strip()
+        root_ids = tuple(dict.fromkeys(item.strip() for item in root_ids))
+        link_types = tuple(dict.fromkeys(item.strip() for item in link_types))
         evidence_cutoff = evidence_cutoff.astimezone(UTC)
         active_bounds = bounds or IncidentGraphBounds()
         if len(set(root_ids)) > active_bounds.max_nodes:

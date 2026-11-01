@@ -37,9 +37,18 @@ class BackendEligibility:
     reason_code: str | None = None
 
     def __post_init__(self) -> None:
+        if type(self.available) is not bool or type(self.complete) is not bool:
+            raise ValueError("backend eligibility available and complete MUST be booleans")
+        if (
+            not self.operation_id.strip()
+            or not self.scope_digest.strip()
+            or not self.predicate_digest.strip()
+            or not self.output_schema_id.strip()
+        ):
+            raise ValueError("backend eligibility identity fields MUST be non-empty")
         if self.available and self.reason_code is not None:
             raise ValueError("available backend eligibility MUST NOT include a reason")
-        if not self.available and self.reason_code is None:
+        if not self.available and (self.reason_code is None or not self.reason_code.strip()):
             raise ValueError("unavailable backend eligibility MUST include a reason")
         if self.freshness_seconds < 0:
             raise ValueError("backend freshness MUST NOT be negative")
@@ -53,6 +62,23 @@ class DiscoveryRoutingDecision:
     plan: DiscoveryQueryPlan | None
     status: DiscoveryCoverageStatus
     reason_code: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.plan is None:
+            if (
+                self.status is not DiscoveryCoverageStatus.UNSUPPORTED
+                or self.reason_code is None
+                or not self.reason_code.strip()
+            ):
+                raise ValueError(
+                    "unrouted discovery decision MUST be unsupported with a reason_code"
+                )
+        elif self.status not in {
+            DiscoveryCoverageStatus.COVERED,
+            DiscoveryCoverageStatus.FALLBACK,
+            DiscoveryCoverageStatus.PARTIAL,
+        }:
+            raise ValueError("routed discovery decision requires a covered/fallback/partial status")
 
 
 def compile_discovery_routes(

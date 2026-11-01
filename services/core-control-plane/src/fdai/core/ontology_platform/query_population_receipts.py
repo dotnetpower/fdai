@@ -24,12 +24,15 @@ def population_receipt_fields(
 ) -> dict[str, Any]:
     """Return what a receipt may state about the whole set behind one cut page."""
 
+    if isinstance(page_size, bool) or page_size < 0:
+        raise ValueError("population receipt page_size MUST be a non-negative integer")
     status = ObjectSetPopulationStatus.UNKNOWN
     fields: dict[str, Any] = {"schema_version": "1.3.0"}
     if (
         population is not None
         and source_complete
         and population.source_complete
+        and (source_generation is None or bool(source_generation.strip()))
         and population.source_generation == source_generation
     ):
         visible = project_graph_snapshot(population, object_types=object_types, request=request)

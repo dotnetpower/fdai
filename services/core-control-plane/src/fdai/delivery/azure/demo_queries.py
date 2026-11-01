@@ -272,7 +272,9 @@ _HTTP_429_RATE = MetricKqlTemplate(
         "| summarize "
         "    total = count(), "
         "    throttled = countif(status_code == 429) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| extend v = iif(total == 0, 0.0, todouble(throttled) / total) "
         "| project TimeGenerated, v, resource_id"
     ),
@@ -291,7 +293,9 @@ _REQUEST_SURGE_RATIO = MetricKqlTemplate(
         "| where ResourceProvider == 'MICROSOFT.COGNITIVESERVICES' "
         "| where Category == 'RequestResponse' "
         "| summarize per_min = count() "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| order by resource_id asc, TimeGenerated asc "
         "| extend baseline = "
         "    todouble(prev(per_min, 1)) "
@@ -347,7 +351,9 @@ _MYSQL_CPU_PERCENT = MetricKqlTemplate(
         "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
         "| where MetricName == 'cpu_percent' "
         "| summarize v = avg(Average) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",
@@ -360,7 +366,9 @@ _MYSQL_ACTIVE_CONNECTIONS = MetricKqlTemplate(
         "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
         "| where MetricName == 'active_connections' "
         "| summarize v = max(Maximum) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",
@@ -373,7 +381,9 @@ _MYSQL_QUERY_COUNT = MetricKqlTemplate(
         "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
         "| where MetricName == 'Queries' "
         "| summarize v = sum(Total) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",
@@ -386,7 +396,9 @@ _MYSQL_SLOW_QUERY_COUNT = MetricKqlTemplate(
         "| where ResourceProvider == 'MICROSOFT.DBFORMYSQL' "
         "| where MetricName == 'Slow_queries' "
         "| summarize v = sum(Total) "
-        "  by bin(TimeGenerated, 1m), resource_id = tolower(ResourceId) "
+        "  by bin(TimeGenerated, 1m), "
+        "  resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+        "    column_ifexists('ResourceId', ''))) "
         "| project TimeGenerated, v, resource_id"
     ),
     value_column="v",
@@ -585,6 +597,87 @@ def default_metric_queries() -> Mapping[str, MetricKqlTemplate]:
     return MappingProxyType(merged)
 
 
+_EXTENDED_LOG_METRIC_QUERIES: Mapping[str, MetricKqlTemplate] = MappingProxyType(
+    {
+        "postgresql.cpu_percent": MetricKqlTemplate(
+            kql=(
+                "AzureMetrics "
+                "| where ResourceProvider == 'MICROSOFT.DBFORPOSTGRESQL' "
+                "and MetricName == 'cpu_percent' "
+                "| summarize v = avg(Average) by bin(TimeGenerated, 1m), "
+                "resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+                "column_ifexists('ResourceId', ''))) "
+                "| project TimeGenerated, v, resource_id"
+            ),
+            value_column="v",
+            label_columns=("resource_id",),
+        ),
+        "postgresql.active_connections": MetricKqlTemplate(
+            kql=(
+                "AzureMetrics "
+                "| where ResourceProvider == 'MICROSOFT.DBFORPOSTGRESQL' "
+                "and MetricName == 'active_connections' "
+                "| summarize v = max(Maximum) by bin(TimeGenerated, 1m), "
+                "resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+                "column_ifexists('ResourceId', ''))) "
+                "| project TimeGenerated, v, resource_id"
+            ),
+            value_column="v",
+            label_columns=("resource_id",),
+        ),
+        "redis.server_load": MetricKqlTemplate(
+            kql=(
+                "AzureMetrics "
+                "| where ResourceProvider == 'MICROSOFT.CACHE' "
+                "and MetricName == 'allserverLoad' "
+                "| summarize v = max(Maximum) by bin(TimeGenerated, 1m), "
+                "resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+                "column_ifexists('ResourceId', ''))) "
+                "| project TimeGenerated, v, resource_id"
+            ),
+            value_column="v",
+            label_columns=("resource_id",),
+        ),
+        "key_vault.service_api_latency_ms": MetricKqlTemplate(
+            kql=(
+                "AzureMetrics "
+                "| where ResourceProvider == 'MICROSOFT.KEYVAULT' "
+                "and MetricName == 'ServiceApiLatency' "
+                "| summarize v = avg(Average) by bin(TimeGenerated, 1m), "
+                "resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+                "column_ifexists('ResourceId', ''))) "
+                "| project TimeGenerated, v, resource_id"
+            ),
+            value_column="v",
+            label_columns=("resource_id",),
+        ),
+        "event_hub.throttled_requests": MetricKqlTemplate(
+            kql=(
+                "AzureMetrics "
+                "| where ResourceProvider == 'MICROSOFT.EVENTHUB' "
+                "and MetricName == 'ThrottledRequests' "
+                "| summarize v = sum(Total) by bin(TimeGenerated, 1m), "
+                "resource_id = tolower(coalesce(column_ifexists('_ResourceId', ''), "
+                "column_ifexists('ResourceId', ''))) "
+                "| project TimeGenerated, v, resource_id"
+            ),
+            value_column="v",
+            label_columns=("resource_id",),
+        ),
+    }
+)
+
+
+def extended_monitor_log_metric_queries(
+    *,
+    include_defaults: bool = True,
+) -> Mapping[str, MetricKqlTemplate]:
+    """Return extended AzureMetrics KQL fallback templates for PaaS resources."""
+    if not include_defaults:
+        return _EXTENDED_LOG_METRIC_QUERIES
+    return MappingProxyType({**default_metric_queries(), **_EXTENDED_LOG_METRIC_QUERIES})
+
+
 __all__ = [
     "METRIC_APIM_BACKEND_LATENCY_MS",
     "METRIC_CONTAINER_APP_CPU_NANOCORES",
@@ -610,6 +703,7 @@ __all__ = [
     "METRIC_ROLLOUT_STALL_SECONDS",
     "METRIC_ROLLOUT_STALL_DURATION_SECONDS",
     "default_metric_queries",
+    "extended_monitor_log_metric_queries",
     "resource_metric_queries",
     "semantic_investigation_queries",
     "sre_demo_analyzer_queries",

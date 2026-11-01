@@ -58,16 +58,16 @@ class InsightRecipe:
             raise ValueError(
                 "recipe_id MUST use lowercase ASCII letters, digits, dot, dash, or underscore"
             )
-        if not self.title:
+        if not self.title or not self.title.strip():
             raise ValueError("title MUST be non-empty")
-        if not self.metric:
+        if not self.metric or not self.metric.strip():
             raise ValueError("metric MUST be non-empty")
-        if not math.isfinite(self.threshold):
+        if isinstance(self.threshold, bool) or not math.isfinite(self.threshold):
             raise ValueError("threshold MUST be finite")
-        if self.min_samples < 1:
+        if isinstance(self.min_samples, bool) or self.min_samples < 1:
             raise ValueError("min_samples MUST be >= 1")
         if self.operator in {InsightOperator.RATIO_ABOVE, InsightOperator.RATIO_BELOW}:
-            if not self.comparison_metric:
+            if not self.comparison_metric or not self.comparison_metric.strip():
                 raise ValueError("comparison_metric MUST be set for ratio operators")
 
 
@@ -86,11 +86,11 @@ class InsightObservation:
     evaluated_at: datetime = field(default_factory=lambda: datetime.now(tz=UTC))
 
     def __post_init__(self) -> None:
-        if not self.resource_ref:
+        if not self.resource_ref or not self.resource_ref.strip():
             raise ValueError("resource_ref MUST be non-empty")
-        if not self.window_bucket:
+        if not self.window_bucket or not self.window_bucket.strip():
             raise ValueError("window_bucket MUST be non-empty")
-        if self.evaluated_at.tzinfo is None:
+        if self.evaluated_at.tzinfo is None or self.evaluated_at.utcoffset() is None:
             raise ValueError("evaluated_at MUST be timezone-aware")
 
 
@@ -127,8 +127,10 @@ class OperationalInsightEngine:
     ) -> None:
         if not recipes:
             raise ValueError("recipes MUST be non-empty")
-        if not engine_id:
+        if not engine_id or not engine_id.strip():
             raise ValueError("engine_id MUST be non-empty")
+        if not source or not source.strip():
+            raise ValueError("source MUST be non-empty")
         recipe_ids = [recipe.recipe_id for recipe in recipes]
         if len(recipe_ids) != len(set(recipe_ids)):
             raise ValueError("recipe_id values MUST be unique")
@@ -249,13 +251,17 @@ def _score(
         return (None, None, 1.0) if current is None else None
     if recipe.operator is InsightOperator.STALE:
         last_seen = observation.last_seen_at.get(recipe.metric)
-        if last_seen is None or last_seen.tzinfo is None:
+        if last_seen is None or last_seen.tzinfo is None or last_seen.utcoffset() is None:
             return None
-        age_seconds = (observation.evaluated_at - last_seen).total_seconds()
+        age_seconds = (
+            observation.evaluated_at.astimezone(UTC) - last_seen.astimezone(UTC)
+        ).total_seconds()
+        if age_seconds < 0.0:
+            return None
         if age_seconds > recipe.threshold:
             return current, last_seen.timestamp(), age_seconds
         return None
-    if current is None or not math.isfinite(current):
+    if current is None or isinstance(current, bool) or not math.isfinite(current):
         return None
     if observation.sample_counts.get(recipe.metric, 0) < recipe.min_samples:
         return None

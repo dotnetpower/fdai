@@ -13,6 +13,8 @@ def read_investigation_request_projection(
 ) -> dict[str, object]:
     """Return the provider-neutral canonical projection used for request digesting."""
 
+    if not isinstance(request, ReadInvestigationRequest):
+        raise TypeError("request MUST be a ReadInvestigationRequest")
     return {
         "intent": request.intent.value,
         "selector": {

@@ -331,6 +331,10 @@ def test_supported_sovereign_cloud_configs(config: AzureMonitorTelemetryWorkspac
 def test_workspace_limit_reserves_one_static_fallback_route() -> None:
     with pytest.raises(ValueError, match=r"\[1, 3\]"):
         AzureMonitorTelemetryWorkspaceConfig(maximum_workspaces=4)
+    with pytest.raises(ValueError, match=r"\[1, 3\]"):
+        AzureMonitorTelemetryWorkspaceConfig(maximum_workspaces=True)
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        AzureMonitorTelemetryWorkspaceConfig(timeout_seconds=True)
 
 
 @pytest.mark.parametrize(

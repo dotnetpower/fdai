@@ -244,3 +244,35 @@ async def test_verifier_rejects_raw_query_fields_before_tool_execution() -> None
         verifier.verify(plan, manifest=_manifest())
 
     assert provider.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_tool_rejects_bool_capacity_and_preserves_inflight_for_second_waiter() -> None:
+    with pytest.raises(ValueError, match="maximum_retained_receipts"):
+        TelemetryEvidenceRecipeTool(provider=_Provider(), maximum_retained_receipts=True)
+
+    gate = asyncio.Event()
+
+    class _GatedProvider:
+        def __init__(self) -> None:
+            self.started = asyncio.Event()
+
+        async def gather(self, need):
+            self.started.set()
+            await gate.wait()
+            return await _Provider().gather(need)
+
+    provider = _GatedProvider()
+    tool = TelemetryEvidenceRecipeTool(provider=provider)
+    need = _need()
+    first = asyncio.create_task(tool.run(need))
+    second = asyncio.create_task(tool.run(need))
+    await provider.started.wait()
+    await asyncio.sleep(0)
+
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    gate.set()
+    receipt = await second
+    assert receipt.need_id == need.need_id

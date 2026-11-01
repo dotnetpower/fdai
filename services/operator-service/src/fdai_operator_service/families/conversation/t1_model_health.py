@@ -83,8 +83,13 @@ def t1_model_health(value: object, *, now: datetime | None = None) -> JsonObject
         expires = datetime.fromisoformat(router.expires_at)
         current = now if now is not None else datetime.now(UTC)
         if (
-            observed.tzinfo is None
+            current.tzinfo is None
+            or current.utcoffset() is None
+            or observed.tzinfo is None
+            or observed.utcoffset() is None
             or expires.tzinfo is None
+            or expires.utcoffset() is None
+            or len({item.deployment for item in router.candidates}) != len(router.candidates)
             or observed > current + timedelta(seconds=5)
             or not observed < expires <= observed + timedelta(seconds=2 * router.interval_seconds)
             or router.chose != (projection.model or "")

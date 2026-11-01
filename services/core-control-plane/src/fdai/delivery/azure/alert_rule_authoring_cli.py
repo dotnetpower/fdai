@@ -36,6 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
+    if args.output.is_dir():
+        print(f"metric-alerts: ERROR: output path is a directory: {args.output}", file=sys.stderr)
+        return 1
     try:
         content, refusals = _render(args.catalog)
     except MetricAlertCatalogError as exc:
@@ -57,8 +60,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.output.with_suffix(args.output.suffix + ".tmp")
-    temporary.write_text(content, encoding="utf-8")
-    temporary.replace(args.output)
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        temporary.replace(args.output)
+    finally:
+        temporary.unlink(missing_ok=True)
     print(f"metric-alerts: wrote {args.output}")
     return 0
 

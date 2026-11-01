@@ -23,7 +23,7 @@ def _bounded_text(value: str, *, field_name: str) -> str:
 
 
 def _timestamp(value: datetime, *, field_name: str) -> str:
-    if value.tzinfo is None:
+    if value.utcoffset() is None:
         raise ValueError(f"runtime call {field_name} MUST be timezone-aware")
     return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
@@ -138,7 +138,11 @@ class RuntimeCallTelemetryProducer:
         authenticator: RuntimeCallTelemetryAuthenticator,
         timeout_seconds: float = 2.0,
     ) -> None:
-        if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or timeout_seconds <= 0
+        ):
             raise ValueError("runtime call authentication timeout MUST be finite and positive")
         self._authenticator = authenticator
         self._timeout_seconds = timeout_seconds

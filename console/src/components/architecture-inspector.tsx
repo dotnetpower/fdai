@@ -2,7 +2,8 @@ import type { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import { Tooltip } from "./tooltip";
 import { CopyButton } from "./ui";
-import { routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { t } from "../routes/i18n/architecture";
 import {
   RESOURCE_COLOR_TOKENS,
@@ -71,6 +72,20 @@ export function architectureParentBoundary(
   return parentId ? byId.get(parentId) ?? null : null;
 }
 
+export function architectureBlastRadiusHref(
+  targetId: string,
+  activeView: string | null | undefined,
+  search: URLSearchParams = currentRoute().search,
+): string {
+  return routeHref("blast-radius", {
+    params: {
+      target: targetId,
+      view: activeView,
+      data: search.get("data") === "sample" ? "sample" : null,
+    },
+  });
+}
+
 export function ArchitectureInspector({
   graph,
   displayedGraph,
@@ -120,6 +135,7 @@ export function ArchitectureInspector({
         {(["overview", "relationships", ...(mode === "network" ? ["path"] as const : []), "sources"] as const)
           .map((item) => (
             <button
+              key={item}
               type="button"
               class={view === item ? "is-active" : undefined}
               aria-pressed={view === item}
@@ -154,7 +170,7 @@ export function ArchitectureInspector({
               </dd>
             </dl>
             <div class="architecture-resource-actions">
-              <a class="btn architecture-primary-action" href={routeHref("blast-radius", { params: { target: selected.id, view: graph.active_view } })}>
+              <a class="btn architecture-primary-action" href={architectureBlastRadiusHref(selected.id, graph.active_view)}>
                 {t("viewImpactScope")}
               </a>
             </div>
@@ -198,7 +214,7 @@ export function ArchitectureInspector({
           <h3>{t("inspector.sources")}</h3>
           <dl class="architecture-source-facts">
             <div><dt>{t("source")}</dt><dd>{sourceLabel}</dd></div>
-            <div><dt>{t("inspector.snapshotTime")}</dt><dd><time dateTime={graph.snapshot_at}>{graph.snapshot_at}</time></dd></div>
+            <div><dt>{t("inspector.snapshotTime")}</dt><dd><time dateTime={graph.snapshot_at}>{formatConsoleTimestamp(graph.snapshot_at)}</time></dd></div>
             <div><dt>{t("inspector.freshness")}</dt><dd>{graph.freshness}</dd></div>
             <div><dt>{t("inspector.displayedResources")}</dt><dd>{displayedGraph.resources.length.toLocaleString()} / {graph.resources.length.toLocaleString()}</dd></div>
             <div><dt>{t("inspector.displayedRelationships")}</dt><dd>{displayedGraph.links.length.toLocaleString()} / {graph.links.length.toLocaleString()}</dd></div>

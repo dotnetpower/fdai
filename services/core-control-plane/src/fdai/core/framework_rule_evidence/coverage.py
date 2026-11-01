@@ -55,10 +55,11 @@ class RuleEvidenceLimitation(StrEnum):
 def canonical_sha256(value: str) -> str:
     """Normalize a bare or ``sha256:``-prefixed lowercase SHA-256 digest."""
 
-    if _PREFIXED_SHA256.fullmatch(value) is not None:
-        return value
-    if _BARE_SHA256.fullmatch(value) is not None:
-        return f"sha256:{value}"
+    normalized = value.strip() if isinstance(value, str) else ""
+    if _PREFIXED_SHA256.fullmatch(normalized) is not None:
+        return normalized
+    if _BARE_SHA256.fullmatch(normalized) is not None:
+        return f"sha256:{normalized}"
     raise ValueError("digest MUST be lowercase SHA-256")
 
 

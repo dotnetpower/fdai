@@ -37,16 +37,21 @@ def migrate_stewardship_mapping_to_v2(raw: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(raw_agent, dict):
             raise StewardshipMigrationError(f"agent {name!r} must be a mutable mapping")
         stewards = raw_agent.get("stewards", [])
-        if not isinstance(stewards, list):
+        if not isinstance(stewards, (list, tuple)):
             raise StewardshipMigrationError(f"agent {name!r} stewards must be a mutable list")
+        raw_agent["stewards"] = list(stewards)
         accountable = [
             entry
-            for entry in stewards
+            for entry in raw_agent["stewards"]
             if isinstance(entry, Mapping) and entry.get("responsibility") == "accountable"
         ]
         if not accountable:
             continue
-        if len(accountable) < 2:
+        distinct_accountable = {
+            (str(entry.get("kind") or ""), str(entry.get("id") or "").strip().casefold())
+            for entry in accountable
+        }
+        if len(distinct_accountable) < 2:
             missing_backup.append(str(name))
 
     if missing_backup:

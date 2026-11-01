@@ -1,7 +1,14 @@
 {
   "label": "Agent trajectories",
-  "findPlaceholder": "Correlation, agent, action, outcome, or message",
+  "findPlaceholder": "Message, action, evidence...",
+  "correlation": "Correlation",
+  "allCorrelations": "All correlations",
   "clearFilters": "Clear filters",
+  "evidenceDetails": "Evidence details",
+  "evidenceDetailsBody": "Audit and operational evidence have separate authority. Showing up to {records} retained audit records ({operational} operational) alongside the live runtime stream.",
+  "selectionTrajectory": "{agent}: showing trajectories this agent took part in; other agents' steps stay visible as context.",
+  "selectionLog": "{agent}: filtering attributed work and conversation participants.",
+  "roleDetails": "Role details",
   "count": "{shown} of {total} trajectories from {records} retained audit records",
   "uncorrelated": "{count} uncorrelated records appear only in the Activity log",
   "uncorrelatedOne": "1 uncorrelated record appears only in the Activity log",
@@ -80,8 +87,11 @@
     "produced": "Produced",
     "decision": "Decision basis",
     "recorded": "Recorded fields",
+    "messages": "Agent messages",
     "source": "Audit record"
   },
+  "provenance": "Trajectory provenance",
+  "provenanceRecords": "{count} retained audit records",
   "field": {
     "outcome": "Outcome",
     "decision": "Decision",

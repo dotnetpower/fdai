@@ -89,6 +89,8 @@ class Citation:
     facts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.ref, str):
+            raise ValueError("citation ref MUST be a string")
         if len(self.facts) > _MAX_CITATION_FACTS:
             raise ValueError("citation facts exceed the bounded count")
         canonical = tuple(sorted(set(self.facts)))
@@ -111,6 +113,15 @@ class RcaCausalHop:
     relationship: str
     confidence: float
 
+    def __post_init__(self) -> None:
+        if (
+            not self.cause_event_id.strip()
+            or not self.effect_event_id.strip()
+            or isinstance(self.lead_seconds, bool)
+            or isinstance(self.confidence, bool)
+        ):
+            raise ValueError("RcaCausalHop requires non-empty event ids and numeric metrics")
+
     def to_dict(self) -> dict[str, object]:
         """Return the audit-safe wire representation."""
         return asdict(self)
@@ -125,6 +136,10 @@ class RcaCausalChain:
     hops: tuple[RcaCausalHop, ...]
     confidence: float
     ambiguity: int
+
+    @property
+    def hop_count(self) -> int:
+        return len(self.hops)
 
     def to_dict(self) -> dict[str, object]:
         """Return the append-only audit representation."""
@@ -159,8 +174,16 @@ class RootCauseHypothesis:
 
     @property
     def grounded(self) -> bool:
-        """True iff at least one citation backs the hypothesis."""
-        return len(self.citations) > 0
+        """True iff at least one non-blank citation and a non-blank cause back the hypothesis."""
+        if not isinstance(self.cause, str) or not self.cause.strip():
+            return False
+        return len(self.citations) > 0 and all(
+            isinstance(c.ref, str) and bool(c.ref.strip()) for c in self.citations
+        )
+
+    @property
+    def citation_kinds(self) -> tuple[CitationKind, ...]:
+        return tuple(dict.fromkeys(c.kind for c in self.citations))
 
 
 class RcaOutcome(StrEnum):
@@ -185,6 +208,14 @@ class RcaResult:
     @property
     def is_grounded(self) -> bool:
         return self.outcome is RcaOutcome.GROUNDED
+
+    @property
+    def tier_value(self) -> str | None:
+        return self.hypothesis.tier.value if self.hypothesis is not None else None
+
+    @property
+    def citation_count(self) -> int:
+        return len(self.hypothesis.citations) if self.hypothesis is not None else 0
 
 
 __all__ = [

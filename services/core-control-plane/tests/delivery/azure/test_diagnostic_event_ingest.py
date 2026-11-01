@@ -113,3 +113,35 @@ async def test_bridge_skips_non_whitelisted_records_without_dead_letter() -> Non
     )
 
     assert await bridge.process(envelope) == 0
+
+
+async def test_bridge_rejects_self_loop_topic_and_deduplicates_batch_events() -> None:
+    import pytest
+
+    source = InMemoryEventBus()
+    target = InMemoryEventBus()
+    with pytest.raises(ValueError, match="distinct"):
+        DiagnosticEventIngestBridge(
+            source_bus=source,
+            target_bus=target,
+            source_topic="fdai.events",
+            target_topic="fdai.events",
+            consumer_group="fdai-diagnostic-normalizer",
+            options=DiagnosticNormalizerOptions(metric_whitelist=("node_cpu_percent",)),
+        )
+
+    bridge = _bridge(source, target)
+    rec = {
+        "time": (_NOW - timedelta(seconds=10)).isoformat(),
+        "resourceId": _TARGET,
+        "category": "AllMetrics",
+        "metricName": "node_cpu_percent",
+        "average": 72.5,
+    }
+    envelope = EventEnvelope(
+        topic="azure.diagnostics",
+        key="source-record-dup",
+        payload={"records": [rec, dict(rec)]},
+        offset=2,
+    )
+    assert await bridge.process(envelope) == 1

@@ -141,6 +141,8 @@ def compile_governed_document_plan(
     Mismatch raises without falling back; a missing structured query is unavailable.
     """
 
+    if not purpose.strip():
+        raise ValueError("governed document plan purpose MUST be non-empty")
     if frame.output_shape != SemanticOutputShape.GOVERNED_DOCUMENT_EXCERPTS:
         return None
     mode = document_evidence_mode(frame)
@@ -282,7 +284,11 @@ def _document_query_text(
             raise ValueError("document retrieval query does not match its frame and source")
         return query.query_text
     legacy_query = utterance.strip()
-    if not legacy_query or len(legacy_query) > 20_000:
+    if (
+        not legacy_query
+        or len(legacy_query) > 20_000
+        or any(ord(char) < 32 and char not in "\n\r\t" for char in legacy_query)
+    ):
         raise ValueError("governed document search query MUST be in [1, 20000] characters")
     return legacy_query
 

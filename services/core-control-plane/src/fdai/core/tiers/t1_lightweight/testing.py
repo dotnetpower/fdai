@@ -44,6 +44,41 @@ class InMemoryPatternLibrary(PatternLibrary, PatternLibraryWriter):
     def add(self, *, vector: Sequence[float], action: LearnedAction) -> None:
         self._entries.append((vector, action))
 
+    def signatures(self) -> tuple[str, ...]:
+        """Return stored pattern signatures in insertion order."""
+        return tuple(action.signature for _vec, action in self._entries)
+
+    def seed_patterns(
+        self,
+        entries: Sequence[tuple[Sequence[float], LearnedAction]],
+    ) -> int:
+        """Seed baseline patterns idempotently by signature and return newly added count."""
+        known = {action.signature for _vec, action in self._entries}
+        added = 0
+        for vector, action in entries:
+            if action.signature in known:
+                continue
+            self._entries.append((list(vector), action))
+            known.add(action.signature)
+            added += 1
+        return added
+
+    def remove_pattern(self, signature: str) -> bool:
+        """Remove a stored pattern by signature and return whether an entry was removed."""
+        for idx, (_vec, existing) in enumerate(self._entries):
+            if existing.signature == signature:
+                del self._entries[idx]
+                return True
+        return False
+
+    def clear(self) -> None:
+        """Remove all stored patterns."""
+        self._entries.clear()
+
+    def find_by_rule_id(self, rule_id: str) -> tuple[LearnedAction, ...]:
+        """Return all stored actions citing ``rule_id``."""
+        return tuple(action for _vec, action in self._entries if action.rule_id == rule_id)
+
     async def upsert_pattern(
         self,
         *,

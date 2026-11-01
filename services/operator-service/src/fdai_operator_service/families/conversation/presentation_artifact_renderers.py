@@ -371,7 +371,7 @@ def _comparison_block(
     items = [
         {"role": role, "label": role, "value": record[field]}
         for role, field in roles
-        if field is not None
+        if field is not None and field in record and record[field] is not None
     ]
     if len(items) < 2:
         return None
@@ -410,7 +410,19 @@ def _timeline_block(
     if shape.timestamp_field is None:
         return None
     label_field = next(
-        (field for field in ("event", "activity", "label", "status") if field in shape.columns),
+        (
+            field
+            for field in (
+                "event",
+                "activity",
+                "action_kind",
+                "operation",
+                "label",
+                "status",
+                "summary",
+            )
+            if field in shape.columns
+        ),
         None,
     )
     if label_field is None:

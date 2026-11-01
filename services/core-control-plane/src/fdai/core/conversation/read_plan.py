@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -51,7 +52,12 @@ def validate_read_plan(
 ) -> tuple[ValidatedReadStep, ...] | None:
     """Return fully validated read steps, or ``None`` before any execution."""
 
-    if not MIN_READ_PLAN_STEPS <= len(commands) <= MAX_READ_PLAN_STEPS:
+    if (
+        isinstance(confidence_threshold, bool)
+        or not math.isfinite(confidence_threshold)
+        or not 0.0 <= confidence_threshold <= 1.0
+        or not MIN_READ_PLAN_STEPS <= len(commands) <= MAX_READ_PLAN_STEPS
+    ):
         return None
     normalized = tuple(command.strip() for command in commands)
     if any(not command or len(command) > MAX_READ_PLAN_COMMAND_CHARS for command in normalized):
@@ -61,7 +67,12 @@ def validate_read_plan(
     steps: list[ValidatedReadStep] = []
     for command in normalized:
         parsed = parse(command)
-        if parsed is None or parsed.confidence < confidence_threshold:
+        if (
+            parsed is None
+            or isinstance(parsed.confidence, bool)
+            or not math.isfinite(parsed.confidence)
+            or parsed.confidence < confidence_threshold
+        ):
             return None
         tool = tools.get(parsed.tool_name)
         if (
@@ -221,7 +232,13 @@ def _bounded_records(value: object) -> tuple[Mapping[str, Any], ...]:
 
 
 def _scalar(value: object) -> bool:
-    return value is not None and isinstance(value, (str, int, float, bool))
+    if value is None or not isinstance(value, (str, int, float, bool)):
+        return False
+    if isinstance(value, float) and not math.isfinite(value):
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
+    return True
 
 
 __all__ = [

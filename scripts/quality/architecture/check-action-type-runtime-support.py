@@ -28,6 +28,8 @@ DEFAULT_SCHEMA = Path("config/action-type-runtime-support.schema.json")
 RECEIPT_LEVELS = frozenset({"historical_receipt", "current_revision_receipt"})
 SUPPORTED_SOURCE_STATUSES = frozenset({"wired", "conditional", "source_only", "declared_only"})
 ATTESTATION_REPOSITORY = "dotnetpower/fdai"
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+_AST_CACHE: dict[Path, tuple[ast.AST, dict[str, list[ast.expr]]]] = {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +75,7 @@ def _load_catalog(root: Path, relative: object) -> dict[str, CatalogAction]:
     catalog_root = _repo_path(root, relative, "catalog_root", directory=True)
     actions: dict[str, CatalogAction] = {}
     for path in sorted(catalog_root.glob("*.yaml")):
-        value = yaml.safe_load(path.read_text(encoding="utf-8"))
+        value = yaml.load(path.read_text(encoding="utf-8"), Loader=_YAML_LOADER)  # noqa: S506 - CSafeLoader/SafeLoader only
         if not isinstance(value, dict):
             raise ValueError(f"{path.relative_to(root)} MUST contain a YAML object")
         fields = {
@@ -202,8 +204,13 @@ def _source_names(root: Path, assertion: dict[str, Any]) -> set[str]:
     if kind == "catalog_execution_path":
         raise AssertionError("catalog assertions are resolved without source parsing")
     path = _repo_path(root, assertion["path"], "binding source_assertion.path")
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    assignments = _named_assignments(tree)
+    cached = _AST_CACHE.get(path)
+    if cached is None:
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        assignments = _named_assignments(tree)
+        cached = (tree, assignments)
+        _AST_CACHE[path] = cached
+    tree, assignments = cached
     symbol = str(assertion["symbol"])
     if kind == "subscript_key":
         value = str(assertion["value"])

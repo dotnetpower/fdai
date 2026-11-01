@@ -69,7 +69,7 @@ class AzureResourceHealthInventoryConfig:
     max_clock_skew_seconds: float = 10.0
 
     def __post_init__(self) -> None:
-        normalized = tuple(sorted({item.casefold() for item in self.subscription_ids}))
+        normalized = tuple(sorted({item.strip().casefold() for item in self.subscription_ids}))
         if not normalized or any(not item for item in normalized):
             raise ValueError("Resource Health subscriptions MUST be non-empty")
         object.__setattr__(self, "subscription_ids", normalized)
@@ -85,17 +85,20 @@ class AzureResourceHealthInventoryConfig:
             or audience.fragment
         ):
             raise ValueError("Resource Health audience MUST be an HTTPS .default scope")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if type(self.timeout_seconds) is bool or not 0.1 <= self.timeout_seconds <= 30:
             raise ValueError("Resource Health timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.max_targets <= 1000:
+        if type(self.max_targets) is not int or not 1 <= self.max_targets <= 1000:
             raise ValueError("Resource Health max_targets MUST be in [1, 1000]")
-        if not 1 <= self.max_concurrency <= 8:
+        if type(self.max_concurrency) is not int or not 1 <= self.max_concurrency <= 8:
             raise ValueError("Resource Health max_concurrency MUST be in [1, 8]")
-        if not 1024 <= self.max_response_bytes <= 1_048_576:
+        if (
+            type(self.max_response_bytes) is not int
+            or not 1024 <= self.max_response_bytes <= 1_048_576
+        ):
             raise ValueError("Resource Health max_response_bytes MUST be in [1024, 1048576]")
-        if self.freshness_ceiling_seconds < 1:
+        if type(self.freshness_ceiling_seconds) is not int or self.freshness_ceiling_seconds < 1:
             raise ValueError("Resource Health freshness ceiling MUST be positive")
-        if not 0 <= self.max_clock_skew_seconds <= 30:
+        if type(self.max_clock_skew_seconds) is bool or not 0 <= self.max_clock_skew_seconds <= 30:
             raise ValueError("Resource Health clock skew MUST be in [0, 30]")
 
 
@@ -440,6 +443,38 @@ def _fact(payload: object, *, resource_id: str) -> _HealthFact | str:
             effective_at=effective_at,
         ),
     )
+
+
+def normalize_arg_health_resource_row(
+    row: Mapping[str, object],
+) -> tuple[str, str, str, datetime] | None:
+    """Normalize an ARG HealthResources availabilitystatuses row."""
+    if not isinstance(row, Mapping):
+        return None
+    raw_id = row.get("id")
+    props = row.get("properties")
+    if not isinstance(props, Mapping):
+        return None
+    target_id = props.get("targetResourceId")
+    if not isinstance(target_id, str) or not target_id.strip():
+        if (
+            isinstance(raw_id, str)
+            and "/providers/microsoft.resourcehealth/availabilitystatuses" in raw_id.casefold()
+        ):
+            idx = raw_id.casefold().rfind(
+                "/providers/microsoft.resourcehealth/availabilitystatuses"
+            )
+            target_id = raw_id[:idx]
+        else:
+            return None
+    target_clean = target_id.strip().lower()
+    raw_state = props.get("availabilityState")
+    state = _STATES.get(raw_state.strip().casefold() if isinstance(raw_state, str) else "")
+    effective_at = _timestamp(props.get("reportedTime")) or _timestamp(props.get("occurredTime"))
+    if not target_clean or state is None or effective_at is None:
+        return None
+    reason_kind = _machine_token(props.get("reasonType"), fallback="status_only")
+    return target_clean, state, reason_kind, effective_at
 
 
 def _allowed_arm_id(value: str, *, subscriptions: tuple[str, ...]) -> bool:

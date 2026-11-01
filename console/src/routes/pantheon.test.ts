@@ -25,8 +25,8 @@ function graphPayload() {
     org_edges: PANTHEON.filter(({ name }) => name !== "Odin")
       .map(({ name }) => ({ from: "Odin", to: name })),
     agent_count: PANTHEON.length,
-    hard_dependency_agents: [],
-    hot_path_llm_agents: [],
+    hard_dependency_agents: [] as string[],
+    hot_path_llm_agents: [] as string[],
     mermaid: "graph TD",
   };
 }
@@ -92,6 +92,16 @@ describe("Pantheon graph contract", () => {
     multipleRoots.agents[1] = { ...multipleRoots.agents[1]!, reports_to: null };
     expect(() => decodePantheonGraph(multipleRoots)).toThrow(/Odin as its only reporting root/);
   });
+
+  test("requires hard_dependency_agents and hot_path_llm_agents to match agent flags", () => {
+    const hardDrift = graphPayload();
+    hardDrift.hard_dependency_agents = ["Odin"];
+    expect(() => decodePantheonGraph(hardDrift)).toThrow(/hard_dependency_agents MUST match/);
+
+    const hotPathDrift = graphPayload();
+    hotPathDrift.hot_path_llm_agents = ["Bragi"];
+    expect(() => decodePantheonGraph(hotPathDrift)).toThrow(/hot_path_llm_agents MUST match/);
+  });
 });
 
 describe("Pantheon workflow contract", () => {
@@ -119,5 +129,12 @@ describe("Pantheon workflow contract", () => {
       participating_agents: ["Forseti"],
     };
     expect(() => decodePantheonWorkflows(missingPrimary)).toThrow(/include primary_agent/);
+
+    const badMode = workflowPayload();
+    badMode.workflows[0] = {
+      ...badMode.workflows[0]!,
+      default_mode: "auto",
+    };
+    expect(() => decodePantheonWorkflows(badMode)).toThrow(/default_mode MUST be shadow or enforce/);
   });
 });

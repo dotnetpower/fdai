@@ -167,7 +167,11 @@ def _plan_declarations(
         if selector_type is not None:
             object_types.add(selector_type)
         raw_link_types = arguments.get("link_types")
-        if isinstance(raw_link_types, list):
+        if not isinstance(raw_link_types, (list, tuple)):
+            definition = arguments.get("definition")
+            traversal = definition.get("traversal") if isinstance(definition, Mapping) else None
+            raw_link_types = traversal.get("link_types") if isinstance(traversal, Mapping) else None
+        if isinstance(raw_link_types, (list, tuple)):
             link_types.update(item for item in raw_link_types if isinstance(item, str) and item)
         function_name = arguments.get("function_name")
         if isinstance(function_name, str) and function_name:
@@ -177,7 +181,7 @@ def _plan_declarations(
         function_arguments = arguments.get("arguments")
         if isinstance(function_arguments, Mapping):
             raw_object_types = function_arguments.get("object_types")
-            if isinstance(raw_object_types, list):
+            if isinstance(raw_object_types, (list, tuple)):
                 object_types.update(
                     item for item in raw_object_types if isinstance(item, str) and item
                 )
@@ -187,7 +191,7 @@ def _plan_declarations(
             if isinstance(root_type, str) and root_type:
                 object_types.add(root_type)
             steps = arguments.get("steps")
-            if isinstance(steps, list):
+            if isinstance(steps, (list, tuple)):
                 for step in steps:
                     if not isinstance(step, Mapping):
                         continue

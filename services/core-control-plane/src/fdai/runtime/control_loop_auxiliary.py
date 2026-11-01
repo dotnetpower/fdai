@@ -16,6 +16,7 @@ from fdai.core.executor import (
     ToolCallShadowExecutor,
 )
 from fdai.core.quality_gate import (
+    DebateRouterConfig,
     DeterministicEvidenceKind,
     DeterministicEvidenceVerifier,
     HashedRuleEmbeddingIndex,
@@ -226,7 +227,12 @@ def build_t2_quality_gate(
         ),
         grounding=RagGroundingSource(
             rules=dict(rules_by_id),
-            embedding_index=HashedRuleEmbeddingIndex(),
+            embedding_index=getattr(container, "rule_embedding_index", None)
+            or HashedRuleEmbeddingIndex(dim=128),
+        ),
+        debate_orchestrator=llm_bindings.debate_orchestrator,
+        debate_router_config=(
+            DebateRouterConfig() if llm_bindings.debate_orchestrator is not None else None
         ),
         rubric_evaluator=llm_bindings.rubric_evaluator,
         rubric_mode_resolver=rubric_mode_resolver,

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { decodeDashboardKpi } from "../api-insights";
+import { resourceDashboardHref } from "./dashboard";
 import { routingSampleParams } from "./dashboard.model";
 
 const kpi = {
@@ -63,5 +64,10 @@ describe("canonical routing sample", () => {
     expect(() => decodeDashboardKpi({ ...kpi, by_outcome: { auto: 500 } })).toThrow();
     expect(() => decodeDashboardKpi({ ...kpi, by_tier: { t0: -1 } })).toThrow();
     expect(() => decodeDashboardKpi({ ...kpi, by_tier: { t0: 4 } })).toThrow();
+  });
+
+  test("preserves sample data mode when linking from Overview to Resource dashboard", () => {
+    expect(resourceDashboardHref("live")).toBe("/resource-dashboard");
+    expect(resourceDashboardHref("sample")).toBe("/resource-dashboard?data=sample");
   });
 });

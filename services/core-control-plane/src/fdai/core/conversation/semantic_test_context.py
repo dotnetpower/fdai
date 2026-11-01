@@ -76,7 +76,7 @@ def test_context_planning_outcome(
             clarification=(
                 "대상, 신호, 예상 상하한과 시간대가 포함된 "
                 "시작 및 종료 시각을 명확히 지정해 주시겠어요?"
-                if locale.casefold().startswith("ko")
+                if locale.strip().casefold().startswith("ko")
                 else "Which exact target, signal, expected limits, and "
                 "offset-aware start and end times should the proposal use?"
             ),
@@ -161,6 +161,8 @@ def test_context_draft_from_judgment(
             target.kind not in _FIELDS
             or target.kind in values
             or target.canonical_value is not None
+            or target.source_start < 0
+            or target.source_start >= target.source_end
             or target.source_end > len(utterance)
             or utterance[target.source_start : target.source_end] != target.value
             or any(target.source_start < end and start < target.source_end for start, end in spans)

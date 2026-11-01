@@ -21,6 +21,14 @@ class ResponsePreferenceProfile:
     explicit_only: bool
     updated_at: datetime
 
+    def __post_init__(self) -> None:
+        if not self.locale or not self.locale.strip() or self.locale != self.locale.strip():
+            raise ValueError("ResponsePreferenceProfile.locale MUST be trimmed and non-empty")
+        if not isinstance(self.explicit_only, bool):
+            raise ValueError("ResponsePreferenceProfile.explicit_only MUST be a boolean")
+        if self.updated_at.tzinfo is None or self.updated_at.utcoffset() is None:
+            raise ValueError("ResponsePreferenceProfile.updated_at MUST be timezone-aware")
+
     def detail_for(self, intent: AnswerIntent) -> DetailLevel | None:
         if self.explicit_only:
             return None

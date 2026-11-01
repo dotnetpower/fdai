@@ -51,6 +51,8 @@ class RuleGenerationActivationBinder:
     ) -> RuleGenerationIdentity | None:
         """Read the exact current pointer identity for Mimir command construction."""
 
+        if not isinstance(corpus, str) or not corpus.strip():
+            raise ValueError("Rule generation corpus MUST be a non-empty string")
         active = await self._index.active_generation(corpus)
         return RuleGenerationIdentity.from_metadata(active) if active is not None else None
 

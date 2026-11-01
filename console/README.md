@@ -179,7 +179,10 @@ Core and high-risk optional payloads are decoded before routes enter their
 ready state. Version-skewed or malformed `200` responses become a uniform
 contract error instead of a render crash. Rule detail deep links also preserve
 their explicit `active` or `collected` origin; a missing rule in that origin
-returns `404` instead of falling back across catalog tiers.
+returns `404` instead of falling back across catalog tiers. Architecture
+Inspector drill-downs into Impact scope and cross-route evidence links also
+preserve `data=sample` when inspecting Sample projections, and inspector source
+timestamps format through `formatConsoleTimestamp`.
 
 The Overview group's Dashboard landing panel is eager; every other panel is loaded as a separate
 route chunk behind a Suspense boundary. Heavy visualization libraries remain
@@ -317,7 +320,10 @@ adjacent inspection.
 - **Impact scope** renders the actual simulation response as concentric depth
   rings and an impact tree by default. The existing Architecture map and raw
   table remain alternate views. No resource, personnel, or connection cap is
-  shown unless the response records it.
+  shown unless the response records it. The Architecture workbench bounds its
+  cache-refresh polling to `refreshPending` transitions and synchronizes route
+  state from `currentRoute().search` across `popstate`, `fdai:route-changed`,
+  and `ROUTE_STATE_EVENT`.
 - **Promotion gates** filters measured ActionTypes by ready/blocked state and
   search text, and renders accuracy, reviewed/agreed progress, policy escapes,
   and recorded gaps. Promotion remains a separate reviewed catalog PR.

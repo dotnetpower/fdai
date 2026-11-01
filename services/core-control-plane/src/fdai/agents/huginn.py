@@ -67,8 +67,20 @@ class Huginn(HuginnIngressMixin, Agent):
     ) -> None:
         super().__init__(spec=_HUGINN)
         self.bus = bus
-        if dedup_capacity < 1:
+        if (
+            isinstance(dedup_capacity, bool)
+            or not isinstance(dedup_capacity, int)
+            or dedup_capacity < 1
+        ):
             raise ValueError("dedup_capacity MUST be >= 1")
+        if dedup_claim_lease <= timedelta(0):
+            raise ValueError("dedup_claim_lease MUST be positive")
+        if (
+            isinstance(schema_learning_capacity, bool)
+            or not isinstance(schema_learning_capacity, int)
+            or schema_learning_capacity < 1
+        ):
+            raise ValueError("schema_learning_capacity MUST be >= 1")
         self._dedup_capacity = dedup_capacity
         self._discovery_projector = discovery_projector
         self._alert_noise_verifier: _AlertNoiseVerifier | None = None
@@ -119,6 +131,8 @@ class Huginn(HuginnIngressMixin, Agent):
         self._seen_keys = OrderedDict(
             (key, None) for key in await self._dedup_journal.published_keys()
         )
+        while len(self._seen_keys) > self._dedup_capacity:
+            self._seen_keys.popitem(last=False)
         self._last_checkpoint_read_at = self._clock()
         return len(self._seen_keys)
 

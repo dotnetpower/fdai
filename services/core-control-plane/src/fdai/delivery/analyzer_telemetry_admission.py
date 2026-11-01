@@ -30,7 +30,7 @@ def discovered_telemetry_holds(*, monitor_workspace_id: str | None) -> dict[str,
     """Return deterministic holds for discovered targets without complete telemetry."""
 
     supported_metrics = set(azure_metrics_api_queries())
-    if monitor_workspace_id is not None:
+    if monitor_workspace_id is not None and monitor_workspace_id.strip():
         supported_metrics.update(default_metric_queries())
     return {
         resource_type: SKIP_TELEMETRY_SOURCE_UNAVAILABLE

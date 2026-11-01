@@ -93,6 +93,13 @@ def retain_validated_documents(
     max_bytes: int,
 ) -> None:
     """Retain only already-verified immutable documents within count and byte ceilings."""
+    if (
+        isinstance(max_entries, bool)
+        or isinstance(max_bytes, bool)
+        or max_entries < 0
+        or max_bytes < 0
+    ):
+        raise ValueError("validation cache ceilings MUST be non-negative integers")
     size = sum(
         len(item.text.encode("utf-8")) + len(item.rule_id) + sum(map(len, item.neighbor_ids))
         for item in documents

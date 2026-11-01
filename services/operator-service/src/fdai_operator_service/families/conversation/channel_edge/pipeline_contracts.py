@@ -29,9 +29,9 @@ class ChannelPrincipalContext:
     locale: str = "en"
 
     def __post_init__(self) -> None:
-        if not self.scope_ref or len(self.scope_ref) > 512:
+        if not self.scope_ref.strip() or len(self.scope_ref) > 512:
             raise ValueError("channel principal scope_ref MUST be bounded and non-empty")
-        if not self.locale or len(self.locale) > 32:
+        if not self.locale.strip() or len(self.locale) > 32:
             raise ValueError("channel principal locale MUST be bounded and non-empty")
 
 
@@ -108,9 +108,9 @@ class ChannelDeliveryPipelineConfig:
     retry_delay: timedelta = timedelta(seconds=15)
 
     def __post_init__(self) -> None:
-        if not self.worker_id or len(self.worker_id) > 256:
+        if not self.worker_id.strip() or len(self.worker_id) > 256:
             raise ValueError("channel pipeline worker_id MUST be bounded and non-empty")
-        if not 1 <= self.lease_seconds <= 300:
+        if isinstance(self.lease_seconds, bool) or not 1 <= self.lease_seconds <= 300:
             raise ValueError("channel pipeline lease_seconds is outside the bounded range")
         if self.delivery_ttl <= timedelta(0) or self.retention < self.delivery_ttl:
             raise ValueError("channel pipeline delivery and retention windows are invalid")

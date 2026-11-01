@@ -62,3 +62,40 @@ async def test_search_tool_returns_bounded_validation_error() -> None:
 
     assert result.status == "error"
     assert "letter or digit" in result.preview
+
+
+async def test_search_tool_strips_optional_filters_and_deduplicates_evidence_refs() -> None:
+    history = InMemoryConversationHistoryStore()
+    await history.create_conversation(
+        ConversationRecord("conv-1", "principal-a", "web", _NOW, _NOW)
+    )
+    await history.append_turn(
+        ConversationTurnRecord(
+            turn_id="turn-1",
+            conversation_id="conv-1",
+            principal_id="principal-a",
+            turn_index=0,
+            role=ConversationTurnRole.OPERATOR,
+            content="Investigate database latency.",
+            recorded_at=_NOW,
+            idempotency_key="req-1",
+            metadata={
+                "incident_id": "inc-1",
+                "evidence_refs": json.dumps([" audit:a ", "audit:a", "   "]),
+            },
+        )
+    )
+    tool = SearchConversationsTool(search=InMemoryConversationSearch(history=history))
+
+    result = await tool.call(
+        arguments={
+            "query": "database latency",
+            "incident_id": "  inc-1  ",
+            "conversation_id": "   ",
+        },
+        principal=Principal(id="principal-a", role=Role.READER),
+    )
+
+    assert result.status == "ok"
+    assert [hit["turn_id"] for hit in result.data["hits"]] == ["turn-1"]
+    assert result.evidence_refs == ("audit:a",)

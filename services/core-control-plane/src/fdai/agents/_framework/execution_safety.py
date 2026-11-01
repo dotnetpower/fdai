@@ -7,6 +7,7 @@ import hashlib
 import inspect
 import json
 import logging
+import math
 from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from typing import Any
 
@@ -138,14 +139,15 @@ def _rollback_executor_requirements(
 ) -> tuple[tuple[str, str], ...]:
     requirements: list[tuple[str, str]] = []
     for action_type, contract in action_semantics.rollback_by_id.items():
+        normalized_action_type = str(action_type).strip()
         normalized_contract = str(contract).strip()
-        if not normalized_contract:
+        if not normalized_action_type or not normalized_contract:
             continue
         if normalized_contract in _ROLLBACK_CONTRACTS_WITHOUT_EXECUTOR:
             continue
-        if action_semantics.irreversible(action_type):
+        if action_semantics.irreversible(normalized_action_type):
             continue
-        requirements.append((action_type, normalized_contract))
+        requirements.append((normalized_action_type, normalized_contract))
     return tuple(sorted(requirements))
 
 
@@ -233,8 +235,16 @@ async def maintain_agents(
     not cancel sibling ticks.
     """
 
+    if isinstance(interval, bool) or not math.isfinite(interval) or interval <= 0:
+        raise ValueError("interval MUST be finite and > 0")
+    if isinstance(tick_timeout, bool) or not math.isfinite(tick_timeout) or tick_timeout <= 0:
+        raise ValueError("tick_timeout MUST be finite and > 0")
     in_flight: dict[tuple[str, str], asyncio.Task[Any]] = {}
-    in_flight_limit = max_in_flight if max_in_flight is not None else max(1, len(agents) * 2)
+    in_flight_limit = (
+        max_in_flight
+        if max_in_flight is not None and not isinstance(max_in_flight, bool)
+        else (-1 if isinstance(max_in_flight, bool) else max(1, len(agents) * 2))
+    )
     if in_flight_limit < 1:
         raise ValueError("max_in_flight MUST be >= 1")
     while True:
@@ -268,6 +278,7 @@ async def _run_agent_maintenance(
                 step="expire_pending_approvals",
             ):
                 return
+            agent.record_behavior("expire_pending_approvals:completed")
         if not await _run_maintenance_step(
             agent,
             agent.maintenance_tick(),

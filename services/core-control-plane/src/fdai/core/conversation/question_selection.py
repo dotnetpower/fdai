@@ -28,11 +28,11 @@ class QuestionCaseHistory:
     last_verified_at: datetime | None = None
 
     def __post_init__(self) -> None:
-        if not self.case_id:
+        if not self.case_id.strip():
             raise ValueError("question case history id MUST be non-empty")
         if self.terminal_state not in _TERMINAL_STATES:
             raise ValueError("question case history terminal state is unsupported")
-        if self.last_verified_at is not None and self.last_verified_at.tzinfo is None:
+        if self.last_verified_at is not None and self.last_verified_at.utcoffset() is None:
             raise ValueError("question case history time MUST be timezone-aware")
 
 
@@ -68,7 +68,7 @@ def select_question_cases(
 ) -> tuple[tuple[GeneratedQuestionCase, ...], QuestionCaseSelectionReceipt]:
     """Select delta and unresolved cases first without exceeding 100 cases."""
 
-    if not 1 <= budget <= _MAX_CAMPAIGN_CASES:
+    if isinstance(budget, bool) or isinstance(seed, bool) or not 1 <= budget <= _MAX_CAMPAIGN_CASES:
         raise ValueError(f"question campaign budget MUST be in [1, {_MAX_CAMPAIGN_CASES}]")
     effective_delta = delta or QuestionSelectionDelta()
     history_by_id = {item.case_id: item for item in history}

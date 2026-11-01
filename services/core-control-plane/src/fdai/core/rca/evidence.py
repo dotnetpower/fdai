@@ -62,9 +62,18 @@ _DEFAULT_ERROR_SEVERITIES = frozenset({"error", "critical", "fatal", "err"})
 _RESOURCE_LABEL = "resource_id"
 _CAUSE_MARKERS: Final[dict[str, Pattern[str]]] = {
     "authentication": re.compile(r"\b(?:authentication|unauthorized|forbidden|credential)s?\b"),
-    "connection": re.compile(r"\bconnection (?:refused|reset|failed)\b"),
+    "connection": re.compile(
+        r"\b(?:connection (?:refused|reset|failed|closed)|broken pipe|network unreachable)\b"
+    ),
+    "crash": re.compile(
+        r"\b(?:crashloopbackoff|crashloop|imagepullbackoff|segfault|sigkill|panic)\b"
+    ),
+    "deadlock": re.compile(r"\b(?:deadlock|lock timeout|lock wait timeout)\b"),
     "dns": re.compile(r"\b(?:dns|name resolution|no such host)\b"),
-    "memory": re.compile(r"\b(?:out of memory|oom|memory limit)\b"),
+    "http_5xx": re.compile(
+        r"\b(?:http 50[0234]|bad gateway|service unavailable|gateway timeout)\b"
+    ),
+    "memory": re.compile(r"\b(?:out of memory|oom|oomkilled|memory limit)\b"),
     "quota": re.compile(r"\b(?:quota|limit exceeded|too many requests)\b"),
     "storage": re.compile(r"\b(?:disk full|no space left|storage full)\b"),
     "throttling": re.compile(r"\b(?:throttl\w*|rate limit|http 429)\b"),
@@ -74,7 +83,11 @@ _CAUSE_MARKERS: Final[dict[str, Pattern[str]]] = {
 _SOURCE_FACTS: Final[dict[str, str]] = {
     "appexceptions": "app_exceptions",
     "apptraces": "app_traces",
+    "azureactivity": "azure_activity",
+    "azurediagnostics": "azure_diagnostics",
     "containerlogv2": "container_log",
+    "kubeevents": "kube_events",
+    "syslog": "syslog",
 }
 _HTTP_METHODS: Final[frozenset[str]] = frozenset(
     {"DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"}
@@ -93,7 +106,10 @@ def _log_ref(record: LogRecord) -> str:
 
 def _span_ref(span: Span) -> str:
     """Citation ref for an error span - trace + span ids only."""
-    return f"trace:{span.trace_id}:{span.span_id}"
+    trace_id, span_id = span.trace_id.strip(), span.span_id.strip()
+    if not trace_id or not span_id:
+        raise ValueError("span trace_id and span_id MUST be non-empty")
+    return f"trace:{trace_id}:{span_id}"
 
 
 def _log_facts(record: LogRecord) -> tuple[str, ...]:
@@ -131,7 +147,7 @@ def _span_facts(span: Span) -> tuple[str, ...]:
 
 
 def _severity_fact(value: str) -> str:
-    normalized = value.casefold()
+    normalized = value.strip().casefold()
     return normalized if normalized in _DEFAULT_ERROR_SEVERITIES else "other"
 
 
@@ -153,11 +169,15 @@ class TelemetryEvidenceGatherer:
         error_severities: Iterable[str] = _DEFAULT_ERROR_SEVERITIES,
         source_timeout_seconds: float = 4.0,
     ) -> None:
-        if not math.isfinite(source_timeout_seconds) or source_timeout_seconds <= 0.0:
+        if (
+            isinstance(source_timeout_seconds, bool)
+            or not math.isfinite(source_timeout_seconds)
+            or source_timeout_seconds <= 0.0
+        ):
             raise ValueError("source_timeout_seconds MUST be finite and positive")
         self._log_provider = log_provider
         self._trace_provider = trace_provider
-        self._error_severities = frozenset(s.lower() for s in error_severities)
+        self._error_severities = frozenset(s.strip().lower() for s in error_severities if s.strip())
         self._source_timeout_seconds = source_timeout_seconds
 
     async def gather(
@@ -179,6 +199,8 @@ class TelemetryEvidenceGatherer:
         nothing, so a partial telemetry backend still yields the evidence it
         can.
         """
+        if isinstance(limit, bool) or limit < 1:
+            raise ValueError("limit MUST be >= 1")
         citations: list[Citation] = []
         seen: set[str] = set()
 
@@ -220,7 +242,7 @@ class TelemetryEvidenceGatherer:
         try:
             async with asyncio.timeout(self._source_timeout_seconds):
                 async for record in self._log_provider.query(query):
-                    if record.severity.lower() in self._error_severities:
+                    if record.severity.strip().lower() in self._error_severities:
                         refs.append(
                             Citation(
                                 kind=CitationKind.TELEMETRY,
@@ -228,6 +250,8 @@ class TelemetryEvidenceGatherer:
                                 facts=_log_facts(record),
                             )
                         )
+                        if len(refs) >= limit:
+                            break
         except (LogQueryProviderError, TimeoutError):
             _LOGGER.warning("rca_log_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []
@@ -254,7 +278,11 @@ class TelemetryEvidenceGatherer:
         try:
             async with asyncio.timeout(self._source_timeout_seconds):
                 async for span in self._trace_provider.query(query):
-                    if span.status.lower() == "error":
+                    if (
+                        span.status.strip().lower() == "error"
+                        and span.trace_id.strip()
+                        and span.span_id.strip()
+                    ):
                         refs.append(
                             Citation(
                                 kind=CitationKind.TELEMETRY,
@@ -262,6 +290,8 @@ class TelemetryEvidenceGatherer:
                                 facts=_span_facts(span),
                             )
                         )
+                        if len(refs) >= limit:
+                            break
         except (TraceQueryProviderError, TimeoutError):
             _LOGGER.warning("rca_trace_evidence_unavailable", extra={"resource_ref": resource_ref})
             return []

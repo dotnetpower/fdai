@@ -42,6 +42,17 @@ class RuleSemanticGenerationValidationReceipt:
     validator_artifact_digest: str
     receipt_digest: str
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.embedding_dimension, bool)
+            or isinstance(self.document_count, bool)
+            or self.embedding_dimension < 1
+            or self.document_count < 0
+        ):
+            raise ValueError(
+                "RuleSemanticGenerationValidationReceipt requires valid dimension and count"
+            )
+
 
 def build_rule_semantic_generation(
     *,
@@ -70,7 +81,13 @@ def build_rule_semantic_generation(
     for candidate in candidates:
         digest = catalog_search_document_digest(candidate)
         previous = previous_by_digest.get(digest)
-        if previous is not None and previous.rule_id == candidate.rule_id:
+        if (
+            previous is not None
+            and previous.rule_id == candidate.rule_id
+            and previous.corpus == corpus
+            and previous.document_kind == "rule"
+            and (not previous.embedding or len(previous.embedding) == embedding_dimension)
+        ):
             materialized.append(previous)
             reused += 1
         else:
@@ -253,7 +270,7 @@ async def publish_rule_semantic_generation(
 ) -> CatalogGenerationMetadata:
     """Stage and activate a Rule generation if the prior pointer remains unchanged."""
 
-    if activated_at.tzinfo is None:
+    if activated_at.tzinfo is None or activated_at.utcoffset() is None:
         raise ValueError("Rule generation activation time MUST be timezone-aware")
     if build.metadata.validation_receipt_digest is None:
         raise ValueError("Rule generation validation receipt is unavailable")

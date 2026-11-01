@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { decodeScheduledContinuations } from "./scheduled-continuations";
+import { getLocale, setLocale } from "../i18n";
+import {
+  decodeScheduledContinuations,
+  scheduledContinuationColumns,
+} from "./scheduled-continuations";
 
 function payload() {
   return {
@@ -54,5 +58,20 @@ describe("scheduled continuation cards", () => {
     const malformed = payload();
     malformed.scheduled_continuations[0]!.result_digest = "short";
     expect(() => decodeScheduledContinuations(malformed)).toThrow(/SHA-256/);
+  });
+
+  test("localizes column headers dynamically when locale changes", () => {
+    const previous = getLocale();
+    try {
+      setLocale("en");
+      const enHeader = scheduledContinuationColumns()[0]?.header;
+      setLocale("ko");
+      const koHeader = scheduledContinuationColumns()[0]?.header;
+      expect(enHeader).toBeTruthy();
+      expect(koHeader).toBeTruthy();
+      expect(koHeader).not.toBe(enHeader);
+    } finally {
+      setLocale(previous);
+    }
   });
 });

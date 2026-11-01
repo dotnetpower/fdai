@@ -200,3 +200,50 @@ def test_baseline_unknowns_block_and_allowed_exceptions_remain_visible() -> None
     by_field = {finding.field: finding for finding in report.findings}
     assert by_field["allowed_exception"].verdict is DriftVerdict.NOT_APPLICABLE
     assert by_field["unknown_item"].drift_type is DriftType.UNKNOWN
+
+
+def test_drift_detects_boolean_vs_integer_and_extra_observed_attributes() -> None:
+    baseline = _baseline(
+        ConfigurationResource(
+            local_name="service-a",
+            resource_type="example/service",
+            region="Korea Central",
+            attributes={"replicas": 1},
+        )
+    )
+    observed = _observation(
+        ConfigurationResource(
+            local_name="service-a",
+            resource_type="example/service",
+            region="Korea Central",
+            attributes={"replicas": True, "unexpected_port": 8080},
+        ),
+        links=(),
+    )
+    report = compare_configuration(baseline, observed)
+    by_field = {finding.field: finding for finding in report.findings}
+    assert by_field["replicas"].drift_type is DriftType.CHANGED
+    assert by_field["unexpected_port"].drift_type is DriftType.ADDED
+
+
+@pytest.mark.asyncio
+async def test_drift_service_rejects_non_hex_sha256_and_report_store_requires_ids() -> None:
+    from fdai.core.detection.configuration_drift_reports import persist_configuration_drift_report
+    from fdai.core.detection.configuration_drift_service import ConfigurationDriftService
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        ConfigurationDriftService(
+            baseline_source=None,  # type: ignore[arg-type]
+            observation_source=None,  # type: ignore[arg-type]
+            expected_version="v1",
+            expected_sha256="z" * 64,
+            expected_scope="scope-1",
+        )
+    report = compare_configuration(_baseline(), _observation(links=()))
+    with pytest.raises(ValueError, match="campaign_id"):
+        await persist_configuration_drift_report(
+            None,  # type: ignore[arg-type]
+            campaign_id="   ",
+            run_id="run-1",
+            report=report,
+        )

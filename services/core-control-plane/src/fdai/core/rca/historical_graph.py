@@ -29,7 +29,8 @@ class HistoricalCausalIncidentGraphMaterializer:
         self, *, history: TopologyHistoryReader, release_digest: str | None = None
     ) -> None:
         if release_digest is not None and (
-            not release_digest.startswith("sha256:")
+            not isinstance(release_digest, str)
+            or not release_digest.startswith("sha256:")
             or len(release_digest) != 71
             or any(char not in "0123456789abcdef" for char in release_digest[7:])
         ):
@@ -48,12 +49,21 @@ class HistoricalCausalIncidentGraphMaterializer:
         link_types: tuple[str, ...] = DEFAULT_CAUSAL_LINKS,
     ) -> CausalIncidentGraph:
         if (
-            not incident_id.strip()
+            not isinstance(incident_id, str)
+            or not incident_id.strip()
+            or not isinstance(root_ids, (list, tuple))
+            or not isinstance(link_types, (list, tuple))
             or not root_ids
             or not link_types
-            or any(not value.strip() for value in (*root_ids, *link_types))
+            or any(
+                not isinstance(value, str) or not value.strip()
+                for value in (*root_ids, *link_types)
+            )
         ):
             raise ValueError("historical incident identity, roots and link types are required")
+        incident_id = incident_id.strip()
+        root_ids = tuple(dict.fromkeys(item.strip() for item in root_ids))
+        link_types = tuple(dict.fromkeys(item.strip() for item in link_types))
         if evidence_cutoff.utcoffset() is None or known_at.utcoffset() is None:
             raise ValueError("historical incident cutoffs MUST be timezone-aware")
         if evidence_cutoff > known_at:

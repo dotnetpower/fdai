@@ -49,7 +49,12 @@ def render_resource_change_answer(
         "",
     ]
     for row in verified_rows[:20]:
-        subject = row.get("subject_name") or str(row.get("subject_ref") or "").rsplit("/", 1)[-1]
+        raw_name = row.get("subject_name")
+        subject = (
+            raw_name.strip()
+            if isinstance(raw_name, str) and raw_name.strip()
+            else str(row.get("subject_ref") or "").rstrip("/").rsplit("/", 1)[-1].strip()
+        )
         operation = row.get("operation") or row.get("mutation_kind") or "change"
         status = row.get("operation_status")
         occurred_at = row.get("occurred_at")

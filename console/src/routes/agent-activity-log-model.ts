@@ -7,6 +7,7 @@ import {
   entryConversation,
   entryStr,
 } from "./agent-activity-semantics";
+import { presentAuditItemSummary } from "./agent-activity-trajectory-model";
 import type { LiveAgentActivityEvent } from "./agents.model";
 import type { ObservationDomain, OperationalActivityKind } from "../agent-operational-activity";
 
@@ -96,8 +97,7 @@ export function buildAgentLogRows(
   auditItems.forEach((item) => {
     const actor = agentOf(item);
     const provenance = auditProvenanceOf(item);
-    const summary = entryStr(item, "summary") || entryStr(item, "detail") ||
-      entryStr(item, "reason") || item.action_kind;
+    const summary = presentAuditItemSummary(item);
     const target = entryStr(item, "resource_ref") || entryStr(item, "target_resource_ref");
     auditRows.push({
       id: `audit:${item.seq}`,

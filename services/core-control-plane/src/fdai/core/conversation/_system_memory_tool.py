@@ -41,7 +41,7 @@ class QueryOperatorMemoryTool:
                 preview="query_operator_memory requires a non-empty 'scope_ref'",
             )
         try:
-            scope_kind = ScopeKind(raw_scope_kind)
+            scope_kind = ScopeKind(raw_scope_kind.lower())
         except ValueError:
             allowed = ", ".join(sorted(kind.value for kind in ScopeKind))
             return ToolResult(
@@ -69,6 +69,7 @@ class QueryOperatorMemoryTool:
                 "scope_ref": raw_scope_ref,
                 "limit": limit,
                 "total_active": len(entries),
+                "truncated": len(entries) > len(projected),
                 "entries": projected,
             },
             preview=(

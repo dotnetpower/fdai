@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from typing import cast
 
@@ -60,7 +61,7 @@ def incident_cell(value: object) -> str | None:
     if isinstance(value, bool) or value is None:
         return None
     if isinstance(value, int | float):
-        return str(value)
+        return str(value) if math.isfinite(value) else None
     if isinstance(value, list | tuple):
         parts = [item for item in (incident_cell(entry) for entry in value) if item]
         return ", ".join(parts) or None
@@ -207,7 +208,7 @@ def incident_impact_block(
     korean: bool,
 ) -> JsonObject | None:
     """Render bounded metric evidence for affected resources."""
-    if not isinstance(impacts, list) or not impacts:
+    if not isinstance(impacts, (list, tuple)) or not impacts:
         return None
     rows: list[JsonObject] = []
     for impact in impacts[:_MAX_INCIDENT_TABLE_ROWS]:
@@ -268,7 +269,7 @@ def incident_citations_block(
     korean: bool,
 ) -> JsonObject | None:
     """Render bounded grounded citations."""
-    if not isinstance(citations, list) or not citations:
+    if not isinstance(citations, (list, tuple)) or not citations:
         return None
     rows: list[JsonObject] = []
     for citation in citations[:_MAX_INCIDENT_TABLE_ROWS]:

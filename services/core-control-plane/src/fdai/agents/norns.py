@@ -564,6 +564,14 @@ class Norns(
     def occurrences(self, fingerprint: str) -> int:
         return self._fingerprint_counter.get(fingerprint) or 0
 
+    @property
+    def tracked_fingerprint_count(self) -> int:
+        return len(self._fingerprint_counter)
+
+    @property
+    def tracked_outcome_count(self) -> int:
+        return len(self._outcomes)
+
     def outcome_rate(self, target: str) -> float | None:
         """Measured rollback rate for a target, or None if unseen."""
         counts = self._outcomes.get(target)

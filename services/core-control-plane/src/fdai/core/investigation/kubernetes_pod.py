@@ -211,6 +211,8 @@ class KubernetesPodLifecycleAnalyzer:
         *,
         ordering_margin: timedelta = timedelta(seconds=1),
     ) -> None:
+        if ordering_margin < timedelta(0):
+            raise ValueError("KubernetesPodLifecycleAnalyzer.ordering_margin MUST be non-negative")
         self._source = source
         self._ordering_margin = ordering_margin
 
@@ -221,6 +223,10 @@ class KubernetesPodLifecycleAnalyzer:
         window_seconds: float,
     ) -> tuple[AnalyzerFinding, ...]:
         """Return at most one typed finding for ``resource_ref``."""
+        if not resource_ref.strip():
+            raise ValueError("KubernetesPodLifecycleAnalyzer.resource_ref MUST be non-empty")
+        if window_seconds <= 0:
+            raise ValueError("KubernetesPodLifecycleAnalyzer.window_seconds MUST be positive")
 
         evidence = await self._source.observe(
             resource_ref=resource_ref,

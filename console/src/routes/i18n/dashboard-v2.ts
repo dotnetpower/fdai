@@ -1,4 +1,5 @@
 import { getLocale } from "../../i18n";
+import { formatConsoleTimestamp } from "../../time-format";
 import en from "./dashboard-v2.en.json";
 import ko from "./dashboard-v2.ko.json";
 
@@ -14,5 +15,5 @@ export function number(value: number): string {
 }
 
 export function date(value: string | null): string {
-  return value === null ? t("missing") : new Date(value).toLocaleString(getLocale() === "ko" ? "ko-KR" : "en-US");
+  return value === null ? t("missing") : formatConsoleTimestamp(value);
 }

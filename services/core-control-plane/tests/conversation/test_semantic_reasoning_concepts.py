@@ -641,3 +641,20 @@ def test_generic_alert_rule_wording_grounds_to_one_group_of_every_alert_rule_typ
     # The scheduled-query type no longer claims the generic wording for itself.
     single = next(item for item in catalog if item.values == ("alert-rule",))
     assert "알림 규칙" not in single.labels
+
+
+def test_concept_selection_rejects_negative_calls_and_mismatched_presented_counts() -> None:
+    from fdai.core.conversation.semantic_reasoning_concepts import plan_concept_selection
+
+    with pytest.raises(ValueError, match="non-negative"):
+        plan_concept_selection(_admission(), catalogs={}, max_model_calls=-1)
+
+    same = _bound("m1", "compute.vm")
+    left = ConceptSelectionReceipt(
+        bindings=(same,), presented={"resource_type": (10, 10)}, model_calls=1
+    )
+    right = ConceptSelectionReceipt(
+        bindings=(same,), presented={"resource_type": (5, 10)}, model_calls=1
+    )
+    disagreed = agree_concepts(left, right)
+    assert disagreed.bindings[0].outcome is ConceptOutcome.AMBIGUOUS

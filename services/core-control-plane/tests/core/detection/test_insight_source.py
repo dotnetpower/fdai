@@ -113,3 +113,28 @@ async def test_stale_recipe_expands_its_query_window() -> None:
         window_bucket="window",
     )
     assert [finding.recipe_id for finding in findings] == ["backup.stale"]
+
+
+async def test_insight_source_validates_label_filters_future_points_and_timeout() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="resource_label"):
+        OperationalInsightSource(StaticMetricProvider([]), resource_label="   ")
+
+    class _LeakyProvider:
+        async def query(self, query: MetricQuery):
+            yield _point("cpu", 2, 10)
+            yield _point("cpu", 1, 20)
+            yield _point("cpu", -5, 999)  # future point beyond until
+
+    recipe = _recipe("cpu.high", InsightOperator.ABOVE, "cpu", 90)
+    assert (
+        await OperationalInsightSource(_LeakyProvider()).evaluate(
+            OperationalInsightEngine([recipe]),
+            resource_ref=_RESOURCE,
+            since=_NOW - timedelta(minutes=5),
+            until=_NOW,
+            window_bucket="window",
+        )
+        == ()
+    )

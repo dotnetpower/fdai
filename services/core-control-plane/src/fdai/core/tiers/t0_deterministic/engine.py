@@ -72,6 +72,10 @@ class PolicyResult:
     evaluation_receipt: RegoEvaluationReceipt | None = None
     """Exact policy identity when the evaluator can produce replay evidence."""
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.denied, bool) or not isinstance(self.context, Mapping):
+            raise ValueError("PolicyResult requires boolean denied and mapping context")
+
 
 class AbstainEvaluator:
     """Default P1 W-2 evaluator - always abstains.

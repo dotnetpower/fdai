@@ -97,11 +97,11 @@ def declared_property_values(descriptor_property: object) -> frozenset[str] | No
     values = descriptor_property.get("values")
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
         return None
-    return frozenset(str(item) for item in values)
+    return frozenset(item.strip() for item in values if isinstance(item, str) and item.strip())
 
 
 def _bounded_identifier(value: str, label: str) -> None:
-    if not value or len(value) > _MAX_TEXT:
+    if not value.strip() or value != value.strip() or len(value) > _MAX_TEXT:
         raise ValueError(f"{label} MUST be non-empty and bounded")
 
 

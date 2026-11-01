@@ -99,15 +99,16 @@ def count_line(count: int, *, posture: object, label: str, korean: bool) -> str:
 
 
 def impacted_line(count: object, *, posture: object, korean: bool) -> str:
+    valid_count = isinstance(count, int) and not isinstance(count, bool) and count >= 0
     if korean:
-        if isinstance(count, int) and posture == "exact":
+        if valid_count and posture == "exact":
             return f"- 고유 영향 리소스: {count}개"
-        if isinstance(count, int):
+        if valid_count:
             return f"- 확인된 최소 영향 리소스: {count}개"
         return "- 고유 영향 리소스: 확인 불가"
-    if isinstance(count, int) and posture == "exact":
+    if valid_count and posture == "exact":
         return f"- Unique impacted resources: {count}"
-    if isinstance(count, int):
+    if valid_count:
         return f"- Minimum observed impacted resources: {count}"
     return "- Unique impacted resources: unknown"
 
@@ -159,23 +160,25 @@ def event_line(event: Mapping[str, object], *, korean: bool) -> str:
         unavailable="수준 미확인" if korean else "level unavailable",
         korean=korean,
     )
+    raw_title = event.get("title")
+    title = raw_title.strip() if isinstance(raw_title, str) and raw_title.strip() else None
     if korean:
         return (
             "- "
             f"{_readable_time(event.get('impact_start_at')) or '시작 시각 미확인'} - "
             f"{event_type} / {status} / {level}: "
-            f"{event.get('title') or '제목 미확인'}"
+            f"{title or '제목 미확인'}"
         )
     return (
         "- "
         f"{_readable_time(event.get('impact_start_at')) or 'start time unavailable'} - "
         f"{event_type} / {status} / {level}: "
-        f"{event.get('title') or 'title unavailable'}"
+        f"{title or 'title unavailable'}"
     )
 
 
 def _readable_time(value: object) -> str | None:
-    return readable_timestamp(value) if isinstance(value, str) and value else None
+    return readable_timestamp(value) if isinstance(value, str) and value.strip() else None
 
 
 def _display_value(
@@ -185,10 +188,11 @@ def _display_value(
     unavailable: str,
     korean: bool,
 ) -> str:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         return unavailable
-    localized = labels.get(value)
-    return localized[1 if korean else 0] if localized is not None else value
+    stripped = value.strip()
+    localized = labels.get(stripped)
+    return localized[1 if korean else 0] if localized is not None else stripped
 
 
 def event_label(measure_concepts: tuple[str, ...], *, korean: bool) -> str:

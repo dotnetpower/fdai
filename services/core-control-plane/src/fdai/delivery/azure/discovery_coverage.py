@@ -31,6 +31,10 @@ class DiscoveryCoverageClaim:
     backend: DiscoveryBackend
     profile_revision: str
 
+    def __post_init__(self) -> None:
+        if not self.provider_type.strip() or not self.profile_revision.strip():
+            raise ValueError("DiscoveryCoverageClaim requires provider_type and profile_revision")
+
 
 @dataclass(frozen=True, slots=True)
 class DiscoveryCoverageGap:
@@ -38,6 +42,10 @@ class DiscoveryCoverageGap:
 
     claim: DiscoveryCoverageClaim
     reason_code: str
+
+    def __post_init__(self) -> None:
+        if not self.reason_code.strip():
+            raise ValueError("DiscoveryCoverageGap requires a non-empty reason_code")
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,6 +58,14 @@ class DiscoveryCoverageReconciliation:
     complete: bool
     reconciliation_digest: str
     execution_authority: bool = False
+
+    def __post_init__(self) -> None:
+        if type(self.complete) is not bool:
+            raise ValueError("DiscoveryCoverageReconciliation.complete MUST be a boolean")
+        if type(self.execution_authority) is not bool or self.execution_authority:
+            raise ValueError("DiscoveryCoverageReconciliation.execution_authority MUST be False")
+        if not self.reconciliation_digest.strip():
+            raise ValueError("DiscoveryCoverageReconciliation requires a reconciliation_digest")
 
 
 def build_discovery_coverage_receipt(
@@ -93,7 +109,9 @@ def build_discovery_coverage_receipt(
         raise ValueError("coverage receipt requires one plan universe")
     if state not in {DiscoveryCoverageStatus.COVERED, DiscoveryCoverageStatus.FALLBACK}:
         raise ValueError("successful coverage construction requires a complete state")
-    if len(observed_provider_types) != len(set(observed_provider_types)):
+    if any(not isinstance(t, str) or not t.strip() for t in observed_provider_types) or len(
+        {t.strip().casefold() for t in observed_provider_types}
+    ) != len(observed_provider_types):
         raise ValueError("observed provider types MUST be unique")
     values: dict[str, object] = {
         "cloud": profile.cloud,

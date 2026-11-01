@@ -52,13 +52,18 @@ def compile_mysql_pressure_plan(
 ) -> OntologyQueryPlan | None:
     """Build one exact MySQL pressure plan when every reviewed dependency is available."""
 
-    if investigation_intent is None:
+    if investigation_intent is None or not investigation_intent.relationship_intents:
         return None
     primary = next(
-        item
-        for item in investigation_intent.symptom_measures
-        if item.measure_id == investigation_intent.primary_symptom_measure_id
+        (
+            item
+            for item in investigation_intent.symptom_measures
+            if item.measure_id == investigation_intent.primary_symptom_measure_id
+        ),
+        None,
     )
+    if primary is None:
+        return None
     hypothesis_concepts = {item.cause_measure_concept for item in investigation_intent.hypotheses}
     if primary.concept_id != _DATABASE_LATENCY or hypothesis_concepts != {
         "database.mysql.cpu.utilization_pct",

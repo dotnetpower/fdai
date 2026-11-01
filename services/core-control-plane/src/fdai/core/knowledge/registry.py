@@ -135,6 +135,14 @@ class KnowledgeRegistry:
         registered_by: str,
     ) -> RegisteredDocument:
         """Ingest one document into the knowledge source and record it."""
+        if (
+            not doc_id.strip()
+            or not title.strip()
+            or not text.strip()
+            or not source_ref.strip()
+            or not registered_by.strip()
+        ):
+            raise ValueError("KnowledgeRegistry.register fields MUST be non-empty")
         async with self._lock:
             if await self._store.exists(doc_id):
                 raise DuplicateRegistrationError(f"doc_id already registered: {doc_id}")
@@ -158,6 +166,10 @@ class KnowledgeRegistry:
 
     async def search(self, query: str, *, k: int = 5) -> Sequence[KnowledgeChunk]:
         """Delegate retrieval to the bound knowledge source."""
+        if isinstance(k, bool) or k < 1:
+            raise ValueError("knowledge search k MUST be positive")
+        if not query.strip():
+            return ()
         return await self._source.search(query, k=k)
 
 

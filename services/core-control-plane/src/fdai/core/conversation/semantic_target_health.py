@@ -46,6 +46,8 @@ ASSESSMENT_NODE_SUFFIX = "target-health-assessment"
 def target_health_window(evaluation_time: datetime) -> tuple[str, str]:
     """Return the fixed metric window that ends at the evaluation time, as ISO strings."""
 
+    if evaluation_time.tzinfo is None or evaluation_time.utcoffset() is None:
+        raise ValueError("target health evaluation_time MUST be timezone-aware")
     end = evaluation_time.astimezone(UTC)
     return (end - TARGET_HEALTH_WINDOW).isoformat(), end.isoformat()
 
@@ -55,6 +57,8 @@ def target_health_nodes(
 ) -> tuple[OntologyQueryNode, ...]:
     """Return the reviewed reads after one anchor, ending in the assessment node."""
 
+    if not prefix.strip() or not anchor_id.strip():
+        raise ValueError("target health node prefix and anchor_id MUST be non-empty")
     start, end = target_health_window(evaluation_time)
     state = _function(
         f"{prefix}-health-current-state",

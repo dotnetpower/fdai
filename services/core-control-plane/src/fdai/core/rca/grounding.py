@@ -27,7 +27,7 @@ MAX_RCA_CAUSE_BYTES = 4 * 1024
 
 def valid_confidence(value: float) -> bool:
     """Accept numeric uncertainty only; booleans are not confidence values."""
-    return not isinstance(value, bool) and 0.0 <= value <= 1.0
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and 0.0 <= value <= 1.0
 
 
 def valid_cause(cause: str) -> bool:
@@ -65,7 +65,11 @@ def enforce_grounding(
             hypothesis=None,
             reason="invalid_confidence",
         )
-    if not valid_cause(hypothesis.cause) or admitted_citations(hypothesis.citations) is None:
+    if (
+        not valid_cause(hypothesis.cause)
+        or admitted_citations(hypothesis.citations) is None
+        or (hypothesis.remediation_ref is not None and not hypothesis.remediation_ref.strip())
+    ):
         return RcaResult(
             outcome=RcaOutcome.ABSTAINED,
             hypothesis=None,

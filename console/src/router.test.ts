@@ -286,6 +286,16 @@ describe("clean console routes", () => {
     expect(legacyHashHref("#/audit?correlation=corr-1")).toBe(
       "/audit?correlation=corr-1",
     );
+    expect(legacyHashHref("#/skills")).toBe("/skills");
+    expect(legacyHashHref("#/automation-blueprints")).toBe("/automation-blueprints");
+    expect(legacyHashHref("#/conversation-search")).toBe("/conversation-search");
+    expect(legacyHashHref("#/context-selection-comparisons")).toBe(
+      "/context-selection-comparisons",
+    );
+    expect(legacyHashHref("#/knowledge")).toBe("/knowledge");
+    expect(legacyHashHref("#/github")).toBe("/github");
+    expect(legacyHashHref("#/gitlab")).toBe("/gitlab");
+    expect(legacyHashHref("#/azure-devops")).toBe("/azure-devops");
   });
 
   test("preserves MSAL response and unknown hashes", () => {

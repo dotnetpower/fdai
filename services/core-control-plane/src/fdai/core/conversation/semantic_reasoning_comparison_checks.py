@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from fdai_service_contracts.ontology_query import (
     OntologyQueryNode,
@@ -37,7 +38,21 @@ def _metric_scope_operand(node: OntologyQueryNode) -> list[str]:
     if set(node.arguments) != {"concept_id", "start", "end"}:
         return [f"prov_metric_window:{node.node_id}"]
     if not all(
-        isinstance(node.arguments[item], str) and node.arguments[item] for item in node.arguments
+        isinstance(node.arguments[item], str) and node.arguments[item].strip()
+        for item in node.arguments
+    ):
+        return [f"prov_metric_window:{node.node_id}"]
+    try:
+        start_dt = datetime.fromisoformat(str(node.arguments["start"]).replace("Z", "+00:00"))
+        end_dt = datetime.fromisoformat(str(node.arguments["end"]).replace("Z", "+00:00"))
+    except ValueError:
+        return [f"prov_metric_window:{node.node_id}"]
+    if (
+        start_dt.tzinfo is None
+        or start_dt.utcoffset() is None
+        or end_dt.tzinfo is None
+        or end_dt.utcoffset() is None
+        or end_dt <= start_dt
     ):
         return [f"prov_metric_window:{node.node_id}"]
     return []

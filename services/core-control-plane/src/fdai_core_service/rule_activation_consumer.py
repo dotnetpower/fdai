@@ -87,6 +87,8 @@ def _matches_notice(
         and record.get("request_digest") == notice.proposal_digest
         and record.get("operation") == notice.operation
         and recorded_at is not None
+        and recorded_at.utcoffset() is not None
+        and notice.accepted_at.utcoffset() is not None
         and recorded_at.astimezone(UTC) == notice.accepted_at.astimezone(UTC)
     )
 

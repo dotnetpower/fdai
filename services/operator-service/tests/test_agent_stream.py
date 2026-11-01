@@ -196,3 +196,34 @@ def test_operational_activity_rejects_future_or_authority_bearing_frames() -> No
         )
         == ()
     )
+
+
+def test_stage_projection_honors_explicit_pantheon_owner_and_rca_cause() -> None:
+    projector = AgentActivityProjector()
+    timestamp = datetime.now(UTC).isoformat()
+    events = projector.project(
+        {
+            "event_id": "event-rca-1",
+            "correlation_id": "corr-rca-1",
+            "stage": "verify",
+            "phase": "done",
+            "source": "runtime-observed",
+            "ts": timestamp,
+            "detail": {
+                "incident_id": "INC-RCA-1",
+                "owner_agent": "Norns",
+                "rca_cause": "Repeated saturation pattern matched",
+            },
+        }
+    )
+
+    assert projector.active_incident_count == 1
+    assert projector.involved_agents_for("corr-rca-1") == ("Norns",)
+    assert projector.incident_status_for("corr-rca-1") == "investigating"
+    assert "Norns" in projector.known_pantheon_agents()
+    assert events[0].payload["type"] == "incident.ticket"
+    assert events[0].payload["involved_agents"] == ["Norns"]
+    assert events[0].payload["rca"] == "Repeated saturation pattern matched"
+    assert events[1].payload["agent"] == "Norns"
+    projector.clear_incidents()
+    assert projector.active_incident_count == 0

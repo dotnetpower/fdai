@@ -1,7 +1,10 @@
 import type { JSX } from "preact";
 import { useRef, useState } from "preact/hooks";
+import { usePublishViewContext } from "../deck/context";
+import { composeGlossary, TERMS } from "../deck/glossary";
 import type { PanelProps } from "../panels";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
   fetchConversationSearchContext,
@@ -39,6 +42,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
     setError(null);
     setResult(null);
     setContexts({});
+    setContextLoading(new Set());
     try {
       const next = await searchConversations(conversationSearchInput(form));
       if (generation === searchGeneration.current) setResult(next);
@@ -73,15 +77,44 @@ export function ConversationSearchRoute(_props: PanelProps) {
       }
     } finally {
       contextRequests.current.delete(requestKey);
-      setContextLoading((current) => {
-        const next = new Set(current);
-        next.delete(hit.result_id);
-        return next;
-      });
+      if (generation === searchGeneration.current) {
+        setContextLoading((current) => {
+          const next = new Set(current);
+          next.delete(hit.result_id);
+          return next;
+        });
+      }
     }
   }
 
   const viewStatus = conversationSearchViewStatus(loading, error, result);
+  usePublishViewContext(
+    () => ({
+      routeId: "conversation-search",
+      routeLabel: t("conversationSearch.title"),
+      purpose: t("conversationSearch.subtitle"),
+      glossary: composeGlossary([TERMS.correlationId]),
+      headline: result
+        ? `${result.hits.length} hits (${form.mode})`
+        : viewStatus,
+      capturedAt: new Date().toISOString(),
+      facts: [
+        { key: "status", value: viewStatus, group: "search" },
+        { key: "mode", value: form.mode, group: "search" },
+        { key: "hit_count", value: result?.hits.length ?? 0, group: "search" },
+      ],
+      records: {
+        hits: (result?.hits ?? []).slice(0, 25).map((hit) => ({
+          result_id: hit.result_id,
+          conversation_id: hit.conversation_id,
+          role: hit.role,
+          channel: hit.channel_id,
+          recorded_at: formatConsoleTimestamp(hit.recorded_at),
+        })),
+      },
+    }),
+    [form.mode, result, viewStatus],
+  );
 
   return (
     <div class="stack conversation-search-view">
@@ -165,7 +198,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
               <div class="conversation-search-meta">
                 <span>{hit.channel_id}</span>
                 <span>{t(`conversationSearch.roles.${hit.role}`)}</span>
-                <time dateTime={hit.recorded_at}>{new Date(hit.recorded_at).toLocaleString()}</time>
+                <time dateTime={hit.recorded_at}>{formatConsoleTimestamp(hit.recorded_at)}</time>
                 <span class="mono">{hit.conversation_id}</span>
                 {hit.incident_id ? <span class="mono">{hit.incident_id}</span> : null}
               </div>

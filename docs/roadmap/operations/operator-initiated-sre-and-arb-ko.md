@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 49832366648bdd44744bc90c4efbfa1e86cadb8a
-translation_revised: 2026-10-28
+translation_source_sha: 79bcdeaad476537dca2608ac07674f65445a41ea
+translation_revised: 2026-11-01
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -109,6 +109,7 @@ Core는 초안을 만드는 턴을 포함한 각 의미 턴의 prior turn도 로
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-01 | implemented | `semantic_incident_creation.py`, `semantic_incident_answer.py`, `semantic_incident_evidence.py`, `sre_request.py`, `handover_binding.py`, `semantic_incident_presentation.py`, `semantic_trajectory_presentation.py`(`G001`, `G003`~`G005`, `G019`, `G098`, `G099`)를 강화하여 비어 있지 않은 다이제스트 검증, 비유한 부동소수점 필터링, 튜플 근거·영향·인용 시퀀스 수용 및 인수인계 바인딩 시 주체 ID 보존을 보장했습니다. | `current change`; 집중 인시던트 및 Operator 표현 테스트 모음, Ruff, strict mypy 통과. | 필수 exact-head CI는 별도의 전달 근거로 남습니다. |
 | 2026-10-22 | implemented | 의미 계획에 모델별 후보 중 가장 엄격한 요청 예산 계산을 추가하고 모든 예산 보류를 Incident 및 작업 권한 밖에 유지했습니다. | `current change`, 의미 계획 지원 코드와 Azure LLM 요청 보호 경계, 집중 어댑터 테스트 49개, strict mypy, 강제 파일 크기 검사. | 필수 exact-head CI는 별도의 전달 근거로 남습니다. |
 | 2026-10-01 | implemented | Operator Incident 생성에 서명을 적용했습니다. Operator는 principal id, 역할, 대상, 인자, 원본 요청 id를 결속하는 서명된 operator-request 증적이 있을 때만 `IncidentCreationRequest`를 게시하고, 증적 발급기가 구성되지 않으면 보낼 편지함을 재시도 가능한 상태로 유지합니다. Core는 Incident를 열거나 재사용하기 전에 신뢰하는 키, 만료, 정확한 결속, replay 차단 장치를 검증하고, 서명이 없거나 검증할 수 없는 요청을 구별되는 사유로 dead-letter로 보내며, Incident를 연 뒤 차단 장치 확정이 실패하면 적용되었지만 확정되지 않은 결과로 기록합니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/incident_creation.py`; `services/operator-service/src/fdai_operator_service/action_confirmation_runtime.py`; `services/core-control-plane/src/fdai_core_service/incident_creation_consumer.py`; `fdai/runtime/bootstrap_incidents.py`; `test_incident_creation_consumer.py`; `test_incident_creation_confirmation.py`. | 서명된 Incident 확인에 대한 배포 환경의 요청부터 감사까지의 근거를 보존합니다. |
 | 2026-10-01 | implemented | 증적 발급기가 없을 때 서명된 action confirmation이 실패를 드러내도록 했습니다. 권한이 있는 `operator_request` 이벤트는 operator-request 증적 발급기가 구성된 경우에만 게시됩니다. 그렇지 않으면 confirmation bridge는 동작하는 경로가 아니고, Operator readiness는 준비되지 않음으로 보고되며, 수락된 proposal은 재시도를 위해 게시되지 않은 상태로 남습니다. 같은 경우 ordered poison-halt clear route는 `503`을 반환합니다. | `current change`; `fdai_operator_service/composition.py`; `fdai_operator_service/composition_readiness.py`; `fdai_operator_service/action_confirmation_runtime.py`; `test_action_confirmation_composition.py`; `test_bus_poison_halt_clear.py`. | 서명된 관리형 리소스 action confirmation에 대한 배포 환경의 요청부터 감사까지의 근거를 보존합니다. |

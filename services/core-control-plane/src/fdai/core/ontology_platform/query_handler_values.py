@@ -10,10 +10,21 @@ from .query_execution import QueryNodeResult
 def argument_name(value: object) -> str:
     """Validate one bounded dot-separated function argument name."""
 
-    if not isinstance(value, str) or not value or len(value) > 256:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or value != value.strip()
+        or len(value) > 256
+        or not value.isascii()
+    ):
         raise ValueError("function argument name MUST contain between 1 and 256 characters")
     parts = value.split(".")
-    if any(not part or not part.replace("_", "").replace("-", "").isalnum() for part in parts):
+    if any(
+        not part
+        or not (part[0].isalpha() or part[0] == "_")
+        or not part.replace("_", "").replace("-", "").isalnum()
+        for part in parts
+    ):
         raise ValueError("function argument name MUST be a dot-separated identifier")
     return value
 
@@ -23,10 +34,12 @@ def evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ...
 
     return tuple(
         dict.fromkeys(
-            evidence_ref
+            evidence_ref.strip()
             for result in dependencies.values()
             for evidence_ref in result.evidence_refs
-            if not evidence_ref.startswith("ontology-object-set-output:")
+            if isinstance(evidence_ref, str)
+            and evidence_ref.strip()
+            and not evidence_ref.startswith("ontology-object-set-output:")
         )
     )
 

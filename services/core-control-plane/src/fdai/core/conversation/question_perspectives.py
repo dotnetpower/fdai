@@ -135,8 +135,10 @@ def perspective_applications(
 ) -> tuple[QuestionPerspectiveApplication, ...]:
     """Map one descriptor to reviewed perspectives without Cartesian expansion."""
 
-    kind = descriptor["kind"]
-    name = descriptor["name"]
+    kind = str(descriptor.get("kind", "")).strip()
+    name = str(descriptor.get("name", "")).strip()
+    if not kind or not name:
+        raise ValueError("descriptor kind and name MUST be non-empty")
     if kind == "action":
         return (
             QuestionPerspectiveApplication(

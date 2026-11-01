@@ -103,8 +103,15 @@ def compile_recent_resource_change_plan(
         return None
     lookback = frame.temporal_scope.get("lookback_seconds")
     limit = _result_limit(frame.evidence_requirements)
-    if not isinstance(lookback, int) or isinstance(lookback, bool) or limit is None:
+    if (
+        not isinstance(lookback, int)
+        or isinstance(lookback, bool)
+        or lookback <= 0
+        or limit is None
+    ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("recent resource change plan requires timezone-aware evaluation_time")
     node = OntologyQueryNode(
         node_id="recent-resource-changes",
         kind=QueryNodeKind.FUNCTION,

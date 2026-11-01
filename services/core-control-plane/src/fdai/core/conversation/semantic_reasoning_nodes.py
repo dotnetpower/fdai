@@ -65,6 +65,19 @@ class CompileContext:
     anchors: AnchorBindingReceipt = AnchorBindingReceipt()
     references: ReferenceReceipt = ReferenceReceipt()
 
+    def __post_init__(self) -> None:
+        if (
+            not self.purpose.strip()
+            or self.evaluation_time.tzinfo is None
+            or self.evaluation_time.utcoffset() is None
+            or isinstance(self.default_lookback_seconds, bool)
+            or self.default_lookback_seconds <= 0
+        ):
+            raise ValueError(
+                "compile context requires a non-empty purpose, timezone-aware evaluation_time, "
+                "and positive default_lookback_seconds"
+            )
+
     @property
     def as_of(self) -> str:
         return self.evaluation_time.astimezone(UTC).isoformat()

@@ -115,3 +115,26 @@ def test_incomplete_or_empty_runs_remain_unknown() -> None:
     assert empty.reason is TraceContinuityReason.NO_SPANS
     assert detector.to_event(incomplete) is None
     assert detector.to_event(empty) is None
+
+
+def test_trace_continuity_rejects_whitespace_and_bool_sequence() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="sequence"):
+        TraceSpanObservation(
+            trace_id="trace-a",
+            span_id="span-1",
+            hop="app-gateway",
+            sequence=True,
+            observed_at=_NOW,
+            evidence_ref="telemetry:row-1",
+        )
+    with pytest.raises(ValueError, match="bounded non-empty text"):
+        TraceSpanObservation(
+            trace_id="   ",
+            span_id="span-1",
+            hop="app-gateway",
+            sequence=0,
+            observed_at=_NOW,
+            evidence_ref="telemetry:row-1",
+        )

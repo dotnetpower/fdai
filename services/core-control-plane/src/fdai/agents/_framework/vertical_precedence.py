@@ -33,19 +33,26 @@ class InitialVerticalPrecedence:
         self._resolver = resolver or PrecedenceResolver()
 
     def winner(self, domains: Sequence[str]) -> str | None:
-        normalized = tuple(dict.fromkeys(str(domain) for domain in domains))
-        if len(normalized) < 2:
+        normalized_pairs: list[tuple[str, str]] = []
+        seen_keys: set[str] = set()
+        for raw_domain in domains:
+            original = str(raw_domain).strip()
+            key = original.lower()
+            if original and key not in seen_keys:
+                seen_keys.add(key)
+                normalized_pairs.append((original, key))
+        if len(normalized_pairs) < 2:
             return None
-        mapped = tuple(_DOMAIN_TO_VERTICAL.get(domain) for domain in normalized)
+        mapped = tuple(_DOMAIN_TO_VERTICAL.get(key) for _, key in normalized_pairs)
         if any(vertical is None for vertical in mapped) or len(set(mapped)) != len(mapped):
             return None
         decisions = self._resolver.resolve(
             CandidateAction(
-                action_id=domain,
+                action_id=original,
                 resource_id="shared-resource",
                 vertical=vertical,
             )
-            for domain, vertical in zip(normalized, mapped, strict=True)
+            for (original, _), vertical in zip(normalized_pairs, mapped, strict=True)
             if vertical is not None
         )
         winner = next(

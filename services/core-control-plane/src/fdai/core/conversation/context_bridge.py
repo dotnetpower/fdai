@@ -72,7 +72,7 @@ def _session_verbatim_entries(
     verbatim: list[TranscriptEntry] = []
     for index, turn in enumerate(session.turns):
         text = turn.content
-        if not text:
+        if not text or not text.strip():
             continue
         verbatim.append(
             TranscriptEntry(
@@ -152,13 +152,15 @@ async def assemble_turn_context(
     :func:`session_to_working_context` plus operator memory.
     """
 
+    if isinstance(retrieval_k, bool) or retrieval_k < 0:
+        raise ValueError("retrieval_k MUST be a non-negative integer")
     verbatim = _session_verbatim_entries(
         session, pinned_ids=pinned_ids, token_estimator=token_estimator
     )
     typed_facts = operator_memory_to_entries(operator_memory, token_estimator=token_estimator)
 
     retrieved: tuple[TranscriptEntry, ...] = ()
-    if retriever is not None and utterance.strip() and verbatim:
+    if retriever is not None and retrieval_k > 0 and utterance.strip() and verbatim:
         candidates = tuple(replace(e, kind=EntryKind.RETRIEVED) for e in verbatim)
         retrieved = tuple(
             await retriever.retrieve(utterance=utterance, candidates=candidates, k=retrieval_k)

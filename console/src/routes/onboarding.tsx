@@ -47,13 +47,17 @@ export function OnboardingRoute({
   const generation = useRef(0);
   const load = async (showLoading: boolean): Promise<void> => {
     const request = ++generation.current;
-    if (showLoading) setState({ status: "loading" });
-    else setRefreshing(true);
+    if (showLoading) {
+      setState({ status: "loading" });
+      setCheckedAt(null);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const nextState = await loadOnboardingState(client);
       if (request !== generation.current) return;
       setState(nextState);
-      if (nextState.status === "ready") setCheckedAt(new Date().toISOString());
+      setCheckedAt(nextState.status === "ready" ? new Date().toISOString() : null);
     } finally {
       if (request === generation.current) setRefreshing(false);
     }
@@ -61,7 +65,7 @@ export function OnboardingRoute({
   useEffect(() => {
     void load(true);
     return () => { generation.current += 1; };
-  }, [client]);
+  }, [client, dataMode]);
   const refreshAction = (
     <button
       type="button"

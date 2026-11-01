@@ -242,6 +242,10 @@ def _claims_from_mapping(value: object) -> ResourceHealthNarrationClaims | None:
     if not isinstance(value, Mapping):
         return None
     try:
+        window_started_at = _timestamp(value["window_started_at"])
+        window_completed_at = _timestamp(value["window_completed_at"])
+        if window_started_at is None or window_completed_at is None:
+            return None
         return ResourceHealthNarrationClaims(
             terminal_disposition=ResourceHealthTerminalDisposition(
                 str(value["terminal_disposition"])
@@ -250,8 +254,8 @@ def _claims_from_mapping(value: object) -> ResourceHealthNarrationClaims | None:
             denominator_count=_integer(value["denominator_count"]),
             observed_count=_integer(value["observed_count"]),
             reason_codes=_string_tuple(value["reason_codes"]),
-            window_started_at=_timestamp(value["window_started_at"]) or datetime.min,
-            window_completed_at=_timestamp(value["window_completed_at"]) or datetime.min,
+            window_started_at=window_started_at,
+            window_completed_at=window_completed_at,
             execution_authority=_boolean(value["execution_authority"]),
         )
     except (KeyError, TypeError, ValueError):
@@ -301,9 +305,10 @@ def _timestamp(value: object) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
 
 
 def _bounded_text(value: object, *, maximum: int) -> str | None:

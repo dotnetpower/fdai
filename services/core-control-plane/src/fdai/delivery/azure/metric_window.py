@@ -58,19 +58,29 @@ class AzureMetricWindowProvider:
         end: datetime,
         query_labels: Mapping[str, str] | None = None,
     ) -> MetricWindow:
+        if (
+            start.tzinfo is None
+            or start.utcoffset() is None
+            or end.tzinfo is None
+            or end.utcoffset() is None
+        ):
+            raise ValueError("Azure metric window bounds MUST be timezone-aware")
+        if start > end:
+            raise ValueError("Azure metric window start MUST NOT exceed end")
+        normalized_resource_id = resource_id.strip()
         if query_labels is not None:
             result = await self._provider.read(
                 definition=definition,
-                resource_id=resource_id,
+                resource_id=normalized_resource_id,
                 start=start,
                 end=end,
                 query_labels=query_labels,
             )
-            if result.resource_id != resource_id:
+            if result.resource_id != normalized_resource_id:
                 raise ValueError("Azure metric provider widened the exact scoped identity")
             return result
         arm_id = azure_arm_resource_id(
-            resource_id,
+            normalized_resource_id,
             subscription_id=self._config.subscription_id,
         )
         result = await self._provider.read(
@@ -81,17 +91,18 @@ class AzureMetricWindowProvider:
         )
         if result.resource_id != arm_id:
             raise ValueError("Azure metric provider widened the exact resource identity")
-        return replace(result, resource_id=resource_id)
+        return replace(result, resource_id=normalized_resource_id)
 
 
 def azure_arm_resource_id(resource_id: str, *, subscription_id: str) -> str:
-    folded = resource_id.casefold().rstrip("/")
+    cleaned = resource_id.strip()
+    folded = cleaned.casefold().rstrip("/")
     arm_prefix = f"/subscriptions/{subscription_id.casefold()}/"
     if folded.startswith("/subscriptions/"):
         if not folded.startswith(arm_prefix):
             raise ValueError("Azure metric resource is outside the server subscription")
         return folded
-    match = _LOGICAL_RESOURCE.fullmatch(resource_id)
+    match = _LOGICAL_RESOURCE.fullmatch(cleaned)
     if match is None:
         raise ValueError("ontology resource identity cannot be bound to an Azure metric target")
     provider = match.group("provider")

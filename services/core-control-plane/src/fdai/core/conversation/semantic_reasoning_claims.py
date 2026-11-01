@@ -291,9 +291,9 @@ def _known_identity_values(ctx: _Context) -> set[str]:
         for table in goal.tables.values():
             for row in table.rows:
                 identities.add(row.row_id)
-                for path in ("id", "object_type", "properties.name", "properties.id"):
+                for path in ("id", "name", "object_type", "properties.name", "properties.id"):
                     value = _path(row.values, path)
-                    if isinstance(value, str):
+                    if isinstance(value, str) and value.strip():
                         identities.add(value)
     return identities
 
@@ -345,14 +345,7 @@ def _undeclared_literals(
     limitations = [claim.span for claim in answer.claims if claim.kind is ClaimKind.LIMITATION]
     asked = {token for _start, token in tokens(utterance)}
     parts = frozenset().union(*(code_parts(code) for code in ctx.required_codes))
-    identities = set(known_identities)
-    for goal in ctx.goals.values():
-        for table in goal.tables.values():
-            for row in table.rows:
-                identities.add(row.row_id)
-                name = _path(row.values, "properties.name")
-                if isinstance(name, str):
-                    identities.add(name)
+    identities = set(known_identities) | _known_identity_values(ctx)
     violations: list[str] = []
     for start, token in tokens(answer.text):
         if not literal_shaped(token, identities):

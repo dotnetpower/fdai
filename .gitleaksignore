@@ -15,3 +15,7 @@ a61f9e6d059a92e96e4aaa2ada1a1ea63726fefc:docs/roadmap/deployment/hub-managed-lif
 7e89f3228cd1b88f119f2ee4de9ad1a319b0453c:scripts/deployment/local/report-database-growth.py:generic-api-key:45
 # Inert not-a-key upload fixture, now assembled at runtime; exact historical fingerprint only.
 277d5d2bd5a86431e975b9736682bbe1a497ee6f:lifecycle/hub/ui/tests/browser/bootstrap.spec.ts:private-key:128
+# Shortened synthetic key_version fixture to v1; ignore only this historical PR fingerprint.
+f03df3a8075ec3ba774ee0ae3994aea3520670b6:services/operator-service/tests/test_presentation_rows.py:generic-api-key:122
+# Reworded delivery_latency_ms.p95 decoder error after API response prefix; ignore only this historical PR fingerprint.
+ef893b9f1e4e6effabf02a17f3384a4023cbe034:console/src/routes/conversation-delivery.tsx:generic-api-key:83

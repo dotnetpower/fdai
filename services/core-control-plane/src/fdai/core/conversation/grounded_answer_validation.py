@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Final
 
@@ -33,7 +34,9 @@ class GroundedAnswerValidation:
 def validate_grounded_answer(answer: str, result: ToolResult) -> GroundedAnswerValidation:
     """Reject unsupported exact values while leaving qualitative prose untouched."""
 
-    if any(reference not in answer for reference in result.evidence_refs):
+    if not answer.strip():
+        return GroundedAnswerValidation(False, "empty_answer")
+    if any(not reference.strip() or reference not in answer for reference in result.evidence_refs):
         return GroundedAnswerValidation(False, "missing_evidence_reference")
     authority = _authority_text(result)
     if authority is None:
@@ -76,7 +79,9 @@ def _authority_text(result: ToolResult) -> str | None:
 
 
 def _atomic_values(text: str) -> tuple[frozenset[str], frozenset[str]]:
-    timestamps = frozenset(match.group(0) for match in _TIMESTAMP_RE.finditer(text))
+    timestamps = frozenset(
+        _normalize_timestamp(match.group(0)) for match in _TIMESTAMP_RE.finditer(text)
+    )
     without_timestamps = _TIMESTAMP_RE.sub(" ", text)
     numbers = frozenset(
         normalized
@@ -84,6 +89,13 @@ def _atomic_values(text: str) -> tuple[frozenset[str], frozenset[str]]:
         if (normalized := _normalize_number(match.group(0))) is not None
     )
     return timestamps, numbers
+
+
+def _normalize_timestamp(raw: str) -> str:
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(UTC).isoformat()
+    except ValueError:
+        return raw
 
 
 def _normalize_number(raw: str) -> str | None:

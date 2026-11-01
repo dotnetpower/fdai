@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, cast
 
@@ -52,6 +53,8 @@ def compile_resource_event_plan(
     lookback_seconds = _lookback_seconds(frame.temporal_scope)
     if lookback_seconds is None:
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource event plan requires timezone-aware evaluation_time")
     definition = resource_collection_definition(
         utterance=utterance,
         descriptors=manifest.descriptors,
@@ -149,7 +152,7 @@ def _resource_identity_property(descriptors: tuple[dict[str, Any], ...]) -> str 
         for descriptor in descriptors
         if descriptor.get("kind") == "object" and descriptor.get("name") == "Resource"
     )
-    if len(selected) != 1 or not isinstance(selected[0].get("properties"), dict):
+    if len(selected) != 1 or not isinstance(selected[0].get("properties"), Mapping):
         return None
     properties = selected[0]["properties"]
     return next((name for name in ("name", "display_name", "id") if name in properties), None)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -32,7 +33,7 @@ class QuestionEmbeddingIdentity:
     def __post_init__(self) -> None:
         _require_digest("question embedding space", self.space_digest)
         _require_digest("question embedding vector", self.vector_digest)
-        if not self.model_version or len(self.model_version) > 128:
+        if not self.model_version.strip() or len(self.model_version) > 128:
             raise ValueError("question embedding model version MUST be bounded")
         if (
             isinstance(self.dimension, bool)
@@ -70,13 +71,17 @@ class QuestionNoveltyRecord:
                 raise ValueError(f"question novelty {name} is invalid")
         if self.locale not in _LOCALES:
             raise ValueError("question novelty locale MUST be en or ko")
-        if not 1 <= self.generation_attempt <= 10:
+        if isinstance(self.generation_attempt, bool) or not 1 <= self.generation_attempt <= 10:
             raise ValueError("question novelty generation attempt MUST be in [1, 10]")
         _require_digest("question novelty release", self.ontology_release_digest)
         _require_digest("question novelty fingerprint", self.question_fingerprint)
-        if self.recorded_at.tzinfo is None:
+        if self.recorded_at.tzinfo is None or self.recorded_at.utcoffset() is None:
             raise ValueError("question novelty time MUST be timezone-aware")
-        if not 0.0 <= self.semantic_duplicate_threshold <= 1.0:
+        if (
+            isinstance(self.semantic_duplicate_threshold, bool)
+            or not math.isfinite(self.semantic_duplicate_threshold)
+            or not 0.0 <= self.semantic_duplicate_threshold <= 1.0
+        ):
             raise ValueError("question novelty duplicate threshold MUST be in [0, 1]")
         if self.embedding is None:
             if (
@@ -91,6 +96,8 @@ class QuestionNoveltyRecord:
         else:
             if (
                 self.max_embedding_similarity is None
+                or isinstance(self.max_embedding_similarity, bool)
+                or not math.isfinite(self.max_embedding_similarity)
                 or not 0.0 <= self.max_embedding_similarity <= 1.0
             ):
                 raise ValueError("question novelty similarity MUST be in [0, 1]")

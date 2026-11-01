@@ -59,6 +59,10 @@ class IncidentAutoOpenDecision:
     reason: str
     severity: IncidentSeverity | None = None
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.eligible, bool) or not self.reason.strip():
+            raise ValueError("IncidentAutoOpenDecision requires boolean eligible and reason")
+
 
 def evaluate_incident_auto_open(
     candidate: Mapping[str, object],
@@ -88,7 +92,11 @@ def evaluate_incident_auto_open(
 
 def incident_severity(value: object) -> IncidentSeverity:
     """Normalize a recorded severity; unknown values stay conservative at SEV3."""
-    normalized = str(value or "").strip().casefold()
+    if isinstance(value, IncidentSeverity):
+        return value
+    if not isinstance(value, str):
+        return IncidentSeverity.SEV3
+    normalized = value.strip().casefold()
     return _SEVERITY_ALIASES.get(normalized, IncidentSeverity.SEV3)
 
 
@@ -129,10 +137,12 @@ def _text(candidate: Mapping[str, object], key: str) -> str:
 
 
 def _evidence_keys(candidate: Mapping[str, object]) -> tuple[str, ...]:
-    if "evidence_keys" not in candidate:
+    raw = candidate.get("evidence_keys")
+    if raw is None:
+        if "evidence_keys" in candidate and "evidence_key" not in candidate:
+            return ()
         evidence_key = _text(candidate, "evidence_key")
         return (evidence_key,) if evidence_key else ()
-    raw = candidate.get("evidence_keys")
     if not isinstance(raw, (list, tuple)) or not 1 <= len(raw) <= _MAX_EVIDENCE_KEYS:
         return ()
     normalized: list[str] = []

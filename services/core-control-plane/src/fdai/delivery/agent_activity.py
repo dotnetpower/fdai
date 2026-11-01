@@ -96,6 +96,10 @@ class AgentStateEvent:
     source: ObservationSource = ObservationSource.UNKNOWN
     activity: HandlerActivityContext | None = None
 
+    def __post_init__(self) -> None:
+        if self.agent not in _PANTHEON_NAMES or not self.ts.strip():
+            raise ValueError("AgentStateEvent requires a Pantheon agent and non-empty timestamp")
+
     def to_payload(self) -> dict[str, object]:
         """Return the stable agent-state wire payload."""
         payload: dict[str, object] = {
@@ -130,9 +134,15 @@ def runtime_agent_state_snapshot(
     health: Mapping[str, Any],
     *,
     active_states: Mapping[str, AgentStateEvent] | None = None,
+    recent_states: Mapping[str, AgentStateEvent] | None = None,
 ) -> tuple[AgentStateEvent, ...]:
     """Project initialized healthy Pantheon agents into resting states."""
-    if int(health.get("consumers_live") or 0) <= 0:
+    consumers_live = health.get("consumers_live")
+    if (
+        isinstance(consumers_live, bool)
+        or not isinstance(consumers_live, int)
+        or consumers_live <= 0
+    ):
         return ()
     agent_health = health.get("agent_health")
     if not isinstance(agent_health, Mapping):
@@ -142,9 +152,12 @@ def runtime_agent_state_snapshot(
     }
     timestamp = _iso_ts_utc()
     active = active_states or {}
+    recent = recent_states or {}
     return tuple(
         replace(active[str(agent)], ts=timestamp)
         if str(agent) in active
+        else replace(recent[str(agent)], ts=timestamp)
+        if str(agent) in recent
         else AgentStateEvent(
             agent=str(agent),
             state=AgentState.WATCHING if agent in _SENSING_AGENTS else AgentState.IDLE,
@@ -167,11 +180,12 @@ class EventBusPantheonActivityObserver:
     """Publish observed Pantheon handler transitions onto the stage topic."""
 
     def __init__(self, *, event_bus: EventBus, topic: str = DEFAULT_STAGE_TOPIC) -> None:
-        if not topic:
+        if not isinstance(topic, str) or not topic.strip():
             raise ValueError("topic MUST be non-empty")
         self._event_bus = event_bus
         self._topic = topic
         self._active: dict[tuple[str, str], AgentStateEvent] = {}
+        self._recent: dict[str, AgentStateEvent] = {}
 
     def active_states(self) -> dict[str, AgentStateEvent]:
         """Return the latest active handler state for each agent."""
@@ -180,6 +194,10 @@ class EventBusPantheonActivityObserver:
         for (agent, _topic), event in self._active.items():
             current[agent] = event
         return current
+
+    def recent_states(self) -> dict[str, AgentStateEvent]:
+        """Return the latest completed handler state per agent."""
+        return dict(self._recent)
 
     async def observe(
         self,
@@ -210,6 +228,7 @@ class EventBusPantheonActivityObserver:
             self._active[key] = event
         else:
             self._active.pop(key, None)
+            self._recent[agent] = event
         await self._event_bus.publish(self._topic, agent, event.to_runtime_payload())
 
 

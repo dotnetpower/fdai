@@ -32,6 +32,12 @@ class IdentityBindingReceipt:
     identity: str
     span: tuple[int, int] | None = None
 
+    def __post_init__(self) -> None:
+        if not self.source.strip() or not self.lookup.strip() or not self.identity.strip():
+            raise ValueError("identity binding receipt fields MUST be non-empty")
+        if self.span is not None and (self.span[0] < 0 or self.span[0] >= self.span[1]):
+            raise ValueError("identity binding receipt span MUST be a valid range")
+
 
 def unproven_identity_operands(
     plan: OntologyQueryPlan,
@@ -124,11 +130,16 @@ def _node_operands(kind: QueryNodeKind, value: Mapping[str, object]) -> tuple[st
                     found.extend(_predicate_operands(predicate))
     elif kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
         predicates = value.get("endpoint_predicates")
-        for predicate in predicates if isinstance(predicates, list) else ():
+        for predicate in predicates if isinstance(predicates, (list, tuple)) else ():
             if isinstance(predicate, Mapping):
                 found.extend(_predicate_operands(predicate))
     elif kind in {QueryNodeKind.METRIC_SERIES, QueryNodeKind.METRIC_SCOPE_SERIES}:
         found.extend(_identity_values(value.get("resource_id")))
+    elif kind is QueryNodeKind.TELEMETRY_RECIPE:
+        need = value.get("need")
+        if isinstance(need, Mapping):
+            found.extend(_identity_values(need.get("resource_ref")))
+            found.extend(_identity_values(need.get("incident_id")))
     elif kind is QueryNodeKind.FUNCTION:
         arguments = value.get("arguments")
         if isinstance(arguments, Mapping):
@@ -147,16 +158,16 @@ def _predicate_operands(value: Mapping[str, object]) -> tuple[str, ...]:
         if isinstance(equals, str):
             found.append(equals)
         values = value.get("values")
-        if isinstance(values, list):
+        if isinstance(values, (list, tuple)):
             found.extend(item for item in values if isinstance(item, str))
     return tuple(found)
 
 
 def _identity_values(value: object) -> tuple[str, ...]:
     if isinstance(value, str):
-        return (value,)
-    if isinstance(value, list):
-        return tuple(item for item in value if isinstance(item, str))
+        return (value,) if value.strip() else ()
+    if isinstance(value, list | tuple):
+        return tuple(item for item in value if isinstance(item, str) and item.strip())
     return ()
 
 

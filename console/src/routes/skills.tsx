@@ -166,9 +166,14 @@ export function decodeRuntimeSkills(value: unknown): RuntimeSkillsResponse {
   if (new Set(bundleNames).size !== bundleNames.length) {
     throw new Error(t("governance.skills.error.uniqueBundleNames"));
   }
+  const executionEligibility = panelBoolean(root, "execution_eligibility", "skills");
+  const mutationControls = panelBoolean(root, "mutation_controls", "skills");
+  if (executionEligibility || mutationControls) {
+    throw new Error("invalid Operator API response: skills panel MUST be read-only");
+  }
   return {
     source: panelNonEmptyString(root, "source", "skills"),
-    execution_eligibility: panelBoolean(root, "execution_eligibility", "skills"),
+    execution_eligibility: executionEligibility,
     trust_rechecked_on_load: panelBoolean(root, "trust_rechecked_on_load", "skills"),
     agent: panelNonEmptyString(root, "agent", "skills"),
     available_tools: panelStringArray(root["available_tools"], "skills.available_tools"),
@@ -179,7 +184,7 @@ export function decodeRuntimeSkills(value: unknown): RuntimeSkillsResponse {
     eligible_bundle_count: eligibleBundleCount,
     bundles,
     diagnostics,
-    mutation_controls: panelBoolean(root, "mutation_controls", "skills"),
+    mutation_controls: mutationControls,
   };
 }
 
@@ -220,6 +225,19 @@ function decodeBundle(value: unknown, index: number): RuntimeSkillBundleItem {
 function decodeSkill(value: unknown, index: number): RuntimeSkillItem {
   const label = `skills.items[${index}]`;
   const item = panelRecord(value, label);
+  const references = panelArray(item["references"], `${label}.references`).map((raw, refIndex) => {
+    const refLabel = `${label}.references[${refIndex}]`;
+    const reference = panelRecord(raw, refLabel);
+    return {
+      path: panelNonEmptyString(reference, "path", refLabel),
+      sha256: panelNonEmptyString(reference, "sha256", refLabel),
+      size_bytes: panelNonNegativeInteger(reference, "size_bytes", refLabel),
+      media_type: panelNonEmptyString(reference, "media_type", refLabel),
+    };
+  });
+  if (new Set(references.map((ref) => ref.path)).size !== references.length) {
+    throw new Error(`invalid Operator API response: ${label}.references paths MUST be unique`);
+  }
   return {
     name: panelNonEmptyString(item, "name", label),
     version: panelNonEmptyString(item, "version", label),
@@ -233,16 +251,7 @@ function decodeSkill(value: unknown, index: number): RuntimeSkillItem {
     eligible: panelBoolean(item, "eligible", label),
     eligibility_reason: panelNonEmptyString(item, "eligibility_reason", label),
     body_sha256: panelNonEmptyString(item, "body_sha256", label),
-    references: panelArray(item["references"], `${label}.references`).map((raw, refIndex) => {
-      const refLabel = `${label}.references[${refIndex}]`;
-      const reference = panelRecord(raw, refLabel);
-      return {
-        path: panelNonEmptyString(reference, "path", refLabel),
-        sha256: panelNonEmptyString(reference, "sha256", refLabel),
-        size_bytes: panelNonNegativeInteger(reference, "size_bytes", refLabel),
-        media_type: panelNonEmptyString(reference, "media_type", refLabel),
-      };
-    }),
+    references,
   };
 }
 

@@ -407,7 +407,8 @@
         "caf": "Azure CAF",
         "wara": "Azure WARA",
         "mcsbV1": "MCSB v1",
-        "mcsbV2": "MCSB v2 preview"
+        "mcsbV2": "MCSB v2 preview",
+        "msrcCsaf": "MSRC CSAF"
       },
       "context": {
         "routeLabel": "Controls",
@@ -745,10 +746,84 @@
       "detectionBody": "T0 checks each resource against activated rules.",
       "assessmentTitle": "Framework assessments",
       "assessmentBody": "Controls weigh rule results with documents and approvals. No remediation.",
-      "controlsHint": "Azure WAF, CAF, WARA, and MCSB"
+      "controlsHint": "Azure WAF, CAF, WARA, MCSB, and MSRC CSAF"
+    },
+    "msrcCsaf": {
+      "openRow": "Open MSRC CSAF vulnerability {cve} ({title})",
+      "banner": {
+        "title": "Pinned MSRC CSAF 2.0 advisories and WARA-style product-tree crosswalk.",
+        "body": "Source revision: {revision}. Deterministic T0 assessment evaluates version-train windows and workaround properties in shadow mode (execution_authority=false). Heimdall projects exposure drift to Forseti and Saga; Norns extracts inert RuleCandidates."
+      },
+      "kpi": {
+        "total": "Cataloged CVEs",
+        "exploited": "Exploited in wild",
+        "mapped": "Canonical crosswalks",
+        "blocked": "Unmapped or blocked"
+      },
+      "column": {
+        "cve": "CVE and advisory",
+        "severity": "Severity (CVSS)",
+        "exploitStatus": "Exploit status",
+        "versionWindow": "Affected window",
+        "exposure": "Runtime exposure"
+      },
+      "filter": {
+        "severity": "Severity",
+        "exploitStatus": "Exploit status",
+        "disposition": "Disposition",
+        "mappingState": "Mapping state",
+        "resourceType": "Resource type",
+        "searchAria": "Filter MSRC CSAF advisories",
+        "searchPlaceholder": "Filter CVE, advisory ID, product ID, or title"
+      },
+      "result": {
+        "showing": "Showing {start}-{end} of {filtered} filtered ({total} total)",
+        "empty": "No MSRC CSAF vulnerabilities match these filters"
+      },
+      "detail": {
+        "aria": "MSRC CSAF vulnerability detail",
+        "title": "MSRC CSAF vulnerability detail",
+        "boundary": "Shadow-only vulnerability crosswalk. Advisory presence never grants approval or execution authority; unverified or missing resource version properties fail closed to Unknown.",
+        "advisorySection": "OASIS CSAF 2.0 advisory provenance",
+        "trackingId": "Advisory tracking ID",
+        "sourceRevision": "Source revision",
+        "cvssVector": "CVSS v3.1 vector",
+        "initialRelease": "Initial release",
+        "currentRelease": "Current release",
+        "signatureVerified": "Detached signature verified",
+        "documentDigest": "Advisory SHA-256",
+        "crosswalkDigest": "Crosswalk SHA-256",
+        "sourceUrl": "MSRC CSAF source URL",
+        "crosswalkSection": "Product-tree and resource crosswalk",
+        "productIds": "CSAF product IDs",
+        "canonicalResourceType": "Canonical ResourceType",
+        "versionWindow": "Vulnerable version window",
+        "existingRule": "Bound T0 Rule",
+        "candidateActionType": "Candidate ActionType",
+        "workaroundCheck": "Workaround property predicate",
+        "blockedReasons": "Blocked reasons",
+        "remediationSection": "CSAF vendor_fix and workaround remediations",
+        "noRemediations": "No structured remediation entries in this advisory.",
+        "pantheonSection": "15-agent Pantheon governance bindings"
+      }
     }
   },
   "display": {
+    "msrcCsafExploit": {
+      "exploited": "Exploited",
+      "exploitation_more_likely": "Exploitation more likely",
+      "exploitation_less_likely": "Exploitation less likely",
+      "exploitation_unlikely": "Exploitation unlikely",
+      "publicly_disclosed": "Publicly disclosed",
+      "unproven": "Unproven"
+    },
+    "msrcCsafExposure": {
+      "affected": "Affected",
+      "mitigated": "Mitigated",
+      "fixed": "Fixed",
+      "not_applicable": "Not applicable",
+      "unknown": "Unknown"
+    },
     "waraLimitation": {
       "missing_exact_evaluator": "No evaluator is bound to this exact recommendation.",
       "undeclared_resource_type": "The resource type has no declared evaluation binding.",
@@ -819,6 +894,7 @@
     "waraMapping": {
       "existing_rule": "Existing rule",
       "new_rule_candidate": "New rule candidate",
+      "version_observation": "Version observation",
       "manual_evidence": "Manual evidence",
       "conditional_not_applicable": "Conditional not applicable",
       "ambiguous_or_blocked": "Ambiguous or blocked",

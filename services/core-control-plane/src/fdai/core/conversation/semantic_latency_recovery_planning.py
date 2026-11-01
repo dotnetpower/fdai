@@ -63,7 +63,11 @@ def compile_latency_recovery_plan(
         or not _has_function(manifest.descriptors)
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("latency recovery plan requires timezone-aware evaluation_time")
     duration = continuation.baseline_end - continuation.baseline_start
+    if duration.total_seconds() <= 0:
+        raise ValueError("latency recovery baseline window MUST have positive duration")
     current_end = evaluation_time.astimezone(UTC)
     current_start = current_end - duration
     if current_start < continuation.initial_observation_cutoff:

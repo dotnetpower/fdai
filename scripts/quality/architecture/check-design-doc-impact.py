@@ -233,6 +233,7 @@ def _route_paths(path: str) -> tuple[str, ...]:
 ROADMAP_PREFIX = "docs/roadmap/"
 LEDGER_PREFIX = "docs/roadmap-implementation/"
 INLINE_STATUS_HEADING = "## Implementation status"
+_INLINE_STATUS_CACHE: dict[tuple[str, str | None, bool], bool] = {}
 
 
 def _canonical_doc_path(path: str) -> str:
@@ -259,6 +260,9 @@ def _has_inline_implementation_status(
     cached: bool = False,
 ) -> bool:
     """Return whether a roadmap owner still keeps an authoritative inline status section."""
+    cache_key = (owner_path, diff_range, cached)
+    if cache_key in _INLINE_STATUS_CACHE:
+        return _INLINE_STATUS_CACHE[cache_key]
     text: str | None = None
     if cached:
         text = _git_text("", owner_path)
@@ -269,17 +273,21 @@ def _has_inline_implementation_status(
     if text is None:
         file_path = REPO_ROOT / owner_path
         if not file_path.is_file():
+            _INLINE_STATUS_CACHE[cache_key] = False
             return False
         try:
             text = file_path.read_text(encoding="utf-8")
         except OSError:
+            _INLINE_STATUS_CACHE[cache_key] = True
             return True
     in_fence = False
     for line in text.splitlines():
         if line.lstrip().startswith("```"):
             in_fence = not in_fence
         elif not in_fence and line.strip() == INLINE_STATUS_HEADING:
+            _INLINE_STATUS_CACHE[cache_key] = True
             return True
+    _INLINE_STATUS_CACHE[cache_key] = False
     return False
 
 

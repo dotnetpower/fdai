@@ -344,3 +344,34 @@ def test_continuation_progress_accounts_are_mutually_exclusive() -> None:
                 "remaining_batches": 1,
             }
         )
+
+
+def test_rounds_19_service_contract_hardening() -> None:
+    from fdai_service_contracts.semantic_work_progress import derive_work_progress_shape
+
+    # D55: duplicate sort and ordering field names are rejected
+    with pytest.raises(ValidationError, match="sort field names MUST be unique"):
+        ResultHandle.model_validate(
+            {
+                **_result_handle().model_dump(mode="json"),
+                "sort": [
+                    {"field_name": "name", "direction": "asc"},
+                    {"field_name": "name", "direction": "desc"},
+                ],
+            },
+            context={"allowed_snapshot_fields": {"sku"}},
+        )
+    with pytest.raises(ValidationError, match="ordering field names MUST be unique"):
+        QueryContinuation.model_validate(
+            {
+                **_row_continuation().model_dump(mode="json"),
+                "ordering": [
+                    {"field_name": "name", "direction": "asc"},
+                    {"field_name": "name", "direction": "desc"},
+                ],
+            }
+        )
+
+    # D56: derive_work_progress_shape rejects blank node_id or bare string depends_on
+    assert derive_work_progress_shape((("   ", ()),)) is None
+    assert derive_work_progress_shape((("n1", ()), ("n2", "n1"))) is None  # type: ignore[arg-type]

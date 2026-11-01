@@ -43,18 +43,34 @@ class AzureMonitorProbeDefinition:
     active_below: float
 
     def __post_init__(self) -> None:
-        if not self.probe_id or not self.metric_name or not self.result_field:
+        if (
+            not isinstance(self.probe_id, str)
+            or not self.probe_id.strip()
+            or not isinstance(self.metric_name, str)
+            or not self.metric_name.strip()
+            or not isinstance(self.result_field, str)
+            or not self.result_field.strip()
+        ):
             raise BlastProbeConfigError("Azure Monitor probe identifiers MUST be non-empty")
-        if self.aggregation not in {"average", "total", "p95"}:
+        if self.aggregation not in {"average", "total", "maximum", "minimum", "p95", "p99"}:
             raise BlastProbeConfigError("Azure Monitor probe aggregation is unsupported")
-        if self.window_minutes < 1:
+        if type(self.window_minutes) is not int or self.window_minutes < 1:
             raise BlastProbeConfigError("Azure Monitor probe window_minutes MUST be positive")
-        if not math.isfinite(self.timeout_seconds) or self.timeout_seconds <= 0:
+        if (
+            type(self.timeout_seconds) is bool
+            or not isinstance(self.timeout_seconds, int | float)
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise BlastProbeConfigError("Azure Monitor probe timeout_seconds MUST be positive")
-        if not (
-            math.isfinite(self.quiet_below)
-            and math.isfinite(self.active_below)
-            and self.quiet_below <= self.active_below
+        if (
+            type(self.quiet_below) is bool
+            or type(self.active_below) is bool
+            or not (
+                math.isfinite(self.quiet_below)
+                and math.isfinite(self.active_below)
+                and self.quiet_below <= self.active_below
+            )
         ):
             raise BlastProbeConfigError("Azure Monitor probe thresholds are invalid")
 
@@ -85,12 +101,20 @@ class AzureMonitorBlastProbe:
         definition = self._definitions.get(query.probe_id)
         if definition is None:
             raise BlastProbeConfigError("Azure Monitor probe id is not configured")
+        if not isinstance(query.target_ref, str) or not query.target_ref.strip():
+            raise BlastProbeConfigError("Azure Monitor probe target_ref MUST be non-empty")
+        if (
+            type(query.deadline_seconds) is bool
+            or not math.isfinite(query.deadline_seconds)
+            or query.deadline_seconds <= 0
+        ):
+            raise BlastProbeConfigError("Azure Monitor probe deadline_seconds MUST be positive")
         until = self._clock()
         if until.tzinfo is None or until.utcoffset() is None:
             raise BlastProbeConfigError("Azure Monitor probe clock MUST be timezone-aware")
         metric_query = MetricQuery(
             metric_name=definition.metric_name,
-            labels={"resource_id": query.target_ref},
+            labels={"resource_id": query.target_ref.strip()},
             since=until - timedelta(minutes=definition.window_minutes),
             until=until,
             aggregation=definition.aggregation,
@@ -201,7 +225,12 @@ def _aggregate(points: tuple[MetricPoint, ...], aggregation: str) -> float:
         return sum(values)
     if aggregation == "average":
         return sum(values) / len(values)
-    index = max(0, math.ceil(len(values) * 0.95) - 1)
+    if aggregation == "maximum":
+        return values[-1]
+    if aggregation == "minimum":
+        return values[0]
+    pct = 0.99 if aggregation == "p99" else 0.95
+    index = max(0, math.ceil(len(values) * pct) - 1)
     return values[index]
 
 

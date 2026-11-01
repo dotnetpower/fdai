@@ -165,3 +165,22 @@ def test_policy_from_mapping_is_strict() -> None:
 def test_sla_evaluation_rejects_naive_now() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         evaluate_incident_sla((), policy=_policy(), now=datetime(2026, 7, 15))
+
+
+async def test_sla_rejects_regressing_transition_timestamp_and_boolean_policy_seconds() -> None:
+    store, registry, incident_id = await _opened_store()
+    await registry.transition(
+        incident_id=incident_id,
+        to_state=IncidentState.TRIAGING,
+        actor_oid="operator@example.com",
+        at=datetime(2026, 7, 15, 0, 4, tzinfo=UTC),
+    )
+    entries = [dict(entry) for entry in await store.read_incident_transitions()]
+    entries[-1]["at"] = datetime(2026, 7, 14, 23, 59, tzinfo=UTC).isoformat()
+    with pytest.raises(ValueError, match="timestamp regressed"):
+        evaluate_incident_sla(entries, policy=_policy(), now=NOW)
+    with pytest.raises(ValueError, match="MUST be >= 1"):
+        IncidentSlaPolicy(
+            acknowledge_seconds={severity: True for severity in IncidentSeverity},  # type: ignore[dict-item]
+            resolve_seconds={severity: 300 for severity in IncidentSeverity},
+        )

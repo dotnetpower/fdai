@@ -41,6 +41,10 @@ def inventory_revision_to_rollup_observation(
     """
 
     _canonical_digest(revision.payload_digest, "inventory payload_digest")
+    if not generation_ref.strip():
+        raise ValueError("inventory generation_ref MUST be non-empty")
+    if type(conflict_count) is not int or conflict_count < 0:
+        raise ValueError("inventory conflict_count MUST be a non-negative integer")
     if source_partition_digest is not None:
         _canonical_digest(source_partition_digest, "inventory source_partition_digest")
     from fdai.core.ontology_platform.semantic_rollup_temporal import enabled

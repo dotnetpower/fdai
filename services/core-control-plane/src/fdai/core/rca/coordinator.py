@@ -107,6 +107,17 @@ class RcaCoordinator:
 
         return self._governed_knowledge_gatherer is not None
 
+    def tier_capabilities(self) -> dict[str, bool]:
+        """Return the active RCA tier and evidence capabilities."""
+        return {
+            "t0": True,
+            "t1": True,
+            "t2": self.has_t2,
+            "symptom_index": self.has_symptom_index,
+            "knowledge": self.has_knowledge,
+            "governed_knowledge": self.has_governed_knowledge,
+        }
+
     def analyze_t0(
         self,
         *,
@@ -223,6 +234,12 @@ class RcaCoordinator:
                 outcome=RcaOutcome.ABSTAINED,
                 hypothesis=None,
                 reason="no_t2_reasoner_configured",
+            )
+        if not isinstance(incident_summary, str) or not incident_summary.strip():
+            return RcaResult(
+                outcome=RcaOutcome.ABSTAINED,
+                hypothesis=None,
+                reason="invalid_incident_summary",
             )
         candidates = admitted_citations(candidate_citations)
         if candidates is None:

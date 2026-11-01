@@ -9,9 +9,10 @@ import {
   type AsyncState,
   type Column,
 } from "../components/ui";
+import type { ConsoleDataMode } from "../console-data-mode";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import "./background-tasks.css";
 import { backgroundTasksText } from "./background-tasks.i18n";
 import {
@@ -47,8 +48,26 @@ interface TaskDetail {
   readonly progress: BackgroundTaskProgressPage;
 }
 
-export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiClient }) {
-  const selectedTaskId = currentRoute().segments[0] ?? null;
+export function backgroundTasksHref(
+  taskId: string | null,
+  sampleMode: boolean,
+): string {
+  return routeHref("background-tasks", {
+    ...(taskId !== null ? { segments: [taskId] } : {}),
+    params: { data: sampleMode ? "sample" : null },
+  });
+}
+
+export function BackgroundTasksRoute({
+  client,
+  dataMode,
+}: {
+  readonly client: OperatorApiClient;
+  readonly dataMode?: ConsoleDataMode;
+}) {
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+    () => currentRoute().segments[0] ?? null,
+  );
   const [pageState, setPageState] = useState<AsyncState<BackgroundTaskPage>>({ status: "loading" });
   const [detailState, setDetailState] = useState<AsyncState<TaskDetail>>(
     selectedTaskId === null ? { status: "idle" } : { status: "loading" },
@@ -65,7 +84,19 @@ export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiC
   const detailGeneration = useRef(0);
   const createIdempotencyKey = useRef<string | null>(null);
   const cancelIdempotency = useRef<{ readonly taskId: string; readonly key: string } | null>(null);
-  const sampleMode = currentRoute().search.get("data") === "sample";
+  const sampleMode = dataMode === "sample" || currentRoute().search.get("data") === "sample";
+
+  useEffect(() => {
+    const sync = () => setSelectedTaskId(currentRoute().segments[0] ?? null);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
 
   const loadPage = async (cursor: BackgroundTaskCursor | null): Promise<void> => {
     const request = cursor === null ? ++generation.current : generation.current;
@@ -130,6 +161,9 @@ export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiC
   };
 
   useEffect(() => {
+    setLoadingMore(false);
+    setMutationNotice(null);
+    setMutationError(null);
     void loadPage(null);
     return () => { generation.current += 1; };
   }, [client]);
@@ -210,7 +244,7 @@ export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiC
             selectedTaskId={selectedTaskId}
             loadingMore={loadingMore}
             pageError={pageError}
-            onSelect={(task) => navigate(routeHref("background-tasks", { segments: [task.task_id] }))}
+            onSelect={(task) => navigate(backgroundTasksHref(task.task_id, sampleMode))}
             onLoadMore={() => {
               if (page.next_cursor !== null) void loadPage(page.next_cursor);
             }}
@@ -229,7 +263,7 @@ export function BackgroundTasksRoute({ client }: { readonly client: OperatorApiC
                 cancelling={cancellingTaskId === selectedTaskId}
                 onRefresh={() => void loadDetail(selectedTaskId, true)}
                 onCancel={() => void cancelTask(selectedTaskId)}
-                onClose={() => navigate(routeHref("background-tasks"))}
+                onClose={() => navigate(backgroundTasksHref(null, sampleMode))}
               />
             )}
           </AsyncBoundary>
@@ -336,7 +370,7 @@ function TaskTable({ page, selectedTaskId, loadingMore, pageError, onSelect, onL
     () => ({
       routeId: "background-tasks",
       routeLabel: backgroundTasksText("title"),
-      purpose: "Inspect owner-scoped detached read-only investigations without task mutation authority.",
+      purpose: backgroundTasksText("subtitle"),
       glossary: composeGlossary([TERMS.backgroundTask]),
       headline: backgroundTasksText("viewHeadline", { count: page.tasks.length }),
       capturedAt: new Date().toISOString(),
@@ -509,7 +543,9 @@ function Fact({ label, value }: { readonly label: string; readonly value: string
 }
 
 function displayNumber(value: unknown): string {
-  return typeof value === "number" && Number.isFinite(value) ? value.toLocaleString() : "-";
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value.toLocaleString()
+    : "-";
 }
 
 function outcomeText(task: BackgroundTaskItem, detailed = false): string {

@@ -361,3 +361,18 @@ def test_document_digest_manifest_rejects_stale_root_and_overlarge_chunk() -> No
             document_digest_root=manifest.document_digest_root,
             chunks=manifest.chunks,
         )
+
+
+def test_query_digest_nfkc_and_cohort_metric_and_catalog_surface_uniqueness() -> None:
+    from fdai.rule_catalog.schema.catalog_search import catalog_semantic_surface_digest
+
+    assert query_digest("ＡＫＳ 노드 풀") == query_digest("AKS 노드 풀")
+    with pytest.raises(ValueError, match="control characters"):
+        query_digest("bad\x00query")
+    with pytest.raises(ValueError, match="finite"):
+        CohortMetric("en", "recall-at-5", 1.5, 1)
+    with pytest.raises(ValueError, match="finite"):
+        CohortMetric("en", "recall-at-5", True, 1)  # type: ignore[arg-type]
+    surface = _surface()
+    with pytest.raises(ValueError, match="unique surface ids"):
+        catalog_semantic_surface_digest((surface, surface))

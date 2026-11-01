@@ -35,6 +35,7 @@ chain exists.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -95,6 +96,16 @@ class CorrelatedEvent:
     change_kind: str | None = None
     cause_domain: CauseDomain = CauseDomain.UNKNOWN
     inventory_generation: str | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            not self.event_id.strip()
+            or not self.resource_ref.strip()
+            or not isinstance(self.is_change, bool)
+        ):
+            raise ValueError(
+                "CorrelatedEvent requires non-empty ids, boolean is_change, and aware timestamp"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,19 +192,27 @@ class CausalChainConfig:
     def __post_init__(self) -> None:
         if self.window <= timedelta(0):
             raise ValueError("CausalChainConfig.window MUST be positive")
-        if self.max_hops < 1:
+        if isinstance(self.max_hops, bool) or self.max_hops < 1:
             raise ValueError("CausalChainConfig.max_hops MUST be >= 1")
-        if self.transitive_depth < 1:
+        if isinstance(self.transitive_depth, bool) or self.transitive_depth < 1:
             raise ValueError("CausalChainConfig.transitive_depth MUST be >= 1")
-        if not 0.0 <= self.ambiguity_epsilon <= 1.0:
+        if (
+            isinstance(self.ambiguity_epsilon, bool)
+            or not math.isfinite(self.ambiguity_epsilon)
+            or not 0.0 <= self.ambiguity_epsilon <= 1.0
+        ):
             raise ValueError("CausalChainConfig.ambiguity_epsilon MUST be in [0, 1]")
-        if not 0.0 < self.ambiguity_discount <= 1.0:
+        if (
+            isinstance(self.ambiguity_discount, bool)
+            or not math.isfinite(self.ambiguity_discount)
+            or not 0.0 < self.ambiguity_discount <= 1.0
+        ):
             raise ValueError("CausalChainConfig.ambiguity_discount MUST be in (0, 1]")
         for name, weight in (
             ("default_change_weight", self.default_change_weight),
             ("symptom_propagation_weight", self.symptom_propagation_weight),
         ):
-            if not 0.0 <= weight <= 1.0:
+            if isinstance(weight, bool) or not math.isfinite(weight) or not 0.0 <= weight <= 1.0:
                 raise ValueError(f"CausalChainConfig.{name} MUST be in [0, 1]")
         # A partial relationship_weights map would silently score the
         # missing relationship at 0 (floor confidence); require completeness
@@ -205,10 +224,10 @@ class CausalChainConfig:
                 f"missing {missing}"
             )
         for rel, weight in self.relationship_weights.items():
-            if not 0.0 <= weight <= 1.0:
+            if isinstance(weight, bool) or not math.isfinite(weight) or not 0.0 <= weight <= 1.0:
                 raise ValueError(f"relationship_weights[{rel.value!r}] MUST be in [0, 1]")
         for kind, weight in self.change_kind_weights.items():
-            if not 0.0 <= weight <= 1.0:
+            if isinstance(weight, bool) or not math.isfinite(weight) or not 0.0 <= weight <= 1.0:
                 raise ValueError(f"change_kind_weights[{kind!r}] MUST be in [0, 1]")
 
 
@@ -273,9 +292,10 @@ class CausalChainAnalyzer:
         if not events:
             return None
 
-        memo: dict[tuple[str, int], _PartialChain | None] = {}
+        memo: dict[tuple[str, int], tuple[_PartialChain, ...]] = {}
         top_options = self._chains_into(
             target=failure,
+            failure_resource_ref=failure_resource_ref,
             events=events,
             budget=self._config.max_hops,
             same_resource_only=same_resource_only,
@@ -302,10 +322,11 @@ class CausalChainAnalyzer:
         self,
         *,
         target: CorrelatedEvent,
+        failure_resource_ref: str,
         events: tuple[CorrelatedEvent, ...],
         budget: int,
         same_resource_only: bool,
-        memo: dict[tuple[str, int], _PartialChain | None],
+        memo: dict[tuple[str, int], tuple[_PartialChain, ...]],
     ) -> list[_PartialChain]:
         """Every valid change-rooted chain ending at ``target`` within
         ``budget`` hops. Only the *best* per distinct root is kept (that is
@@ -327,13 +348,14 @@ class CausalChainAnalyzer:
                         hops=(hop,),
                         score=hop.confidence,
                         root_event_id=cand.event_id,
-                        root_same_resource=cand.resource_ref == target.resource_ref,
+                        root_same_resource=cand.resource_ref == failure_resource_ref,
                     ),
                 )
             # Option B: extend a chain that already reaches the candidate
             # (the candidate is an intermediate change or symptom).
             for sub in self._memoized_chains_into(
                 target=cand,
+                failure_resource_ref=failure_resource_ref,
                 events=events,
                 budget=budget - 1,
                 same_resource_only=same_resource_only,
@@ -354,30 +376,32 @@ class CausalChainAnalyzer:
         self,
         *,
         target: CorrelatedEvent,
+        failure_resource_ref: str,
         events: tuple[CorrelatedEvent, ...],
         budget: int,
         same_resource_only: bool,
-        memo: dict[tuple[str, int], _PartialChain | None],
-    ) -> list[_PartialChain]:
-        """The single best change-rooted chain into ``target`` (memoized).
+        memo: dict[tuple[str, int], tuple[_PartialChain, ...]],
+    ) -> tuple[_PartialChain, ...]:
+        """The best change-rooted chain per distinct root into ``target`` (memoized).
 
-        Extension only needs the best sub-chain per target/budget, not
-        every root, so this collapses to one entry - bounding traversal
-        while staying deterministic."""
+        Keeping one best sub-chain per distinct root preserves competing root
+        ambiguity across shared intermediate symptoms while bounding traversal
+        to at most ``|roots|`` entries per ``(target, budget)``."""
         key = (target.event_id, budget)
         if key in memo:
-            cached = memo[key]
-            return [cached] if cached is not None else []
-        options = self._chains_into(
-            target=target,
-            events=events,
-            budget=budget,
-            same_resource_only=same_resource_only,
-            memo=memo,
+            return memo[key]
+        options = tuple(
+            self._chains_into(
+                target=target,
+                failure_resource_ref=failure_resource_ref,
+                events=events,
+                budget=budget,
+                same_resource_only=same_resource_only,
+                memo=memo,
+            )
         )
-        best = self._pick_best(options) if options else None
-        memo[key] = best
-        return [best] if best is not None else []
+        memo[key] = options
+        return options
 
     def _antecedents(
         self,

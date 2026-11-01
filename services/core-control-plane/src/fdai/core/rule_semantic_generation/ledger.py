@@ -259,6 +259,14 @@ class StateStoreRuleGenerationOutboxLedger:
         transition_at: datetime,
         error: str | None,
     ) -> None:
+        if (
+            not generation_request_id.strip()
+            or not idempotency_key.strip()
+            or not claimant_id.strip()
+        ):
+            raise ValueError(
+                "Rule generation outbox transition requires non-empty request, key, and claimant"
+            )
         _require_aware("transition_at", transition_at)
         key = f"{self._KEY_PREFIX}{generation_request_id}"
         for _ in range(self._MAX_CAS_ATTEMPTS):

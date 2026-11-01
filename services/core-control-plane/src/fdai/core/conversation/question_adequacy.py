@@ -64,9 +64,9 @@ class QuestionModelReview:
     review_digest: str
 
     def __post_init__(self) -> None:
-        if not self.model_identity or len(self.model_identity) > 256:
+        if not self.model_identity.strip() or len(self.model_identity) > 256:
             raise ValueError("question reviewer identity MUST be bounded")
-        if not self.model_family or len(self.model_family) > 128:
+        if not self.model_family.strip() or len(self.model_family) > 128:
             raise ValueError("question reviewer family MUST be bounded")
         if tuple(item[0] for item in self.criterion_scores) != tuple(AssuranceCriterion):
             raise ValueError("question reviewer criteria MUST be complete and ordered")
@@ -139,8 +139,10 @@ def evaluate_question_adequacy(
     if {item.name for item in gates} != _REQUIRED_GATES or len(gates) != len(_REQUIRED_GATES):
         raise ValueError("deterministic adequacy gates MUST exactly cover the contract")
     _require_independent_reviewers(first, second, tie_breaker=tie_breaker)
-    if answer_model_identity and answer_model_identity in {
-        item.model_identity for item in (first, second) + ((tie_breaker,) if tie_breaker else ())
+    cleaned_answer_identity = answer_model_identity.strip() if answer_model_identity else None
+    if cleaned_answer_identity and cleaned_answer_identity in {
+        item.model_identity.strip()
+        for item in (first, second) + ((tie_breaker,) if tie_breaker else ())
     }:
         return _adequacy_receipt(
             campaign_id=campaign_id,

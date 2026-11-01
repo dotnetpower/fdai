@@ -57,6 +57,8 @@ def compile_kubernetes_pod_recovery_plan(
 
     if (
         investigation_intent is None
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_function(manifest.descriptors)
         or KUBERNETES_POD_RESTART_HISTORY_CONCEPT not in available_metric_concepts
     ):
@@ -84,6 +86,7 @@ def compile_kubernetes_pod_recovery_plan(
     identity_property = _resource_identity_property(manifest.descriptors)
     if identity_property is None:
         return None
+    as_of = evaluation_time.astimezone(UTC)
     target_definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         predicates=(
@@ -93,7 +96,7 @@ def compile_kubernetes_pod_recovery_plan(
                 equals=targets[0].span.text,
             ),
         ),
-        as_of=evaluation_time.astimezone(UTC),
+        as_of=as_of,
         purpose=purpose,
         limit=2,
     )
@@ -113,8 +116,8 @@ def compile_kubernetes_pod_recovery_plan(
             arguments_json=canonical_json(
                 {
                     "concept_id": KUBERNETES_POD_RESTART_HISTORY_CONCEPT,
-                    "start": (evaluation_time - _RESTART_HISTORY_WINDOW).isoformat(),
-                    "end": evaluation_time.isoformat(),
+                    "start": (as_of - _RESTART_HISTORY_WINDOW).isoformat(),
+                    "end": as_of.isoformat(),
                 }
             ),
             output_kind="metric.window",
@@ -132,7 +135,7 @@ def compile_kubernetes_pod_recovery_plan(
                     "link_types": ["kubernetes_owned_by"],
                     "direction": "outgoing",
                     "max_depth": 1,
-                    "as_of": evaluation_time.isoformat(),
+                    "as_of": as_of.isoformat(),
                     "purpose": purpose,
                     "limit": 2,
                 }
@@ -152,7 +155,7 @@ def compile_kubernetes_pod_recovery_plan(
                     "link_types": ["kubernetes_owned_by"],
                     "direction": "outgoing",
                     "max_depth": 1,
-                    "as_of": evaluation_time.isoformat(),
+                    "as_of": as_of.isoformat(),
                     "purpose": purpose,
                     "limit": 2,
                 }
@@ -220,6 +223,8 @@ def compile_kubernetes_pod_diagnosis_plan(
 
     if (
         investigation_intent is None
+        or evaluation_time.tzinfo is None
+        or evaluation_time.utcoffset() is None
         or not _has_function(manifest.descriptors, KUBERNETES_POD_DIAGNOSIS_FUNCTION_NAME)
         or not _has_function(manifest.descriptors, RESOURCE_EVENT_FUNCTION_NAME)
     ):

@@ -14,7 +14,13 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
+import {
+  currentRoute,
+  navigate,
+  replaceRouteState,
+  ROUTE_STATE_EVENT,
+  routeHref,
+} from "../router";
 import { displayValue, t } from "./i18n/governance";
 import {
   panelArray,
@@ -135,14 +141,17 @@ export function PromotionGatesRoute({ client }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setState({ status: "loading" });
     (async () => {
       try {
         const data = decodePromotionGates(await client.panel<unknown>("/kpi/promotion-gates"));
@@ -181,6 +190,7 @@ export function PromotionGatesRoute({ client }: Props) {
           invalidReason={reasonState.invalid}
           onStatus={(status) => navigate(routeHref("promotion-gates", {
             params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
               status: status === "all" ? null : status,
               q: query || null,
               reason: reasonState.invalid ?? reasonState.reason,
@@ -190,6 +200,7 @@ export function PromotionGatesRoute({ client }: Props) {
             setQuery(nextQuery);
             replaceRouteState(routeHref("promotion-gates", {
               params: {
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
                 status: statusFilter === "all" ? null : statusFilter,
                 q: nextQuery || null,
                 reason: reasonState.invalid ?? reasonState.reason,
@@ -198,6 +209,7 @@ export function PromotionGatesRoute({ client }: Props) {
           }}
           onClearReason={() => navigate(routeHref("promotion-gates", {
             params: {
+              data: currentRoute().search.get("data") === "sample" ? "sample" : null,
               status: statusFilter === "all" ? null : statusFilter,
               q: query || null,
             },
@@ -238,11 +250,15 @@ export function decodePromotionGates(value: unknown): Response {
       }
       const operatorOverride = decodeOperatorOverride(row["operator_override"], promotionKind);
       const capabilityRecall = decodeCapabilityRecall(row["capability_recall"]);
+      const actionTypeName = panelNonEmptyString(row, "action_type_name", "promotion gate row");
+      if (capabilityRecall !== null && capabilityRecall.action_type !== actionTypeName) {
+        throw new OperatorApiError(502, "invalid Operator API response: capability_recall.action_type MUST match action_type_name");
+      }
       if (capabilityRecall?.active === true && mode !== "shadow") {
         throw new OperatorApiError(502, t("governance.promotion.error.recallMode"));
       }
       return {
-        action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
+        action_type_name: actionTypeName,
         mode,
         mode_source: modeSource,
         promotion_kind: promotionKind,
@@ -258,6 +274,9 @@ export function decodePromotionGates(value: unknown): Response {
         gaps: [...new Set(panelStringArray(row["gaps"], "promotion gate row.gaps"))].sort(),
       };
     });
+  if (new Set(rows.map((row) => row.action_type_name)).size !== rows.length) {
+    throw new OperatorApiError(502, "invalid Operator API response: promotion gate action_type_name MUST be unique");
+  }
   const readyCount = panelNonNegativeInteger(root, "ready_count", "promotion gates");
   const blockedCount = panelNonNegativeInteger(root, "blocked_count", "promotion gates");
   if (readyCount !== rows.filter((row) => row.ready).length || blockedCount !== rows.filter((row) => !row.ready).length) {
@@ -402,12 +421,13 @@ function PromotionBody({
     [data],
   );
 
+  const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
   const columns: readonly Column<Row>[] = [
     {
       key: "at",
       header: t("governance.promotion.column.actionType"),
       render: (r) => (
-        <a href={routeHref("workflow-builder", { params: { action: r.action_type_name } })}>
+        <a href={routeHref("workflow-builder", { params: { data: dataParam, action: r.action_type_name } })}>
           {r.action_type_name}
         </a>
       ),
@@ -528,16 +548,16 @@ function PromotionBody({
         <span>{t("governance.promotion.banner.body")}</span>
       </div>
       <KpiGrid>
-        <KpiCard href={`${routeHref("promotion-gates")}${candidatesFragment}`} label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
+        <KpiCard href={`${routeHref("promotion-gates", { params: { data: dataParam } })}${candidatesFragment}`} label={t("governance.promotion.kpi.inShadow")} value={data.rows.length} hint={t("governance.promotion.kpi.inShadowHint")} />
         <KpiCard
-          href={`${routeHref("promotion-gates", { params: { status: "ready" } })}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam, status: "ready" } })}${candidatesFragment}`}
           label={t("governance.promotion.kpi.ready")}
           value={data.ready_count}
           tone={data.ready_count > 0 ? "positive" : "default"}
           hint={t("governance.promotion.kpi.readyHint")}
         />
         <KpiCard
-          href={`${routeHref("promotion-gates", { params: { status: "blocked" } })}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam, status: "blocked" } })}${candidatesFragment}`}
           label={t("governance.common.blocked")}
           value={data.blocked_count}
           tone={data.blocked_count > 0 ? "warning" : "positive"}
@@ -545,7 +565,7 @@ function PromotionBody({
         />
         <KpiCard
           evidenceState={data.window_days === null ? "not-measured" : "measured"}
-          href={`${routeHref("promotion-gates")}${candidatesFragment}`}
+          href={`${routeHref("promotion-gates", { params: { data: dataParam } })}${candidatesFragment}`}
           label={t("governance.promotion.kpi.window")}
           value={data.window_days !== null
             ? t("governance.promotion.kpi.windowValue", { days: data.window_days })

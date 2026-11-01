@@ -76,15 +76,20 @@ def _module_violations(path: Path, contract_hint: str) -> list[str]:
     """Return semantic venue-selection violations in one Python module."""
 
     try:
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source = path.read_text(encoding="utf-8")
+        if "environ" not in source and "getenv" not in source and "venue" not in source.lower():
+            return []
+        tree = ast.parse(source, filename=str(path))
     except (OSError, SyntaxError) as exc:
         return [f"{_display(path)}: cannot parse Python source: {exc}"]
 
-    constants = _constant_aliases(tree)
-    venue_names = _venue_aliases(tree)
+    all_nodes = list(ast.walk(tree))
+    assignments = [node for node in all_nodes if isinstance(node, (ast.Assign, ast.AnnAssign))]
+    constants = _constant_aliases(tree, assignments=assignments)
+    venue_names = _venue_aliases(tree, assignments=assignments)
     findings: list[str] = []
     seen: set[tuple[int, str]] = set()
-    for node in ast.walk(tree):
+    for node in all_nodes:
         if isinstance(node, ast.Subscript) and _is_environment_container(node.value):
             if _constant_string(node.slice, constants) == _EXECUTION_VENUE_ENV:
                 _append_finding(
@@ -121,9 +126,16 @@ def _module_violations(path: Path, contract_hint: str) -> list[str]:
     return findings
 
 
-def _constant_aliases(tree: ast.AST) -> dict[str, str]:
+def _constant_aliases(
+    tree: ast.AST,
+    *,
+    assignments: list[ast.Assign | ast.AnnAssign] | None = None,
+) -> dict[str, str]:
     constants: dict[str, str] = {}
-    assignments = [node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign))]
+    if assignments is None:
+        assignments = [
+            node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign))
+        ]
     for _ in range(len(assignments) + 1):
         changed = False
         for node in assignments:
@@ -143,9 +155,16 @@ def _constant_aliases(tree: ast.AST) -> dict[str, str]:
     return constants
 
 
-def _venue_aliases(tree: ast.AST) -> set[str]:
+def _venue_aliases(
+    tree: ast.AST,
+    *,
+    assignments: list[ast.Assign | ast.AnnAssign] | None = None,
+) -> set[str]:
     names = {"execution_venue"}
-    assignments = [node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign))]
+    if assignments is None:
+        assignments = [
+            node for node in ast.walk(tree) if isinstance(node, (ast.Assign, ast.AnnAssign))
+        ]
     for _ in range(len(assignments) + 1):
         changed = False
         for node in assignments:
@@ -245,7 +264,12 @@ def _entrypoint_violations(root: Path = ROOT) -> list[str]:
     findings: list[str] = []
     entrypoint_count = 0
     for path in sorted(services.glob("*/src/**/*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        if "__pycache__" in path.parts:
+            continue
+        source = path.read_text(encoding="utf-8")
+        if "ServiceDescriptor" not in source:
+            continue
+        tree = ast.parse(source, filename=str(path))
         if not any(_is_service_descriptor_assignment(node) for node in tree.body):
             continue
         entrypoint_count += 1

@@ -123,6 +123,30 @@ class SemanticToolPlanner:
         self._retry_after = 0.0
         self._stopped = False
 
+    @property
+    def is_ready(self) -> bool:
+        return self._vectors is not None and len(self._vectors) > 0
+
+    @property
+    def cached_tool_count(self) -> int:
+        return len(self._vectors) if self._vectors is not None else 0
+
+    @property
+    def is_building(self) -> bool:
+        return self._build_task is not None and not self._build_task.done()
+
+    def invalidate(self) -> None:
+        """Clear cached tool embedding vectors so the next lookup rebuilds."""
+        self._vectors = None
+        self._built_at = 0.0
+
+    async def warm(self) -> int:
+        """Pre-warm tool embedding vectors and return cached count."""
+        if self._stopped:
+            return 0
+        vectors = await self._tool_vectors()
+        return len(vectors)
+
     async def plan(
         self,
         question: str,

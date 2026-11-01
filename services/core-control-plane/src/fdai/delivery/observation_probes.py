@@ -98,6 +98,10 @@ class LogQueryObservationProbe:
     ) -> ObservationProbeResult:
         del cursor
         until = self._clock()
+        if until.tzinfo is None or until.utcoffset() is None:
+            raise ObservationProbeContractError(
+                "observation log probe clock MUST be timezone-aware"
+            )
         count = 0
         observed_bytes = 0
         async for record in self._provider.query(
@@ -106,11 +110,17 @@ class LogQueryObservationProbe:
                 labels=self._labels,
                 since=until - timedelta(seconds=spec.lookback_seconds),
                 until=until,
-                limit=spec.max_results,
+                limit=spec.max_results + 1,
             )
         ):
             count += 1
-            observed_bytes += len(record.body.encode("utf-8"))
+            if count > spec.max_results:
+                return ObservationProbeResult(
+                    coverage=ObservationCoverage.PARTIAL,
+                    evidence_count=spec.max_results,
+                    reason_codes=("result_limit",),
+                )
+            observed_bytes += len(record.body.encode("utf-8", errors="replace"))
             if observed_bytes > spec.max_output_bytes:
                 return ObservationProbeResult(
                     coverage=ObservationCoverage.PARTIAL,
@@ -150,6 +160,10 @@ class MetricObservationProbe:
     ) -> ObservationProbeResult:
         del cursor
         until = self._clock()
+        if until.tzinfo is None or until.utcoffset() is None:
+            raise ObservationProbeContractError(
+                "observation metric probe clock MUST be timezone-aware"
+            )
         count = 0
         observed_bytes = 0
         for metric_name in self._metric_names:

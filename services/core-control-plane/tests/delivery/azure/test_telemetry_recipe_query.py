@@ -210,3 +210,17 @@ async def test_malformed_or_future_aggregate_is_unavailable_without_facts() -> N
 
     assert receipt.disposition is TelemetryEvidenceDisposition.UNAVAILABLE
     assert receipt.fact_tokens == ()
+
+
+@pytest.mark.asyncio
+async def test_recipe_query_handles_lowercase_z_timestamp_and_timeout_disposition() -> None:
+    from fdai.delivery.azure.telemetry_recipe_query import _failure_disposition, _timestamp
+    from fdai.shared.providers.observation import LogQueryError
+
+    assert _timestamp("  2026-09-16T11:59:00z  ") == datetime(2026, 9, 16, 11, 59, tzinfo=UTC)
+    err = LogQueryError("request timed out")
+    err.__cause__ = TimeoutError("deadline")
+    assert _failure_disposition(err) is TelemetryEvidenceDisposition.TIMED_OUT
+    assert _failure_disposition(LogQueryError("Log Analytics request timed out")) is (
+        TelemetryEvidenceDisposition.TIMED_OUT
+    )

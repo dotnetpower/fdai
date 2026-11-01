@@ -49,13 +49,13 @@ class AnalyzerMetricProvider:
             previous = query_refs.get(target.resource_ref)
             if previous is not None and previous != query_ref:
                 raise ValueError("analyzer target has conflicting provider query references")
-            previous_owner = query_ref_owners.get(query_ref)
+            previous_owner = query_ref_owners.get(query_ref.casefold())
             if previous_owner is not None and previous_owner != target.resource_ref:
                 raise ValueError(
                     "analyzer provider query reference maps to multiple logical resources"
                 )
             query_refs[target.resource_ref] = query_ref
-            query_ref_owners[query_ref] = target.resource_ref
+            query_ref_owners[query_ref.casefold()] = target.resource_ref
         self._query_refs = query_refs
 
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
@@ -91,7 +91,8 @@ class AnalyzerMetricProvider:
             returned_ref = point_labels.get("resource_id")
             if (
                 returned_ref is not None
-                and self._normalize_provider_ref(returned_ref) != provider_ref
+                and self._normalize_provider_ref(returned_ref.strip()).strip().casefold()
+                != provider_ref.casefold()
             ):
                 raise MetricProviderError(
                     "metric provider returned another mapped resource identity",

@@ -89,7 +89,14 @@ export function AuditWorkspace({ data, selection }: {
           </>}
         </dl>
         <nav aria-label={t("evidence.audit.column.evidence")}>
-          {correlation ? <a href={routeHref("trace", { params: { correlation } })}>{t("evidence.audit.trace")}</a> : null}
+          {correlation ? (
+            <a href={routeHref("trace", {
+              params: {
+                data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                correlation,
+              },
+            })}>{t("evidence.audit.trace")}</a>
+          ) : null}
         </nav>
       </section>
       <AuditMetrics summary={data.summary} />
@@ -300,9 +307,25 @@ function AuditRecordDetail({ item, summary }: {
           <nav class="audit-evidence-links" aria-label={t("evidence.audit.column.evidence")}>
             <a href={entryHref}>{w("permalink")}</a>
             {correlation ? <>
-              <a href={routeHref("trace", { params: { correlation } })}>{t("evidence.audit.trace")}</a>
-              <a href={routeHref("rca", { params: { correlation } })}>{t("evidence.audit.rca")}</a>
-              <a href={routeHref("incidents", { params: { status: "all", correlation } })}>{t("evidence.audit.incident")}</a>
+              <a href={routeHref("trace", {
+                params: {
+                  data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                  correlation,
+                },
+              })}>{t("evidence.audit.trace")}</a>
+              <a href={routeHref("rca", {
+                params: {
+                  data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                  correlation,
+                },
+              })}>{t("evidence.audit.rca")}</a>
+              <a href={routeHref("incidents", {
+                params: {
+                  data: currentRoute().search.get("data") === "sample" ? "sample" : null,
+                  status: "all",
+                  correlation,
+                },
+              })}>{t("evidence.audit.incident")}</a>
             </> : null}
           </nav>
         </aside>

@@ -404,4 +404,48 @@ describe("Live cockpit model", () => {
       state.eventIdToSlot.get(selected?.event_id ?? ""),
     );
   });
+
+  test("maps all 15 Pantheon agents in AGENT_ROLE and filters by t0/t1/t2 tier", async () => {
+    const { AGENT_ROLE } = await import("./live.model");
+    expect(Object.keys(AGENT_ROLE)).toHaveLength(15);
+    expect(AGENT_ROLE.Mimir).toBe("Rule Steward");
+    expect(AGENT_ROLE.Norns).toBe("Pattern Learner");
+    expect(AGENT_ROLE.Muninn).toBe("Context Memory");
+    expect(AGENT_ROLE.Njord).toBe("Cost Advisor");
+    expect(AGENT_ROLE.Freyr).toBe("Capacity Advisor");
+    expect(AGENT_ROLE.Loki).toBe("Chaos Verifier");
+
+    let state = makeInitialState();
+    state = applyEvent(
+      state,
+      stageEvent("verify", {
+        tier: "t1",
+        t1_outcome: "abstain",
+        owner_agent: "Forseti",
+      }),
+    );
+    state = applyEvent(
+      state,
+      stageEvent("verify", {
+        t2_skipped: true,
+        t2_skip_reason: "t2_no_candidate_rules",
+      }),
+    );
+    const tile = state.tiles.find((candidate) => candidate?.event_id === "evt-live-1");
+    expect(tile?.tier).toBe("t1");
+    expect(tile?.t1_outcome).toBe("abstain");
+    expect(tile?.t2_skipped).toBe(true);
+    expect(tile?.t2_skip_reason).toBe("t2_no_candidate_rules");
+    expect(tile && matchesFilter(tile, "t1")).toBe(true);
+    expect(tile && matchesFilter(tile, "t2")).toBe(false);
+
+    const { summarizeTierAttempts } = await import("./live.model");
+    expect(summarizeTierAttempts(state.tiles)).toEqual({
+      t1Evaluated: 1,
+      t1Reused: 0,
+      t2Evaluated: 0,
+      t2Proposed: 0,
+      t2Skipped: 1,
+    });
+  });
 });

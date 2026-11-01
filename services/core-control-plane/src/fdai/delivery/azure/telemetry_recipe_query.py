@@ -87,7 +87,8 @@ _SOURCES: Final[dict[TelemetryMechanism, str]] = {
     ),
     TelemetryMechanism.CONTAINER_RESTARTS: (
         "KubePodInventory\n"
-        "| project at=TimeGenerated, resource_id=tostring(column_ifexists('_ResourceId', '')), "
+        "| project at=TimeGenerated, resource_id=tostring(coalesce("
+        "column_ifexists('_ResourceId', ''), column_ifexists('ClusterId', ''))), "
         "magnitude=todouble(column_ifexists('ContainerRestartCount', 0.0))\n"
         "| where magnitude > 0.0"
     ),
@@ -316,13 +317,15 @@ def _result_facts(
 
 
 def _timestamp(value: object) -> datetime:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or not value.strip():
         raise ValueError("telemetry recipe observed_until is invalid")
+    trimmed = value.strip()
+    text = trimmed[:-1] + "+00:00" if trimmed.endswith(("Z", "z")) else trimmed
     try:
-        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text)
     except ValueError as exc:
         raise ValueError("telemetry recipe observed_until is invalid") from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError("telemetry recipe observed_until MUST include timezone")
     return parsed.astimezone(UTC)
 
@@ -330,12 +333,14 @@ def _timestamp(value: object) -> datetime:
 def _failure_disposition(exc: BaseException) -> TelemetryEvidenceDisposition:
     current: BaseException | None = exc
     while current is not None:
-        if isinstance(current, httpx.TimeoutException):
+        if isinstance(current, (httpx.TimeoutException, TimeoutError)):
             return TelemetryEvidenceDisposition.TIMED_OUT
         current = current.__cause__
     message = str(exc).casefold()
     if "http 401" in message or "http 403" in message:
         return TelemetryEvidenceDisposition.UNAUTHORIZED
+    if "timed out" in message or "timeout" in message:
+        return TelemetryEvidenceDisposition.TIMED_OUT
     return TelemetryEvidenceDisposition.UNAVAILABLE
 
 

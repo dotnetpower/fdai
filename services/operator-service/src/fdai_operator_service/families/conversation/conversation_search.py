@@ -96,6 +96,8 @@ async def materialize_conversation_search(
 
     if query.operation not in _OPERATIONS:
         return None
+    if not query.scope.subject_id.strip():
+        raise _invalid("principal_id MUST be non-empty")
     if query.operation == _SEARCH_OPERATION:
         return await _search(query, store=store)
     if query.operation == _CONTEXT_OPERATION:
@@ -268,9 +270,13 @@ def _hit(
         "rank": rank,
         "incident_id": _metadata_text(metadata, "incident_id"),
         "correlation_id": _metadata_text(metadata, "correlation_id"),
-        "evidence_refs": [
-            item for item in evidence_refs[:64] if isinstance(item, str) and item.strip()
-        ],
+        "evidence_refs": list(
+            dict.fromkeys(
+                item.strip()
+                for item in evidence_refs[:64]
+                if isinstance(item, str) and item.strip()
+            )
+        ),
     }
 
 
@@ -296,8 +302,9 @@ def _match(
         needles = query_tokens
     if not matched:
         return None
-    ranges = _ranges(normalized_content, needles) if len(normalized_content) == len(content) else ()
-    return min(1.0, len(ranges) / max(1, len(query_tokens))), ranges
+    matched_ranges = _ranges(normalized_content, needles)
+    ranges = matched_ranges if len(normalized_content) == len(content) else ()
+    return min(1.0, len(matched_ranges) / max(1, len(query_tokens))), ranges
 
 
 def _snippet(

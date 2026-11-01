@@ -184,15 +184,19 @@ class CausalEvaluationMetrics:
 
     @property
     def accuracy(self) -> float:
-        return self.correct_cases / self.denominator
+        return self.correct_cases / self.denominator if self.denominator > 0 else 0.0
 
     @property
     def completion_coverage(self) -> float:
-        return self.completed_cases / self.denominator
+        return self.completed_cases / self.denominator if self.denominator > 0 else 0.0
 
     @property
     def cause_recall(self) -> float:
-        return self.correct_cause_claims / self.expected_cause_claims
+        return (
+            self.correct_cause_claims / self.expected_cause_claims
+            if self.expected_cause_claims > 0
+            else 0.0
+        )
 
     @property
     def citation_validity(self) -> float | None:

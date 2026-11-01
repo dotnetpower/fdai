@@ -65,7 +65,11 @@ def _verified_values(
         return None
     output = outputs[0]
     rows = output.get("rows")
-    if output.get("source_complete") is not True or not isinstance(rows, list) or len(rows) != 1:
+    if (
+        output.get("source_complete") is not True
+        or not isinstance(rows, (list, tuple))
+        or len(rows) != 1
+    ):
         return None
     values = rows[0].get("values") if isinstance(rows[0], Mapping) else None
     if not isinstance(values, Mapping) or values.get("execution_authority") is not False:
@@ -118,13 +122,13 @@ def _bounded(value: object, maximum: int) -> bool:
 
 
 def _timestamp(value: object) -> datetime | None:
-    if not isinstance(value, str):
+    if not isinstance(value, str) or not value.strip():
         return None
     try:
-        parsed = datetime.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
     except ValueError:
         return None
-    return parsed if parsed.tzinfo is not None else None
+    return parsed if parsed.tzinfo is not None and parsed.utcoffset() is not None else None
 
 
 __all__ = ["render_subscription_scope_answer"]

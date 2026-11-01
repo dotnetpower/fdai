@@ -157,14 +157,23 @@ emit_failed() {
 # shellcheck disable=SC2329
 stop_children() {
   local pid
+  local attempt
+  local any_alive
   trap - EXIT INT TERM
-  if [[ -n "$readiness_pid" ]] && kill -0 "$readiness_pid" 2>/dev/null; then
-    kill -TERM "$readiness_pid" 2>/dev/null || true
-  fi
-  for pid in "${child_pids[@]}"; do
-    if kill -0 "$pid" 2>/dev/null; then
-      kill -TERM "$pid" 2>/dev/null || true
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    any_alive=0
+    if [[ -n "$readiness_pid" ]] && kill -0 "$readiness_pid" 2>/dev/null; then
+      kill -TERM "$readiness_pid" 2>/dev/null || true
+      any_alive=1
     fi
+    for pid in "${child_pids[@]}"; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -TERM "$pid" 2>/dev/null || true
+        any_alive=1
+      fi
+    done
+    (( any_alive == 0 )) && break
+    sleep 0.05
   done
   for pid in "${child_pids[@]}"; do
     wait "$pid" 2>/dev/null || true

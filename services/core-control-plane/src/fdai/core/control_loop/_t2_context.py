@@ -24,15 +24,27 @@ async def resolve_t2_context(
     target_ref = event.resource_ref
     resource = event.payload.get("resource")
     if not target_ref and isinstance(resource, dict):
-        candidate_ref = resource.get("resource_id")
+        candidate_ref = (
+            resource.get("resource_id")
+            or resource.get("resource_ref")
+            or (resource.get("id") if rules_by_id else None)
+        )
         if isinstance(candidate_ref, str) and candidate_ref:
             target_ref = candidate_ref
+    if not target_ref and isinstance(event.payload.get("resource_ref"), str):
+        flat_ref = str(event.payload["resource_ref"]).strip()
+        if flat_ref:
+            target_ref = flat_ref
     allowed_rules = tuple(
         rule
         for rule_id in decision.candidate_rule_ids
         if (rule := rules_by_id.get(rule_id)) is not None
         and rule.resource_type == decision.resource_type
     )
+    if not decision.candidate_rule_ids and decision.resource_type:
+        allowed_rules = tuple(
+            rule for rule in rules_by_id.values() if rule.resource_type == decision.resource_type
+        )
     skip_reason: str | None = None
     if not target_ref or not decision.resource_type:
         skip_reason = "t2_missing_target_ref"

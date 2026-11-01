@@ -11,6 +11,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -239,9 +240,13 @@ class CohortMetric:
     def __post_init__(self) -> None:
         _bounded_identifier("cohort", self.cohort)
         _bounded_identifier("metric", self.metric)
-        if not math.isfinite(self.value):
+        if (
+            isinstance(self.value, bool)
+            or not math.isfinite(self.value)
+            or not 0.0 <= self.value <= 1.0
+        ):
             raise ValueError("cohort metric value MUST be finite")
-        if self.sample_count < 1:
+        if isinstance(self.sample_count, bool) or self.sample_count < 1:
             raise ValueError("cohort metric sample_count MUST be positive")
 
 
@@ -316,6 +321,8 @@ class SurfaceValidationReceipt:
 def query_digest(query: str) -> str:
     """Return a content digest without retaining raw operator text."""
 
+    if len(query) > _MAX_TEXT or any(ord(char) < 32 for char in query):
+        raise ValueError("semantic retrieval query MUST be bounded without control characters")
     normalized = _normalize_query(query)
     if not normalized:
         raise ValueError("semantic retrieval query MUST be non-empty")
@@ -365,7 +372,7 @@ def _ordered_unique(
 
 
 def _normalize_query(value: str) -> str:
-    return " ".join(value.casefold().split())
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
 
 
 __all__ = [

@@ -48,6 +48,21 @@ class MaterializedConversationDocument:
     included_rows: int
     sha256: str
 
+    def __post_init__(self) -> None:
+        if not self.source_request_id.strip() or not self.markdown.strip():
+            raise ValueError(
+                "materialized document source_request_id and markdown MUST be non-empty"
+            )
+        if (
+            isinstance(self.expected_rows, bool)
+            or isinstance(self.included_rows, bool)
+            or self.expected_rows < 0
+            or self.included_rows < 0
+        ):
+            raise ValueError("materialized document row counts MUST be non-negative integers")
+        if len(self.sha256) != 64:
+            raise ValueError("materialized document sha256 MUST be a 64-character hex digest")
+
     def metadata(self, *, pdf_available: bool) -> JsonObject:
         return cast(
             JsonObject,
@@ -170,13 +185,16 @@ def _materialize(result: StoredSemanticResult) -> MaterializedConversationDocume
         not isinstance(evidence_refs, Sequence)
         or isinstance(evidence_refs, (str, bytes))
         or not evidence_refs
-        or any(not isinstance(item, str) or not item for item in evidence_refs)
+        or any(not isinstance(item, str) or not item.strip() for item in evidence_refs)
     ):
         raise ConversationBoundaryError(
             409,
             "document_source_unverified",
             "document source has no verified evidence references",
         )
+    normalized_evidence_refs = tuple(
+        dict.fromkeys(item.strip() for item in cast(Sequence[str], evidence_refs))
+    )
     payload = _mapping(projection.get("payload"), "payload")
     details = _mapping(payload.get("technical_details"), "technical_details")
     outputs = details.get("outputs")
@@ -259,7 +277,7 @@ def _materialize(result: StoredSemanticResult) -> MaterializedConversationDocume
         source_request_id=result.request_id,
         recorded_at=recorded_at,
         answer=answer,
-        evidence_refs=tuple(cast(Sequence[str], evidence_refs)),
+        evidence_refs=normalized_evidence_refs,
         tables=tables,
         expected_rows=expected_rows,
         included_rows=included_rows,
@@ -475,7 +493,7 @@ def _canonical_request_id(value: str) -> str:
 
 
 def _markdown_text(value: object) -> str:
-    return str(value).replace("\r", " ").replace("\n", " ").strip()
+    return str(value).replace("`", "'").replace("\r", " ").replace("\n", " ").strip()
 
 
 def _markdown_cell(value: object) -> str:

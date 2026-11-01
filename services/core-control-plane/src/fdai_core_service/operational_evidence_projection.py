@@ -34,6 +34,13 @@ class SemanticOperationalEvidenceReader:
     ) -> dict[str, object]:
         """Return an admitted no-authority projection or fail the read closed."""
 
+        if (
+            not principal_ref.strip()
+            or not principal_scope_digest.strip()
+            or not purpose.strip()
+            or cutoff.utcoffset() is None
+        ):
+            raise ValueError("operational evidence reader inputs MUST be non-empty and aware")
         request = OperationalEvidenceReadRequest(
             ontology_release_digest=ontology_release_digest,
             catalog_revision=catalog_revision,

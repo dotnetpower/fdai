@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -90,16 +91,32 @@ class AnalyzerFindingReceipt:
             self.recorded_at.tzinfo is None or self.recorded_at.utcoffset() is None
         ):
             raise ValueError("AnalyzerFindingReceipt.recorded_at MUST be timezone-aware")
-        if self.detection_latency_seconds < 0:
+        if (
+            type(self.detection_latency_seconds) is bool
+            or not math.isfinite(self.detection_latency_seconds)
+            or self.detection_latency_seconds < 0
+        ):
             raise ValueError("AnalyzerFindingReceipt latency MUST be non-negative")
         if (
             len(self.evidence_refs) > 128
             or len(self.evidence_refs) != len(set(self.evidence_refs))
-            or any(not item or len(item) > 512 for item in self.evidence_refs)
+            or any(not item.strip() or len(item) > 512 for item in self.evidence_refs)
         ):
             raise ValueError(
                 "AnalyzerFindingReceipt evidence references MUST be bounded and unique"
             )
+        if (
+            len(self.evidence_gaps) > 128
+            or len(self.evidence_gaps) != len(set(self.evidence_gaps))
+            or any(not item.strip() or len(item) > 256 for item in self.evidence_gaps)
+        ):
+            raise ValueError("AnalyzerFindingReceipt evidence_gaps MUST be bounded and unique")
+        if (
+            type(self.evidence_complete) is not bool
+            or type(self.cause_claim_supported) is not bool
+            or type(self.execution_authority) is not bool
+        ):
+            raise ValueError("AnalyzerFindingReceipt boolean flags MUST be booleans")
         if self.cause_claim_supported or self.execution_authority:
             raise ValueError("AnalyzerFindingReceipt MUST remain no-cause and read-only")
 

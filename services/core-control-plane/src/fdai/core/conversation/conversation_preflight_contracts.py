@@ -188,6 +188,12 @@ class ConversationPreflightProposal(QueryContract):
             raise ValueError("operational preflight family requires an explicit operational signal")
         if not known_operational and self.operational_window is not OperationalWindowMode.NONE:
             raise ValueError("operational preflight window requires a known operational family")
+        if not known_operational and self.operational_result_limit is not None:
+            raise ValueError(
+                "operational preflight result limit requires a known operational family"
+            )
+        if any(not facet.strip() or facet != facet.strip() for facet in self.operational_facets):
+            raise ValueError("operational preflight facets MUST be non-empty and trimmed")
         if len(self.operational_facets) != len(set(self.operational_facets)):
             raise ValueError("operational preflight facets MUST be unique")
         if len(self.request_topics) != len(set(self.request_topics)):

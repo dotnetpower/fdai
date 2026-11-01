@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { parseRuntimeNumericInput } from "./settings-runtime";
 import { decodeRuntimeSettings, initialRuntimeDraft } from "./settings-runtime.model";
 
 const payload = {
@@ -212,5 +213,22 @@ describe("runtime settings model", () => {
       ...payload,
       runtime: { ...payload.runtime, environment: "customer-a" },
     })).toThrow(/environment is invalid/);
+  });
+
+  test("rejects blank, NaN, non-integer, and out-of-range numeric input edits", () => {
+    const intSetting = { valueType: "integer" as const, minimum: 10, maximum: 300 };
+    const floatSetting = { valueType: "number" as const, minimum: 0.1, maximum: 1.0 };
+
+    expect(parseRuntimeNumericInput("", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("   ", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("abc", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("12.5", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("5", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("301", intSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("60", intSetting)).toBe(60);
+
+    expect(parseRuntimeNumericInput("0.5", floatSetting)).toBe(0.5);
+    expect(parseRuntimeNumericInput("0.05", floatSetting)).toBeNull();
+    expect(parseRuntimeNumericInput("1.5", floatSetting)).toBeNull();
   });
 });

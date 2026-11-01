@@ -38,7 +38,9 @@ def observe_answer_plan(
     """Measure answer structure and depth from one deterministic plan."""
 
     _require_digest(result.evidence_digest)
-    if result.expected_max_words < 1:
+    if not result.case_id.strip():
+        raise ValueError("answer plan scenario case_id MUST be non-empty")
+    if isinstance(result.expected_max_words, bool) or result.expected_max_words < 1:
         raise ValueError("expected_max_words MUST be positive")
     observed_digest = _digest(result.actual.to_dict())
     return (

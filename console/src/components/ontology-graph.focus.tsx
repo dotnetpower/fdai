@@ -53,7 +53,7 @@ export function FocusCard({
           <h4 class="ontology-focus-h">{t("ontology.graph.outgoingCount", { count: formatNumber(outgoing.length) })}</h4>
           <ul class="ontology-focus-list">
             {outgoing.map((e, i) => (
-              <li key={i}>
+              <li key={`${e.from_type}:${e.name}:${e.to_type}:${i}`}>
                 <code>{e.name}</code>{" "}
                 <span class="muted">
                   {shortCard(e.cardinality)} → {e.to_type}
@@ -68,7 +68,7 @@ export function FocusCard({
           <h4 class="ontology-focus-h">{t("ontology.graph.incomingCount", { count: formatNumber(incoming.length) })}</h4>
           <ul class="ontology-focus-list">
             {incoming.map((e, i) => (
-              <li key={i}>
+              <li key={`${e.from_type}:${e.name}:${e.to_type}:${i}`}>
                 <span class="muted">
                   {e.from_type} {shortCard(e.cardinality)} →
                 </span>{" "}
@@ -79,7 +79,7 @@ export function FocusCard({
         </section>
       ) : null}
       <div class="ontology-focus-neighbours">
-        {t("ontology.graph.directNeighbors", { count: formatNumber(neighbourhood.size - 1) })}
+        {t("ontology.graph.directNeighbors", { count: formatNumber(Math.max(0, neighbourhood.size - 1)) })}
       </div>
     </aside>
   );

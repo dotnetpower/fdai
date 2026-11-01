@@ -166,11 +166,22 @@ def incident_evidence_function(
             raise PermissionError("incident evidence purpose does not match invocation context")
         incident_id = str(UUID(str(arguments["incident_id"])))
         correlation_id = str(arguments["correlation_id"]).strip()
-        limit = int(arguments["limit"])
+        raw_limit = arguments["limit"]
+        if (
+            not correlation_id
+            or len(correlation_id) > 256
+            or isinstance(raw_limit, bool)
+            or not isinstance(raw_limit, int)
+            or not 1 <= raw_limit <= _MAX_RECORDS
+        ):
+            raise ValueError("incident evidence arguments are out of bounds")
+        limit = raw_limit
         raw_rows, truncated = await reader.list_incident_evidence(
             correlation_id=correlation_id,
             limit=limit,
         )
+        if not isinstance(truncated, bool):
+            raise RuntimeError("incident evidence truncated flag MUST be a boolean")
         if len(raw_rows) > limit:
             raise RuntimeError("incident evidence reader exceeded the requested limit")
         rows = tuple(_audit_row(item, correlation_id=correlation_id) for item in raw_rows)

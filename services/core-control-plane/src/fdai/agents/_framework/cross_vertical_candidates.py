@@ -63,7 +63,7 @@ class CrossVerticalCandidateBatch:
     @property
     def impacts(self) -> dict[str, float]:
         return {
-            domain: max(abs(effect.utility) for effect in evidence.effects)
+            domain: max((abs(effect.utility) for effect in evidence.effects), default=0.0)
             for domain, evidence in self.evidence_by_domain.items()
         }
 
@@ -102,6 +102,8 @@ class CrossVerticalCandidateAccumulator:
     """Join owner-authenticated candidates without mixing resources or replays."""
 
     def __init__(self, *, max_pending: int = 10_000) -> None:
+        if isinstance(max_pending, bool) or not isinstance(max_pending, int) or max_pending < 1:
+            raise ValueError("max_pending MUST be a positive integer")
         self._pending: BoundedLruDict[str, _PendingSet] = BoundedLruDict(max_pending)
         self._active_by_resource: BoundedLruDict[str, str] = BoundedLruDict(max_pending)
         self._completed: BoundedLruSet[str] = BoundedLruSet(max_pending)

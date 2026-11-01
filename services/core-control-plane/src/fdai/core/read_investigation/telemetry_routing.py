@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Final
 
 from fdai_service_contracts.ontology_query import content_digest
@@ -50,6 +50,22 @@ _EVENT_MECHANISMS: Final[tuple[tuple[tuple[str, ...], tuple[TelemetryMechanism, 
             TelemetryMechanism.RESOURCE_SATURATION,
         ),
     ),
+    (
+        ("500", "502", "503", "504", "error", "exception", "fail"),
+        (
+            TelemetryMechanism.FAILED_REQUESTS,
+            TelemetryMechanism.ERROR_TIMELINE,
+            TelemetryMechanism.DEPENDENCY_LATENCY,
+        ),
+    ),
+    (
+        ("cpu", "memory", "oom", "saturation", "disk", "pressure"),
+        (
+            TelemetryMechanism.RESOURCE_SATURATION,
+            TelemetryMechanism.ERROR_TIMELINE,
+            TelemetryMechanism.CONTAINER_RESTARTS,
+        ),
+    ),
 )
 
 
@@ -88,12 +104,15 @@ def build_initial_telemetry_frame(
 ) -> HypothesisDiscriminationFrame:
     """Build the initial frame from a reviewed mechanism set."""
 
-    hypothesis_ids = tuple(sorted(telemetry_hypothesis_id(item) for item in mechanisms))
+    if evidence_cutoff.tzinfo is None or evidence_cutoff.utcoffset() is None:
+        raise ValueError("evidence_cutoff MUST be timezone-aware")
+    cutoff_utc = evidence_cutoff.astimezone(UTC)
+    hypothesis_ids = tuple(sorted({telemetry_hypothesis_id(item) for item in mechanisms}))
     active_set_digest = content_digest(
         {
             "incident_id": incident_id,
             "graph_revision": graph_revision,
-            "evidence_cutoff": evidence_cutoff.isoformat(),
+            "evidence_cutoff": cutoff_utc.isoformat(),
             "active_hypothesis_ids": hypothesis_ids,
             "catalog_digest": catalog.catalog_digest,
         }
@@ -101,7 +120,7 @@ def build_initial_telemetry_frame(
     return build_hypothesis_discrimination_frame(
         incident_id=incident_id,
         graph_revision=graph_revision,
-        evidence_cutoff=evidence_cutoff,
+        evidence_cutoff=cutoff_utc,
         active_hypothesis_ids=hypothesis_ids,
         active_set_receipt_digest=active_set_digest,
         cost_model_digest=catalog.catalog_digest,

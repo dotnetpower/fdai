@@ -37,6 +37,13 @@ async def batched_lineage_result(
 ) -> QueryNodeResult:
     """Read lineage in root batches under one generation and bounded read budget."""
 
+    if (
+        isinstance(root_batch, bool)
+        or isinstance(read_budget, bool)
+        or root_batch < 1
+        or read_budget < 1
+    ):
+        raise ValueError("lineage batch and read budget MUST be positive integers")
     pending = [
         root_ids[start : start + root_batch] for start in range(0, len(root_ids), root_batch)
     ]
@@ -147,8 +154,8 @@ def root_names(dependency: QueryTable) -> dict[str, str | None]:
     names: dict[str, str | None] = {}
     for row in dependency.rows:
         properties = row.values.get("properties")
-        name = properties.get("name") if isinstance(properties, Mapping) else None
-        names[row.row_id] = name if isinstance(name, str) else None
+        name = properties.get("name") if isinstance(properties, Mapping) else row.values.get("name")
+        names[row.row_id] = name.strip() if isinstance(name, str) and name.strip() else None
     return names
 
 

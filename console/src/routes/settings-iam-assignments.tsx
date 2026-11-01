@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, LoadingState, StatusPill } from "../components/ui";
+import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { t } from "../i18n";
 import { handoverText } from "../deck/handover-i18n";
 import { identityForMutationIntent, type MutationIntentIdentity } from "../mutation-intent";
@@ -202,6 +203,7 @@ function AssignmentEditor({ client, auth, onCreated }: {
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<readonly HumanIdentityResult[]>([]);
+  const [goalsText, setGoalsText] = useState("");
   const [draft, setDraft] = useState<AssignmentDraft>({
     identity: null,
     role: "Reader",
@@ -213,6 +215,10 @@ function AssignmentEditor({ client, auth, onCreated }: {
   const [error, setError] = useState<string | null>(null);
   const intent = useRef<MutationIntentIdentity | null>(null);
   const issues = assignmentValidation(draft);
+  useSettingsDirtyState(
+    "settings-iam-assignment-editor",
+    draft.identity !== null || draft.justification.trim().length > 0 || draft.goalRefs.length > 0,
+  );
 
   const search = async () => {
     setBusy(true);
@@ -238,6 +244,7 @@ function AssignmentEditor({ client, auth, onCreated }: {
       );
       await submitAssignmentCase(auth, client.operatorApiBaseUrl, createdCase);
       intent.current = null;
+      setGoalsText("");
       setDraft({ ...draft, identity: null, goalRefs: [], justification: "" });
       setResults([]);
       await onCreated();
@@ -278,7 +285,11 @@ function AssignmentEditor({ client, auth, onCreated }: {
           {draft.duties.map((duty, index) => <DutyRow key={index} duty={duty} onChange={(next) => setDraft({ ...draft, duties: draft.duties.map((item, itemIndex) => itemIndex === index ? next : item) })} onRemove={() => setDraft({ ...draft, duties: draft.duties.filter((_, itemIndex) => itemIndex !== index) })} />)}
           <button type="button" class="secondary" disabled={draft.duties.length >= 30} onClick={() => setDraft({ ...draft, duties: [...draft.duties, { agentName: "Odin", duty: "backup", scopeRef: "scope:platform" }] })}>{t("settings.iam.addDuty")}</button>
         </fieldset>
-        <label>{t("settings.iam.handoverGoals")}<textarea maxLength={2000} placeholder={t("settings.iam.handoverGoalsHint")} onInput={(event) => setDraft({ ...draft, goalRefs: event.currentTarget.value.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20) })} /></label>
+        <label>{t("settings.iam.handoverGoals")}<textarea maxLength={2000} value={goalsText} placeholder={t("settings.iam.handoverGoalsHint")} onInput={(event) => {
+          const raw = event.currentTarget.value;
+          setGoalsText(raw);
+          setDraft({ ...draft, goalRefs: raw.split(/[,\n]/).map((value) => value.trim()).filter(Boolean).slice(0, 20) });
+        }} /></label>
         <label>{t("settings.iam.justification")}<textarea required minLength={20} maxLength={2000} value={draft.justification} onInput={(event) => setDraft({ ...draft, justification: event.currentTarget.value })} /></label>
         <div class="assignment-validation" role="status">
           <strong>{t("settings.iam.validationSummary")}</strong>

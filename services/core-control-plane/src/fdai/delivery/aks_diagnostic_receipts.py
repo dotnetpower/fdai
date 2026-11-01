@@ -104,7 +104,12 @@ class InventoryPromotionAksDiagnosticObserver:
     target_limit: int = MAX_PROMOTION_DIAGNOSTIC_TARGETS
 
     def __post_init__(self) -> None:
-        if not 1 <= self.target_limit <= MAX_PROMOTION_DIAGNOSTIC_TARGETS:
+        if not self.ontology_release.strip():
+            raise ValueError("AKS diagnostic promotion ontology_release MUST be non-empty")
+        if (
+            type(self.target_limit) is not int
+            or not 1 <= self.target_limit <= MAX_PROMOTION_DIAGNOSTIC_TARGETS
+        ):
             raise ValueError("AKS diagnostic promotion target limit is invalid")
 
     async def observe(self, observation: PromotedInventoryObservation) -> int:
@@ -208,13 +213,16 @@ def _target_source_state(
     *,
     scope_digest: str | None,
 ) -> InventoryProjectionSourceState | None:
-    if scope_digest is None:
+    if scope_digest is None or not scope_digest.strip():
         return None
+    clean_digest = scope_digest.strip().casefold()
     return next(
         (
             state
             for state in states
-            if state.source == _KUBERNETES_SOURCE and state.scope_digest == scope_digest
+            if state.source == _KUBERNETES_SOURCE
+            and state.scope_digest is not None
+            and state.scope_digest.strip().casefold() == clean_digest
         ),
         None,
     )

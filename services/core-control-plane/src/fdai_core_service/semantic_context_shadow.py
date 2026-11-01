@@ -36,6 +36,8 @@ class SemanticContextShadow:
         utterance: str,
         prior_turns: Sequence[Turn],
     ) -> None:
+        if not session_id.strip() or not utterance.strip():
+            return
         session = ConversationSession(
             session_id=session_id,
             principal=principal,

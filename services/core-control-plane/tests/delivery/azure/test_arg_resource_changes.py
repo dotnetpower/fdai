@@ -1560,5 +1560,60 @@ async def test_forward_rejects_non_positive_deadline() -> None:
                 scope=_SCOPE,
                 deadline_seconds=0,
             )
+        with pytest.raises(ValueError, match="deadline_seconds"):
+            await forward_arg_resource_changes(
+                feed=feed,
+                state_store=InMemoryStateStore(),
+                event_bus=InMemoryEventBus(),
+                topic="inventory.events",
+                scope=_SCOPE,
+                deadline_seconds=True,
+            )
+        with pytest.raises(ValueError, match="topic MUST be non-empty"):
+            await forward_arg_resource_changes(
+                feed=feed,
+                state_store=InMemoryStateStore(),
+                event_bus=InMemoryEventBus(),
+                topic="   ",
+                scope=_SCOPE,
+            )
+        with pytest.raises(ValueError, match="scope MUST be non-empty"):
+            await forward_arg_resource_changes(
+                feed=feed,
+                state_store=InMemoryStateStore(),
+                event_bus=InMemoryEventBus(),
+                topic="inventory.events",
+                scope="   ",
+            )
     finally:
         await client.aclose()
+
+
+def test_support_helpers_validate_lowercase_z_cursor_and_status_mapping() -> None:
+    from fdai.delivery.azure.arg_resource_change_support import (
+        decode_cursor,
+        encode_cursor,
+        operational_status_change,
+        parse_ts,
+    )
+
+    ts = parse_ts("  2026-07-10T06:00:00z  ")
+    assert ts == datetime(2026, 7, 10, 6, 0, tzinfo=UTC)
+    encoded = encode_cursor(ts, "change-1")
+    assert decode_cursor(encoded) == (ts, "change-1")
+
+    with pytest.raises(ArgResourceChangeError, match="change_id is malformed"):
+        encode_cursor(ts, "bad\x1fid")
+    with pytest.raises(ArgResourceChangeError, match="change_time MUST be timezone-aware"):
+        encode_cursor(datetime(2026, 7, 10, 6, 0), "change-1")  # noqa: DTZ001
+
+    assert operational_status_change(
+        {"properties.powerState.code": {"newValue": {"status": "  PowerState/running  "}}}
+    ) == (("properties", "powerState", "code"), "PowerState/running")
+
+    with pytest.raises(ValueError, match="timeout_seconds"):
+        _config(timeout_seconds=True)
+    with pytest.raises(ValueError, match="requests_per_second"):
+        _config(requests_per_second=float("nan"))
+    with pytest.raises(ValueError, match="page_size"):
+        _config(page_size=True)

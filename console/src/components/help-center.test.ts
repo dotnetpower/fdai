@@ -112,6 +112,14 @@ describe("Manual Studio catalog boundary", () => {
       ...validCatalog,
       minimumSlidesByLevel: { ...validCatalog.minimumSlidesByLevel, L100: 6 },
     }, baseUrl)).toThrow("slide minimum");
+    expect(() => parseManualCatalog({
+      ...validCatalog,
+      manuals: [validCatalog.manuals[0]!, validCatalog.manuals[0]!],
+    }, baseUrl)).toThrow("unique ids");
+    expect(() => parseManualCatalog({
+      ...validCatalog,
+      manuals: [{ ...validCatalog.manuals[0]!, createdAt: "2026-02-31" }],
+    }, baseUrl)).toThrow("invalid createdAt date");
   });
 
   test("validates deployed and development Manual Studio URLs", () => {

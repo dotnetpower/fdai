@@ -28,7 +28,7 @@ class OperationalInstancePathStep:
             ("link_type", self.link_type),
             ("to_id", self.to_id),
         ):
-            if not value or len(value) > 512:
+            if not value.strip() or len(value) > 512:
                 raise ValueError(f"operational competency {name} MUST be bounded")
 
 
@@ -63,6 +63,8 @@ class OperationalInstanceObservation:
     execution_authority: bool
 
     def __post_init__(self) -> None:
+        if not isinstance(self.execution_authority, bool):
+            raise ValueError("observed competency execution_authority MUST be a boolean")
         _ordered_unique(self.instance_ids, "observed instance ids")
         _ordered_unique(self.functions, "observed functions")
         if self.path_steps != tuple(sorted(set(self.path_steps))):
@@ -144,7 +146,7 @@ def evaluate_operational_instance_competency(
 def _ordered_unique(values: tuple[str, ...], name: str) -> None:
     if values != tuple(sorted(set(values))):
         raise ValueError(f"operational competency {name} MUST be ordered and unique")
-    if any(not value or len(value) > 512 for value in values):
+    if any(not value.strip() or len(value) > 512 for value in values):
         raise ValueError(f"operational competency {name} MUST be bounded")
 
 

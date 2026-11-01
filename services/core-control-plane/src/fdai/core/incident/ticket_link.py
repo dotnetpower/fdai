@@ -26,6 +26,10 @@ async def link_ticket_receipt(
         raise ValueError("only enforce-mode ticket receipts can be linked")
     if receipt.outcome not in _LINKABLE_OUTCOMES:
         raise ValueError(f"cannot link ticket receipt with outcome {receipt.outcome.value}")
+    if not actor_oid.strip():
+        raise ValueError("ticket link actor_oid MUST be non-empty")
+    if at is not None and (at.tzinfo is None or at.utcoffset() is None):
+        raise ValueError("ticket link timestamp MUST be timezone-aware")
     if not receipt.receipt_ref.strip():
         raise ValueError("ticket receipt_ref MUST be non-empty")
     incident_id_value = request.metadata.get("incident_id") or request.arguments.get(

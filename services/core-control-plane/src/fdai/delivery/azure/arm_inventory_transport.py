@@ -36,6 +36,8 @@ async def fetch_arm_json(
     max_attempts: int,
 ) -> tuple[Mapping[str, Any], int]:
     """Read one bounded object; never retry before the provider's cooldown."""
+    if max_attempts < 1 or max_response_bytes < 1 or timeout_seconds <= 0:
+        raise ValueError("fetch_arm_json requires positive retry, byte, and timeout bounds")
     bounded_headers = httpx.Headers(headers)
     bounded_headers["Accept-Encoding"] = BOUNDED_ACCEPT_ENCODING
     for attempt in range(max_attempts):

@@ -407,7 +407,8 @@
         "caf": "Azure CAF",
         "wara": "Azure WARA",
         "mcsbV1": "MCSB v1",
-        "mcsbV2": "MCSB v2 미리 보기"
+        "mcsbV2": "MCSB v2 미리 보기",
+        "msrcCsaf": "MSRC CSAF"
       },
       "context": {
         "routeLabel": "컨트롤",
@@ -745,10 +746,84 @@
       "detectionBody": "T0가 활성화된 규칙으로 각 리소스를 검사합니다.",
       "assessmentTitle": "프레임워크 평가",
       "assessmentBody": "컨트롤은 규칙 결과와 문서, 승인을 함께 평가합니다. 수정 작업은 하지 않습니다.",
-      "controlsHint": "Azure WAF, CAF, WARA, MCSB"
+      "controlsHint": "Azure WAF, CAF, WARA, MCSB, MSRC CSAF"
+    },
+    "msrcCsaf": {
+      "openRow": "MSRC CSAF 취약점 {cve} ({title}) 열기",
+      "banner": {
+        "title": "버전이 고정된 MSRC CSAF 2.0 보안 권고 및 WARA 방식 제품 트리 교차표입니다.",
+        "body": "소스 리비전: {revision}. 결정론적 T0 평가기가 버전 트레인 구간과 임시 완화(workaround) 속성을 shadow 모드(execution_authority=false)로 평가합니다. Heimdall이 노출 드리프트를 Forseti와 Saga로 전달하고 Norns가 불활성 RuleCandidate를 추출합니다."
+      },
+      "kpi": {
+        "total": "카탈로그 CVE",
+        "exploited": "실제 악용 확인(Exploited)",
+        "mapped": "정규 리소스 교차 매핑",
+        "blocked": "미매핑 또는 차단됨"
+      },
+      "column": {
+        "cve": "CVE 및 권고문",
+        "severity": "심각도 (CVSS)",
+        "exploitStatus": "악용 상태",
+        "versionWindow": "취약 버전 구간",
+        "exposure": "런타임 노출 상태"
+      },
+      "filter": {
+        "severity": "심각도",
+        "exploitStatus": "악용 상태",
+        "disposition": "처분 유형",
+        "mappingState": "매핑 상태",
+        "resourceType": "리소스 유형",
+        "searchAria": "MSRC CSAF 권고문 필터링",
+        "searchPlaceholder": "CVE, 권고 ID, 제품 ID 또는 제목 검색"
+      },
+      "result": {
+        "showing": "필터 결과 {filtered}개(전체 {total}개) 중 {start}-{end} 표시",
+        "empty": "선택한 필터와 일치하는 MSRC CSAF 취약점이 없습니다"
+      },
+      "detail": {
+        "aria": "MSRC CSAF 취약점 세부 정보",
+        "title": "MSRC CSAF 취약점 세부 정보",
+        "boundary": "변경을 실행하지 않는 shadow 전용 취약점 교차표입니다. 권고문 등록만으로 승인이나 실행 권한이 부여되지 않으며, 리소스 버전 속성이 없거나 미검증된 경우 안전하게 알 수 없음(Unknown)으로 판정합니다.",
+        "advisorySection": "OASIS CSAF 2.0 권고문 출처 이력",
+        "trackingId": "권고문 추적 ID",
+        "sourceRevision": "소스 리비전",
+        "cvssVector": "CVSS v3.1 벡터",
+        "initialRelease": "최초 배포 시각",
+        "currentRelease": "최종 개정 시각",
+        "signatureVerified": "분리 서명 검증 여부",
+        "documentDigest": "권고문 SHA-256",
+        "crosswalkDigest": "교차표 SHA-256",
+        "sourceUrl": "MSRC CSAF 원본 URL",
+        "crosswalkSection": "제품 트리 및 리소스 교차 매핑",
+        "productIds": "CSAF 제품 ID",
+        "canonicalResourceType": "정규 ResourceType",
+        "versionWindow": "취약 버전 구간",
+        "existingRule": "연결된 T0 규칙",
+        "candidateActionType": "후보 ActionType",
+        "workaroundCheck": "임시 완화(Workaround) 속성 조건",
+        "blockedReasons": "차단 사유",
+        "remediationSection": "CSAF 패치(vendor_fix) 및 임시 완화(workaround) 조치",
+        "noRemediations": "이 권고문에는 구조화된 완화 조치 항목이 없습니다.",
+        "pantheonSection": "15인 에이전트 판테온 거버넌스 연결"
+      }
     }
   },
   "display": {
+    "msrcCsafExploit": {
+      "exploited": "실제 악용됨 (Exploited)",
+      "exploitation_more_likely": "악용 가능성 높음",
+      "exploitation_less_likely": "악용 가능성 낮음",
+      "exploitation_unlikely": "악용 가능성 희박",
+      "publicly_disclosed": "공개됨",
+      "unproven": "미확인 (Unproven)"
+    },
+    "msrcCsafExposure": {
+      "affected": "영향 받음 (Affected)",
+      "mitigated": "임시 완화됨 (Mitigated)",
+      "fixed": "패치 완료 (Fixed)",
+      "not_applicable": "해당 없음",
+      "unknown": "알 수 없음"
+    },
     "waraLimitation": {
       "missing_exact_evaluator": "이 권고에 정확히 연결된 평가기가 없습니다.",
       "undeclared_resource_type": "리소스 유형에 대한 평가 연결이 선언되지 않았습니다.",
@@ -819,6 +894,7 @@
     "waraMapping": {
       "existing_rule": "기존 규칙",
       "new_rule_candidate": "새 규칙 후보",
+      "version_observation": "버전 관측",
       "manual_evidence": "수동 근거",
       "conditional_not_applicable": "조건부 해당 없음",
       "ambiguous_or_blocked": "모호하거나 차단됨",

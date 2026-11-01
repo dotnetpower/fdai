@@ -20,14 +20,19 @@ class TemporalSeries:
     samples: tuple[MetricSample, ...]
 
     def __post_init__(self) -> None:
-        if not self.metric or len(self.samples) < 2:
+        if not isinstance(self.metric, str) or not self.metric.strip() or len(self.samples) < 2:
             raise ValueError("temporal series requires a metric and at least two samples")
         timestamps = tuple(sample.timestamp for sample in self.samples)
-        if any(timestamp.tzinfo is None for timestamp in timestamps):
+        if any(
+            timestamp.tzinfo is None or timestamp.utcoffset() is None for timestamp in timestamps
+        ):
             raise ValueError("temporal series timestamps MUST be timezone-aware")
         if timestamps != tuple(sorted(timestamps)) or len(set(timestamps)) != len(timestamps):
             raise ValueError("temporal series timestamps MUST be unique and ordered")
-        if any(not math.isfinite(sample.value) for sample in self.samples):
+        if any(
+            isinstance(sample.value, bool) or not math.isfinite(sample.value)
+            for sample in self.samples
+        ):
             raise ValueError("temporal series values MUST be finite")
 
 
@@ -42,15 +47,35 @@ class TemporalCausalityConfig:
     candidate_count: int = 1
 
     def __post_init__(self) -> None:
-        if not self.lag_seconds or any(lag < 0 for lag in self.lag_seconds):
+        if not self.lag_seconds or any(
+            isinstance(lag, bool) or lag < 0 for lag in self.lag_seconds
+        ):
             raise ValueError("temporal causality lags MUST be non-empty and non-negative")
         if len(set(self.lag_seconds)) != len(self.lag_seconds):
             raise ValueError("temporal causality lags MUST be unique")
-        if self.min_samples < 4 or self.difference_period < 0 or self.candidate_count < 1:
+        if (
+            isinstance(self.min_samples, bool)
+            or isinstance(self.difference_period, bool)
+            or isinstance(self.candidate_count, bool)
+            or self.min_samples < 4
+            or self.difference_period < 0
+            or self.candidate_count < 1
+        ):
             raise ValueError("temporal causality sample and correction bounds are invalid")
-        if not 0.0 <= self.min_abs_correlation <= 1.0:
+        if (
+            isinstance(self.min_abs_correlation, bool)
+            or not math.isfinite(self.min_abs_correlation)
+            or not 0.0 <= self.min_abs_correlation <= 1.0
+        ):
             raise ValueError("min_abs_correlation MUST be in [0, 1]")
-        if not 0.0 < self.alpha <= 1.0 or not 0.0 <= self.direction_margin <= 1.0:
+        if (
+            isinstance(self.alpha, bool)
+            or isinstance(self.direction_margin, bool)
+            or not math.isfinite(self.alpha)
+            or not math.isfinite(self.direction_margin)
+            or not 0.0 < self.alpha <= 1.0
+            or not 0.0 <= self.direction_margin <= 1.0
+        ):
             raise ValueError("temporal causality alpha and direction margin are invalid")
 
 
@@ -70,6 +95,16 @@ class TemporalCausalClaim:
     evidence_refs: tuple[str, ...]
     falsifiers: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        if (
+            not self.claim_id.strip()
+            or not self.cause_metric.strip()
+            or not self.effect_metric.strip()
+            or self.feature_cutoff.tzinfo is None
+            or self.feature_cutoff.utcoffset() is None
+        ):
+            raise ValueError("TemporalCausalClaim requires non-empty fields and aware cutoff")
+
 
 class TemporalCausalityAnalyzer:
     """Rank lagged associations without claiming experimental causality."""
@@ -86,10 +121,14 @@ class TemporalCausalityAnalyzer:
         evidence_refs: tuple[str, ...],
         confounder: TemporalSeries | None = None,
     ) -> TemporalCausalClaim | None:
-        if feature_cutoff.tzinfo is None:
+        if feature_cutoff.tzinfo is None or feature_cutoff.utcoffset() is None:
             raise ValueError("temporal causality feature_cutoff MUST be timezone-aware")
-        if not evidence_refs or any(not ref for ref in evidence_refs):
+        if not evidence_refs or any(
+            not isinstance(ref, str) or not ref.strip() or ref != ref.strip()
+            for ref in evidence_refs
+        ):
             raise ValueError("temporal causality evidence_refs MUST be non-empty")
+        canonical_refs = tuple(sorted(set(evidence_refs)))
         for series in (cause, effect, confounder):
             if series is not None and series.samples[-1].timestamp > feature_cutoff:
                 raise ValueError("temporal causality series MUST NOT cross feature_cutoff")
@@ -170,7 +209,7 @@ class TemporalCausalityAnalyzer:
                 "confounder": _series_identity(confounder) if confounder else None,
                 "config": asdict(self._config),
                 "feature_cutoff": feature_cutoff.astimezone(UTC).isoformat(),
-                "evidence_refs": sorted(set(evidence_refs)),
+                "evidence_refs": list(canonical_refs),
             }
         )
         return TemporalCausalClaim(
@@ -185,7 +224,7 @@ class TemporalCausalityAnalyzer:
             evidence_grade=grade,
             feature_cutoff=feature_cutoff,
             confounder_metric=confounder.metric if confounder is not None else None,
-            evidence_refs=evidence_refs,
+            evidence_refs=canonical_refs,
             falsifiers=tuple(falsifiers),
         )
 

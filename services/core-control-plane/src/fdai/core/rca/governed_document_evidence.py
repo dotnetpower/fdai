@@ -54,8 +54,14 @@ class GovernedDocumentEvidenceReadAdapter:
         max_bytes: int = 262_144,
         cloud_reference: CloudReferenceReader | None = None,
     ) -> None:
-        if freshness_ceiling_seconds < 1:
+        if (
+            isinstance(freshness_ceiling_seconds, bool)
+            or not isinstance(freshness_ceiling_seconds, int)
+            or freshness_ceiling_seconds < 1
+        ):
             raise ValueError("governed document freshness ceiling MUST be positive")
+        if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes < 1:
+            raise ValueError("governed document max_bytes MUST be positive")
         self._search = search
         self._metadata = metadata
         self._access = access
@@ -73,10 +79,13 @@ class GovernedDocumentEvidenceReadAdapter:
     ) -> OperationalEvidenceReadResult:
         """Search only the authorized governed index and build one bound bundle."""
 
-        if not query.strip():
+        if not isinstance(query, str) or not query.strip():
             raise GovernedKnowledgeEvidenceHoldError("query_missing")
-        if not 1 <= limit <= 20:
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 20:
             raise ValueError("governed document evidence limit MUST be in [1, 20]")
+        now = self._clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("governed document evidence clock MUST be timezone-aware")
         source = _GovernedDocumentEvidenceSource(
             search=self._search,
             metadata=self._metadata,
@@ -161,9 +170,14 @@ class _GovernedDocumentEvidenceSource:
             raise GovernedKnowledgeEvidenceHoldError("search_unavailable") from exc
 
         documents: list[DocumentEvidenceExcerpt] = []
+        seen_chunks: set[tuple[UUID, UUID, str]] = set()
         pins = {revision.document_id: revision for revision in self._context.expected_revisions}
         for hit in hits:
             identity = _hit_identity(hit)
+            chunk_key = (identity.document_id, identity.version_id, hit.chunk_id)
+            if chunk_key in seen_chunks:
+                continue
+            seen_chunks.add(chunk_key)
             pin = pins.get(identity.document_id)
             if pins and pin is None:
                 continue

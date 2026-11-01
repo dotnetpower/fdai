@@ -18,7 +18,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, navigate, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import "./incident-clarity.css";
@@ -262,9 +262,11 @@ export function IncidentsRoute({ client, dataMode }: Props) {
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, []);
 
@@ -278,6 +280,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
   const openRoute = (status: IncidentStatusFilter, correlation: string | null): void => {
     navigate(routeHref("incidents", {
       params: {
+        data: dataMode === "sample" ? "sample" : null,
         status: status === "active" ? null : status,
         q: searchFilter || null,
         vertical: verticalFilter,
@@ -294,6 +297,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
   ): void => {
     navigate(routeHref("incidents", {
       params: {
+        data: dataMode === "sample" ? "sample" : null,
         status: filter === "active" ? null : filter,
         q: search || null,
         vertical,
@@ -365,6 +369,7 @@ export function IncidentsRoute({ client, dataMode }: Props) {
           setPageError("Incident exact lookup snapshot changed");
           return;
         }
+        if (page.items.length === 0) return;
         setState((current) => current.status === "ready"
           ? {
               status: "ready",

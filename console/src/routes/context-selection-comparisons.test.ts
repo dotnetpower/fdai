@@ -54,6 +54,13 @@ describe("context selection comparison decoder", () => {
     });
     expect(() => decodeContextSelectionComparisons(payload({ evidence_overlap: 1.1 }))).toThrow(/between 0 and 1/);
     expect(() => decodeContextSelectionComparisons(payload({ candidate_tokens: -1 }))).toThrow(/non-negative integer/);
+    expect(() => decodeContextSelectionComparisons({
+      read_only: true,
+      mutation_controls: false,
+      count: 2,
+      invariant_failures: 0,
+      comparisons: [comparison, comparison],
+    })).toThrow(/evaluation_id MUST be unique/);
   });
 
   // Mirrors the authoritative Operator Service GET /context-selection-comparisons payload,

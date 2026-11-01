@@ -19,6 +19,16 @@ class IncidentPlatformSyncReport:
     observed: int
     published: int
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.observed, bool)
+            or isinstance(self.published, bool)
+            or self.observed < 0
+            or self.published < 0
+            or self.published > self.observed
+        ):
+            raise ValueError("incident platform sync report counts are invalid")
+
 
 class IncidentPlatformSync:
     """Publish bounded platform incidents with stable idempotency keys."""
@@ -33,7 +43,7 @@ class IncidentPlatformSync:
     ) -> None:
         if not topic.strip():
             raise ValueError("incident platform sync topic MUST be non-empty")
-        if not 1 <= limit <= 500:
+        if isinstance(limit, bool) or not 1 <= limit <= 500:
             raise ValueError("incident platform sync limit MUST be in [1, 500]")
         self._provider = provider
         self._bus = event_bus

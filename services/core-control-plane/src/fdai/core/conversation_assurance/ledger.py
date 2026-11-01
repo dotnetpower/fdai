@@ -81,6 +81,8 @@ class InMemoryConversationAssuranceLedger:
         principal_scope: str,
         assessment_id: str,
     ) -> AssessmentRecord | None:
+        if not principal_scope.strip() or not assessment_id.strip():
+            raise ValueError("principal_scope and assessment_id MUST be non-empty")
         record = self._assessments.get(assessment_id)
         return record if record is not None and record.principal_scope == principal_scope else None
 
@@ -90,6 +92,8 @@ class InMemoryConversationAssuranceLedger:
         principal_scope: str,
         dispute_id: str,
     ) -> DisputeRecord | None:
+        if not principal_scope.strip() or not dispute_id.strip():
+            raise ValueError("principal_scope and dispute_id MUST be non-empty")
         record = self._disputes.get(dispute_id)
         return record if record is not None and record.principal_scope == principal_scope else None
 
@@ -99,6 +103,8 @@ class InMemoryConversationAssuranceLedger:
         principal_scope: str,
         limit: int = 100,
     ) -> tuple[AssessmentRecord, ...]:
+        if not principal_scope.strip():
+            raise ValueError("principal_scope MUST be non-empty")
         _require_limit(limit)
         records = (
             item for item in self._assessments.values() if item.principal_scope == principal_scope
@@ -116,6 +122,8 @@ class InMemoryConversationAssuranceLedger:
         assessment_id: str | None = None,
         limit: int = 100,
     ) -> tuple[DisputeRecord, ...]:
+        if not principal_scope.strip():
+            raise ValueError("principal_scope MUST be non-empty")
         _require_limit(limit)
         records = (
             item

@@ -49,12 +49,14 @@ def instance_paths(
         paths = tuple(expanded)
         if not paths:
             return (), index
-    if graph.source_generation is None:
+    if graph.source_generation is None or not graph.source_generation.strip():
         raise QueryNodeHeldError("ontology_instance_path_generation_unavailable")
     return paths, None
 
 
 def instance_path_row(path: tuple[OntologyObjectRecord, ...]) -> QueryRow:
+    if not path:
+        raise ValueError("instance path row requires at least one object")
     values: dict[str, object] = {
         "root_id": path[0].id,
         "root_type": path[0].object_type,

@@ -22,7 +22,22 @@ def merge_semantic_rollups(
 
     if not rollups:
         raise ValueError("semantic rollup merge requires at least one rollup")
-    unique = {item.digest: item for item in rollups}
+    unique: dict[str, SemanticRollup] = {}
+    for item in rollups:
+        if (
+            item.window_start.tzinfo is None
+            or item.window_start.utcoffset() is None
+            or item.window_end.tzinfo is None
+            or item.window_end.utcoffset() is None
+            or item.window_end <= item.window_start
+        ):
+            raise ValueError(
+                "semantic rollup merge input window MUST be positive and timezone-aware"
+            )
+        prior_item = unique.get(item.digest)
+        if prior_item is not None and prior_item != item:
+            raise ValueError("semantic rollup merge digest collision")
+        unique[item.digest] = item
     ordered = tuple(sorted(unique.values(), key=lambda item: item.window_start))
     for item in ordered:
         if (

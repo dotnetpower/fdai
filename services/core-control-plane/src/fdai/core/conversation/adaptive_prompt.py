@@ -127,6 +127,7 @@ class ConversationProfile:
         if (
             not isinstance(self.role_directive, str)
             or not self.role_directive.strip()
+            or "\x00" in self.role_directive
             or len(self.role_directive.encode("utf-8")) > 4_096
         ):
             raise ValueError("conversation role directive MUST be server-owned and bounded")
@@ -159,7 +160,7 @@ def compose_adaptive_prompt(
 
     if stage not in ADAPTIVE_STAGES:
         raise ValueError("adaptive prompt stage is unsupported")
-    if not isinstance(base_text, str) or not base_text.strip():
+    if not isinstance(base_text, str) or not base_text.strip() or "\x00" in base_text:
         raise ValueError("adaptive prompt requires catalog-owned policy")
     if type(max_system_tokens) is not int or not 1 <= max_system_tokens <= 32_768:
         raise ValueError("adaptive system token budget MUST be in [1, 32768]")

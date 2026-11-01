@@ -447,3 +447,39 @@ async def test_non_arm_resource_scope_makes_no_request() -> None:
         await client.aclose()
 
     assert requests == []
+
+
+@pytest.mark.asyncio
+async def test_wara_arg_429_includes_quota_diagnostics_and_case_insensitive_id_column() -> None:
+    _, _, _, plan, _ = _bound_runtime()
+
+    def throttle_handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            429,
+            headers={
+                "x-ms-user-quota-remaining": "0",
+                "x-ms-user-quota-after": "00:00:05",
+            },
+            json={"error": {"code": "RateLimiting"}},
+        )
+
+    provider, client = _provider(httpx.MockTransport(throttle_handler))
+    try:
+        with pytest.raises(WaraObservationError, match="quota_remaining=0"):
+            await provider.observe(plan)
+    finally:
+        await client.aclose()
+
+    def upper_id_handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["options"]["resultFormat"] == "objectArray"
+        if "_fdai_wara_coverage" in body["query"]:
+            return httpx.Response(200, json={"data": [_coverage_row(plan.resource_ids[0])]})
+        return httpx.Response(200, json={"data": [{"ID": plan.resource_ids[0]}]})
+
+    provider2, client2 = _provider(httpx.MockTransport(upper_id_handler))
+    try:
+        receipt = await provider2.observe(plan)
+    finally:
+        await client2.aclose()
+    assert receipt.satisfied is False

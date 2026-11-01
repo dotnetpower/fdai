@@ -50,7 +50,7 @@ class HandoverKnowledgeSourceCheck:
         if record.get("state") in {"stale", "declined", "superseded"}:
             return _decision(notice, "withdrawn", "source_withdrawn")
         evidence = record.get("evidence", [])
-        if not isinstance(evidence, list) or len(evidence) > 64:
+        if not isinstance(evidence, (list, tuple)) or len(evidence) > 64:
             return _decision(notice, "held", "source_unavailable")
         claims: dict[str, str] = {}
         for item in evidence:

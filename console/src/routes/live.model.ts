@@ -60,6 +60,12 @@ export const AGENT_ROLE: Record<string, string> = {
   Saga: "Auditor",
   Odin: "Master Planner",
   Bragi: "Narrator",
+  Mimir: "Rule Steward",
+  Norns: "Pattern Learner",
+  Muninn: "Context Memory",
+  Njord: "Cost Advisor",
+  Freyr: "Capacity Advisor",
+  Loki: "Chaos Verifier",
 };
 
 export const STATUS_LABEL: Record<LiveConnectionStatus, string> = {
@@ -169,6 +175,12 @@ export interface TileState {
   readonly reconciliation_status: string | undefined;
   readonly recovery_status: string | undefined;
   readonly outcome: string | undefined;
+  readonly t1_outcome?: string | undefined;
+  readonly t1_similarity?: number | undefined;
+  readonly t2_outcome?: string | undefined;
+  readonly t2_confidence?: number | undefined;
+  readonly t2_skipped?: boolean | undefined;
+  readonly t2_skip_reason?: string | undefined;
   readonly stages_completed: ReadonlySet<LiveStageName>;
   readonly stage_agents: ReadonlyMap<LiveStageName, string>;
   readonly last_agent: string | undefined;
@@ -364,7 +376,19 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
   const risk = pickString(detail, "risk") ?? pickString(detail, "risk_level");
   const impact = pickString(detail, "impact") ?? pickString(detail, "impact_scope");
   const latencyBudgetMs = pickPositiveNumber(detail, "latency_budget_ms");
-  const agent = pickString(detail, "producer_principal");
+  const agent = pickString(detail, "owner_agent") ?? pickString(detail, "producer_principal");
+  const t1Outcome = pickString(detail, "t1_outcome");
+  const t1Similarity =
+    typeof detail.t1_similarity === "number" && Number.isFinite(detail.t1_similarity)
+      ? detail.t1_similarity
+      : undefined;
+  const t2Outcome = pickString(detail, "t2_outcome");
+  const t2Confidence =
+    typeof detail.t2_confidence === "number" && Number.isFinite(detail.t2_confidence)
+      ? detail.t2_confidence
+      : undefined;
+  const t2Skipped = detail.t2_skipped === true ? true : undefined;
+  const t2SkipReason = pickString(detail, "t2_skip_reason");
 
   if (slotIndex < 0) {
     slotIndex = pickSlot(state, now);
@@ -393,7 +417,7 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
   }
 
   const stage_agents = new Map(previous?.stage_agents ?? []);
-  if (agent && (evt.phase === "done" || evt.phase === "failed")) {
+  if (agent && (evt.phase === "progress" || evt.phase === "done" || evt.phase === "failed")) {
     stage_agents.set(evt.stage, agent);
   }
 
@@ -424,6 +448,12 @@ export function applyEvent(state: LiveState, evt: LiveStageEvent): LiveState {
     reconciliation_status: reconciliationStatus ?? previous?.reconciliation_status,
     recovery_status: recoveryStatus ?? previous?.recovery_status,
     outcome: outcome ?? previous?.outcome,
+    t1_outcome: t1Outcome ?? previous?.t1_outcome,
+    t1_similarity: t1Similarity ?? previous?.t1_similarity,
+    t2_outcome: t2Outcome ?? previous?.t2_outcome,
+    t2_confidence: t2Confidence ?? previous?.t2_confidence,
+    t2_skipped: t2Skipped ?? previous?.t2_skipped,
+    t2_skip_reason: t2SkipReason ?? previous?.t2_skip_reason,
     stages_completed,
     stage_agents,
     last_agent: agent ?? previous?.last_agent,
@@ -642,14 +672,54 @@ export function pickSlot(state: LiveState, now: number): number {
 // Filter + formatting helpers (shared with the presentational layer)
 // ---------------------------------------------------------------------------
 
-export function matchesFilter(tile: TileState, filter: FilterKind, now = Date.now()): boolean {
+export function matchesFilter(
+  tile: TileState,
+  filter: FilterKind | RateTierKey,
+  now = Date.now(),
+): boolean {
   if (filter === "all" || filter === "control") return true;
   if (filter === "source") return false;
   if (filter === "hil") return tile.gate_decision === "hil";
   if (filter === "deny") return tile.gate_decision === "deny";
   if (filter === "failed") return tile.failed;
   if (filter === "stuck") return isTileStuck(tile, now);
+  if (filter === "t0" || filter === "t1" || filter === "t2") {
+    return (tile.tier ?? "").toLowerCase() === filter;
+  }
   return true;
+}
+
+export interface LiveTierAttemptSummary {
+  readonly t1Evaluated: number;
+  readonly t1Reused: number;
+  readonly t2Evaluated: number;
+  readonly t2Proposed: number;
+  readonly t2Skipped: number;
+}
+
+export function summarizeTierAttempts(
+  tiles: readonly (TileState | null)[],
+): LiveTierAttemptSummary {
+  let t1Evaluated = 0;
+  let t1Reused = 0;
+  let t2Evaluated = 0;
+  let t2Proposed = 0;
+  let t2Skipped = 0;
+  for (const tile of tiles) {
+    if (!tile) continue;
+    if (tile.t1_outcome !== undefined || tile.tier === "t1") {
+      t1Evaluated += 1;
+      if (tile.t1_outcome === "reused") t1Reused += 1;
+    }
+    if (tile.t2_outcome !== undefined || tile.tier === "t2") {
+      t2Evaluated += 1;
+      if (tile.t2_outcome === "proposed") t2Proposed += 1;
+    }
+    if (tile.t2_skipped === true) {
+      t2Skipped += 1;
+    }
+  }
+  return { t1Evaluated, t1Reused, t2Evaluated, t2Proposed, t2Skipped };
 }
 
 export function shortTime(iso: string): string {

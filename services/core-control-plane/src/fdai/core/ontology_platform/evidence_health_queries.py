@@ -174,7 +174,7 @@ def ontology_evidence_health_function(
         if object_type not in object_type_names:
             raise LookupError(f"unknown ObjectType declaration: {object_type}")
         observed_now = clock()
-        if observed_now.tzinfo is None:
+        if observed_now.utcoffset() is None:
             raise ValueError("ontology evidence health clock MUST be timezone-aware")
         result = await reader.read(
             object_type=object_type,
@@ -232,17 +232,31 @@ def _health_values(
             "execution_authority": False,
             "mutation_authority": False,
         }
+    if (
+        not snapshot.source_kind.strip()
+        or not snapshot.source_alias.strip()
+        or not snapshot.generation.strip()
+    ):
+        raise ValueError("ontology evidence health source fields MUST be non-empty")
     if snapshot.ontology_release_digest != ontology_release.digest:
         raise ValueError("ontology evidence health source release does not match active release")
-    if snapshot.observed_at.tzinfo is None or snapshot.recorded_at.tzinfo is None:
+    if snapshot.observed_at.utcoffset() is None or snapshot.recorded_at.utcoffset() is None:
         raise ValueError("ontology evidence health timestamps MUST be timezone-aware")
     if snapshot.observed_at > snapshot.recorded_at:
         raise ValueError("ontology evidence observation MUST NOT follow its record time")
-    if snapshot.visible_instance_count < 0 or snapshot.visible_link_count < 0:
+    if (
+        isinstance(snapshot.visible_instance_count, bool)
+        or isinstance(snapshot.visible_link_count, bool)
+        or snapshot.visible_instance_count < 0
+        or snapshot.visible_link_count < 0
+    ):
         raise ValueError("ontology evidence health counts MUST be non-negative")
     if snapshot.freshness_ceiling_seconds is None:
         freshness_state = "unknown"
-    elif snapshot.freshness_ceiling_seconds < 1:
+    elif (
+        isinstance(snapshot.freshness_ceiling_seconds, bool)
+        or snapshot.freshness_ceiling_seconds < 1
+    ):
         raise ValueError("ontology evidence freshness ceiling MUST be positive")
     elif snapshot.observed_at < now - timedelta(seconds=snapshot.freshness_ceiling_seconds):
         freshness_state = "stale"

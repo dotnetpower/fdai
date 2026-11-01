@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -37,7 +38,11 @@ class AzureBlobCaseHistoryConfig:
             or len(segments) != 1
         ):
             raise ValueError("case history container URL MUST identify one HTTPS container")
-        if self.request_timeout_seconds <= 0:
+        if (
+            type(self.request_timeout_seconds) is bool
+            or not math.isfinite(self.request_timeout_seconds)
+            or self.request_timeout_seconds <= 0
+        ):
             raise ValueError("case history request timeout MUST be positive")
 
 
@@ -56,7 +61,11 @@ class AzureBlobCaseHistoryArtifactStore:
 
     async def put(self, storage_ref: str, content: bytes, *, digest: str) -> bool:
         _validate_digest(digest)
-        if not content or len(content) > _MAX_ARTIFACT_BYTES:
+        if (
+            not isinstance(content, (bytes, bytearray))
+            or not content
+            or len(content) > _MAX_ARTIFACT_BYTES
+        ):
             raise ValueError("case history artifact size MUST be in [1, 1048576]")
         if hashlib.sha256(content).hexdigest() != digest:
             raise ValueError("case history artifact digest mismatch")

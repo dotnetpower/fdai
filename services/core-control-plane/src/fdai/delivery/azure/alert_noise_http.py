@@ -39,8 +39,10 @@ class AlertReadUnavailable(RuntimeError):  # noqa: N818 - preserve the public ex
     """Safe failure code; bounded previous rows remain private, never in exception text."""
 
     def __init__(self, reason: str, *, rows: tuple[Mapping[str, Any], ...] = ()) -> None:
-        super().__init__(reason)
-        self.rows = rows
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("AlertReadUnavailable reason MUST be a non-empty string")
+        super().__init__(reason.strip())
+        self.rows = tuple(rows)
 
     @property
     def terminal(self) -> bool:
@@ -105,7 +107,10 @@ class AlertReadBudget:
 
     def stop(self, reason: str) -> None:
         """Latch a terminal failure so a later collection/resolver cannot restart the attempt."""
-        self._stopped = reason
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("alert read stop reason MUST be a non-empty string")
+        if self._stopped is None:
+            self._stopped = reason.strip()
 
     def consume(self, kind: str, count: int = 1) -> None:
         """Charge before retaining data or making a request; never silently truncate."""
@@ -243,7 +248,17 @@ def _request_query(path: str, version: str, params: Mapping[str, str] | None) ->
     if params is not None and not isinstance(params, Mapping):
         raise ValueError("alert read parameters MUST be a mapping")
     extra = dict(params or {})
-    allowed = {"customTimeRange", "includeContext", "includeEgressConfig", "pageCount"}
+    allowed = {
+        "customTimeRange",
+        "includeContext",
+        "includeEgressConfig",
+        "pageCount",
+        "alertState",
+        "monitorCondition",
+        "severity",
+        "targetResourceType",
+        "timeRange",
+    }
     if (
         set(extra) - allowed
         or (extra and match[2] != "Microsoft.AlertsManagement/alerts")

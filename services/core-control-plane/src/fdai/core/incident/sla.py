@@ -32,9 +32,15 @@ class IncidentSlaPolicy:
             raise ValueError("acknowledge_seconds MUST define sev1 through sev5")
         if frozenset(self.resolve_seconds) != expected:
             raise ValueError("resolve_seconds MUST define sev1 through sev5")
-        if any(value < 1 for value in self.acknowledge_seconds.values()):
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in self.acknowledge_seconds.values()
+        ):
             raise ValueError("acknowledge_seconds values MUST be >= 1")
-        if any(value < 1 for value in self.resolve_seconds.values()):
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
+            for value in self.resolve_seconds.values()
+        ):
             raise ValueError("resolve_seconds values MUST be >= 1")
 
     @classmethod
@@ -67,7 +73,7 @@ def evaluate_incident_sla(
     now: datetime,
 ) -> tuple[IncidentLifecycleNotice, ...]:
     """Return one stable breach notice per overdue current incident state."""
-    if now.tzinfo is None:
+    if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("incident SLA evaluation time MUST be timezone-aware")
     current: dict[UUID, _SlaIncident] = {}
     seen_keys: set[str] = set()
@@ -88,6 +94,17 @@ def evaluate_incident_sla(
                 entered_at=_aware_datetime(entry, "opened_at"),
             )
             continue
+        if kind == "incident.severity":
+            previous = current.get(incident_id)
+            if previous is None:
+                raise ValueError(f"incident SLA severity precedes open: {incident_id}")
+            current[incident_id] = _SlaIncident(
+                incident_id=incident_id,
+                state=previous.state,
+                severity=IncidentSeverity(_required_string(entry, "severity")),
+                entered_at=previous.entered_at,
+            )
+            continue
         if kind != "incident.transition":
             raise ValueError(f"unsupported incident SLA audit kind: {kind}")
         previous = current.get(incident_id)
@@ -97,6 +114,9 @@ def evaluate_incident_sla(
         if previous.state is not from_state:
             raise ValueError(f"incident SLA state mismatch: {incident_id}")
         severity_value = _optional_string(entry, "severity")
+        transitioned_at = _aware_datetime(entry, "at")
+        if transitioned_at < previous.entered_at:
+            raise ValueError(f"incident SLA transition timestamp regressed: {incident_id}")
         current[incident_id] = _SlaIncident(
             incident_id=incident_id,
             state=IncidentState(_required_string(entry, "to_state")),
@@ -105,7 +125,7 @@ def evaluate_incident_sla(
                 if severity_value is not None
                 else previous.severity
             ),
-            entered_at=_aware_datetime(entry, "at"),
+            entered_at=transitioned_at,
         )
 
     notices: list[IncidentLifecycleNotice] = []
@@ -151,7 +171,7 @@ class IncidentSlaMonitor:
         interval_seconds: float,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
-        if interval_seconds <= 0:
+        if isinstance(interval_seconds, bool) or interval_seconds <= 0:
             raise ValueError("incident SLA monitor interval_seconds MUST be positive")
         self._source = source
         self._notifier = notifier
@@ -209,10 +229,10 @@ def _severity_seconds(value: object, field: str) -> dict[IncidentSeverity, int]:
 
 
 def _required_string(entry: Mapping[str, Any], key: str) -> str:
-    value = entry[key]
-    if not isinstance(value, str) or not value:
+    value = entry.get(key)
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} MUST be a non-empty string")
-    return value
+    return value.strip()
 
 
 def _optional_string(entry: Mapping[str, Any], key: str) -> str | None:
@@ -221,12 +241,12 @@ def _optional_string(entry: Mapping[str, Any], key: str) -> str | None:
         return None
     if not isinstance(value, str):
         raise ValueError(f"{key} MUST be a string or null")
-    return value or None
+    return value.strip() or None
 
 
 def _aware_datetime(entry: Mapping[str, Any], key: str) -> datetime:
     value = datetime.fromisoformat(_required_string(entry, key))
-    if value.tzinfo is None:
+    if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{key} MUST be timezone-aware")
     return value
 

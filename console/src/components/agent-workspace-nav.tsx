@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   currentRoute,
   navigate,
@@ -12,33 +12,38 @@ const AGENT_WORKSPACE_ITEMS = [
   {
     id: "fleet",
     labelKey: "agents.workspace.fleet",
-    href: () => routeHref("agents"),
-    active: () => currentRoute().panelId === "agents" &&
-      currentRoute().search.get("view") !== "org" &&
-      currentRoute().search.get("view") !== "constellation",
+    href: (route = currentRoute()) => routeHref("agents", {
+      params: { data: route.search.get("data") === "sample" ? "sample" : null },
+    }),
+    active: (route = currentRoute()) => route.panelId === "agents" &&
+      route.search.get("view") !== "org" &&
+      route.search.get("view") !== "constellation",
   },
   {
     id: "activity",
     labelKey: "agents.workspace.activity",
-    href: () => routeHref("agent-activity"),
-    active: () => currentRoute().panelId === "agent-activity",
+    href: (route = currentRoute()) => routeHref("agent-activity", {
+      params: { data: route.search.get("data") === "sample" ? "sample" : null },
+    }),
+    active: (route = currentRoute()) => route.panelId === "agent-activity",
   },
 ] as const;
 
-function rolesHref(): string {
-  const route = currentRoute();
+export function rolesHref(route = currentRoute()): string {
+  const data = route.search.get("data") === "sample" ? "sample" : null;
   if (route.panelId === "pantheon" || (
     route.panelId === "agents" && (
       route.search.get("view") === "org" || route.search.get("view") === "constellation"
     )
   )) {
-    return routeHref("pantheon", { params: { agent: route.search.get("agent") } });
+    return routeHref("pantheon", { params: { data, agent: route.search.get("agent") } });
   }
   if (route.panelId !== "agent-activity") {
-    return routeHref("agent-activity", { params: { roles: "1" } });
+    return routeHref("agent-activity", { params: { data, roles: "1" } });
   }
   return routeHref("agent-activity", {
     params: {
+      data,
       view: route.search.get("view"),
       agent: route.search.get("agent"),
       trajectory: route.search.get("trajectory"),
@@ -52,12 +57,15 @@ function rolesHref(): string {
 
 export function AgentWorkspaceNav() {
   const [, setRouteRevision] = useState(0);
+  const popstateCleanupRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     const refresh = () => setRouteRevision((revision) => revision + 1);
     window.addEventListener("popstate", refresh);
     window.addEventListener("fdai:route-changed", refresh);
     window.addEventListener(ROUTE_STATE_EVENT, refresh);
     return () => {
+      popstateCleanupRef.current?.();
+      popstateCleanupRef.current = null;
       window.removeEventListener("popstate", refresh);
       window.removeEventListener("fdai:route-changed", refresh);
       window.removeEventListener(ROUTE_STATE_EVENT, refresh);
@@ -79,11 +87,11 @@ export function AgentWorkspaceNav() {
   return (
     <nav class="agent-workspace-nav" aria-label={t("agents.workspace.label")}>
       {AGENT_WORKSPACE_ITEMS.map((item) => {
-        const active = item.active();
+        const active = item.active(route);
         return (
           <a
             key={item.id}
-            href={item.href()}
+            href={item.href(route)}
             class={active ? "is-active" : undefined}
             aria-current={active ? "page" : undefined}
           >
@@ -93,7 +101,7 @@ export function AgentWorkspaceNav() {
       })}
       <a
         id="agent-roles-trigger"
-        href={rolesHref()}
+        href={rolesHref(route)}
         class={`agent-workspace-roles${rolesActive ? " is-active" : ""}`}
         aria-current={rolesFallback ? "page" : undefined}
         aria-haspopup={rolesFallback ? undefined : "dialog"}
@@ -109,15 +117,20 @@ export function AgentWorkspaceNav() {
             event.altKey
           ) return;
           event.preventDefault();
-          const href = rolesHref();
-          if (currentRoute().panelId === "agent-activity") {
+          const current = currentRoute();
+          const href = rolesHref(current);
+          if (current.panelId === "agent-activity") {
             pushRouteState(href, { fdaiAgentRolesOverlay: true });
           } else {
-            window.addEventListener("popstate", () => {
+            popstateCleanupRef.current?.();
+            const onPopstate = () => {
+              popstateCleanupRef.current = null;
               window.setTimeout(() => {
                 document.getElementById("agent-roles-trigger")?.focus();
               }, 0);
-            }, { once: true });
+            };
+            window.addEventListener("popstate", onPopstate, { once: true });
+            popstateCleanupRef.current = () => window.removeEventListener("popstate", onPopstate);
             navigate(href, false, { fdaiAgentRolesOverlay: true });
           }
         }}

@@ -77,7 +77,10 @@ class TopologyAtNodeHandler:
             raise PermissionError("historical topology requires an authorized projection")
         as_of = _timestamp(node.arguments["as_of"], "as_of")
         known_at = _timestamp(node.arguments["known_at"], "known_at")
-        if as_of > known_at or known_at > self._now():
+        now = self._now()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("topology clock MUST be timezone-aware")
+        if as_of > known_at or known_at > now:
             raise ValueError("historical query cutoffs MUST be ordered and not in the future")
         batches = await self._reader.read(as_of=as_of, known_at=known_at)
         result = graph_at(batches, as_of=as_of, known_at=known_at)
@@ -150,7 +153,7 @@ def _timestamp(value: object, name: str) -> datetime:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError(f"topology {name} MUST be an RFC 3339 string") from exc
-    if parsed.tzinfo is None:
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise ValueError(f"topology {name} MUST be timezone-aware")
     return parsed
 

@@ -37,7 +37,11 @@ def build_discovery_catalog_search_documents(
     """Project normalized candidates into an inert discovery-only corpus."""
 
     documents = []
+    seen_ids: set[str] = set()
     for rule in sorted(rules, key=lambda item: item.id):
+        if rule.id in seen_ids:
+            raise ValueError(f"duplicate discovery Rule id {rule.id!r}")
+        seen_ids.add(rule.id)
         text = "\n".join(
             (
                 rule.id,
@@ -93,7 +97,11 @@ def build_catalog_search_documents(
         objective_bindings=objective_bindings,
     )
     documents = []
+    seen_ids: set[str] = set()
     for rule in sorted(rules, key=lambda item: item.id):
+        if rule.id in seen_ids:
+            raise ValueError(f"duplicate Rule id {rule.id!r}")
+        seen_ids.add(rule.id)
         policy = policy_semantics.get(rule.check_logic.reference)
         if policy is None or policy.rule_id != rule.id:
             raise ValueError(f"verified policy semantics unavailable for {rule.id!r}")
@@ -242,6 +250,8 @@ def catalog_search_schema_digest() -> str:
 def catalog_semantic_surface_digest(surfaces: Sequence[RuleSemanticSurface]) -> str:
     """Hash immutable semantic subjects without review lifecycle metadata."""
 
+    if len({item.surface_id for item in surfaces}) != len(surfaces):
+        raise ValueError("semantic surface digest requires unique surface ids")
     digests = tuple(sorted(item.validation_subject_digest for item in surfaces))
     if not digests:
         raise ValueError("semantic surface digest requires at least one surface")

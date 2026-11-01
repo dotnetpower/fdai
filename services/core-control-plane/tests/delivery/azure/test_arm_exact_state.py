@@ -4,7 +4,10 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
-from fdai.delivery.azure.arm_exact_state import AzureArmExactStateReader
+from fdai.delivery.azure.arm_exact_state import (
+    EXTENDED_ARM_STATE_CAPABILITIES,
+    AzureArmExactStateReader,
+)
 from fdai.shared.providers.exact_resource_state import ExactResourceStateUnavailableError
 from fdai.shared.providers.workload_identity import IdentityToken
 
@@ -174,3 +177,5 @@ async def test_unsupported_types_and_mismatched_ids_are_never_read() -> None:
         )
         is None
     )
+    assert "compute.container-app" in EXTENDED_ARM_STATE_CAPABILITIES
+    assert "kubernetes-cluster" in EXTENDED_ARM_STATE_CAPABILITIES

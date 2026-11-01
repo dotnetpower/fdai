@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from fdai.core.ontology_platform import QueryPlanExecution
@@ -62,8 +63,21 @@ def observed_resource_name_candidates(
         ):
             continue
         for row in result.value.rows:
-            name = row.values.get("name")
-            resource_type = row.values.get("type")
+            props = row.values.get("properties")
+            name = (
+                row.values.get("name")
+                if isinstance(row.values.get("name"), str)
+                else props.get("name")
+                if isinstance(props, Mapping)
+                else None
+            )
+            resource_type = (
+                row.values.get("type")
+                if isinstance(row.values.get("type"), str)
+                else props.get("type")
+                if isinstance(props, Mapping)
+                else None
+            )
             if not isinstance(name, str) or not name.strip():
                 continue
             resolved_type = (
@@ -71,7 +85,7 @@ def observed_resource_name_candidates(
                 if isinstance(resource_type, str) and resource_type.strip()
                 else None
             )
-            key = (name.strip(), resolved_type)
+            key = (name.strip().casefold(), resolved_type)
             if key in seen:
                 continue
             seen.add(key)

@@ -75,13 +75,17 @@ def handler_activity_context(payload: Mapping[str, object]) -> dict[str, object]
 
 def identifier(value: object) -> str | None:
     """Return a bounded non-empty stream identifier."""
-    if not isinstance(value, str) or not value or len(value) > _MAX_IDENTIFIER_CHARS:
+    if not isinstance(value, str) or not value.strip() or len(value) > _MAX_IDENTIFIER_CHARS:
         return None
     return value
 
 
 def _text(value: object, maximum: int) -> str | None:
-    return value if isinstance(value, str) and 0 < len(value) <= maximum else None
+    return (
+        value
+        if isinstance(value, str) and bool(value.strip()) and 0 < len(value) <= maximum
+        else None
+    )
 
 
 def _aware_timestamp(value: object) -> datetime | None:
@@ -91,7 +95,11 @@ def _aware_timestamp(value: object) -> datetime | None:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
-    if parsed.tzinfo is None or parsed > datetime.now(UTC) + _MAX_FUTURE_SKEW:
+    if (
+        parsed.tzinfo is None
+        or parsed.utcoffset() is None
+        or parsed > datetime.now(UTC) + _MAX_FUTURE_SKEW
+    ):
         return None
     return parsed
 

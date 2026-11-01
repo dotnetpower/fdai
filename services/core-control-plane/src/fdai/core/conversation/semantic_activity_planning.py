@@ -135,6 +135,10 @@ def compile_target_activity_plan(
         or not _has_activity_function(manifest.descriptors)
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("target activity plan requires timezone-aware evaluation_time")
+    if not purpose.strip():
+        raise ValueError("target activity plan purpose MUST be non-empty")
     as_of = evaluation_time.astimezone(UTC)
     target_definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),

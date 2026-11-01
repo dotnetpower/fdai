@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:1e02add878fed2d1f11a358541c76e1b3d1e520b86320ce8695ee9a166685769",
+  "inventory_digest": "sha256:a686f5d9e535f5d75e413a77d7c33ac63a5cfa7d698842e88aa624329c82a806",
   "metric_contract": {
     "ambiguity": [
       {
@@ -952,11 +952,11 @@
     "scripts/automation/presentation_quality_metrics.py": "sha256:d5ad9c62e2e8fb29e58a2d7fe708417be5a4fbefe35cb0f5d66bed391c4284f9",
     "scripts/automation/semantic_intent_metrics.py": "sha256:c590f8e15bfc22d3f6ce124a1e42aa915800bdc10b2e2049a958395724bf4add",
     "services/core-control-plane/src/fdai/agents/_framework/pantheon.py": "sha256:012820b4405cb82ac78736e76be8cd595d58a9ca7d31710bb4efd5435803c307",
-    "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fe9a5288e009fdf4dac438717e0ac3128a0e4caac4885b870604e732591d9aec",
+    "services/core-control-plane/src/fdai/core/conversation/question_adequacy.py": "sha256:fa7e505da04a339acd84f55c552538b10c4066eb55656538c338a3d54a1188b0",
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
-    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:cf975cef36107c13d4c4ff46e029e44e783b83bb158345ba24dcb613ce44cca3",
-    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:618e049ecfc064c3dcc3972c1508dd1d0a7d48def7e8e1ab4411777f3d260299",
-    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:2a5a515d0ebb49a4389df1ff662e99f3afbd234efaa613c92a722dc91d31795f"
+    "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:5cc476190bc9560bd545d1bc94faeb348286f6025d0196f4c633979074790a5d",
+    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:ddbf982e56b92a64ede6afdc0254fa2740ded72bb41bc372b29141986d2e0021",
+    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:6cc4eb554eefc945f541a3850ca6a7bb9a6150d57346f34d86484c6948e8c936"
   },
   "topic_inventory": {
     "golden_categories": [

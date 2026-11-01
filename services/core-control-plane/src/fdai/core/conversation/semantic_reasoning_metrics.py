@@ -48,18 +48,21 @@ def metric_read(goal: FormGoal, ctx: CompileContext) -> tuple[dict[str, Any], st
     maximum = declared_maximum(ctx, METRIC_READER, "window_seconds")
     if maximum is None:
         return OperatorResult(unsupported=(f"function_unavailable:{METRIC_READER}",))
-    if not 1 <= len(concepts) <= METRIC_CONCEPTS_PER_READ:
+    unique_concepts = sorted(set(concepts))
+    if not 1 <= len(unique_concepts) <= METRIC_CONCEPTS_PER_READ:
         return OperatorResult(unsupported=("metric_concept_count_unsupported",))
     window = metric_window(goal, maximum=maximum)
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, kind = window
-    return {"metric_concepts": sorted(concepts), "window_seconds": seconds}, kind
+    return {"metric_concepts": unique_concepts, "window_seconds": seconds}, kind
 
 
 def metric_window(goal: FormGoal, *, maximum: int) -> tuple[int, str] | str:
     """Return the trusted metric window and its notice kind, or why it is unusable."""
 
+    if isinstance(maximum, bool) or maximum < MIN_METRIC_WINDOW_SECONDS:
+        return "metric_window_out_of_bounds"
     kind = goal.time.kind
     if kind in _CURRENT_TIMES:
         return DEFAULT_METRIC_WINDOW_SECONDS, "default"

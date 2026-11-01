@@ -146,6 +146,22 @@ class T1Decision:
     eligibility_comparison: T1EligibilityComparison | None = None
     retained_pattern_comparison: RetainedPatternComparison | None = None
 
+    @property
+    def reused_rule_id(self) -> str | None:
+        return self.best_match.action.rule_id if self.best_match is not None else None
+
+    @property
+    def reused_action_type(self) -> str | None:
+        return self.best_match.action.action_type if self.best_match is not None else None
+
+    @property
+    def similarity_score(self) -> float | None:
+        return float(self.best_match.score) if self.best_match is not None else None
+
+    @property
+    def is_reused(self) -> bool:
+        return self.outcome is T1Outcome.REUSED
+
 
 # ---------------------------------------------------------------------------
 # DI seams
@@ -196,6 +212,30 @@ class T1Config:
 
     compare_eligibility: bool = False
     """Record a bounded shadow challenger; actual selection always stays legacy."""
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> T1Config:
+        """Build validated T1 thresholds from optional environment overrides."""
+        source = env if env is not None else {}
+        sim_raw = str(source.get("FDAI_T1_SIMILARITY_THRESHOLD", "")).strip()
+        rate_raw = str(source.get("FDAI_T1_MIN_SUCCESS_RATE", "")).strip()
+        timeout_raw = str(source.get("FDAI_T1_TIMEOUT_SECONDS", "")).strip()
+        compare_raw = str(source.get("FDAI_T1_COMPARE_ELIGIBILITY", "")).strip().lower()
+        sim = float(sim_raw) if sim_raw else 0.8
+        rate = float(rate_raw) if rate_raw else 0.9
+        timeout = float(timeout_raw) if timeout_raw else 5.0
+        if not isfinite(sim) or not 0.0 <= sim <= 1.0:
+            raise ValueError("FDAI_T1_SIMILARITY_THRESHOLD MUST be in [0.0, 1.0]")
+        if not isfinite(rate) or not 0.0 <= rate <= 1.0:
+            raise ValueError("FDAI_T1_MIN_SUCCESS_RATE MUST be in [0.0, 1.0]")
+        if not isfinite(timeout) or not 0.0 < timeout <= 60.0:
+            raise ValueError("FDAI_T1_TIMEOUT_SECONDS MUST be in (0.0, 60.0]")
+        return cls(
+            similarity_threshold=sim,
+            min_success_rate=rate,
+            timeout_seconds=timeout,
+            compare_eligibility=compare_raw in {"1", "true", "yes"},
+        )
 
 
 _RETRIEVAL_LIMIT = 5
@@ -256,6 +296,18 @@ class T1Tier:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._case_history = case_history
         self._retained_pattern_source = retained_pattern_source
+
+    @property
+    def config(self) -> T1Config:
+        return self._config
+
+    @property
+    def has_case_history(self) -> bool:
+        return self._case_history is not None
+
+    @property
+    def has_current_reuse_verifier(self) -> bool:
+        return self._current_reuse_verifier is not None
 
     def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
         """Bind the authoritative current-case reader once at runtime composition."""
@@ -638,7 +690,19 @@ def event_embedding_projection(event: Event) -> str:
         if isinstance(props, Mapping):
             keys = sorted(str(k) for k in props.keys())
             props_summary = ",".join(keys)
-    return f"event_type={event.event_type};resource_type={resource_type};props={props_summary}"
+    elif isinstance(payload, Mapping) and isinstance(payload.get("resource_type"), str):
+        resource_type = str(payload["resource_type"]).strip()
+    base = f"event_type={event.event_type};resource_type={resource_type};props={props_summary}"
+    if not isinstance(payload, Mapping):
+        return base
+    extras: list[str] = []
+    for key in ("signal_kind", "metric", "symptom", "severity", "domain", "scope"):
+        val = payload.get(key)
+        if isinstance(val, str) and val.strip():
+            extras.append(f"{key}={val.strip()}")
+    if not extras:
+        return base
+    return f"{base};{';'.join(extras)}"
 
 
 _event_text = event_embedding_projection

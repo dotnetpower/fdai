@@ -60,8 +60,12 @@ def citation_times(
     collected_at: datetime, checked_at: datetime, *, status: str, korean: bool
 ) -> str:
     """Render only validated time values and server-owned freshness labels."""
+    if not isinstance(korean, bool):
+        raise ValueError("citation_times korean flag MUST be a boolean")
     if collected_at.utcoffset() is None or checked_at.utcoffset() is None:
         raise ValueError("citation timestamps MUST be timezone-aware")
+    if checked_at < collected_at:
+        raise ValueError("citation check timestamp MUST NOT precede collection timestamp")
     collected = collected_at.isoformat()
     checked = checked_at.isoformat()
     labels = {
@@ -71,7 +75,8 @@ def citation_times(
         "unknown": ("최신성 확인 불가", "freshness unknown"),
         "update_pending": ("새 원본 검토 대기", "source update pending"),
     }
-    label = labels.get(status, labels["unknown"])[0 if korean else 1]
+    normalized_status = status.strip().lower() if isinstance(status, str) else "unknown"
+    label = labels.get(normalized_status, labels["unknown"])[0 if korean else 1]
     if korean:
         return f"수집: {collected}; 원본 확인: {checked}; {label}. 실시간 리소스 관측이 아닙니다."
     return (

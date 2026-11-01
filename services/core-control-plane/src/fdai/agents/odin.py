@@ -26,7 +26,8 @@ downstream consumer of :class:`Odin` changes shape.
 from __future__ import annotations
 
 import hashlib
-from collections import Counter
+import time
+from collections import Counter, deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -155,12 +156,21 @@ class Odin(Agent, HandoverKnowledgeMixin):
         self._last_history_considered = 0
         self._verdicts_observed = 0
         self._verdict_outcomes: Counter[str] = Counter()
+        self._resolution_latencies_seconds: deque[float] = deque(maxlen=512)
         self._state_store = state_store
         self._clock = clock or (lambda: datetime.now(tz=UTC))
         self._last_portfolio_review: dict[str, Any] | None = None
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
+
+    @property
+    def verdicts_observed(self) -> int:
+        return self._verdicts_observed
+
+    @property
+    def last_winning_domain(self) -> str | None:
+        return self._last_decision.winning_domain if self._last_decision is not None else None
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if await self._handover_message(topic, payload):
@@ -240,6 +250,25 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 "unit": "ratio",
             }
         )
+        resolution_samples = len(self._resolution_latencies_seconds)
+        conflict_resolution_kpi = (
+            {
+                "value": sum(self._resolution_latencies_seconds) / resolution_samples,
+                "evidence_state": "measured",
+                "numerator": resolution_samples,
+                "denominator": resolution_samples,
+                "sample_count": resolution_samples,
+                "unit": "seconds",
+            }
+            if resolution_samples
+            else {
+                "value": None,
+                "evidence_state": "insufficient_sample",
+                "numerator": 0,
+                "denominator": 0,
+                "unit": "seconds",
+            }
+        )
         return {
             "agent": self.spec.name,
             "status": "ok",
@@ -254,6 +283,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
                 self.behavior_snapshot().get("arbitration:fallback_terminal_hil", 0) or 0
             ),
             "kpis": {
+                "conflict_resolution_time_seconds": conflict_resolution_kpi,
                 "portfolio_target_attainment_ratio": portfolio_kpi,
                 "tie_break_recurrence_rate": tie_break_kpi,
             },
@@ -279,9 +309,12 @@ class Odin(Agent, HandoverKnowledgeMixin):
             "unknown_ratio": (unknown / total if total else None),
             "execution_authority": False,
         }
+        if total and ((hil + denied) / total >= 0.5):
+            self.record_behavior("maintenance_tick:portfolio_review_attention")
         self.record_behavior("maintenance_tick:portfolio_reviewed")
 
     async def arbitrate(self, request: dict[str, Any]) -> ArbitrationDecision:
+        started_monotonic = time.monotonic()
         correlation_id = str(request.get("correlation_id", ""))
         if correlation_id:
             stored = await self._load_arbitration_decision(correlation_id)
@@ -314,7 +347,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
         # audit trail carries a consistent "policy considered N prior
         # decisions" annotation. Empty history is cheap.
         history: Sequence[RecentDecision] = ()
-        if self._temporal_policy is not None and resource_id:
+        if resource_id:
             history = await self._history.recent(resource_id, limit=self._history_window)
         precedence_winner = (
             self._vertical_precedence.winner(domains)
@@ -361,6 +394,7 @@ class Odin(Agent, HandoverKnowledgeMixin):
         if not decision.correlation_id:
             self.record_behavior("arbitration:invalid_correlation")
             return decision
+        self._resolution_latencies_seconds.append(max(0.0, time.monotonic() - started_monotonic))
         self._last_decision = decision
         self._last_history_considered = len(history)
         decision = await self._checkpoint_arbitration_decision(

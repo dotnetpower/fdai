@@ -40,7 +40,8 @@ def model_call_activity(call: SemanticModelCallProgress, *, locale: str) -> Mode
     korean = locale.casefold().startswith("ko")
     korean_stage, english_stage = _STAGE_LABELS.get(call.stage, (call.stage, call.stage))
     label = f"{korean_stage} 모델 호출" if korean else f"{english_stage} model call"
-    model = call.model or ("모델" if korean else "model")
+    cleaned_model = call.model.strip() if isinstance(call.model, str) else ""
+    model = cleaned_model or ("모델" if korean else "model")
     if call.status == "running":
         detail = f"{model} 응답 대기 중" if korean else f"waiting for {model}"
     else:

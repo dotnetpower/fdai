@@ -35,6 +35,7 @@ contract, so it stays under the ``core/`` import rule.
 from __future__ import annotations
 
 import logging
+import math
 
 from fdai.core.rca.contract import Citation, CitationKind
 from fdai.shared.providers.knowledge import KnowledgeChunk, KnowledgeSource
@@ -44,7 +45,11 @@ _LOGGER = logging.getLogger(__name__)
 
 def _knowledge_ref(chunk: KnowledgeChunk) -> str:
     """Opaque provenance handle for a retrieved chunk (no body text)."""
-    return f"knowledge:{chunk.source_ref}#{chunk.chunk_id}"
+    source_ref = chunk.source_ref.strip() if isinstance(chunk.source_ref, str) else ""
+    chunk_id = chunk.chunk_id.strip() if isinstance(chunk.chunk_id, str) else ""
+    if not source_ref or not chunk_id:
+        return ""
+    return f"knowledge:{source_ref}#{chunk_id}"
 
 
 class KnowledgeEvidenceGatherer:
@@ -59,9 +64,13 @@ class KnowledgeEvidenceGatherer:
         top_k: int = 5,
         min_score: float = 0.0,
     ) -> None:
-        if top_k < 1:
+        if isinstance(top_k, bool) or top_k < 1:
             raise ValueError("top_k MUST be >= 1")
-        if not 0.0 <= min_score <= 1.0:
+        if (
+            isinstance(min_score, bool)
+            or not math.isfinite(min_score)
+            or not 0.0 <= min_score <= 1.0
+        ):
             raise ValueError("min_score MUST be in [0, 1]")
         self._source = source
         self._top_k = top_k
@@ -84,12 +93,15 @@ class KnowledgeEvidenceGatherer:
         """
         if self._source is None:
             return ()
-        if not query.strip():
+        normalized_query = query.strip() if isinstance(query, str) else ""
+        if not normalized_query:
             return ()
+        if limit is not None and (isinstance(limit, bool) or limit < 1):
+            raise ValueError("limit MUST be a positive integer when provided")
 
         k = self._top_k if limit is None else max(1, min(limit, self._top_k))
         try:
-            chunks = await self._source.search(query, k=k)
+            chunks = await self._source.search(normalized_query, k=k)
         except Exception:  # noqa: BLE001 - fail closed: a source outage grounds nothing
             _LOGGER.warning(
                 "knowledge source search failed; contributing no citations",
@@ -100,13 +112,20 @@ class KnowledgeEvidenceGatherer:
         citations: list[Citation] = []
         seen: set[str] = set()
         for chunk in chunks:
-            if chunk.score < self._min_score:
+            if (
+                not isinstance(chunk.score, int | float)
+                or isinstance(chunk.score, bool)
+                or not math.isfinite(chunk.score)
+                or chunk.score < self._min_score
+            ):
                 continue
             ref = _knowledge_ref(chunk)
-            if ref in seen:
+            if not ref or ref in seen:
                 continue
             seen.add(ref)
             citations.append(Citation(kind=CitationKind.KNOWLEDGE, ref=ref))
+            if len(citations) >= k:
+                break
         return tuple(citations)
 
 

@@ -58,6 +58,13 @@ def adaptive_telemetry_evidence_result(
         ):
             continue
         digest = metadata.receipt_digest
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 71
+            or not digest.startswith("sha256:")
+            or any(ch not in "0123456789abcdef" for ch in digest[7:])
+        ):
+            continue
         reference = f"{_RECEIPT_REF_PREFIX}{digest}"
         if digest in seen or execution.evidence_refs.count(reference) != 1:
             continue
@@ -71,6 +78,7 @@ def adaptive_telemetry_evidence_result(
                         {
                             f"disposition:{metadata.disposition}",
                             f"mechanism:{recipe.mechanism.value}",
+                            f"recipe:{metadata.recipe_id}",
                             f"investigation_status:{investigation.disposition.value}",
                             "evidence_grade:association",
                         }

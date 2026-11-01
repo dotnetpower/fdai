@@ -333,8 +333,9 @@ class Pipeline:
         wire = await self._processor.process(envelope)
         if turn.index % 8 == 0:
             assert wire == await self._processor.process(envelope), "replay changed the projection"
-        stored = await self._consumer.consume(json.loads(wire))
-        assert dict(stored.data) == json.loads(wire), "Operator ingest altered the projection"
+        wire_payload = json.loads(wire)
+        stored = await self._consumer.consume(wire_payload)
+        assert dict(stored.data) == wire_payload, "Operator ingest altered the projection"
         done = semantic_done_event_data(stored.data, locale=turn.locale)
         return dict(stored.data), json.loads(json.dumps(done, ensure_ascii=False))
 
@@ -536,14 +537,27 @@ def test_generated_turn_stream_covers_every_kind_locale_and_failure_mode() -> No
     assert held_modes == {"held", "failed"}
 
 
+_GENERATED_TURN_RESULTS: dict[int, tuple[dict[str, Any], dict[str, Any]]] = {}
+
+
+async def _run_generated_partition(
+    partition: int,
+) -> list[tuple[Turn, dict[str, Any], dict[str, Any]]]:
+    turns = generated_turns()[partition::PARTITIONS]
+    missing = [turn for turn in turns if turn.index not in _GENERATED_TURN_RESULTS]
+    if missing:
+        pipeline = Pipeline()
+        for turn in missing:
+            _GENERATED_TURN_RESULTS[turn.index] = await pipeline.run(turn)
+    return [(turn, *_GENERATED_TURN_RESULTS[turn.index]) for turn in turns]
+
+
 @pytest.mark.parametrize("partition", range(PARTITIONS))
 async def test_generated_turns_keep_evidence_references_and_manifest_in_parity(
     partition: int,
 ) -> None:
-    pipeline = Pipeline()
     failures: Counter[tuple[str, str]] = Counter()
-    for turn in generated_turns()[partition::PARTITIONS]:
-        projection, done = await pipeline.run(turn)
+    for turn, projection, done in await _run_generated_partition(partition):
         failures.update((turn.kind, name) for name in violations(turn, projection, done))
 
     assert not failures
@@ -739,16 +753,16 @@ def _fallback_evidence_refs(text: str) -> tuple[str, ...]:
 async def test_channel_adapters_render_exact_terminal_manifest_without_extra_citations(
     partition: int,
 ) -> None:
-    pipeline = Pipeline()
     slack = SlackPresentationRenderer()
     teams = TeamsPresentationRenderer()
     failures: Counter[tuple[str, str]] = Counter()
-    for turn in generated_turns()[partition::PARTITIONS]:
-        projection, done = await pipeline.run(turn)
+    for turn, projection, done in await _run_generated_partition(partition):
         failures.update((turn.kind, name) for name in violations(turn, projection, done))
         envelope = normalize_terminal_presentation(done)
         slack_payload = slack.render(envelope)
         teams_payload = teams.render(envelope)
+        slack_body_json = json.dumps(slack_payload.body, ensure_ascii=False)
+        teams_body_json = json.dumps(teams_payload.body, ensure_ascii=False)
         checks = {
             "channel_envelope_manifest_differs": envelope.evidence_refs != turn.manifest,
             "slack_manifest_differs": _fallback_evidence_refs(slack_payload.fallback_text)
@@ -756,10 +770,10 @@ async def test_channel_adapters_render_exact_terminal_manifest_without_extra_cit
             "teams_manifest_differs": _fallback_evidence_refs(teams_payload.fallback_text)
             != turn.manifest,
             "slack_payload_omitted_mandatory_refs": not all(
-                ref in json.dumps(slack_payload.body, ensure_ascii=False) for ref in turn.manifest
+                ref in slack_body_json for ref in turn.manifest
             ),
             "teams_payload_omitted_mandatory_refs": not all(
-                ref in json.dumps(teams_payload.body, ensure_ascii=False) for ref in turn.manifest
+                ref in teams_body_json for ref in turn.manifest
             ),
         }
         failures.update((turn.kind, name) for name, failed in checks.items() if failed)

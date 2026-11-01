@@ -9,6 +9,7 @@ machine and the RuleCandidate intake.
 from __future__ import annotations
 
 import asyncio
+import math
 import re
 import threading
 from collections.abc import Callable, Sequence
@@ -283,9 +284,17 @@ class Mimir(
         policy_administration: MimirPolicyAdministration | None = None,
     ) -> None:
         super().__init__(spec=_MIMIR)
-        if min(max_pending_candidates, max_review_packages) < 1:
+        if (
+            isinstance(max_pending_candidates, bool)
+            or isinstance(max_review_packages, bool)
+            or min(max_pending_candidates, max_review_packages) < 1
+        ):
             raise ValueError("Mimir review capacities MUST be positive")
-        if provider_timeout_seconds <= 0:
+        if (
+            isinstance(provider_timeout_seconds, bool)
+            or not math.isfinite(provider_timeout_seconds)
+            or provider_timeout_seconds <= 0
+        ):
             raise ValueError("Mimir provider timeout MUST be positive")
         self._reviewed_repository_prefixes = _normalize_reviewed_repository_prefixes(
             reviewed_repository_prefixes
@@ -379,7 +388,9 @@ class Mimir(
                     payload=event,
                     idempotency_key=result.idempotency_key,
                 )
-            self.record_behavior(f"policy:{event['kind']}_published")
+                self.record_behavior(f"policy:{event['kind']}_published")
+            else:
+                self.record_behavior("publication:unavailable")
             return event
         if not await self._checkpoint_rule_publication(
             topic=POLICY_OBJECT_TOPIC,
@@ -394,7 +405,9 @@ class Mimir(
                 payload=event,
                 idempotency_key=result.idempotency_key,
             )
-        self.record_behavior(f"policy:{event['kind']}_published")
+            self.record_behavior(f"policy:{event['kind']}_published")
+        else:
+            self.record_behavior("publication:unavailable")
         return event
 
     async def handle_policy_activation_approval(

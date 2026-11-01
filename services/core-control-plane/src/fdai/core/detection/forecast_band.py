@@ -74,7 +74,8 @@ def prediction_band(
     forecast reaches toward the horizon - a conservative, monotonic proxy
     for the way a linear-fit prediction interval fans out with distance.
     """
-    z = _Z_BY_LEVEL.get(confidence_level)
+    normalized_level = confidence_level.strip() if isinstance(confidence_level, str) else ""
+    z = _Z_BY_LEVEL.get(normalized_level)
     if z is None:
         supported = ", ".join(sorted(_Z_BY_LEVEL))
         raise ValueError(
@@ -118,7 +119,10 @@ def prediction_band(
     # The breach is confident only if the *pessimistic* edge of the band
     # still crosses. For a rising breach that is the lower edge; for a
     # falling breach, the upper edge.
-    if finding.direction == "rising":
+    if not math.isfinite(center) or not math.isfinite(finding.threshold):
+        confident = False
+        edge = "lower" if finding.direction == "rising" else "upper"
+    elif finding.direction == "rising":
         confident = lower >= finding.threshold
         edge = "lower"
     else:  # "falling"
@@ -128,11 +132,11 @@ def prediction_band(
     reason = (
         f"{edge} band edge "
         f"{lower if finding.direction == 'rising' else upper:.4f} vs threshold "
-        f"{finding.threshold:.4f} at {confidence_level} confidence "
+        f"{finding.threshold:.4f} at {normalized_level} confidence "
         f"(half_width={half_width:.4f}, growth={growth:.3f})"
     )
     return ForecastBand(
-        confidence_level=confidence_level,
+        confidence_level=normalized_level,
         z=z,
         center=center,
         lower=lower,

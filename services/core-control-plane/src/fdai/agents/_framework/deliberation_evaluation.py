@@ -9,7 +9,15 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-_IDENTITY_FIELDS = ("resource_id", "scope_ref", "id", "correlation_id")
+_IDENTITY_FIELDS = (
+    "resource_id",
+    "scope_ref",
+    "id",
+    "correlation_id",
+    "resource_ref",
+    "target_resource_ref",
+    "incident_id",
+)
 _CONCLUSION_FIELDS = (
     "state",
     "status",
@@ -18,6 +26,10 @@ _CONCLUSION_FIELDS = (
     "health",
     "outcome",
     "recommendation",
+    "decision",
+    "risk_verdict",
+    "posture",
+    "tier",
 )
 _MAX_CANONICAL_BYTES = 2_048
 
@@ -35,6 +47,10 @@ class DeliberationSignal:
             raise ValueError("deliberation signal field is not comparable")
         if not _is_sha256(self.identity_digest) or not _is_sha256(self.value_digest):
             raise ValueError("deliberation signal digests MUST be SHA-256")
+
+    @property
+    def is_status_signal(self) -> bool:
+        return self.field in {"state", "status", "health", "posture"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +74,23 @@ class T1AnswerEvaluation:
     @property
     def requires_t2(self) -> bool:
         return bool(self.conflicts)
+
+    @property
+    def conflict_count(self) -> int:
+        return len(self.conflicts)
+
+    @property
+    def conflicted_fields(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(conflict.field for conflict in self.conflicts))
+
+    @property
+    def conflicted_agents(self) -> tuple[str, ...]:
+        agents: list[str] = []
+        for conflict in self.conflicts:
+            for name in (conflict.left_agent, conflict.right_agent):
+                if name not in agents:
+                    agents.append(name)
+        return tuple(agents)
 
     def to_mapping(self) -> dict[str, object]:
         return {
