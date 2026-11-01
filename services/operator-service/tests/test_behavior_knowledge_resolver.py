@@ -239,3 +239,23 @@ async def test_comparison_and_conflict_hold_preserve_fail_closed_invariants() ->
     )
     assert sections["owner"] == ("IncidentRegistry",)
     assert "IncidentRegistry" in text
+
+
+async def test_resolver_rejects_control_chars_invalid_top_k_and_duplicate_seed_ids() -> None:
+    index = _StaticIndex([BehaviorSearchResultLike(spec=_spec())])
+    resolver = OperatorBehaviorKnowledgeResolver(index)
+
+    for bad_query in ("How is an Incident ID\x00 created?", "How is an Incident ID\x1f created?"):
+        with pytest.raises(ValueError, match="NUL or control characters"):
+            BehaviorTurnRequest(raw_text=bad_query)
+
+    for bad_k in (0, 21, -1, True, False):
+        with pytest.raises(ValueError, match="top_k"):
+            await resolver.resolve(
+                BehaviorTurnRequest(raw_text="How is an Incident ID created?"),
+                top_k=bad_k,
+            )
+
+    resolver.register_seed(_spec("incident.seed-1"))
+    with pytest.raises(ValueError, match="duplicate seed_id"):
+        resolver.register_seed(_spec("incident.seed-1"))

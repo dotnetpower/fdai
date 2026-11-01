@@ -85,3 +85,44 @@ async def test_resolver_none_fails_closed_with_503_unavailable() -> None:
         )
     assert exc_info.value.status_code == 503
     assert exc_info.value.code == "narrator_image_resolution_unavailable"
+
+
+@pytest.mark.parametrize(
+    "forbidden_mime",
+    ["image/svg+xml", "text/html", "application/xhtml+xml"],
+)
+def test_resolved_image_forbids_script_capable_mime_types_and_validates_sha256_digest(
+    forbidden_mime: str,
+) -> None:
+    with pytest.raises(ValueError, match="script-capable"):
+        ResolvedNarratorImage(
+            image_id="att-img-1",
+            principal_id="principal-a",
+            conversation_id="conv-1",
+            media_type=forbidden_mime,
+            content=PNG_BYTES,
+            content_sha256=PNG_SHA,
+        )
+
+    for bad_digest in ("not-hex", PNG_SHA.upper(), "0" * 64):
+        with pytest.raises(ValueError, match="sha256_digest"):
+            ResolvedNarratorImage(
+                image_id="att-img-1",
+                principal_id="principal-a",
+                conversation_id="conv-1",
+                media_type="image/png",
+                content=PNG_BYTES,
+                content_sha256=PNG_SHA,
+                sha256_digest=bad_digest,
+            )
+
+    valid = ResolvedNarratorImage(
+        image_id="att-img-1",
+        principal_id="principal-a",
+        conversation_id="conv-1",
+        media_type="image/png",
+        content=PNG_BYTES,
+        content_sha256=PNG_SHA,
+        sha256_digest=PNG_SHA,
+    )
+    assert valid.sha256_digest == PNG_SHA

@@ -222,6 +222,8 @@ def validate_reconciliation_artifact(root: Path = REPO_ROOT) -> list[str]:
             min_rep, max_rep = row.get("min_replicas"), row.get("max_replicas")
             if type(min_rep) is int and type(max_rep) is int and min_rep > max_rep:
                 errors.append(f"row {row.get('row')} min_replicas exceeds max_replicas")
+            if row.get("category") not in {"fixed", "variable", "none"}:
+                errors.append(f"row {row.get('row')} category must be fixed, variable, or none")
             baseline = str(row.get("reconciled_baseline_usd", ""))
             if not baseline or "recalculate from current plan" in baseline.lower():
                 errors.append(f"row {row.get('row')} still contains unreconciled placeholder")

@@ -24,6 +24,7 @@ from fdai_operator_service.web_evidence import (
     WebEvidenceRoute,
     WebTurnContext,
     is_allowed_web_host,
+    is_valid_https_citation_url,
     sanitize_operator_snippet,
 )
 from fdai_operator_service.web_evidence import (
@@ -330,7 +331,7 @@ class AzureOperatorWebSearchAdapter(OperatorWebSearchProvider):
             url = str(item.get("url", "")).strip()
             parsed = urlsplit(url)
             host = (parsed.hostname or "").lower().rstrip(".")
-            if parsed.scheme.lower() not in {"http", "https"} or not host:
+            if not is_valid_https_citation_url(url) or not host:
                 raise AzureOperatorWebSearchError("invalid_source_url")
             if not is_allowed_web_host(host, self._config.allowed_domains):
                 raise AzureOperatorWebSearchError("off_allowlist_source")

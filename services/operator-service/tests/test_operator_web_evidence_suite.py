@@ -383,5 +383,30 @@ async def test_azure_search_adapter_enforces_allowlist_and_sanitizes_snippets() 
     assert noop.reasons == ("no_op_provider",)
 
 
+async def test_resolver_enforces_https_and_rejects_credentials_or_unsafe_schemes() -> None:
+    dom = "learn.microsoft.com"
+    unsafe_snippets = (
+        _snippet("http://learn.microsoft.com/en-us/aks/http", dom, content_hash="sha256:h1"),
+        _snippet("https://user:secret@learn.microsoft.com/aks/c", dom, content_hash="sha256:h2"),
+        _snippet("javascript:alert(1)", dom, content_hash="sha256:h3"),
+        _snippet("data:text/html,<h1>x</h1>", dom, content_hash="sha256:h4"),
+        _snippet("file:///etc/passwd", dom, content_hash="sha256:h5"),
+    )
+    resolver = OperatorWebEvidenceResolver(
+        classifier=OperatorWebEvidenceClassifier(),
+        provider=_RecordingSearchProvider(snippets=unsafe_snippets),
+    )
+    resolved = await resolver.resolve(
+        WebTurnContext(
+            raw_text="Search the web for AKS node autoscaler upgrade guidance.",
+            allowed_domains=_ALLOWED_DOMAINS,
+        )
+    )
+    assert resolved.citations == ()
+    assert resolved.wrapped_snippets == ()
+    assert len(resolved.dropped_snippets) == 5
+    assert all(reason == "invalid_url" for _, reason in resolved.dropped_snippets)
+
+
 async def _async_token(value: str) -> str:
     return value

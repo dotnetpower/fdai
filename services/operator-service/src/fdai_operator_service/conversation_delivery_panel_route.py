@@ -36,6 +36,11 @@ _FORBIDDEN_IDENTIFIER_KEYS = frozenset(
         "text",
         "response",
         "idempotency_key",
+        "recipient",
+        "user_id",
+        "channel_id",
+        "webhook_url",
+        "email",
     }
 )
 
@@ -224,7 +229,7 @@ def project_conversation_delivery_panel_payload(
     ]
     non_negative_samples = [sample for sample in latency_samples if sample >= 0.0]
 
-    return {
+    payload: dict[str, object] = {
         "surface": "conversation-delivery-panel",
         "route": ConversationDeliveryPanelRoute.route_path,
         "read_only": True,
@@ -241,6 +246,8 @@ def project_conversation_delivery_panel_payload(
         "breaker_state_counts": breaker_counts,
         "progressive": None if progressive is None else dict(progressive),
     }
+    _assert_identifier_free(payload)
+    return payload
 
 
 def summarize_latency_samples(samples: Sequence[float]) -> LatencyAggregate:
@@ -267,10 +274,10 @@ def _validate_sample(value: float) -> float:
 def _assert_identifier_free(value: object) -> None:
     if isinstance(value, Mapping):
         for key, item in value.items():
-            if str(key) in _FORBIDDEN_IDENTIFIER_KEYS:
+            if str(key).strip().casefold() in _FORBIDDEN_IDENTIFIER_KEYS:
                 raise ValueError(f"delivery panel payload MUST NOT expose identifier key {key}")
             _assert_identifier_free(item)
-    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         for item in value:
             _assert_identifier_free(item)
 

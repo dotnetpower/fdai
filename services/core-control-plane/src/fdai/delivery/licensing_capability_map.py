@@ -93,8 +93,8 @@ class TrustedTimeRollbackDetector:
     _reason: str | None = None
 
     def __post_init__(self) -> None:
-        if self.max_trusted_skew < timedelta(0):
-            raise ValueError("max_trusted_skew MUST be non-negative")
+        if not isinstance(self.max_trusted_skew, timedelta) or self.max_trusted_skew < timedelta(0):
+            raise ValueError("max_trusted_skew MUST be a non-negative timedelta")
         if self._high_water_mark_utc is not None:
             _require_utc(self._high_water_mark_utc)
 

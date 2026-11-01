@@ -249,3 +249,86 @@ def test_durable_crash_recovery_mid_cutover_restores_single_active_invariant() -
     assert slots_after["blue"].role == "fenced"
     assert controller.transition_log[-1].transition_kind == "recover"
     assert controller.transition_log[-1].record_digest.startswith("sha256:")
+
+
+def test_rolled_back_digest_fencing_and_future_trial_anchor_rejection() -> None:
+    controller = ComponentSelfUpgradeController()
+    with pytest.raises(TrialContinuityViolationError, match="trial_anchor_at"):
+        controller.register_component(
+            component="core_control_plane",
+            active_slot="blue",
+            fencing_epoch=1,
+            binary_digest=_DIGEST_V1,
+            schema_version=3,
+            trial_anchor_at=_NOW + timedelta(seconds=1),
+            monotonic_clock_floor_ns=1_000_000,
+            lease_expires_at=_LEASE,
+            now=_NOW,
+        )
+
+    controller = _bootstrap_controller()
+    with pytest.raises(TrialContinuityViolationError, match="trial_anchor_at"):
+        controller.stage_candidate_slot(
+            component="core_control_plane",
+            candidate_slot="green",
+            binary_digest=_DIGEST_V2,
+            candidate_schema_version=3,
+            trial_anchor_at=_NOW + timedelta(minutes=5),
+            monotonic_clock_floor_ns=1_000_000,
+            lease_expires_at=_LEASE,
+            now=_NOW + timedelta(minutes=1),
+        )
+
+    controller.stage_candidate_slot(
+        component="core_control_plane",
+        candidate_slot="green",
+        binary_digest=_DIGEST_V2,
+        candidate_schema_version=3,
+        trial_anchor_at=_TRIAL_ANCHOR,
+        monotonic_clock_floor_ns=1_500_000,
+        lease_expires_at=_LEASE,
+        now=_NOW + timedelta(minutes=1),
+    )
+    controller.promote_standby_slot(
+        component="core_control_plane",
+        standby_slot="green",
+        health_verified=True,
+        lease_expires_at=_NOW + timedelta(minutes=30),
+        now=_NOW + timedelta(minutes=2),
+    )
+    controller.rollback_to_slot(
+        component="core_control_plane",
+        target_slot="blue",
+        lease_expires_at=_NOW + timedelta(minutes=40),
+        now=_NOW + timedelta(minutes=3),
+    )
+
+    controller.stage_candidate_slot(
+        component="core_control_plane",
+        candidate_slot="green",
+        binary_digest=_DIGEST_V2,
+        candidate_schema_version=3,
+        trial_anchor_at=_TRIAL_ANCHOR,
+        monotonic_clock_floor_ns=2_000_000,
+        lease_expires_at=_NOW + timedelta(minutes=50),
+        now=_NOW + timedelta(minutes=4),
+    )
+    with pytest.raises(RoleFencingError, match="previously rolled-back binary_digest"):
+        controller.promote_standby_slot(
+            component="core_control_plane",
+            standby_slot="green",
+            health_verified=True,
+            lease_expires_at=_NOW + timedelta(minutes=60),
+            now=_NOW + timedelta(minutes=5),
+        )
+
+    re_promoted = controller.promote_standby_slot(
+        component="core_control_plane",
+        standby_slot="green",
+        health_verified=True,
+        lease_expires_at=_NOW + timedelta(minutes=60),
+        now=_NOW + timedelta(minutes=5),
+        allow_previously_rolled_back_digest=True,
+    )
+    assert re_promoted.role == "active"
+    assert re_promoted.binary_digest == _DIGEST_V2

@@ -105,3 +105,30 @@ def test_busy_input_materializer_submit_idempotency_and_revision_conflicts() -> 
     assert cancelled["cancelled"] is True
     assert cancelled["session"]["active_turn_id"] is None
     assert cancelled["session"]["revision"] == 4
+
+
+def test_busy_input_rejects_foreign_principal_on_submit_and_read_session_state() -> None:
+    mat = BusyInputOperatorMaterializer()
+    mat.ensure_session(
+        session_id="sess-owned",
+        owner_principal_id="owner-a",
+        mode="queue",
+        active_turn_id="turn-1",
+    )
+
+    with pytest.raises(PermissionError) as read_exc:
+        mat.read_session_state(session_id="sess-owned", principal_id="owner-b")
+    assert getattr(read_exc.value, "status_code", None) == 403
+
+    with pytest.raises(PermissionError) as submit_exc:
+        mat.submit_busy_input(
+            session_id="sess-owned",
+            principal_id="owner-b",
+            payload={
+                "input_id": "in-foreign",
+                "idempotency_key": "idem-foreign",
+                "content": "unauthorized steer",
+                "kind": "prose",
+            },
+        )
+    assert getattr(submit_exc.value, "status_code", None) == 403

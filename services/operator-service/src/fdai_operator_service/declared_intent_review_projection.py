@@ -60,6 +60,12 @@ class DeclaredIntentReviewerContext:
     group_ids: frozenset[str]
     current_as_of: datetime | None = None
 
+    def __post_init__(self) -> None:
+        if self.current_as_of is not None and (
+            self.current_as_of.tzinfo is None or self.current_as_of.utcoffset() is None
+        ):
+            raise ValueError("reviewer.current_as_of MUST be timezone-aware")
+
 
 @dataclass(frozen=True, slots=True)
 class DeclaredIntentSourceAccessMetadata:
@@ -112,6 +118,10 @@ def build_declared_intent_review_projection(
             "authenticated reviewer principal is required",
             status_code=401,
         )
+    if reviewer.current_as_of is not None and (
+        reviewer.current_as_of.tzinfo is None or reviewer.current_as_of.utcoffset() is None
+    ):
+        raise ValueError("reviewer.current_as_of MUST be timezone-aware")
     reviewer_id = reviewer.principal_id.strip()
     normalized_roles = {role.strip().lower() for role in reviewer.roles if role.strip()}
     if not (normalized_roles & _REVIEW_ROLES):

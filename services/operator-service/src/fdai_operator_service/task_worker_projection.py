@@ -132,22 +132,24 @@ class SqlTaskWorkerProjectionStore:
 
     async def list(self, *, owner: str, limit: int = 100) -> tuple[TaskWorkerSnapshotRecord, ...]:
         owner_id = _require_owner(owner)
+        bounded_limit = _bounded_int(limit, default=100, minimum=1, maximum=100)
         rows = await self._fetch_all(
             "SELECT worker_id, parent_trace_ref, cancellation_owner, status, request, "
             "capabilities, usage, result, created_at, updated_at, heartbeat_at "
             "FROM task_worker_run WHERE cancellation_owner = %s "
             "ORDER BY updated_at DESC, worker_id DESC LIMIT %s",
-            (owner_id, limit),
+            (owner_id, bounded_limit),
         )
         return tuple(_snapshot_from_row(row) for row in rows)
 
     async def get(self, worker_id: str, *, owner: str) -> TaskWorkerSnapshotRecord | None:
         owner_id = _require_owner(owner)
+        valid_id = _worker_id({"worker_id": worker_id})
         rows = await self._fetch_all(
             "SELECT worker_id, parent_trace_ref, cancellation_owner, status, request, "
             "capabilities, usage, result, created_at, updated_at, heartbeat_at "
             "FROM task_worker_run WHERE worker_id = %s AND cancellation_owner = %s",
-            (worker_id, owner_id),
+            (valid_id, owner_id),
         )
         return _snapshot_from_row(rows[0]) if rows else None
 
@@ -155,15 +157,17 @@ class SqlTaskWorkerProjectionStore:
         self, worker_id: str, *, owner: str, limit: int = 500
     ) -> tuple[TaskWorkerEventRecord, ...]:
         owner_id = _require_owner(owner)
+        valid_id = _worker_id({"worker_id": worker_id})
+        bounded_limit = _bounded_int(limit, default=500, minimum=1, maximum=500)
         rows = await self._fetch_all(
             "SELECT worker_id, sequence, kind, at, details FROM task_worker_event "
             "WHERE worker_id = %s AND EXISTS (SELECT 1 FROM task_worker_run run "
             "WHERE run.worker_id = task_worker_event.worker_id AND run.cancellation_owner = %s) "
             "ORDER BY sequence DESC LIMIT %s",
-            (worker_id, owner_id, limit),
+            (valid_id, owner_id, bounded_limit),
         )
-        if not rows and await self.get(worker_id, owner=owner_id) is None:
-            raise LookupError(f"task worker {worker_id!r} was not found")
+        if not rows and await self.get(valid_id, owner=owner_id) is None:
+            raise LookupError(f"task worker {valid_id!r} was not found")
         return tuple(_event_from_row(row) for row in reversed(list(rows)))
 
 
@@ -220,16 +224,13 @@ class TaskWorkerProjectionMaterializer:
 
 
 def _not_found_response(worker_id: str) -> ConversationResponse:
+    err: JsonObject = {
+        "code": "task_worker_not_found",
+        "message": "task worker not found",
+        "worker_id": worker_id,
+    }
     return ConversationResponse(
-        body={
-            "read_only": True,
-            "execution_authority": "none",
-            "error": {
-                "code": "task_worker_not_found",
-                "message": "task worker not found",
-                "worker_id": worker_id,
-            },
-        },
+        body={"read_only": True, "execution_authority": "none", "error": err},
         status_code=404,
     )
 
@@ -245,7 +246,14 @@ def _require_owner(owner: str) -> str:
 
 def _worker_id(path_params: JsonObject) -> str:
     raw = path_params.get("worker_id")
-    if not isinstance(raw, str) or not raw.strip() or len(raw) > 256:
+    if (
+        not isinstance(raw, str)
+        or not raw.strip()
+        or len(raw) > 256
+        or "/" in raw
+        or "\\" in raw
+        or any(ord(ch) < 32 for ch in raw)
+    ):
         raise ConversationBoundaryError(400, "invalid_worker_id", "worker_id MUST be bounded")
     return raw.strip()
 

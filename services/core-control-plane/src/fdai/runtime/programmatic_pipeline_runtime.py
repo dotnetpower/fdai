@@ -62,9 +62,19 @@ def build_programmatic_pipeline_runtime(
 ) -> ProgrammaticPipelineRuntimeBundle:
     """Compose a ProgrammaticPipelineRuntimeBundle over the registered ToolExecutor and store."""
     resolved_store = store or InMemoryProgrammaticPipelineStore()
-    catalog = ProgrammaticPipelineSandboxCatalog(
-        tuple(sandbox_profiles or DEFAULT_PIPELINE_SANDBOX_PROFILES)
+    if sandbox_profiles is not None and len(sandbox_profiles) == 0:
+        raise ValueError("sandbox_profiles MUST NOT be an empty sequence when explicitly provided")
+    profiles_tuple = (
+        tuple(sandbox_profiles)
+        if sandbox_profiles is not None
+        else DEFAULT_PIPELINE_SANDBOX_PROFILES
     )
+    seen_ids: set[str] = set()
+    for prof in profiles_tuple:
+        if prof.profile_id in seen_ids:
+            raise ValueError(f"duplicate sandbox profile_id: {prof.profile_id!r}")
+        seen_ids.add(prof.profile_id)
+    catalog = ProgrammaticPipelineSandboxCatalog(profiles_tuple)
     resolved_authority = authority or PipelineCapabilityAuthority()
     service = ProgrammaticPipelineService(
         runner=runner,

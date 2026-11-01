@@ -236,4 +236,52 @@ describe("outcome-assurance.model", () => {
     expect(staleKo.unavailableBanner).toContain("만료되어 사용 불가 처리되었습니다");
     expect(staleKo.guardSummary.policyEscapeDisplay).toBe("사용 불가");
   });
+
+  it("rejects duplicate metric_id, duplicate guard_id, and inverted confidence intervals", () => {
+    expect(() =>
+      decodeOutcomeAssuranceOperatorProjection({
+        ...COMPLETE_OPERATOR_PAYLOAD,
+        metrics: [
+          { metric_id: "m-1", value: 0.5, ci_low: 0.4, ci_high: 0.6 },
+          { metric_id: "m-1", value: 0.5, ci_low: 0.4, ci_high: 0.6 },
+        ],
+      }),
+    ).toThrow(/duplicate metric_id/);
+
+    expect(() =>
+      decodeOutcomeAssuranceOperatorProjection({
+        ...COMPLETE_OPERATOR_PAYLOAD,
+        guard_status: {
+          ...COMPLETE_OPERATOR_PAYLOAD.guard_status,
+          guard_evaluations: [
+            COMPLETE_OPERATOR_PAYLOAD.guard_status.guard_evaluations[0],
+            COMPLETE_OPERATOR_PAYLOAD.guard_status.guard_evaluations[0],
+          ],
+        },
+      }),
+    ).toThrow(/duplicate guard_id/);
+
+    expect(() =>
+      decodeOutcomeAssuranceOperatorProjection({
+        ...COMPLETE_OPERATOR_PAYLOAD,
+        metrics: [{ metric_id: "m-ci", value: 0.5, ci_low: 0.7, ci_high: 0.6 }],
+      }),
+    ).toThrow(/inverted confidence interval/);
+
+    expect(() =>
+      decodeOutcomeAssuranceOperatorProjection({
+        ...COMPLETE_OPERATOR_PAYLOAD,
+        projection: {
+          ...COMPLETE_PROJECTION,
+          outcomes: [
+            {
+              ...COMPLETE_PROJECTION.outcomes[0],
+              current_value: 0.05,
+              confidence_interval: { low: 0.01, high: 0.03 },
+            },
+          ],
+        },
+      }),
+    ).toThrow(/inverted confidence interval/);
+  });
 });

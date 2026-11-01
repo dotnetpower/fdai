@@ -162,6 +162,23 @@ class OperatorWebCitation:
     source_hash: str
     authority: Literal["none"] = "none"
 
+    def __post_init__(self) -> None:
+        if not is_valid_https_citation_url(self.url):
+            raise ValueError(
+                "OperatorWebCitation.url MUST use https:// with no embedded credentials"
+            )
+
+
+def is_valid_https_citation_url(url: str) -> bool:
+    parsed = urlsplit(url.strip())
+    host = (parsed.hostname or "").lower().rstrip(".")
+    return (
+        parsed.scheme.lower() == "https"
+        and bool(host)
+        and parsed.username is None
+        and parsed.password is None
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class OperatorWebSearchResponse:
@@ -220,9 +237,9 @@ def sanitize_operator_snippet(
 ) -> tuple[str | None, str | None]:
     if not allowed_domains:
         return None, "empty_allowlist"
-    parsed = urlsplit(snippet.url)
+    parsed = urlsplit(snippet.url.strip())
     host = (parsed.hostname or "").lower().rstrip(".")
-    if parsed.scheme.lower() not in {"http", "https"} or not host:
+    if not is_valid_https_citation_url(snippet.url) or not host:
         return None, "invalid_url"
     if not is_allowed_web_host(host, allowed_domains):
         return None, "off_allowlist"
@@ -283,8 +300,7 @@ class OperatorWebEvidenceClassifier:
     ) -> None:
         if not 0.0 <= min_confidence <= 1.0:
             raise ValueError("min_confidence MUST be in [0.0, 1.0]")
-        self._min_confidence = min_confidence
-        self._fallback = fallback_evaluator
+        self._min_confidence, self._fallback = min_confidence, fallback_evaluator
 
     def evaluate(self, context: WebTurnContext) -> WebEligibilityDecision:
         raw, folded = context.raw_text, context.raw_text.casefold()

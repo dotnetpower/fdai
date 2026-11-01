@@ -40,6 +40,7 @@ export function formatRelative(iso: string | null, now: Date = new Date()): stri
 }
 
 export function formatDurationMinutes(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes < 0) return "\u2013";
   if (minutes >= 1_440 && minutes % 1_440 === 0) {
     const days = minutes / 1_440;
     return days === 1 ? "1 day" : `${days} days`;

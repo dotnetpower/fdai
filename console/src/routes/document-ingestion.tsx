@@ -22,18 +22,38 @@ import { HandoverGoalChecklist } from "../components/handover-goal-checklist";
 import type { HandoverSlot } from "../handover-model";
 import { handoverConversationKey, handoverLoginSessionId } from "../handover-invitation";
 import {
-  decodeDeclaredIntentGeneralTopicSummary,
-  decodeDeclaredIntentReviewProjection,
-  formatDeclaredIntentReviewViewModel,
+  decodeDeclaredIntentGeneralTopicSummary as decodeDeclaredIntentGeneralTopicSummaryModel,
+  decodeDeclaredIntentReviewProjection as decodeDeclaredIntentReviewProjectionModel,
+  formatDeclaredIntentReviewViewModel as formatDeclaredIntentReviewViewModelModel,
+  type DeclaredIntentGeneralTopicSummaryPayload,
+  type DeclaredIntentLocale,
+  type DeclaredIntentReviewProjectionPayload,
   type DeclaredIntentReviewViewModel,
 } from "./declared-intent-review.model";
 
-export {
-  decodeDeclaredIntentGeneralTopicSummary,
-  decodeDeclaredIntentReviewProjection,
-  formatDeclaredIntentReviewViewModel,
-  type DeclaredIntentReviewViewModel,
-};
+export type { DeclaredIntentReviewViewModel };
+
+export function decodeDeclaredIntentReviewProjection(
+  value: unknown,
+): DeclaredIntentReviewProjectionPayload | null {
+  if (value === null || value === undefined) return null;
+  return decodeDeclaredIntentReviewProjectionModel(value);
+}
+
+export function decodeDeclaredIntentGeneralTopicSummary(
+  value: unknown,
+): DeclaredIntentGeneralTopicSummaryPayload | null {
+  if (value === null || value === undefined) return null;
+  return decodeDeclaredIntentGeneralTopicSummaryModel(value);
+}
+
+export function formatDeclaredIntentReviewViewModel(
+  payload: DeclaredIntentReviewProjectionPayload | null | undefined,
+  locale: DeclaredIntentLocale = "en",
+): DeclaredIntentReviewViewModel | null {
+  if (payload === null || payload === undefined) return null;
+  return formatDeclaredIntentReviewViewModelModel(payload, locale);
+}
 
 const DocumentLibrary = lazy(async () => ({
   default: (await import("./document-library")).DocumentLibrary,

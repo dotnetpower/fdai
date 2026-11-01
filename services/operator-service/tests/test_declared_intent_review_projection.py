@@ -220,3 +220,29 @@ def test_protected_review_projection_rejects_stale_or_non_governed_source_postur
         )
     assert rev_exc.value.status_code == 409
     assert rev_exc.value.code == "source_revision_mismatch"
+
+
+def test_reviewer_current_as_of_requires_timezone_aware_datetime() -> None:
+    naive_now = datetime(2026, 11, 1, 12, 0)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        DeclaredIntentReviewerContext(
+            principal_id="principal:approver-independent",
+            roles=frozenset({"Approver"}),
+            allowed_scopes=frozenset({"scope:payments-prod"}),
+            group_ids=frozenset({"group:payments-architecture"}),
+            current_as_of=naive_now,
+        )
+
+    aware_reviewer = DeclaredIntentReviewerContext(
+        principal_id="principal:approver-independent",
+        roles=frozenset({"Approver"}),
+        allowed_scopes=frozenset({"scope:payments-prod"}),
+        group_ids=frozenset({"group:payments-architecture"}),
+        current_as_of=datetime(2026, 11, 1, 12, 0, tzinfo=UTC),
+    )
+    projection = build_declared_intent_review_projection(
+        diff=_diff(),
+        source=_source(),
+        reviewer=aware_reviewer,
+    )
+    assert projection["independent_reviewer"] is True

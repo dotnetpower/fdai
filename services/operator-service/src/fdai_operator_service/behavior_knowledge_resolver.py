@@ -81,6 +81,20 @@ BehaviorOutcome = Literal[
 ]
 
 
+def _validate_query_text(raw_text: str) -> str:
+    if not isinstance(raw_text, str) or any(
+        ord(ch) < 32 and ch not in {"\t", "\n"} for ch in raw_text
+    ):
+        raise ValueError("behavior query MUST NOT contain NUL or control characters")
+    return raw_text
+
+
+def _validate_top_k(top_k: int) -> int:
+    if isinstance(top_k, bool) or not isinstance(top_k, int) or not 1 <= top_k <= 20:
+        raise ValueError("top_k MUST be an integer in [1, 20]")
+    return top_k
+
+
 @dataclass(frozen=True, slots=True)
 class BehaviorSourceLike:
     path: str
@@ -117,6 +131,7 @@ class BehaviorSpecLike:
     sources: tuple[BehaviorSourceLike, ...] = ()
     indexed_commit: str = ""
     localized: Mapping[str, BehaviorContentLike] = field(default_factory=dict)
+    seed_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +166,11 @@ class BehaviorTurnRequest:
     client_evidence: tuple[Mapping[str, Any], ...] = ()
     client_citations: tuple[Mapping[str, Any], ...] = ()
     claimed_authority: str | None = None
+    top_k: int = 5
+
+    def __post_init__(self) -> None:
+        _validate_query_text(self.raw_text)
+        _validate_top_k(self.top_k)
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,6 +204,7 @@ class BehaviorResolutionResult:
 
 
 def normalize_behavior_tokens(raw_text: str) -> tuple[str, ...]:
+    _validate_query_text(raw_text)
     lowered = unicodedata.normalize("NFKC", raw_text).casefold()
     tokens: list[str] = []
     for word in _WORD_RE.findall(lowered.replace("_", " ").replace("-", " ").replace(".", " ")):
@@ -278,12 +299,37 @@ class OperatorBehaviorKnowledgeResolver:
         *,
         renderer: DeterministicBehaviorRenderer | None = None,
         verifier: BehaviorAnswerVerifier | None = None,
+        seeds: Sequence[Any] = (),
     ) -> None:
         self._index = index
         self._renderer = renderer or DeterministicBehaviorRenderer()
         self._verifier = verifier or BehaviorAnswerVerifier()
+        self._registered_seed_ids: set[str] = set()
+        self._seeds: dict[str, Any] = {}
+        if seeds:
+            self.register_seeds(seeds)
 
-    async def resolve(self, request: BehaviorTurnRequest) -> BehaviorResolutionResult:
+    def register_seed(self, seed: Any) -> None:
+        raw_id = (
+            (seed.get("seed_id") or seed.get("behavior_id"))
+            if isinstance(seed, Mapping)
+            else (getattr(seed, "seed_id", "") or getattr(seed, "behavior_id", ""))
+        )
+        seed_id = str(raw_id or "").strip()
+        if not seed_id or seed_id in self._registered_seed_ids:
+            raise ValueError(f"invalid or duplicate seed_id {seed_id!r}")
+        self._registered_seed_ids.add(seed_id)
+        self._seeds[seed_id] = seed
+
+    def register_seeds(self, seeds: Sequence[Any]) -> None:
+        for seed in seeds:
+            self.register_seed(seed)
+
+    async def resolve(
+        self, request: BehaviorTurnRequest, *, top_k: int | None = None
+    ) -> BehaviorResolutionResult:
+        _validate_query_text(request.raw_text)
+        effective_k = _validate_top_k(request.top_k if top_k is None else top_k)
         stripped_count = (
             len(request.client_evidence)
             + len(request.client_citations)
@@ -293,7 +339,7 @@ class OperatorBehaviorKnowledgeResolver:
         fallback_reason = self._check_authority_fallback(request.raw_text)
         if fallback_reason is not None:
             return self._fallback_result(request.locale, fallback_reason, stripped, stripped_count)
-        results = await self._index.search(request.raw_text, k=5)
+        results = await self._index.search(request.raw_text, k=effective_k)
         if not results or results[0].score < RETRIEVAL_FLOOR:
             return self._fallback_result(
                 request.locale, "below_retrieval_floor", stripped, stripped_count
@@ -354,14 +400,9 @@ class OperatorBehaviorKnowledgeResolver:
             )
         citations = tuple(
             BehaviorCitationRecord(
-                src.path,
-                src.symbol,
-                src.line_start,
-                src.line_end,
-                src.blob_sha,
-                top.spec.indexed_commit,
+                s.path, s.symbol, s.line_start, s.line_end, s.blob_sha, top.spec.indexed_commit
             )
-            for src in top.spec.sources
+            for s in top.spec.sources
         )
         sections, rendered = self._renderer.render_single(
             top.spec, locale=request.locale, citations=citations
@@ -374,16 +415,17 @@ class OperatorBehaviorKnowledgeResolver:
             client_evidence_stripped=stripped,
             stripped_claim_count=stripped_count,
         )
+        outcome: BehaviorOutcome = "comparison_rendered" if is_comparison else "rendered"
         return BehaviorResolutionResult(
-            handled=True,
-            fallback_to_next_authority=False,
-            outcome="comparison_rendered" if is_comparison else "rendered",
-            fallback_reason=None,
-            locale=request.locale,
-            behavior_ids=(top.spec.behavior_id,),
-            sections=sections,
-            rendered_text=rendered,
-            verification=meta,
+            True,
+            False,
+            outcome,
+            None,
+            request.locale,
+            (top.spec.behavior_id,),
+            sections,
+            rendered,
+            meta,
         )
 
     @staticmethod
@@ -399,22 +441,16 @@ class OperatorBehaviorKnowledgeResolver:
         reindex: bool = False,
         reason: str,
     ) -> BehaviorResolutionResult:
+        meta = BehaviorVerificationMetadata(
+            verified=False,
+            client_evidence_stripped=stripped,
+            stripped_claim_count=count,
+            stale_withheld_count=stale_cnt,
+            reindex_required=reindex or stale_cnt > 0,
+            reasons=(reason,),
+        )
         return BehaviorResolutionResult(
-            handled=True,
-            fallback_to_next_authority=False,
-            outcome=outcome,
-            fallback_reason=None,
-            locale=locale,
-            behavior_ids=ids,
-            rendered_text=msg,
-            verification=BehaviorVerificationMetadata(
-                verified=False,
-                client_evidence_stripped=stripped,
-                stripped_claim_count=count,
-                stale_withheld_count=stale_cnt,
-                reindex_required=reindex or stale_cnt > 0,
-                reasons=(reason,),
-            ),
+            True, False, outcome, None, locale, ids, rendered_text=msg, verification=meta
         )
 
     @staticmethod

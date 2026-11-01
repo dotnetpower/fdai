@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Final, Literal
@@ -15,7 +16,8 @@ DEFAULT_RENEWAL_WARNING_WINDOW: Final = timedelta(days=7)
 MAX_OBSERVATION_STALENESS: Final = timedelta(minutes=5)
 _SAFE_IDENTIFIER: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 _SECRET_TOKEN_PATTERN: Final = re.compile(
-    r"(-----BEGIN|PRIVATE KEY|eyJ[A-Za-z0-9_-]{10,}|[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{24,})",
+    r"(-----BEGIN|PRIVATE KEY|bearer\s+\S+|eyJ[A-Za-z0-9_-]{10,}|"
+    r"[A-Za-z0-9_-]{24,}\.[A-Za-z0-9_-]{24,})",
     re.IGNORECASE,
 )
 _FORBIDDEN_INPUT_KEYS: Final = frozenset(
@@ -27,6 +29,8 @@ _FORBIDDEN_INPUT_KEYS: Final = frozenset(
         "signing_key",
         "signature",
         "document_bytes",
+        "secret",
+        "password",
     }
 )
 
@@ -118,8 +122,8 @@ def build_licensing_warning_projection(
     """Build a secret-free Operator licensing warning projection at ``now``."""
     if principal_id is None or not principal_id.strip():
         raise PermissionError("licensing warning projection requires an authenticated principal")
-    if raw_metadata is not None and (_FORBIDDEN_INPUT_KEYS & set(raw_metadata)):
-        raise ValueError("licensing warning projection input MUST NOT include secret or token keys")
+    if raw_metadata is not None:
+        _validate_raw_metadata(raw_metadata)
     current_now = (now or datetime.now(UTC)).astimezone(UTC)
     if current_now.tzinfo is None or current_now.utcoffset() is None:
         raise ValueError("current_now MUST be timezone-aware")
@@ -245,6 +249,24 @@ def build_licensing_warning_projection(
         observed_at=obs_utc,
         reason_code=_sanitize_identifier(reason_code) or "entitlement_active",
     )
+
+
+def _validate_raw_metadata(value: object) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            key_str = str(key).strip()
+            if key_str.casefold() in _FORBIDDEN_INPUT_KEYS or _SECRET_TOKEN_PATTERN.search(key_str):
+                raise ValueError(
+                    "licensing warning projection input MUST NOT include secret or token keys"
+                )
+            _validate_raw_metadata(item)
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        for item in value:
+            _validate_raw_metadata(item)
+    elif isinstance(value, str) and _SECRET_TOKEN_PATTERN.search(value):
+        raise ValueError(
+            "licensing warning projection input MUST NOT include secret or token material"
+        )
 
 
 def _sanitize_identifier(value: str | None) -> str | None:

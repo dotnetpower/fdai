@@ -46,6 +46,18 @@ def register_security_and_preflight_commands(
     audit.add_argument("--output", choices=("text", "json"), default="text")
     audit.set_defaults(handler=security_audit_command)
 
+    scan = command(
+        security_commands,
+        "scan",
+        "Run deterministic local security scan checks on a target work directory",
+    )
+    scan.add_argument("--target", required=True, help="Target directory path to scan")
+    scan.add_argument(
+        "--profile", type=Path, default=None, help="Optional private deployment profile"
+    )
+    scan.add_argument("--output", choices=("text", "json"), default="text")
+    scan.set_defaults(handler=run_security_scan_command)
+
     deploy = command(
         commands,
         "deploy",
@@ -165,9 +177,28 @@ def run_security_audit(
     }
 
 
+def _reject_control_characters(value: str, label: str = "--target") -> str:
+    if not value or not value.strip():
+        raise ValueError(f"security {label} must not be empty")
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in value):
+        raise ValueError(f"security {label} must not contain control characters")
+    return value
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"preflight plan JSON contains duplicate key: {key}")
+        result[key] = value
+    return result
+
+
 def security_audit_command(args: argparse.Namespace) -> int:
+    raw_work_dir = str(getattr(args, "work_dir", "") or getattr(args, "target", ""))
+    _reject_control_characters(raw_work_dir, "--work-dir")
     report = run_security_audit(
-        work_dir=Path(args.work_dir),
+        work_dir=Path(raw_work_dir),
         profile_path=Path(args.profile) if getattr(args, "profile", None) else None,
     )
     if getattr(args, "output", "text") == "json":
@@ -176,6 +207,36 @@ def security_audit_command(args: argparse.Namespace) -> int:
         status = "PASS" if report["passed"] else "FAIL"
         print(
             f"security audit {status}: checks={report['check_count']} "
+            f"failed={report['failed_count']}"
+        )
+    return 0 if report["passed"] else 3
+
+
+def run_security_scan_command(
+    args: argparse.Namespace | None = None,
+    *,
+    target: str | Path | None = None,
+    output: str = "text",
+) -> int:
+    """Validate `--target` against control characters and run the deterministic security scan."""
+    raw_target = (
+        str(target)
+        if target is not None
+        else str(getattr(args, "target", "") if args is not None else "")
+    )
+    _reject_control_characters(raw_target, "--target")
+    profile_arg = getattr(args, "profile", None) if args is not None else None
+    out_mode = str(getattr(args, "output", output)) if args is not None else output
+    report = run_security_audit(
+        work_dir=Path(raw_target),
+        profile_path=Path(profile_arg) if profile_arg else None,
+    )
+    if out_mode == "json":
+        print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+    else:
+        status = "PASS" if report["passed"] else "FAIL"
+        print(
+            f"security scan {status}: checks={report['check_count']} "
             f"failed={report['failed_count']}"
         )
     return 0 if report["passed"] else 3
@@ -195,8 +256,12 @@ def evaluate_deploy_preflight_plan(
         raise ValueError("preflight plan JSON exceeds 64 MiB limit")
     try:
         raw_bytes = plan_path.read_bytes()
-        payload = json.loads(raw_bytes.decode("utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raw_text = raw_bytes.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError("preflight plan JSON is unreadable or malformed") from exc
+    try:
+        payload = json.loads(raw_text, object_pairs_hook=_reject_duplicate_json_keys)
+    except json.JSONDecodeError as exc:
         raise ValueError("preflight plan JSON is unreadable or malformed") from exc
     if not isinstance(payload, Mapping):
         raise ValueError("preflight plan JSON must be an object")
@@ -292,5 +357,6 @@ __all__ = [
     "prune_obsolete_execution_copies",
     "register_security_and_preflight_commands",
     "run_security_audit",
+    "run_security_scan_command",
     "security_audit_command",
 ]

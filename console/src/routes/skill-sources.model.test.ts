@@ -108,5 +108,33 @@ describe("skill-sources.model", () => {
         bearer_token: "secret-value",
       }),
     ).toThrow(/MUST NOT expose secret field/);
+
+    expect(() =>
+      decodeSkillSourceProjection({
+        ...SAMPLE_PROJECTION,
+        sources: [SAMPLE_PROJECTION.sources[0], SAMPLE_PROJECTION.sources[0]],
+      }),
+    ).toThrow(/source_id .* is duplicated/);
+
+    expect(() =>
+      decodeSkillSourceProjection({
+        ...SAMPLE_PROJECTION,
+        candidates: [SAMPLE_PROJECTION.candidates[0], SAMPLE_PROJECTION.candidates[0]],
+      }),
+    ).toThrow(/candidate_id .* is duplicated/);
+
+    expect(() =>
+      decodeSkillSourceProjection({
+        ...SAMPLE_PROJECTION,
+        sources: [{ ...SAMPLE_PROJECTION.sources[0], refresh_interval_seconds: 120 }],
+      }),
+    ).toThrow(/refresh_interval_seconds MUST be between 300 and 604800/);
+
+    expect(() =>
+      decodeSkillSourceProjection({
+        ...SAMPLE_PROJECTION,
+        sources: [{ ...SAMPLE_PROJECTION.sources[0], refresh_interval_seconds: 700000 }],
+      }),
+    ).toThrow(/refresh_interval_seconds MUST be between 300 and 604800/);
   });
 });

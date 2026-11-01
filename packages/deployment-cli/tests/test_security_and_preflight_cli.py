@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
 import pytest
 from fdai_deployment_cli.cli import main
-from fdai_deployment_cli.security_and_preflight_cli import prune_obsolete_execution_copies
+from fdai_deployment_cli.security_and_preflight_cli import (
+    evaluate_deploy_preflight_plan,
+    prune_obsolete_execution_copies,
+    run_security_scan_command,
+)
 
 
 def test_fdaictl_security_audit_text_and_json_modes(
@@ -99,3 +104,21 @@ def test_prune_obsolete_execution_copies_preserves_unfinished_run_evidence(
     removed = prune_obsolete_execution_copies(tmp_path, max_retained=1)
     assert len(removed) == 2
     assert unfinished.exists()
+
+
+def test_evaluate_deploy_preflight_rejects_duplicate_json_keys_and_scan_rejects_control_chars(
+    tmp_path: Path,
+) -> None:
+    dup_plan = tmp_path / "dup-plan.json"
+    dup_plan.write_text(
+        '{"format_version":"1.2","errored":false,"errored":true,"resource_changes":[]}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate key"):
+        evaluate_deploy_preflight_plan(dup_plan)
+
+    with pytest.raises(ValueError, match="control characters"):
+        run_security_scan_command(argparse.Namespace(target="bad\x00target", output="text"))
+
+    with pytest.raises(ValueError, match="control characters"):
+        run_security_scan_command(target="bad\ntarget")

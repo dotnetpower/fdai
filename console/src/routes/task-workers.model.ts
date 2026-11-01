@@ -63,6 +63,7 @@ export interface TaskWorkerResultProjection {
   readonly parent_trace_ref: string;
   readonly status: TaskWorkerStatus;
   readonly summary: string | null;
+  readonly summary_truncated: boolean;
   readonly evidence_refs: readonly string[];
   readonly caveats: readonly string[];
   readonly usage: TaskWorkerUsageProjection;
@@ -258,14 +259,27 @@ function decodeWorkerRow(
 export function decodeTaskWorkerListProjection(value: unknown): TaskWorkerListProjection {
   const root = panelRecord(value, "TaskWorkerListProjection");
   requireReadOnlyRoot(root, "TaskWorkerListProjection");
+  const seenWorkerIds = new Set<string>();
+  const workers = panelArray(root.workers, "TaskWorkerListProjection.workers").map(
+    (entry, idx) => {
+      const row = decodeWorkerRow(entry, `TaskWorkerListProjection.workers[${idx}]`, true);
+      if (seenWorkerIds.has(row.worker_id)) {
+        throw panelContractError(
+          `TaskWorkerListProjection.workers[${idx}] has duplicate worker_id ${row.worker_id}`,
+        );
+      }
+      seenWorkerIds.add(row.worker_id);
+      return row;
+    },
+  );
   return {
     read_only: true,
     execution_authority: "none",
-    workers: panelArray(root.workers, "TaskWorkerListProjection.workers").map((entry, idx) =>
-      decodeWorkerRow(entry, `TaskWorkerListProjection.workers[${idx}]`, true),
-    ),
+    workers,
   };
 }
+
+export const decodeTaskWorkerList = decodeTaskWorkerListProjection;
 
 export function decodeTaskWorkerDetailProjection(value: unknown): TaskWorkerDetailProjection {
   const root = panelRecord(value, "TaskWorkerDetailProjection");
@@ -283,11 +297,16 @@ export function decodeTaskWorkerDetailProjection(value: unknown): TaskWorkerDeta
     if (panelBoolean(resRec, "trusted", resLabel) !== false) {
       throw panelContractError(`${resLabel}.trusted MUST be false`);
     }
+    const summaryTruncated =
+      resRec.summary_truncated === undefined
+        ? false
+        : panelBoolean(resRec, "summary_truncated", resLabel);
     result = {
       worker_id: panelNonEmptyString(resRec, "worker_id", resLabel),
       parent_trace_ref: panelNonEmptyString(resRec, "parent_trace_ref", resLabel),
       status: decodeStatus(panelNonEmptyString(resRec, "status", resLabel), resLabel),
       summary: panelNullableString(resRec, "summary", resLabel),
+      summary_truncated: summaryTruncated,
       evidence_refs: panelStringArray(resRec.evidence_refs, `${resLabel}.evidence_refs`),
       caveats: panelStringArray(resRec.caveats, `${resLabel}.caveats`),
       usage: decodeUsage(resRec.usage, `${resLabel}.usage`),
@@ -303,6 +322,8 @@ export function decodeTaskWorkerDetailProjection(value: unknown): TaskWorkerDeta
     worker: { ...base, evidence_refs: evidenceRefs, result },
   };
 }
+
+export const decodeTaskWorkerDetail = decodeTaskWorkerDetailProjection;
 
 export function decodeTaskWorkerEventsProjection(value: unknown): TaskWorkerEventsProjection {
   const root = panelRecord(value, "TaskWorkerEventsProjection");

@@ -39,6 +39,8 @@ def load_execution_backend_registry_from_env(
         return None
     max_bytes = _max_bytes(values)
     path = Path(raw_path)
+    if path.is_symlink():
+        raise RuntimeError(f"{REGISTRY_PATH_VARIABLE} MUST NOT be a symlink")
     try:
         status = path.stat()
     except OSError as exc:

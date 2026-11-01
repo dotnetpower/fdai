@@ -53,8 +53,13 @@ def _normalize_role_tuple(values: Sequence[str] | None) -> tuple[str, ...]:
         return ()
     cleaned: list[str] = []
     for item in values:
-        if not isinstance(item, str) or not item.strip():
-            raise ValueError("role values MUST be non-empty strings")
+        if (
+            not isinstance(item, str)
+            or not item.strip()
+            or len(item.strip()) > 256
+            or any(ord(ch) < 32 for ch in item)
+        ):
+            raise ValueError("role values MUST be non-empty printable strings <= 256 chars")
         token = item.strip()
         if token not in cleaned:
             cleaned.append(token)
@@ -234,7 +239,10 @@ def enforce_terminal_clarification_hold(
     third_family_verdict: Literal["one", "multiple", "unclear"] | AmbiguityVerdict | None = None,
 ) -> TerminalClarificationDecision:
     """Block frame reinterpretation on clarification/ambiguous judgment unless 3rd family is one."""
-
+    if not all(
+        isinstance(flag, bool) for flag in (is_clarification, is_ambiguous, has_released_reading)
+    ):
+        raise TypeError("clarification and reading flags MUST be booleans")
     normalized = _parse_ambiguity_verdict(third_family_verdict, label="third_family_verdict")
     if is_clarification or is_ambiguous:
         if has_released_reading and normalized is AmbiguityVerdict.ONE:

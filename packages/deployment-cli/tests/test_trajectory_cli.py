@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
 from fdai_deployment_cli.cli import main
-from fdai_deployment_cli.trajectory_cli import canonical_json_bytes
+from fdai_deployment_cli.trajectory_cli import canonical_json_bytes, validate_trajectory_artifacts
 
 SCOPE_A = "a" * 64
 SCOPE_B = "b" * 64
@@ -313,3 +314,51 @@ def test_fdaictl_trajectory_validate_rejects_inverted_timestamps(
     )
     assert rc == 3
     assert "completed_at must be >= started_at" in capsys.readouterr().err
+
+
+def test_fdaictl_trajectory_validate_rejects_symlinks_oversized_and_empty_datasets(
+    tmp_path: Path,
+) -> None:
+    ds, mf = _write_export(tmp_path, records=[_sample_record()])
+
+    symlink_ds = tmp_path / "symlink.trajectory.jsonl"
+    symlink_ds.symlink_to(ds)
+    with pytest.raises(ValueError, match="symlink"):
+        validate_trajectory_artifacts(
+            dataset_path=symlink_ds,
+            manifest_path=mf,
+            purpose="quality-evaluation",
+            access_scope=SCOPE_A,
+        )
+
+    symlink_mf = tmp_path / "symlink.manifest.json"
+    symlink_mf.symlink_to(mf)
+    with pytest.raises(ValueError, match="symlink"):
+        validate_trajectory_artifacts(
+            dataset_path=ds,
+            manifest_path=symlink_mf,
+            purpose="quality-evaluation",
+            access_scope=SCOPE_A,
+        )
+
+    empty_dir = tmp_path / "empty"
+    empty_dir.mkdir()
+    empty_ds, empty_mf = _write_export(empty_dir, records=[])
+    with pytest.raises(ValueError, match="no records"):
+        validate_trajectory_artifacts(
+            dataset_path=empty_ds,
+            manifest_path=empty_mf,
+            purpose="quality-evaluation",
+            access_scope=SCOPE_A,
+        )
+
+    oversized_ds = tmp_path / "oversized.trajectory.jsonl"
+    oversized_ds.write_bytes(b"{}\n")
+    os.truncate(oversized_ds, 64 * 1024 * 1024 + 1)
+    with pytest.raises(ValueError, match="64 MiB"):
+        validate_trajectory_artifacts(
+            dataset_path=oversized_ds,
+            manifest_path=mf,
+            purpose="quality-evaluation",
+            access_scope=SCOPE_A,
+        )

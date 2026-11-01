@@ -129,6 +129,16 @@ describe("declared-intent-review.model", () => {
         execution_authority: true,
       }),
     ).toThrow("execution_authority MUST be false");
+
+    expect(() =>
+      decodeDeclaredIntentReviewProjection({
+        ...REVIEW_PAYLOAD,
+        property_changes: [
+          REVIEW_PAYLOAD.property_changes[0],
+          REVIEW_PAYLOAD.property_changes[0],
+        ],
+      }),
+    ).toThrow(/duplicate field_name/);
   });
 
   it("enforces source-property privacy on general-topic summary payloads", () => {

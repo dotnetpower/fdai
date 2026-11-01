@@ -302,3 +302,50 @@ async def test_read_outcome_assurance_operator_projection_round_trip() -> None:
     assert decoded.authority == "none"
     assert decoded.state is OutcomeAssuranceReadState.COMPLETE
     assert len(decoded.objective_drilldowns) == 1
+
+
+def test_rejects_non_finite_metrics_negative_sample_size_and_inverted_ci() -> None:
+    from fdai_operator_service.outcome_assurance_projection import OutcomeAssuranceSummaryCard
+
+    for bad_val in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(ValueError, match="finite"):
+            OutcomeAssuranceSummaryCard(
+                card_id="operational_readiness",
+                state="ready",
+                available=True,
+                headline_metric=bad_val,
+            )
+
+    with pytest.raises(ValueError, match="sample_size"):
+        OutcomeAssuranceSummaryCard(
+            card_id="operational_readiness",
+            state="ready",
+            available=True,
+            headline_metric=0.5,
+            sample_size=-1,
+        )
+
+    for ci_low, val, ci_high in ((0.6, 0.5, 0.8), (0.2, 0.9, 0.8)):
+        with pytest.raises(ValueError, match="confidence interval"):
+            OutcomeAssuranceSummaryCard(
+                card_id="operational_readiness",
+                state="ready",
+                available=True,
+                headline_metric=val,
+                ci_low=ci_low,
+                ci_high=ci_high,
+            )
+        base = _complete_projection()
+        bad_metric = base.outcomes[0].model_copy(
+            update={
+                "current_value": val,
+                "confidence_interval": OutcomeAssuranceConfidenceInterval(low=ci_low, high=ci_high),
+            }
+        )
+        bad_proj = base.model_copy(update={"outcomes": (bad_metric,)})
+        with pytest.raises(ValueError, match="confidence interval"):
+            build_outcome_assurance_operator_projection(
+                principal_id="operator-reader-1",
+                projection=bad_proj,
+                now=NOW,
+            )

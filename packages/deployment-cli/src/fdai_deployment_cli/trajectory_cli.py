@@ -15,6 +15,7 @@ from fdai_deployment_cli.cli_help import command, command_group
 
 TRAJECTORY_SCHEMA_VERSION = "1.0"
 SUPPORTED_REDACTION_POLICIES = frozenset({"1.0"})
+_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 _DIGEST_CHARS = frozenset("0123456789abcdef")
 _ALLOWED_OUTCOMES = frozenset(
     {
@@ -136,10 +137,22 @@ def validate_trajectory_artifacts(
         raise ValueError("trajectory purpose must not be empty")
     if not _is_sha256_hex(expected_scope):
         raise ValueError("trajectory access-scope must be a 64-character lowercase hex digest")
+    if dataset_path.is_symlink() or manifest_path.is_symlink():
+        raise ValueError("trajectory dataset and manifest paths must not be symlinks")
+
+    try:
+        manifest_stat = manifest_path.stat()
+        dataset_stat = dataset_path.stat()
+    except OSError as exc:
+        raise ValueError("trajectory export is incomplete or unreadable") from exc
+    if manifest_stat.st_size > _MAX_ARTIFACT_BYTES or dataset_stat.st_size > _MAX_ARTIFACT_BYTES:
+        raise ValueError("trajectory artifact exceeds 64 MiB limit")
 
     try:
         manifest_raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-        lines = dataset_path.read_bytes().splitlines(keepends=True)
+        lines = [
+            line for line in dataset_path.read_bytes().splitlines(keepends=True) if line.strip()
+        ]
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("trajectory export is incomplete or unreadable") from exc
 

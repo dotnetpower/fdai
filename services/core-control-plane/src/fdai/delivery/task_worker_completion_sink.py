@@ -122,7 +122,10 @@ class DetachedSessionTaskWorkerCompletionSink:
             raise ValueError("task worker results MUST remain untrusted")
 
         prior = self._receipts.get(result.worker_id)
+        envelope = _build_envelope(result)
         if prior is not None and prior.delivered:
+            if prior.delivery_id != envelope.delivery_id:
+                raise ValueError("conflicting terminal worker result replay for worker_id")
             return DetachedWorkerCompletionReceipt(
                 delivery_id=prior.delivery_id,
                 worker_id=prior.worker_id,
@@ -131,8 +134,6 @@ class DetachedSessionTaskWorkerCompletionSink:
                 duplicate=True,
                 recorded_at=prior.recorded_at,
             )
-
-        envelope = _build_envelope(result)
         try:
             await self._reply_sink.deliver_worker_completion(envelope)
         except Exception as exc:  # noqa: BLE001 - sink failure must never rewrite terminal state

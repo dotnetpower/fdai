@@ -123,3 +123,31 @@ def test_operator_submission_enforces_authentication_and_role_gate() -> None:
             reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
         )
     assert dup_info.value.code == "duplicate_tool_ids"
+
+
+def test_operator_submission_rejects_control_characters_and_boolean_numeric_bounds() -> None:
+    with pytest.raises(ProgrammaticPipelineSubmissionError) as bad_principal:
+        submit_reviewed_programmatic_pipeline(
+            principal_id="operator\x00@example.com",
+            roles=frozenset({"owner"}),
+            payload=_valid_payload(),
+            reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
+        )
+    assert bad_principal.value.code == "invalid_principal_id"
+
+    for field, bad_val, expected_code in (
+        ("idempotency_key", "idem-\n1", "invalid_idempotency_key"),
+        ("correlation_id", "corr-\x1f1", "invalid_correlation_id"),
+        ("max_steps", True, "invalid_max_steps"),
+        ("max_wall_seconds", False, "invalid_max_wall_seconds"),
+    ):
+        bad_payload = _valid_payload()
+        bad_payload[field] = bad_val
+        with pytest.raises(ProgrammaticPipelineSubmissionError) as exc_info:
+            submit_reviewed_programmatic_pipeline(
+                principal_id="owner@example.com",
+                roles=frozenset({"owner"}),
+                payload=bad_payload,
+                reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
+            )
+        assert exc_info.value.code == expected_code

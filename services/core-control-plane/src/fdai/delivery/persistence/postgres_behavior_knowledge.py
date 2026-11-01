@@ -43,6 +43,8 @@ def encode_behavior_vector(values: Sequence[float]) -> str:
 
     if len(values) != EMBEDDING_DIM:
         raise ValueError(f"behavior embedding dim MUST be {EMBEDDING_DIM}; got {len(values)}")
+    if any(isinstance(v, bool) for v in values):
+        raise ValueError("behavior embedding values MUST NOT be booleans")
     floats = tuple(float(v) for v in values)
     if any(not math.isfinite(v) for v in floats):
         raise ValueError("behavior embedding values MUST be finite")

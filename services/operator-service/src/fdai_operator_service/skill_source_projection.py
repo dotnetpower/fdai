@@ -95,7 +95,12 @@ class SkillCandidateProjectionRecord:
     disabled: bool = True
 
     def __post_init__(self) -> None:
-        if not self.candidate_id.strip() or not self.quarantine_id.strip():
+        if (
+            not self.candidate_id.strip()
+            or not self.quarantine_id.strip()
+            or _has_control_chars(self.candidate_id)
+            or _has_control_chars(self.quarantine_id)
+        ):
             raise ValueError("candidate_id and quarantine_id MUST be non-empty")
         if _DIGEST_RE.fullmatch(self.artifact_digest) is None:
             raise ValueError("artifact_digest MUST be lowercase SHA-256")
@@ -113,6 +118,10 @@ class SkillRevocationProjectionRecord:
     artifact_digest: str
     reason: str
     revoked_at: str
+
+    def __post_init__(self) -> None:
+        if not self.reason.strip() or _has_control_chars(self.reason):
+            raise ValueError("reason MUST be non-empty without control characters")
 
     def to_json(self) -> JsonObject:
         return asdict(self)
@@ -271,9 +280,7 @@ class SkillSourceWorkflowBridge:
     async def submit_proposal(
         self, proposal: WorkflowProposal, *, now: datetime | None = None
     ) -> JsonObject:
-        if not isinstance(proposal.payload, Mapping) or (
-            _FORBIDDEN_SECRET_KEYS & {str(k).casefold() for k in proposal.payload}
-        ):
+        if not isinstance(proposal.payload, Mapping) or _has_forbidden_secret_key(proposal.payload):
             raise SkillSourceProjectionError(
                 400, "forbidden_secret_field", "secret fields forbidden"
             )
@@ -281,16 +288,22 @@ class SkillSourceWorkflowBridge:
             _require_roles(
                 proposal.principal_id, proposal.principal_roles, _APPROVAL_ROLES, "approve"
             )
-            if not str(proposal.payload.get("candidate_id", "")).strip():
+            raw_cid = proposal.payload.get("candidate_id")
+            if not isinstance(raw_cid, str) or not raw_cid.strip():
                 raise SkillSourceProjectionError(
                     400, "missing_candidate_id", "candidate_id required"
+                )
+            if _has_control_chars(raw_cid):
+                raise SkillSourceProjectionError(
+                    400, "invalid_candidate_id", "candidate_id contains control characters"
                 )
         elif proposal.operation is WorkflowOperation.SKILL_SOURCE_REVOCATION_PROPOSAL:
             _require_roles(
                 proposal.principal_id, proposal.principal_roles, _REVOCATION_ROLES, "revoke"
             )
-            reason = str(proposal.payload.get("reason", "")).strip()
-            if not reason or len(reason) > 512:
+            raw_reason = proposal.payload.get("reason")
+            reason = raw_reason.strip() if isinstance(raw_reason, str) else ""
+            if not reason or len(reason) > 512 or _has_control_chars(str(raw_reason)):
                 raise SkillSourceProjectionError(400, "invalid_reason", "revocation reason invalid")
         else:
             raise SkillSourceProjectionError(400, "unsupported_proposal", "unsupported proposal")
@@ -366,6 +379,21 @@ def _require_roles(
         raise SkillSourceProjectionError(
             403, "forbidden_role", f"principal lacks required role to {action}"
         )
+
+
+def _has_control_chars(value: str) -> bool:
+    return any(ord(ch) < 32 or ord(ch) == 127 for ch in value)
+
+
+def _has_forbidden_secret_key(value: object) -> bool:
+    if isinstance(value, Mapping):
+        return any(
+            str(k).strip().casefold() in _FORBIDDEN_SECRET_KEYS or _has_forbidden_secret_key(v)
+            for k, v in value.items()
+        )
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return any(_has_forbidden_secret_key(item) for item in value)
+    return False
 
 
 def _payload_digest(expected_revision: str, payload: Mapping[str, Any]) -> str:

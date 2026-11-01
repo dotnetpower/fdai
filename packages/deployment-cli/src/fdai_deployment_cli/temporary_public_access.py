@@ -263,6 +263,13 @@ class TemporaryPublicAccessCoordinator:
             raise TemporaryPublicAccessError(
                 "request MUST be a TemporaryPublicAccessRequest instance"
             )
+        finish_time = closed_at or (request.requested_at + timedelta(seconds=1))
+        _require_aware("closed_at", finish_time)
+        if finish_time < request.requested_at:
+            raise TemporaryPublicAccessError(
+                "closed_at MUST NOT be earlier than request.requested_at"
+            )
+
         prior_request = self._requests_by_correlation.get(request.correlation_id)
         prior_outcome = self._outcomes_by_correlation.get(request.correlation_id)
         if prior_request is not None and prior_outcome is not None:
@@ -279,8 +286,6 @@ class TemporaryPublicAccessCoordinator:
                 return prior_outcome  # type: ignore[return-value]
 
         self._requests_by_correlation[request.correlation_id] = request
-        finish_time = closed_at or (request.requested_at + timedelta(seconds=1))
-        _require_aware("closed_at", finish_time)
 
         def _make_audit(
             phase: Literal["phase_1", "phase_2"],

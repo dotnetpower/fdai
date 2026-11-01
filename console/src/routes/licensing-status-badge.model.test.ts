@@ -97,5 +97,19 @@ describe("licensing-status-badge.model", () => {
         license_id: ["-----BEGIN", "PRIVATE KEY-----"].join(" "),
       }),
     ).toThrow("secret-like material");
+
+    expect(() =>
+      decodeLicensingWarningProjection({
+        ...BASE_PAYLOAD,
+        nested_meta: [{ password: "leaked", secret: "x" }],
+      }),
+    ).toThrow("MUST NOT expose secret field");
+
+    expect(() =>
+      decodeLicensingWarningProjection({
+        ...BASE_PAYLOAD,
+        days_remaining: -1,
+      }),
+    ).toThrow("days_remaining");
   });
 });

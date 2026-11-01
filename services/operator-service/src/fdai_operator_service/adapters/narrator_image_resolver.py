@@ -14,7 +14,11 @@ from fdai_operator_service.families.conversation.contracts import ConversationBo
 MAX_RESOLVED_IMAGES_PER_TURN = 4
 MAX_RESOLVED_IMAGE_BYTES = 4 * 1024 * 1024
 ALLOWED_IMAGE_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/gif", "image/webp"})
+FORBIDDEN_SCRIPT_IMAGE_MEDIA_TYPES = frozenset(
+    {"image/svg+xml", "text/html", "application/xhtml+xml"}
+)
 _IMAGE_ID_RE = re.compile(r"^att-[A-Za-z0-9-]{1,124}$")
+_SHA256_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,18 +33,32 @@ class ResolvedNarratorImage:
     content_sha256: str
     width: int = 512
     height: int = 512
+    sha256_digest: str | None = None
 
     def __post_init__(self) -> None:
         if _IMAGE_ID_RE.fullmatch(self.image_id) is None:
             raise ValueError("resolved narrator image_id is invalid")
         if not self.principal_id.strip() or not self.conversation_id.strip():
             raise ValueError("resolved narrator image requires principal_id and conversation_id")
+        normalized_media = self.media_type.strip().lower().split(";", 1)[0].strip()
+        if normalized_media in FORBIDDEN_SCRIPT_IMAGE_MEDIA_TYPES:
+            raise ValueError(f"script-capable image media_type {self.media_type!r} is forbidden")
         if self.media_type not in ALLOWED_IMAGE_MEDIA_TYPES:
             raise ValueError("resolved narrator image media_type is unsupported")
         if not (1 <= len(self.content) <= MAX_RESOLVED_IMAGE_BYTES):
             raise ValueError("resolved narrator image content exceeds byte bounds")
-        if hashlib.sha256(self.content).hexdigest() != self.content_sha256:
+        expected_sha = hashlib.sha256(self.content).hexdigest()
+        if (
+            _SHA256_HEX_RE.fullmatch(self.content_sha256) is None
+            or expected_sha != self.content_sha256
+        ):
             raise ValueError("resolved narrator image content_sha256 mismatch")
+        if self.sha256_digest is not None and (
+            not isinstance(self.sha256_digest, str)
+            or _SHA256_HEX_RE.fullmatch(self.sha256_digest) is None
+            or expected_sha != self.sha256_digest
+        ):
+            raise ValueError("resolved narrator image sha256_digest mismatch")
         if not (1 <= self.width <= 16_384 and 1 <= self.height <= 16_384):
             raise ValueError("resolved narrator image dimensions are out of bounds")
 
@@ -112,8 +130,43 @@ class InMemoryNarratorImageResolver:
                     "image_not_found",
                     "requested conversation image was not found in principal scope",
                 )
+            _validate_stored_image_record(record)
             resolved.append(record)
         return tuple(resolved)
+
+
+def _validate_stored_image_record(record: ResolvedNarratorImage) -> None:
+    normalized_media = record.media_type.strip().lower().split(";", 1)[0].strip()
+    if (
+        normalized_media in FORBIDDEN_SCRIPT_IMAGE_MEDIA_TYPES
+        or record.media_type not in ALLOWED_IMAGE_MEDIA_TYPES
+    ):
+        raise ConversationBoundaryError(
+            400,
+            "unsupported_image_media_type",
+            "script-capable or unsupported image media_type is forbidden",
+        )
+    expected_sha = hashlib.sha256(record.content).hexdigest()
+    if (
+        _SHA256_HEX_RE.fullmatch(record.content_sha256) is None
+        or record.content_sha256 != expected_sha
+    ):
+        raise ConversationBoundaryError(
+            400,
+            "invalid_image_digest",
+            "stored image content_sha256 is invalid or mismatched",
+        )
+    sha256_digest = getattr(record, "sha256_digest", None)
+    if sha256_digest is not None and (
+        not isinstance(sha256_digest, str)
+        or _SHA256_HEX_RE.fullmatch(sha256_digest) is None
+        or sha256_digest != expected_sha
+    ):
+        raise ConversationBoundaryError(
+            400,
+            "invalid_image_digest",
+            "stored image sha256_digest must be a 64-char lowercase hex SHA-256 matching content",
+        )
 
 
 async def resolve_turn_images_from_body(
@@ -164,6 +217,8 @@ async def resolve_turn_images_from_body(
             "image_scope_mismatch",
             "resolved images did not match the requested principal, conversation, or image_ids",
         )
+    for img in resolved:
+        _validate_stored_image_record(img)
     max_turn_bytes = MAX_RESOLVED_IMAGES_PER_TURN * MAX_RESOLVED_IMAGE_BYTES
     if sum(len(img.content) for img in resolved) > max_turn_bytes:
         raise ConversationBoundaryError(
@@ -176,6 +231,7 @@ async def resolve_turn_images_from_body(
 
 __all__ = [
     "ALLOWED_IMAGE_MEDIA_TYPES",
+    "FORBIDDEN_SCRIPT_IMAGE_MEDIA_TYPES",
     "InMemoryNarratorImageResolver",
     "MAX_RESOLVED_IMAGES_PER_TURN",
     "MAX_RESOLVED_IMAGE_BYTES",

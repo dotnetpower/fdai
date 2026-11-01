@@ -234,7 +234,9 @@ def export_cohort_observation_batch(
         raise CohortObservationExportError("rendered cohort observation batch exceeds 8 MiB limit")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_bytes(encoded)
+    tmp_path = output_path.with_name(f".{output_path.name}.tmp")
+    tmp_path.write_bytes(encoded)
+    tmp_path.replace(output_path)
     verified = load_cohort_observation_batch(output_path)
 
     metrics = sorted(

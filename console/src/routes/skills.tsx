@@ -27,18 +27,37 @@ import {
   panelStringArray,
 } from "./panel-decode";
 import {
-  buildSkillSourcesViewModel,
-  decodeSkillSourceProjection,
+  buildSkillSourcesViewModel as buildSkillSourcesCatalogViewModel,
+  decodeSkillSourceProjection as decodeSkillSourceCatalogProjection,
   type SkillSourceCatalogProjection,
+  type SkillSourceLocale,
   type SkillSourcesViewModel,
 } from "./skill-sources.model";
 
-export {
-  buildSkillSourcesViewModel,
-  decodeSkillSourceProjection,
-  type SkillSourceCatalogProjection,
-  type SkillSourcesViewModel,
-};
+export type { SkillSourceCatalogProjection, SkillSourcesViewModel };
+
+export function decodeSkillSourceProjection(
+  value: unknown,
+): SkillSourceCatalogProjection | null {
+  if (value === null || value === undefined) return null;
+  return decodeSkillSourceCatalogProjection(value);
+}
+
+export function buildSkillSourcesViewModel(
+  projection: SkillSourceCatalogProjection | null | undefined,
+  locale: SkillSourceLocale = "en",
+): SkillSourcesViewModel | null {
+  if (projection === null || projection === undefined) return null;
+  return buildSkillSourcesCatalogViewModel(projection, locale);
+}
+
+export function projectSkillSourcesPanel(
+  value: unknown,
+  locale: SkillSourceLocale = "en",
+): SkillSourcesViewModel | null {
+  if (value === null || value === undefined) return null;
+  return buildSkillSourcesCatalogViewModel(decodeSkillSourceCatalogProjection(value), locale);
+}
 
 interface SkillReference {
   readonly path: string;

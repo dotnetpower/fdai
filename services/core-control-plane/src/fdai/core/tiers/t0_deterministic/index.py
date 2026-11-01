@@ -80,11 +80,18 @@ class RuleIndex:
                 # bypasses it, fail loudly rather than silently overwrite.
                 raise ValueError(f"duplicate rule id in index build: {rule.id!r}")
             by_id[rule.id] = rule
-            applies_to = list(rule.applies_to or [rule.resource_type])
-            if rule.target_object_type is not None and rule.target_object_type not in applies_to:
-                applies_to.append(rule.target_object_type)
+            applies_to = [
+                item.strip() for item in (rule.applies_to or [rule.resource_type]) if item.strip()
+            ]
+            if rule.target_object_type is not None:
+                normalized_obj = rule.target_object_type.strip()
+                if normalized_obj and normalized_obj not in applies_to:
+                    applies_to.append(normalized_obj)
+            seen_types: set[str] = set()
             for resource_type in applies_to:
-                by_type.setdefault(resource_type, []).append(rule)
+                if resource_type not in seen_types:
+                    seen_types.add(resource_type)
+                    by_type.setdefault(resource_type, []).append(rule)
             for signal_type in rule.triggered_by or ["*"]:
                 by_signal.setdefault(signal_type, set()).add(rule.id)
 

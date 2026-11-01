@@ -49,3 +49,21 @@ export function constraintVerdict(check: CandidateCheck): "passed" | "waiting" |
   if (check.blocks.length === 0) return "passed";
   return check.blocks.every((block) => isTimingReason(block.reason_code)) ? "waiting" : "blocked";
 }
+
+export function normalizeConstraintOutcome(
+  value: unknown,
+): "passed" | "waiting" | "blocking" {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "passed" || trimmed === "waiting" || trimmed === "blocking") {
+      return trimmed;
+    }
+    if (trimmed === "blocked") {
+      return "blocking";
+    }
+    if (isTimingReason(trimmed)) {
+      return "waiting";
+    }
+  }
+  return "blocking";
+}
