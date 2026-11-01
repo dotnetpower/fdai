@@ -28,7 +28,7 @@ def _link() -> ArchitectureReviewActionRunLink:
         selected_option_id="option-right-size",
         action_type="remediate.right-size-compute@1.0.0",
         executor_principal="Thor",
-        idempotency_key="arb4-idempotency-1",
+        idempotency_key="idem-1",
         target_lock_ref="lock:resource-1",
         stop_condition_ref="stop:error-budget-burn",
         rollback_ref="rollback:restore-sku",
