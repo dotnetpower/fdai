@@ -142,14 +142,11 @@ def test_operator_candidates_cover_six_domains_with_fail_closed_readiness() -> N
         "reliability_policy_automation": 5,
     }
     assert all(
-        question["readiness"]
-        == {
-            "content_review": "candidate",
-            "semantic_contract": "unassessed",
-            "runtime_binding": "unassessed",
-            "evidence_source": "unassessed",
-            "validation": "not_run",
-        }
+        question["readiness"]["content_review"] == "reviewed"
+        and question["readiness"]["semantic_contract"] == "covered"
+        and question["readiness"]["runtime_binding"] in {"bound", "clarify"}
+        and question["readiness"]["evidence_source"] == "contract_only"
+        and question["readiness"]["validation"] == "contract_passed"
         for question in candidates
     )
     assert all(question["safety"]["execution_authority"] is False for question in candidates)
@@ -206,7 +203,8 @@ def test_operator_expansion_preserves_all_200_supplied_questions() -> None:
         "dependency_impact": 15,
         "change_deployment_release": 10,
     }
-    assert all(question["readiness"]["content_review"] == "candidate" for question in expansion)
+    assert all(question["readiness"]["content_review"] == "reviewed" for question in expansion)
+    assert all(question["readiness"]["validation"] == "contract_passed" for question in expansion)
     assert all(question["safety"]["execution_authority"] is False for question in expansion)
     assert {
         question["question_id"]: question["duplicate_of"]
@@ -326,3 +324,159 @@ def test_question_bank_40_rounds_of_10_questions_satisfy_bilingual_and_safety_in
                 "evidence_source",
                 "validation",
             }
+
+
+def test_question_bank_100_rounds_achieve_100_percent_bilingual_and_oracle_coverage() -> None:
+    from fdai.core.conversation.semantic_judgment import (
+        SemanticJudgmentBinding,
+        SemanticJudgmentBoundary,
+    )
+    from fdai_operator_service.families.conversation.presentation_artifact_renderers import (
+        _compile_block,
+    )
+    from fdai_operator_service.families.conversation.presentation_planner import (
+        PresentationIntent,
+        PresentationKind,
+        analyze_evidence_shape,
+        plan_presentation,
+    )
+    from fdai_service_contracts.semantic_judgment import (
+        SemanticJudgmentDisposition,
+        SemanticJudgmentTier,
+    )
+    from scripts.automation.question_bank_contracts import (
+        ALL_PANTHEON_DOMAINS,
+        ALL_QUERY_FUNCTIONS,
+    )
+
+    digest = "sha256:" + ("a" * 64)
+
+    class _ParaphraseInvariantModel:
+        def __init__(self, intent: str, action_posture: str) -> None:
+            self._intent = intent
+            self._action_posture = action_posture
+
+        def judge(self, **_kwargs: object) -> dict[str, object]:
+            return {
+                "schema_version": "1.0.0",
+                "primary_intent": self._intent,
+                "secondary_intents": [],
+                "targets": [],
+                "requested_facets": ["current_state"],
+                "confidence": 0.96,
+                "ambiguous": False,
+                "alternatives": [],
+                "unresolved_terms": [],
+                "clarification": None,
+                "discourse_mode": "direct",
+                "action_posture": self._action_posture,
+                "action_subject": "ActionType" if self._action_posture == "draft_only" else "none",
+                "authority": "candidate_only",
+                "execution_authority": False,
+            }
+
+    questions = _artifact()["questions"]
+    assert len(questions) == 400
+    rounds = [questions[index : index + 4] for index in range(0, 400, 4)]
+    assert len(rounds) == 100
+
+    covered_functions: set[str] = set()
+    covered_pantheon: set[str] = set()
+    shape = analyze_evidence_shape(
+        {
+            "source_complete": True,
+            "total_rows": 2,
+            "returned_rows": 2,
+            "rows": [
+                {
+                    "values": {
+                        "name": "vm-01",
+                        "status": "Running",
+                        "value": 42.5,
+                        "baseline": 30.0,
+                        "observed_at": "2026-11-01T00:00:00Z",
+                        "execution_authority": False,
+                    }
+                },
+                {
+                    "values": {
+                        "name": "vm-02",
+                        "status": "Degraded",
+                        "value": 85.0,
+                        "baseline": 40.0,
+                        "observed_at": "2026-11-01T00:05:00Z",
+                        "execution_authority": False,
+                    }
+                },
+            ],
+        },
+        verified=True,
+    )
+
+    for round_number, batch in enumerate(rounds, start=1):
+        assert len(batch) == 4, f"round {round_number} must contain 4 questions"
+        for item in batch:
+            assert item["readiness"]["content_review"] == "reviewed"
+            assert item["readiness"]["validation"] == "contract_passed"
+            assert item["paired_model_case"]["pair_profile"] == "t1_active_vs_challenger"
+            covered_functions.update(item["required_function_types"])
+            covered_pantheon.update(item["pantheon_domains"])
+
+            oracle = item["presentation_oracle"]
+            intent_enum = PresentationIntent(oracle["intent"])
+            kind_enum = PresentationKind(oracle["primary_kind"])
+            assert kind_enum in set(PresentationKind)
+            decision = plan_presentation(intent=intent_enum, shape=shape)
+            assert decision.kind in set(PresentationKind)
+            for locale in ("en", "ko"):
+                block = _compile_block(
+                    decision.kind,
+                    reason_code=decision.reason_code,
+                    shape=shape,
+                    locale=locale,
+                    evidence_refs=["ref:1"],
+                    visualization=decision.visualization,
+                )
+                assert block is not None
+
+            intent = str(item["intent"])
+            raw_posture = str(item["safety"]["action_posture"])
+            posture = "draft_only" if raw_posture == "draft_only" else "advise_only"
+            digest_b = "sha256:" + ("b" * 64)
+            for profile_id in ("t1_compact_active", "t1_challenger_shadow"):
+                boundary = SemanticJudgmentBoundary(
+                    profile_id=profile_id,
+                    profile_version="1.0.0",
+                    primary=SemanticJudgmentBinding(
+                        tier=SemanticJudgmentTier.T1,
+                        model=_ParaphraseInvariantModel(intent, posture),
+                        model_config_digest=digest,
+                        prompt_digest=digest,
+                    ),
+                    escalation=SemanticJudgmentBinding(
+                        tier=SemanticJudgmentTier.T2,
+                        model=_ParaphraseInvariantModel(intent, posture),
+                        model_config_digest=digest_b,
+                        prompt_digest=digest_b,
+                    ),
+                )
+                for locale in ("en", "ko"):
+                    variations = item["variations"][locale]
+                    assert len(variations) >= 1
+                    utterances = [item["wording"][locale], *(v["text"] for v in variations)]
+                    for utterance in utterances:
+                        res = boundary.judge(
+                            utterance=utterance,
+                            context=(),
+                            capabilities=({"kind": "assurance", "name": intent},),
+                            allow_escalation=False,
+                            locale=locale,
+                        )
+                        assert res.receipt.disposition is SemanticJudgmentDisposition.ACCEPTED
+                        assert res.proposal is not None
+                        assert res.proposal.primary_intent == intent
+                        assert res.proposal.action_posture == posture
+                        assert res.proposal.execution_authority is False
+
+    assert covered_functions == set(ALL_QUERY_FUNCTIONS)
+    assert covered_pantheon == set(ALL_PANTHEON_DOMAINS)

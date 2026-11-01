@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from scripts.automation.question_bank_contracts import enrich_question_bank_items
 
 _CASE_HEADING = re.compile(r"^### Q(?P<number>[0-9]{3}) (?P<title>.+)$")
 _PROMPT_LINE = re.compile(
@@ -38,7 +39,7 @@ def collect_questions(
 ) -> list[dict[str, Any]]:
     """Collect Golden, manual, Console, and candidate questions without changing them."""
 
-    return [
+    questions = [
         *_golden_questions(source, source_paths, source_refs),
         *_manual_questions(
             source,
@@ -49,6 +50,8 @@ def collect_questions(
         *_candidate_questions(source, source_path, repo_root),
         *_external_candidate_questions(source, candidate_paths, repo_root),
     ]
+    enrich_question_bank_items(questions)
+    return questions
 
 
 def _golden_questions(
