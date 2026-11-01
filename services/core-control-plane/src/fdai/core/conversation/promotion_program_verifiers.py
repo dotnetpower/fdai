@@ -129,6 +129,15 @@ class PlanRoleCoverageVerdict:
     uncovered_operands: tuple[str, ...] = ()
     release_allowed: bool = False
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "covered": self.covered,
+            "hold_reason": self.hold_reason,
+            "uncovered_roles": list(self.uncovered_roles),
+            "uncovered_operands": list(self.uncovered_operands),
+            "release_allowed": self.release_allowed,
+        }
+
 
 def _matches_restriction_binding(
     item: str, *, prefixes: tuple[str, ...], bound_values: frozenset[str]

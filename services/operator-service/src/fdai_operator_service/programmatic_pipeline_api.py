@@ -6,11 +6,21 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 _DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
 _BOUNDED_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,255}$")
+_TROJAN_UNICODE_CHARS = frozenset(
+    {
+        "\u200b",
+        "\u200c",
+        "\u200d",
+        "\ufeff",
+        *(chr(cp) for cp in range(0x202A, 0x202F)),
+        *(chr(cp) for cp in range(0x2066, 0x206A)),
+    }
+)
 _FORBIDDEN_BOUNDARY_KEYS = frozenset(
     {
         "capability_token",
@@ -75,10 +85,10 @@ def submit_reviewed_programmatic_pipeline(
             "authenticated principal is required",
             status_code=401,
         )
-    if any(ord(ch) < 32 for ch in principal_id):
+    if any(ord(ch) < 32 or ch in _TROJAN_UNICODE_CHARS for ch in principal_id):
         raise ProgrammaticPipelineSubmissionError(
             "invalid_principal_id",
-            "principal_id must not contain control characters",
+            "principal_id must not contain control or bidi/zero-width characters",
         )
     normalized_roles = {r.strip().lower() for r in roles if r.strip()}
     if not (normalized_roles & _ALLOWED_SUBMISSION_ROLES):
@@ -100,6 +110,11 @@ def submit_reviewed_programmatic_pipeline(
     idempotency_key = _bounded_id(payload, "idempotency_key")
     sandbox_profile_id = _bounded_id(payload, "sandbox_profile_id")
     reviewed_source = _non_empty_text(payload, "reviewed_source")
+    if _has_trojan_unicode(reviewed_source):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_reviewed_source",
+            "reviewed_source must not contain Unicode bidi or zero-width formatting characters",
+        )
     if len(reviewed_source.encode("utf-8")) > 256_000:
         raise ProgrammaticPipelineSubmissionError(
             "source_too_large",
@@ -181,6 +196,20 @@ def submit_reviewed_programmatic_pipeline(
         allowed_read_tools=tuple(sorted(set(tools))),
         sandbox_profile_id=sandbox_profile_id,
     )
+    digest_material = json.dumps(
+        {
+            "allowed_read_tools": list(submission.allowed_read_tools),
+            "idempotency_key": submission.idempotency_key,
+            "input_json": list(submission.input_json),
+            "principal_id": submission.principal_id,
+            "reviewed_source_digest": submission.reviewed_source_digest,
+            "run_id": submission.run_id,
+            "sandbox_profile_id": submission.sandbox_profile_id,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    submission_digest = f"sha256:{hashlib.sha256(digest_material.encode('utf-8')).hexdigest()}"
     return {
         "schema_version": "fdai.operator.programmatic-pipeline-submission.v1",
         "status": "accepted_proposal",
@@ -188,6 +217,7 @@ def submit_reviewed_programmatic_pipeline(
         "run_id": submission.run_id,
         "idempotency_key": submission.idempotency_key,
         "reviewed_source_digest": submission.reviewed_source_digest,
+        "submission_digest": submission_digest,
         "sandbox_profile_id": submission.sandbox_profile_id,
         "allowed_read_tools": list(submission.allowed_read_tools),
         "input_count": len(submission.input_json),
@@ -220,12 +250,40 @@ def _non_empty_text(payload: Mapping[str, Any], key: str) -> str:
     return value
 
 
+def _has_trojan_unicode(value: str) -> bool:
+    return any(ch in _TROJAN_UNICODE_CHARS for ch in value)
+
+
 def _validate_optional_submission_bounds(payload: Mapping[str, Any]) -> None:
+    raw_pipeline_id = payload.get("pipeline_id")
+    if raw_pipeline_id is not None and (
+        not isinstance(raw_pipeline_id, str)
+        or not raw_pipeline_id.strip()
+        or any(ord(ch) < 32 for ch in raw_pipeline_id)
+        or _has_trojan_unicode(raw_pipeline_id)
+        or _BOUNDED_ID_RE.fullmatch(raw_pipeline_id) is None
+    ):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_pipeline_id",
+            "pipeline_id must be a bounded identifier without control or bidi/zero-width chars",
+        )
+    raw_expr = payload.get("expression")
+    if raw_expr is not None and (
+        not isinstance(raw_expr, str)
+        or not raw_expr.strip()
+        or any(ord(ch) < 32 and ch not in {"\t", "\n", "\r"} for ch in raw_expr)
+        or _has_trojan_unicode(raw_expr)
+    ):
+        raise ProgrammaticPipelineSubmissionError(
+            "invalid_expression",
+            "expression must be a non-empty string without bidi or zero-width formatting chars",
+        )
     raw_corr = payload.get("correlation_id")
     if raw_corr is not None and (
         not isinstance(raw_corr, str)
         or not raw_corr.strip()
         or any(ord(ch) < 32 for ch in raw_corr)
+        or _has_trojan_unicode(raw_corr)
         or _BOUNDED_ID_RE.fullmatch(raw_corr) is None
     ):
         raise ProgrammaticPipelineSubmissionError(
@@ -252,7 +310,11 @@ def _validate_optional_submission_bounds(payload: Mapping[str, Any]) -> None:
 
 def _bounded_id(payload: Mapping[str, Any], key: str) -> str:
     value = _non_empty_text(payload, key)
-    if any(ord(ch) < 32 for ch in value) or _BOUNDED_ID_RE.fullmatch(value) is None:
+    if (
+        any(ord(ch) < 32 for ch in value)
+        or _has_trojan_unicode(value)
+        or _BOUNDED_ID_RE.fullmatch(value) is None
+    ):
         raise ProgrammaticPipelineSubmissionError(
             f"invalid_{key}",
             f"{key} must be a bounded identifier",
@@ -266,6 +328,12 @@ class ProgrammaticPipelineOperatorEndpoint:
 
     reviewed_digest_allowlist: frozenset[str] = frozenset()
     route_path: str = "/pipelines/programmatic/submit"
+    _accepted_digests: set[str] = field(default_factory=set, init=False, repr=False, compare=False)
+
+    @property
+    def submitted_count(self) -> int:
+        """Return the number of accepted distinct pipeline submissions."""
+        return len(self._accepted_digests)
 
     def submit(
         self,
@@ -274,17 +342,31 @@ class ProgrammaticPipelineOperatorEndpoint:
         roles: frozenset[str] | set[str],
         payload: Mapping[str, Any],
     ) -> dict[str, object]:
-        return submit_reviewed_programmatic_pipeline(
+        result = submit_reviewed_programmatic_pipeline(
             principal_id=principal_id,
             roles=roles,
             payload=payload,
             reviewed_digest_allowlist=self.reviewed_digest_allowlist,
         )
+        self._accepted_digests.add(str(result["submission_digest"]))
+        return result
 
+    def submit_pipeline(
+        self,
+        *,
+        principal_id: str,
+        roles: frozenset[str] | set[str],
+        payload: Mapping[str, Any],
+    ) -> dict[str, object]:
+        return self.submit(principal_id=principal_id, roles=roles, payload=payload)
+
+
+submit_pipeline = submit_reviewed_programmatic_pipeline
 
 __all__ = [
     "ProgrammaticPipelineOperatorEndpoint",
     "ProgrammaticPipelineSubmissionError",
     "ValidatedPipelineSubmission",
+    "submit_pipeline",
     "submit_reviewed_programmatic_pipeline",
 ]

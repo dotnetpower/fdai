@@ -163,6 +163,9 @@ def test_authorized_independent_reviewer_receives_exact_diff_with_no_authority()
     assert isinstance(changes, list)
     changed_fields = {item["field_name"] for item in changes if item["changed"]}
     assert changed_fields == {"name", "criticality", "effective_from", "effective_to"}
+    assert projection["changed_field_count"] == 4
+    assert str(projection["review_projection_digest"]).startswith("sha256:")
+    assert len(str(projection["review_projection_digest"])) == 71
 
 
 def test_general_topic_summary_never_discloses_source_properties() -> None:
@@ -179,6 +182,8 @@ def test_general_topic_summary_never_discloses_source_properties() -> None:
     assert summary["execution_authority"] is False
     assert summary["general_topic_safe"] is True
     assert summary["discloses_source_properties"] is False
+    assert str(summary["summary_digest"]).startswith("sha256:")
+    assert len(str(summary["summary_digest"])) == 71
 
     serialized = json.dumps(summary)
     for confidential in (
@@ -246,3 +251,17 @@ def test_reviewer_current_as_of_requires_timezone_aware_datetime() -> None:
         reviewer=aware_reviewer,
     )
     assert projection["independent_reviewer"] is True
+    assert projection["changed_field_count"] == 6
+
+    for bad_kwargs in (
+        {"document_id": "   ", "version_id": str(VER_ID), "revision": 1},
+        {"document_id": str(DOC_ID), "version_id": "", "revision": 1},
+        {"document_id": str(DOC_ID), "version_id": str(VER_ID), "revision": 0},
+        {"document_id": str(DOC_ID), "version_id": str(VER_ID), "revision": -2},
+    ):
+        with pytest.raises(DeclaredIntentReviewAccessError):
+            DeclaredIntentSourceAccessMetadata(
+                uploader_id="principal:uploader-1",
+                reader_groups=frozenset({"group:payments-architecture"}),
+                **bad_kwargs,  # type: ignore[arg-type]
+            )

@@ -16,6 +16,7 @@ from fdai_operator_service.adapters.conversation.web_search import (
 from fdai_operator_service.web_evidence import (
     DelegationAttribution,
     NoOpOperatorWebSearchProvider,
+    OperatorWebCitation,
     OperatorWebEvidenceClassifier,
     OperatorWebSearchProvider,
     OperatorWebSearchQuery,
@@ -24,7 +25,9 @@ from fdai_operator_service.web_evidence import (
     SemanticWebProposal,
     WebEvidenceRoute,
     WebTurnContext,
+    compute_citation_digest,
     derive_normalized_web_query,
+    is_valid_https_citation_url,
     sanitize_operator_snippet,
 )
 from scripts.evaluation.web_evidence_route_corpus import RouteCase, load_corpus
@@ -406,6 +409,41 @@ async def test_resolver_enforces_https_and_rejects_credentials_or_unsafe_schemes
     assert resolved.wrapped_snippets == ()
     assert len(resolved.dropped_snippets) == 5
     assert all(reason == "invalid_url" for _, reason in resolved.dropped_snippets)
+    assert resolved.citation_digest.startswith("sha256:") and len(resolved.citation_digest) == 71
+
+
+@pytest.mark.parametrize(
+    "ssrf_url",
+    [
+        "https://localhost/admin",
+        "https://127.0.0.1/metadata",
+        "https://[::1]/internal",
+        "https://169.254.169.254/latest/meta-data/",
+        "https://0.0.0.0/status",
+        "https://metadata.localhost/secret",
+    ],
+)
+async def test_citation_urls_reject_ssrf_loopback_and_expose_citation_digest(
+    ssrf_url: str,
+) -> None:
+    assert is_valid_https_citation_url(ssrf_url) is False
+    with pytest.raises(ValueError, match="https://"):
+        OperatorWebCitation(
+            url=ssrf_url,
+            domain="learn.microsoft.com",
+            title="SSRF attempt",
+            source_hash="sha256:bad",
+        )
+
+    valid_citation = OperatorWebCitation(
+        url="https://learn.microsoft.com/en-us/azure/aks/upgrade-cluster",
+        domain="learn.microsoft.com",
+        title="Upgrade AKS cluster",
+        source_hash="sha256:a1",
+    )
+    batch_digest = compute_citation_digest((valid_citation,))
+    assert batch_digest.startswith("sha256:") and len(batch_digest) == 71
+    assert valid_citation.citation_digest == batch_digest
 
 
 async def _async_token(value: str) -> str:

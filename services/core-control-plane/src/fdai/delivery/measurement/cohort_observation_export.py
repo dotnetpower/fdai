@@ -97,6 +97,18 @@ class CohortObservationExportReceipt:
             "claim_eligibility_authority": False,
         }
 
+    def protocol_summary(self) -> dict[str, object]:
+        return {
+            "batch_digest": self.batch_digest,
+            "observation_count": self.observation_count,
+            "metric_count": self.metric_count,
+            "guard_count": self.guard_count,
+            "has_all_required_metrics": len(self.distinct_metric_ids)
+            == len(REQUIRED_SUCCESS_METRIC_IDS),
+            "has_all_required_guards": len(self.distinct_guard_ids)
+            == len(ZERO_THRESHOLD_GUARD_IDS),
+        }
+
 
 def build_cohort_observation_batch(
     records: Iterable[Mapping[str, Any] | NormalizedCohortObservation],

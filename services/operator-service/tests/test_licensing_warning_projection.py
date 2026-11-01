@@ -43,6 +43,10 @@ def test_projects_normal_and_expiring_soon_states() -> None:
     assert normal.read_only is True
     assert normal.authority == "none"
     assert normal.secret_free is True
+    assert normal.projection_digest.startswith("sha256:")
+    assert len(normal.projection_digest) == 71
+    assert normal.to_dict()["projection_digest"] == normal.projection_digest
+    assert normal.to_json()["projection_digest"] == normal.projection_digest
 
     expiring = build_licensing_warning_projection(
         principal_id="operator-reader-1",

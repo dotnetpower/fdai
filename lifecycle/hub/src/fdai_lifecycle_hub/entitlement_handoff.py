@@ -141,6 +141,14 @@ class OpaqueEntitlementCarrierHandoff:
             "execution_authority": "none",
         }
 
+    @property
+    def handoff_digest(self) -> str:
+        """Compute canonical SHA-256 digest over the Plan handoff attachment."""
+        encoded = json.dumps(
+            self.to_plan_attachment(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
 
 @dataclass(frozen=True, slots=True)
 class GovernedEntitlementRotationReceipt:
@@ -194,6 +202,7 @@ class GovernedEntitlementRotationReceipt:
             "reason": self.reason,
             "approved_at": self.approved_at.astimezone(UTC).isoformat(),
             "hub_is_issuer": False,
+            "execution_authority": "none",
         }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return {
@@ -216,6 +225,13 @@ class HubEntitlementHandoffStore:
     def audit_log(self) -> tuple[dict[str, object], ...]:
         """Return the append-only governance audit log."""
         return tuple(dict(entry) for entry in self._audit_log)
+
+    def verify_audit_integrity(self) -> bool:
+        """Verify that every entry in `_audit_log` preserves non-issuer, non-executing authority."""
+        return all(
+            entry.get("hub_is_issuer") is False and entry.get("execution_authority") == "none"
+            for entry in self._audit_log
+        )
 
     def get_handoff(self, installation_id: str) -> OpaqueEntitlementCarrierHandoff | None:
         """Return the current staged handoff for an installation, if any."""
@@ -352,6 +368,10 @@ class HubEntitlementHandoffStore:
         if existing.carrier_digest != validated.prior_carrier_digest:
             raise EntitlementHandoffGovernanceError(
                 "governed rotation prior_carrier_digest does not match active carrier_digest"
+            )
+        if validated.approved_at < existing.recorded_at:
+            raise EntitlementHandoffGovernanceError(
+                "governed rotation approved_at MUST NOT be earlier than active handoff recorded_at"
             )
         history = self._rotation_history.get(validated.installation_id, [])
         highest_sequence = max([existing.sequence, *(item.sequence for item in history)])

@@ -58,6 +58,9 @@ def test_opaque_plan_handoff_attachment_and_idempotent_replay() -> None:
     assert staged == first
     assert staged.hub_is_issuer is False
     assert staged.execution_authority == "none"
+    assert staged.handoff_digest.startswith("sha256:")
+    assert len(staged.handoff_digest) == len("sha256:") + 64
+    assert store.verify_audit_integrity() is True
     assert store.get_handoff("inst-alpha") == first
     assert store.get_plan_handoff("plan-1") == first
 
@@ -162,6 +165,21 @@ def test_governed_rotation_requires_distinct_actors_monotonic_sequence_and_prior
             approved_at=_NOW + timedelta(minutes=1),
         )
 
+    with pytest.raises(EntitlementHandoffGovernanceError, match="approved_at"):
+        store.record_governed_rotation(
+            rotation_id="rot-retroactive",
+            installation_id="inst-alpha",
+            deployment_id="deploy-alpha",
+            prior_carrier_digest=_DIGEST_A,
+            next_carrier_digest=_DIGEST_B,
+            sequence=4,
+            approver_id="approver-2",
+            requester_id="requester-1",
+            approval_digest=_APPROVAL_DIGEST,
+            reason="retroactive rotation before handoff recorded_at",
+            approved_at=_NOW - timedelta(seconds=1),
+        )
+
     receipt = store.record_governed_rotation(
         rotation_id="rot-valid-4",
         installation_id="inst-alpha",
@@ -190,6 +208,13 @@ def test_governed_rotation_requires_distinct_actors_monotonic_sequence_and_prior
     assert rotated.carrier_digest == _DIGEST_B
     assert store.get_handoff("inst-alpha") == rotated
     assert store.get_plan_handoff("plan-2") == rotated
+    assert store.verify_audit_integrity() is True
+    store._audit_log.append(
+        {"event": "tampered", "hub_is_issuer": True, "execution_authority": "none"}
+    )
+    assert store.verify_audit_integrity() is False
+    store._audit_log.pop()
+    assert store.verify_audit_integrity() is True
 
     with pytest.raises(
         EntitlementHandoffGovernanceError,

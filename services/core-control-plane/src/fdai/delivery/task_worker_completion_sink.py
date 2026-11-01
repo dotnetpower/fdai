@@ -38,6 +38,13 @@ class DetachedWorkerCompletionEnvelope:
     def __post_init__(self) -> None:
         if not self.delivery_id.strip() or not self.idempotency_key.strip():
             raise ValueError("delivery_id and idempotency_key MUST be non-empty")
+        if (
+            not self.worker_id.strip()
+            or not self.parent_trace_ref.strip()
+            or any(ord(ch) < 32 for ch in self.worker_id)
+            or any(ord(ch) < 32 for ch in self.parent_trace_ref)
+        ):
+            raise ValueError("worker_id and parent_trace_ref MUST be non-empty printable strings")
         if self.trusted is not False:
             raise ValueError("detached worker completion envelope MUST remain untrusted")
         if self.execution_authority != "none":
@@ -103,6 +110,10 @@ class DetachedSessionTaskWorkerCompletionSink:
         self._reply_sink = reply_sink
         self._store = store
         self._receipts: dict[str, DetachedWorkerCompletionReceipt] = {}
+
+    @property
+    def delivered_count(self) -> int:
+        return sum(1 for item in self._receipts.values() if item.delivered)
 
     async def publish(self, result: TaskWorkerResult) -> None:
         """TaskWorkerCompletionSink entrypoint invoked after atomic terminal persistence."""

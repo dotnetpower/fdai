@@ -45,6 +45,13 @@ def test_active_standby_fencing_epoch_enforcement_and_standby_execution_denial()
     )
     assert active_fence.role == "active"
     assert active_fence.fencing_epoch == 1
+    fence_dict = active_fence.to_dict()
+    assert fence_dict["component"] == "core_control_plane"
+    assert fence_dict["slot"] == "blue"
+    assert fence_dict["role"] == "active"
+    assert fence_dict["fencing_epoch"] == 1
+    assert fence_dict["binary_digest"] == _DIGEST_V1
+    assert controller.verify_transition_chain() is True
 
     with pytest.raises(RoleFencingError, match="non-active role 'fenced'"):
         controller.assert_execution_allowed(
@@ -332,3 +339,38 @@ def test_rolled_back_digest_fencing_and_future_trial_anchor_rejection() -> None:
     )
     assert re_promoted.role == "active"
     assert re_promoted.binary_digest == _DIGEST_V2
+    assert controller.verify_transition_chain() is True
+
+    controller.stage_candidate_slot(
+        component="core_control_plane",
+        candidate_slot="blue",
+        binary_digest=_DIGEST_V2,
+        candidate_schema_version=3,
+        trial_anchor_at=_TRIAL_ANCHOR,
+        monotonic_clock_floor_ns=2_500_000,
+        lease_expires_at=_NOW + timedelta(minutes=70),
+        now=_NOW + timedelta(minutes=6),
+    )
+    with pytest.raises(RoleFencingError, match="identical binary_digest"):
+        controller.promote_standby_slot(
+            component="core_control_plane",
+            standby_slot="blue",
+            health_verified=True,
+            lease_expires_at=_NOW + timedelta(minutes=80),
+            now=_NOW + timedelta(minutes=7),
+        )
+    same_digest_promoted = controller.promote_standby_slot(
+        component="core_control_plane",
+        standby_slot="blue",
+        health_verified=True,
+        lease_expires_at=_NOW + timedelta(minutes=80),
+        now=_NOW + timedelta(minutes=7),
+        allow_previously_rolled_back_digest=True,
+        allow_same_binary_digest=True,
+    )
+    assert same_digest_promoted.slot == "blue"
+    assert same_digest_promoted.role == "active"
+    assert controller.verify_transition_chain() is True
+
+    object.__setattr__(controller._transition_log[-1], "record_digest", "sha256:" + "0" * 64)
+    assert controller.verify_transition_chain() is False

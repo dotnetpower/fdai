@@ -113,6 +113,21 @@ class ComponentSlotFence:
         _require_aware("lease_expires_at", self.lease_expires_at)
         _require_aware("updated_at", self.updated_at)
 
+    def to_dict(self) -> dict[str, object]:
+        """Return a JSON-serializable dictionary of the slot fence state."""
+        return {
+            "component": self.component,
+            "slot": self.slot,
+            "role": self.role,
+            "fencing_epoch": self.fencing_epoch,
+            "binary_digest": self.binary_digest,
+            "schema_version": self.schema_version,
+            "trial_anchor_at": self.trial_anchor_at.astimezone(UTC).isoformat(),
+            "monotonic_clock_floor_ns": self.monotonic_clock_floor_ns,
+            "lease_expires_at": self.lease_expires_at.astimezone(UTC).isoformat(),
+            "updated_at": self.updated_at.astimezone(UTC).isoformat(),
+        }
+
 
 @dataclass(frozen=True, slots=True)
 class SelfUpgradeTransitionRecord:
@@ -179,6 +194,30 @@ class ComponentSelfUpgradeController:
     @property
     def transition_log(self) -> tuple[SelfUpgradeTransitionRecord, ...]:
         return tuple(self._transition_log)
+
+    def verify_transition_chain(self) -> bool:
+        """Verify that `_transition_log` sequences are strictly 1..N and digests match."""
+        for idx, rec in enumerate(self._transition_log, start=1):
+            if rec.sequence != idx:
+                return False
+            try:
+                expected = _compute_record_digest(
+                    sequence=rec.sequence,
+                    component=rec.component,
+                    from_slot=rec.from_slot,
+                    to_slot=rec.to_slot,
+                    fencing_epoch=rec.fencing_epoch,
+                    transition_kind=rec.transition_kind,
+                    health_verified=rec.health_verified,
+                    schema_version=rec.schema_version,
+                    trial_anchor_preserved=rec.trial_anchor_preserved,
+                    recorded_at=rec.recorded_at,
+                )
+            except Exception:  # noqa: BLE001
+                return False
+            if rec.record_digest != expected:
+                return False
+        return True
 
     def component_slots(self, component: ComponentKind) -> dict[SlotId, ComponentSlotFence]:
         if component not in self._slots:
@@ -333,6 +372,7 @@ class ComponentSelfUpgradeController:
         monotonic_clock_floor_ns: int | None = None,
         interrupt_after_fence: bool = False,
         allow_previously_rolled_back_digest: bool = False,
+        allow_same_binary_digest: bool = False,
     ) -> ComponentSlotFence:
         """Fence the prior active slot first, bump epoch, and promote a verified standby slot."""
         _require_aware("now", now)
@@ -350,6 +390,10 @@ class ComponentSelfUpgradeController:
         if candidate.role != "standby":
             raise RoleFencingError(
                 f"only a 'standby' slot can be promoted (found role={candidate.role!r})"
+            )
+        if not allow_same_binary_digest and candidate.binary_digest == active.binary_digest:
+            raise RoleFencingError(
+                "cannot promote standby slot with identical binary_digest to active slot"
             )
         if (
             not allow_previously_rolled_back_digest

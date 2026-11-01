@@ -37,6 +37,8 @@ def load_execution_backend_registry_from_env(
     raw_path = values.get(REGISTRY_PATH_VARIABLE, "").strip()
     if not raw_path:
         return None
+    if any(ord(ch) < 32 for ch in raw_path):
+        raise RuntimeError(f"{REGISTRY_PATH_VARIABLE} MUST NOT contain control characters")
     max_bytes = _max_bytes(values)
     path = Path(raw_path)
     if path.is_symlink():

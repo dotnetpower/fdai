@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import re
 from collections.abc import Mapping
@@ -68,6 +70,7 @@ class LicensingWarningProjection(ContractBase):
     remaining_days: int | None = Field(default=None, ge=0)
     observed_at: datetime
     reason_code: str = Field(min_length=1, max_length=128)
+    projection_digest: str = Field(default="")
 
     @field_validator("observed_at", "expires_at")
     @classmethod
@@ -102,7 +105,20 @@ class LicensingWarningProjection(ContractBase):
                 raise ValueError("degraded licensing state MUST carry an active watermark notice")
         if self.state is LicensingWarningState.EXPIRING_SOON and not self.proactive_warning:
             raise ValueError("expiring_soon state MUST set proactive_warning=True")
+        material = self.model_dump(mode="json", exclude={"projection_digest"})
+        canonical = json.dumps(material, sort_keys=True, separators=(",", ":"))
+        expected = f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+        if not self.projection_digest:
+            object.__setattr__(self, "projection_digest", expected)
+        elif self.projection_digest != expected:
+            raise ValueError("licensing warning projection_digest mismatch")
         return self
+
+    def to_dict(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
+
+    def to_json(self) -> dict[str, object]:
+        return self.model_dump(mode="json")
 
 
 def build_licensing_warning_projection(

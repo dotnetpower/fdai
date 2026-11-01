@@ -102,6 +102,8 @@ describe("declared-intent-review.model", () => {
     const enModel = formatDeclaredIntentReviewViewModel(decoded, "en");
     expect(enModel.title).toBe("Protected Declared-Intent Exact-Diff Review");
     expect(enModel.changedFieldCount).toBe(4);
+    expect(enModel.unchangedFieldCount).toBe(2);
+    expect(enModel.hasChanges).toBe(true);
     expect(enModel.operationLabel).toBe("Update BusinessService (rev 2)");
     expect(enModel.rows[1]?.fieldLabel).toBe("Service Name");
     expect(enModel.rows[1]?.changeBadge).toBe("Changed");

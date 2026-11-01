@@ -259,3 +259,13 @@ async def test_resolver_rejects_control_chars_invalid_top_k_and_duplicate_seed_i
     resolver.register_seed(_spec("incident.seed-1"))
     with pytest.raises(ValueError, match="duplicate seed_id"):
         resolver.register_seed(_spec("incident.seed-1"))
+
+    resolved = await resolver.resolve(
+        BehaviorTurnRequest(raw_text="How is an Incident ID created?", locale="en")
+    )
+    payload = resolved.to_dict()
+    assert payload["total_candidates"] == 1
+    assert str(payload["result_digest"]).startswith("sha256:")
+    assert len(str(payload["result_digest"])) == 71
+    assert resolved.total_candidates == 1
+    assert resolved.result_digest == payload["result_digest"]

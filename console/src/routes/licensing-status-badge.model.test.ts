@@ -35,8 +35,18 @@ describe("licensing-status-badge.model", () => {
     expect(enBadge.badgeLabel).toBe("Renewal required soon");
     expect(enBadge.tone).toBe("warning");
     expect(enBadge.showProactiveWarning).toBe(true);
+    expect(enBadge.isUrgentWarning).toBe(true);
     expect(enBadge.remainingDaysDisplay).toBe("4d remaining");
     expect(enBadge.warningTitle).toContain("expires soon");
+
+    const nonUrgent = formatLicensingStatusBadge(
+      decodeLicensingWarningProjection({
+        ...BASE_PAYLOAD,
+        remaining_days: 10,
+      }),
+      "en",
+    );
+    expect(nonUrgent.isUrgentWarning).toBe(false);
 
     const koBadge = formatLicensingStatusBadge(decoded, "ko");
     expect(koBadge.badgeLabel).toBe("갱신 예정 경고");

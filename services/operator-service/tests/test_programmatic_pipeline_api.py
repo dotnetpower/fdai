@@ -7,7 +7,9 @@ import json
 
 import pytest
 from fdai_operator_service.programmatic_pipeline_api import (
+    ProgrammaticPipelineOperatorEndpoint,
     ProgrammaticPipelineSubmissionError,
+    submit_pipeline,
     submit_reviewed_programmatic_pipeline,
 )
 
@@ -151,3 +153,60 @@ def test_operator_submission_rejects_control_characters_and_boolean_numeric_boun
                 reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
             )
         assert exc_info.value.code == expected_code
+
+
+@pytest.mark.parametrize(
+    "trojan_char",
+    ["\u200b", "\u200c", "\u200d", "\ufeff", "\u202a", "\u202e", "\u2066", "\u2069"],
+)
+def test_operator_submission_rejects_trojan_unicode_and_tracks_submitted_count_and_digest(
+    trojan_char: str,
+) -> None:
+    for field, expected_code in (
+        ("expression", "invalid_expression"),
+        ("pipeline_id", "invalid_pipeline_id"),
+        ("reviewed_source", "invalid_reviewed_source"),
+    ):
+        bad_payload = _valid_payload()
+        bad_payload[field] = f"safe_prefix{trojan_char}suffix"
+        with pytest.raises(ProgrammaticPipelineSubmissionError) as exc_info:
+            submit_pipeline(
+                principal_id="owner@example.com",
+                roles=frozenset({"owner"}),
+                payload=bad_payload,
+                reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
+            )
+        assert exc_info.value.code == expected_code
+
+    endpoint = ProgrammaticPipelineOperatorEndpoint(
+        reviewed_digest_allowlist=frozenset({REVIEWED_DIGEST}),
+    )
+    assert endpoint.submitted_count == 0
+    first = endpoint.submit_pipeline(
+        principal_id="owner@example.com",
+        roles=frozenset({"owner"}),
+        payload=_valid_payload(),
+    )
+    digest = str(first["submission_digest"])
+    assert digest.startswith("sha256:") and len(digest) == 71
+    assert endpoint.submitted_count == 1
+
+    # Duplicate submission keeps same digest and does not inflate distinct count
+    replay = endpoint.submit_pipeline(
+        principal_id="owner@example.com",
+        roles=frozenset({"owner"}),
+        payload=_valid_payload(),
+    )
+    assert replay["submission_digest"] == digest
+    assert endpoint.submitted_count == 1
+
+    second_payload = _valid_payload()
+    second_payload["run_id"] = "run-op-2"
+    second_payload["idempotency_key"] = "idem-op-2"
+    second = endpoint.submit(
+        principal_id="owner@example.com",
+        roles=frozenset({"owner"}),
+        payload=second_payload,
+    )
+    assert second["submission_digest"] != digest
+    assert endpoint.submitted_count == 2

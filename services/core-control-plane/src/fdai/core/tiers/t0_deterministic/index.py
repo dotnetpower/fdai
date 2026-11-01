@@ -157,6 +157,30 @@ class RuleIndex:
     def resource_types(self) -> frozenset[str]:
         return frozenset(self._by_resource_type.keys())
 
+    def object_types(self) -> frozenset[str]:
+        """Return the frozenset of custom target_object_type names registered in this index."""
+        return frozenset(
+            rule.target_object_type.strip()
+            for rule in self._by_id.values()
+            if rule.target_object_type is not None and rule.target_object_type.strip()
+        )
+
+    def index_digest(self) -> str:
+        """Compute a canonical SHA-256 digest over all indexed rules and dispatch bindings."""
+        payload = [
+            {
+                "id": rule.id,
+                "version": str(rule.version),
+                "resource_type": rule.resource_type,
+                "target_object_type": rule.target_object_type,
+                "applies_to": list(rule.applies_to),
+                "triggered_by": list(rule.triggered_by),
+            }
+            for rule in sorted(self._by_id.values(), key=lambda item: item.id)
+        ]
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
     def __len__(self) -> int:
         return len(self._by_id)
 

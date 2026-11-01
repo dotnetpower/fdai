@@ -108,6 +108,11 @@ class TaskWorkerSnapshotRecord:
             "evidence_count": len(self.evidence_refs),
             "usage": dict(self.usage),
             "terminal_reason": self.result.terminal_reason if self.result is not None else None,
+            "summary_truncated": (
+                bool(self.result.to_json()["summary_truncated"])
+                if self.result is not None
+                else False
+            ),
             "trusted": False,
             "read_only": True,
             "execution_authority": "none",

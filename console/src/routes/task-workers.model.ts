@@ -126,10 +126,14 @@ export interface TaskWorkersViewModel {
   readonly title: string;
   readonly subtitle: string;
   readonly untrustedNotice: string;
+  readonly activeWorkerCount: number;
+  readonly terminalWorkerCount: number;
   readonly workers: readonly TaskWorkerCardViewModel[];
   readonly selectedSummary: string | null;
   readonly deliveryFailedEventCount: number;
 }
+
+export type TaskWorkerListViewModel = TaskWorkersViewModel;
 
 const VALID_STATUSES = new Set<TaskWorkerStatus>([
   "pending", "running", "succeeded", "abstained", "cancelled",
@@ -370,6 +374,11 @@ export function buildTaskWorkersViewModel(
     terminalReason: row.terminal_reason,
   }));
 
+  const activeWorkerCount = cards.filter(
+    (card) => card.status === "pending" || card.status === "running",
+  ).length;
+  const terminalWorkerCount = cards.length - activeWorkerCount;
+
   const deliveryFailedEventCount =
     events === null
       ? 0
@@ -385,6 +394,8 @@ export function buildTaskWorkersViewModel(
     title: copy.title,
     subtitle: copy.subtitle,
     untrustedNotice: copy.untrustedNotice,
+    activeWorkerCount,
+    terminalWorkerCount,
     workers: cards,
     selectedSummary: detail?.worker.result?.summary ?? null,
     deliveryFailedEventCount,

@@ -21,8 +21,19 @@ class ActiveTurnSSEFrame:
     turn_id: str
     sequence: int = 0
 
+    def __post_init__(self) -> None:
+        if (
+            not self.event.strip()
+            or not self.turn_id.strip()
+            or any(ch in self.event for ch in ("\r", "\n"))
+            or any(ch in self.turn_id for ch in ("\r", "\n"))
+        ):
+            raise ValueError("SSE frame event and turn_id MUST be single-line non-empty strings")
+
     def encode(self) -> str:
-        return f"event: {self.event}\ndata: {self.data}\n\n"
+        lines = self.data.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+        data_block = "\n".join(f"data: {line}" for line in lines)
+        return f"event: {self.event}\n{data_block}\n\n"
 
 
 @dataclass(frozen=True, slots=True)

@@ -124,9 +124,9 @@ def register_trajectory_commands(
 
 
 def validate_trajectory_artifacts(
-    *,
     dataset_path: Path,
     manifest_path: Path,
+    *,
     purpose: str,
     access_scope: str,
 ) -> dict[str, object]:
@@ -150,9 +150,8 @@ def validate_trajectory_artifacts(
 
     try:
         manifest_raw = json.loads(manifest_path.read_text(encoding="utf-8"))
-        lines = [
-            line for line in dataset_path.read_bytes().splitlines(keepends=True) if line.strip()
-        ]
+        raw_bytes = dataset_path.read_bytes()
+        lines = [line for line in raw_bytes.splitlines(keepends=True) if line.strip()]
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("trajectory export is incomplete or unreadable") from exc
 
@@ -218,11 +217,15 @@ def validate_trajectory_artifacts(
         "record_count": record_count,
         "outcome_counts": dict(sorted(outcomes.items())),
         "dataset_checksum": _text(manifest, "dataset_checksum"),
+        "dataset_sha256": "sha256:" + hashlib.sha256(raw_bytes).hexdigest(),
         "manifest_checksum": _text(manifest, "manifest_checksum"),
         "replay_verified": True,
         "training_authority": "none",
         "promotion_authority": "none",
     }
+
+
+validate_trajectory_dataset_files = validate_trajectory_artifacts
 
 
 def validate_trajectory_command(args: argparse.Namespace) -> int:
@@ -377,4 +380,5 @@ __all__ = [
     "register_trajectory_commands",
     "validate_trajectory_artifacts",
     "validate_trajectory_command",
+    "validate_trajectory_dataset_files",
 ]

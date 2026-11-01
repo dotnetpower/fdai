@@ -110,6 +110,8 @@ export interface OutcomeAssuranceViewModel {
   readonly unavailableBanner: string | null;
   readonly summaryCards: readonly FormattedSummaryCard[];
   readonly objectiveDrilldowns: readonly FormattedObjectiveDrilldown[];
+  readonly breachedGuardCount: number;
+  readonly allGuardsPassing: boolean;
   readonly guardSummary: {
     readonly stateLabel: string;
     readonly policyEscapeDisplay: string;
@@ -239,9 +241,14 @@ export function formatOutcomeAssuranceViewModel(
         available: false, headlineDisplay: unavailLabel, evidenceRefs: [],
       })),
       objectiveDrilldowns: [],
+      breachedGuardCount: 0,
+      allGuardsPassing: false,
       guardSummary: { stateLabel: unavailLabel, policyEscapeDisplay: unavailLabel, evaluations: [], evidenceRefs: [] },
     };
   }
+  const evaluations = payload.guard_status.guard_evaluations;
+  const breachedGuardCount = evaluations.filter((g) => !g.passed).length;
+  const allGuardsPassing = evaluations.length > 0 && breachedGuardCount === 0;
   return {
     locale, readOnly: true, authority: "none", state: payload.state,
     unavailableBanner: formatUnavailableBanner(payload.state, payload.reason, locale),
@@ -275,6 +282,8 @@ export function formatOutcomeAssuranceViewModel(
       })),
       evidenceRefs: d.evidence_refs,
     })),
+    breachedGuardCount,
+    allGuardsPassing,
     guardSummary: {
       stateLabel: STATE_LABELS[locale][payload.guard_status.state] ?? payload.guard_status.state,
       policyEscapeDisplay: payload.guard_status.state === "unavailable" || payload.guard_status.state === "stale"

@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import pytest
-from fdai_operator_service.busy_input_materializer import BusyInputOperatorMaterializer
+from fdai_operator_service.busy_input_materializer import (
+    MAX_QUEUED_BUSY_INPUTS,
+    BusyInputCapacityError,
+    BusyInputOperatorMaterializer,
+)
 from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 
 
@@ -132,3 +136,44 @@ def test_busy_input_rejects_foreign_principal_on_submit_and_read_session_state()
             },
         )
     assert getattr(submit_exc.value, "status_code", None) == 403
+
+
+def test_busy_input_enforces_max_queued_capacity_and_emits_state_digest() -> None:
+    assert MAX_QUEUED_BUSY_INPUTS == 32
+    mat = BusyInputOperatorMaterializer()
+    mat.ensure_session(
+        session_id="sess-cap",
+        owner_principal_id="owner-a",
+        mode="queue",
+        active_turn_id="turn-1",
+    )
+    initial_state = mat.read_session_state(session_id="sess-cap", principal_id="owner-a")
+    initial_digest = str(initial_state["state_digest"])
+    assert initial_digest.startswith("sha256:") and len(initial_digest) == 71
+
+    for idx in range(MAX_QUEUED_BUSY_INPUTS):
+        res = mat.submit(
+            session_id="sess-cap",
+            principal_id="owner-a",
+            payload={
+                "input_id": f"in-{idx}",
+                "idempotency_key": f"idem-{idx}",
+                "content": f"queued item {idx}",
+                "kind": "prose",
+            },
+        )
+        assert str(res["session"]["state_digest"]).startswith("sha256:")
+
+    with pytest.raises(BusyInputCapacityError) as cap_exc:
+        mat.submit(
+            session_id="sess-cap",
+            principal_id="owner-a",
+            payload={
+                "input_id": "in-overflow",
+                "idempotency_key": "idem-overflow",
+                "content": "overflow item",
+                "kind": "prose",
+            },
+        )
+    assert cap_exc.value.status_code == 429
+    assert isinstance(cap_exc.value, ValueError)

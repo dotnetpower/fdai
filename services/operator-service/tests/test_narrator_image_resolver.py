@@ -9,6 +9,7 @@ from fdai_operator_service.adapters.narrator_image_resolver import (
     InMemoryNarratorImageResolver,
     ResolvedNarratorImage,
     resolve_turn_images_from_body,
+    verify_raster_magic_bytes,
 )
 from fdai_operator_service.families.conversation.contracts import ConversationBoundaryError
 
@@ -126,3 +127,46 @@ def test_resolved_image_forbids_script_capable_mime_types_and_validates_sha256_d
         sha256_digest=PNG_SHA,
     )
     assert valid.sha256_digest == PNG_SHA
+
+
+@pytest.mark.parametrize(
+    "polyglot_bytes",
+    [
+        b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+        b"<!DOCTYPE html><html><body>x</body></html>",
+        b"<html><script>evil()</script></html>",
+        b"<script>fetch('https://evil.example')</script>",
+        b"<?xml version='1.0'?><svg></svg>",
+    ],
+)
+def test_verify_raster_magic_bytes_and_polyglot_rejection(polyglot_bytes: bytes) -> None:
+    assert verify_raster_magic_bytes("image/png", PNG_BYTES) is True
+    assert verify_raster_magic_bytes("image/jpeg", b"\xff\xd8\xff\xe0JFIF") is True
+    assert verify_raster_magic_bytes("image/gif", b"GIF89a\x01\x00") is True
+    assert verify_raster_magic_bytes("image/webp", b"RIFF\x00\x00\x00\x00WEBP") is True
+    assert verify_raster_magic_bytes("image/png", polyglot_bytes) is False
+    assert verify_raster_magic_bytes("image/png", b"not-a-real-png-header") is False
+
+    poly_sha = hashlib.sha256(polyglot_bytes).hexdigest()
+    with pytest.raises(ValueError, match="forbidden SVG/HTML/script markup"):
+        ResolvedNarratorImage(
+            image_id="att-img-poly",
+            principal_id="principal-a",
+            conversation_id="conv-1",
+            media_type="image/png",
+            content=polyglot_bytes,
+            content_sha256=poly_sha,
+        )
+
+    fake_bytes = b"synthetic-non-magic-bytes"
+    fake_sha = hashlib.sha256(fake_bytes).hexdigest()
+    with pytest.raises(ValueError, match="raster magic bytes"):
+        ResolvedNarratorImage(
+            image_id="att-img-magic",
+            principal_id="principal-a",
+            conversation_id="conv-1",
+            media_type="image/png",
+            content=fake_bytes,
+            content_sha256=fake_sha,
+            verify_magic_bytes=True,
+        )

@@ -30,8 +30,16 @@ describe("busy-input-controls.model", () => {
     const enView = buildBusyInputControlViewModel(projection, "en");
     expect(enView.isTurnActive).toBe(true);
     expect(enView.canCancelTurn).toBe(true);
+    expect(enView.canInterrupt).toBe(true);
+    expect(enView.canSteer).toBe(true);
     expect(enView.submitLabel).toBe("Steer turn");
     expect(enView.ariaLiveStatus).toContain("Active turn in progress");
+
+    const disabledView = buildBusyInputControlViewModel(projection, "en", {
+      controlsDisabled: true,
+    });
+    expect(disabledView.canInterrupt).toBe(false);
+    expect(disabledView.canSteer).toBe(false);
 
     const koView = buildBusyInputControlViewModel(projection, "ko");
     expect(koView.submitLabel).toBe("응답 조향 전송");
