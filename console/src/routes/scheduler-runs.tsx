@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
   DataTable,
@@ -57,9 +57,9 @@ export function SchedulerRunsRoute({
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
 }) {
-  const resolveQuery = (mode: ConsoleDataMode): Query => {
+  const resolveQuery = (_mode: ConsoleDataMode): Query => {
     const rq = queryFromRoute();
-    return mode === "sample" && !rq.taskId
+    return !rq.taskId
       ? { ...rq, taskId: "inventory-reconciliation" }
       : rq;
   };
@@ -101,6 +101,11 @@ export function SchedulerRunsRoute({
       if (request !== generation.current) return;
       if (append) {
         setPageError(error instanceof Error ? error.message : String(error));
+      } else if (isOptionalOperatorApiUnavailable(error)) {
+        setState({
+          status: "unavailable",
+          message: error instanceof Error ? error.message : String(error),
+        });
       } else {
         setState({
           status: "error",
@@ -163,9 +168,16 @@ export function SchedulerRunsRoute({
           <span>{schedulerRunsText("taskId")}</span>
           <input
             required
+            list="scheduler-task-options"
             value={taskInput}
             onInput={(event) => setTaskInput((event.currentTarget as HTMLInputElement).value)}
           />
+          <datalist id="scheduler-task-options">
+            <option value="inventory-reconciliation" />
+            <option value="local-analyzer" />
+            <option value="observation-campaign" />
+            <option value="all" />
+          </datalist>
         </label>
         <label>
           <span>{schedulerRunsText("status")}</span>

@@ -2879,43 +2879,50 @@ class PostgresFamilyStore:
         if stream == "provision":
             rows = await self._fetch_all(
                 """
-                SELECT event_id AS seq,
-                       'provision.progress' AS action_kind,
-                       jsonb_build_object(
-                           'type', 'provision.progress',
-                           'fraction', (payload->>'fraction')::DOUBLE PRECISION,
-                           'ts', payload->>'last_progress_at',
-                           'run_id', payload->>'run_id',
-                           'attempt_id', payload->>'attempt_id',
-                           'sequence', (payload->>'sequence')::BIGINT,
-                           'state', payload->>'state',
-                           'current_stage', payload->>'stage',
-                           'reason_code', payload->'reason_code',
-                           'inventory', jsonb_build_object(
-                               'resources_observed',
-                                   (payload->>'resources_observed')::BIGINT,
-                               'resources_expected',
-                                   (payload->>'resources_expected')::BIGINT,
-                               'pages_completed',
-                                   (payload->>'pages_completed')::BIGINT,
-                               'pages_expected',
-                                   (payload->>'pages_expected')::BIGINT,
-                               'provider_types_completed',
-                                   (payload->>'provider_types_completed')::BIGINT,
-                               'provider_types_total',
-                                   (payload->>'provider_types_total')::BIGINT,
-                               'links_observed',
-                                   (payload->>'links_observed')::BIGINT,
-                               'unmapped_objects',
-                                   (payload->>'unmapped_objects')::BIGINT,
-                               'coverage_gaps',
-                                   (payload->>'coverage_gaps')::BIGINT
-                           )
-                       ) AS entry
-                  FROM inventory_progress_event
-                 WHERE event_id > %(after_sequence)s
-                 ORDER BY event_id ASC
-                 LIMIT %(limit)s
+                SELECT seq, action_kind, entry
+                  FROM (
+                        SELECT event_id AS seq,
+                               'provision.progress' AS action_kind,
+                               jsonb_build_object(
+                                   'type', 'provision.progress',
+                                   'fraction', (payload->>'fraction')::DOUBLE PRECISION,
+                                   'ts', payload->>'last_progress_at',
+                                   'run_id', payload->>'run_id',
+                                   'attempt_id', payload->>'attempt_id',
+                                   'sequence', (payload->>'sequence')::BIGINT,
+                                   'state', payload->>'state',
+                                   'current_stage', payload->>'stage',
+                                   'reason_code', payload->'reason_code',
+                                   'inventory', jsonb_build_object(
+                                       'resources_observed',
+                                           (payload->>'resources_observed')::BIGINT,
+                                       'resources_expected',
+                                           (payload->>'resources_expected')::BIGINT,
+                                       'pages_completed',
+                                           (payload->>'pages_completed')::BIGINT,
+                                       'pages_expected',
+                                           (payload->>'pages_expected')::BIGINT,
+                                       'provider_types_completed',
+                                           (payload->>'provider_types_completed')::BIGINT,
+                                       'provider_types_total',
+                                           (payload->>'provider_types_total')::BIGINT,
+                                       'links_observed',
+                                           (payload->>'links_observed')::BIGINT,
+                                       'unmapped_objects',
+                                           (payload->>'unmapped_objects')::BIGINT,
+                                       'coverage_gaps',
+                                           (payload->>'coverage_gaps')::BIGINT
+                                   )
+                               ) AS entry
+                          FROM inventory_progress_event
+                         WHERE event_id > %(after_sequence)s
+                         ORDER BY CASE
+                                      WHEN %(after_sequence)s = 0 THEN -event_id
+                                      ELSE event_id
+                                  END ASC
+                         LIMIT %(limit)s
+                       ) AS recent_progress
+                 ORDER BY seq ASC
                 """,
                 {
                     "after_sequence": after_sequence or 0,

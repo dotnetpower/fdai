@@ -156,6 +156,7 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
     }),
     [data],
   );
+  const stateEntries = Object.entries(data.states);
   const breakerEntries = Object.entries(data.breaker_states);
   const evidenceHref = conversationDeliveryEvidenceHref();
   return (
@@ -175,7 +176,7 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
         <KpiCard href={evidenceHref} label={t("evidence.delivery.acknowledged")} value={data.acknowledgement_count.toLocaleString()} />
       </KpiGrid>
       <div id="conversation-delivery-evidence" class="stack">
-        <section class="stack"><h2>{t("evidence.delivery.states")}</h2><div class="status-list">{Object.entries(data.states).map(([name, count]) => <div key={name}><StatusPill kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div></section>
+        <section class="stack"><h2>{t("evidence.delivery.states")}</h2>{stateEntries.length === 0 ? <p>{t("evidence.common.none")}</p> : <div class="status-list">{stateEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section>
         <section class="stack"><h2>{t("evidence.delivery.breakers")}</h2>{breakerEntries.length === 0 ? <p>{t("evidence.delivery.noBreakers")}</p> : <div class="status-list">{breakerEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "closed" ? "success" : "warning"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section>
       </div>
     </div>

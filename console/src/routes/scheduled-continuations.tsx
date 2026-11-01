@@ -27,7 +27,7 @@ interface ContinuationResponse {
 }
 
 export function ScheduledContinuationsRoute({
-  client: _client,
+  client,
   dataMode,
 }: {
   readonly client: OperatorApiClient;
@@ -47,11 +47,16 @@ export function ScheduledContinuationsRoute({
     }
     setState({ status: "loading" });
     fetchUserContext()
-      .then((context) => {
-        if (!cancelled) setState({
-          status: "ready",
-          data: { continuations: context.scheduled_continuations },
-        });
+      .then((context) => ({ continuations: context.scheduled_continuations }))
+      .catch(async (primaryError: unknown) => {
+        try {
+          return decodeScheduledContinuations(await client.panel<unknown>("/me/context"));
+        } catch {
+          throw primaryError;
+        }
+      })
+      .then((data) => {
+        if (!cancelled) setState({ status: "ready", data });
       })
       .catch((error: unknown) => {
         if (!cancelled) setState({
@@ -62,7 +67,7 @@ export function ScheduledContinuationsRoute({
         });
       });
     return () => { cancelled = true; };
-  }, [dataMode]);
+  }, [client, dataMode]);
   return <div class="stack"><PageHeader title={t("route.scheduledContinuations")} subtitle={t("nav.panelSub.scheduledContinuations")} /><AsyncBoundary state={state} resourceLabel={t("evidence.continuations.resource")}>{(data) => <ContinuationBody data={data} />}</AsyncBoundary></div>;
 }
 

@@ -105,11 +105,14 @@ export function ProvisionView({
           detail={source.reason}
         />
       ) : !hasRecordedProvisionRun(state) ? (
-        <ProvisionNotice
-          heading={visibleStreamError ? t("provision.streamErrorTitle") : t("provision.noRunTitle")}
-          body={visibleStreamError ?? t("provision.notObserved")}
-          tone={visibleStreamError ? "error" : "neutral"}
-        />
+        <>
+          <ProvisionNotice
+            heading={visibleStreamError ? t("provision.streamErrorTitle") : t("provision.noRunTitle")}
+            body={visibleStreamError ?? t("provision.notObserved")}
+            tone={visibleStreamError ? "error" : "neutral"}
+          />
+          {state.inventory !== null ? <ResourcesPanel state={state} /> : null}
+        </>
       ) : (
         <>
           <ProvisionRunSummary

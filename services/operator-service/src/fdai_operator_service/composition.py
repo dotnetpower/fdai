@@ -177,6 +177,14 @@ def _agent_state_key(event: LiveStreamEvent) -> str | None:
 def _live_activity_key(event: LiveStreamEvent) -> str | None:
     if event.event_type == "activity-status":
         return "__activity_status__"
+    if event.event_type == "stage":
+        payload = event.payload
+        event_id = payload.get("event_id")
+        stage = payload.get("stage")
+        phase = payload.get("phase")
+        if isinstance(event_id, str) and isinstance(stage, str) and isinstance(phase, str):
+            return f"stage:{event_id}:{stage}:{phase}"
+        return None
     if event.event_type != "activity":
         return None
     payload = event.payload
@@ -578,6 +586,12 @@ class _LiveActivitySnapshotLoader:
                 )
             )
         events.append(_live_activity_status("ready"))
+        if isinstance(self._read_model, PostgresOperatorReadModel):
+            from fdai_operator_service.runtime_projection_operations_helpers import (
+                load_retained_gpu_snapshots,
+            )
+
+            events.extend(await load_retained_gpu_snapshots(self._read_model._config.dsn))
         await self._hub.seed_latest(tuple(events))
 
     async def aclose(self) -> None:

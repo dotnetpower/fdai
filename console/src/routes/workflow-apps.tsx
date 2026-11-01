@@ -74,7 +74,9 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
   readonly selectedId: string | null;
 }) {
   const locale = getLocale();
-  const selected = data.items.find((app) => app.id === selectedId) ?? null;
+  const selected = selectedId === null
+    ? (data.items[0] ?? null)
+    : (data.items.find((app) => app.id === selectedId) ?? null);
   usePublishViewContext(
     () => ({
       routeId: "workflow-apps",
@@ -112,7 +114,7 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
           <table class="data-table">
             <thead><tr><th>{t("workflowApps.app")}</th><th>{t("workflowApps.workflow")}</th><th>{t("workflowApps.lifecycle")}</th></tr></thead>
             <tbody>{data.items.map((app) => (
-              <tr key={app.id} class={app.id === selectedId ? "row-active" : undefined}>
+              <tr key={app.id} class={app.id === selected?.id ? "row-active" : undefined}>
                 <td><a href={workflowAppHref(app.id, currentRoute().search)}><strong>{app.label[locale]}</strong></a><br /><span class="muted small">{app.description[locale]}</span></td>
                 <td><code>{app.workflow_ref}</code></td>
                 <td><StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} /></td>
