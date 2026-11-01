@@ -24,6 +24,7 @@ from fdai_service_contracts import (
     OperationalFreshness,
 )
 
+from fdai.delivery.azure.arg_public_catalog import ARG_OBSERVATION_OWNER_BY_SOURCE
 from fdai.shared.providers.state_store import StateStore
 
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9.-]{0,95}$")
@@ -49,6 +50,7 @@ _LEGACY_OBSERVATION_OWNER_BY_SOURCE: Mapping[str, ObservationOwner] = {
     "advisor-recommendations": "Njord",
     "quota-usages": "Njord",
     "recovery": "Vidar",
+    **ARG_OBSERVATION_OWNER_BY_SOURCE,
 }
 
 
