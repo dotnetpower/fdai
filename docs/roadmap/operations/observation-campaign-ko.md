@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: e4bfdf5b175abae4880d44d85b1b9b939214b63c
-translation_revised: 2026-10-30
+translation_source_sha: fa0ad13f5abaf273dd4e9b04aea06df860e10590
+translation_revised: 2026-11-01
 ---
 
 # 권한 인식 관측 캠페인
@@ -19,85 +19,6 @@ translation_revised: 2026-10-30
 > 커서, 정규화 및 활동 계약을 실행합니다. 로컬 PostgreSQL은 service-owned PostgreSQL
 > 엔드포인트를 대체합니다. 자격 증명 획득은 프로필에 연결된 어댑터이며 캠페인 동작을 바꾸지
 > 않습니다.
-
-## 구현 상태
-
-### 구현 범위
-
-| 영역 | 상태 | 근거 | 참고 |
-|------|------|------|------|
-| 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `delivery/azure/vm_power_state.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. 정확한 단일 VM 전원 상태 판독기는 작업별 경로이며 캠페인 등록 밖에 유지됩니다. |
-| 정확한 WARA 평가 읽기 | implemented | `delivery/azure/wara_observation.py`; `delivery/wara_assessment_cli.py`; 정확한 평가기 overlay; 집중 어댑터 테스트 | 이 어댑터는 일반 캠페인 검색과 분리된 상태를 유지합니다. 전용 예약 Job이 배포에서 선언한 umbrella workload 하나를 제공하고 완전한 대상 가시성과 범위가 제한된 결정론적 증적을 사용해 정확한 검토 쿼리를 실행하며, 논리 결과를 기존 Pantheon Event Hub로 multiplex합니다. WARA를 캠페인 출처로 등록하거나 수정 권한을 부여하지 않습니다. |
-| 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
-| 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
-| 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 일회 실행은 캠페인이 완료됐을 때만 성공하고 반복 모드는 부분 커버리지를 기록한 뒤 계속 실행합니다. 유효한 기존 배포 Job 이름은 유지하며 환경 이름 때문에 길이 제한을 넘을 때만 축약된 `caj-<workload>-<env>-observation` 형식을 사용합니다. |
-| Agent Activity 관측 변환 결과 | validated | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, `console/src/hooks/sse-client.ts`, 집중 Operator 및 Console 테스트, production-adapter Playwright, 인증된 표준 스택 검사 | 스키마 `1.3.0`은 안정적인 활동 인스턴스를 전이 id와 분리하고 측정된 0, 기록 안 됨, 사용 불가 결과를 구분하며 현재 활동을 중앙 Live SSE 스냅샷 및 delta 경로로 전달합니다. 보존 이력은 명시적인 bounded GET으로 유지됩니다. |
-| 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
-
-확장된 WARA 정확 쿼리 연결은 독립적으로 관찰한 대상 커버리지와 검토된 필드, 지역,
-SKU, 배열 선행 조건을 확인한 뒤에만 빈 결과를 충족으로 해석합니다. ARG 연결 57개와
-별도 Rule 연결은 캠페인 수집기가 아니라 WARA가 소유합니다. 서명된 수동 대체 경로,
-서명되지 않은 Collector 맥락, 도표 설명은 캠페인 준비 상태나 실시간 관찰을 대신하지
-않으며 선행 조건을 사용할 수 없으면 해당 평가를 알 수 없음으로 유지합니다.
-
-공유 활동 스키마의 Assurance Twin 소유권 조건은 이 캠페인의 `1.3.0` 관측 도메인
-계약과 분리됩니다. 캠페인 출처를 추가하거나 관측 소유자, 생산자, 범위 또는 권한을 넓히지
-않습니다. 역방향 스키마 조건도 `assurance-twin` 생산자를 `assurance-twin.posture` 종류에만
-예약하므로 이 생산자는 캠페인 또는 인벤토리 활동을 가장할 수 없습니다.
-
-운영 코호트 출처 연결도 이 캠페인 레지스트리와 분리됩니다. 코호트 연결은 배정된 지표 또는
-가드에 대해 검토된 exporter workflow 하나와 고정 논리 출처 식별자를 참조합니다. 캠페인
-준비 상태, 출처의 빈 결과 또는 광범위한 공급자 역할을 코호트 근거로 바꾸지 않습니다.
-제품별 어댑터는 각 exporter workflow 뒤에 유지되므로 배포는 Core 또는 이 캠페인
-카탈로그를 바꾸지 않고 서로 다른 정본 시스템을 선택할 수 있습니다.
-
-`ops.start-vm@1.0.0` 전원 상태 관찰자는 또 다른 별도 읽기 경로입니다. 생성자에서 VM
-하나와 리소스 그룹 하나로 고정하며, 캠페인 일정이나 출처 카탈로그 항목이 없고 캠페인 준비
-상태를 효과 근거로 사용할 수 없습니다. Reconciliation 근거를 만드는 작업별 효과 관찰자는
-권위 있는 관측 출처에서 자체 텔레메트리 완전성 증적을 전달하며, 캠페인 준비 상태는 그 증적을
-대체할 수 없습니다. 이 shadow-only 범위는 런타임 연결이나 실제 읽기를 추가하지 않습니다.
-
-### 구현 이력
-
-| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
-|------|------|------|------|-----------|
-| 2026-09-16 | implemented | 필수 커버리지가 부분 상태인 일회 캠페인이 0이 아닌 프로세스 상태를 반환하도록 하고 반복 모드는 계속 실행하도록 유지했습니다. 이제 Kubernetes Job 완료가 필수 공급자 실패를 숨길 수 없습니다. | `current change`; `delivery/observation_campaign_cli.py`; 집중 CLI 검사 7개, Ruff 및 strict mypy 통과. | 수정된 런타임을 배포하고 배포 검증을 주장하기 전에 실패한 Job 하나와 출처별 사유 코드를 보존합니다. |
-| 2026-09-16 | implemented | 모든 소스 전이에 기록 종류, 캠페인 상관관계, 소스 대상, 결과, 모드 및 리비전에 연결된 멱등성을 포함하는 표준 읽기 전용 감사 맥락을 추가했습니다. | `current change`; 변경 전 보존 행을 변경하지 않고 정규화하는 회귀 검사를 포함해 관측 캠페인 및 Operator 감사 집중 테스트가 통과했습니다. | 통제되는 배포 환경에서 동등한 정확한 개정 번호 근거를 보존합니다. |
-| 2026-09-15 | implemented | 복구 기한과 커서, 변환할 수 없는 변경, 관측 메타데이터, 영속 재시도 대기, 분석 대상 근거와 준비 상태를 다루는 비평 및 하드닝 12라운드를 완료했습니다. | #1065; [라운드 근거](../../baselines/live-event-production-hardening-2026-09-15.json); 집중 테스트 367개, 소스 7개의 strict mypy 통과 및 중대한 문제가 남지 않은 독립 최종 검토입니다. | 런타임 반영과 독립 근거 승인은 별도 요건이며 가짜 이벤트나 보류 조건 완화는 없습니다. |
-| 2026-09-15 | validated | 로컬 스키마 `1.3.0` 활동 스냅샷 및 delta 경로와 보존 이력 경계를 검증했습니다. Live는 SSE 연결 하나를 사용하고 암묵적인 Agent GET을 보내지 않았으며, 명시적 Agent Activity는 요청한 `1.3.0` 행 500개를 모두 반환하고 live delta로 행을 잃지 않고 렌더링했습니다. | `current change`; backend 집중 테스트 `353 passed, 1 skipped`; Console 집중 테스트 `188 passed`; strict mypy 및 typecheck 통과; production-adapter Playwright `1 passed`; 표준 로컬 서비스 `11/11`; 인증된 표준 Live 검사와 안전한 1440×900 session screenshot. | 별도로 통제되는 실제 캠페인 행을 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
-| 2026-09-15 | implemented | 실행 중 및 실패한 부분 개수를 제한한 뒤 스키마 `1.3.0` 활동 생성과 영속 projection을 다시 검증했습니다. 표준 로컬 projection은 요청한 500개 행을 모두 `1.3.0`으로 반환했고 측정됨, 기록 안 됨, 사용 불가 상태를 포함했습니다. | `current change`; backend 집중 테스트 `278 passed, 1 skipped`; strict mypy 통과; 표준 로컬 서비스 `11/11`; 영속 활동 projection `500/500`. | Browser Entra를 갱신한 뒤 인증된 Live 카드와 실패 전이 artifact를 캡처하고, 통제된 실제 캠페인 근거를 validated로 올리기 전에 동등한 배포 개정 번호 근거를 보존합니다. |
-| 2026-09-14 | implemented | 시작 또는 실패 상태인 인벤토리와 관측 행이 일부 출처 개수를 완료된 근거처럼 노출하지 않도록 했습니다. 두 상태는 `evidence_count: 0`을 게시하고 `result_count`를 비우며, 측정이 완료된 종료 행만 관측 개수를 유지합니다. | `current change`; Core 활동 생산자 및 Operator 변환 결과 회귀 검사 13개가 통과했습니다. | 런타임 검증을 주장하기 전에 인증된 표준 스택에서 실패 전이 하나를 보존합니다. |
-| 2026-09-14 | implemented | 안정적인 수명 주기 신원, 등록된 표현 사실, 타입이 지정된 결과 상태와 단위, 소스 기준 시각, 선택적 타이밍을 포함하는 operational activity 스키마 `1.3.0`을 추가했습니다. Operator는 delta 커서를 할당하지 않고 현재 활동을 Live SSE에 seed하며 CAS에서 대체된 작업은 측정된 0을 만들지 않고 기록 안 됨으로 유지합니다. | `current change`; service-contract, Core 생산자, Operator projection/stream 및 Console decoder/card 경로와 현재 세션의 focused 검사. | 통제된 실제 캠페인 근거를 validated로 올리기 전에 인증된 표준 로컬 스택 관찰과 동등한 배포 개정 번호 근거를 보존합니다. |
-| 2026-09-12 | implemented | 캠페인 출처를 추가하지 않고 독립 `ops.start-vm@1.0.0` 효과 관측을 위한 정확한 대상 Azure VM 전원 상태 읽기 계약을 추가했습니다. | `current change`; `delivery/azure/vm_power_state.py`; 정확한 범위, 신원, 응답 한계, 안전한 실패 집중 테스트입니다. | 별도 승인된 A3-E 런타임 근거 작업 전까지 어댑터를 연결하지 않고, 검증 전 동등한 배포 근거를 보존합니다. |
-| 2026-09-04 | implemented | 일반 관측 캠페인의 범위를 넓히지 않고 전용 예약 WARA Job을 추가했습니다. 범위 판독기는 기존 shadow 관측기를 실행하기 전에 최신 승격 세대, 완전한 워크로드 관계, 인벤토리가 소유하는 정확한 ARM ID를 요구합니다. | `current change`; 집중 WARA CLI, PostgreSQL 범위, 런타임, Azure 어댑터 검사가 통과했습니다. | 별도로 권한이 부여된 배포 WARA 증적을 보존하고 WARA를 일반 출처 검색 밖에 유지합니다. |
-| 2026-09-04 | implemented | 강화 라운드 13에서 각 WARA 위반 쿼리 전에 정확한 ID를 사용하는 보조 `Resources` 커버리지 쿼리를 추가했습니다. 모든 대상이 같은 읽기 신원에 표시되는 경우에만 위반 0건을 충족으로 처리할 수 있습니다. | `current change`; 집중 부분 RBAC 및 표시되지 않는 대상 회귀 검사입니다. | 이후 예약 출처 등록에서도 동일한 커버리지 증명을 보존합니다. |
-| 2026-09-04 | implemented | 강화 라운드 3에서 남은 WARA 전송 한계 공백을 수정했습니다. 표준 HTTPS 관리 포트만 허용하며 배포 구성이 더 낮출 수 있는 고정된 페이지당 4 MiB 및 관측당 16 MiB 응답 상한을 적용합니다. | `current change`; 집중 endpoint 및 응답 한계 회귀 검사입니다. | 이후 예약 출처 등록에서도 이 상한을 보존합니다. |
-| 2026-09-04 | implemented | 강화 라운드 2에서 WARA 읽기 계획 제한 시간이 각 ARG 페이지마다 다시 시작되지 않고 페이지가 매겨진 전체 관측에 적용되도록 수정했습니다. | `current change`; 지연된 다중 페이지 집중 회귀 검사입니다. | 예약 평가 작업자를 추가할 때도 동일한 전체 제한 시간 계약을 보존합니다. |
-| 2026-09-04 | implemented | 검토된 WARA 평가기 3개를 위한 정확한 범위의 Azure Resource Graph 읽기 경로를 추가했습니다. 이 경로는 일반 캠페인 검색 밖에 유지되며 등록된 출처 범위, 쿼리 템플릿 또는 작업 권한을 넓힐 수 없습니다. | `current change`; 집중 WARA overlay, 런타임, endpoint, 범위, pagination 및 결정론적 증적 검사입니다. | 별도로 검토된 출처 등록을 통해서만 예약 평가에 추가하고 권한이 부여된 실제 shadow 증적을 보존합니다. |
-| 2026-08-25 | implemented | 캠페인 Event Bus 조립을 전체 Core 구성 검증에서 분리했습니다. 장기 실행 작업자가 이전 환경 프로바이더를 메모리에 유지한 채 다음 반복에서 갱신된 체크아웃의 최신 JSON Schema를 읽으면, 관련 없는 웹 검색 필드가 더 이상 일치하지 않아 종료될 수 있었습니다. 이제 작업자는 필수 Kafka 부트스트랩 연결과 선택적 배달 못 한 메시지 접미사만 읽습니다. | `current change`, `delivery/observation_campaign_cli.py`, `test_observation_campaign_cli.py`, 혼합 구성 집중 회귀 테스트 통과 | 반복 작업자가 이 개정 번호를 로드하도록 로컬 스택을 다시 시작합니다. 배포 개정 번호 캠페인 근거는 계속 열려 있습니다. |
-| 2026-08-28 | implemented | 유효한 관측 Job 이름을 유지하고 Azure 32자 제한을 넘을 때만 환경 범위 축약 형식을 추가했습니다. | 실패한 staging plan-only 실행 `33111410162`; `current change`; 집중 명명 검사 및 Terraform 검증. | 수정된 이름으로 배포 캠페인 실행 1개를 보존합니다. |
-| 2026-08-19 | validated | 보존된 Activity Log backlog를 범위가 제한된 영속 attempt로 모두 소진하고 current source의 최종 로컬 캠페인을 보존했습니다. 등록된 출처 10개가 모두 `ready`, `fresh`, `completed`이고 성공한 빈 결과는 명시적으로 유지되며 사유 코드가 없습니다. 반복 로컬 캠페인 작업도 다시 실행 중입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, focused observation 검사 59개 통과 | End-to-end 배포 검증을 주장하기 전에 동등한 배포 개정 번호 근거와 등록된 부정 권한 및 구성 결과를 보존합니다. |
-| 2026-08-19 | implemented | 첫 실제 catch-up 실행이 checkpoint를 영속화하기 전에 30초 source timeout을 소진한 뒤, Activity Log catch-up attempt 하나를 완전히 읽은 adaptive 창 4개로 제한했습니다. 이제 각 terminal attempt는 영속 cursor를 전진시키거나 명시적 source failure를 보고하며, 큰 backlog는 즉시 실행 조건을 만족하는 `source_catchup` 전이로 이어서 처리합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 실제 실행은 `source_timeout`을 보고했고, 이후 focused checkpoint, cursor pruning, pagination 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 campaign을 소진하고 보존합니다. |
-| 2026-08-19 | implemented | Activity Log coverage가 claims, request detail 또는 properties를 내려받지 않고 영속 cursor backlog를 복구하도록 했습니다. Probe는 timestamp 필드만 요청하고 등록된 result, byte 및 timeout 상한 안에서 닫힌 adaptive 시간 창을 조회하며, 완전히 읽은 창만 checkpoint합니다. `source_catchup`만 즉시 다시 실행 조건을 만족하며 권한, throttle, 전송 및 계약 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused Azure probe 및 영속 runner 검사 30개가 통과했습니다. 수정 전 보존된 로컬 backlog는 event 12,882개와 page 65개로 측정됐습니다. | 변경을 커밋하고 보존된 cursor를 현재 cutoff까지 소진한 뒤, 런타임 검증을 주장하기 전에 출처 10개가 모두 `completed`인 로컬 campaign 하나를 보존합니다. |
-| 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
-| 2026-08-14 | implemented | 공유 커버리지 캠페인, 반복 로컬 인벤토리 동등성, 배포 작업과 읽기 역할, 영속 Operator 변환 결과 및 지역화된 Console lane을 구현하고 하드닝했습니다. | `current change`, 집중 계약, 수명 주기, 프로바이더, CLI, 인벤토리, Operator, Console, workspace, 타입, lint, JSON 및 Terraform 검사 | 검증을 주장하기 전에 하나의 카탈로그 digest에서 통제된 로컬 및 배포 실행을 보존합니다. |
-| 2026-08-14 | implemented | 첫 통제된 로컬 실행에서 그래프 속성 decode, Service Health payload 크기 및 대상 없는 메트릭 라우팅 실패를 발견한 뒤 집계 전용 커버리지를 하드닝했습니다. | 검증된 개정 번호 `214409710`, 이 실행은 준비된 출처 6개, 정규화된 Cost 제한 1개 및 격리된 프로바이더 실패 3개에 도달했습니다. `current change`, 집중 집계 커버리지 검사 125개 통과 | 하드닝된 개정 번호에서 통제된 로컬 캠페인을 다시 실행한 뒤 동등한 배포 실행을 보존합니다. |
-| 2026-08-14 | in-progress | 하나의 카탈로그 digest에서 하드닝된 로컬 캠페인과 인증된 Console 변환 결과를 보존했습니다. | `6aae0837f` 중앙 receipt, 준비된 출처 8개, 명시적인 오래된 인벤토리, 정규화된 Cost 제한 및 프로바이더 실패가 없는 고유한 지역화 Agent Activity 행 10개 | 검증을 주장하기 전에 동등한 배포 실행과 남은 부정 런타임 결과를 보존합니다. |
-| 2026-08-14 | implemented | 잘못된 선택적 VM 종료 일정이 승격된 전체 인벤토리 그래프를 숨기지 않도록 했습니다. | `current change`, 순수 projection 회귀 검사 통과, 복구된 권위 있는 로컬 스냅샷이 fresh 상태의 209-resource active view를 구체화하고 일정 warning 4개를 격리했습니다. | 다음 실행 조건 캠페인이 stale에서 fresh로 전환되는지 관측한 뒤 배포 근거를 보존합니다. |
-| 2026-08-14 | in-progress | 권위 있는 인벤토리 복구 후 다음 실행 조건 캠페인을 확인하고 인증된 Agent Activity 변환 결과를 갱신했습니다. | 검증된 개정 번호 `6585d6fcd`, 준비된 출처 9개, 집계 기록 1,104개의 fresh 인벤토리, 정규화되어 보존된 Cost 제한, 고유한 Console 행 10개 및 프로바이더 실패 0개 | 검증을 주장하기 전에 권한 없음, 미구성 및 시간 초과 런타임 결과와 동등한 배포 실행을 보존합니다. |
-| 2026-08-17 | implemented | 고정된 상위 경로 깊이 대신 설치된 이미지 레이아웃에서 저장소 동봉 자산을 해석하도록 했습니다. campaign tick이 체크아웃과 컨테이너 이미지 양쪽에서 `config`와 `rule-catalog`를 찾습니다. | `current change`, `repo_assets.py`와 delivery tick 3개, focused resolver 테스트 3개 통과, Ruff 통과. 배포된 analyzer 실행은 모두 `probe catalog root not a directory: /app/.venv/rule-catalog/probes`로 실패하고 있었습니다. | 다음 이미지 롤아웃 이후 배포된 실행 성공을 확인합니다. |
-### 남은 작업
-
-- [x] 범위가 제한된 카탈로그, 원자적 실행기, 프로바이더 probe, 로컬 및 배포 기동 경로,
-  반복 권위 인벤토리, 영속 활동 변환 결과 및 지역화된 Console lane을 구현합니다.
-- [x] 검증된 개정 번호 `6aae0837f`에서 고유한 출처 행 10개, 준비됨, 오래됨, 제한됨, 빈 결과,
-  건너뜀, 완료 및 저하 결과와 인증된 snapshot-first/실제 중복 제거 근거를 포함하는 통제된 로컬
-  실행 하나를 보존합니다.
-- [x] 보존된 Activity Log cursor를 소진하고 출처 10개가 모두 `ready`, `fresh`, `completed`이며
-  사유 코드가 없고 빈 결과를 명시하는 current-source 로컬 캠페인을 보존합니다.
-- [ ] end-to-end 검증을 주장하기 전에 권한 없음, 미구성 및 시간 초과 런타임 결과와 같은 카탈로그
-  digest의 배포 실행 하나를 보존합니다.
-
 ## 설계 개요
 
 캠페인은 기계적인 읽기 전용 커버리지 작업자입니다. scheduler가 캠페인을 기동하고 레지스트리가
@@ -320,6 +241,7 @@ activity는 같은 물리 Live 스트림의 커서가 있는 delta를 사용하�
 
 | 알아볼 내용 | 문서 |
 |-------------|------|
+| 구현 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/operations/observation-campaign.md) |
 | 범위가 제한된 운영자 조사 | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md) |
 | 탐지 및 발견된 문제 생성 | [관측 가능성 및 탐지](../rules-and-detection/observability-and-detection-ko.md) |
 | 프로바이더 중립 읽기 계약 | [CSP 중립성](../architecture/csp-neutrality-ko.md) |

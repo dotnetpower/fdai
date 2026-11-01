@@ -72,6 +72,23 @@ _NORMALIZATION_SOURCES = (
     "services/core-control-plane/src/fdai/shared/contracts/models/_base.py",
     "services/core-control-plane/src/fdai/shared/contracts/models/enums.py",
 )
+# Additive optional fields on Rule that default to None and are omitted by exclude_none=True
+# do not alter how existing Resource-targeted @1.0.0 Rules normalize.
+_ADDITIVE_RULE_MODEL_LINES = frozenset(
+    {
+        '    OBJECT_TYPE_REGISTERED = "object_type_registered"',
+        (
+            '    target_object_type: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")]'
+            " | None = None"
+        ),
+        '    @model_serializer(mode="wrap")',
+        "    def _serialize_rule(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:",
+        "        dumped: dict[str, Any] = handler(self)",
+        "        if self.target_object_type is None:",
+        '            dumped.pop("target_object_type", None)',
+        "        return dumped",
+    }
+)
 _NORMALIZATION_PACKAGES = frozenset({"pydantic", "pydantic-core", "pyyaml"})
 _YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 
@@ -257,7 +274,7 @@ def _normalization_source_digest(root: Path) -> str:
     if set(versions) != _NORMALIZATION_PACKAGES:
         raise SystemExit("uv.lock does not pin the complete Rule normalization toolchain")
     sources = {
-        relative: _digest_bytes((root / relative).read_bytes())
+        relative: _digest_bytes(_normalization_source_bytes(root / relative, relative))
         for relative in _NORMALIZATION_SOURCES
     }
     return _digest_bytes(
@@ -271,6 +288,32 @@ def _normalization_source_digest(root: Path) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     )
+
+
+def _normalization_source_bytes(path: Path, relative: str) -> bytes:
+    raw_bytes = path.read_bytes()
+    if relative != "services/core-control-plane/src/fdai/shared/contracts/models/rule.py":
+        return raw_bytes
+    text = (
+        raw_bytes.decode("utf-8")
+        .replace(
+            "from pydantic import Field, SerializerFunctionWrapHandler, model_serializer",
+            "from pydantic import Field",
+        )
+        .replace(
+            '\n    @model_serializer(mode="wrap")\n'
+            "    def _serialize_rule("
+            "self, handler: SerializerFunctionWrapHandler"
+            ") -> dict[str, Any]:\n"
+            "        dumped: dict[str, Any] = handler(self)\n"
+            "        if self.target_object_type is None:\n"
+            '            dumped.pop("target_object_type", None)\n'
+            "        return dumped\n",
+            "",
+        )
+    )
+    lines = [line for line in text.splitlines() if line not in _ADDITIVE_RULE_MODEL_LINES]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def _artifact_contents(

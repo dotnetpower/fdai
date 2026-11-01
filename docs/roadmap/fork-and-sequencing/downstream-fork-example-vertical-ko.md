@@ -1,8 +1,8 @@
 ---
 title: Fork Example Vertical - 새 비즈니스 오브젝트 end-to-end
 translation_of: downstream-fork-example-vertical.md
-translation_source_sha: ff9ba5702b71447452d88d36fb02deab38efab50
-translation_revised: 2026-08-24
+translation_source_sha: 64aeae5523826c206eedbd9a4c4021cb802f94ed
+translation_revised: 2026-11-01
 ---
 
 # 포크 예시 버티컬: 새 비즈니스 오브젝트 종단 간
@@ -274,7 +274,8 @@ version: "1.0.0"
 source: custom
 severity: medium
 category: compliance
-resource_type: governance.proposal   # 아래 caveat 참조
+resource_type: governance.proposal
+target_object_type: GovernanceProposal
 check_logic:
   kind: rego
   reference: policies/fork-x/governance/assign_reviewers.rego
@@ -291,22 +292,14 @@ provenance:
   retrieved_at: "2026-07-08T00:00:00Z"
 ```
 
-**`resource_type` caveat**: 배포된 룰 로더는 `resource_type`을
-ResourceType 레지스트리 (built-in `Resource` ObjectType의 subtype
-레지스트리)에 대해 검증. 업스트림 로더가 등록된 어떤 ObjectType이든
-받도록 일반화되기 전까지 포크는 두 옵션:
-
-1. **포크의 자체 vocabulary 확장에서 제안 subtype을 ResourceType
-   엔트리로 모델링** (`fork/vocabulary/resource-types-fork.yaml`를
-   별도 `load_resource_type_registry_from_mapping` 호출로 로드해서
-   업스트림과 concatenate). 이름이 오도적이지만 (클라우드 리소스가
-   아님) 메커니즘은 작동.
-2. **업스트림 issue를 열어 `Rule.target_object_type` 필드 추가**.
-   Rule 로더를 fork-patch 하지 말 것; cross-reference는 load-time
-   오타 가드.
-
-옵션 1은 첫 번째 shipping; 옵션 2가 cleaner long-term 방향이고
-업스트림 설계 통과를 블록.
+**커스텀 `ObjectType` 타기팅 (`Rule.target_object_type`)**: 룰 로더는 `load_rule_catalog`
+또는 `load_rule_from_mapping`에 `object_types`(또는 `object_type_names`)가 전달될 때
+등록된 `ObjectType` 카탈로그(`load_object_type_catalog`)를 기준으로 `target_object_type`을
+교차 검증합니다. `target_object_type`이 등록된 비-`Resource` `ObjectType`(`GovernanceProposal`
+또는 `ChangeSummary` 등)을 가리키면, `resource_type`은 도메인 디스패치 키(`governance.proposal`
+등)를 유지하고 `submission_criteria`는 별도의 `ResourceType` 우회 등록 없이
+`object_type_registered`를 사용할 수 있습니다. 기존 `ResourceType` 확장 경로도 하위 호환성을 위해
+그대로 지원됩니다.
 
 ### 5.2 결정 발행 (T0)
 

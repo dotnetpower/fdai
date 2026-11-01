@@ -7,6 +7,7 @@ import fcntl
 import json
 import os
 import secrets
+import shutil
 import signal
 import socket
 import subprocess
@@ -74,6 +75,37 @@ def _worker_ready(
     raise ValueError("Bootstrap executor did not become ready before its startup deadline.")
 
 
+def _open_browser(url: str) -> bool:
+    """Open the local browser, using PowerShell Start-Process on WSL when wslview is absent."""
+    configured = os.environ.get("BROWSER", "").split(":", 1)[0].strip()
+    if configured and shutil.which(configured) is not None:
+        return webbrowser.open(url)
+    powershell = shutil.which("powershell.exe")
+    if (
+        ("WSL_DISTRO_NAME" in os.environ or "WSL_INTEROP" in os.environ)
+        and shutil.which("wslview") is None
+        and powershell is not None
+    ):
+        safe_url = url.replace("'", "''")
+        result = subprocess.run(  # noqa: S603 - fixed local loopback setup URL on WSL
+            [
+                powershell,
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                f"Start-Process '{safe_url}'",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=15,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+    return webbrowser.open(url)
+
+
 def start(args: argparse.Namespace) -> int:
     """Start one loopback Hub surface and its independently running local executor."""
     if "FDAI_HUB_REMOTE_CONFIG" in os.environ:
@@ -84,12 +116,32 @@ def start(args: argparse.Namespace) -> int:
     stop = Event()
     with launcher_lock(state_dir), _shutdown_signals(stop):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        launch_path = state_dir / "launch.url"
+        cookie_path = state_dir / "session.cookie"
         try:
-            listener.bind(("127.0.0.1", args.port))
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                listener.bind(("127.0.0.1", args.port))
+            except OSError:
+                if args.port == 0 or getattr(args, "strict_port", False):
+                    raise
+                listener.bind(("127.0.0.1", 0))
+                print(
+                    f"Requested port {args.port} is in use; bound to free loopback port.",
+                    flush=True,
+                )
             listener.listen(128)
             port = listener.getsockname()[1]
             origin = f"http://127.0.0.1:{port}"
             launch_token = secrets.token_urlsafe(32)
+            launch_url = f"{origin}/setup#session={launch_token}"
+            prepare_directory(state_dir)
+            launch_path.unlink(missing_ok=True)
+            fd = os.open(launch_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            try:
+                os.write(fd, f"{launch_url}\n".encode())
+            finally:
+                os.close(fd)
             app = create_setup_app(state_dir, origin=origin, launch_token=launch_token)
             started_ns = time.time_ns()
             worker = subprocess.Popen(  # noqa: S603 - fixed package entrypoint, no shell
@@ -109,12 +161,24 @@ def start(args: argparse.Namespace) -> int:
                 _worker_ready(worker, state_dir, started_ns=started_ns, stop=stop)
                 print(f"Lifecycle Hub Bootstrap: {origin}/setup", flush=True)
                 print("Azure access stays in the customer executor. Keep this process running.")
+                if getattr(args, "print_launch_url", False):
+                    print(f"Launch URL: {launch_url}", flush=True)
                 if args.no_browser:
-                    print("Browser launch disabled; restart without --no-browser to sign in.")
-                elif not webbrowser.open(f"{origin}/setup#session={launch_token}"):
-                    raise ValueError(
-                        "Could not open a browser. Start Bootstrap on a browser-equipped host."
+                    print(
+                        f"Browser launch disabled; private launch URL saved in {launch_path}",
+                        flush=True,
                     )
+                else:
+                    try:
+                        opened = _open_browser(launch_url)
+                    except Exception:  # noqa: BLE001 - headless/SSH hosts must not crash startup
+                        opened = False
+                    if not opened:
+                        print(
+                            "Could not open a local browser automatically. "
+                            f"Use the private launch URL in {launch_path} over SSH forwarding.",
+                            flush=True,
+                        )
                 config = uvicorn.Config(
                     app, host="127.0.0.1", port=port, access_log=False, log_level="warning"
                 )
@@ -123,8 +187,27 @@ def start(args: argparse.Namespace) -> int:
             finally:
                 _stop_worker(worker)
         finally:
+            launch_path.unlink(missing_ok=True)
+            cookie_path.unlink(missing_ok=True)
             listener.close()
     return 0
+
+
+def stop_running_bootstrap(state_dir: Path) -> dict[str, object]:
+    """Stop the local Bootstrap worker process group recorded in heartbeat.json."""
+    heartbeat = state_dir / "heartbeat.json"
+    stopped = False
+    if heartbeat.is_file() and not heartbeat.is_symlink():
+        try:
+            record = json.loads(heartbeat.read_bytes())
+        except (OSError, ValueError):
+            record = None
+        pid = record.get("pid") if isinstance(record, dict) else None
+        if isinstance(pid, int) and pid > 1:
+            stopped = _signal_worker_group(pid, signal.SIGTERM)
+    (state_dir / "launch.url").unlink(missing_ok=True)
+    (state_dir / "session.cookie").unlink(missing_ok=True)
+    return {"state_dir": str(state_dir), "stopped": stopped}
 
 
 @contextmanager

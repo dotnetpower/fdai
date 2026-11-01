@@ -11,148 +11,331 @@
 <body>
   <a class="skip-link" href="#main" data-i18n="skip">Skip to setup</a>
   <header class="masthead">
-    <div><strong class="brand">FDAI Lifecycle Hub</strong><span class="local-label" data-i18n="local">Local setup</span></div>
-    <label class="locale-label" for="locale"><span data-i18n="language">Language</span>
-      <select id="locale"><option value="en">English</option><option value="ko">한국어</option></select>
-    </label>
-  </header>
-  <main id="main">
-    <div class="page-heading">
-      <p class="eyebrow" data-i18n="eyebrow">INSTALLATION</p>
-      <h1 data-i18n="title">Set up FDAI in Azure</h1>
-      <p class="lead" data-i18n="intro">Connect your Azure account, choose an installation target, and review each exact plan before applying it.</p>
-      <p class="muted" data-i18n="standalone">This local Hub starts without an FDAI Runtime or PostgreSQL.</p>
+    <div class="brand-wrap">
+      <span class="brand-dot" aria-hidden="true">F</span>
+      <strong class="brand">FDAI Lifecycle Hub</strong>
+      <span class="brand-sep" aria-hidden="true">/</span>
+      <span class="local-label" data-i18n="local">Local setup</span>
+      <span id="header-arch-tag" class="meta-tag">AKS · PostgreSQL Flex</span>
     </div>
-    <p id="notice" role="alert" hidden></p>
-    <section class="status-section" aria-labelledby="status-heading">
-      <div class="section-heading">
-        <h2 id="status-heading" data-i18n="status">Installation status</h2>
+    <div class="masthead-controls">
+      <div id="operator-pill" class="account-pill" hidden>
+        <span id="operator-user"></span>
+        <span id="operator-avatar" class="account-avatar" aria-hidden="true">AZ</span>
+      </div>
+      <button id="theme-toggle" type="button" class="quiet" data-i18n="themeToggle">Dark / Light</button>
+      <label class="locale-label" for="locale"><span data-i18n="language">Language</span>
+        <select id="locale"><option value="en">English</option><option value="ko">한국어</option></select>
+      </label>
+    </div>
+  </header>
+  <main id="main" class="wizard">
+    <div class="wizard-header">
+      <div class="page-heading">
+        <p class="eyebrow" data-i18n="eyebrow">INSTALLATION</p>
+        <h1 data-i18n="title">Set up FDAI in Azure</h1>
+        <p class="lead" data-i18n="intro">Connect your Azure account, choose an installation target, and review each exact plan before applying it.</p>
+        <p class="muted" data-i18n="standalone">This local Hub starts without an FDAI Runtime or PostgreSQL.</p>
+      </div>
+      <div class="wizard-header-actions">
         <button id="refresh" type="button" class="quiet" data-i18n="refresh">Refresh status</button>
       </div>
-      <div id="status-live" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">
-        <span id="phase" class="badge" data-i18n="connecting">Connecting</span>
-        <p id="message" data-i18n="initializing">Opening your authenticated setup session...</p>
-        <div id="skeleton" class="skeleton" aria-hidden="true"><span></span><span></span></div>
-      </div>
-      <dl id="request-meta" class="metadata" hidden>
-        <div><dt data-i18n="request">Request</dt><dd id="request-id"></dd></div>
-        <div><dt data-i18n="action">Action</dt><dd id="action-name"></dd></div>
-        <div id="error-row" hidden><dt data-i18n="errorCode">Error code</dt><dd id="error-code"></dd></div>
-      </dl>
-      <p id="observed" class="muted"></p>
-    </section>
-    <div class="workspace">
-      <div class="configuration">
-        <section aria-labelledby="account-heading">
-          <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
-          <p data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
-          <div class="button-row">
-            <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
-            <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>
-          </div>
-        </section>
-        <form id="install-form">
-          <fieldset id="configuration-fields" disabled>
-            <legend class="step-heading"><span class="step-number" aria-hidden="true">2</span><span data-i18n="configure">Choose your installation</span></legend>
-            <div class="field">
-              <label for="subscription" data-i18n="subscription">Azure subscription</label>
-              <select id="subscription" name="subscription" required aria-describedby="subscription-help">
-                <option value="" data-i18n="noAccounts">List subscriptions to choose a target</option>
-              </select>
-              <p id="subscription-help" class="hint" data-i18n="subscriptionHelp">Only subscriptions returned by your authenticated Azure session appear here.</p>
-            </div>
-            <div class="field-grid">
-              <div class="field">
-                <label for="region" data-i18n="region">Azure region</label>
-                <input id="region" name="region" required pattern="[a-z][a-z0-9]{1,31}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="region-help">
-                <p id="region-help" class="hint" data-i18n="regionHelp">Enter the supported Azure location name for your target, using lowercase letters and digits.</p>
-              </div>
-              <div class="field">
-                <label for="cost" data-i18n="cost">Monthly cost ceiling (USD)</label>
-                <input id="cost" name="cost" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="cost-help">
-                <p id="cost-help" class="hint" data-i18n="costHelp">A planning limit, not a billing cap or a cost estimate.</p>
-              </div>
-            </div>
-            <fieldset class="artifact-options">
-              <legend data-i18n="artifacts">Installation artifacts</legend>
-              <label class="radio-option"><input type="radio" name="artifact" value="hub" checked><span><strong data-i18n="hubMode">Signed prebuilt images</strong><span class="hint" data-i18n="hubHelp">Default. Verify Release Hub artifacts using an independently trusted public key. No source-build fallback.</span></span></label>
-              <label class="radio-option"><input type="radio" name="artifact" value="source"><span><strong data-i18n="sourceMode">Build from a clean source checkout</strong><span class="hint" data-i18n="sourceHelp">Explicit source installation, independent of Release Hub images.</span></span></label>
-            </fieldset>
-            <div id="hub-fields" class="field">
-              <label for="public-key" data-i18n="publicKey">Trusted Release Hub public key (Ed25519 PEM)</label>
-              <p id="key-help" class="hint" data-i18n="keyWarning">Verify this public key through an independent trusted channel. Never paste or upload a private key, credential, or secret.</p>
-              <textarea id="public-key" rows="4" maxlength="4096" required spellcheck="false" autocomplete="off" aria-describedby="key-help"></textarea>
-              <label class="file-label" for="key-file" data-i18n="keyFile">Or read a public PEM file (maximum 4 KiB)</label>
-              <input id="key-file" type="file" accept=".pem,.pub,text/plain" aria-describedby="key-help">
-            </div>
-            <div id="source-fields" class="field" hidden>
-              <label for="source-root" data-i18n="sourceRoot">Clean checkout path on this Hub host</label>
-              <input id="source-root" maxlength="1024" autocomplete="off" spellcheck="false" disabled aria-describedby="source-path-help">
-              <p id="source-path-help" class="hint" data-i18n="sourcePathHelp">Use an absolute local path. The backend verifies the committed source before preparing the plan.</p>
-            </div>
-            <div class="baseline">
-              <h3 data-i18n="baselineTitle">Existing AKS resource baseline</h3>
-              <p data-i18n="baseline">The read-only-console runtime profile still deploys the existing AKS infrastructure and its supporting resources. It is not a reduced-cost runtime. Review the actual resources and cost evidence in each plan.</p>
-            </div>
-            <p id="prepare-help" data-i18n="prepareHelp">Preparation may register required Azure providers after your authorization. Later stages require separate approval of their exact plans; this button does not approve every apply.</p>
-            <button id="install" type="submit" aria-describedby="prepare-help" data-i18n="prepare">Authorize preparation</button>
-          </fieldset>
-        </form>
-      </div>
-      <aside class="decision-column">
-        <section id="review-section" aria-labelledby="review-heading" hidden>
-          <p class="eyebrow" data-i18n="decision">YOUR DECISION</p>
-          <h2 id="review-heading" tabindex="-1" data-i18n="review">Review the exact plan</h2>
-          <h3 id="review-title"></h3>
-          <p data-i18n="reviewHelp">Approval applies only to this request, review, and digest. Read every detail before continuing.</p>
-          <ul id="review-details" class="review-details"></ul>
-          <dl class="metadata review-metadata">
-            <div><dt data-i18n="reviewId">Review</dt><dd id="review-id"></dd></div>
-            <div><dt data-i18n="digest">Plan digest</dt><dd id="review-digest"></dd></div>
-            <div><dt data-i18n="expires">Expires</dt><dd id="review-expires"></dd></div>
-          </dl>
-          <form id="decision-form">
-            <div id="confirmation-field" class="field" hidden>
-              <label for="confirmation" data-i18n="confirmation">Type this exact confirmation</label>
-              <p id="confirmation-required" class="exact-value"></p>
-              <input id="confirmation" autocomplete="off" spellcheck="false" aria-describedby="confirmation-required">
-            </div>
-            <p id="expired" class="warning" hidden data-i18n="expired">This review has expired or its expiry cannot be verified. Refresh status and request a current plan before approving.</p>
-            <div class="button-row">
-              <button id="approve" type="submit" disabled data-i18n="approve">Approve this exact plan</button>
-              <button id="decline" type="button" class="secondary" disabled data-i18n="decline">Decline</button>
-            </div>
-          </form>
-        </section>
-        <section id="recovery-section" aria-labelledby="recovery-heading" hidden>
-          <h2 id="recovery-heading" data-i18n="recovery">Inspect before resuming</h2>
-          <p data-i18n="recoveryHelp">The job is not verified ready. Inspect the retained state, resolve the reported problem, then explicitly resume. Requests are never automatically replayed.</p>
-          <div class="button-row">
-            <button id="inspect" type="button" class="secondary" disabled data-i18n="inspect">Inspect retained state</button>
-            <button id="resume" type="button" disabled data-i18n="resume">Resume explicitly</button>
-          </div>
-        </section>
-        <section id="ready-section" aria-labelledby="ready-heading" hidden>
-          <h2 id="ready-heading" data-i18n="readyTitle">Installation verified ready</h2>
-          <p data-i18n="readyHelp">The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.</p>
-          <a id="console-link" class="button-link" rel="noopener noreferrer" hidden data-i18n="openConsole">Open FDAI Console</a>
-          <p id="console-unavailable" class="warning" hidden data-i18n="consoleUnavailable">A safe HTTPS Console destination is unavailable. Inspect the deployment before continuing.</p>
-        </section>
-        <section id="next-section" aria-labelledby="next-heading">
-          <h2 id="next-heading" data-i18n="next">Review, apply, verify</h2>
-          <ol class="next-steps">
-            <li data-i18n="nextReview">Review the actual plan, immutable digest, scope, and confirmation.</li>
-            <li data-i18n="nextApply">Approve each stage separately and follow its reported progress.</li>
-            <li data-i18n="nextVerify">Open Console only after authoritative readiness verification.</li>
-          </ol>
-          <p class="muted" data-i18n="disconnect">You can reconnect to observe the same job. Closing this page does not cancel it or submit another installation.</p>
-        </section>
-        <section class="scope-notes" aria-labelledby="scope-heading">
-          <h3 id="scope-heading" data-i18n="scope">Installation scope</h3>
-          <p data-i18n="enrollment">Installation does not enroll this target in managed lifecycle or prove managed-lifecycle readiness.</p>
-          <p data-i18n="offline">Offline installation is not supported in this screen. The existing signed offline CLI workflow remains unchanged.</p>
-        </section>
+    </div>
+    <p id="notice" role="alert" hidden></p>
+    <div class="wizard-layout">
+      <aside class="step-rail">
+        <ol id="stepper" class="stepper" aria-label="Setup steps">
+          <li id="step-1" class="step-item" data-state="active"><span class="step-badge">1</span><span data-i18n="stepConnect">Connect Azure</span></li>
+          <li id="step-2" class="step-item" data-state="pending"><span class="step-badge">2</span><span data-i18n="stepTarget">Choose target</span></li>
+          <li id="step-3" class="step-item" data-state="pending"><span class="step-badge">3</span><span data-i18n="stepReview">Review &amp; apply</span></li>
+          <li id="step-4" class="step-item" data-state="pending"><span class="step-badge">4</span><span data-i18n="stepReady">Ready</span></li>
+        </ol>
+        <dl id="rail-summary" class="rail-summary">
+          <div><dt data-i18n="railRuntime">Runtime</dt><dd id="rail-runtime-val">AKS</dd></div>
+          <div><dt data-i18n="railDb">Database</dt><dd id="rail-db-val">Postgres Flex</dd></div>
+          <div><dt data-i18n="railRegion">Region</dt><dd id="rail-region-val">westus3</dd></div>
+          <div><dt data-i18n="railWorkload">Workload</dt><dd id="rail-workload-val">fdai</dd></div>
+        </dl>
       </aside>
+      <div class="step-pane">
+        <section class="status-section" aria-labelledby="status-heading">
+          <div class="section-heading">
+            <h2 id="status-heading" data-i18n="status">Installation status</h2>
+            <span id="observed" class="muted"></span>
+          </div>
+          <div id="status-live" role="status" aria-live="polite" aria-atomic="true" aria-busy="true">
+            <span id="phase" class="badge" data-i18n="connecting">Connecting</span>
+            <p id="message" data-i18n="initializing">Opening your authenticated setup session...</p>
+            <div id="skeleton" class="skeleton" aria-hidden="true"><span></span><span></span></div>
+          </div>
+          <div id="provision-progress" class="provision-progress" hidden>
+            <div class="deploy-summary-strip">
+              <div class="deploy-summary-left">
+                <strong id="stage-progress-label"></strong>
+                <span id="deploy-sub-meta" class="deploy-summary-meta"></span>
+              </div>
+              <div class="deploy-summary-right">
+                <strong id="stage-progress-percent">0.0%</strong>
+                <span id="fact-elapsed" class="deploy-time-sub"></span>
+              </div>
+            </div>
+            <div id="provision-meter" class="provision-meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div id="stage-progress-fill" class="provision-meter-fill"></div>
+            </div>
+            <div class="provision-progress-facts">
+              <span id="fact-complete"></span>
+              <span id="fact-active"></span>
+              <span id="fact-queued"></span>
+            </div>
+          </div>
+          <dl id="request-meta" class="metadata" hidden>
+            <div><dt data-i18n="request">Request</dt><dd id="request-id"></dd></div>
+            <div><dt data-i18n="action">Action</dt><dd id="action-name"></dd></div>
+            <div id="error-row" hidden><dt data-i18n="errorCode">Error code</dt><dd id="error-code"></dd></div>
+          </dl>
+        </section>
+        <section id="perm-strip" class="perm-strip" aria-labelledby="perm-heading">
+          <div class="perm-strip-bar">
+            <div class="perm-strip-summary">
+              <strong id="perm-heading" class="check-badge" data-i18n="permVerified">✓ Account &amp; required permissions</strong>
+              <span id="perm-summary-text" class="muted" data-i18n="permSummaryDefault">Subscription Owner/Contributor, UAMI RBAC delegation, Entra ID apps/groups, and 18 Azure resource providers</span>
+            </div>
+            <button id="toggle-perm-btn" type="button" class="link-btn" aria-expanded="false" data-i18n="showPermDetails">Permission details ⌄</button>
+          </div>
+          <div id="perm-drawer" class="perm-drawer" hidden>
+            <div class="perm-row">
+              <span class="perm-row-title" data-i18n="permSubTitle">Subscription provisioning</span>
+              <span class="perm-row-desc" data-i18n="permSubDesc">Create ops/app resource groups, VNet, Bastion, AKS/ACA, PostgreSQL, and Key Vault (Owner or Contributor)</span>
+              <span id="perm-sub-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+            </div>
+            <div class="perm-row">
+              <span class="perm-row-title" data-i18n="permUamiTitle">Managed Identity RBAC delegation</span>
+              <span class="perm-row-desc" data-i18n="permUamiDesc">Assign Reader, AcrPull, and Key Vault Secrets User roles to workload identities (Owner or User Access Admin)</span>
+              <span id="perm-uami-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+            </div>
+            <div class="perm-row">
+              <span class="perm-row-title" data-i18n="permEntraTitle">Entra ID apps &amp; RBAC groups</span>
+              <span class="perm-row-desc" data-i18n="permEntraDesc">Configure fdai-api, fdai-console-spa, and 5 role groups (aw-owners, aw-approvers, aw-contributors, aw-readers, aw-break-glass)</span>
+              <span id="perm-entra-state" class="perm-row-status" data-i18n="permStateReady">✓ Required</span>
+            </div>
+            <div class="perm-row">
+              <span class="perm-row-title" data-i18n="permRpTitle">Azure Policy &amp; 18 Resource Providers</span>
+              <span class="perm-row-desc" data-i18n="permRpDesc">No blocking Deny assignments; Microsoft.ContainerService, Microsoft.App, Microsoft.DBforPostgreSQL, Microsoft.KeyVault registered</span>
+              <span id="perm-rp-state" class="perm-row-status" data-i18n="permStateReady">✓ 18/18 RP</span>
+            </div>
+          </div>
+        </section>
+        <section id="config-summary-card" class="perm-strip" aria-labelledby="config-summary-heading" hidden>
+          <div class="perm-strip-bar">
+            <div class="perm-strip-summary">
+              <strong id="config-summary-heading" class="check-badge" data-i18n="configSummaryTitle">✓ Target &amp; connection summary</strong>
+              <span id="config-summary-text" class="muted"></span>
+            </div>
+            <button id="toggle-config-btn" type="button" class="link-btn" aria-expanded="false" data-i18n="showConfigForm">Show form ⌄</button>
+          </div>
+        </section>
+        <div class="workspace">
+          <div id="config-form-wrap" class="configuration">
+            <section id="account-section" aria-labelledby="account-heading">
+              <div class="step-heading"><span class="step-number" aria-hidden="true">1</span><h2 id="account-heading" data-i18n="account">Connect Azure</h2></div>
+              <p class="compact-help" data-i18n="loginHelp">Microsoft browser sign-in opens on the machine running this Hub. Complete sign-in there, then return here and list subscriptions. Never enter credentials on this setup screen.</p>
+              <div class="connect-grid">
+                <div class="field compact-field">
+                  <label for="tenant" data-i18n="tenant">Azure tenant ID or domain (optional)</label>
+                  <input id="tenant" name="tenant" pattern="[A-Za-z0-9._-]{1,128}" maxlength="128" autocomplete="off" spellcheck="false" disabled aria-describedby="tenant-help">
+                  <p id="tenant-help" class="hint" data-i18n="tenantHelp">Leave blank to use your active Azure CLI tenant, or enter a tenant ID or domain before signing in.</p>
+                </div>
+                <div class="button-row connect-actions">
+                  <button id="login" type="button" disabled data-i18n="login">Sign in to Azure</button>
+                  <button id="accounts" type="button" class="secondary" disabled data-i18n="accounts">List subscriptions</button>
+                </div>
+              </div>
+              <label class="checkbox-option"><input id="device-code" type="checkbox" disabled><span data-i18n="deviceCode">Use device code sign-in (for SSH or headless terminals without a local browser)</span></label>
+            </section>
+            <form id="install-form">
+              <fieldset id="configuration-fields" disabled>
+                <legend class="step-heading"><span class="step-number" aria-hidden="true">2</span><span data-i18n="configure">Choose your installation</span></legend>
+                <div class="field">
+                  <span class="field-label" data-i18n="runtimePlatformLabel">Deployment runtime platform</span>
+                  <div class="segmented-cards" role="radiogroup" aria-label="Deployment runtime platform">
+                    <label class="seg-card is-selected" id="card-runtime-aks">
+                      <input type="radio" name="runtime-platform" value="aks" checked>
+                      <span class="seg-card-head">
+                        <strong data-i18n="runtimeAksTitle">AKS (Azure Kubernetes Service)</strong>
+                        <span class="seg-card-tag" data-i18n="recommendedTag">Recommended</span>
+                      </span>
+                      <span class="seg-card-desc" data-i18n="runtimeAksDesc">Isolated executor, NetworkPolicy, full observability topology, and production baseline</span>
+                    </label>
+                    <label class="seg-card" id="card-runtime-aca">
+                      <input type="radio" name="runtime-platform" value="container-apps">
+                      <span class="seg-card-head">
+                        <strong data-i18n="runtimeAcaTitle">ACA (Azure Container Apps)</strong>
+                        <span class="seg-card-tag seg-card-tag--muted" data-i18n="compatTag">Compatibility</span>
+                      </span>
+                      <span class="seg-card-desc" data-i18n="runtimeAcaDesc">Serverless managed Container Apps and Jobs without Kubernetes cluster management</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="subscription" data-i18n="subscription">Azure subscription</label>
+                    <select id="subscription" name="subscription" required aria-describedby="subscription-help">
+                      <option value="" data-i18n="noAccounts">List subscriptions to choose a target</option>
+                    </select>
+                    <p id="subscription-help" class="hint" data-i18n="subscriptionHelp">Only subscriptions returned by your authenticated Azure session appear here.</p>
+                  </div>
+                  <div class="field">
+                    <label for="region" data-i18n="region">Azure region</label>
+                    <input id="region" name="region" list="region-list" required pattern="[a-z][a-z0-9]{1,31}" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="region-help">
+                    <datalist id="region-list">
+                      <option value="westus3"></option>
+                      <option value="eastus2"></option>
+                      <option value="eastus"></option>
+                      <option value="westus2"></option>
+                      <option value="koreacentral"></option>
+                      <option value="japaneast"></option>
+                      <option value="southeastasia"></option>
+                      <option value="westeurope"></option>
+                    </datalist>
+                    <p id="region-help" class="hint" data-i18n="regionHelp">Enter the supported Azure location name for your target, using lowercase letters and digits.</p>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="workload" data-i18n="workload">Workload token (optional)</label>
+                    <input id="workload" name="workload" pattern="[a-z][a-z0-9]{1,11}" maxlength="12" autocomplete="off" spellcheck="false" placeholder="fdai" aria-describedby="workload-help">
+                    <p id="workload-help" class="hint" data-i18n="workloadHelp">Leave blank to auto-select a non-colliding name (such as fdai or fdaiboot).</p>
+                    <p id="rg-preview-text" class="hint mono-hint"></p>
+                  </div>
+                  <div class="field">
+                    <label for="database-placement" data-i18n="databasePlacement">Database placement</label>
+                    <select id="database-placement" name="database-placement" aria-describedby="db-help">
+                      <option value="postgres-flex" data-i18n="dbPostgresFlex">PostgreSQL Flexible Server (recommended)</option>
+                      <option value="postgres-aks" data-i18n="dbPostgresAks">In-cluster AKS PostgreSQL (non-production)</option>
+                    </select>
+                    <p id="db-help" class="hint" data-i18n="dbHelp">Managed PostgreSQL Flexible Server with pgvector and per-service roles.</p>
+                  </div>
+                </div>
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="cost" data-i18n="cost">Monthly cost ceiling (USD)</label>
+                    <input id="cost" name="cost" type="number" min="1" step="1" required inputmode="numeric" aria-describedby="cost-help">
+                    <p id="cost-help" class="hint" data-i18n="costHelp">A planning limit, not a billing cap or a cost estimate.</p>
+                  </div>
+                  <div class="field">
+                    <label for="approval-mode" data-i18n="approvalMode">Checkpoint approval mode</label>
+                    <select id="approval-mode" name="approval-mode" aria-describedby="approval-mode-help">
+                      <option value="continuous" data-i18n="approvalContinuous">Continuous non-destructive (recommended)</option>
+                      <option value="stepwise" data-i18n="approvalStepwise">Review every checkpoint manually</option>
+                    </select>
+                    <p id="approval-mode-help" class="hint" data-i18n="approvalModeHelp">Destructive changes always pause for explicit confirmation.</p>
+                  </div>
+                </div>
+                <fieldset class="artifact-options">
+                  <legend data-i18n="artifacts">Installation artifacts</legend>
+                  <label class="radio-option"><input type="radio" name="artifact" value="hub" checked><span><strong data-i18n="hubMode">Signed prebuilt images</strong><span class="hint" data-i18n="hubHelp">Default. Verify Release Hub artifacts using an independently trusted public key. No source-build fallback.</span></span></label>
+                  <label class="radio-option"><input type="radio" name="artifact" value="source"><span><strong data-i18n="sourceMode">Build from a clean source checkout</strong><span class="hint" data-i18n="sourceHelp">Explicit source installation, independent of Release Hub images.</span></span></label>
+                </fieldset>
+                <div id="hub-fields" class="field">
+                  <label for="public-key" data-i18n="publicKey">Trusted Release Hub public key (Ed25519 PEM)</label>
+                  <p id="key-help" class="hint" data-i18n="keyWarning">Verify this public key through an independent trusted channel. Never paste or upload a private key, credential, or secret.</p>
+                  <textarea id="public-key" rows="3" maxlength="4096" required spellcheck="false" autocomplete="off" aria-describedby="key-help"></textarea>
+                  <label class="file-label" for="key-file" data-i18n="keyFile">Or read a public PEM file (maximum 4 KiB)</label>
+                  <input id="key-file" type="file" accept=".pem,.pub,text/plain" aria-describedby="key-help">
+                </div>
+                <div id="source-fields" class="field" hidden>
+                  <label for="source-root" data-i18n="sourceRoot">Clean checkout path on this Hub host</label>
+                  <input id="source-root" maxlength="1024" autocomplete="off" spellcheck="false" disabled aria-describedby="source-path-help">
+                  <p id="source-path-help" class="hint" data-i18n="sourcePathHelp">Use an absolute local path. The backend verifies the committed source before preparing the plan.</p>
+                </div>
+                <div class="baseline">
+                  <h3 data-i18n="baselineTitle">Existing AKS resource baseline</h3>
+                  <p data-i18n="baseline">The read-only-console runtime profile still deploys the existing AKS infrastructure and its supporting resources. It is not a reduced-cost runtime. Review the actual resources and cost evidence in each plan.</p>
+                </div>
+                <p id="prepare-help" data-i18n="prepareHelp">Preparation and non-destructive installation stages run continuously to completion once authorized. Only plans that delete or replace existing resources pause for extra confirmation.</p>
+                <button id="install" type="submit" aria-describedby="prepare-help" data-i18n="prepare">Authorize preparation</button>
+              </fieldset>
+            </form>
+          </div>
+          <aside class="decision-column">
+            <section id="ready-section" aria-labelledby="ready-heading" hidden>
+              <h2 id="ready-heading" data-i18n="readyTitle">Installation verified ready</h2>
+              <p data-i18n="readyHelp">The backend reports deployment readiness. Open Console only through the verified HTTPS destination below.</p>
+              <p id="console-origin-text" class="exact-value" hidden></p>
+              <div class="button-row">
+                <a id="console-link" class="button-link" target="_blank" rel="noopener noreferrer" hidden data-i18n="openConsole">Open FDAI Console</a>
+                <button id="copy-console-url" type="button" class="secondary" hidden data-i18n="copyConsoleUrl">Copy Console URL</button>
+              </div>
+              <p id="console-unavailable" class="warning" hidden data-i18n="consoleUnavailable">A safe HTTPS Console destination is unavailable. Inspect the deployment before continuing.</p>
+            </section>
+            <section id="review-section" aria-labelledby="review-heading" hidden>
+              <p class="eyebrow" data-i18n="decision">YOUR DECISION</p>
+              <h2 id="review-heading" tabindex="-1" data-i18n="review">Review the exact plan</h2>
+              <h3 id="review-title"></h3>
+              <p data-i18n="reviewHelp">Approval applies only to this request, review, and digest. Read every detail before continuing.</p>
+              <ul id="review-details" class="review-details"></ul>
+              <form id="decision-form">
+                <div id="confirmation-field" class="field" hidden>
+                  <div class="confirmation-header">
+                    <label for="confirmation" data-i18n="confirmation">Type this exact confirmation</label>
+                    <button id="fill-confirmation" type="button" class="secondary" data-i18n="fillConfirmation">Fill confirmation</button>
+                  </div>
+                  <p id="confirmation-required" class="exact-value"></p>
+                  <input id="confirmation" autocomplete="off" spellcheck="false" aria-describedby="confirmation-required">
+                </div>
+                <p id="expired" class="warning" hidden data-i18n="expired">This review has expired or its expiry cannot be verified. Refresh status and request a current plan before approving.</p>
+                <div class="button-row">
+                  <button id="approve" type="submit" disabled data-i18n="approve">Approve this exact plan</button>
+                  <button id="decline" type="button" class="secondary" disabled data-i18n="decline">Decline</button>
+                </div>
+              </form>
+              <dl class="metadata review-metadata">
+                <div><dt data-i18n="reviewId">Review</dt><dd id="review-id"></dd></div>
+                <div><dt data-i18n="digest">Plan digest</dt><dd id="review-digest"></dd></div>
+                <div><dt data-i18n="expires">Expires</dt><dd id="review-expires"></dd></div>
+              </dl>
+            </section>
+            <section id="recovery-section" aria-labelledby="recovery-heading" hidden>
+              <h2 id="recovery-heading" data-i18n="recovery">Inspect before resuming</h2>
+              <p data-i18n="recoveryHelp">The job is not verified ready. Inspect the retained state, resolve the reported problem, then explicitly resume. Requests are never automatically replayed.</p>
+              <div class="button-row">
+                <button id="inspect" type="button" class="secondary" disabled data-i18n="inspect">Inspect retained state</button>
+                <button id="resume" type="button" disabled data-i18n="resume">Resume explicitly</button>
+                <button id="reset" type="button" class="secondary" disabled data-i18n="reset">Reset setup</button>
+              </div>
+            </section>
+            <section id="stages-section" class="provision-panel" aria-labelledby="stages-heading">
+              <div class="provision-section-head">
+                <div>
+                  <span class="eyebrow" data-i18n="orderedLifecycle">ORDERED LIFECYCLE</span>
+                  <h2 id="stages-heading" data-i18n="stagesTitle">Setup stages</h2>
+                  <p id="stages-summary" class="muted"></p>
+                </div>
+                <button id="toggle-completed-stages" type="button" class="quiet" aria-expanded="true" data-i18n="hideCompletedStages">Hide completed</button>
+              </div>
+              <div class="stage-list-head">
+                <span data-i18n="stageColTitle">STAGE</span>
+                <span data-i18n="stageColTiming">START ~ END · DURATION</span>
+              </div>
+              <ol id="provision-stages" class="provision-stages"></ol>
+            </section>
+            <section id="next-section" aria-labelledby="next-heading">
+              <h2 id="next-heading" data-i18n="next">Review, apply, verify</h2>
+              <ol class="next-steps">
+                <li data-i18n="nextReview">Review the actual plan, immutable digest, scope, and confirmation.</li>
+                <li data-i18n="nextApply">Approve each stage separately and follow its reported progress.</li>
+                <li data-i18n="nextVerify">Open Console only after authoritative readiness verification.</li>
+              </ol>
+              <p class="muted" data-i18n="disconnect">You can reconnect to observe the same job. Closing this page does not cancel it or submit another installation.</p>
+            </section>
+            <section class="scope-notes" aria-labelledby="scope-heading">
+              <h3 id="scope-heading" data-i18n="scope">Installation scope</h3>
+              <p data-i18n="enrollment">Installation does not enroll this target in managed lifecycle or prove managed-lifecycle readiness.</p>
+              <p data-i18n="offline">Offline installation is not supported in this screen. The existing signed offline CLI workflow remains unchanged.</p>
+            </section>
+          </aside>
+        </div>
+      </div>
     </div>
   </main>
   <footer><span>FDAI Lifecycle Hub</span><span data-i18n="footer">Local session. Explicit approvals. Verified outcomes.</span></footer>

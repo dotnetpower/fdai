@@ -28,6 +28,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-30 | implemented | Clarified that elastic CI runner selection is an independent operator configuration and preserves native PR approval, production source verification and deployment boundaries. | Current guide pair, workflow selectors and focused CI routing/admission tests passed. | Pool deployment and acceptance remain owned by the [deployment ledger](../deployment/deployment-resource-conventions.md), not this procedural guide. |
 
+| 2026-11-01 | implemented | Completed upstream `Rule.target_object_type` cross-reference validation for custom `ObjectType` rules and verified all downstream fork seam recipes 5.1 through 5.17. | `current change`; `docs/roadmap/fork-and-sequencing/downstream-fork-example-vertical.md`; `services/core-control-plane/tests/rule_catalog/test_rule_target_object_type.py` (`6 passed`); `services/core-control-plane/tests/verticals/test_fork_seam_recipes.py` (`14 passed`). | Downstream-owned adapters and operational promotion receipts remain outside upstream scope. |
+
 ### Remaining work
 
 - [x] No implementation remains in this procedural guide. The machine-readable framework surface,

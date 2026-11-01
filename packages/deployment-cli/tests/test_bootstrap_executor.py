@@ -338,3 +338,80 @@ def test_legacy_support_cannot_silently_use_terminal_invocation_approval(
                 "source_root": str(ROOT),
             },
         )
+
+
+def test_login_passes_optional_tenant_and_accounts_prioritize_default_real_subscription(tmp_path):
+    seen_commands = []
+    other_sub = str(UUID(int=2))
+    tenant_placeholder = str(UUID(int=9))
+
+    def multi_tenant_az(command, **kwargs):
+        seen_commands.append(command)
+        if command[1] == "login":
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if command[1:3] == ["account", "list"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    [
+                        {
+                            "id": tenant_placeholder,
+                            "tenantId": tenant_placeholder,
+                            "name": "N/A(tenant level account)",
+                            "state": "Enabled",
+                        },
+                        {
+                            "id": other_sub,
+                            "tenantId": TENANT,
+                            "name": "Secondary subscription",
+                            "state": "Enabled",
+                        },
+                        {
+                            "id": SUBSCRIPTION,
+                            "tenantId": TENANT,
+                            "name": "Primary default subscription",
+                            "state": "Enabled",
+                        },
+                    ]
+                ),
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="null", stderr="")
+
+    executor = BootstrapExecutor(tmp_path, lambda _: {}, run=multi_tenant_az)
+    (executor.azure / "azureProfile.json").write_text(
+        json.dumps(
+            {
+                "subscriptions": [
+                    {
+                        "id": SUBSCRIPTION,
+                        "tenantId": TENANT,
+                        "state": "Enabled",
+                        "isDefault": True,
+                    }
+                ]
+            }
+        )
+    )
+    result = executor.execute("login", {"tenant_id": TENANT})
+    assert seen_commands[0][:4] == ["az", "login", "--tenant", TENANT]
+    assert [item["id"] for item in result["accounts"]] == [SUBSCRIPTION, other_sub]
+
+
+def test_reset_clears_unapplied_state_and_refuses_mutated_foundation(tmp_path):
+    executor = BootstrapExecutor(tmp_path, lambda _: {}, run=fake_az)
+    channel._write(
+        tmp_path, {"subscription_id": SUBSCRIPTION, "tenant_id": TENANT}, "configuration.json"
+    )
+    f_dir = tmp_path / "deployment/foundation"
+    f_dir.mkdir(parents=True)
+    (f_dir / "status.json").write_text(json.dumps({"mutation_performed": False}))
+    result = executor.execute("reset", {})
+    assert not (tmp_path / "configuration.json").exists()
+    assert not (tmp_path / "deployment").exists()
+    assert result["accounts"][0]["id"] == SUBSCRIPTION
+
+    f_dir.mkdir(parents=True)
+    (f_dir / "status.json").write_text(json.dumps({"mutation_performed": True}))
+    with pytest.raises(BootstrapBlocked, match="already modified"):
+        executor.execute("reset", {})

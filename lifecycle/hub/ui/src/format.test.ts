@@ -10,8 +10,9 @@ describe("formatTimestamp", () => {
     expect(formatTimestamp("not-a-date")).toBe("not-a-date");
   });
 
-  test("renders a valid ISO timestamp as non-empty text", () => {
+  test("renders a valid ISO timestamp as non-empty text with optional origin zone", () => {
     expect(formatTimestamp("2026-10-14T02:00:00Z").length).toBeGreaterThan(0);
+    expect(formatTimestamp("2026-10-14T02:00:00Z", "Asia/Seoul")).toContain("(Asia/Seoul)");
   });
 });
 

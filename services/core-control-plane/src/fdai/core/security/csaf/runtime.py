@@ -182,6 +182,10 @@ class MsrcCsafAssessmentRuntime:
         self._products: dict[str, CsafProductCrosswalk] = {
             item.product_id: item for item in catalog.product_mappings
         }
+        self._product_rtypes: dict[str, frozenset[str]] = {
+            item.product_id: frozenset(pt.casefold() for pt in item.provider_resource_types)
+            for item in catalog.product_mappings
+        }
         self._advisories: dict[str, CsafAdvisoryDocument] = {
             item.tracking_id: item for item in catalog.advisories
         }
@@ -204,11 +208,15 @@ class MsrcCsafAssessmentRuntime:
             raise ValueError("CSAF assessment advisories_digest mismatch")
 
         evidence_by_cve = _index_evidence(request.evidence)
+        request_rtypes = frozenset(
+            item.provider_resource_type.casefold() for item in request.resources
+        )
         findings = tuple(
             self._evaluate_vulnerability(
                 mapping,
                 request,
                 evidence_by_cve.get(mapping.cve_id, ()),
+                request_rtypes=request_rtypes,
             )
             for mapping in self._catalog.vulnerability_mappings
         )
@@ -269,6 +277,8 @@ class MsrcCsafAssessmentRuntime:
         mapping: CsafVulnerabilityCrosswalk,
         request: CsafAssessmentRequest,
         receipts: tuple[CsafEvidenceReceipt, ...],
+        *,
+        request_rtypes: frozenset[str] = frozenset(),
     ) -> CsafVulnerabilityFinding:
         vuln = self._vulnerabilities[mapping.cve_id]
         if (
@@ -297,6 +307,31 @@ class MsrcCsafAssessmentRuntime:
                 evidence_digests=(),
                 evidence_complete=False,
                 limitations=reasons,
+            )
+
+        if request_rtypes and not any(
+            self._product_rtypes[pid] & request_rtypes for pid in mapping.product_ids
+        ):
+            return CsafVulnerabilityFinding(
+                cve_id=mapping.cve_id,
+                advisory_tracking_id=mapping.advisory_tracking_id,
+                title=vuln.title,
+                severity=vuln.severity,
+                cvss_base_score=vuln.cvss_base_score,
+                exploit_status=vuln.exploit_status,
+                disposition=mapping.disposition,
+                mapping_state=mapping.mapping_state.value,
+                evaluation=CsafEvaluationStatus.EVALUATED,
+                exposure=CsafExposureStatus.NOT_APPLICABLE,
+                affected_resource_ids=(),
+                mitigated_resource_ids=(),
+                fixed_resource_ids=(),
+                unknown_resource_ids=(),
+                recommended_action_type=None,
+                evidence_refs=(),
+                evidence_digests=(),
+                evidence_complete=True,
+                limitations=(),
             )
 
         products = [self._products[pid] for pid in mapping.product_ids]

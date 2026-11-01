@@ -7,6 +7,8 @@ import io
 import zipfile
 from pathlib import Path
 
+from fdai_service_contracts import catalog_canonical
+
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.source_input import _read_tracked
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
@@ -21,6 +23,7 @@ _MODULES = (
     "source_snapshot",
     "source_transport",
 )
+_CANONICAL_RELATIVE = "packages/service-contracts/src/fdai_service_contracts/catalog_canonical.py"
 _ENTRY = b"from fdai_deployment_cli.source_transport import main\nraise SystemExit(main())\n"
 _MAX_BOOTSTRAP = 4 * 1024 * 1024
 
@@ -43,6 +46,18 @@ def prepare_source_receiver(snapshot: Path, work_dir: Path, *, snapshot_digest: 
     payload = io.BytesIO()
     with zipfile.ZipFile(payload, "w", compression=zipfile.ZIP_STORED) as archive:
         _add(archive, "__main__.py", _ENTRY)
+        _add(archive, "fdai_service_contracts/__init__.py", b"")
+        if _CANONICAL_RELATIVE in records:
+            canonical_content = _read_tracked(snapshot / "tree", _CANONICAL_RELATIVE, mode="100644")
+            canonical_record = records[_CANONICAL_RELATIVE]
+            if (
+                canonical_record["mode"] != "100644"
+                or hashlib.sha256(canonical_content).hexdigest() != canonical_record["sha256"]
+            ):
+                raise ValueError("source receiver module differs from the selected snapshot")
+        else:
+            canonical_content = Path(catalog_canonical.__file__).read_bytes()
+        _add(archive, "fdai_service_contracts/catalog_canonical.py", canonical_content)
         for module in _MODULES:
             relative = f"packages/deployment-cli/src/fdai_deployment_cli/{module}.py"
             content = _read_tracked(snapshot / "tree", relative, mode="100644")

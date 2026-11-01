@@ -6,11 +6,12 @@ const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: "medium",
 });
 
-export function formatTimestamp(iso: string | null): string {
+export function formatTimestamp(iso: string | null, originZone?: string): string {
   if (iso === null) return "\u2013";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return dateTimeFormatter.format(date);
+  const formatted = dateTimeFormatter.format(date);
+  return originZone ? `${formatted} (${originZone})` : formatted;
 }
 
 /** A short "N unit ago" / "in N unit" string, relative to `now` (defaults to the current time). */

@@ -61,6 +61,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-20 | in-progress | Adopted the implementation ledger; earlier work-item provenance was not reconstructed. Replaced the task timeline with a repository-owned bilingual diagram. | `current change`; Phase 0 roadmap pair, diagram specification, and focused diagram checks. | Review each W1-W6 acceptance check against current implementation and CI evidence before raising any scope row to implemented or validated. |
 | 2026-09-12 | implemented | Re-ran the Phase 0 migration lifecycle and deterministic golden telemetry fixture in the isolated local validation database after rejecting the shared runtime database as an unsafe downgrade venue. | `current change`; `test_migrations_integration.py` and `test_golden_fixture.py` (`17 passed`). | Retain applied-environment and live telemetry evidence separately; local schema tests do not prove production instrumentation. |
 
+| 2026-11-01 | implemented | Reconciled the completed non-deferred KPI panel contract under [issue #334](https://github.com/dotnetpower/fdai/issues/334) against the current Operator and Console KPI projections. | `current change`; [issue #334](https://github.com/dotnetpower/fdai/issues/334); focused Operator and Console KPI tests. | Complete all six dimensions in every capability pack (#76). |
+
 ### Remaining work
 
 - [x] Classify every W1-W6 work item against its declared acceptance check and split independently provable scope.
@@ -69,7 +71,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 - [x] Prove one frozen shipped scenario retains the same explicit correlation id across ingest, route, verify, gate, audit stage events, and durable audit rows.
 - [x] Generate checksum-pinned Python and TypeScript contract views from every manifest-owned N/N-1 schema, reject generated drift in CI, and retain additive and breaking-change compatibility checks under [issue #332](https://github.com/dotnetpower/fdai/issues/332).
 - [x] Reconcile T2 cache TTL, exact partition ownership, promotion, rollback, idempotent rotation, failure rollback, concurrency, and bounded indexed hit/miss checks under [issue #333](https://github.com/dotnetpower/fdai/issues/333).
-- [ ] Complete the non-deferred KPI panel contract in [issue #334](https://github.com/dotnetpower/fdai/issues/334).
+- [x] Complete the non-deferred KPI panel contract in [issue #334](https://github.com/dotnetpower/fdai/issues/334) (closed completed; reconciled with later-phase evidence sources and explicit unavailable states).
 - [x] Correct the frozen-scenario immutability path, including type changes, and prove `test_frozen.py` accepts English and Korean natural-language values while rejecting non-ASCII machine identifiers and paths.
 - [x] Add tenant, subscription, Azure resource, endpoint, email, IP, and sensitive-value scrub cases to `test_frozen.py` while preserving documented synthetic placeholders.
 - [ ] Complete all six dimensions in every capability pack tracked by [issue #76](https://github.com/dotnetpower/fdai/issues/76).

@@ -1,6 +1,26 @@
 import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
-import msrcCsafCatalogJson from "./msrc-csaf-catalog.json";
+import manifestJson from "../../../rule-catalog/collected/msrc-csaf/crosswalk.json";
+import shard00 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-00.json";
+import shard01 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-01.json";
+import shard02 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-02.json";
+import shard03 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-03.json";
+import shard04 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-04.json";
+import shard05 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-05.json";
+import shard06 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-06.json";
+import shard07 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-07.json";
+import shard08 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-08.json";
+import shard09 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-09.json";
+import shard10 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-10.json";
+import shard11 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-11.json";
+import shard12 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-12.json";
+import shard13 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-13.json";
+import shard14 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-14.json";
+import shard15 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-15.json";
+import shard16 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-16.json";
+import shard17 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-17.json";
+import shard18 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-18.json";
+import shard19 from "../../../rule-catalog/collected/msrc-csaf/shards/crosswalk-19.json";
 import { msrcCsafDisplayTitle } from "./msrc-csaf-guidance";
 import {
   panelArray,
@@ -72,6 +92,7 @@ export interface MsrcCsafProductMapping {
 
 export interface MsrcCsafControlRow {
   readonly cve_id: string;
+  readonly year: string;
   readonly title: string;
   readonly advisory_tracking_id: string;
   readonly advisory_title: string;
@@ -113,6 +134,7 @@ export interface MsrcCsafCatalog {
 }
 
 export interface MsrcCsafFilters {
+  readonly year: string;
   readonly severity: string;
   readonly exploit_status: string;
   readonly disposition: string;
@@ -122,6 +144,7 @@ export interface MsrcCsafFilters {
 }
 
 export const EMPTY_MSRC_CSAF_FILTERS: MsrcCsafFilters = {
+  year: "",
   severity: "",
   exploit_status: "",
   disposition: "",
@@ -345,8 +368,11 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
     ) {
       throw new OperatorApiError(502, `invalid crosswalk workaround_expected_value for ${cveId}`);
     }
+    const cveYearMatch = /^CVE-(\d{4})-/.exec(cveId);
+    const year = cveYearMatch?.[1] ?? meta.initial_release_date.slice(0, 4);
     rows.push({
       cve_id: cveId,
+      year,
       title: meta.title,
       advisory_tracking_id: meta.advisory_tracking_id,
       advisory_title: meta.advisory_title,
@@ -381,6 +407,26 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
     });
   }
 
+  const exploitRank: Readonly<Record<MsrcCsafExploitStatus, number>> = {
+    exploited: 5,
+    exploitation_more_likely: 4,
+    publicly_disclosed: 3,
+    exploitation_less_likely: 2,
+    exploitation_unlikely: 1,
+    unproven: 0,
+  };
+  rows.sort((left, right) => {
+    const expDiff = exploitRank[right.exploit_status] - exploitRank[left.exploit_status];
+    if (expDiff !== 0) return expDiff;
+    if (right.cvss_base_score !== left.cvss_base_score) {
+      return right.cvss_base_score - left.cvss_base_score;
+    }
+    if (right.current_release_date !== left.current_release_date) {
+      return right.current_release_date.localeCompare(left.current_release_date);
+    }
+    return left.cve_id.localeCompare(right.cve_id);
+  });
+
   return {
     schema_version: schemaVersion,
     source_id: "msrc_csaf",
@@ -391,7 +437,39 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
   };
 }
 
-export const PINNED_MSRC_CSAF_RAW: unknown = msrcCsafCatalogJson;
+const SHARDS = [
+  shard00,
+  shard01,
+  shard02,
+  shard03,
+  shard04,
+  shard05,
+  shard06,
+  shard07,
+  shard08,
+  shard09,
+  shard10,
+  shard11,
+  shard12,
+  shard13,
+  shard14,
+  shard15,
+  shard16,
+  shard17,
+  shard18,
+  shard19,
+] as const;
+
+export const PINNED_MSRC_CSAF_RAW: unknown = {
+  schema_version: manifestJson.schema_version,
+  source_id: manifestJson.source_id,
+  source_revision: manifestJson.source_revision,
+  advisories_digest: manifestJson.advisories_digest,
+  crosswalk_digest: manifestJson.crosswalk_digest,
+  product_mappings: manifestJson.product_mappings,
+  advisories: SHARDS.flatMap((shard) => shard.advisories),
+  vulnerability_mappings: SHARDS.flatMap((shard) => shard.vulnerability_mappings),
+};
 
 export const PINNED_MSRC_CSAF_CATALOG: MsrcCsafCatalog = decodeMsrcCsafCatalog(PINNED_MSRC_CSAF_RAW);
 
@@ -401,6 +479,7 @@ export function filterMsrcCsafRows(
 ): readonly MsrcCsafControlRow[] {
   const query = filters.q.trim().toLowerCase();
   return rows.filter((row) => {
+    if (filters.year && row.year !== filters.year) return false;
     if (filters.severity && row.severity !== filters.severity) return false;
     if (filters.exploit_status && row.exploit_status !== filters.exploit_status) return false;
     if (filters.disposition && row.disposition !== filters.disposition) return false;
@@ -422,12 +501,14 @@ export function filterMsrcCsafRows(
 export function buildMsrcCsafFacets(
   rows: readonly MsrcCsafControlRow[],
 ): Readonly<Record<string, Readonly<Record<string, number>>>> {
+  const byYear: Record<string, number> = {};
   const bySeverity: Record<string, number> = {};
   const byExploit: Record<string, number> = {};
   const byDisposition: Record<string, number> = {};
   const byMapping: Record<string, number> = {};
   const byResourceType: Record<string, number> = {};
   for (const row of rows) {
+    byYear[row.year] = (byYear[row.year] ?? 0) + 1;
     bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
     byExploit[row.exploit_status] = (byExploit[row.exploit_status] ?? 0) + 1;
     byDisposition[row.disposition] = (byDisposition[row.disposition] ?? 0) + 1;
@@ -435,6 +516,7 @@ export function buildMsrcCsafFacets(
     byResourceType[row.primary_resource_type] = (byResourceType[row.primary_resource_type] ?? 0) + 1;
   }
   return {
+    by_year: byYear,
     by_severity: bySeverity,
     by_exploit_status: byExploit,
     by_disposition: byDisposition,
@@ -451,6 +533,7 @@ export function msrcCsafStateFromSearch(search: URLSearchParams): {
   const rawOffset = Number.parseInt(search.get("offset") ?? "0", 10);
   return {
     filters: {
+      year: search.get("year") ?? "",
       severity: search.get("severity") ?? "",
       exploit_status: search.get("exploit_status") ?? "",
       disposition: search.get("disposition") ?? "",
@@ -472,6 +555,7 @@ export function msrcCsafHref(
     params: {
       view: "controls",
       framework: "msrc-csaf",
+      year: filters.year || undefined,
       severity: filters.severity || undefined,
       exploit_status: filters.exploit_status || undefined,
       disposition: filters.disposition || undefined,

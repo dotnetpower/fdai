@@ -233,14 +233,9 @@ so one completed Core update cannot block a later exact repair or be mistaken fo
 | Product surface | `observation-first` plus selected add-ons | `observation-first` | Starts headless inventory, telemetry, learning, prediction, replay, drift, and advisory evidence. |
 | Optional add-ons | `read-only-console`, `notifications`, `governed-execution`, `enterprise-identity-governance`, `policy-administration` (requires `read-only-console` and `enterprise-identity-governance`) | none | Selection never implies availability, enablement, authorization, or execution authority. |
 
-`postgres-aks` is accepted only with `runtime_platform=aks`. Production keeps
-`postgres-flex` until the in-cluster profile has independent zone-loss, backup, point-in-time
-recovery, and upgrade evidence.
+`postgres-aks` is accepted only with `runtime_platform=aks`; production keeps `postgres-flex` until in-cluster zone-loss, backup, point-in-time recovery, and upgrade evidence exists. The local Bootstrap wizard exposes the same `runtime_platform`/`database_placement` choices and parallelizes read-only preflight, RP checks, Bastion SSH multiplexing, source packaging, ACR image build/readback, and Terraform output readback without relaxing approval, digest, or effect-verification gates.
 
-When a deployment binds bounded temporal series, every product surface gets the same causal
-evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor
-ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on,
-satisfy an approval, or raise autonomy.
+When a deployment binds bounded temporal series, every product surface gets the same causal evidence path: Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor ActionRun receipt resolver. Causal revisions stay advisory evidence; they never select an add-on, satisfy an approval, or raise autonomy.
 
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
@@ -513,7 +508,9 @@ private networking is off. The separate private-networking input controls servic
 endpoints, hub peering and private DNS rather than the AKS subnet prerequisite.
 Focused document recovery keeps the Foundation-owned operations Blob-zone link singular and writes
 the document endpoint A record into that zone. The application VNet retains its application-zone
-link, while the DFS zone links independently to both required VNets.
+link, while the DFS zone links independently to both required VNets. Document storage Defender
+`StorageDataScanner` private-link access follows `local.document_storage_private_access` so focused
+private access keeps the second Terraform plan zero-change.
 The default-disabled dev alert-noise pilot remains an operator-local deployment prerequisite for
 either runtime choice. It pins the existing FDAI Core Container App as a read-only `Replicas` metric
 scope and creates only one dedicated Action Group and one metric alert. It neither changes the Core
@@ -944,10 +941,11 @@ its scan cost.
 
 On AKS, the substrate-targeted `terraform_data.installation` anchor uses the plan timestamp with ignored input changes and keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them while later plans remain fully known. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
 
-Each initial-inventory one-shot uses a content-addressed attempt. A terminal failure remains
-immutable and is never redispatched in the same invocation. Only a later explicit source invocation
-can advance to the next attempt, with at most three attempts; an active or ambiguous attempt keeps
-the same identity for verification-only recovery.
+Each initial-inventory one-shot uses a content-addressed attempt. A terminal failure, including
+exhaustion of its `retry-1` and `retry-2` successor Jobs, remains immutable and is never
+redispatched in the same invocation. Only a later explicit source invocation can advance to the
+next attempt, with at most three attempts; an active or ambiguous attempt keeps the same identity
+for verification-only recovery.
 
 If the independent closure fails only because a scheduled reconciliation promoted a newer
 generation after the one-shot Job finished (`active_generation`), the Job's own generation is

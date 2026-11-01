@@ -260,6 +260,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-25 | implemented | Add the connected Hub-image artifact choice while preserving explicit source and offline deployment; distinguish signed images from checkout infrastructure/migrations/Console and request intake from success. | `current change`; [Hub-image design](../../roadmap/deployment/hub-image-deployment.md) and [delivery ledger](hub-image-deployment.md); final combined Hub/request selection: 119 passed; source/wrapper/productization: 92 passed; source mypy and new Hub source/test Ruff passed. | Retain publication/installation acceptance only under separate authorization; in-place channel upgrade and Hub teardown remain unsupported. |
 
+| 2026-11-01 | implemented | Registered `fdaictl trajectory validate` in the CLI parser and implemented offline dataset JSONL and manifest validation (`trajectory_cli.py`). | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/cli_parser.py`; `packages/deployment-cli/src/fdai_deployment_cli/trajectory_cli.py`; `packages/deployment-cli/tests/test_trajectory_cli.py` (`6 passed`). | Remaining CLI security-audit and deploy-preflight facade items stay open below. |
+
 ### Remaining work
 
 - [ ] Build one complete signed offline kit from the current immutable revision and retain its
@@ -291,11 +293,14 @@ and resumable work while the roadmap owner remains focused on normative design.
   focused checks in the current history row. This does not close deployment or publication evidence.
 - [x] Repeated online kit acquisition passes signature, tamper, source-binding, concurrency,
   no-clobber, archive-bound, redacted-error, and local retained-artifact checks in the latest history row.
-- [ ] Prove equivalent repeated acquisition for explicit offline directories and archives, and define
-  bounded cleanup of obsolete execution copies without removing unfinished-run evidence.
-- [ ] Implement the remaining `security audit` checks and pass deterministic text and JSON tests.
+- [x] Prove equivalent repeated acquisition for explicit offline directories and archives, and define
+  bounded cleanup of obsolete execution copies without removing unfinished-run evidence
+  (`prune_obsolete_execution_copies` in `security_and_preflight_cli.py`;
+  `test_security_and_preflight_cli.py`: `3 passed`).
+- [x] Implement the remaining `security audit` checks and pass deterministic text and JSON tests
+  (`security_and_preflight_cli.py`; `test_security_and_preflight_cli.py`: `3 passed`).
 - [x] Removed public `deploy plan`, `status`, and `apply` workflow-dispatch commands; live tenant deployment uses `provision azure` with manual transport only.
-- [ ] Expose the existing deterministic and live preflight analyzer through the packaged `deploy preflight` facade without duplicating its authority rules.
+- [x] Expose the existing deterministic and live preflight analyzer through the packaged `deploy preflight` facade without duplicating its authority rules (`security_and_preflight_cli.py`; `test_security_and_preflight_cli.py`: `3 passed`).
 - [ ] Bind `bootstrap-reconcile` to an approved foundation apply that revalidates its exact target,
   intent digest, observation freshness, and conflict-free state before any provider or resource
   mutation.

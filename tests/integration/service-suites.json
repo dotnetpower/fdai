@@ -200,7 +200,18 @@
           "services/operator-service/tests/test_workflow_authoring_dsn.py",
           "services/operator-service/tests/test_rule_findings_summary_admission.py",
           "services/operator-service/tests/test_postgres_cost_governance.py",
-          "services/operator-service/tests/test_presentation_console_contract.py"
+          "services/operator-service/tests/test_presentation_console_contract.py",
+          "services/operator-service/tests/test_behavior_knowledge_resolver.py",
+          "services/operator-service/tests/test_busy_input_materializer.py",
+          "services/operator-service/tests/test_licensing_warning_projection.py",
+          "services/operator-service/tests/test_narrator_image_resolver.py",
+          "services/operator-service/tests/test_operator_web_evidence_suite.py",
+          "services/operator-service/tests/test_outcome_assurance_projection.py",
+          "services/operator-service/tests/test_programmatic_pipeline_api.py",
+          "services/operator-service/tests/test_adapter_commands_api.py",
+          "services/operator-service/tests/test_declared_intent_review_projection.py",
+          "services/operator-service/tests/test_skill_source_projection.py",
+          "services/operator-service/tests/test_task_worker_projection.py"
         ],
         "integration": [
           "services/operator-service/tests/test_action_confirmation_composition.py",

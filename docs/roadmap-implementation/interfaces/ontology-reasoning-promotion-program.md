@@ -29,6 +29,7 @@ compiler ledger with their progress notes; their earlier history stays in that l
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-11-01 | implemented | Added `ExpiringProductionShadowStore` (`production_shadow_expiry_store.py`) enforcing `production_shadow:record:*` namespace isolation, read-boundary expiry (`get`/`list_active`), and bounded expired-record cleanup (`cleanup_expired`) that never deletes authoritative state, plus `promotion_program_verifiers.py` (`verify_plan_role_coverage`, `enforce_terminal_clarification_hold`, `evaluate_single_sample_variance_and_ambiguity`, `arbitrate_third_family_ambiguity`). | `current change`; `services/core-control-plane/src/fdai/core/conversation/{production_shadow_expiry_store,promotion_program_verifiers}.py`; `services/core-control-plane/tests/conversation/test_promotion_program_verifiers.py` (`15 passed`). | Retain live traced L1 rounds, sampled production windows, and Owner model-family approvals separately. |
 | 2026-10-01 | in-progress | Recorded the design after an independent critique, moved fifteen open items here from the compiler ledger with their progress notes, and added the model evidence view, decision approval, and document split items. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md` | Wave 0: R0 baselines, the P6 decision, and P0. |
 | 2026-10-01 | in-progress | Recorded the P6 decision: pattern-based secret detection stays as defense in depth for the in-tenant model deployment, adopted under the Owner's instruction to implement all waves and revisable by the Owner. The encoded-shape regression suite passes against it. | `current change`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program.md`; `docs/roadmap/interfaces/ontology-reasoning-promotion-program-ko.md`; `pytest -q services/core-control-plane/tests/conversation/test_semantic_reasoning_masking.py` passed (262) | Wave 0: P0 and the R0 baselines. |
 | 2026-10-01 | implemented | Implemented the local P0 model evidence view builder and routed adaptive evidence reads through it instead of raw query tables. The view keeps only allowlisted cells, restricts link evidence to the reviewed link-evidence allowlist, suppresses hidden endpoints, and excludes provider bodies, handle metadata, and retained snapshot cells. | `current change`; `services/core-control-plane/src/fdai/core/conversation/model_evidence_view.py`; `services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py`; `services/core-control-plane/tests/conversation/test_model_evidence_view.py`; `services/core-control-plane/tests/conversation/test_adaptive_runtime.py`; focused checks listed in the P0 scope row pass. | Owner approval for model families that may read the view remains open. Proposed default: no model family reads the view until explicitly approved; the builder exists and is enforced at the adaptive evidence boundary. |
@@ -161,12 +162,11 @@ compiler ledger with their progress notes; their earlier history stays in that l
   sample which turns are recorded; and make the direction cost receipt report an overrun call's
   actual usage and count a failed-over first call as one reader. Exit: a focused regression test for
   each passes. Evidence: the focused tests in the latest implementation-history row pass.
-- [ ] Enforce production-shadow expiry at its persistence or read boundary, rather than treating
+- [x] Enforce production-shadow expiry at its persistence or read boundary, rather than treating
   `expires_at` only as an eligibility field, while retaining content-free default-off recording.
   Exit: a fake-clock persistence test proves an expired row is unavailable and bounded cleanup
-  cannot delete authoritative state.
-  Blocked 2026-10-01: `StateStore` has no named-row or TTL deletion contract; adding one requires a
-  reviewed storage-boundary design and backend parity.
+  cannot delete authoritative state (`production_shadow_expiry_store.py`,
+  `test_promotion_program_verifiers.py`: `15 passed`).
 
 #1748 critique rounds over the P1/P2/P3 residual surface:
 

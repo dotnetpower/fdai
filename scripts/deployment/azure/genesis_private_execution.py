@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -37,6 +38,7 @@ from genesis_runner_image_contract import (
 )
 from genesis_runner_image_contract import verify_foundation_image_input
 from genesis_status import StatusStore
+from genesis_subprocess import run_with_heartbeat
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _IMAGE_PLAN_REF = re.compile(r"runner-image-attempt-[1-9][0-9]*")
@@ -385,6 +387,36 @@ class PrivateExecutionCoordinator:
         plan_report: dict[str, object],
     ) -> dict[str, object]:
         plan_directory = self.config.work_dir / str(plan_report["plan_ref"])
+        receipt_file = plan_directory / "foundation-apply-receipt.json"
+        if (
+            self._commands._run_child is run_with_heartbeat
+            and receipt_file.is_file()
+            and "foundation-apply" in self.store.completed_stages
+        ):
+            try:
+                cached = json.loads(receipt_file.read_text(encoding="utf-8"))
+                self._require_result(
+                    cached,
+                    stage="foundation-apply",
+                    schema="fdai.genesis-foundation-apply-receipt.v1",
+                    state="applied",
+                    receipt=True,
+                )
+                if cached.get("review_digest") == str(plan_report["review_digest"]) and cached.get(
+                    "plan_digest"
+                ) == str(plan_report["plan_digest"]):
+                    self.store.mutation_performed = True
+                    self._record_checkpoint(
+                        stage="foundation-apply",
+                        checkpoint="foundation-apply",
+                        state="applied",
+                        field="foundation_apply",
+                        result=cached,
+                        completed=True,
+                    )
+                    return cached
+            except (OSError, ValueError, PrivateExecutionError):
+                pass
         started = self._checkpoint_started(
             plan_directory,
             "foundation-apply-claim.json",
@@ -454,6 +486,33 @@ class PrivateExecutionCoordinator:
         foundation_digest = self._required_digest(
             foundation, "receipt_digest", stage="runner-enrollment"
         )
+        receipt_file = plan_directory / "runner-enrollment-receipt.json"
+        if (
+            self._commands._run_child is run_with_heartbeat
+            and receipt_file.is_file()
+            and "runner-enrollment" in self.store.completed_stages
+        ):
+            try:
+                cached = json.loads(receipt_file.read_text(encoding="utf-8"))
+                self._require_result(
+                    cached,
+                    stage="runner-enrollment",
+                    schema="fdai.genesis-runner-enrollment-receipt.v1",
+                    state="attested",
+                    receipt=True,
+                )
+                self.store.mutation_performed |= cached.get("mutation_performed") is True
+                self._record_checkpoint(
+                    stage="runner-enrollment",
+                    checkpoint="runner-enrollment",
+                    state="attested",
+                    field="runner_enrollment",
+                    result=cached,
+                    completed=True,
+                )
+                return cached
+            except (OSError, ValueError, PrivateExecutionError):
+                pass
         started = self._checkpoint_started(
             plan_directory,
             "runner-enrollment-claim.json",

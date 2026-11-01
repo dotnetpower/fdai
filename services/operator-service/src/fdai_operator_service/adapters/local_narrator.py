@@ -30,6 +30,10 @@ from fdai_operator_service.adapters.narrator_dialogue_shadow import (
     dialogue_shadow_receipt,
 )
 from fdai_operator_service.adapters.narrator_events import NarratorEventIterator
+from fdai_operator_service.adapters.narrator_image_resolver import (
+    NarratorImageResolver,
+    resolve_turn_images_from_body,
+)
 from fdai_operator_service.adapters.narrator_latency import (
     NarratorLatencyPool,
     NarratorLatencyStats,
@@ -102,6 +106,7 @@ class LocalAzureNarratorAdapters:
     clock: MonotonicClock = monotonic
     dialogue_snapshots: DialogueSnapshotWriter | None = None
     dialogue_t1: bool = False
+    image_resolver: NarratorImageResolver | None = None
     _owns_http_client: bool = field(default=False, repr=False)
     _pool: NarratorLatencyPool = field(init=False, repr=False)
     _retention: DialogueStateRetention = field(init=False, repr=False)
@@ -314,14 +319,16 @@ class LocalAzureNarratorAdapters:
     ]:
         vision = has_images(body)
         if vision:
-            raise ConversationBoundaryError(
-                503,
-                "narrator_image_resolution_unavailable",
-                "server-owned narrator image resolution is unavailable",
-            )
+            await resolve_turn_images_from_body(body, resolver=self.image_resolver)
         try:
             async with asyncio.timeout(self.timeout_seconds):
-                targets = self._pool.ranked(vision=False)
+                targets = self._pool.ranked(vision=vision)
+                if vision and not targets:
+                    raise ConversationBoundaryError(
+                        503,
+                        "narrator_vision_candidates_unavailable",
+                        "no vision-capable narrator candidates are configured",
+                    )
                 failures: list[int] = []
                 budget_failures = 0
                 token: str | None = None

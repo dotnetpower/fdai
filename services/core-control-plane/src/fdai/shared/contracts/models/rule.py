@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any
 
-from pydantic import Field
+from pydantic import Field, SerializerFunctionWrapHandler, model_serializer
 
 from ._base import SemVer, _Base
 from .enums import Category, CheckLogicKind, Redistribution, RuleSource, Severity
@@ -54,6 +54,7 @@ class RuleInterface(StrEnum):
 
 class SubmissionCriterionKind(StrEnum):
     RESOURCE_TYPE_REGISTERED = "resource_type_registered"
+    OBJECT_TYPE_REGISTERED = "object_type_registered"
     PROPERTY_EXISTS = "property_exists"
     LINK_EXISTS = "link_exists"
 
@@ -82,6 +83,7 @@ class Rule(_Base):
     severity: Severity
     category: Category
     resource_type: Annotated[str, Field(min_length=1)]
+    target_object_type: Annotated[str, Field(pattern=r"^[A-Z][A-Za-z0-9]{0,63}$")] | None = None
     check_logic: CheckLogic
     remediation: Remediation
     remediates: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_\.\-]{0,79}$")]
@@ -98,6 +100,13 @@ class Rule(_Base):
     )
     submission_criteria: list[SubmissionCriterion] = Field(default_factory=list)
     scope_predicates: dict[str, Any] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def _serialize_rule(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        dumped: dict[str, Any] = handler(self)
+        if self.target_object_type is None:
+            dumped.pop("target_object_type", None)
+        return dumped
 
 
 __all__ = [

@@ -9,6 +9,7 @@
 
 import { getLocale } from "../i18n";
 import type { AuditItem } from "../types";
+import type { LiveAgentActivityEvent } from "./agents.model";
 import {
   ACTION_TYPE_LABELS,
   auditProvenanceOf,
@@ -84,6 +85,7 @@ export interface TrajectoryStep {
   readonly eventType?: string | null;
   readonly aggregateType?: string | null;
   readonly aggregateCount?: number | null;
+  readonly repeatCount?: number;
 }
 
 export interface AgentTrajectory {
@@ -147,10 +149,11 @@ export function buildAgentTrajectories(
   }
   const trajectories: AgentTrajectory[] = [];
   for (const [correlationId, bucket] of groups) {
-    const steps = bucket
+    const rawSteps = bucket
       .map((item) => stepOf(item, agentOf))
       .filter((step): step is TrajectoryStep => step !== null)
       .sort((left, right) => left.endMs - right.endMs || left.seq - right.seq);
+    const steps = collapseRepeatedTrajectorySteps(rawSteps);
     if (steps.length === 0) continue;
     trajectories.push(trajectoryOf(correlationId, steps));
   }
@@ -167,6 +170,158 @@ function trajectorySortBucket(trajectory: AgentTrajectory): number {
   if (trajectory.steps.length > 1) return 0;
   if (trajectory.steps[0]?.actionKind !== "audit.record") return 1;
   return 2;
+}
+
+function stepSignature(step: TrajectoryStep): string {
+  return [
+    step.agent,
+    step.actionKind,
+    step.ruleId ?? "",
+    step.actionType ?? "",
+    step.resource ?? "",
+    step.domain ?? "",
+    step.outcome ?? "",
+    step.decision ?? "",
+    step.reason ?? "",
+    step.summary,
+  ].join("|");
+}
+
+/**
+ * Collapses repeated identical periodic steps (such as recurring analyzer ticks or repeated
+ * identical source-transition probes on the same correlation id) while preserving distinct rules,
+ * inputs, outputs, and conversations.
+ */
+export function collapseRepeatedTrajectorySteps(
+  steps: readonly TrajectoryStep[],
+): readonly TrajectoryStep[] {
+  if (steps.length <= 1) return steps;
+  const result: TrajectoryStep[] = [];
+  const indexBySignature = new Map<string, number>();
+  for (const step of steps) {
+    const hasUniqueContext = Boolean(
+      (step.inputs && step.inputs.length > 0) ||
+      (step.outputs && step.outputs.length > 0) ||
+      (step.conversation && step.conversation.length > 0),
+    );
+    const sig = stepSignature(step);
+    const existingIndex = !hasUniqueContext ? indexBySignature.get(sig) : undefined;
+    if (existingIndex !== undefined) {
+      const prev = result[existingIndex]!;
+      result[existingIndex] = {
+        ...prev,
+        endMs: Math.max(prev.endMs, step.endMs),
+        recordedAt: step.endMs >= prev.endMs ? step.recordedAt : prev.recordedAt,
+        durationMs: step.durationMs ?? prev.durationMs,
+        repeatCount: (prev.repeatCount ?? 1) + (step.repeatCount ?? 1),
+      };
+      continue;
+    }
+    indexBySignature.set(sig, result.length);
+    result.push(step);
+  }
+  return result;
+}
+
+/**
+ * Merges live correlated SSE stream events into the durable audit item list so Trajectories
+ * update smoothly in real time as agents process new events.
+ */
+export function mergeLiveEventsIntoAuditItems(
+  items: readonly AuditItem[],
+  liveEvents: readonly LiveAgentActivityEvent[],
+): readonly AuditItem[] {
+  if (liveEvents.length === 0) return items;
+  const knownKeys = new Set<string>();
+  for (const item of items) {
+    if (item.event_id) knownKeys.add(`id:${item.event_id}`);
+    if (item.correlation_id) {
+      knownKeys.add(`sig:${item.correlation_id}|${item.actor}|${item.action_kind}|${item.recorded_at}`);
+    }
+  }
+  const appended: AuditItem[] = [];
+  for (const event of liveEvents) {
+    if (event.source === "replay" || !event.correlationId || !event.correlationId.trim()) continue;
+    if (event.kind === "agent.state" && event.activityPhase === "started") continue;
+    if (
+      event.kind === "agent.state" &&
+      !event.activityPhase &&
+      (event.state === "idle" || event.state === "watching")
+    ) {
+      continue;
+    }
+    const eventId = event.eventId ?? event.activityId ?? `live-${event.sequence}`;
+    const actionKind = event.operationalKind
+      ?? event.eventType
+      ?? (event.kind === "conversation.turn" ? "conversation.turn" : event.kind);
+    const sigKey = `sig:${event.correlationId}|${event.agent}|${actionKind}|${event.ts}`;
+    if (knownKeys.has(`id:${eventId}`) || knownKeys.has(sigKey)) continue;
+    knownKeys.add(`id:${eventId}`);
+    knownKeys.add(sigKey);
+    const entry: Record<string, unknown> = {
+      producer_principal: event.agent,
+      summary: event.detail || event.summary,
+    };
+    if (event.resourceRef) entry["resource_ref"] = event.resourceRef;
+    if (event.resourceType) entry["resource_type"] = event.resourceType;
+    if (event.eventType) entry["event_type"] = event.eventType;
+    if (event.observationDomain) entry["domain"] = event.observationDomain;
+    if (event.startedAt) entry["started_at"] = event.startedAt;
+    if (event.completedAt) entry["finished_at"] = event.completedAt;
+    if (typeof event.durationMs === "number") entry["duration_ms"] = event.durationMs;
+    if (event.activityPhase) entry["outcome"] = event.activityPhase;
+    if (event.kind === "conversation.turn" && event.agents.length >= 2) {
+      entry["conversation"] = [{
+        from: event.agents[0]!,
+        to: event.agents[1]!,
+        text: event.detail ?? event.summary,
+      }];
+    }
+    appended.push({
+      seq: 1_000_000_000 + event.sequence,
+      event_id: eventId,
+      correlation_id: event.correlationId,
+      actor: event.agent,
+      action_kind: actionKind,
+      mode: "shadow",
+      entry,
+      entry_hash: `live-${event.sequence}`,
+      previous_hash: `live-${Math.max(event.sequence - 1, 0)}`,
+      recorded_at: event.ts,
+    });
+  }
+  return appended.length > 0 ? [...appended, ...items] : items;
+}
+
+export interface TrajectoryDisplayGroup {
+  readonly key: string;
+  readonly primary: AgentTrajectory;
+  readonly members: readonly AgentTrajectory[];
+}
+
+export function groupTrajectoriesForDisplay(
+  trajectories: readonly AgentTrajectory[],
+  selectedCorrelationId: string | null,
+  locale: "en" | "ko" = getLocale(),
+): readonly TrajectoryDisplayGroup[] {
+  const groups = new Map<string, AgentTrajectory[]>();
+  for (const trajectory of trajectories) {
+    const key = [
+      presentTrajectoryTitle(trajectory, locale),
+      trajectory.latestOutcome ?? "",
+    ].join("||");
+    const bucket = groups.get(key) ?? [];
+    bucket.push(trajectory);
+    groups.set(key, bucket);
+  }
+  const result: TrajectoryDisplayGroup[] = [];
+  for (const [key, members] of groups) {
+    const primary = (selectedCorrelationId !== null
+      ? members.find((item) => item.correlationId === selectedCorrelationId)
+      : undefined) ?? members[0]!;
+    result.push({ key, primary, members });
+  }
+  return result;
 }
 
 /** Count of retained audit records that cannot join a trajectory because they lack a correlation. */
@@ -633,6 +788,7 @@ export function trajectorySubtitle(trajectory: AgentTrajectory, locale: "en" | "
   const rules = unique(trajectory.steps.map((step) => step.ruleId ?? null));
   const actions = unique(trajectory.steps.map((step) => step.actionType ?? null));
   const resType = trajectory.steps.find((step) => step.resourceType)?.resourceType ?? null;
+  if (!resType && rules.length === 0 && actions.length === 0) return "";
   const parts: string[] = [];
   if (resType) {
     parts.push(presentResourceTypeLabel(resType, locale));
@@ -980,31 +1136,35 @@ export function presentStepSummary(
     const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : "";
     const actionText = step.actionType ? (ACTION_TYPE_LABELS[step.actionType]?.[locale] ?? step.actionType) : "";
     if (locale === "ko") {
-      return `${ruleText || subject} 위반 확인${actionText ? ` -> ${actionText} 조치 권고` : ""}`;
+      return `${ruleText || subject}${targetSuffix} 위반 확인${actionText ? ` -> ${actionText} 조치 권고` : ""}`;
     }
-    return `Confirmed ${ruleText || subject} violation${actionText ? ` -> recommended ${actionText}` : ""}`;
+    return `Confirmed ${ruleText || subject}${targetSuffix} violation${actionText ? ` -> recommended ${actionText}` : ""}`;
   }
   if (step.actionKind === "risk_gate.unified" || step.actionKind === "risk_gate.evaluated") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : "";
     const actionText = step.actionType ? (ACTION_TYPE_LABELS[step.actionType]?.[locale] ?? step.actionType) : "";
     return locale === "ko"
-      ? `위험 게이트 평가: ${actionText ? `${actionText} 조치에 대해 ` : ""}운영자 승인(HIL) 필요 판정`
-      : `Risk gate evaluation: human approval (HIL) required${actionText ? ` for ${actionText}` : ""}`;
+      ? `위험 게이트 평가${ruleText ? ` (${ruleText})` : ""}: ${actionText ? `${actionText} 조치에 대해 ` : ""}운영자 승인(HIL) 필요 판정`
+      : `Risk gate evaluation${ruleText ? ` (${ruleText})` : ""}: human approval (HIL) required${actionText ? ` for ${actionText}` : ""}`;
   }
   if (step.actionKind === "hil.requested") {
     const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : subject;
     return locale === "ko"
-      ? `${ruleText} 조치를 위한 운영자 승인(HIL) 요청 생성`
-      : `Created human approval (HIL) request for ${ruleText}`;
+      ? `${ruleText}${targetSuffix} 조치를 위한 운영자 승인(HIL) 요청 생성`
+      : `Created human approval (HIL) request for ${ruleText}${targetSuffix}`;
   }
   if (step.actionKind === "hil.request.dispatch_unavailable") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : "";
     return locale === "ko"
-      ? "외부 알림 채널 전송 생략 - Shadow 모드로 콘솔 승인 대기열에 보관"
-      : "External approval dispatch skipped - retained in Console queue under shadow mode";
+      ? `${ruleText ? `${ruleText} - ` : ""}외부 알림 채널 전송 생략 (Shadow 모드로 콘솔 승인 대기열 보관)`
+      : `${ruleText ? `${ruleText} - ` : ""}external approval dispatch skipped (retained in shadow queue)`;
   }
   if (step.actionKind === "hil.timeout") {
+    const ruleText = step.ruleId ? (RULE_LABELS[step.ruleId]?.[locale] ?? step.ruleId) : "";
+    const targetLabel = ruleText ? `${ruleText}${targetSuffix}` : subject;
     return locale === "ko"
-      ? `${subject ? `${subject} ` : ""}운영자 승인 대기 시간 만료 - 미실행 종료`
-      : `${subject ? `${subject} ` : ""}human approval window expired - closed without execution`;
+      ? `${targetLabel ? `${targetLabel} - ` : ""}운영자 승인 대기 시간 만료(미실행 종료)`
+      : `${targetLabel ? `${targetLabel} - ` : ""}human approval window expired (closed without execution)`;
   }
   if (step.actionKind === "control_loop.t1_evaluate") {
     const reasonText = step.reason ? presentReasonLabel(step.reason, locale) : "";

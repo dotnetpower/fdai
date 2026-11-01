@@ -1,0 +1,3368 @@
+{
+  "base_mappings_count": 119,
+  "extended_mappings_count": 301,
+  "mappings": [
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.resource-group-contains-resource",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.resourceGroup",
+      "source_provider_type": "*",
+      "target_provider_type": "microsoft.resources/resourcegroups"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.container-environment-contains-managed-certificate",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.app/managedenvironments/managedcertificates",
+      "target_provider_type": "microsoft.app/managedenvironments"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.cognitive-account-contains-project",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/projects",
+      "target_provider_type": "microsoft.cognitiveservices/accounts"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.vm-contains-extension",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/virtualmachines/extensions",
+      "target_provider_type": "microsoft.compute/virtualmachines"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.vm-contains-run-command",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/virtualmachines/runcommands",
+      "target_provider_type": "microsoft.compute/virtualmachines"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.cdn-profile-contains-origin-group",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.cdn/profiles/origingroups",
+      "target_provider_type": "microsoft.cdn/profiles"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.image-gallery-contains-image",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/galleries/images",
+      "target_provider_type": "microsoft.compute/galleries"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.gallery-image-contains-version",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/galleries/images/versions",
+      "target_provider_type": "microsoft.compute/galleries/images"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.file-account-contains-capacity-pool",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools",
+      "target_provider_type": "microsoft.netapp/netappaccounts"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.file-capacity-pool-contains-volume",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools/volumes",
+      "target_provider_type": "microsoft.netapp/netappaccounts/capacitypools"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.network-watcher-contains-flow-log",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.network/networkwatchers/flowlogs",
+      "target_provider_type": "microsoft.network/networkwatchers"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.app-service-contains-slot",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.web/sites/slots",
+      "target_provider_type": "microsoft.web/sites"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.resource-attached-to-managed-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "identity.userAssignedIdentities{keys}",
+      "source_provider_type": "*",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.role-assignment-attached-to-scope",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.scope",
+      "source_provider_type": "microsoft.authorization/roleassignments",
+      "target_provider_type": "*"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.role-assignment-attached-to-managed-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.principalId",
+      "source_provider_type": "microsoft.authorization/roleassignments",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-app-depends-on-managed-environment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.managedEnvironmentId",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.app/managedenvironments"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-job-depends-on-managed-environment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.environmentId",
+      "source_provider_type": "microsoft.app/jobs",
+      "target_provider_type": "microsoft.app/managedenvironments"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-workload-depends-on-registry",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.configuration.registries[].server",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.containerregistry/registries"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-workload-depends-on-configured-endpoint",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.template.containers[].env[].value",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.apimanagement/service"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-workload-depends-on-key-vault-secret",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.configuration.secrets[].keyVaultUrl",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-workload-depends-on-arm-resource",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.template.containers[].env[].value",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "*"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.container-environment-depends-on-log-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.appLogsConfiguration.logAnalyticsConfiguration.customerId",
+      "source_provider_type": "microsoft.app/managedenvironments",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.container-environment-attached-to-infrastructure-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.vnetConfiguration.infrastructureSubnetId",
+      "source_provider_type": "microsoft.app/managedenvironments",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.application-insights-depends-on-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.WorkspaceResourceId",
+      "source_provider_type": "microsoft.insights/components",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.alert-rule-routes-to-action-group",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.actions.actionGroups[]",
+      "source_provider_type": "microsoft.insights/scheduledqueryrules",
+      "target_provider_type": "microsoft.insights/actiongroups"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.alert-rule-depends-on-scope",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.scopes[]",
+      "source_provider_type": "microsoft.insights/scheduledqueryrules",
+      "target_provider_type": "microsoft.containerservice/managedclusters"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.communication-service-depends-on-email-domain",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.linkedDomains[]",
+      "source_provider_type": "microsoft.communication/communicationservices",
+      "target_provider_type": "microsoft.communication/emailservices/domains"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.communication-email-service-contains-domain",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.communication/emailservices/domains",
+      "target_provider_type": "microsoft.communication/emailservices"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.function-depends-on-app-service-plan",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.serverFarmId",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.web/serverfarms"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.function-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualNetworkSubnetId",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.function-depends-on-deployment-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.functionAppConfig.deployment.storage.authentication.userAssignedIdentityResourceId",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.function-depends-on-application-insights",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "tags{values}",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.insights/components"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.ipConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-attached-to-nsg",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualMachineProfile.networkProfile.networkInterfaceConfigurations[].properties.networkSecurityGroup.id",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets",
+      "target_provider_type": "microsoft.network/networksecuritygroups"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.cognitive-account-contains-model-deployment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/deployments",
+      "target_provider_type": "microsoft.cognitiveservices/accounts"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.arm-cognitive-account-contains-model-deployment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/deployments",
+      "target_provider_type": "microsoft.cognitiveservices/accounts"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.vm-scale-set-contains-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines",
+      "target_provider_type": "microsoft.compute/virtualmachinescalesets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-nic-attached-to-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines/networkinterfaces",
+      "target_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-nic-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines/networkinterfaces",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-nic-attached-to-nsg",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkSecurityGroup.id",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines/networkinterfaces",
+      "target_provider_type": "microsoft.network/networksecuritygroups"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-scale-set-nic-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.publicIPAddress.id",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets/virtualmachines/networkinterfaces",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aks-attached-to-agent-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.agentPoolProfiles[].vnetSubnetID",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.aks-contains-agent-pool",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.containerservice/managedclusters/agentpools",
+      "target_provider_type": "microsoft.containerservice/managedclusters"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.agent-pool-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.vnetSubnetID",
+      "source_provider_type": "microsoft.containerservice/managedclusters/agentpools",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aks-attached-to-node-resource-group",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.nodeResourceGroup",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.resources/resourcegroups"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aks-attached-to-kubelet-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.identityProfile.kubeletidentity.resourceId",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aks-attached-to-key-vault-provider-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.addonProfiles.azureKeyvaultSecretsProvider.identity.resourceId",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aks-attached-to-monitoring-identity",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.addonProfiles.omsagent.identity.resourceId",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.managedidentity/userassignedidentities"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.aks-depends-on-log-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.addonProfiles.omsagent.config.logAnalyticsWorkspaceResourceID",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.aks-routes-to-effective-outbound-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkProfile.loadBalancerProfile.effectiveOutboundIPs[].id",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.data-collection-rule-depends-on-endpoint",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.dataCollectionEndpointId",
+      "source_provider_type": "microsoft.insights/datacollectionrules",
+      "target_provider_type": "microsoft.insights/datacollectionendpoints"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.data-collection-rule-routes-to-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.destinations.logAnalytics[].workspaceResourceId",
+      "source_provider_type": "microsoft.insights/datacollectionrules",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.data-collection-rule-routes-to-metrics-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.destinations.monitoringAccounts[].accountResourceId",
+      "source_provider_type": "microsoft.insights/datacollectionrules",
+      "target_provider_type": "microsoft.monitor/accounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.metrics-workspace-depends-on-collection-endpoint",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.defaultIngestionSettings.dataCollectionEndpointResourceId",
+      "source_provider_type": "microsoft.monitor/accounts",
+      "target_provider_type": "microsoft.insights/datacollectionendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.metrics-workspace-depends-on-collection-rule",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.defaultIngestionSettings.dataCollectionRuleResourceId",
+      "source_provider_type": "microsoft.monitor/accounts",
+      "target_provider_type": "microsoft.insights/datacollectionrules"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.snapshot-depends-on-source-disk",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.creationData.sourceResourceId",
+      "source_provider_type": "microsoft.compute/snapshots",
+      "target_provider_type": "microsoft.compute/disks"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.application-gateway-routes-to-configured-backend",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.backendAddressPools[].properties.backendAddresses[].fqdn",
+      "source_provider_type": "microsoft.network/applicationgateways",
+      "target_provider_type": "microsoft.apimanagement/service"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.load-balancer-routes-to-configured-backend",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.fqdn",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.apimanagement/service"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.sql-server-contains-database",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.sql/servers/databases",
+      "target_provider_type": "microsoft.sql/servers"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.storage-account-contains-file-share",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerRoot",
+      "source_provider_type": "microsoft.storage/storageaccounts/fileservices/shares",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.vnet-contains-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.subnets[].id",
+      "source_provider_type": "microsoft.network/virtualnetworks",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.nic-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.network/networkinterfaces",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.web-app-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.subnet-attached-to-nsg",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkSecurityGroup.id",
+      "source_provider_type": "microsoft.network/virtualnetworks/subnets",
+      "target_provider_type": "microsoft.network/networksecuritygroups"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.subnet-attached-to-nat-gateway",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.natGateway.id",
+      "source_provider_type": "microsoft.network/virtualnetworks/subnets",
+      "target_provider_type": "microsoft.network/natgateways"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.subnet-attached-to-route-table",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.routeTable.id",
+      "source_provider_type": "microsoft.network/virtualnetworks/subnets",
+      "target_provider_type": "microsoft.network/routetables"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.nic-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.publicIPAddress.id",
+      "source_provider_type": "microsoft.network/networkinterfaces",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.nic-attached-to-nsg",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkSecurityGroup.id",
+      "source_provider_type": "microsoft.network/networkinterfaces",
+      "target_provider_type": "microsoft.network/networksecuritygroups"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.private-endpoint-attached-to-network-interface",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkInterfaces[].id",
+      "source_provider_type": "microsoft.network/privateendpoints",
+      "target_provider_type": "microsoft.network/networkinterfaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.private-endpoint-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/privateendpoints",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.private-endpoint-contains-dns-zone-group",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.network/privateendpoints/privatednszonegroups",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.private-dns-zone-group-attached-to-zone",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.privateDnsZoneConfigs[].properties.privateDnsZoneId",
+      "source_provider_type": "microsoft.network/privateendpoints/privatednszonegroups",
+      "target_provider_type": "microsoft.network/privatednszones"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.load-balancer-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.frontendIPConfigurations[].properties.publicIPAddress.id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.application-gateway-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.frontendIPConfigurations[].properties.publicIPAddress.id",
+      "source_provider_type": "microsoft.network/applicationgateways",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.application-gateway-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.gatewayIPConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.network/applicationgateways",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.dns-resolver-attached-to-vnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/dnsresolvers",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.dns-resolver-contains-inbound-endpoint",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.network/dnsresolvers/inboundendpoints",
+      "target_provider_type": "microsoft.network/dnsresolvers"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.dns-resolver-inbound-endpoint-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].subnet.id",
+      "source_provider_type": "microsoft.network/dnsresolvers/inboundendpoints",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.load-balancer-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.frontendIPConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.load-balancer-depends-on-backend-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.subnet.id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.load-balancer-depends-on-backend-vnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.backendAddressPools[].properties.loadBalancerBackendAddresses[].properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.nat-gateway-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.publicIpAddresses[].id",
+      "source_provider_type": "microsoft.network/natgateways",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.private-dns-zone-link-attached-to-vnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/privatednszones/virtualnetworklinks",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "azure.private-dns-zone-contains-vnet-link",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "id.providerParent",
+      "source_provider_type": "microsoft.network/privatednszones/virtualnetworklinks",
+      "target_provider_type": "microsoft.network/privatednszones"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.virtual-network-gateway-attached-to-public-ip",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.publicIPAddress.id",
+      "source_provider_type": "microsoft.network/virtualnetworkgateways",
+      "target_provider_type": "microsoft.network/publicipaddresses"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.virtual-network-gateway-attached-to-subnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.ipConfigurations[].properties.subnet.id",
+      "source_provider_type": "microsoft.network/virtualnetworkgateways",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.aca-managed-network-resource-attached-to-environment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "tags.aca-managed-env-id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.app/managedenvironments"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.private-endpoint-attached-to-service",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.privateLinkServiceConnections[].properties.privateLinkServiceId",
+      "source_provider_type": "microsoft.network/privateendpoints",
+      "target_provider_type": "microsoft.cognitiveservices/accounts"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-nic-attached-to-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.networkProfile.networkInterfaces[].id",
+      "source_provider_type": "microsoft.compute/virtualmachines",
+      "target_provider_type": "microsoft.network/networkinterfaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-os-disk-attached-to-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.storageProfile.osDisk.managedDisk.id",
+      "source_provider_type": "microsoft.compute/virtualmachines",
+      "target_provider_type": "microsoft.compute/disks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure.vm-data-disk-attached-to-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.storageProfile.dataDisks[].managedDisk.id",
+      "source_provider_type": "microsoft.compute/virtualmachines",
+      "target_provider_type": "microsoft.compute/disks"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.web-app-depends-on-storage",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.storageAccount.id",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.web-app-depends-on-container-registry",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.acrLoginServer",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.containerregistry/registries"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.diagnostic-setting-depends-on-workspace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.insights/diagnosticsettings",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure.vnet-peered-with-vnet",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.virtualNetworkPeerings[].properties.remoteVirtualNetwork.id",
+      "source_provider_type": "microsoft.network/virtualnetworks",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "azure.route-table-routes-to-resource",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "properties.routes[].properties.nextHopResourceId",
+      "source_provider_type": "microsoft.network/routetables",
+      "target_provider_type": "microsoft.network/azurefirewalls"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "kubernetes.cluster-contains-namespace",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "cluster_ref",
+      "source_provider_type": "kubernetes.namespace",
+      "target_provider_type": "kubernetes-cluster"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "kubernetes.namespace-contains-resource",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "namespace",
+      "source_provider_type": "kubernetes.cron-job",
+      "target_provider_type": "kubernetes.namespace"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "kubernetes.agent-pool-contains-node",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "node_pool",
+      "source_provider_type": "kubernetes.node",
+      "target_provider_type": "kubernetes-node-pool"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "kubernetes.cluster-contains-ingress-class",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "cluster_ref",
+      "source_provider_type": "kubernetes.ingress-class",
+      "target_provider_type": "kubernetes-cluster"
+    },
+    {
+      "link_type": "contains",
+      "mapping_id": "kubernetes.cluster-contains-diagnostic-resource",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "cluster_ref",
+      "source_provider_type": "kubernetes.persistent-volume",
+      "target_provider_type": "kubernetes-cluster"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.pod-scheduled-on-node",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "node_name",
+      "source_provider_type": "kubernetes.pod",
+      "target_provider_type": "kubernetes.node"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.node-backed-by-vmss-vm",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "provider_resource_ref",
+      "source_provider_type": "kubernetes.node",
+      "target_provider_type": "compute.vm"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.resource-owned-by-controller",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "owner_uids",
+      "source_provider_type": "kubernetes.job",
+      "target_provider_type": "kubernetes.cron-job"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.service-selects-pod",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "selector",
+      "source_provider_type": "kubernetes.service",
+      "target_provider_type": "kubernetes.pod"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.pod-depends-on-pvc",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "pvc_claim_names",
+      "source_provider_type": "kubernetes.pod",
+      "target_provider_type": "kubernetes.persistent-volume-claim"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.pvc-attached-to-pv",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "volume_name",
+      "source_provider_type": "kubernetes.persistent-volume-claim",
+      "target_provider_type": "kubernetes.persistent-volume"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.pvc-depends-on-storage-class",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "storage_class_name",
+      "source_provider_type": "kubernetes.persistent-volume-claim",
+      "target_provider_type": "kubernetes.storage-class"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.hpa-attached-to-daemon-set",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "scale_target_name",
+      "source_provider_type": "kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "kubernetes.daemon-set"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.hpa-attached-to-deployment",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "scale_target_name",
+      "source_provider_type": "kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "kubernetes.deployment"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.hpa-attached-to-replica-set",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "scale_target_name",
+      "source_provider_type": "kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "kubernetes.replica-set"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.hpa-attached-to-stateful-set",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "scale_target_name",
+      "source_provider_type": "kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "kubernetes.stateful-set"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.pdb-selects-pod",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "selector",
+      "source_provider_type": "kubernetes.pod-disruption-budget",
+      "target_provider_type": "kubernetes.pod"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.network-policy-selects-pod",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "selector",
+      "source_provider_type": "kubernetes.network-policy",
+      "target_provider_type": "kubernetes.pod"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.service-exposes-endpoints",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "name",
+      "source_provider_type": "kubernetes.service",
+      "target_provider_type": "kubernetes.endpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "kubernetes.endpoint-slice-exposed-by-service",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "service_name",
+      "source_provider_type": "kubernetes.endpoint-slice",
+      "target_provider_type": "kubernetes.service"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "kubernetes.endpoint-slice-routes-to-pod",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "target_uids",
+      "source_provider_type": "kubernetes.endpoint-slice",
+      "target_provider_type": "kubernetes.pod"
+    },
+    {
+      "link_type": "routes_to",
+      "mapping_id": "kubernetes.ingress-routes-to-service",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "backend_service_names",
+      "source_provider_type": "kubernetes.ingress",
+      "target_provider_type": "kubernetes.service"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "kubernetes.ingress-attached-to-class",
+      "origin": "base_azure_arg_v1",
+      "source_property_path": "ingress_class_name",
+      "source_provider_type": "kubernetes.ingress",
+      "target_provider_type": "kubernetes.ingress-class"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-vm.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.compute/virtualmachines",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-vm.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.compute/virtualmachines",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-image.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.compute/images",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-image.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.compute/images",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-vm-extension.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.compute/virtualmachines/extensions",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-vm-extension.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.compute/virtualmachines/extensions",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-vm-run-command.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.compute/virtualmachines/runcommands",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-vm-run-command.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.compute/virtualmachines/runcommands",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-vm-shutdown-schedule.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.devtestlab/schedules",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-vm-shutdown-schedule.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.devtestlab/schedules",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-vm-scale-set.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-vm-scale-set.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.compute/virtualmachinescalesets",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-container-app.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-container-app.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.app/containerapps",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-container-app-job.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.app/jobs",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-container-app-job.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.app/jobs",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-container-app-environment.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.app/managedenvironments",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-container-app-environment.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.app/managedenvironments",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-function.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-function.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-web-app.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-web-app.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.web/sites",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.app-service-plan.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.web/serverfarms",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.app-service-plan.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.web/serverfarms",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.static-web-app.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.web/staticsites",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.static-web-app.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.web/staticsites",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-cluster.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-cluster.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.containerservice/managedclusters",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-node-pool.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.containerservice/managedclusters/agentpools",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-node-pool.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.containerservice/managedclusters/agentpools",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-namespace.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.namespace",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-namespace.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.namespace",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-node.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.node",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-node.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.node",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-pod.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.pod",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-pod.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.pod",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-service.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.service",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-service.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.service",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-endpoints.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.endpoints",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-endpoints.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.endpoints",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-endpoint-slice.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.endpoint-slice",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-endpoint-slice.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.endpoint-slice",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-ingress.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.ingress",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-ingress.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.ingress",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-ingress-class.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.ingress-class",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-ingress-class.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.ingress-class",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-job.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.job",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-job.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.job",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-cron-job.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.cron-job",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-cron-job.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.cron-job",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-deployment.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.deployment",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-deployment.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.deployment",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-replica-set.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.replica-set",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-replica-set.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.replica-set",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-daemon-set.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.daemon-set",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-daemon-set.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.daemon-set",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-stateful-set.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.stateful-set",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-stateful-set.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.stateful-set",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-persistent-volume-claim.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.persistent-volume-claim",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-persistent-volume-claim.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.persistent-volume-claim",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-persistent-volume.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.persistent-volume",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-persistent-volume.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.persistent-volume",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-storage-class.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.storage-class",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-storage-class.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.storage-class",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-horizontal-pod-autoscaler.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-horizontal-pod-autoscaler.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.horizontal-pod-autoscaler",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-pod-disruption-budget.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.pod-disruption-budget",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-pod-disruption-budget.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.pod-disruption-budget",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-network-policy.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.resources/kubernetes.network-policy",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-network-policy.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.resources/kubernetes.network-policy",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-resource-quota.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.resources/kubernetes.resource-quota",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.kubernetes-resource-quota.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.resources/kubernetes.resource-quota",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-limit-range.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.resources/kubernetes.limit-range",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.kubernetes-limit-range.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.resources/kubernetes.limit-range",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.workflow-logic-app.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.logic/workflows",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.workflow-logic-app.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.logic/workflows",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.workflow-api-connection.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.web/connections",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.workflow-api-connection.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.web/connections",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.bot-service.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.botservice/botservices",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.bot-service.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.botservice/botservices",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.ai-project.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/projects",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.ai-project.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/projects",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.web-search-service.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.bing/accounts",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.web-search-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.bing/accounts",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-vnet.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/virtualnetworks",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-vnet.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/virtualnetworks",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-subnet.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/virtualnetworks/subnets",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-subnet.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/virtualnetworks/subnets",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-nsg.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/networksecuritygroups",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-nsg.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/networksecuritygroups",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-firewall.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/azurefirewalls",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-firewall.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/azurefirewalls",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-firewall-policy.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/firewallpolicies",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-firewall-policy.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/firewallpolicies",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-interface.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/networkinterfaces",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-interface.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/networkinterfaces",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-endpoint.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/privateendpoints",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-endpoint.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/privateendpoints",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-load-balancer.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-load-balancer.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/loadbalancers",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-application-gateway.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/applicationgateways",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-application-gateway.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/applicationgateways",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.api-gateway.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.apimanagement/service",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.api-gateway.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.apimanagement/service",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-dns-zone.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/dnszones",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-dns-zone.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/dnszones",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-public-ip.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/publicipaddresses",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-public-ip.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/publicipaddresses",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-nat-gateway.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/natgateways",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-nat-gateway.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/natgateways",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/privatednszones",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/privatednszones",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone-link.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/privatednszones/virtualnetworklinks",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone-link.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/privatednszones/virtualnetworklinks",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone-group.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/privateendpoints/privatednszonegroups",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-dns-zone-group.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/privateendpoints/privatednszonegroups",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-dns-resolver.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/dnsresolvers",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-dns-resolver.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/dnsresolvers",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-dns-resolver-inbound-endpoint.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/dnsresolvers/inboundendpoints",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-dns-resolver-inbound-endpoint.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/dnsresolvers/inboundendpoints",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-route-table.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/routetables",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-route-table.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/routetables",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-virtual-network-gateway.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/virtualnetworkgateways",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-virtual-network-gateway.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/virtualnetworkgateways",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-bastion-host.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/bastionhosts",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-bastion-host.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/bastionhosts",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-access-scope.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.insights/privatelinkscopes",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-access-scope.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.insights/privatelinkscopes",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-registered-domain.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.domainregistration/domains",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-registered-domain.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.domainregistration/domains",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.diagnostic-settings.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.insights/diagnosticsettings",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.diagnostic-settings.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.insights/diagnosticsettings",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.object-storage.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.storage/storageaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.object-storage.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.storage/storageaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.container-registry.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.containerregistry/registries",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.container-registry.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.containerregistry/registries",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.file-share.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.storage/storageaccounts/fileservices/shares",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.file-share.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.storage/storageaccounts/fileservices/shares",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.disk-snapshot.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.compute/snapshots",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.disk-snapshot.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.compute/snapshots",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.disk.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.compute/disks",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.disk.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.compute/disks",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.sql-server.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.sql/servers",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.sql-server.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.sql/servers",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.sql-database.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.sql/servers/databases",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.sql-database.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.sql/servers/databases",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.postgresql-server.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.dbforpostgresql/flexibleservers",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.postgresql-server.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.dbforpostgresql/flexibleservers",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.mysql-server.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.dbformysql/flexibleservers",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.mysql-server.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.dbformysql/flexibleservers",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.nosql-database.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.documentdb/databaseaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.nosql-database.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.documentdb/databaseaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.cache.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.cache/redis",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.cache.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.cache/redis",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.redis-enterprise.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.cache/redisenterprise",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.redis-enterprise.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.cache/redisenterprise",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.secret-store.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.keyvault/vaults",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.secret-store.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.keyvault/vaults",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.managed-identity.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.managedidentity/userassignedidentities",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.managed-identity.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.managedidentity/userassignedidentities",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.authorization-role-assignment.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.authorization/roleassignments",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.authorization-role-assignment.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.authorization/roleassignments",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.certificate.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.keyvault/vaults/certificates",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.certificate.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.keyvault/vaults/certificates",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.managed-certificate.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.app/managedenvironments/managedcertificates",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.managed-certificate.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.app/managedenvironments/managedcertificates",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.ssh-public-key.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.compute/sshpublickeys",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.ssh-public-key.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.compute/sshpublickeys",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.log-workspace.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.operationalinsights/workspaces",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.log-workspace.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.operationalinsights/workspaces",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.metrics-workspace.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.monitor/accounts",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.metrics-workspace.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.monitor/accounts",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.application-insights.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.insights/components",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.application-insights.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.insights/components",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.data-collection-rule.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.insights/datacollectionrules",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.data-collection-rule.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.insights/datacollectionrules",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.data-collection-endpoint.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.insights/datacollectionendpoints",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.data-collection-endpoint.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.insights/datacollectionendpoints",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.alert-rule.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.insights/scheduledqueryrules",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.alert-rule.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.insights/scheduledqueryrules",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.action-group.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.insights/actiongroups",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.action-group.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.insights/actiongroups",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.prometheus-rule-group.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.alertsmanagement/prometheusrulegroups",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.prometheus-rule-group.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.alertsmanagement/prometheusrulegroups",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.anomaly-alert-rule.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.alertsmanagement/smartdetectoralertrules",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.anomaly-alert-rule.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.alertsmanagement/smartdetectoralertrules",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.metric-alert-rule.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.insights/metricalerts",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.metric-alert-rule.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.insights/metricalerts",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.managed-sre-agent.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.app/agents",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.managed-sre-agent.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.app/agents",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-dashboard-service.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.dashboard/grafana",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-dashboard-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.dashboard/grafana",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-network-monitor.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/networkwatchers",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-network-monitor.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/networkwatchers",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-query-pack.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.operationalinsights/querypacks",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-query-pack.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.operationalinsights/querypacks",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-solution.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.operationsmanagement/solutions",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-solution.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.operationsmanagement/solutions",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-dashboard.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.portal/dashboards",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-dashboard.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.portal/dashboards",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-workbook.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.insights/workbooks",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-workbook.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.insights/workbooks",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.llm-endpoint.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.cognitiveservices/accounts",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.llm-endpoint.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.cognitiveservices/accounts",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.llm-model-deployment.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/deployments",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.llm-model-deployment.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.cognitiveservices/accounts/deployments",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.event-hub.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.eventhub/namespaces",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.event-hub.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.eventhub/namespaces",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.service-bus-namespace.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.servicebus/namespaces",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.service-bus-namespace.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.servicebus/namespaces",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.event-grid-topic.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.eventgrid/systemtopics",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.event-grid-topic.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.eventgrid/systemtopics",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.communication-service.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.communication/communicationservices",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.communication-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.communication/communicationservices",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.email-service.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.communication/emailservices",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.email-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.communication/emailservices",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.email-domain.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.communication/emailservices/domains",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.email-domain.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.communication/emailservices/domains",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.search-service.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.search/searchservices",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.search-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.search/searchservices",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.directory-managed-domain.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.aad/domainservices",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.directory-managed-domain.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.aad/domainservices",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.application-configuration.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.appconfiguration/configurationstores",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.application-configuration.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.appconfiguration/configurationstores",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.automation-account.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.automation/automationaccounts",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.automation-account.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.automation/automationaccounts",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-private-virtualization-cloud.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.avs/privateclouds",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-private-virtualization-cloud.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.avs/privateclouds",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-batch-account.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.batch/batchaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-batch-account.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.batch/batchaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-cdn-profile.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.cdn/profiles",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-cdn-profile.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.cdn/profiles",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-cdn-origin-group.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.cdn/profiles/origingroups",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-cdn-origin-group.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.cdn/profiles/origingroups",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-image-gallery.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.compute/galleries",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-image-gallery.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.compute/galleries",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-gallery-image-version.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.compute/galleries/images/versions",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-gallery-image-version.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.compute/galleries/images/versions",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-gallery-image.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.compute/galleries/images",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-gallery-image.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.compute/galleries/images",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.analytics-workspace.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.databricks/workspaces",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.analytics-workspace.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.databricks/workspaces",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-desktop-host-pool.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.desktopvirtualization/hostpools",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-desktop-host-pool.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.desktopvirtualization/hostpools",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-desktop-scaling-plan.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.desktopvirtualization/scalingplans",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-desktop-scaling-plan.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.desktopvirtualization/scalingplans",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.iot-hub.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.devices/iothubs",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.iot-hub.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.devices/iothubs",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.event-topic.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.eventgrid/topics",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.event-topic.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.eventgrid/topics",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.activity-log-alert.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.insights/activitylogalerts",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.activity-log-alert.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.insights/activitylogalerts",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.ml-model-registry.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.machinelearningservices/registries",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.ml-model-registry.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.machinelearningservices/registries",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.ml-workspace.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.machinelearningservices/workspaces",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.ml-workspace.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.machinelearningservices/workspaces",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.file-volume.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools/volumes",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.file-volume.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools/volumes",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.storage-file-account.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.netapp/netappaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.storage-file-account.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.netapp/netappaccounts",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.storage-file-capacity-pool.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.storage-file-capacity-pool.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.netapp/netappaccounts/capacitypools",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-connection.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/connections",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-connection.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/connections",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-ddos-protection-plan.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/ddosprotectionplans",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-ddos-protection-plan.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/ddosprotectionplans",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-circuit.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/expressroutecircuits",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-circuit.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/expressroutecircuits",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-circuit-gateway.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/expressroutegateways",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-private-circuit-gateway.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/expressroutegateways",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-peering-port.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/expressrouteports",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-private-peering-port.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/expressrouteports",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.observability-network-flow-log.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/networkwatchers/flowlogs",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-network-flow-log.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/networkwatchers/flowlogs",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-user-vpn-gateway.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/p2svpngateways",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-user-vpn-gateway.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/p2svpngateways",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-dns-routing-profile.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/trafficmanagerprofiles",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-dns-routing-profile.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/trafficmanagerprofiles",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-virtual-hub.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/virtualhubs",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-virtual-hub.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/virtualhubs",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-virtual-router.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.network/virtualrouters",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-virtual-router.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.network/virtualrouters",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-site-vpn-gateway.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.network/vpngateways",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-site-vpn-gateway.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.network/vpngateways",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.network-vpn-site.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.network/vpnsites",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.network-vpn-site.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.network/vpnsites",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-traffic-collector.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.networkfunction/azuretrafficcollectors",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.observability-traffic-collector.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.networkfunction/azuretrafficcollectors",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.backup-vault.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.recoveryservices/vaults",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.backup-vault.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.recoveryservices/vaults",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.realtime-messaging-service.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.signalrservice/signalr",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.realtime-messaging-service.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.signalrservice/signalr",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.sql-managed-instance.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.sql/managedinstances",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.sql-managed-instance.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.sql/managedinstances",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.stream-analytics-job.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "microsoft.streamanalytics/streamingjobs",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.stream-analytics-job.02.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.virtualNetwork.id",
+      "source_provider_type": "microsoft.streamanalytics/streamingjobs",
+      "target_provider_type": "microsoft.network/virtualnetworks"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.compute-image-template.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.privateEndpointConnections[].properties.privateEndpoint.id",
+      "source_provider_type": "microsoft.virtualmachineimages/imagetemplates",
+      "target_provider_type": "microsoft.network/privateendpoints"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-image-template.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.keyVaultProperties.keyVaultUri",
+      "source_provider_type": "microsoft.virtualmachineimages/imagetemplates",
+      "target_provider_type": "microsoft.keyvault/vaults"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-app-slot.01.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.storageAccountId",
+      "source_provider_type": "microsoft.web/sites/slots",
+      "target_provider_type": "microsoft.storage/storageaccounts"
+    },
+    {
+      "link_type": "depends_on",
+      "mapping_id": "azure-arg.ext.compute-app-slot.02.depends_on",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.workspaceResourceId",
+      "source_provider_type": "microsoft.web/sites/slots",
+      "target_provider_type": "microsoft.operationalinsights/workspaces"
+    },
+    {
+      "link_type": "attached_to",
+      "mapping_id": "azure-arg.ext.database-dedicated-infrastructure.01.attached_to",
+      "origin": "extended_catalog_v1",
+      "source_property_path": "properties.subnet.id",
+      "source_provider_type": "oracle.database/cloudexadatainfrastructures",
+      "target_provider_type": "microsoft.network/virtualnetworks/subnets"
+    }
+  ],
+  "schema_version": "1.0.0",
+  "total_mappings": 420
+}

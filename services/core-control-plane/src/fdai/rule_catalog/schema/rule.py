@@ -46,6 +46,7 @@ from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
 from fdai.rule_catalog.schema.signal_type import SignalTypeRegistry
 from fdai.shared.contracts.models import (
     OntologyActionType,
+    OntologyObjectType,
     Rule,
     SubmissionCriterionKind,
 )
@@ -87,13 +88,29 @@ def _cross_reference_issues(
     origin: str,
     action_type_names: set[str],
     resource_type_ids: set[str],
+    object_type_names: frozenset[str] | set[str] | None = None,
     signal_type_ids: frozenset[str] | None,
     policies_root: Path | None,
     remediation_root: Path | None,
 ) -> list[RuleIssue]:
     issues: list[RuleIssue] = []
 
-    if rule.resource_type not in resource_type_ids:
+    custom_object_target = False
+    if rule.target_object_type is not None:
+        if object_type_names is None or rule.target_object_type not in object_type_names:
+            issues.append(
+                RuleIssue(
+                    key=f"{origin}:target_object_type",
+                    message=(
+                        f"unknown target_object_type {rule.target_object_type!r} "
+                        "(not registered in rule-catalog/vocabulary/object-types/)"
+                    ),
+                )
+            )
+        elif rule.target_object_type != "Resource":
+            custom_object_target = True
+
+    if not custom_object_target and rule.resource_type not in resource_type_ids:
         issues.append(
             RuleIssue(
                 key=f"{origin}:resource_type",
@@ -105,7 +122,7 @@ def _cross_reference_issues(
         )
 
     for idx, resource_type in enumerate(rule.applies_to):
-        if resource_type not in resource_type_ids:
+        if not custom_object_target and resource_type not in resource_type_ids:
             issues.append(
                 RuleIssue(
                     key=f"{origin}:applies_to[{idx}]",
@@ -129,20 +146,22 @@ def _cross_reference_issues(
                         message=f"unknown SignalType {signal_type!r}",
                     )
                 )
-        for idx, reference in enumerate(rule.evaluates):
-            try:
-                property_path(rule.resource_type, reference)
-            except ValueError as exc:
-                issues.append(
-                    RuleIssue(
-                        key=f"{origin}:evaluates[{idx}]",
-                        message=str(exc),
+        if not custom_object_target:
+            for idx, reference in enumerate(rule.evaluates):
+                try:
+                    property_path(rule.resource_type, reference)
+                except ValueError as exc:
+                    issues.append(
+                        RuleIssue(
+                            key=f"{origin}:evaluates[{idx}]",
+                            message=str(exc),
+                        )
                     )
-                )
 
     for idx, criterion in enumerate(rule.submission_criteria):
         if (
             criterion.kind is SubmissionCriterionKind.RESOURCE_TYPE_REGISTERED
+            and not custom_object_target
             and criterion.value not in resource_type_ids
         ):
             issues.append(
@@ -151,6 +170,24 @@ def _cross_reference_issues(
                     message=f"unknown registered resource type {criterion.value!r}",
                 )
             )
+        elif criterion.kind is SubmissionCriterionKind.OBJECT_TYPE_REGISTERED:
+            if object_type_names is None or criterion.value not in object_type_names:
+                issues.append(
+                    RuleIssue(
+                        key=f"{origin}:submission_criteria[{idx}]",
+                        message=f"unknown registered ObjectType {criterion.value!r}",
+                    )
+                )
+            elif rule.target_object_type is not None and criterion.value != rule.target_object_type:
+                issues.append(
+                    RuleIssue(
+                        key=f"{origin}:submission_criteria[{idx}]",
+                        message=(
+                            f"object_type_registered {criterion.value!r} MUST match "
+                            f"target_object_type {rule.target_object_type!r}"
+                        ),
+                    )
+                )
 
     if rule.remediates not in action_type_names:
         issues.append(
@@ -270,6 +307,7 @@ def load_rule_from_mapping(
     schema_registry: SchemaRegistry,
     action_type_names: set[str],
     resource_type_ids: set[str],
+    object_type_names: frozenset[str] | set[str] | None = None,
     signal_type_ids: frozenset[str] | None = None,
     origin: str = "<mapping>",
     policies_root: Path | None = None,
@@ -331,6 +369,7 @@ def load_rule_from_mapping(
         origin=origin,
         action_type_names=action_type_names,
         resource_type_ids=resource_type_ids,
+        object_type_names=object_type_names,
         signal_type_ids=signal_type_ids,
         policies_root=policies_root,
         remediation_root=remediation_root,
@@ -351,6 +390,7 @@ def load_rule_catalog(
     schema_registry: SchemaRegistry,
     action_types: Iterable[OntologyActionType],
     resource_types: ResourceTypeRegistry,
+    object_types: Iterable[OntologyObjectType] | None = None,
     signal_types: SignalTypeRegistry | None = None,
     policies_root: Path | None = None,
     remediation_root: Path | None = None,
@@ -373,6 +413,7 @@ def load_rule_catalog(
     """
     action_type_names = {a.name for a in action_types}
     resource_type_ids = resource_types.ids()
+    object_type_names = {o.name for o in object_types} if object_types is not None else None
 
     aggregated: list[RuleIssue] = []
     loaded: list[Rule] = []
@@ -393,6 +434,7 @@ def load_rule_catalog(
                 schema_registry=schema_registry,
                 action_type_names=action_type_names,
                 resource_type_ids=resource_type_ids,
+                object_type_names=object_type_names,
                 signal_type_ids=signal_types.ids() if signal_types is not None else None,
                 origin=path.name,
                 policies_root=policies_root,

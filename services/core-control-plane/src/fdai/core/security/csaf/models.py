@@ -14,7 +14,7 @@ from fdai.rule_catalog.schema.wara_assessment import canonical_digest
 from fdai.shared.contracts.models import Severity
 
 _SHA256_RE = re.compile(r"^sha256:[a-f0-9]{64}$")
-_CVE_RE = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,7}$")
+_CVE_RE = re.compile(r"^(?:CVE-[0-9]{4}-[0-9]{4,7}|ADV[0-9]{6})$")
 _PROP_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 ScalarProperty = str | bool | int
 
