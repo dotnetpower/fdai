@@ -73,7 +73,7 @@ class AzureGraphEvidencePins:
                 raise ValueError(f"graph evidence {name} MUST be non-empty")
         if self.evidence_cutoff.tzinfo is None or self.model_cutoff.tzinfo is None:
             raise ValueError("graph evidence cutoffs MUST be timezone-aware")
-        if self.target_revision < 0:
+        if type(self.target_revision) is not int or self.target_revision < 0:
             raise ValueError("graph evidence target_revision MUST be non-negative")
 
 
@@ -124,7 +124,7 @@ class AzureGraphMetricObservation:
     def __post_init__(self) -> None:
         if not self.object_ref.strip() or not self.object_type.strip() or not self.metric.strip():
             raise ValueError("graph metric observation identity MUST be non-empty")
-        if not math.isfinite(self.value):
+        if type(self.value) is bool or not math.isfinite(self.value):
             raise ValueError("graph metric observation value MUST be finite")
 
 
@@ -159,7 +159,7 @@ class AzureReviewedMetricSemantic:
         ):
             if not value.strip():
                 raise ValueError("reviewed metric semantic identity MUST be non-empty")
-        if self.objective_revision < 0:
+        if type(self.objective_revision) is not int or self.objective_revision < 0:
             raise ValueError("reviewed metric semantic objective_revision MUST be non-negative")
         if any(item.tzinfo is None for item in (self.effective_from, self.reviewed_at)) or (
             self.effective_to is not None and self.effective_to.tzinfo is None

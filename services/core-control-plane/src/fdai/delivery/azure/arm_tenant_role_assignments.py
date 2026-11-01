@@ -42,6 +42,7 @@ _SUBSCRIPTION_TYPE = "microsoft.management/managementgroups/subscriptions"
 _SUBSCRIPTION_SCOPE = re.compile(r"^/subscriptions/[^/]+$", re.IGNORECASE)
 _RESOURCE_GROUP_SCOPE = re.compile(r"^/subscriptions/[^/]+/resourcegroups/[^/]+$", re.IGNORECASE)
 _RESOURCE_SCOPE = re.compile(r"^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/.+", re.I)
+_SUBSCRIPTION_PROVIDER_SCOPE = re.compile(r"^/subscriptions/[^/]+/providers/.+", re.I)
 _MANAGEMENT_GROUP_SCOPE = re.compile(
     r"^/providers/microsoft\.management/managementgroups/[^/]+$", re.IGNORECASE
 )
@@ -169,7 +170,7 @@ def _scope_level(scope: str) -> str:
         return "subscription"
     if _RESOURCE_GROUP_SCOPE.match(scope):
         return "resource_group"
-    if _RESOURCE_SCOPE.match(scope):
+    if _RESOURCE_SCOPE.match(scope) or _SUBSCRIPTION_PROVIDER_SCOPE.match(scope):
         return "resource"
     raise RoleAssignmentReadError("role assignment scope is not recognized")
 

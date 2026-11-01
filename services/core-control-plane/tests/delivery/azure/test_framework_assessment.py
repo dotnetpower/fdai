@@ -16,10 +16,14 @@ from fdai.core.framework_assessment import (
     FrameworkSatisfactionStatus,
 )
 from fdai.delivery.azure.framework_assessment import (
+    AzureAdvisorImpact,
+    AzureAdvisorPillar,
     AzureFrameworkEvidenceAdapter,
     AzureWafSupportingEvidenceAdapter,
     WafExternalAssessmentArtifact,
     WafExternalSource,
+    build_azure_advisor_supporting_artifact,
+    normalize_azure_advisor_recommendation,
 )
 from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkScopeKind,
@@ -185,3 +189,48 @@ def test_external_scores_remain_supporting_only_in_runtime() -> None:
     assert control.satisfaction is FrameworkSatisfactionStatus.UNKNOWN
     assert control.evidence_refs
     assert "supporting_evidence_only" in control.limitations
+
+
+def test_normalize_azure_advisor_recommendation_and_build_waf_artifact() -> None:
+    catalog = _catalog("azure-waf")
+    arg_row = {
+        "id": (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/providers/"
+            "Microsoft.Advisor/recommendations/rec-1"
+        ),
+        "type": "microsoft.advisor/recommendations",
+        "properties": {
+            "recommendationTypeId": "00000000-0000-0000-0000-000000000000",
+            "category": "HighAvailability",
+            "impact": "High",
+            "impactedField": "Microsoft.Compute/virtualMachines",
+            "impactedValue": "vm-prod-01",
+            "shortDescription": {
+                "problem": "Single instance virtual machine has no availability SLA",
+                "solution": "Add virtual machine to an availability set or zone",
+            },
+            "lastUpdated": "2026-09-10T00:45:00Z",
+            "extendedProperties": {"assessmentKey": "val-1"},
+        },
+    }
+    rec = normalize_azure_advisor_recommendation(arg_row)
+    assert rec.waf_pillar is AzureAdvisorPillar.RELIABILITY
+    assert rec.impact is AzureAdvisorImpact.HIGH
+    assert rec.impacted_value == "vm-prod-01"
+    assert rec.extended_properties == {"assessmentKey": "val-1"}
+
+    artifact = build_azure_advisor_supporting_artifact(
+        catalog,
+        (arg_row,),
+        scope_digest=SCOPE,
+        inventory_generation="inventory-1",
+        observed_at=NOW - timedelta(minutes=2),
+        recorded_at=NOW - timedelta(minutes=1),
+        truncated=True,
+    )
+    assert artifact.source is WafExternalSource.AZURE_ADVISOR
+    assert all(cid.startswith("RE:") for cid in artifact.control_ids)
+    receipts = AzureWafSupportingEvidenceAdapter(catalog).to_receipts(artifact)
+    assert receipts
+    assert "evidence_truncated" in receipts[0].limitations
+    assert "supporting_evidence_only" in receipts[0].limitations

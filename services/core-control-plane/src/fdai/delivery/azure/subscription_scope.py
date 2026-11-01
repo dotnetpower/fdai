@@ -54,9 +54,12 @@ class AzureSubscriptionScopeConfig:
             or parsed.fragment
         ):
             raise ValueError("subscription endpoint MUST be the Azure management origin")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if type(self.timeout_seconds) is bool or not 0.1 <= self.timeout_seconds <= 30:
             raise ValueError("subscription timeout_seconds MUST be in [0.1, 30]")
-        if not 1_024 <= self.max_response_bytes <= 1_000_000:
+        if (
+            type(self.max_response_bytes) is not int
+            or not 1_024 <= self.max_response_bytes <= 1_000_000
+        ):
             raise ValueError("subscription max_response_bytes MUST be in [1024, 1000000]")
 
 

@@ -225,7 +225,10 @@ class AzureResourceGraphWaraObservationProvider:
         seen_tokens: set[str] = set()
         total_bytes = 0
         for page in range(self._config.maximum_pages):
-            options: dict[str, object] = {"$top": min(plan.maximum_rows + 1, 1000)}
+            options: dict[str, object] = {
+                "$top": min(plan.maximum_rows + 1, 1000),
+                "resultFormat": "objectArray",
+            }
             if skip_token is not None:
                 options["$skipToken"] = skip_token
             body = {
@@ -249,8 +252,15 @@ class AzureResourceGraphWaraObservationProvider:
                     f"WARA ARG request failed on page {page}: {type(exc).__name__}"
                 ) from exc
             if response.status_code >= 400:
+                quota_rem = response.headers.get("x-ms-user-quota-remaining")
+                retry_hdr = response.headers.get("x-ms-user-quota-after") or response.headers.get(
+                    "Retry-After"
+                )
+                suffix = ""
+                if quota_rem or retry_hdr:
+                    suffix = f" (quota_remaining={quota_rem}, retry_after={retry_hdr})"
                 raise WaraObservationError(
-                    f"WARA ARG returned HTTP {response.status_code} on page {page}"
+                    f"WARA ARG returned HTTP {response.status_code} on page {page}{suffix}"
                 )
             response_bytes = len(response.content)
             if response_bytes > self._config.maximum_response_bytes:
@@ -273,12 +283,16 @@ class AzureResourceGraphWaraObservationProvider:
                 raise WaraObservationError("WARA ARG result exceeded the read-plan row bound")
 
             next_token = payload.get("$skipToken")
-            if not isinstance(next_token, str) or not next_token:
+            if next_token is None:
+                next_token = payload.get("skipToken")
+            if next_token is None or next_token == "":
                 if result_truncated or _count_is_truncated(payload):
                     raise WaraObservationError(
                         "WARA ARG returned a truncated result without a continuation token"
                     )
                 return tuple(rows)
+            if not isinstance(next_token, str) or not next_token.strip():
+                raise WaraObservationError("WARA ARG continuation token is invalid")
             if next_token in seen_tokens:
                 raise WaraObservationError("WARA ARG continuation token did not advance")
             seen_tokens.add(next_token)
@@ -482,9 +496,15 @@ def _validate_and_normalize_rows(
     resource_id_column: str,
 ) -> list[object]:
     admitted_ids = {resource_id.casefold() for resource_id in resource_ids}
+    col_folded = resource_id_column.casefold()
     normalized: list[object] = []
     for row in rows:
         resource_id = row.get(resource_id_column)
+        if resource_id is None:
+            for k, v in row.items():
+                if str(k).casefold() == col_folded:
+                    resource_id = v
+                    break
         if not isinstance(resource_id, str) or resource_id.casefold() not in admitted_ids:
             raise WaraObservationError("WARA ARG returned a row outside the exact resource scope")
         normalized.append(json.loads(json.dumps(row, sort_keys=True, separators=(",", ":"))))

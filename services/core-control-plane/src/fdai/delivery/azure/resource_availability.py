@@ -46,11 +46,13 @@ def azure_resource_operational_state(record: ResourceRecord) -> ResourceOperatio
 
 def _state(value: object, resource_type: str) -> ResourceOperationalState | None:
     if isinstance(value, Mapping):
-        value = value.get("code")
+        value = value.get("code") if "code" in value else value.get("state")
     if not isinstance(value, str):
         return None
     normalized = value.strip().casefold().removeprefix("powerstate/")
-    if normalized == "running" or (normalized == "ready" and resource_type == "mysql-server"):
+    if normalized == "running" or (
+        normalized == "ready" and resource_type in {"mysql-server", "postgresql-server"}
+    ):
         return ResourceOperationalState.RUNNING
     if normalized in {"stopped", "deallocated"}:
         return ResourceOperationalState.STOPPED

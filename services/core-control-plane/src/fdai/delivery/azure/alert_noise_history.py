@@ -39,6 +39,8 @@ def attach_alert_history(
     Source observations are not notification attempts, deliveries or acknowledgements. Existing
     independently supplied delivery records and their coverage are left intact.
     """
+    if type(collection_complete) is not bool:
+        raise ValueError("collection_complete MUST be a boolean")
     rule_map = {rule.ref: rule for rule in evidence.rules}
     bound_scope = native_scope(authorized_scope) if authorized_scope is not None else None
     reasons = set(evidence.stamp.reasons)
@@ -144,6 +146,8 @@ def attach_alert_history(
 
 def pin_evidence(evidence: AlertEvidence, *, source_digest: str) -> AlertEvidence:
     """Bind every normalized field and the keyed native-content fingerprint into provenance."""
+    if not isinstance(source_digest, str) or not source_digest.strip():
+        raise ValueError("source_digest MUST be a non-empty string")
     result = evidence.model_dump(mode="json")
     previous_revision = result["stamp"].pop("revision")
     digest_input = {
@@ -166,3 +170,18 @@ def _time(raw: object) -> datetime:
     if re.fullmatch(pattern, value) is None:
         raise ValueError("history timestamp MUST have an explicit offset and supported precision")
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def summarize_alert_history_counts(evidence: AlertEvidence) -> dict[str, int]:
+    """Return deterministic fired/resolved/episode counts over attached source deliveries."""
+    fired = sum(1 for item in evidence.deliveries if item.condition == "fired")
+    resolved = sum(1 for item in evidence.deliveries if item.condition == "resolved")
+    episodes = len({item.episode_ref for item in evidence.deliveries if item.episode_ref})
+    rules = len({item.rule_ref for item in evidence.deliveries if item.rule_ref})
+    return {
+        "total_events": len(evidence.deliveries),
+        "fired_events": fired,
+        "resolved_events": resolved,
+        "unique_episodes": episodes,
+        "unique_rules": rules,
+    }

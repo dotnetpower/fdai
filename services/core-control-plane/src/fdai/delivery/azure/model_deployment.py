@@ -17,6 +17,15 @@ _TOKEN_RATE_KEYS = frozenset(
         "tpm",
     }
 )
+_REQUEST_RATE_KEYS = frozenset(
+    {
+        "request",
+        "requests",
+        "requestperminute",
+        "requestsperminute",
+        "rpm",
+    }
+)
 _RATE_KEY_SEPARATOR = re.compile(r"[^a-z0-9]+")
 _MAX_RATE_RULES = 64
 _MAX_RATE_KEY_CHARS = 128
@@ -29,6 +38,8 @@ def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
     properties = row.get("properties")
     model = properties.get("model") if isinstance(properties, Mapping) else None
     sku = row.get("sku")
+    if not isinstance(sku, Mapping) and isinstance(properties, Mapping):
+        sku = properties.get("sku")
     for container, source_key, target_key in (
         (model, "name", "model_name"),
         (model, "version", "model_version"),
@@ -37,8 +48,8 @@ def model_deployment_summary(row: Mapping[str, Any]) -> dict[str, object]:
         (sku, "name", "sku_name"),
     ):
         value = container.get(source_key) if isinstance(container, Mapping) else None
-        if isinstance(value, str) and value.strip() and len(value) <= 256:
-            summary[target_key] = value
+        if isinstance(value, str) and value.strip() and len(value.strip()) <= 256:
+            summary[target_key] = value.strip()
     capacity = sku.get("capacity") if isinstance(sku, Mapping) else None
     if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity >= 0:
         summary["capacity_units"] = capacity
@@ -71,6 +82,16 @@ def _current_capacity_units(properties: object) -> int | None:
 
 
 def _tokens_per_minute(properties: object) -> int | None:
+    return _rate_per_minute(properties, allowed_keys=_TOKEN_RATE_KEYS)
+
+
+def model_deployment_requests_per_minute(row: Mapping[str, Any]) -> int | None:
+    """Return observed requests-per-minute (RPM) from properties.rateLimits when unambiguous."""
+    properties = row.get("properties") if isinstance(row, Mapping) else None
+    return _rate_per_minute(properties, allowed_keys=_REQUEST_RATE_KEYS)
+
+
+def _rate_per_minute(properties: object, *, allowed_keys: frozenset[str]) -> int | None:
     if not isinstance(properties, Mapping):
         return None
     rate_limits = properties.get("rateLimits")
@@ -83,7 +104,7 @@ def _tokens_per_minute(properties: object) -> int | None:
         key = rule.get("key")
         if not isinstance(key, str) or len(key) > _MAX_RATE_KEY_CHARS:
             continue
-        if _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in _TOKEN_RATE_KEYS:
+        if _RATE_KEY_SEPARATOR.sub("", key.casefold()) not in allowed_keys:
             continue
         count = rule.get("count")
         renewal_period = rule.get("renewalPeriod")
@@ -105,4 +126,8 @@ def _tokens_per_minute(properties: object) -> int | None:
     return next(iter(observed)) if len(observed) == 1 else None
 
 
-__all__ = ["MODEL_DEPLOYMENT_RESOURCE_TYPE", "model_deployment_summary"]
+__all__ = [
+    "MODEL_DEPLOYMENT_RESOURCE_TYPE",
+    "model_deployment_requests_per_minute",
+    "model_deployment_summary",
+]

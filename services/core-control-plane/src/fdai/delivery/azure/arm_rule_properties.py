@@ -69,8 +69,8 @@ def _zones(target: dict[str, Any], row: Mapping[str, Any], key: str) -> None:
     if value is None:
         target[key] = []
     elif isinstance(value, Sequence) and not isinstance(value, str):
-        if all(isinstance(item, str) for item in value):
-            target[key] = sorted(value)
+        if all(isinstance(item, str) and item.strip() for item in value):
+            target[key] = sorted({item.strip() for item in value})
 
 
 def _object_storage(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -319,8 +319,8 @@ def _kubernetes_node_pool(row: Mapping[str, Any]) -> dict[str, Any]:
         return {"availability_zones": []}
     zones = properties.get("availabilityZones")
     if isinstance(zones, Sequence) and not isinstance(zones, str):
-        if all(isinstance(item, str) for item in zones):
-            return {"availability_zones": sorted(zones)}
+        if all(isinstance(item, str) and item.strip() for item in zones):
+            return {"availability_zones": sorted({item.strip() for item in zones})}
     return {}
 
 
