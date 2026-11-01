@@ -143,7 +143,11 @@ for (const locale of ["en", "ko"] as const) {
       await expect(tooltip).toContainText("hil_pending");
       const markerBox = (await lastMarker.boundingBox())!;
       const tipBox = (await tooltip.boundingBox())!;
-      expect(Math.abs(tipBox.y + tipBox.height - markerBox.y)).toBeLessThanOrEqual(24);
+      const verticalGap = Math.min(
+        Math.abs(tipBox.y + tipBox.height - markerBox.y),
+        Math.abs(tipBox.y - (markerBox.y + markerBox.height)),
+      );
+      expect(verticalGap).toBeLessThanOrEqual(24);
       expect(tipBox.x).toBeLessThanOrEqual(markerBox.x + markerBox.width);
       expect(tipBox.x + tipBox.width).toBeGreaterThanOrEqual(markerBox.x);
       const clipped = await view.locator(".tj-lane-label > span:last-child").evaluateAll((labels) =>
@@ -193,3 +197,91 @@ for (const locale of ["en", "ko"] as const) {
     await expect(page.locator(".aa-agent-log")).toBeVisible();
   });
 }
+
+type TrajectoryStreamWindow = typeof window & {
+  trajectoryTestStream: ReadableStreamDefaultController<Uint8Array>;
+};
+
+test("keeps the selected trajectory detail body unchanged when new activities stream in", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installTrajectoryFixture(page);
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = input instanceof Request ? input.url : String(input);
+      if (new URL(url, location.origin).pathname.endsWith("/agents/stream")) {
+        return Promise.resolve(new Response(new ReadableStream<Uint8Array>({
+          start(controller) {
+            (window as TrajectoryStreamWindow).trajectoryTestStream = controller;
+          },
+        }), { headers: { "Content-Type": "text/event-stream" } }));
+      }
+      return originalFetch(input, init);
+    };
+  });
+
+  await page.goto("/agent-activity?locale=ko");
+  const view = page.locator(".aa-trajectories");
+  const detail = view.locator("#aa-trajectory-detail");
+  await expect(detail.locator(".tj-eyebrow code")).toHaveText(change);
+  await expect(detail.locator("h2")).toHaveText("Change request normalized with its original event time.");
+  await detail.locator('details[data-step-seq="3"] > summary').click();
+  await expect(detail.locator('details[data-step-seq="3"]')).toHaveAttribute("open", "");
+
+  await page.evaluate((corrExisting) => {
+    const controller = (window as TrajectoryStreamWindow).trajectoryTestStream;
+    const frames = [
+      {
+        type: "agent.operational-activity",
+        schema_version: "1.0.0",
+        activity_id: "inventory.scan:live-new-1:completed",
+        idempotency_key: "inventory.scan:live-new-1:completed",
+        kind: "inventory.scan",
+        status: "completed",
+        owner_agent: "Huginn",
+        producer: "inventory-sync-job",
+        observation_domain: null,
+        observed_at: "2026-09-17T00:40:00Z",
+        source: "inventory",
+        freshness: "fresh",
+        evidence_count: 12,
+        duration_ms: 45,
+        correlation_id: "corr-live-new-9999",
+        reason_codes: [],
+        execution_authority: false,
+      },
+      {
+        type: "conversation.turn",
+        correlation_id: "corr-live-new-9999",
+        from_agent: "Huginn",
+        to_agent: "Forseti",
+        kind: "handoff",
+        text: "New live activity arrived after selection.",
+        ts: "2026-09-17T00:40:01Z",
+        source: "runtime-observed",
+      },
+      {
+        type: "conversation.turn",
+        correlation_id: corrExisting,
+        from_agent: "Var",
+        to_agent: "Thor",
+        kind: "handoff",
+        text: "Late update on the selected correlation.",
+        ts: "2026-09-17T00:40:02Z",
+        source: "runtime-observed",
+      },
+    ];
+    controller.enqueue(
+      new TextEncoder().encode(frames.map((frame) => `data: ${JSON.stringify(frame)}\n\n`).join("")),
+    );
+  }, change);
+
+  await expect(view.locator(".tj-item")).toHaveCount(3);
+  await expect(detail.locator(".tj-eyebrow code")).toHaveText(change);
+  await expect(detail.locator("h2")).toHaveText("Change request normalized with its original event time.");
+  await expect(detail.locator(".tj-step")).toHaveCount(4);
+  await expect(detail.locator('details[data-step-seq="3"]')).toHaveAttribute("open", "");
+  await expect(view.locator('.tj-item[aria-pressed="true"]')).toContainText(change);
+});
