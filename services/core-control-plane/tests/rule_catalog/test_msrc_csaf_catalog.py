@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
 import pytest
 from fdai.rule_catalog.schema.msrc_csaf import (
+    CsafProductBranch,
     CsafRemediationCategory,
     CsafRemediationRecord,
     CsafSchemaError,
     CsafThreatExploitStatus,
+    CsafVulnerabilityRecord,
     MsrcCsafCrosswalkCatalog,
     compare_dotted_versions,
     is_version_in_affected_window,
@@ -675,4 +678,88 @@ def test_oasis_parser_additional_branches() -> None:
                 expected_sha256=d,
                 signature_verified=True,
                 source_url="https://msrc.microsoft.com/csaf/advisories/2026/doc-err.json",
+            )
+
+
+def test_c01_to_c10_schema_and_oasis_parser_hardening_guards() -> None:
+    """Verify Rounds C01-C10 schema and OASIS CSAF 2.0 parser invariants."""
+
+    # C02: Product branch control chars and CPE prefix validation
+    with pytest.raises(ValueError, match="control chars"):
+        CsafProductBranch(product_id="AZURE-AKS-1.28", name="AKS\x00Node", cpe=None)
+    with pytest.raises(ValueError, match="cpe MUST start with"):
+        CsafProductBranch(product_id="AZURE-AKS-1.28", name="AKS", cpe="invalid-cpe-value")
+
+    # C03: Contradictory none_available remediation
+    with pytest.raises(ValueError, match="none_available remediation MUST NOT"):
+        CsafRemediationRecord(
+            category=CsafRemediationCategory.NONE_AVAILABLE,
+            product_ids=("AZURE-AKS-1.28",),
+            details="No fix available",
+            fixed_version="1.28.10",
+        )
+
+    # C01: Duplicate metric keys in CVSS v3 vector
+    with pytest.raises(ValueError, match="duplicate metric keys"):
+        CsafVulnerabilityRecord(
+            cve_id="CVE-2026-20001",
+            title="Test",
+            cvss_base_score=8.8,
+            cvss_vector="CVSS:3.1/AV:N/AV:L/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+            severity=Severity.HIGH,
+            exploit_status=CsafThreatExploitStatus.UNPROVEN,
+            publicly_disclosed=False,
+            known_affected_product_ids=("AZURE-AKS-1.28",),
+        )
+
+    # C07-C10: OASIS relationships, threat category, cvss_v3.version, and document.category
+    rel_payload = _sample_oasis_payload()
+    assert isinstance(rel_payload["product_tree"], dict)
+    rel_payload["product_tree"]["relationships"] = [
+        {
+            "category": "default_component_of",
+            "product_reference": "AZURE-AKS-1.28",
+            "relates_to_product_reference": "AZURE-AKS-1.28",
+            "full_product_name": {
+                "product_id": "AZURE-AKS-REL-1",
+                "name": "Azure Kubernetes Service Node Pool",
+            },
+        }
+    ]
+    rel_bytes = json.dumps(rel_payload).encode("utf-8")
+    rel_doc = parse_oasis_csaf_bytes(
+        rel_bytes,
+        expected_sha256=f"sha256:{hashlib.sha256(rel_bytes).hexdigest()}",
+        signature_verified=True,
+        source_url="https://msrc.microsoft.com/csaf/advisories/2026/rel.json",
+    )
+    assert any(p.product_id == "AZURE-AKS-REL-1" for p in rel_doc.products)
+
+    for bad_mutate, bad_match in (
+        (
+            lambda root: root["document"].__setitem__("category", "invalid_category"),
+            "invalid OASIS CSAF document.category",
+        ),
+        (
+            lambda root: root["vulnerabilities"][0]["scores"][0]["cvss_v3"].__setitem__(
+                "version", "2.0"
+            ),
+            "cvss_v3.version",
+        ),
+        (
+            lambda root: root["vulnerabilities"][0].__setitem__(
+                "threats", [{"category": "invalid_cat", "details": "Exploited:No"}]
+            ),
+            "invalid OASIS CSAF threat category",
+        ),
+    ):
+        bad_root = _sample_oasis_payload()
+        bad_mutate(bad_root)  # type: ignore[no-untyped-call]
+        b = json.dumps(bad_root).encode("utf-8")
+        with pytest.raises(CsafSchemaError, match=bad_match):
+            parse_oasis_csaf_bytes(
+                b,
+                expected_sha256=f"sha256:{hashlib.sha256(b).hexdigest()}",
+                signature_verified=True,
+                source_url="https://msrc.microsoft.com/csaf/advisories/2026/bad.json",
             )

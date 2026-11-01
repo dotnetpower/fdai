@@ -135,21 +135,30 @@ def _evaluate_resource_against_product(
     raw_version = resource.properties[prop_name]
     if not isinstance(raw_version, str):
         return CsafExposureStatus.UNKNOWN, "invalid_version_property_type", ""
+    # C17: Reject empty version strings and normalize optional leading 'v' prefix
+    stripped_version = raw_version.strip()
+    if not stripped_version:
+        return CsafExposureStatus.UNKNOWN, "empty_version_property", ""
+    normalized_version = (
+        stripped_version[1:]
+        if stripped_version[:1] in {"v", "V"} and stripped_version[1:2].isdigit()
+        else stripped_version
+    )
     try:
-        obs_tuple = parse_dotted_version(raw_version)
+        obs_tuple = parse_dotted_version(normalized_version)
     except CsafSchemaError:
         return CsafExposureStatus.UNKNOWN, "malformed_version_property", ""
     min_ver = product.minimum_affected_version_inclusive
     max_ver = product.vulnerable_version_ceiling_exclusive
     if min_ver is None or max_ver is None:
         return CsafExposureStatus.UNKNOWN, "missing_product_version_window", ""
-    ref = f"inventory:{resource.resource_id}:{prop_name}={raw_version}"
+    ref = f"inventory:{resource.resource_id}:{prop_name}={normalized_version}"
     train_prefix = version_train_prefix(min_ver, max_ver)
     if train_prefix and obs_tuple[: len(train_prefix)] != train_prefix:
         return CsafExposureStatus.NOT_APPLICABLE, None, ref
-    if compare_dotted_versions(raw_version, min_ver) < 0:
+    if compare_dotted_versions(normalized_version, min_ver) < 0:
         return CsafExposureStatus.NOT_APPLICABLE, None, ref
-    if compare_dotted_versions(raw_version, max_ver) >= 0:
+    if compare_dotted_versions(normalized_version, max_ver) >= 0:
         if has_receipt_limitations or receipt_outcome in {
             CsafExposureStatus.AFFECTED,
             CsafExposureStatus.UNKNOWN,
@@ -208,15 +217,18 @@ class MsrcCsafAssessmentRuntime:
             raise ValueError("CSAF assessment advisories_digest mismatch")
 
         evidence_by_cve = _index_evidence(request.evidence)
-        request_rtypes = frozenset(
-            item.provider_resource_type.casefold() for item in request.resources
-        )
+        # C16: Pre-index request resources by casefolded provider_resource_type for O(1) lookup
+        resources_by_rtype: dict[str, list[CsafScopedResource]] = {}
+        for item in request.resources:
+            resources_by_rtype.setdefault(item.provider_resource_type.casefold(), []).append(item)
+        request_rtypes = frozenset(resources_by_rtype)
         findings = tuple(
             self._evaluate_vulnerability(
                 mapping,
                 request,
                 evidence_by_cve.get(mapping.cve_id, ()),
                 request_rtypes=request_rtypes,
+                resources_by_rtype=resources_by_rtype,
             )
             for mapping in self._catalog.vulnerability_mappings
         )
@@ -279,6 +291,7 @@ class MsrcCsafAssessmentRuntime:
         receipts: tuple[CsafEvidenceReceipt, ...],
         *,
         request_rtypes: frozenset[str] = frozenset(),
+        resources_by_rtype: dict[str, list[CsafScopedResource]] | None = None,
     ) -> CsafVulnerabilityFinding:
         vuln = self._vulnerabilities[mapping.cve_id]
         if (
@@ -361,12 +374,21 @@ class MsrcCsafAssessmentRuntime:
             CsafExposureStatus.NOT_APPLICABLE: 0,
         }
 
-        for resource in request.resources:
+        candidate_resources: Sequence[CsafScopedResource]
+        if resources_by_rtype is not None:
+            relevant_rtypes = {
+                rtype for pid in mapping.product_ids for rtype in self._product_rtypes[pid]
+            } & request_rtypes
+            candidate_resources = [
+                res for rtype in sorted(relevant_rtypes) for res in resources_by_rtype[rtype]
+            ]
+        else:
+            candidate_resources = request.resources
+
+        for resource in candidate_resources:
             rtype = resource.provider_resource_type.casefold()
             matching_products = [
-                prod
-                for prod in products
-                if rtype in {pt.casefold() for pt in prod.provider_resource_types}
+                prod for prod in products if rtype in self._product_rtypes[prod.product_id]
             ]
             if not matching_products:
                 continue
@@ -515,16 +537,25 @@ def to_security_control_observations(
                     else ApplicabilityStatus.APPLICABLE
                 )
             )
+            # C18: Assign CRITICAL priority and 1-day due window for exploited-in-wild resources
+            is_exploited_affected = (
+                finding.exploit_status is CsafThreatExploitStatus.EXPLOITED
+                and resource_exposure is CsafExposureStatus.AFFECTED
+            )
             priority = (
                 RemediationPriority.CRITICAL
-                if finding.exploit_status is CsafThreatExploitStatus.EXPLOITED
-                and resource_exposure is CsafExposureStatus.AFFECTED
+                if is_exploited_affected
                 else (
                     priority_map[finding.severity]
                     if resource_exposure
                     in {CsafExposureStatus.AFFECTED, CsafExposureStatus.MITIGATED}
                     else RemediationPriority.NONE
                 )
+            )
+            due_days = (
+                1
+                if is_exploited_affected
+                else (2 if priority is RemediationPriority.CRITICAL else 14)
             )
             observations.append(
                 SecurityControlObservation(
@@ -548,7 +579,7 @@ def to_security_control_observations(
                     remediation=finding.recommended_action_type or "apply_vendor_fix",
                     validation="re-observe resource version property >= fixed ceiling",
                     priority=priority,
-                    due_days=2 if priority is RemediationPriority.CRITICAL else 14,
+                    due_days=due_days,
                     applicability=applicability,
                     cve_ids=(finding.cve_id,),
                     source_urls=(

@@ -592,3 +592,58 @@ def test_models_runtime_and_review_signal_boundary_validations() -> None:
     ):
         with pytest.raises(MsrcCsafReviewError, match=err_match):
             validate_csaf_review_package(bad_pkg)
+
+
+def test_c11_to_c20_models_runtime_and_review_signal_hardening() -> None:
+    """Verify Rounds C11-C20 model invariants, v-prefix normalization, and candidate sorting."""
+
+    runtime = _runtime()
+    # C11: Reject control characters in CsafScopedResource
+    with pytest.raises(ValueError, match="control chars"):
+        CsafScopedResource(
+            resource_id="aks\x00bad",
+            provider_resource_type="Microsoft.ContainerService/managedClusters",
+            observed_at=_NOW,
+            properties={"kubernetes_version": "1.28.4"},
+        )
+    with pytest.raises(ValueError, match="control chars"):
+        CsafScopedResource(
+            resource_id="aks-01",
+            provider_resource_type="Microsoft.ContainerService/managedClusters",
+            observed_at=_NOW,
+            properties={"kubernetes_version": "1.28.4\n"},
+        )
+
+    # C17: Leading 'v' prefix on version is normalized; blank version yields empty_version_property
+    v_prefixed_res = CsafScopedResource(
+        resource_id="aks-vprefix",
+        provider_resource_type="Microsoft.ContainerService/managedClusters",
+        observed_at=_NOW - timedelta(minutes=5),
+        properties={"kubernetes_version": "v1.28.4", "public_network_access_enabled": True},
+    )
+    res_v = runtime.assess(_request(runtime, (v_prefixed_res,)))
+    f_v = {item.cve_id: item for item in res_v.findings}["CVE-2026-20001"]
+    assert f_v.exposure is CsafExposureStatus.AFFECTED
+
+    blank_ver_res = CsafScopedResource(
+        resource_id="aks-blank",
+        provider_resource_type="Microsoft.ContainerService/managedClusters",
+        observed_at=_NOW - timedelta(minutes=5),
+        properties={"kubernetes_version": "   "},
+    )
+    res_blank = runtime.assess(_request(runtime, (blank_ver_res,)))
+    f_blank = {item.cve_id: item for item in res_blank.findings}["CVE-2026-20001"]
+    assert f_blank.exposure is CsafExposureStatus.UNKNOWN
+    assert "empty_version_property" in f_blank.limitations
+
+    # C18 & C20: Exploited observation has due_days=1 and candidates include cvss_base_score
+    obs = to_security_control_observations(res_v)
+    aks_obs = next(o for o in obs if "CVE-2026-20001" in o.control_id)
+    assert aks_obs.due_days == 1
+    candidates = extract_csaf_rule_candidates(runtime.catalog, res_v)
+    assert candidates
+    top_score = candidates[0]["cvss_base_score"]
+    assert isinstance(top_score, float) and top_score >= 8.8
+    cand_20001 = next(c for c in candidates if c["cve_id"] == "CVE-2026-20001")
+    assert cand_20001["cvss_base_score"] == 8.8
+    assert cand_20001["affected_resource_count"] == 1

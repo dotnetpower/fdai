@@ -94,16 +94,39 @@ def build_csaf_review_package(result: CsafAssessmentResult) -> dict[str, object]
     coverage_complete = all(item.evidence_complete for item in result.findings) and (
         by_exposure[CsafExposureStatus.UNKNOWN.value] == 0
     )
-    ranked_cves = sorted(
-        item.cve_id
-        for item in result.findings
-        if item.exposure
-        in {
-            CsafExposureStatus.AFFECTED,
-            CsafExposureStatus.UNKNOWN,
-            CsafExposureStatus.MITIGATED,
-        }
+    # C19: Prioritize Affected -> Mitigated -> Unknown, Exploited first, and highest CVSS
+    exposure_priority = {
+        CsafExposureStatus.AFFECTED: 3,
+        CsafExposureStatus.MITIGATED: 2,
+        CsafExposureStatus.UNKNOWN: 1,
+    }
+    exploit_priority = {
+        CsafThreatExploitStatus.EXPLOITED: 5,
+        CsafThreatExploitStatus.EXPLOITATION_MORE_LIKELY: 4,
+        CsafThreatExploitStatus.PUBLICLY_DISCLOSED: 3,
+        CsafThreatExploitStatus.EXPLOITATION_LESS_LIKELY: 2,
+        CsafThreatExploitStatus.EXPLOITATION_UNLIKELY: 1,
+        CsafThreatExploitStatus.UNPROVEN: 0,
+    }
+    prioritized_findings = sorted(
+        (
+            item
+            for item in result.findings
+            if item.exposure
+            in {
+                CsafExposureStatus.AFFECTED,
+                CsafExposureStatus.UNKNOWN,
+                CsafExposureStatus.MITIGATED,
+            }
+        ),
+        key=lambda item: (
+            -exposure_priority[item.exposure],
+            -exploit_priority[item.exploit_status],
+            -item.cvss_base_score,
+            item.cve_id,
+        ),
     )[:20]
+    ranked_cves = sorted(item.cve_id for item in prioritized_findings)
     action_types = sorted(
         {
             item.recommended_action_type
@@ -350,7 +373,10 @@ def extract_csaf_rule_candidates(
                 f"https://msrc.microsoft.com/update-guide/vulnerability/{finding.cve_id}",
             ),
             "severity": finding.severity.value,
+            "cvss_base_score": finding.cvss_base_score,
             "exploit_status": finding.exploit_status.value,
+            "affected_resource_count": len(finding.affected_resource_ids),
+            "mitigated_resource_count": len(finding.mitigated_resource_ids),
             "resource_types": canonical_types,
             "version_checks": version_checks,
             "workaround_property": mapping.workaround_property,
@@ -368,6 +394,10 @@ def extract_csaf_rule_candidates(
         body["candidate_digest"] = f"sha256:{digest}"
         body["idempotency_key"] = f"norns-csaf-candidate:{digest}"
         candidates.append(body)
+    # C20: Order extracted Norns RuleCandidates by highest CVSS score then CVE ID
+    candidates.sort(
+        key=lambda item: (-float(item["cvss_base_score"]), str(item["cve_id"]))  # type: ignore[arg-type]
+    )
     return tuple(candidates)
 
 

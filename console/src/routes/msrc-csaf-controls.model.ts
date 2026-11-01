@@ -140,6 +140,8 @@ export interface MsrcCsafFilters {
   readonly disposition: string;
   readonly mapping_state: string;
   readonly resource_type: string;
+  // C31: Add runtime exposure filter
+  readonly exposure: string;
   readonly q: string;
 }
 
@@ -150,6 +152,7 @@ export const EMPTY_MSRC_CSAF_FILTERS: MsrcCsafFilters = {
   disposition: "",
   mapping_state: "",
   resource_type: "",
+  exposure: "",
   q: "",
 };
 
@@ -293,6 +296,26 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
           url: panelNullableString(rem, "url", `remediations[${rIdx}]`),
         });
       }
+      const sev = decodeEnum(
+        panelNonEmptyString(vuln, "severity", `vulnerabilities[${vIdx}]`),
+        MSRC_CSAF_SEVERITIES,
+        `vulnerabilities[${vIdx}].severity`,
+      );
+      const exploitStatus = decodeEnum(
+        panelNonEmptyString(vuln, "exploit_status", `vulnerabilities[${vIdx}]`),
+        MSRC_CSAF_EXPLOIT_STATUSES,
+        `vulnerabilities[${vIdx}].exploit_status`,
+      );
+      const disclosed = panelBoolean(vuln, "publicly_disclosed", `vulnerabilities[${vIdx}]`);
+      // C33: Enforce CVSS band minimum and exploited -> publicly_disclosed invariant
+      const minSeverityRank = baseScore >= 9.0 ? 3 : baseScore >= 7.0 ? 2 : baseScore >= 4.0 ? 1 : 0;
+      const sevRank = { low: 0, medium: 1, high: 2, critical: 3 }[sev];
+      if (sevRank < minSeverityRank) {
+        throw new OperatorApiError(502, `MSRC CSAF severity ${sev} is below CVSS band for ${cveId}`);
+      }
+      if (exploitStatus === "exploited" && !disclosed) {
+        throw new OperatorApiError(502, `MSRC CSAF exploited vulnerability ${cveId} MUST be publicly_disclosed`);
+      }
       vulnMeta.set(cveId, {
         advisory_tracking_id: trackingId,
         advisory_title: advTitle,
@@ -302,20 +325,12 @@ export function decodeMsrcCsafCatalog(raw: unknown): MsrcCsafCatalog {
         current_release_date: currentDate,
         signature_verified: sigVerified,
         title: panelNonEmptyString(vuln, "title", `vulnerabilities[${vIdx}]`),
-        severity: decodeEnum(
-          panelNonEmptyString(vuln, "severity", `vulnerabilities[${vIdx}]`),
-          MSRC_CSAF_SEVERITIES,
-          `vulnerabilities[${vIdx}].severity`,
-        ),
+        severity: sev,
         cvss_base_score: baseScore,
         cvss_temporal_score: temporalRaw,
         cvss_vector: panelNonEmptyString(vuln, "cvss_vector", `vulnerabilities[${vIdx}]`),
-        exploit_status: decodeEnum(
-          panelNonEmptyString(vuln, "exploit_status", `vulnerabilities[${vIdx}]`),
-          MSRC_CSAF_EXPLOIT_STATUSES,
-          `vulnerabilities[${vIdx}].exploit_status`,
-        ),
-        publicly_disclosed: panelBoolean(vuln, "publicly_disclosed", `vulnerabilities[${vIdx}]`),
+        exploit_status: exploitStatus,
+        publicly_disclosed: disclosed,
         remediations,
       });
     }
@@ -485,7 +500,9 @@ export function filterMsrcCsafRows(
     if (filters.disposition && row.disposition !== filters.disposition) return false;
     if (filters.mapping_state && row.mapping_state !== filters.mapping_state) return false;
     if (filters.resource_type && row.primary_resource_type !== filters.resource_type) return false;
+    if (filters.exposure && row.exposure !== filters.exposure) return false;
     if (!query) return true;
+    // C32: Match product_name, existing_rule_id, candidate_action_type, and kb_article in search
     return (
       row.cve_id.toLowerCase().includes(query)
       || row.title.toLowerCase().includes(query)
@@ -493,7 +510,11 @@ export function filterMsrcCsafRows(
       || row.advisory_tracking_id.toLowerCase().includes(query)
       || row.advisory_title.toLowerCase().includes(query)
       || row.primary_resource_type.toLowerCase().includes(query)
+      || (row.existing_rule_id?.toLowerCase().includes(query) ?? false)
+      || (row.candidate_action_type?.toLowerCase().includes(query) ?? false)
       || row.product_ids.some((pid) => pid.toLowerCase().includes(query))
+      || row.products.some((prod) => prod.product_name.toLowerCase().includes(query))
+      || row.remediations.some((rem) => rem.kb_article?.toLowerCase().includes(query) ?? false)
     );
   });
 }
@@ -507,6 +528,8 @@ export function buildMsrcCsafFacets(
   const byDisposition: Record<string, number> = {};
   const byMapping: Record<string, number> = {};
   const byResourceType: Record<string, number> = {};
+  const byExposure: Record<string, number> = {};
+  const byEvalStatus: Record<string, number> = {};
   for (const row of rows) {
     byYear[row.year] = (byYear[row.year] ?? 0) + 1;
     bySeverity[row.severity] = (bySeverity[row.severity] ?? 0) + 1;
@@ -514,6 +537,8 @@ export function buildMsrcCsafFacets(
     byDisposition[row.disposition] = (byDisposition[row.disposition] ?? 0) + 1;
     byMapping[row.mapping_state] = (byMapping[row.mapping_state] ?? 0) + 1;
     byResourceType[row.primary_resource_type] = (byResourceType[row.primary_resource_type] ?? 0) + 1;
+    byExposure[row.exposure] = (byExposure[row.exposure] ?? 0) + 1;
+    byEvalStatus[row.evaluation_status] = (byEvalStatus[row.evaluation_status] ?? 0) + 1;
   }
   return {
     by_year: byYear,
@@ -522,6 +547,8 @@ export function buildMsrcCsafFacets(
     by_disposition: byDisposition,
     by_mapping_state: byMapping,
     by_resource_type: byResourceType,
+    by_exposure: byExposure,
+    by_evaluation_status: byEvalStatus,
   };
 }
 
@@ -539,6 +566,7 @@ export function msrcCsafStateFromSearch(search: URLSearchParams): {
       disposition: search.get("disposition") ?? "",
       mapping_state: search.get("mapping_state") ?? "",
       resource_type: search.get("resource_type") ?? "",
+      exposure: search.get("exposure") ?? "",
       q: search.get("q") ?? "",
     },
     selected: search.get("cve"),
@@ -561,6 +589,7 @@ export function msrcCsafHref(
       disposition: filters.disposition || undefined,
       mapping_state: filters.mapping_state || undefined,
       resource_type: filters.resource_type || undefined,
+      exposure: filters.exposure || undefined,
       q: filters.q || undefined,
       cve: selected ?? undefined,
       offset: offset > 0 ? String(offset) : undefined,
@@ -587,6 +616,7 @@ export function mergeMsrcCsafProjection(
   ) {
     throw new OperatorApiError(502, "MSRC CSAF projection digest or revision mismatch");
   }
+  const knownCves = new Set(baseCatalog.rows.map((r) => r.cve_id));
   const overrides = new Map<
     string,
     {
@@ -597,6 +627,10 @@ export function mergeMsrcCsafProjection(
   for (const [idx, item] of panelArray(root["controls"], "msrc_csaf_projection.controls").entries()) {
     const rec = panelRecord(item, `controls[${idx}]`);
     const cveId = panelNonEmptyString(rec, "cve_id", `controls[${idx}]`);
+    // C34: Reject duplicate or uncataloged cve_ids in Operator projection
+    if (!knownCves.has(cveId) || overrides.has(cveId)) {
+      throw new OperatorApiError(502, `MSRC CSAF projection control ${cveId} is unknown or duplicated`);
+    }
     const execAuth = panelBoolean(rec, "execution_authority", `controls[${idx}]`);
     if (execAuth !== false) {
       throw new OperatorApiError(502, `MSRC CSAF control ${cveId} MUST NOT carry execution_authority`);
