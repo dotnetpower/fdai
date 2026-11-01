@@ -242,6 +242,9 @@ def test_forseti_t1_and_t2_advisors_populate_tier_and_novelty_drift() -> None:
     health = f.health()
     assert health["t1_advisor_bound"] is True
     assert health["t2_advisor_bound"] is True
+    assert f.t1_advisor_bound is True
+    assert f.t2_advisor_bound is True
+    assert f.no_rule_fold_count == 0
     assert health["judgment_counters"]["t1_reused"] == 1
     assert health["judgment_counters"]["t2_proposed"] == 1
     assert health["novelty_drift_signal"]["tier_mix"] == {"T0": 0, "T1": 1, "T2": 1}

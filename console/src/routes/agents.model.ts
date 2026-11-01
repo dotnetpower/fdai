@@ -1048,6 +1048,39 @@ export function lastHandlerDurationMsForAgent(
   return null;
 }
 
+export function recentlyCompletedAgents(
+  state: AgentsState,
+  withinMs = 5_000,
+  now = Date.now(),
+): readonly string[] {
+  const cutoff = now - Math.max(0, withinMs);
+  const recent = new Set<string>();
+  for (const event of state.liveActivity) {
+    if (event.activityPhase !== "completed" && event.operationalKind === null) continue;
+    const completedMs = Date.parse(event.completedAt ?? event.ts);
+    if (!Number.isFinite(completedMs) || completedMs < cutoff || completedMs > now) continue;
+    for (const agent of event.agents.length > 0 ? event.agents : [event.agent]) {
+      if (_LAYER_OF[agent] !== undefined) recent.add(agent);
+    }
+  }
+  return [...recent].sort((left, right) => left.localeCompare(right));
+}
+
+export function agentActivitySummary(
+  state: AgentsState,
+  agent: string,
+): {
+  readonly incidentsCount: number;
+  readonly completedHandlerCount: number;
+  readonly lastDurationMs: number | null;
+} {
+  return {
+    incidentsCount: incidentsForAgent(state, agent).length,
+    completedHandlerCount: completedHandlerCountForAgent(state, agent),
+    lastDurationMs: lastHandlerDurationMsForAgent(state, agent),
+  };
+}
+
 /**
  * Build the grounding context injected into the deck when an operator starts
  * a conversation about one agent. It summarizes the agent's role, live state,

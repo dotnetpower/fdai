@@ -131,6 +131,15 @@ class SemanticToolPlanner:
     def cached_tool_count(self) -> int:
         return len(self._vectors) if self._vectors is not None else 0
 
+    @property
+    def is_building(self) -> bool:
+        return self._build_task is not None and not self._build_task.done()
+
+    def invalidate(self) -> None:
+        """Clear cached tool embedding vectors so the next lookup rebuilds."""
+        self._vectors = None
+        self._built_at = 0.0
+
     async def warm(self) -> int:
         """Pre-warm tool embedding vectors and return cached count."""
         if self._stopped:

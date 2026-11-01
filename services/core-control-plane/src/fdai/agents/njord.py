@@ -554,6 +554,10 @@ class Njord(OptimizationCandidateOutboxMixin, CostAnomalyOutboxMixin):
         """Cost answers rest on package-analyzed samples."""
         return bool(self._latest)
 
+    @property
+    def tracked_scope_count(self) -> int:
+        return len(self._latest)
+
     async def introspect(self, question: str, context: dict[str, Any]) -> IntrospectionResult:
         facts = {
             **capability_facts(self.spec),
