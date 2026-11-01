@@ -768,6 +768,7 @@
         "exposure": "런타임 노출 상태"
       },
       "filter": {
+        "year": "연도",
         "severity": "심각도",
         "exploitStatus": "악용 상태",
         "disposition": "처분 유형",

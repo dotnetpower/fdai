@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -30,7 +31,7 @@ from fdai.rule_catalog.schema.wara_assessment import (
 from fdai.shared.contracts.models import Severity
 
 _SHA256 = r"^sha256:[a-f0-9]{64}$"
-_CVE_ID = r"^CVE-[0-9]{4}-[0-9]{4,7}$"
+_CVE_ID = r"^(?:CVE-[0-9]{4}-[0-9]{4,7}|ADV[0-9]{6})$"
 _TRACKING_ID = r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$"
 _PRODUCT_ID = r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
 _IDENTIFIER = r"^[a-z0-9][a-z0-9._:-]{0,255}$"
@@ -534,8 +535,8 @@ class MsrcCsafCrosswalkCatalog(BaseModel):
         return self
 
 
-def load_msrc_csaf_crosswalk_catalog(path: Path) -> MsrcCsafCrosswalkCatalog:
-    """Load and verify a pinned MSRC CSAF crosswalk catalog from disk."""
+def load_msrc_csaf_raw_dict(path: Path) -> dict[str, Any]:
+    """Load and assemble a pinned MSRC CSAF crosswalk dictionary (resolving shards when present)."""
 
     if path.is_symlink() or not path.is_file():
         raise CsafSchemaError("MSRC CSAF crosswalk path MUST be a regular non-symlink file")
@@ -550,7 +551,63 @@ def load_msrc_csaf_crosswalk_catalog(path: Path) -> MsrcCsafCrosswalkCatalog:
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CsafSchemaError("MSRC CSAF crosswalk is not valid UTF-8 JSON") from exc
-    return MsrcCsafCrosswalkCatalog.model_validate(raw)
+    if not isinstance(raw, dict):
+        raise CsafSchemaError("MSRC CSAF crosswalk root MUST be a JSON object")
+    shards = raw.get("shards")
+    if shards is None:
+        return raw
+    if not isinstance(shards, list) or not shards:
+        raise CsafSchemaError("MSRC CSAF crosswalk shards MUST be a non-empty list")
+    assembled_advisories: list[Any] = []
+    assembled_vuln_mappings: list[Any] = []
+    seen_paths: set[str] = set()
+    for shard_ref in shards:
+        if not isinstance(shard_ref, dict):
+            raise CsafSchemaError("MSRC CSAF shard reference MUST be an object")
+        rel_path = str(shard_ref.get("path") or "")
+        if (
+            re.fullmatch(r"shards/crosswalk-[0-9]{2}\.json", rel_path) is None
+            or rel_path in seen_paths
+        ):
+            raise CsafSchemaError(f"invalid or duplicate MSRC CSAF shard path {rel_path!r}")
+        seen_paths.add(rel_path)
+        shard_path = path.parent / rel_path
+        if shard_path.is_symlink() or not shard_path.is_file():
+            raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} is missing or a symlink")
+        shard_bytes = shard_path.read_bytes()
+        if len(shard_bytes) > 1_048_576:
+            raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} exceeds 1 MiB ceiling")
+        actual_digest = f"sha256:{hashlib.sha256(shard_bytes).hexdigest()}"
+        if actual_digest != shard_ref.get("digest"):
+            raise CsafSchemaError(f"MSRC CSAF shard digest mismatch for {rel_path!r}")
+        shard_obj: Any = json.loads(
+            shard_bytes.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+            parse_constant=_reject_nonfinite_constant,
+        )
+        if not isinstance(shard_obj, dict):
+            raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} root MUST be an object")
+        shard_advs = shard_obj.get("advisories")
+        shard_vmaps = shard_obj.get("vulnerability_mappings")
+        if (
+            not isinstance(shard_advs, list)
+            or not isinstance(shard_vmaps, list)
+            or len(shard_advs) != shard_ref.get("advisory_count")
+            or len(shard_vmaps) != shard_ref.get("vulnerability_count")
+        ):
+            raise CsafSchemaError(f"MSRC CSAF shard {rel_path!r} counts do not match manifest")
+        assembled_advisories.extend(shard_advs)
+        assembled_vuln_mappings.extend(shard_vmaps)
+    merged = {key: value for key, value in raw.items() if key != "shards"}
+    merged["advisories"] = assembled_advisories
+    merged["vulnerability_mappings"] = assembled_vuln_mappings
+    return merged
+
+
+def load_msrc_csaf_crosswalk_catalog(path: Path) -> MsrcCsafCrosswalkCatalog:
+    """Load and verify a pinned MSRC CSAF crosswalk catalog from disk."""
+
+    return MsrcCsafCrosswalkCatalog.model_validate(load_msrc_csaf_raw_dict(path))
 
 
 __all__ = [
@@ -569,6 +626,7 @@ __all__ = [
     "compare_dotted_versions",
     "is_version_in_affected_window",
     "load_msrc_csaf_crosswalk_catalog",
+    "load_msrc_csaf_raw_dict",
     "parse_dotted_version",
     "severity_for_cvss_score",
     "version_train_prefix",
