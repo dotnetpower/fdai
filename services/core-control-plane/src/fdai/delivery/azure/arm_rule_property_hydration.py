@@ -69,7 +69,9 @@ def project_diagnostic_settings(payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(properties, Mapping):
             return {}
         destinations = sorted(
-            key for key in _DIAGNOSTIC_DESTINATIONS if isinstance(properties.get(key), str)
+            key
+            for key in _DIAGNOSTIC_DESTINATIONS
+            if isinstance(properties.get(key), str) and properties[key].strip()
         )
         enabled = sum(
             1
@@ -189,6 +191,8 @@ class ArmRulePropertyHydrator:
         max_attempts: int,
         max_reads: int,
     ) -> None:
+        if timeout_seconds <= 0 or max_response_bytes < 1 or max_attempts < 1 or max_reads < 1:
+            raise ValueError("ArmRulePropertyHydrator bounds MUST be positive")
         self._identity = identity
         self._http = http_client
         self._endpoint = arm_endpoint.rstrip("/")

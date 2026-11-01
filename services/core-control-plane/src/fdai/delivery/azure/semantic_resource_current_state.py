@@ -52,6 +52,8 @@ def semantic_resource_current_state_function(
             raise PermissionError(
                 "resource current-state purpose does not match invocation context"
             )
+        if "query_result" not in arguments:
+            raise ValueError("resource current-state requires a query_result argument")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         objects = secured.materialization.graph.objects
         if secured.receipt.truncated or not secured.receipt.complete:
@@ -107,10 +109,11 @@ def _target_state_assessment(
     provisioning_status: str | None,
     running_status: str | None,
 ) -> str:
-    if provisioning_status == "Succeeded" and running_status == "Running":
+    healthy_running = {"Running", "PowerState/running", "Ready"}
+    if provisioning_status == "Succeeded" and running_status in healthy_running:
         return "observed_running"
     if (provisioning_status is not None and provisioning_status != "Succeeded") or (
-        running_status is not None and running_status != "Running"
+        running_status is not None and running_status not in healthy_running
     ):
         return "observed_not_running"
     return "not_proven"

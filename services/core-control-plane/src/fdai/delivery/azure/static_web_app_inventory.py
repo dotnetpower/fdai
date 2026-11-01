@@ -69,7 +69,7 @@ class AzureStaticWebAppInventoryConfig:
     max_clock_skew_seconds: float = 10.0
 
     def __post_init__(self) -> None:
-        normalized = tuple(sorted({item.casefold() for item in self.subscription_ids}))
+        normalized = tuple(sorted({item.strip().casefold() for item in self.subscription_ids}))
         if not normalized or any(not item for item in normalized):
             raise ValueError("Static Web App subscriptions MUST be non-empty")
         object.__setattr__(self, "subscription_ids", normalized)
@@ -85,17 +85,20 @@ class AzureStaticWebAppInventoryConfig:
             or audience.fragment
         ):
             raise ValueError("Static Web App audience MUST be an HTTPS .default scope")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if type(self.timeout_seconds) is bool or not 0.1 <= self.timeout_seconds <= 30:
             raise ValueError("Static Web App timeout_seconds MUST be in [0.1, 30]")
-        if not 1 <= self.max_targets <= 1000:
+        if type(self.max_targets) is not int or not 1 <= self.max_targets <= 1000:
             raise ValueError("Static Web App max_targets MUST be in [1, 1000]")
-        if not 1 <= self.max_concurrency <= 8:
+        if type(self.max_concurrency) is not int or not 1 <= self.max_concurrency <= 8:
             raise ValueError("Static Web App max_concurrency MUST be in [1, 8]")
-        if not 1024 <= self.max_response_bytes <= 1_048_576:
+        if (
+            type(self.max_response_bytes) is not int
+            or not 1024 <= self.max_response_bytes <= 1_048_576
+        ):
             raise ValueError("Static Web App max_response_bytes MUST be in [1024, 1048576]")
-        if self.freshness_ceiling_seconds < 1:
+        if type(self.freshness_ceiling_seconds) is not int or self.freshness_ceiling_seconds < 1:
             raise ValueError("Static Web App freshness ceiling MUST be positive")
-        if not 0 <= self.max_clock_skew_seconds <= 30:
+        if type(self.max_clock_skew_seconds) is bool or not 0 <= self.max_clock_skew_seconds <= 30:
             raise ValueError("Static Web App clock skew MUST be in [0, 30]")
 
 

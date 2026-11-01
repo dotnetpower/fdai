@@ -116,14 +116,16 @@ class AzureArmInventoryFactoryConfig:
     relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
 
     def __post_init__(self) -> None:
-        if not self.subscription_scopes:
+        if not self.subscription_scopes or any(
+            not isinstance(scope, str) or not scope.strip() for scope in self.subscription_scopes
+        ):
             raise ValueError("subscription_scopes MUST NOT be empty")
         parsed = urlparse(self.arm_endpoint)
         if parsed.scheme != "https" or not parsed.netloc:
             raise ValueError("arm_endpoint MUST be an absolute HTTPS URL")
         if (
-            self.max_pages < 1
-            or self.max_child_collections < 1
+            any(type(v) is not int or v < 1 for v in (self.max_pages, self.max_child_collections))
+            or type(self.timeout_seconds) is bool
             or not isfinite(self.timeout_seconds)
             or self.timeout_seconds <= 0
         ):
@@ -138,7 +140,7 @@ class AzureArmInventoryFactoryConfig:
             )
         ):
             raise ValueError("ARM response and retry limits MUST be positive integers")
-        if self.max_props_bytes < 1024:
+        if type(self.max_props_bytes) is not int or self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
         if (
             not self.compute_api_version.strip()

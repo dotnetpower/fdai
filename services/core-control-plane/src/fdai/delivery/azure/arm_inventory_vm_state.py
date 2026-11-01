@@ -36,6 +36,7 @@ def project_vmss_instance_state(row: Mapping[str, Any]) -> Mapping[str, Any]:
         if isinstance(item, Mapping)
         and isinstance((code := item.get("code")), str)
         and code.strip().casefold().startswith("powerstate/")
+        and bool(code.strip().split("/", 1)[1].strip())
     }
     if len(power_states) > 1:
         raise ArmInventoryError("ARM VM scale-set instance view has conflicting power states")
@@ -86,8 +87,8 @@ def validate_child_identity(
 ) -> None:
     """Require one exact direct child below the requested ARM collection."""
 
-    expected = f"{parent_id.rstrip('/')}/{collection}/".casefold()
-    normalized = resource_id.casefold()
+    expected = f"{parent_id.strip().rstrip('/')}/{collection.strip().strip('/')}/".casefold()
+    normalized = resource_id.strip().casefold()
     remainder = normalized.removeprefix(expected)
     if normalized == remainder or not remainder or "/" in remainder:
         raise ArmInventoryError("ARM child response changed parent identity")

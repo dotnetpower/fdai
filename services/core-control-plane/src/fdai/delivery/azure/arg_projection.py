@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import logging
@@ -285,6 +286,10 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         direct_instance_view_properties.get("powerState"),
         direct_instance_view_properties.get("executionState"),
         nested.get("registrationStatus"),
+        nested.get("availabilityState"),
+        nested.get("clusterState"),
+        nested.get("connectivityStatus"),
+        nested.get("healthState"),
     ):
         state = _state_text(value)
         if state is not None:
@@ -293,8 +298,13 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
 
 
 def _state_text(value: object) -> str | None:
-    candidate = value.get("code") if isinstance(value, Mapping) else value
-    return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
+    if isinstance(value, Mapping):
+        for key in ("code", "displayStatus", "level", "state", "status"):
+            candidate = value.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                return candidate.strip()
+        return None
+    return value.strip() if isinstance(value, str) and value.strip() else None
 
 
 def extract_rg_contains_links(
@@ -537,6 +547,11 @@ def extract_depends_on_links_from_row(
     )
 
 
+@functools.lru_cache(maxsize=1)
+def _default_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
+    return load_provider_relationship_mapping_catalog(_RELATIONSHIP_MAPPING_ROOT)
+
+
 def _mapped_links(
     row: Mapping[str, Any],
     *,
@@ -545,7 +560,7 @@ def _mapped_links(
     link_type: str,
     external_reference_resolver: Callable[[str], str | None] | None = None,
 ) -> tuple[LinkRecord, ...]:
-    catalog = load_provider_relationship_mapping_catalog(_RELATIONSHIP_MAPPING_ROOT)
+    catalog = _default_relationship_mapping_catalog()
     result = project_provider_relationships(
         row,
         owner=child,

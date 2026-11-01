@@ -216,6 +216,12 @@ async def fetch_arg_row_pages(
     row_consumer: Callable[[tuple[Mapping[str, Any], ...]], Awaitable[None]] | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Fetch a complete, bounded ARG row set with quota-aware retries."""
+    if page_size < 1:
+        raise ValueError("page_size MUST be >= 1")
+    if max_pages < 1:
+        raise ValueError("max_pages MUST be >= 1")
+    if not isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("timeout_seconds MUST be a positive finite value")
     if max_attempts < 1:
         raise ValueError("max_attempts MUST be >= 1")
     if initial_retry_delay_seconds <= 0 or max_retry_delay_seconds <= 0:
@@ -330,8 +336,12 @@ async def fetch_arg_row_pages(
             result_name=result_name,
             page=page,
         )
-        next_token = payload.get("$skipToken")
-        if next_token is not None and not isinstance(next_token, str):
+        next_token = (
+            payload.get("$skipToken") if "$skipToken" in payload else payload.get("skipToken")
+        )
+        if next_token is not None and (
+            not isinstance(next_token, str) or (next_token != "" and not next_token.strip())
+        ):
             raise error_type(
                 f"ARG continuation token was invalid for {result_name!r} (page {page})"
             )
@@ -464,6 +474,8 @@ async def _post_with_retry(
             return response, content
         retry_delay = _retry_after_seconds(response.headers.get("Retry-After"))
         if retry_delay is None:
+            retry_delay = _quota_reset_seconds(response.headers)
+        if retry_delay is None:
             retry_delay = min(
                 initial_retry_delay_seconds * (2**attempt),
                 max_retry_delay_seconds,
@@ -489,10 +501,12 @@ def _quota_reset_seconds(headers: httpx.Headers) -> float | None:
         return None
     if remaining > 0:
         return None
-    raw = headers.get("x-ms-user-quota-resets-after")
+    raw = headers.get("x-ms-user-quota-resets-after") or headers.get("x-ms-user-quota-after")
     if raw is None:
         return None
     parts = raw.split(":")
+    if len(parts) == 1:
+        return _retry_after_seconds(raw)
     if len(parts) != 3:
         return None
     try:

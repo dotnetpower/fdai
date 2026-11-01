@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from fdai.delivery.azure.model_deployment import model_deployment_summary
+from fdai.delivery.azure.model_deployment import (
+    model_deployment_requests_per_minute,
+    model_deployment_summary,
+)
 
 
 def _row(
@@ -133,3 +136,4 @@ def test_capacity_units_alone_do_not_invent_tpm() -> None:
 
     assert summary["capacity_units"] == 50
     assert "capacity_tpm" not in summary
+    assert model_deployment_requests_per_minute(_row(token_count=50_000)) == 50

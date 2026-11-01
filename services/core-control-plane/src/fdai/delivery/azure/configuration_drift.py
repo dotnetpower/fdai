@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -195,9 +196,21 @@ class AzureConfigurationObservationConfig:
             raise ValueError("attribute_paths MUST be unique and ordered")
         if any(_ATTRIBUTE_PATH.fullmatch(path) is None for path in self.attribute_paths):
             raise ValueError("attribute_paths contains an invalid path")
-        if self.page_size < 1 or self.max_pages < 1 or self.max_records < 1:
+        if (
+            type(self.page_size) is not int
+            or type(self.max_pages) is not int
+            or type(self.max_records) is not int
+            or self.page_size < 1
+            or self.page_size > 1_000
+            or self.max_pages < 1
+            or self.max_records < 1
+        ):
             raise ValueError("Azure configuration observation bounds MUST be positive")
-        if self.timeout_seconds <= 0:
+        if (
+            type(self.timeout_seconds) is bool
+            or not math.isfinite(self.timeout_seconds)
+            or self.timeout_seconds <= 0
+        ):
             raise ValueError("timeout_seconds MUST be positive")
         parsed_endpoint = urlparse(self.arg_endpoint)
         if (
@@ -244,9 +257,14 @@ class AzureArgConfigurationObservationSource:
         resources = tuple(
             _resource(row, attribute_paths=self.config.attribute_paths) for row in rows
         )
+        observed_at = self.clock()
+        if observed_at.tzinfo is None:
+            raise AzureConfigurationObservationError(
+                "configuration observation clock MUST be timezone-aware"
+            )
         return ConfigurationObservation(
             scope=self.config.allowed_scope,
-            observed_at=self.clock(),
+            observed_at=observed_at,
             source="azure_resource_graph",
             completeness=EvidenceCompleteness.COMPLETE,
             resources=resources,

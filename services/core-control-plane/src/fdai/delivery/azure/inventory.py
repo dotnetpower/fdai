@@ -136,6 +136,12 @@ class ActivityLogPage:
     relationship_reconciliation_after: str | None = None
     """Newest tracked write/delete whose complete links require an ARG snapshot."""
 
+    def __post_init__(self) -> None:
+        if type(self.has_more) is not bool:
+            raise ValueError("ActivityLogPage.has_more MUST be a boolean")
+        if self.cursor is not None and not self.cursor.strip():
+            raise ValueError("ActivityLogPage.cursor MUST NOT be empty when provided")
+
 
 # Injected async callable for the incremental path: given the current
 # cursor, return the next page of forwarded Activity Log changes. A fork
@@ -461,6 +467,7 @@ class AzureResourceGraphInventory:
 
         current = cursor
         pages = 0
+        delta_budget = _GenerationBudget()
         while pages < self._config.max_delta_pages:
             page = await self._delta_fetch(current)
             pages += 1
@@ -471,6 +478,13 @@ class AzureResourceGraphInventory:
                 for resource in _dedupe_resources(page.resources)
             )
             links, relationship_drops = _validate_links(page.links)
+            delta_budget.consume(
+                ResourceQueryResult(
+                    resources=resources,
+                    links=links,
+                    relationship_drops=relationship_drops,
+                )
+            )
             if (
                 resources
                 or links

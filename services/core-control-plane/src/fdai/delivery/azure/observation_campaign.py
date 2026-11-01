@@ -40,6 +40,11 @@ class AzureResourceGraphObservation(StrEnum):
     SERVICE_HEALTH = "service-health"
     NETWORK_CONFIG = "network-config"
     RECOVERY = "recovery"
+    ADVISOR_RECOMMENDATIONS = "advisor-recommendations"
+    POLICY_COMPLIANCE = "policy-compliance"
+    SECURITY_ASSESSMENTS = "security-assessments"
+    RESOURCE_CHANGES = "resource-changes"
+    MONITOR_ALERT_SUMMARY = "monitor-alert-summary"
 
 
 _ARG_QUERIES: Mapping[AzureResourceGraphObservation, str] = {
@@ -60,6 +65,26 @@ _ARG_QUERIES: Mapping[AzureResourceGraphObservation, str] = {
         "resources | where type in~ ('microsoft.recoveryservices/vaults', "
         "'microsoft.dataprotection/backupvaults') | summarize evidence_count=count()"
     ),
+    AzureResourceGraphObservation.ADVISOR_RECOMMENDATIONS: (
+        "advisorresources | where type =~ 'microsoft.advisor/recommendations' "
+        "| summarize evidence_count=count()"
+    ),
+    AzureResourceGraphObservation.POLICY_COMPLIANCE: (
+        "policyresources | where type =~ 'microsoft.policyinsights/policystates' "
+        "| where properties.complianceState =~ 'NonCompliant' | summarize evidence_count=count()"
+    ),
+    AzureResourceGraphObservation.SECURITY_ASSESSMENTS: (
+        "securityresources | where type =~ 'microsoft.security/assessments' "
+        "| summarize evidence_count=count()"
+    ),
+    AzureResourceGraphObservation.RESOURCE_CHANGES: (
+        "resourcechanges | where type =~ 'microsoft.resources/changes' "
+        "| summarize evidence_count=count()"
+    ),
+    AzureResourceGraphObservation.MONITOR_ALERT_SUMMARY: (
+        "alertsmanagementresources | where type =~ 'microsoft.alertsmanagement/alerts' "
+        "| summarize evidence_count=count()"
+    ),
 }
 
 _LOG_QUERIES: Mapping[str, str] = {
@@ -73,6 +98,12 @@ _LOG_QUERIES: Mapping[str, str] = {
         "(Event | where EventID in (1074, 6006, 6008) | summarize Count=count()), "
         "(Syslog | where Facility in ('auth', 'authpriv', 'daemon', 'kern', 'syslog') "
         "| summarize Count=count())"
+    ),
+    "metric-logs": "AzureMetrics | summarize Count=count()",
+    "change-logs": (
+        "union isfuzzy=true "
+        "(LAQueryLogs | summarize Count=count()), "
+        "(ContainerInventory | summarize Count=count())"
     ),
 }
 
@@ -97,6 +128,8 @@ class AzureObservationConfig:
     def __post_init__(self) -> None:
         if not self.subscription_ids or any(not item.strip() for item in self.subscription_ids):
             raise ValueError("Azure observation subscriptions MUST be non-empty")
+        normalized_subs = tuple(dict.fromkeys(item.strip() for item in self.subscription_ids))
+        object.__setattr__(self, "subscription_ids", normalized_subs)
         parsed = urlparse(self.management_endpoint)
         if parsed.scheme != "https" or not parsed.netloc or parsed.query or parsed.fragment:
             raise ValueError("Azure observation management endpoint MUST be an HTTPS origin")
@@ -115,6 +148,8 @@ class AzureResourceGraphObservationProbe:
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
     ) -> None:
+        if not isinstance(query, AzureResourceGraphObservation) or query not in _ARG_QUERIES:
+            raise ValueError(f"unsupported ARG observation query: {query!r}")
         self._config = config
         self._query = query
         self._identity = identity
@@ -561,6 +596,7 @@ def _raise_for_status(response: httpx.Response, *, source: str) -> None:
                 response.headers,
                 now=datetime.now(UTC),
                 extra_headers=(
+                    "x-ms-user-quota-after",
                     "x-ms-ratelimit-microsoft.costmanagement-qpu-retry-after",
                     "x-ms-ratelimit-microsoft.costmanagement-entity-retry-after",
                     "x-ms-ratelimit-microsoft.costmanagement-clienttype-retry-after",
@@ -654,7 +690,7 @@ def _encode_activity_cursors(cursors: Mapping[str, str]) -> str | None:
 
 
 def _subscription_cursor_key(subscription_id: str) -> str:
-    return f"sha256:{hashlib.sha256(subscription_id.encode()).hexdigest()}"
+    return f"sha256:{hashlib.sha256(subscription_id.strip().lower().encode()).hexdigest()}"
 
 
 def _activity_next_link(

@@ -64,22 +64,31 @@ class AzureModelServingInventoryConfig:
     total_timeout_seconds: float = 250.0
 
     def __post_init__(self) -> None:
-        if not 60 <= self.lookback_seconds <= 21_600:
+        if type(self.lookback_seconds) is not int or not 60 <= self.lookback_seconds <= 21_600:
             raise ValueError("model serving lookback_seconds MUST be in [60, 21600]")
-        if self.freshness_ceiling_seconds < self.lookback_seconds:
+        if (
+            type(self.freshness_ceiling_seconds) is not int
+            or self.freshness_ceiling_seconds < self.lookback_seconds
+        ):
             raise ValueError("model serving freshness ceiling MUST cover the lookback")
-        if not 1 <= self.max_targets <= 1000:
+        if type(self.max_targets) is not int or not 1 <= self.max_targets <= 1000:
             raise ValueError("model serving max_targets MUST be in [1, 1000]")
-        if not 1 <= self.max_concurrency <= 8:
+        if type(self.max_concurrency) is not int or not 1 <= self.max_concurrency <= 8:
             raise ValueError("model serving max_concurrency MUST be in [1, 8]")
-        if not 1 <= self.max_points_per_target <= 1000:
+        if (
+            type(self.max_points_per_target) is not int
+            or not 1 <= self.max_points_per_target <= 1000
+        ):
             raise ValueError("model serving max_points_per_target MUST be in [1, 1000]")
         required_points = math.ceil(self.lookback_seconds / 60) + 1
         if self.max_points_per_target < required_points:
             raise ValueError("model serving point cap MUST cover every one-minute window bucket")
-        if not 0.1 <= self.per_request_timeout_seconds <= 30:
+        if (
+            type(self.per_request_timeout_seconds) is bool
+            or not 0.1 <= self.per_request_timeout_seconds <= 30
+        ):
             raise ValueError("model serving request timeout MUST be in [0.1, 30]")
-        if not 0.1 <= self.total_timeout_seconds <= 900:
+        if type(self.total_timeout_seconds) is bool or not 0.1 <= self.total_timeout_seconds <= 900:
             raise ValueError("model serving total timeout MUST be in [0.1, 900]")
         required_timeout = (
             math.ceil(self.max_targets / self.max_concurrency) * self.per_request_timeout_seconds

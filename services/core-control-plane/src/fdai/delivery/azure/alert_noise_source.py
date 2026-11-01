@@ -79,6 +79,8 @@ class AlertScopeBinding:
             or group.endswith(".")
         ):
             raise ValueError("alert native scope binding is invalid")
+        object.__setattr__(self, "subscription_id", subscription)
+        object.__setattr__(self, "resource_group", group)
         native_scope(f"/subscriptions/{subscription}/resourceGroups/{group}")
         for reference in (self.tenant_ref, self.scope_ref):
             if (

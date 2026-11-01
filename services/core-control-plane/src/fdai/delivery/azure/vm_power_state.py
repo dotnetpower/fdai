@@ -91,11 +91,14 @@ class AzureVmPowerStateConfig:
             raise ValueError("VM power-state audience MUST be Azure Resource Manager")
         if self.api_version != _API_VERSION:
             raise ValueError(f"VM power-state api_version MUST be {_API_VERSION}")
-        if not 0.1 <= self.timeout_seconds <= 30:
+        if type(self.timeout_seconds) is bool or not 0.1 <= self.timeout_seconds <= 30:
             raise ValueError("VM power-state timeout_seconds MUST be in [0.1, 30]")
-        if not 1_024 <= self.max_response_bytes <= 1_000_000:
+        if (
+            type(self.max_response_bytes) is not int
+            or not 1_024 <= self.max_response_bytes <= 1_000_000
+        ):
             raise ValueError("VM power-state max_response_bytes MUST be in [1024, 1000000]")
-        if not 1 <= self.freshness_seconds <= 300:
+        if type(self.freshness_seconds) is not int or not 1 <= self.freshness_seconds <= 300:
             raise ValueError("VM power-state freshness_seconds MUST be in [1, 300]")
 
 
@@ -132,7 +135,9 @@ class AzureVmPowerStateReading:
             )
         if self.state is not None and _POWER_STATE.fullmatch(self.state) is None:
             raise ValueError("VM power-state value MUST be canonical")
-        if self.complete != (self.state is not None or bool(self.conflicts)):
+        if type(self.complete) is not bool or self.complete != (
+            self.state is not None or bool(self.conflicts)
+        ):
             raise ValueError(
                 "VM power-state completeness MUST match observed state or conflict evidence"
             )
