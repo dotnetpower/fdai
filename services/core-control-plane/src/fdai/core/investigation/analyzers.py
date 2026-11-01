@@ -40,6 +40,9 @@ _Clock = Callable[[], datetime] | None
 # Canonical resource-kind identifiers (CSP-neutral vocabulary handles).
 KIND_APP_GATEWAY = "application_gateway"
 KIND_MYSQL = "mysql_flexible_server"
+KIND_POSTGRESQL = "postgresql_flexible_server"
+KIND_REDIS = "redis_cache"
+KIND_KEY_VAULT = "key_vault"
 KIND_AZURE_OPENAI = "azure_openai"
 KIND_AKS = "aks_cluster"
 KIND_API_MANAGEMENT = "api_management"
@@ -195,6 +198,95 @@ def api_management_analyzer(
     )
 
 
+def postgresql_analyzer(
+    provider: MetricProvider, *, wall_clock: _Clock = None
+) -> ThresholdAnalyzer:
+    return ThresholdAnalyzer(
+        resource_kind=KIND_POSTGRESQL,
+        provider=provider,
+        wall_clock=wall_clock,
+        thresholds=(
+            Threshold(
+                metric="postgresql_cpu_percent",
+                compare=Comparison.GTE,
+                bound=90.0,
+                severity=Severity.HIGH,
+                signal="postgresql_cpu",
+                observation="PostgreSQL CPU utilization is saturated.",
+            ),
+            Threshold(
+                metric="postgresql_storage_percent",
+                compare=Comparison.GTE,
+                bound=85.0,
+                severity=Severity.HIGH,
+                signal="postgresql_storage",
+                observation="PostgreSQL storage utilization is approaching capacity.",
+            ),
+            Threshold(
+                metric="postgresql_connections_failed",
+                compare=Comparison.GTE,
+                bound=1.0,
+                severity=Severity.HIGH,
+                signal="postgresql_connections_failed",
+                observation="PostgreSQL failed connection attempts detected.",
+            ),
+        ),
+    )
+
+
+def redis_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> ThresholdAnalyzer:
+    return ThresholdAnalyzer(
+        resource_kind=KIND_REDIS,
+        provider=provider,
+        wall_clock=wall_clock,
+        thresholds=(
+            Threshold(
+                metric="redis_server_load",
+                compare=Comparison.GTE,
+                bound=85.0,
+                severity=Severity.HIGH,
+                signal="redis_load",
+                observation="Redis server load is saturated.",
+            ),
+            Threshold(
+                metric="redis_used_memory_percentage",
+                compare=Comparison.GTE,
+                bound=90.0,
+                severity=Severity.HIGH,
+                signal="redis_memory",
+                observation="Redis memory utilization is critically high.",
+            ),
+        ),
+    )
+
+
+def key_vault_analyzer(provider: MetricProvider, *, wall_clock: _Clock = None) -> ThresholdAnalyzer:
+    return ThresholdAnalyzer(
+        resource_kind=KIND_KEY_VAULT,
+        provider=provider,
+        wall_clock=wall_clock,
+        thresholds=(
+            Threshold(
+                metric="key_vault_saturation_shoebox",
+                compare=Comparison.GTE,
+                bound=85.0,
+                severity=Severity.HIGH,
+                signal="key_vault_saturation",
+                observation="Key Vault throttling saturation is elevated.",
+            ),
+            Threshold(
+                metric="key_vault_availability",
+                compare=Comparison.LTE,
+                bound=99.0,
+                severity=Severity.CRITICAL,
+                signal="key_vault_availability",
+                observation="Key Vault availability dropped below 99%.",
+                aggregation=Aggregation.MIN,
+            ),
+        ),
+    )
+
+
 #: Reviewed map from the neutral ``rule-catalog/vocabulary/resource-types.yaml``
 #: id an inventory projection records on ``Resource.type`` to the analyzer kind
 #: that observes it. An inventory
@@ -251,11 +343,17 @@ __all__ = [
     "KIND_API_MANAGEMENT",
     "KIND_APP_GATEWAY",
     "KIND_AZURE_OPENAI",
+    "KIND_KEY_VAULT",
     "KIND_MYSQL",
+    "KIND_POSTGRESQL",
+    "KIND_REDIS",
     "aks_analyzer",
     "api_management_analyzer",
     "app_gateway_analyzer",
     "azure_openai_analyzer",
     "default_analyzers",
+    "key_vault_analyzer",
     "mysql_analyzer",
+    "postgresql_analyzer",
+    "redis_analyzer",
 ]

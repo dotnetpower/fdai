@@ -48,10 +48,22 @@ def build_recommendations(
     then by resource for a stable, reviewable report.
     """
     best: dict[tuple[str, str], AnalyzerFinding] = {}
+    citations_by_key: dict[tuple[str, str], list[str]] = {}
     for finding in findings:
         key = (finding.resource_ref, finding.signal)
+        bucket = citations_by_key.setdefault(key, [])
+        for ref in finding.evidence_refs:
+            if ref not in bucket:
+                bucket.append(ref)
         current = best.get(key)
-        if current is None or severity_rank(finding.severity) < severity_rank(current.severity):
+        if (
+            current is None
+            or severity_rank(finding.severity) < severity_rank(current.severity)
+            or (
+                severity_rank(finding.severity) == severity_rank(current.severity)
+                and finding.occurred_at > current.occurred_at
+            )
+        ):
             best[key] = finding
 
     recommendations = [
@@ -61,7 +73,7 @@ def build_recommendations(
             detail=finding.observation,
             resource_ref=finding.resource_ref,
             remediation_ref=finding.remediation_ref,
-            citations=finding.evidence_refs,
+            citations=tuple(citations_by_key[(finding.resource_ref, finding.signal)]),
         )
         for finding in best.values()
     ]

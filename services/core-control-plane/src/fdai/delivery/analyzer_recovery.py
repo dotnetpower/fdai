@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from collections.abc import Collection, Sequence
 from dataclasses import replace
 from typing import Protocol, runtime_checkable
@@ -102,6 +103,8 @@ class RecoveryAwareAnalyzer:
     async def analyze(
         self, *, resource_ref: str, window_seconds: float
     ) -> Sequence[AnalyzerFinding]:
+        if type(window_seconds) is bool or not math.isfinite(window_seconds) or window_seconds <= 0:
+            raise ValueError("window_seconds MUST be a positive finite number")
         findings = tuple(
             await self._analyzer.analyze(
                 resource_ref=resource_ref,

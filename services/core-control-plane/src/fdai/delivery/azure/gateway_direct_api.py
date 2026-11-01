@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlparse
@@ -63,15 +64,27 @@ class AzureGatewayDirectApiConfig:
             or parsed.fragment
         ):
             raise ValueError("gateway direct-api base_url MUST be an HTTPS origin")
-        if not self.audience or len(self.audience) > 256:
+        if not self.audience.strip() or len(self.audience) > 256:
             raise ValueError("gateway direct-api audience MUST be bounded")
-        if not 0.1 <= self.timeout_seconds <= 120:
+        if (
+            type(self.timeout_seconds) is bool
+            or not math.isfinite(self.timeout_seconds)
+            or not 0.1 <= self.timeout_seconds <= 120
+        ):
             raise ValueError("gateway direct-api timeout_seconds MUST be in [0.1, 120]")
-        if not 0 <= self.poll_interval_seconds <= 30:
+        if (
+            type(self.poll_interval_seconds) is bool
+            or not math.isfinite(self.poll_interval_seconds)
+            or not 0 <= self.poll_interval_seconds <= 30
+        ):
             raise ValueError("gateway direct-api poll_interval_seconds MUST be in [0, 30]")
-        if not 1 <= self.max_poll_attempts <= 120:
+        if type(self.max_poll_attempts) is not int or not 1 <= self.max_poll_attempts <= 120:
             raise ValueError("gateway direct-api max_poll_attempts MUST be in [1, 120]")
-        if not 0.1 <= self.poll_timeout_seconds <= 300:
+        if (
+            type(self.poll_timeout_seconds) is bool
+            or not math.isfinite(self.poll_timeout_seconds)
+            or not 0.1 <= self.poll_timeout_seconds <= 300
+        ):
             raise ValueError("gateway direct-api poll_timeout_seconds MUST be in [0.1, 300]")
 
 
@@ -90,6 +103,14 @@ class AzureGatewayDirectApiExecutor:
         self._http = http_client
 
     async def execute(self, request: DirectApiRequest) -> DirectApiReceipt:
+        if (
+            not str(request.action_id).strip()
+            or not request.resource_ref.strip()
+            or not request.idempotency_key.strip()
+        ):
+            raise DirectApiPreconditionError(
+                "gateway request requires action_id, idempotency_key, and resource_ref"
+            )
         if request.mode is Mode.ENFORCE and "enforce" not in request.labels:
             raise DirectApiPromotionError(
                 "enforce-mode gateway call requires an explicit enforce label"

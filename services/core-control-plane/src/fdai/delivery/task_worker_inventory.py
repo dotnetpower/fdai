@@ -111,7 +111,7 @@ class TaskWorkerInventoryTool:
             snapshot, at = raw.get("snapshot_id"), raw.get("observed_at")
             if not isinstance(snapshot, str) or not snapshot.strip() or not isinstance(at, str):
                 return TaskWorkerToolResult(data=(("status", "unavailable"),))
-            observed = datetime.fromisoformat(at)
+            observed = datetime.fromisoformat(at.replace("Z", "+00:00"))
             if observed.utcoffset() is None:
                 return TaskWorkerToolResult(data=(("status", "unavailable"),))
             if self._tool_id is ReadToolId.RESOLVE_RESOURCE:

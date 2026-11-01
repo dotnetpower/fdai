@@ -50,7 +50,11 @@ class PodStatusEvidence:
     rollout_observed: bool = False
 
     def __post_init__(self) -> None:
-        if not self.resource_ref or not self.pod_uid or self.resource_ref != self.pod.pod_id:
+        if (
+            not self.resource_ref.strip()
+            or not self.pod_uid.strip()
+            or self.resource_ref != self.pod.pod_id
+        ):
             raise ValueError("Pod status MUST bind one exact Resource and Pod UID")
         if self.start.tzinfo is None or self.cutoff.tzinfo is None or self.start >= self.cutoff:
             raise ValueError("Pod status MUST have an aware positive window")
@@ -58,6 +62,8 @@ class PodStatusEvidence:
             raise ValueError("Pod status termination bound exceeded")
         if any(item.pod_uid != self.pod_uid for item in self.terminations):
             raise ValueError("Pod status termination UID conflict")
+        if any(not gap.strip() for gap in self.evidence_gaps):
+            raise ValueError("Pod status evidence_gaps MUST be non-empty strings")
 
 
 @dataclass(frozen=True, slots=True)

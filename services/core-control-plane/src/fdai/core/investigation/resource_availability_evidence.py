@@ -46,7 +46,12 @@ class PlannedStopWindow:
     def __post_init__(self) -> None:
         require_aware(self.since)
         require_aware(self.until)
-        if self.since >= self.until or not self.resource_ref or not self.evidence_ref:
+        if (
+            self.since >= self.until
+            or not self.resource_ref.strip()
+            or not self.evidence_ref.strip()
+            or type(self.maintenance) is not bool
+        ):
             raise ValueError("planned stop MUST have an exact resource, reference and time window")
 
 
@@ -65,7 +70,11 @@ class ResourceAvailabilityPolicy:
         object.__setattr__(self, "planned_stops", tuple(self.planned_stops))
         if not self.resource_types or any(not item.strip() for item in self.resource_types):
             raise ValueError("availability policy MUST explicitly select resource types")
-        if not math.isfinite(self.max_age_seconds) or self.max_age_seconds <= 0:
+        if (
+            type(self.max_age_seconds) is bool
+            or not math.isfinite(self.max_age_seconds)
+            or self.max_age_seconds <= 0
+        ):
             raise ValueError("availability freshness MUST be finite and positive")
         if self.expected_state is not None and (
             not isinstance(self.expected_state, ResourceOperationalState)
@@ -98,7 +107,11 @@ class ResourceAvailabilityEvidence:
         require_aware(self.recorded_at)
         if self.observed_at is not None:
             require_aware(self.observed_at)
-        if not self.resource_ref or not self.resource_type or not self.scope_ref:
+        if (
+            not self.resource_ref.strip()
+            or not self.resource_type.strip()
+            or not self.scope_ref.strip()
+        ):
             raise ValueError("availability evidence MUST bind resource, type and scope")
         if not isinstance(self.state, ResourceOperationalState):
             raise ValueError("availability state MUST be typed")

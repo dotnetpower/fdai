@@ -67,6 +67,8 @@ class UnavailableKubernetesInventoryEnricher:
         reason: str = "kubernetes_source_unconfigured",
         scope_digest: str | None = None,
     ) -> None:
+        if not reason.strip() or len(reason) > 128:
+            raise ValueError("UnavailableKubernetesInventoryEnricher reason MUST be bounded text")
         self._reason = reason
         self._scope_digest = scope_digest
 

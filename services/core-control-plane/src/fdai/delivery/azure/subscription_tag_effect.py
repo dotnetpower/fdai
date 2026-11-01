@@ -46,9 +46,9 @@ class AzureSubscriptionTagEffectVerifier:
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
     ) -> None:
-        if _SUBSCRIPTION_ID.fullmatch(subscription_id) is None:
+        if _SUBSCRIPTION_ID.fullmatch(subscription_id.strip()) is None:
             raise ValueError("subscription tag observer requires a valid subscription id")
-        self._subscription_id = subscription_id
+        self._subscription_id = subscription_id.strip().lower()
         self._identity = identity
         self._http = http_client
 
@@ -89,6 +89,7 @@ class AzureSubscriptionTagEffectVerifier:
             url,
             headers={"Authorization": f"Bearer {token.token}"},
             timeout=30.0,
+            follow_redirects=False,
         ) as response:
             content = bytearray()
             async for chunk in response.aiter_bytes():

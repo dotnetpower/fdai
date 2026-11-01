@@ -114,6 +114,7 @@ async def read_provider_query_references(
             or resource.resource_id != resource_id
             or resource.type.strip() != expected_resource_types[resource_id]
             or resource.provider_ref is None
+            or not resource.provider_ref.strip()
         ):
             raise AnalyzerInventoryIdentityError(
                 "active inventory provider identity does not match eligible analyzer targets"
@@ -142,7 +143,11 @@ async def read_resources_by_provider_references(
         raise AnalyzerInventoryIdentityError(
             "configured provider references require an active inventory reader"
         )
-    normalized = tuple(sorted({value.casefold() for value in provider_refs}))
+    normalized = tuple(
+        sorted({value.strip().casefold() for value in provider_refs if value.strip()})
+    )
+    if not normalized:
+        return None, {}
     try:
         snapshot_id, resources = await reader.read_active_resources_by_provider_refs(
             provider_refs=normalized

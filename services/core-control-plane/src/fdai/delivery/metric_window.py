@@ -27,7 +27,11 @@ class MetricWindowCoveragePolicy:
     maximum_samples: int = 10_000
 
     def __post_init__(self) -> None:
-        if not 1 <= self.minimum_samples <= self.maximum_samples <= 10_000:
+        if (
+            type(self.minimum_samples) is not int
+            or type(self.maximum_samples) is not int
+            or not 1 <= self.minimum_samples <= self.maximum_samples <= 10_000
+        ):
             raise ValueError("metric window coverage bounds are invalid")
 
 
@@ -55,7 +59,7 @@ class ProviderMetricWindowReader:
         """Return provider samples or an explicit incomplete window, never inferred zero."""
 
         labels = dict(query_labels) if query_labels is not None else {"resource_id": resource_id}
-        if not labels or any(not key or not value for key, value in labels.items()):
+        if not labels or any(not key.strip() or not value.strip() for key, value in labels.items()):
             raise ValueError("metric query labels MUST contain bounded non-empty identities")
         query = MetricQuery(
             metric_name=definition.provider_metric,
@@ -70,7 +74,14 @@ class ProviderMetricWindowReader:
             async for point in self._provider.query(query):
                 if point.metric_name != definition.provider_metric:
                     raise ValueError("metric provider returned another metric")
-                if any(point.labels.get(key) != value for key, value in labels.items()):
+                if any(
+                    (
+                        point.labels.get(key, "").strip().casefold() != value.strip().casefold()
+                        if key == "resource_id" and value.strip().startswith("/subscriptions/")
+                        else point.labels.get(key) != value
+                    )
+                    for key, value in labels.items()
+                ):
                     raise ValueError("metric provider returned another scoped identity")
                 if len(points) >= self._coverage.maximum_samples:
                     truncated = True

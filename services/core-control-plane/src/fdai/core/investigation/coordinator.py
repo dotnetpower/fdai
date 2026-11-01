@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -55,11 +56,23 @@ class InvestigationRequest:
     budget_seconds: float = _DEFAULT_BUDGET_SECONDS
 
     def __post_init__(self) -> None:
-        if not self.requested_by:
+        if not self.requested_by.strip():
             raise ValueError("InvestigationRequest.requested_by MUST be non-empty")
-        if not self.resources:
+        if not self.resources or any(
+            not ref.strip() or not kind.strip() for ref, kind in self.resources
+        ):
             raise ValueError("InvestigationRequest.resources MUST be non-empty")
-        if self.budget_seconds <= 0:
+        if (
+            type(self.window_seconds) is bool
+            or not math.isfinite(self.window_seconds)
+            or self.window_seconds <= 0
+        ):
+            raise ValueError("InvestigationRequest.window_seconds MUST be positive")
+        if (
+            type(self.budget_seconds) is bool
+            or not math.isfinite(self.budget_seconds)
+            or self.budget_seconds <= 0
+        ):
             raise ValueError("InvestigationRequest.budget_seconds MUST be positive")
 
 
@@ -116,9 +129,13 @@ class InvestigationCoordinator:
             self._analyzers.setdefault(analyzer.resource_kind, []).append(analyzer)
         self._monotonic: Callable[[], float] = monotonic or time.monotonic
         self._wall_clock: Callable[[], datetime] = wall_clock or (lambda: datetime.now(tz=UTC))
-        if analyzer_timeout_seconds is not None and analyzer_timeout_seconds <= 0:
+        if analyzer_timeout_seconds is not None and (
+            type(analyzer_timeout_seconds) is bool
+            or not math.isfinite(analyzer_timeout_seconds)
+            or analyzer_timeout_seconds <= 0
+        ):
             raise ValueError("analyzer_timeout_seconds MUST be positive when set")
-        if max_concurrency <= 0:
+        if type(max_concurrency) is not int or max_concurrency <= 0:
             raise ValueError("max_concurrency MUST be positive")
         self._analyzer_timeout = analyzer_timeout_seconds
         self._max_concurrency = max_concurrency

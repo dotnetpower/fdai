@@ -8,10 +8,16 @@ from collections.abc import Mapping
 from typing import Any
 
 _LOGGER = logging.getLogger("fdai.delivery.azure.event_bus")
+_MAX_RAW_ERROR_CHARS = 4_096
 
 
 def encode_payload(payload: Mapping[str, Any]) -> bytes:
-    return json.dumps(dict(payload), separators=(",", ":"), sort_keys=True).encode("utf-8")
+    return json.dumps(
+        dict(payload),
+        separators=(",", ":"),
+        sort_keys=True,
+        allow_nan=False,
+    ).encode("utf-8")
 
 
 def decode_payload(
@@ -31,7 +37,8 @@ def decode_payload(
             "event_bus_decode_error",
             extra={"topic": topic, "key": key, "bytes": len(value)},
         )
-        return {"_raw": value.decode("utf-8", errors="replace"), "_decode_error": True}
+        raw_text = value.decode("utf-8", errors="replace")[:_MAX_RAW_ERROR_CHARS]
+        return {"_raw": raw_text, "_decode_error": True}
     if not isinstance(parsed, dict):
         _LOGGER.warning(
             "event_bus_non_object_payload",

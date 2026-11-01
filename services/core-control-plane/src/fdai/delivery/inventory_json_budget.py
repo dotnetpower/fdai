@@ -18,6 +18,8 @@ def inventory_json_exceeds_budget(value: object, *, maximum_bytes: int) -> bool:
     bounded pieces, including ASCII escaping. Known scalar representations stay
     bounded; large integers and unknown ``default=str`` leaves retain lower bounds.
     """
+    if type(maximum_bytes) is not int or maximum_bytes < 0:
+        raise ValueError("inventory JSON budget maximum_bytes MUST be a non-negative integer")
     size = 0
     for amount in _minimum_json_sizes(value):
         size += amount

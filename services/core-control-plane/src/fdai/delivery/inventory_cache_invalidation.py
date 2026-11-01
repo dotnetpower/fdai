@@ -22,7 +22,7 @@ def inventory_cache_path(
     azure_config_dir: str | None,
 ) -> tuple[Path, str]:
     """Return a non-identifying cache path and its account-scope fingerprint."""
-    normalized_subscription = subscription_id.strip()
+    normalized_subscription = subscription_id.strip().lower()
     if not normalized_subscription:
         raise ValueError("subscription_id MUST NOT be empty")
     profile = (
