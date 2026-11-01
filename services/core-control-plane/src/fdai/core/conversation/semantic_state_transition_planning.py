@@ -133,6 +133,10 @@ def compile_resource_state_transition_plan(
         or not state_concepts
     ):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("resource state transition plan requires timezone-aware evaluation_time")
+    if not purpose.strip():
+        raise ValueError("resource state transition plan purpose MUST be non-empty")
     broad_state_change = state_concepts == (RESOURCE_STATE_OBSERVED_CONCEPT,)
     state_values = tuple(
         concept.removeprefix("resource_state.")

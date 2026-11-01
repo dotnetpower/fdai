@@ -21,6 +21,10 @@ class AttachmentDirective:
     message: str
     explicit: bool
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.explicit, bool):
+            raise ValueError("AttachmentDirective.explicit MUST be a boolean")
+
 
 def parse_attachment_directive(text: str) -> AttachmentDirective:
     """Resolve an exact leading attachment directive.

@@ -100,10 +100,17 @@ def ontology_declaration_function(
     ) -> object:
         if invocation_context.purposes != (ONTOLOGY_DECLARATION_PURPOSE,):
             raise PermissionError("ontology declaration purpose does not match invocation context")
-        kind = str(arguments["kind"])
-        name = str(arguments["name"])
-        section = str(arguments["section"])
-        limit = int(arguments["limit"])
+        kind = str(arguments["kind"]).strip()
+        name = str(arguments["name"]).strip()
+        section = str(arguments["section"]).strip()
+        raw_limit = arguments["limit"]
+        if (
+            isinstance(raw_limit, bool)
+            or not isinstance(raw_limit, int)
+            or not 1 <= raw_limit <= _MAX_ROWS
+        ):
+            raise ValueError(f"ontology declaration limit MUST be in [1, {_MAX_ROWS}]")
+        limit = raw_limit
         declaration = _declaration(kind, name, objects=objects, links=links, actions=actions)
         if section == "detail":
             values = _detail_values(

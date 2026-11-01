@@ -57,6 +57,8 @@ def compile_logical_service_current_state_plan(
     target_properties = _object_properties(manifest.descriptors, target_type)
     if not {"id", "name"} <= target_properties or not _has_state_function(manifest.descriptors):
         return None
+    if evaluation_time.utcoffset() is None:
+        raise ValueError("logical-service plan requires timezone-aware evaluation_time")
     as_of = evaluation_time.astimezone(UTC)
     target_nodes = tuple(
         _object_set_node(
@@ -176,21 +178,25 @@ def _operating_target(
     utterance: str,
 ) -> tuple[str, str] | None:
     types = tuple(
-        constraint.removeprefix(_TARGET_TYPE_PREFIX)
-        for constraint in frame.subject_constraints
-        if constraint.startswith(_TARGET_TYPE_PREFIX)
+        dict.fromkeys(
+            constraint.removeprefix(_TARGET_TYPE_PREFIX).strip()
+            for constraint in frame.subject_constraints
+            if constraint.startswith(_TARGET_TYPE_PREFIX)
+        )
     )
     values = tuple(
-        constraint.removeprefix(_TARGET_VALUE_PREFIX)
-        for constraint in frame.subject_constraints
-        if constraint.startswith(_TARGET_VALUE_PREFIX)
+        dict.fromkeys(
+            constraint.removeprefix(_TARGET_VALUE_PREFIX).strip()
+            for constraint in frame.subject_constraints
+            if constraint.startswith(_TARGET_VALUE_PREFIX)
+        )
     )
     if (
         len(types) != 1
         or types[0] not in {"BusinessService", "Workload"}
         or len(values) != 1
         or not values[0]
-        or utterance.count(values[0]) != 1
+        or utterance.count(values[0]) < 1
     ):
         return None
     return types[0], values[0]

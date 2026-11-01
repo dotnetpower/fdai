@@ -37,8 +37,12 @@ def build_mutation_plan(
     irreversible: bool = False,
     operational_plan_ref: str | None = None,
 ) -> MutationPlan:
-    if created_at.tzinfo is None:
+    if created_at.utcoffset() is None:
         raise ValueError("MutationPlan.created_at MUST be timezone-aware")
+    if not planner_ref.strip():
+        raise ValueError("MutationPlan.planner_ref MUST be non-empty")
+    if isinstance(max_affected_objects, bool) or max_affected_objects < 1:
+        raise ValueError("max_affected_objects MUST be a positive integer")
     canonical_created_at = created_at.astimezone(UTC)
     if not 1 <= len(targets) <= max_affected_objects:
         raise ValueError("mutation target count exceeds the declared impact limit")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -92,11 +93,15 @@ class BackgroundTaskProjectionPublisher:
             raise ValueError("background task projection topic MUST be non-empty")
         if not self.worker_id.strip():
             raise ValueError("background task projection worker_id MUST be non-empty")
-        if not 1 <= self.batch_size <= 500:
+        if isinstance(self.batch_size, bool) or not 1 <= self.batch_size <= 500:
             raise ValueError("background task projection batch_size MUST be in [1, 500]")
-        if not 1 <= self.lease_seconds <= 300:
+        if isinstance(self.lease_seconds, bool) or not 1 <= self.lease_seconds <= 300:
             raise ValueError("background task projection lease_seconds MUST be in [1, 300]")
-        if self.idle_seconds <= 0:
+        if (
+            isinstance(self.idle_seconds, bool)
+            or not math.isfinite(self.idle_seconds)
+            or self.idle_seconds <= 0
+        ):
             raise ValueError("background task projection idle_seconds MUST be positive")
 
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:

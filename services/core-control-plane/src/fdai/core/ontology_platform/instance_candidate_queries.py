@@ -125,7 +125,17 @@ def instance_candidates_function(
             or context.principal_scope_digest is None
         ):
             raise PermissionError("ontology candidates require authenticated presentation scope")
-        result = await query(str(arguments["query"]), int(arguments["limit"]), context)
+        raw_query = arguments.get("query")
+        raw_limit = arguments.get("limit")
+        if (
+            not isinstance(raw_query, str)
+            or not raw_query.strip()
+            or isinstance(raw_limit, bool)
+            or not isinstance(raw_limit, int)
+            or not 1 <= raw_limit <= 20
+        ):
+            raise ValueError("ontology candidate arguments are invalid")
+        result = await query(raw_query, raw_limit, context)
         if (
             result.get("principal_scope_digest") != context.principal_scope_digest
             or result.get("ontology_release_digest") != ontology_release_digest
@@ -142,9 +152,9 @@ def instance_candidates_function(
         candidates = result.get("candidates")
         count = result.get("candidate_count")
         if (
-            not isinstance(candidates, list)
+            not isinstance(candidates, (list, tuple))
             or type(count) is not int
-            or len(candidates) != min(count, int(arguments["limit"]))
+            or len(candidates) != min(count, raw_limit)
             or result.get("truncated") is not (count > len(candidates))
             or (candidates and not result.get("evidence_refs"))
         ):

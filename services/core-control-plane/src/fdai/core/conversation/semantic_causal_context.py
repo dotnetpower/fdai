@@ -42,6 +42,10 @@ def causal_context_result(
 ) -> OperatorResult:
     """Read current state, state-transition change points, and full activity context."""
 
+    if isinstance(seconds, bool) or seconds <= 0:
+        raise ValueError("causal context seconds MUST be a positive integer")
+    if not limitation.strip() or not requirement.strip():
+        raise ValueError("causal context limitation and requirement MUST be non-empty")
     if goal.subject is None:
         return OperatorResult(unsupported=("anchor_missing",))
     for name in CAUSAL_CONTEXT_FUNCTIONS:

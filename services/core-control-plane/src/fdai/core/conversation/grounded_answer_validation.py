@@ -34,7 +34,9 @@ class GroundedAnswerValidation:
 def validate_grounded_answer(answer: str, result: ToolResult) -> GroundedAnswerValidation:
     """Reject unsupported exact values while leaving qualitative prose untouched."""
 
-    if any(reference not in answer for reference in result.evidence_refs):
+    if not answer.strip():
+        return GroundedAnswerValidation(False, "empty_answer")
+    if any(not reference.strip() or reference not in answer for reference in result.evidence_refs):
         return GroundedAnswerValidation(False, "missing_evidence_reference")
     authority = _authority_text(result)
     if authority is None:

@@ -52,6 +52,8 @@ def validate_projection_allocation(values: Iterable[object]) -> None:
 def _children(value: object) -> Iterator[object] | None:
     if isinstance(value, Mapping):
         return chain.from_iterable(value.items())
+    if isinstance(value, (set, frozenset)):
+        return iter(value)
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return iter(value)
     if is_dataclass(value) and not isinstance(value, type):

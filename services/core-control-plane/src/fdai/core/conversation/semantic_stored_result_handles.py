@@ -61,6 +61,10 @@ class StoredReferenceContext:
     references: tuple[ResultHandleRef, ...]
     store: ResultHandleStore
 
+    def __post_init__(self) -> None:
+        if not self.session_id.strip():
+            raise ValueError("stored reference context session_id MUST be non-empty")
+
 
 async def bind_stored_references(
     admission: FormAdmission,
@@ -153,7 +157,7 @@ def _bind_one(
             resource_type=rows[0][1] if len(rows) == 1 else None,
         )
     else:
-        if position is None or position == 0:
+        if position is None or isinstance(position, bool) or position == 0:
             return ReferenceBinding(
                 mention_id, ReferenceOutcome.OUT_OF_RANGE, form, handle_id=handle_ref
             )

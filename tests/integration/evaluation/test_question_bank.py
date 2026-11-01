@@ -304,3 +304,25 @@ def test_operator_candidates_remain_customer_agnostic() -> None:
         is None
     )
     assert re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", wording) is None
+
+
+def test_question_bank_40_rounds_of_10_questions_satisfy_bilingual_and_safety_invariants() -> None:
+    questions = _artifact()["questions"]
+    assert len(questions) == 400
+    rounds = [questions[index : index + 10] for index in range(0, 400, 10)]
+    assert len(rounds) == 40
+    for round_index, batch in enumerate(rounds, start=1):
+        assert len(batch) == 10, f"round {round_index} must contain 10 questions"
+        for item in batch:
+            assert item["question_id"].strip()
+            assert item["intent"].strip()
+            assert item["wording"]["en"].strip()
+            assert item["wording"]["ko"].strip()
+            assert item["safety"]["execution_authority"] is False
+            assert set(item["readiness"]) == {
+                "content_review",
+                "semantic_contract",
+                "runtime_binding",
+                "evidence_source",
+                "validation",
+            }

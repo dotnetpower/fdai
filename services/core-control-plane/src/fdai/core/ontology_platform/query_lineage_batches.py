@@ -37,6 +37,13 @@ async def batched_lineage_result(
 ) -> QueryNodeResult:
     """Read lineage in root batches under one generation and bounded read budget."""
 
+    if (
+        isinstance(root_batch, bool)
+        or isinstance(read_budget, bool)
+        or root_batch < 1
+        or read_budget < 1
+    ):
+        raise ValueError("lineage batch and read budget MUST be positive integers")
     pending = [
         root_ids[start : start + root_batch] for start in range(0, len(root_ids), root_batch)
     ]

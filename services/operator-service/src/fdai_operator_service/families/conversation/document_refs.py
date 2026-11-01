@@ -15,7 +15,7 @@ rejected before it can reach view context or terminal verification.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
@@ -129,7 +129,7 @@ def parse_document_refs(value: JsonValue | None) -> tuple[DocumentRef, ...]:
 
     if value is None:
         return ()
-    if not isinstance(value, list):
+    if not isinstance(value, (list, tuple)):
         raise DocumentRefSyntaxError("document_refs MUST be a list")
     if len(value) > MAX_DOCUMENT_REFS:
         raise DocumentRefSyntaxError(
@@ -138,7 +138,7 @@ def parse_document_refs(value: JsonValue | None) -> tuple[DocumentRef, ...]:
     refs: list[DocumentRef] = []
     seen: set[tuple[UUID, UUID]] = set()
     for entry in value:
-        if not isinstance(entry, dict):
+        if not isinstance(entry, Mapping):
             raise DocumentRefSyntaxError("each document ref MUST be an object")
         if set(entry) != {"document_id", "version_id"}:
             raise DocumentRefSyntaxError(

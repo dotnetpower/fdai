@@ -43,6 +43,8 @@ def observe_planning_orchestration(
     """Measure items 31-34 from one bounded shadow planning result."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip():
+        raise ValueError("planning orchestration scenario case_id MUST be non-empty")
     expected_agents = tuple(sorted(set(result.expected_contributor_agents)))
     actual_agents = tuple(
         sorted(contribution.agent for contribution in result.actual.contributions)
@@ -104,6 +106,8 @@ def observe_handoff(
     """Measure item 35 from the revisioned assignment handoff state."""
 
     _require_digest(result.evidence_digest)
+    if not result.case_id.strip() or not isinstance(result.expected_required_effects, bool):
+        raise ValueError("handoff scenario case_id and expected_required_effects are invalid")
     correct = (
         result.actual.state is result.expected_state
         and result.actual.has_required_effects is result.expected_required_effects

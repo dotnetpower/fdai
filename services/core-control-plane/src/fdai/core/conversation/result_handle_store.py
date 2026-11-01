@@ -43,6 +43,8 @@ def result_handle_conversation_id(session_id: str) -> str:
     digest, so the same session always maps to the same key on write and on read.
     """
 
+    if not session_id.strip():
+        raise ValueError("result handle session_id MUST be non-empty")
     if _MACHINE_TOKEN.fullmatch(session_id):
         return session_id
     return f"session-{hashlib.sha256(session_id.encode()).hexdigest()[:48]}"

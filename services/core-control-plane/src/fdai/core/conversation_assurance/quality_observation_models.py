@@ -38,7 +38,12 @@ class QualificationDimensionObservation:
         if not self.reason_code.strip() or len(self.reason_code) > 128:
             raise ValueError("observation reason_code MUST contain 1-128 characters")
         if self.availability is ObservationAvailability.MEASURED:
-            if self.value is None or not math.isfinite(self.value) or not 0.0 <= self.value <= 1.0:
+            if (
+                self.value is None
+                or isinstance(self.value, bool)
+                or not math.isfinite(self.value)
+                or not 0.0 <= self.value <= 1.0
+            ):
                 raise ValueError("measured observation value MUST be finite and in [0, 1]")
         elif self.value is not None:
             raise ValueError("unavailable observation MUST NOT contain a value")
@@ -72,7 +77,7 @@ class QualificationDimensionContribution:
     def __post_init__(self) -> None:
         if _TOKEN.fullmatch(self.case_id) is None:
             raise ValueError("contribution case_id MUST be a bounded portable token")
-        if not 1 <= self.item_id <= 50:
+        if isinstance(self.item_id, bool) or not 1 <= self.item_id <= 50:
             raise ValueError("contribution item_id MUST be in [1, 50]")
         item = CHATOPS_QUALITY_CONTRACT_V1.items[self.item_id - 1]
         if self.workstream != item.workstream or self.metric != item.metric:
@@ -98,7 +103,7 @@ class QualificationRubricObservation:
     dimensions: tuple[QualificationDimensionObservation, ...]
 
     def __post_init__(self) -> None:
-        if not 1 <= self.item_id <= 50:
+        if isinstance(self.item_id, bool) or not 1 <= self.item_id <= 50:
             raise ValueError("rubric observation item_id MUST be in [1, 50]")
         expected_metric = CHATOPS_QUALITY_CONTRACT_V1.items[self.item_id - 1].metric
         if self.metric != expected_metric:

@@ -280,12 +280,15 @@ def _semantic_judgment_capabilities(
                 else None
             )
             if (
-                isinstance(measure_concepts, list)
+                isinstance(measure_concepts, (list, tuple))
                 and measure_concepts
                 and len(measure_concepts) <= 32
-                and all(isinstance(item, str) and 0 < len(item) <= 128 for item in measure_concepts)
+                and all(
+                    isinstance(item, str) and 0 < len(item.strip()) <= 128
+                    for item in measure_concepts
+                )
             ):
-                capability["measure_concepts"] = sorted(set(measure_concepts))
+                capability["measure_concepts"] = sorted({item.strip() for item in measure_concepts})
         if kind == "object":
             properties = descriptor.get("properties")
             if isinstance(properties, Mapping):

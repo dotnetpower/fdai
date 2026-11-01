@@ -89,13 +89,16 @@ class AssignmentOutcomeConsumer:
                     else:
                         status = "iam_review_requested"
                 elif case.state.value in {"approved", "ownership_pr_open", "iam_revoked"}:
+                    now = self.clock()
+                    if now.utcoffset() is None:
+                        raise ValueError("assignment outcome clock MUST be timezone-aware")
                     try:
                         _case, proposal = await self.ownership.open_proposal(
                             case_id=case.case_id,
                             expected_revision=case.revision,
                             actor_ref="assignment-artifact-delivery",
                             base=self.base,
-                            now=self.clock(),
+                            now=now,
                         )
                     except ValueError:
                         status = "held"
