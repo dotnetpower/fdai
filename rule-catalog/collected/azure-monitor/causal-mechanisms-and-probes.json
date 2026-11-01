@@ -1,0 +1,577 @@
+{
+  "mechanisms": [
+    {
+      "kql": "AppRequests\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where ResultCode startswith '5' or Success == false\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AppRequests",
+      "mechanism_id": "failed_requests",
+      "owner_agent": "Heimdall",
+      "predicate": "ResultCode startswith '5' or Success == false"
+    },
+    {
+      "kql": "AppExceptions\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where isnotempty(ExceptionType)\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AppExceptions",
+      "mechanism_id": "error_timeline",
+      "owner_agent": "Heimdall",
+      "predicate": "isnotempty(ExceptionType)"
+    },
+    {
+      "kql": "AppDependencies\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where todouble(DurationMs) >= 1000.0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AppDependencies",
+      "mechanism_id": "dependency_latency",
+      "owner_agent": "Heimdall",
+      "predicate": "todouble(DurationMs) >= 1000.0"
+    },
+    {
+      "kql": "AppTraces\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where SeverityLevel >= 2\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AppTraces",
+      "mechanism_id": "slow_traces",
+      "owner_agent": "Heimdall",
+      "predicate": "SeverityLevel >= 2"
+    },
+    {
+      "kql": "Event\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where EventID in (41, 1074, 6006, 6008)\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "Event",
+      "mechanism_id": "guest_shutdown",
+      "owner_agent": "Heimdall",
+      "predicate": "EventID in (41, 1074, 6006, 6008)"
+    },
+    {
+      "kql": "KubePodInventory\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where todouble(ContainerRestartCount) > 0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "KubePodInventory",
+      "mechanism_id": "container_restarts",
+      "owner_agent": "Heimdall",
+      "predicate": "todouble(ContainerRestartCount) > 0"
+    },
+    {
+      "kql": "AzureDiagnostics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where ResultType == '429' or httpStatusCode_d == 429\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureDiagnostics",
+      "mechanism_id": "throttling",
+      "owner_agent": "Heimdall",
+      "predicate": "ResultType == '429' or httpStatusCode_d == 429"
+    },
+    {
+      "kql": "AzureMetrics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where Average >= 90.0 or Maximum >= 95.0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureMetrics",
+      "mechanism_id": "resource_saturation",
+      "owner_agent": "Heimdall",
+      "predicate": "Average >= 90.0 or Maximum >= 95.0"
+    },
+    {
+      "kql": "NTANetAnalytics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where FlowStatus == 'Denied'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "NTANetAnalytics",
+      "mechanism_id": "network_flow_drop",
+      "owner_agent": "Heimdall",
+      "predicate": "FlowStatus == 'Denied'"
+    },
+    {
+      "kql": "AZFWNetworkRule\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where Action == 'Deny'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AZFWNetworkRule",
+      "mechanism_id": "firewall_deny",
+      "owner_agent": "Heimdall",
+      "predicate": "Action == 'Deny'"
+    },
+    {
+      "kql": "AZFWDnsQuery\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where ResponseCode != 'NOERROR'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AZFWDnsQuery",
+      "mechanism_id": "dns_resolution_failure",
+      "owner_agent": "Heimdall",
+      "predicate": "ResponseCode != 'NOERROR'"
+    },
+    {
+      "kql": "AGWAccessLogs\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where sslEnabled_s == 'on' and httpStatus_d >= 400\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AGWAccessLogs",
+      "mechanism_id": "tls_handshake_failure",
+      "owner_agent": "Heimdall",
+      "predicate": "sslEnabled_s == 'on' and httpStatus_d >= 400"
+    },
+    {
+      "kql": "AzureDiagnostics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where OperationName contains 'Certificate' and ResultType != 'Success'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureDiagnostics",
+      "mechanism_id": "certificate_expiry",
+      "owner_agent": "Heimdall",
+      "predicate": "OperationName contains 'Certificate' and ResultType != 'Success'"
+    },
+    {
+      "kql": "AzureSQLDeadlocks\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where isnotempty(deadlock_xml_s)\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureSQLDeadlocks",
+      "mechanism_id": "sql_deadlock",
+      "owner_agent": "Heimdall",
+      "predicate": "isnotempty(deadlock_xml_s)"
+    },
+    {
+      "kql": "AzureSQLBlocks\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where todouble(duration_ms_d) >= 5000.0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureSQLBlocks",
+      "mechanism_id": "sql_blocking_session",
+      "owner_agent": "Heimdall",
+      "predicate": "todouble(duration_ms_d) >= 5000.0"
+    },
+    {
+      "kql": "StorageBlobLogs\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where StatusText contains 'ServerBusy' or StatusCode >= 500\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "StorageBlobLogs",
+      "mechanism_id": "storage_iops_saturation",
+      "owner_agent": "Heimdall",
+      "predicate": "StatusText contains 'ServerBusy' or StatusCode >= 500"
+    },
+    {
+      "kql": "InsightsMetrics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where Name == 'DiskTransfersPerSec' and Val >= 500.0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "InsightsMetrics",
+      "mechanism_id": "disk_queue_saturation",
+      "owner_agent": "Heimdall",
+      "predicate": "Name == 'DiskTransfersPerSec' and Val >= 500.0"
+    },
+    {
+      "kql": "KubeEvents\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where Reason == 'OOMKilling' or Message contains 'OutOfMemory'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "KubeEvents",
+      "mechanism_id": "memory_oom_pressure",
+      "owner_agent": "Heimdall",
+      "predicate": "Reason == 'OOMKilling' or Message contains 'OutOfMemory'"
+    },
+    {
+      "kql": "AutoscaleScaleActionsLog\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where ResultType != 'Succeeded'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AutoscaleScaleActionsLog",
+      "mechanism_id": "autoscale_flapping",
+      "owner_agent": "Heimdall",
+      "predicate": "ResultType != 'Succeeded'"
+    },
+    {
+      "kql": "AzureActivity\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where ActivityStatusValue == 'Failed'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureActivity",
+      "mechanism_id": "deployment_operation_failure",
+      "owner_agent": "Huginn",
+      "predicate": "ActivityStatusValue == 'Failed'"
+    },
+    {
+      "kql": "AzureActivity\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where CategoryValue == 'Policy' and ActivityStatusValue == 'Failed'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureActivity",
+      "mechanism_id": "policy_non_compliance_event",
+      "owner_agent": "Huginn",
+      "predicate": "CategoryValue == 'Policy' and ActivityStatusValue == 'Failed'"
+    },
+    {
+      "kql": "SecurityAlert\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where AlertSeverity in ('High', 'Medium')\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "SecurityAlert",
+      "mechanism_id": "security_alert_triggered",
+      "owner_agent": "Heimdall",
+      "predicate": "AlertSeverity in ('High', 'Medium')"
+    },
+    {
+      "kql": "AddonAzureBackupJobs\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where JobStatus == 'Failed'\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AddonAzureBackupJobs",
+      "mechanism_id": "backup_job_failure",
+      "owner_agent": "Vidar",
+      "predicate": "JobStatus == 'Failed'"
+    },
+    {
+      "kql": "AzureMetrics\n| extend resource_id = tolower(tostring(coalesce(column_ifexists('_ResourceId', ''), column_ifexists('ResourceId', ''), column_ifexists('ClusterId', ''))))\n| where MetricName contains 'ReplicationLag' and Maximum >= 60.0\n| project at=TimeGenerated, resource_id, magnitude=todouble(1.0)",
+      "log_table": "AzureMetrics",
+      "mechanism_id": "replication_lag_breach",
+      "owner_agent": "Vidar",
+      "predicate": "MetricName contains 'ReplicationLag' and Maximum >= 60.0"
+    }
+  ],
+  "probes": [
+    {
+      "max_rows": 200,
+      "owner_agent": "Huginn",
+      "probe_id": "blast_radius_classifier",
+      "source_kind": "arg",
+      "target_table": "resources",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "lb_backend_health",
+      "source_kind": "monitor",
+      "target_table": "AzureMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "storage_access_log",
+      "source_kind": "monitor",
+      "target_table": "StorageBlobLogs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "vm_traffic_last_5m",
+      "source_kind": "monitor",
+      "target_table": "VMConnection",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.failed_requests.window_01",
+      "source_kind": "monitor",
+      "target_table": "AppRequests",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.error_timeline.window_02",
+      "source_kind": "monitor",
+      "target_table": "AppExceptions",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.dependency_latency.window_03",
+      "source_kind": "monitor",
+      "target_table": "AppDependencies",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.slow_traces.window_04",
+      "source_kind": "monitor",
+      "target_table": "AppTraces",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.guest_shutdown.window_05",
+      "source_kind": "monitor",
+      "target_table": "Event",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.container_restarts.window_06",
+      "source_kind": "monitor",
+      "target_table": "KubePodInventory",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.throttling.window_07",
+      "source_kind": "monitor",
+      "target_table": "AzureDiagnostics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.resource_saturation.window_08",
+      "source_kind": "monitor",
+      "target_table": "AzureMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.network_flow_drop.window_09",
+      "source_kind": "monitor",
+      "target_table": "NTANetAnalytics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.firewall_deny.window_10",
+      "source_kind": "monitor",
+      "target_table": "AZFWNetworkRule",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.dns_resolution_failure.window_11",
+      "source_kind": "monitor",
+      "target_table": "AZFWDnsQuery",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.tls_handshake_failure.window_12",
+      "source_kind": "monitor",
+      "target_table": "AGWAccessLogs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.certificate_expiry.window_13",
+      "source_kind": "monitor",
+      "target_table": "AzureDiagnostics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.sql_deadlock.window_14",
+      "source_kind": "monitor",
+      "target_table": "AzureSQLDeadlocks",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.sql_blocking_session.window_15",
+      "source_kind": "monitor",
+      "target_table": "AzureSQLBlocks",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.storage_iops_saturation.window_16",
+      "source_kind": "monitor",
+      "target_table": "StorageBlobLogs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.disk_queue_saturation.window_17",
+      "source_kind": "monitor",
+      "target_table": "InsightsMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.memory_oom_pressure.window_18",
+      "source_kind": "monitor",
+      "target_table": "KubeEvents",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.autoscale_flapping.window_19",
+      "source_kind": "monitor",
+      "target_table": "AutoscaleScaleActionsLog",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Huginn",
+      "probe_id": "probe.deployment_operation_failure.window_20",
+      "source_kind": "monitor",
+      "target_table": "AzureActivity",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Huginn",
+      "probe_id": "probe.policy_non_compliance_event.window_21",
+      "source_kind": "monitor",
+      "target_table": "AzureActivity",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.security_alert_triggered.window_22",
+      "source_kind": "monitor",
+      "target_table": "SecurityAlert",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Vidar",
+      "probe_id": "probe.backup_job_failure.window_23",
+      "source_kind": "monitor",
+      "target_table": "AddonAzureBackupJobs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Vidar",
+      "probe_id": "probe.replication_lag_breach.window_24",
+      "source_kind": "monitor",
+      "target_table": "AzureMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.failed_requests.window_25",
+      "source_kind": "monitor",
+      "target_table": "AppRequests",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.error_timeline.window_26",
+      "source_kind": "monitor",
+      "target_table": "AppExceptions",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.dependency_latency.window_27",
+      "source_kind": "monitor",
+      "target_table": "AppDependencies",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.slow_traces.window_28",
+      "source_kind": "monitor",
+      "target_table": "AppTraces",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.guest_shutdown.window_29",
+      "source_kind": "monitor",
+      "target_table": "Event",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.container_restarts.window_30",
+      "source_kind": "monitor",
+      "target_table": "KubePodInventory",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.throttling.window_31",
+      "source_kind": "monitor",
+      "target_table": "AzureDiagnostics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.resource_saturation.window_32",
+      "source_kind": "monitor",
+      "target_table": "AzureMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.network_flow_drop.window_33",
+      "source_kind": "monitor",
+      "target_table": "NTANetAnalytics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.firewall_deny.window_34",
+      "source_kind": "monitor",
+      "target_table": "AZFWNetworkRule",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.dns_resolution_failure.window_35",
+      "source_kind": "monitor",
+      "target_table": "AZFWDnsQuery",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.tls_handshake_failure.window_36",
+      "source_kind": "monitor",
+      "target_table": "AGWAccessLogs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.certificate_expiry.window_37",
+      "source_kind": "monitor",
+      "target_table": "AzureDiagnostics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.sql_deadlock.window_38",
+      "source_kind": "monitor",
+      "target_table": "AzureSQLDeadlocks",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.sql_blocking_session.window_39",
+      "source_kind": "monitor",
+      "target_table": "AzureSQLBlocks",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.storage_iops_saturation.window_40",
+      "source_kind": "monitor",
+      "target_table": "StorageBlobLogs",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.disk_queue_saturation.window_41",
+      "source_kind": "monitor",
+      "target_table": "InsightsMetrics",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.memory_oom_pressure.window_42",
+      "source_kind": "monitor",
+      "target_table": "KubeEvents",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.autoscale_flapping.window_43",
+      "source_kind": "monitor",
+      "target_table": "AutoscaleScaleActionsLog",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Huginn",
+      "probe_id": "probe.deployment_operation_failure.window_44",
+      "source_kind": "monitor",
+      "target_table": "AzureActivity",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Huginn",
+      "probe_id": "probe.policy_non_compliance_event.window_45",
+      "source_kind": "monitor",
+      "target_table": "AzureActivity",
+      "timeout_seconds": 15
+    },
+    {
+      "max_rows": 200,
+      "owner_agent": "Heimdall",
+      "probe_id": "probe.security_alert_triggered.window_46",
+      "source_kind": "monitor",
+      "target_table": "SecurityAlert",
+      "timeout_seconds": 15
+    }
+  ],
+  "schema_version": "1.0.0",
+  "total_mechanisms": 24,
+  "total_probes": 50
+}
