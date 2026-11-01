@@ -72,13 +72,17 @@ def parse_activation_request(record: Mapping[str, Any]) -> ActivationRequest | N
     if not isinstance(envelope, Mapping):
         return None
     body, roles = envelope.get("payload"), envelope.get("principal_roles", ())
-    if not isinstance(body, Mapping) or not isinstance(roles, list | tuple):
+    if (
+        not isinstance(body, Mapping)
+        or not isinstance(roles, list | tuple)
+        or not all(isinstance(role, str) and role.strip() for role in roles)
+    ):
         return None
     try:
         parsed = StewardshipCandidateActivationBody.model_validate(dict(body))
     except ValidationError:
         return None
-    return ActivationRequest(proposal_id, principal, tuple(str(role) for role in roles), parsed)
+    return ActivationRequest(proposal_id, principal, tuple(role.strip() for role in roles), parsed)
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +94,11 @@ class StewardshipActivationProcessor:
     batch_limit: int = 100
 
     def __post_init__(self) -> None:
-        if not 1 <= self.batch_limit <= 1000:
+        if (
+            isinstance(self.batch_limit, bool)
+            or not isinstance(self.batch_limit, int)
+            or not 1 <= self.batch_limit <= 1000
+        ):
             raise ValueError("stewardship activation batch limit MUST be between 1 and 1000")
 
     async def run_once(self) -> int:

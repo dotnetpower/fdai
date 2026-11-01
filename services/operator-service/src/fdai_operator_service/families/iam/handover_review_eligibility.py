@@ -92,8 +92,11 @@ async def reader_evidence_current(
             continue
         checked.add((reference, digest))
         _, document_id, version_id = reference.split(":")
+        subject_ref = str(goal.get("subject_ref", "")).strip()
+        if not subject_ref:
+            raise IamUnavailableError("handover reviewer document evidence is malformed")
         if not await verifier.verify_review(
-            principal_id=str(goal["subject_ref"]),
+            principal_id=subject_ref,
             document_id=UUID(document_id),
             version_id=UUID(version_id),
             source_sha256=digest,

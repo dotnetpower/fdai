@@ -30,6 +30,8 @@ class HandoverBoundProposalOutbox:
         bound = await self.binder.bind_conversation(proposal)
         if bound.scope.subject_id != proposal.scope.subject_id:
             raise ValueError("handover binder MUST NOT alter conversation subject_id")
+        if bound.scope != proposal.scope or bound.idempotency_key != proposal.idempotency_key:
+            raise ValueError("handover binder MUST NOT alter conversation scope or idempotency_key")
         return await self.fallback.append(bound)
 
 

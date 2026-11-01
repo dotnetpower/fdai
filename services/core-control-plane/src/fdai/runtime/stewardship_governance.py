@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -132,9 +133,11 @@ async def activate_console_stewardship_candidate(
         raise LookupError(f"unknown console stewardship candidate: {candidate_id}")
     merged_yaml = str(candidate.get("yaml", ""))
     validate_stewardship_candidate(merged_yaml, environ=validation_environ or {})
-    candidate_digest = str(
-        candidate.get("candidate_digest") or hashlib.sha256(merged_yaml.encode("utf-8")).hexdigest()
-    )
+    computed_digest = hashlib.sha256(merged_yaml.encode("utf-8")).hexdigest()
+    stored_digest = str(candidate.get("candidate_digest") or "").strip()
+    if stored_digest and stored_digest != computed_digest:
+        raise StewardshipGovernanceError("console stewardship candidate digest mismatch")
+    candidate_digest = computed_digest
     delivery_id = f"console-{candidate_id}"
     pr_ref = str(candidate.get("pr_ref") or f"console-stewardship:{candidate_id}")
     merge = StewardshipMergeRecord(
@@ -176,9 +179,18 @@ class StewardshipGovernanceWorker:
     activation: _ActivationDrain | None = None
 
     def __post_init__(self) -> None:
-        if self.interval_seconds <= 0:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or self.interval_seconds <= 0
+        ):
             raise ValueError("stewardship governance interval MUST be positive")
-        if not 1 <= self.batch_limit <= 1000:
+        if (
+            isinstance(self.batch_limit, bool)
+            or not isinstance(self.batch_limit, int)
+            or not 1 <= self.batch_limit <= 1000
+        ):
             raise ValueError("stewardship governance batch limit MUST be between 1 and 1000")
 
     async def run_once(self) -> int:

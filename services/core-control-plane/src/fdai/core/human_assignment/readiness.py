@@ -41,11 +41,14 @@ class HandoverReadinessPublisher:
 
     async def publish(self) -> HandoverReadinessReport:
         """Expose partial samples and missing operational proofs, never a green readiness flag."""
+        if type(self.enabled) is not bool:
+            raise ValueError("handover readiness enabled flag MUST be a boolean")
         if type(self.sample_limit) is not int or not 1 <= self.sample_limit <= 1000:
             raise ValueError("handover readiness sample limit MUST be in [1, 1000]")
         now = self.clock()
-        if now.utcoffset() is None:
+        if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("handover readiness clock MUST include a timezone")
+        now = now.astimezone(UTC)
         cases, case_total = await self.store.read_state_page(
             "human_assignment:case:", limit=self.sample_limit
         )

@@ -51,9 +51,16 @@ class HandoverSessionBudget:
         if now.utcoffset() is None:
             raise ValueError("handover budget clock MUST include a timezone")
         now = now.astimezone(UTC)
-        subject = _hash(proposal.scope.subject_id.strip().casefold())
-        session = _hash(str(proposal.body["session_id"]))
-        request = _hash(proposal.idempotency_key)
+        raw_subject = proposal.scope.subject_id.strip().casefold()
+        raw_session = str(proposal.body.get("session_id") or "").strip()
+        raw_request = proposal.idempotency_key.strip()
+        if not raw_subject or not raw_session or not raw_request:
+            raise ValueError(
+                "handover session budget requires subject_id, session_id, and idempotency_key"
+            )
+        subject = _hash(raw_subject)
+        session = _hash(raw_session)
+        request = _hash(raw_request)
         digest = _hash(
             json.dumps(
                 {

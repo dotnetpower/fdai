@@ -69,3 +69,24 @@ def test_hooks_and_resume_invoke_handover_tool() -> None:
 
     assert 'python3 "$handover_script" record HEAD' in post_commit
     assert "python3 scripts/automation/session-handover.py show" in resume
+
+
+def test_session_handover_and_tfvars_hardening_rounds_h104_to_h105(tmp_path: Path) -> None:
+    import importlib.util
+
+    import pytest
+    from scripts.deployment.service.stewardship_tfvars import stewardship_gitops_binding
+
+    spec = importlib.util.spec_from_file_location("session_handover", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    with pytest.raises(ValueError, match="non-empty git revision"):
+        module.record(tmp_path, "--flag-injection")
+    with pytest.raises(ValueError, match="non-empty string"):
+        stewardship_gitops_binding({"auth_mode": "console"}, service="   ")
+    assert (
+        stewardship_gitops_binding({"auth_mode": " console "}, service="core")["auth_mode"]
+        == "console"
+    )

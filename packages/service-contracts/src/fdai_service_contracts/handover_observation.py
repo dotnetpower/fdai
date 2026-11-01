@@ -48,10 +48,10 @@ def handover_observation_fields(record: Mapping[str, Any]) -> dict[str, Any]:
     projected = {
         field: record[field] for field in HandoverGoalObservation.model_fields if field in record
     }
-    if "source_digest" not in record:
+    if "source_digest" not in record or record.get("source_digest") is None:
         projected.update(schema_version="1.1.0", source_digest=knowledge_source_digest(record))
     evidence = record.get("evidence", [])
-    if isinstance(evidence, list):
+    if isinstance(evidence, (list, tuple)):
         projected["evidence"] = [
             {
                 field: item[field]

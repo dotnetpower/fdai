@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -74,7 +75,7 @@ class HandoverGenerationBudget:
 
     def __post_init__(self) -> None:
         if any(
-            value < 1
+            isinstance(value, bool) or not isinstance(value, int) or value < 1
             for value in (
                 self.max_units,
                 self.max_lines,
@@ -108,7 +109,12 @@ class HandoverBootstrapConsumer:
         budget: HandoverGenerationBudget | None = None,
         interpreter: HandoverInterpreter | None = None,
     ) -> None:
-        if not 0.0 <= confidence_floor <= 1.0:
+        if (
+            isinstance(confidence_floor, bool)
+            or not isinstance(confidence_floor, (int, float))
+            or not math.isfinite(confidence_floor)
+            or not 0.0 <= confidence_floor <= 1.0
+        ):
             raise ValueError("handover confidence floor MUST be in [0, 1]")
         self._directory = directory
         self._store = store
@@ -559,7 +565,7 @@ def _render_yaml(draft: StewardshipDraft, stewardship: StewardshipInput) -> str:
                 for mapping in by_agent[agent]
             ),
         ):
-            subject_key = (subject.kind, subject.oid)
+            subject_key = (subject.kind, subject.oid.strip().casefold())
             if subject_key in seen_keys:
                 continue
             seen_keys.add(subject_key)
@@ -592,8 +598,9 @@ def _render_yaml(draft: StewardshipDraft, stewardship: StewardshipInput) -> str:
             lines.append("      stewards: []   # TODO: human review required")
     for mapping in draft.mappings:
         citation = mapping.citations[0]
+        person_name = " ".join(mapping.person.display_name.splitlines()).strip()
+        doc_label = " ".join(citation.doc_id.splitlines()).strip()
         lines.append(
-            f"# candidate: {mapping.agent_name} <- {mapping.person.display_name} "
-            f"({citation.doc_id}:L{citation.line})"
+            f"# candidate: {mapping.agent_name} <- {person_name} ({doc_label}:L{citation.line})"
         )
     return "\n".join(lines) + "\n"

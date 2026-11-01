@@ -27,8 +27,10 @@ _CASE_PREFIX: Final[str] = "human_assignment:case:"
 
 def assignment_case_id(requester_ref: str, idempotency_key: str) -> str:
     """Derive the case id from normalized requester and idempotency identity."""
-
-    identity = f"{normalize_principal_ref(requester_ref)}\x00{idempotency_key.strip()}"
+    key = idempotency_key.strip() if isinstance(idempotency_key, str) else ""
+    if not key:
+        raise AssignmentServiceError("idempotency_key MUST be non-empty")
+    identity = f"{normalize_principal_ref(requester_ref)}\x00{key}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"human-assignment:{identity}"))
 
 
@@ -80,9 +82,9 @@ async def list_case_states(
 ) -> tuple[tuple[AssignmentCase, ...], int]:
     """Load one bounded newest-first page of assignment snapshots."""
 
-    if limit < 1 or limit > 100:
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1 or limit > 100:
         raise AssignmentServiceError("assignment case limit MUST be between 1 and 100")
-    if offset < 0 or offset > 10_000:
+    if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0 or offset > 10_000:
         raise AssignmentServiceError("assignment case cursor MUST be between 0 and 10000")
     values, total = await store.read_state_page(_CASE_PREFIX, limit=limit, offset=offset)
     return tuple(AssignmentCase.from_dict(dict(value)) for value in values), total

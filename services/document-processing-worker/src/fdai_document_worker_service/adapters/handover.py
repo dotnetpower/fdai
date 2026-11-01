@@ -131,9 +131,13 @@ class PostgresHandoverDraftStore:
     """Upsert a review-only draft into the shared state projection."""
 
     def __init__(self, *, dsn: str, connect_timeout_s: int = 10) -> None:
-        if not dsn:
+        if not isinstance(dsn, str) or not dsn.strip():
             raise ValueError("handover draft PostgreSQL DSN MUST NOT be empty")
-        if connect_timeout_s < 1:
+        if (
+            isinstance(connect_timeout_s, bool)
+            or not isinstance(connect_timeout_s, int)
+            or connect_timeout_s < 1
+        ):
             raise ValueError("handover draft connect timeout MUST be positive")
         self._dsn = dsn
         self._connect_timeout_s = connect_timeout_s

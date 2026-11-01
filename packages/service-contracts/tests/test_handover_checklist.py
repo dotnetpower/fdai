@@ -119,3 +119,67 @@ def test_self_ambiguous_identity_or_future_revision_is_not_accepted(reviewer, re
     goal["owner_review"] = review
     goal["backup_review"] = {**review, "reviewer_ref": "human:backup", "goal_revision": 8}
     assert not acceptance_complete(goal)
+
+
+def test_service_contracts_handover_hardening_rounds_h026_to_h035() -> None:
+    from fdai_service_contracts.handover import (
+        HandoverDraftOutcome,
+        HandoverPerson,
+        HandoverSourceSpan,
+        RepositoryHandoverDraft,
+        StewardKind,
+        StewardResponsibility,
+        StewardshipDraft,
+        StewardshipInput,
+        StewardshipMergeRecord,
+        StewardshipSubject,
+    )
+    from fdai_service_contracts.handover_knowledge import notice_for_source
+    from fdai_service_contracts.handover_observation import handover_observation_fields
+    from fdai_service_contracts.stewardship_activation import __all__ as activation_exports
+
+    # H026-H029: handover contract validation
+    with pytest.raises(ValueError, match="non-empty"):
+        StewardshipSubject(
+            kind=StewardKind.USER,
+            oid="   ",
+            responsibility=StewardResponsibility.ACCOUNTABLE,
+        )
+    with pytest.raises(ValueError, match="non-empty"):
+        StewardshipInput(version=1, revision="   ", maintainers=("m1",))
+    with pytest.raises(ValueError, match="non-empty"):
+        HandoverSourceSpan(doc_id="   ", line=1, quote="q")
+    with pytest.raises(ValueError, match="non-empty"):
+        HandoverPerson(display_name="   ")
+    with pytest.raises(ValueError, match="non-empty"):
+        StewardshipDraft(outcome=HandoverDraftOutcome.ABSTAINED, warnings=("   ",))
+    with pytest.raises(ValueError, match="non-empty"):
+        StewardshipMergeRecord(
+            delivery_id=" ",
+            pr_ref="p",
+            actor_identity="a",
+            merge_commit_sha="s",
+            merged_yaml="y",
+        )
+    with pytest.raises(ValueError, match="content_sha256"):
+        RepositoryHandoverDraft(
+            delivery_id="d1",
+            repository="org/repo",
+            actor_identity="u1",
+            source_ref="refs/heads/main",
+            content="hello",
+            content_sha256="0" * 64,
+        )
+
+    # H030-H035: tuple support, digest required fields, notice_for_source, observation, activation
+    goal = _goal()
+    goal["required_slots"] = tuple(HANDOVER_SLOTS)
+    goal["evidence"] = tuple(goal["evidence"])
+    assert checklist_complete(goal)
+    with pytest.raises(ValueError, match="non-empty goal_id"):
+        checklist_digest({**goal, "goal_id": "   "})
+    with pytest.raises(ValueError, match="positive integer"):
+        notice_for_source({**goal, "revision": True}, source="core", at=datetime.now(UTC))
+    observed = handover_observation_fields(goal)
+    assert len(observed["evidence"]) == len(HANDOVER_SLOTS)
+    assert "StewardshipCandidateActivationBody" in activation_exports

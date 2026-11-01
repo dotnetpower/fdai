@@ -118,6 +118,10 @@ class HandoverGoal:
             raise ValueError("goal impact MUST be explicit")
         if len(dict(self.slot_exemptions)) != len(self.slot_exemptions):
             raise ValueError("goal exemptions MUST use distinct slots")
+        for slot, reason in self.slot_exemptions:
+            HandoverSlot(slot)
+            if not isinstance(reason, str) or not 1 <= len(reason.strip()) <= 256:
+                raise ValueError("goal exemption reason MUST be non-empty bounded text")
 
     @property
     def reviewable(self) -> bool:
@@ -217,6 +221,27 @@ class HandoverInvitation:
     session_id: str
     max_questions: int
     max_minutes: int
+
+    def __post_init__(self) -> None:
+        for val, label in (
+            (self.invitation_id, "invitation_id"),
+            (self.goal_id, "goal_id"),
+            (self.prompt_ref, "prompt_ref"),
+            (self.session_id, "session_id"),
+        ):
+            if not isinstance(val, str) or not val.strip():
+                raise ValueError(f"handover invitation {label} MUST be non-empty")
+        if self.agent_name not in AGENT_NAME_SET:
+            raise ValueError("handover invitation agent_name MUST be a pantheon agent")
+        if (
+            isinstance(self.max_questions, bool)
+            or not isinstance(self.max_questions, int)
+            or self.max_questions < 1
+            or isinstance(self.max_minutes, bool)
+            or not isinstance(self.max_minutes, int)
+            or self.max_minutes < 1
+        ):
+            raise ValueError("handover invitation budgets MUST be positive integers")
 
 
 class HandoverGoalService:
@@ -474,10 +499,16 @@ class HandoverGoalService:
         self, *, goal_id: str, expected_revision: int, now: datetime | None = None
     ) -> HandoverGoal:
         current = await self.get_goal(goal_id)
+        if (
+            current.state is HandoverGoalState.DECLINED
+            and current.revision == expected_revision + 1
+        ):
+            return current
         candidate = replace(
             current,
             state=HandoverGoalState.DECLINED,
             revision=current.revision + 1,
+            snoozed_until=None,
         )
         return await self._persist(current, candidate, expected_revision, "declined", now)
 
@@ -751,7 +782,7 @@ def _digest(value: str) -> str:
 
 
 def _aware(value: datetime) -> datetime:
-    if value.tzinfo is None:
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("handover goal timestamp MUST be timezone-aware")
     return value.astimezone(UTC)
 

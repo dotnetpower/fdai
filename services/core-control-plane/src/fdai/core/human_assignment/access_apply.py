@@ -49,6 +49,8 @@ class HumanAccessApplyCoordinator:
         actor_ref: str,
         mode: Mode = Mode.SHADOW,
     ) -> HumanAccessExecution:
+        if not isinstance(actor_ref, str) or not actor_ref.strip():
+            raise ValueError("human access apply actor_ref MUST be non-empty")
         plan = await HumanAccessPlanner(self.cases, self.role_group_ids).plan(
             case_id=case_id, expected_revision=expected_revision
         )

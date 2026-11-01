@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -77,9 +78,18 @@ class HandoverKnowledgeLifecycleWorker:
     _scan_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
-        if not 0 < self.interval_seconds <= 3600:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or not 0 < self.interval_seconds <= 3600
+        ):
             raise ValueError("handover knowledge interval MUST be in (0, 3600]")
-        if not 1 <= self.batch_limit <= 1000:
+        if (
+            isinstance(self.batch_limit, bool)
+            or not isinstance(self.batch_limit, int)
+            or not 1 <= self.batch_limit <= 1000
+        ):
             raise ValueError("handover knowledge batch limit MUST be between 1 and 1000")
         if not self.topic.strip():
             raise ValueError("handover knowledge event topic MUST be non-empty")

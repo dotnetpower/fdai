@@ -34,6 +34,12 @@ class OwnershipProposal:
     candidate_digest: str
     opened_at: datetime
 
+    def __post_init__(self) -> None:
+        if not self.case_id.strip() or not self.pr_ref.strip() or not self.candidate_digest.strip():
+            raise ValueError("ownership proposal fields MUST be non-empty")
+        if self.opened_at.tzinfo is None or self.opened_at.utcoffset() is None:
+            raise ValueError("ownership proposal opened_at MUST be timezone-aware")
+
     def to_dict(self) -> dict[str, str]:
         return {
             "case_id": self.case_id,
@@ -60,6 +66,16 @@ class VerifiedOwnershipMerge:
     merge_commit_sha: str
     merged_yaml: str
     merged_at: datetime
+
+    def __post_init__(self) -> None:
+        if (
+            not self.pr_ref.strip()
+            or not self.merge_commit_sha.strip()
+            or not self.merged_yaml.strip()
+        ):
+            raise ValueError("verified ownership merge fields MUST be non-empty")
+        if self.merged_at.tzinfo is None or self.merged_at.utcoffset() is None:
+            raise ValueError("verified ownership merge merged_at MUST be timezone-aware")
 
 
 @dataclass(frozen=True, slots=True)

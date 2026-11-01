@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class HandoverContract(BaseModel):
@@ -43,6 +44,8 @@ class StewardshipSubject(HandoverContract):
 
     @model_validator(mode="after")
     def _validate_duty(self) -> StewardshipSubject:
+        if not self.oid.strip():
+            raise ValueError("stewardship subject oid MUST be non-empty")
         if self.responsibility is StewardResponsibility.INFORMED and self.duty is not None:
             raise ValueError("informed stewardship subjects MUST NOT declare a duty")
         return self
@@ -55,6 +58,14 @@ class StewardshipAgentInput(HandoverContract):
     stewards: tuple[StewardshipSubject, ...] = ()
     accept_autonomous_reason: Annotated[str, Field(min_length=1, max_length=512)] | None = None
 
+    @model_validator(mode="after")
+    def _validate_agent_input(self) -> StewardshipAgentInput:
+        if not self.agent_name.strip():
+            raise ValueError("stewardship agent_name MUST be non-empty")
+        if self.accept_autonomous_reason is not None and not self.accept_autonomous_reason.strip():
+            raise ValueError("stewardship accept_autonomous_reason MUST be non-empty")
+        return self
+
 
 class StewardshipInput(HandoverContract):
     """Bounded current stewardship state used only as a draft-generation baseline."""
@@ -63,12 +74,14 @@ class StewardshipInput(HandoverContract):
     revision: Annotated[str, Field(min_length=1, max_length=128)]
     maintainers: Annotated[tuple[str, ...], Field(min_length=1, max_length=32)]
     agents: Annotated[tuple[StewardshipAgentInput, ...], Field(max_length=64)] = ()
-    hop_timeout_seconds: Annotated[int, Field(ge=1, le=86_400)] = 900
-    over_assigned_max: Annotated[int, Field(ge=1, le=100)] = 5
+    hop_timeout_seconds: Annotated[int, Field(strict=True, ge=1, le=86_400)] = 900
+    over_assigned_max: Annotated[int, Field(strict=True, ge=1, le=100)] = 5
 
     @model_validator(mode="after")
     def _validate_unique_agents(self) -> StewardshipInput:
-        names = tuple(item.agent_name.casefold() for item in self.agents)
+        if not self.revision.strip() or any(not m.strip() for m in self.maintainers):
+            raise ValueError("stewardship input revision and maintainers MUST be non-empty")
+        names = tuple(item.agent_name.strip().casefold() for item in self.agents)
         if len(names) != len(set(names)):
             raise ValueError("stewardship input agent names MUST be unique")
         return self
@@ -86,14 +99,28 @@ class ResolvedStewardIdentity(HandoverContract):
 
 class HandoverSourceSpan(HandoverContract):
     doc_id: Annotated[str, Field(min_length=1, max_length=128)]
-    line: Annotated[int, Field(ge=1)]
+    line: Annotated[int, Field(strict=True, ge=1)]
     quote: Annotated[str, Field(min_length=1, max_length=200)]
+
+    @model_validator(mode="after")
+    def _validate_non_blank(self) -> HandoverSourceSpan:
+        if not self.doc_id.strip() or not self.quote.strip():
+            raise ValueError("handover source span doc_id and quote MUST be non-empty")
+        return self
 
 
 class HandoverPerson(HandoverContract):
     display_name: Annotated[str, Field(min_length=1, max_length=128)]
     kind: StewardKind = StewardKind.USER
     oid: Annotated[str, Field(min_length=1, max_length=256)] | None = None
+
+    @model_validator(mode="after")
+    def _validate_person(self) -> HandoverPerson:
+        if not self.display_name.strip():
+            raise ValueError("handover person display_name MUST be non-empty")
+        if self.oid is not None and not self.oid.strip():
+            raise ValueError("handover person oid MUST be non-empty when set")
+        return self
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -105,20 +132,35 @@ class HandoverMapping(HandoverContract):
     agent_name: Annotated[str, Field(min_length=1, max_length=64)]
     person: HandoverPerson
     responsibility: StewardResponsibility
-    confidence: Annotated[float, Field(ge=0.0, le=1.0)]
+    confidence: Annotated[float, Field(ge=0.0, le=1.0, allow_inf_nan=False)]
     source: Literal["deterministic", "model"] = "deterministic"
     citations: Annotated[tuple[HandoverSourceSpan, ...], Field(min_length=1)]
     rationale: Annotated[str, Field(max_length=256)] = ""
 
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def _reject_bool_confidence(cls, value: object) -> object:
+        if isinstance(value, bool) or (isinstance(value, float) and not math.isfinite(value)):
+            raise ValueError("handover mapping confidence MUST be a finite number")
+        return value
+
 
 class StewardshipDraft(HandoverContract):
-    version: Annotated[int, Field(ge=1)] = 1
+    version: Annotated[int, Field(strict=True, ge=1, le=2)] = 1
     outcome: HandoverDraftOutcome
     mappings: tuple[HandoverMapping, ...] = ()
     abstained: tuple[HandoverMapping, ...] = ()
     unresolved_people: tuple[HandoverPerson, ...] = ()
     unmapped_agents: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _validate_draft_items(self) -> StewardshipDraft:
+        if any(not agent.strip() for agent in self.unmapped_agents) or any(
+            not warning.strip() for warning in self.warnings
+        ):
+            raise ValueError("stewardship draft unmapped_agents and warnings MUST be non-empty")
+        return self
 
 
 class HandoverModelReview(HandoverContract):
@@ -219,6 +261,21 @@ class StewardshipMergeRecord(HandoverContract):
     merge_commit_sha: Annotated[str, Field(min_length=1, max_length=128)]
     merged_yaml: Annotated[str, Field(min_length=1, max_length=2_000_000)]
 
+    @model_validator(mode="after")
+    def _validate_merge_fields(self) -> StewardshipMergeRecord:
+        if any(
+            not value.strip()
+            for value in (
+                self.delivery_id,
+                self.pr_ref,
+                self.actor_identity,
+                self.merge_commit_sha,
+                self.merged_yaml,
+            )
+        ):
+            raise ValueError("stewardship merge record fields MUST be non-empty")
+        return self
+
 
 class RepositoryHandoverDraft(HandoverContract):
     """Authenticated repository input that remains inert until separate human review."""
@@ -233,3 +290,20 @@ class RepositoryHandoverDraft(HandoverContract):
     mode: Literal["shadow"] = "shadow"
     may_merge: Literal[False] = False
     may_execute: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _validate_repository_draft(self) -> RepositoryHandoverDraft:
+        if any(
+            not value.strip()
+            for value in (
+                self.delivery_id,
+                self.repository,
+                self.actor_identity,
+                self.source_ref,
+                self.content,
+            )
+        ):
+            raise ValueError("repository handover draft fields MUST be non-empty")
+        if hashlib.sha256(self.content.encode("utf-8")).hexdigest() != self.content_sha256:
+            raise ValueError("repository handover draft content_sha256 does not match content")
+        return self

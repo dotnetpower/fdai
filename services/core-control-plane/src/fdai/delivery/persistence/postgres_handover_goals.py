@@ -23,7 +23,14 @@ class PostgresHandoverGoalReader:
         self, *, limit: int, offset: int
     ) -> tuple[Sequence[Mapping[str, Any]], int]:
         """Bound one exact namespace page and remove private source fields before return."""
-        if not 1 <= limit <= 1000 or offset < 0:
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or not 1 <= limit <= 1000
+            or isinstance(offset, bool)
+            or not isinstance(offset, int)
+            or offset < 0
+        ):
             raise ValueError("handover projection page bounds are invalid")
         async with await psycopg.AsyncConnection.connect(
             self.config.dsn, row_factory=dict_row, connect_timeout=self.config.connect_timeout_s

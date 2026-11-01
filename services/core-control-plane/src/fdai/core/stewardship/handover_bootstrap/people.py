@@ -26,6 +26,12 @@ class ResolvedIdentity:
     oid: str
     kind: StewardKind = StewardKind.USER
 
+    def __post_init__(self) -> None:
+        normalized = self.oid.strip() if isinstance(self.oid, str) else ""
+        if not normalized or not isinstance(self.kind, StewardKind):
+            raise ValueError("ResolvedIdentity requires a non-empty oid and StewardKind")
+        object.__setattr__(self, "oid", normalized)
+
 
 @runtime_checkable
 class PersonDirectory(Protocol):
@@ -50,9 +56,15 @@ class StaticPersonDirectory:
     """
 
     def __init__(self, resolved: dict[str, ResolvedIdentity] | None = None) -> None:
-        self._by_name = {name.strip().casefold(): ident for name, ident in (resolved or {}).items()}
+        self._by_name = {
+            name.strip().casefold(): ident
+            for name, ident in (resolved or {}).items()
+            if isinstance(name, str) and name.strip()
+        }
 
     async def resolve(self, display_name: str) -> ResolvedIdentity | None:
+        if not isinstance(display_name, str) or not display_name.strip():
+            return None
         return self._by_name.get(display_name.strip().casefold())
 
 

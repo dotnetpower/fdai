@@ -38,7 +38,7 @@ def goal_command_digest(command: HandoverGoalCommand) -> str:
     """Bind replay identity to the entire command without retaining evidence content."""
     payload = {
         "goal_id": command.goal_id,
-        "actor": command.principal.oid.casefold(),
+        "actor": command.principal.oid.strip().casefold(),
         "operation": command.operation,
         "expected_revision": command.expected_revision,
         "reason_ref": command.reason_ref,
@@ -51,7 +51,7 @@ def goal_command_digest(command: HandoverGoalCommand) -> str:
         ),
     }
     return hashlib.sha256(
-        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     ).hexdigest()
 
 

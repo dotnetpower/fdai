@@ -49,7 +49,12 @@ class PostgresHandoverSourceReader:
             document_id, version_id = UUID(parts[1]), UUID(parts[2])
         except ValueError:
             return False
-        if evidence_ref != f"doc:{document_id}:{version_id}":
+        if (
+            evidence_ref != f"doc:{document_id}:{version_id}"
+            or not isinstance(digest, str)
+            or len(digest) != 64
+            or any(c not in "0123456789abcdef" for c in digest)
+        ):
             return False
         async with await self._connect() as connection:
             row = await (

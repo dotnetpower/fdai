@@ -69,7 +69,11 @@ class HandoverReadinessReport(BaseModel):
         if self.convergence_samples > self.cases_observed - self.cases_invalid:
             raise ValueError("convergence samples exceed verified case observations")
         for codes in (self.alerts, self.source_gaps, self.external_blockers):
-            if len(codes) > 32 or len(codes) != len(set(codes)):
+            if (
+                len(codes) > 32
+                or len(codes) != len(set(codes))
+                or any(not isinstance(c, str) or not 1 <= len(c.strip()) <= 128 for c in codes)
+            ):
                 raise ValueError("handover readiness reason codes MUST be bounded and distinct")
         return self
 

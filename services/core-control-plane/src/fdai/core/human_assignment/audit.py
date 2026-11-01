@@ -32,6 +32,10 @@ def build_assignment_audit(
     effect_kind: EffectKind | None = None,
 ) -> dict[str, Any]:
     """Build a replayable audit record without human or provider content."""
+    if not isinstance(actor_ref, str) or not actor_ref.strip():
+        raise ValueError("assignment audit actor_ref MUST be non-empty")
+    if not isinstance(timestamp, str) or not timestamp.strip():
+        raise ValueError("assignment audit timestamp MUST be non-empty")
 
     entry: dict[str, Any] = {
         "event_id": str(uuid.uuid4()),
@@ -45,7 +49,7 @@ def build_assignment_audit(
         "intent_digest": intent_digest(case.intent),
         "revision": case.revision,
         "rollback_reference": "forward-repair",
-        "timestamp": timestamp,
+        "timestamp": timestamp.strip(),
     }
     if effect_kind is not None:
         entry["effect_kind"] = effect_kind.value
@@ -55,7 +59,7 @@ def build_assignment_audit(
 def intent_digest(intent: AssignmentIntent) -> str:
     """Return a deterministic digest of immutable assignment intent."""
 
-    canonical = json.dumps(intent.to_dict(), sort_keys=True, separators=(",", ":"))
+    canonical = json.dumps(intent.to_dict(), sort_keys=True, separators=(",", ":"), allow_nan=False)
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 

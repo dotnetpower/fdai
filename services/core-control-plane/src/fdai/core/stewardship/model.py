@@ -70,8 +70,12 @@ class StewardSubject:
     duty: Duty | None = None
 
     def __post_init__(self) -> None:
-        if not self.id.strip():
+        normalized = self.id.strip() if isinstance(self.id, str) else ""
+        if not normalized:
             raise StewardshipValidationError("StewardSubject id MUST be non-empty")
+        if self.responsibility is Responsibility.INFORMED and self.duty is not None:
+            raise StewardshipValidationError("informed steward subject MUST NOT declare a duty")
+        object.__setattr__(self, "id", normalized)
 
     @property
     def is_accountable(self) -> bool:
@@ -92,6 +96,24 @@ class AgentStewardship:
     agent_name: str
     stewards: tuple[StewardSubject, ...] = ()
     accept_autonomous_reason: str | None = None
+
+    def __post_init__(self) -> None:
+        name = self.agent_name.strip() if isinstance(self.agent_name, str) else ""
+        if not name:
+            raise StewardshipValidationError("AgentStewardship agent_name MUST be non-empty")
+        object.__setattr__(self, "agent_name", name)
+        object.__setattr__(self, "stewards", tuple(self.stewards))
+        if self.accept_autonomous_reason is not None:
+            reason = (
+                self.accept_autonomous_reason.strip()
+                if isinstance(self.accept_autonomous_reason, str)
+                else ""
+            )
+            if not reason:
+                raise StewardshipValidationError(
+                    "AgentStewardship accept_autonomous_reason MUST be non-empty when set"
+                )
+            object.__setattr__(self, "accept_autonomous_reason", reason)
 
     @property
     def is_autonomous(self) -> bool:
@@ -141,6 +163,12 @@ class Maintainer:
 
     oid: str
 
+    def __post_init__(self) -> None:
+        normalized = self.oid.strip() if isinstance(self.oid, str) else ""
+        if not normalized:
+            raise StewardshipValidationError("Maintainer oid MUST be non-empty")
+        object.__setattr__(self, "oid", normalized)
+
 
 @dataclass(frozen=True, slots=True)
 class StewardshipMap:
@@ -159,6 +187,25 @@ class StewardshipMap:
     over_assigned_max: int = 5
 
     def __post_init__(self) -> None:
+        if isinstance(self.version, bool) or self.version not in {1, 2}:
+            raise StewardshipValidationError("StewardshipMap version MUST be 1 or 2")
+        if (
+            isinstance(self.hop_timeout_seconds, bool)
+            or not isinstance(self.hop_timeout_seconds, int)
+            or self.hop_timeout_seconds <= 0
+        ):
+            raise StewardshipValidationError(
+                "StewardshipMap hop_timeout_seconds MUST be a positive integer"
+            )
+        if (
+            isinstance(self.over_assigned_max, bool)
+            or not isinstance(self.over_assigned_max, int)
+            or self.over_assigned_max <= 0
+        ):
+            raise StewardshipValidationError(
+                "StewardshipMap over_assigned_max MUST be a positive integer"
+            )
+        object.__setattr__(self, "maintainers", tuple(self.maintainers))
         # Freeze the mappings so a caller cannot mutate them after validation.
         object.__setattr__(self, "channels", MappingProxyType(dict(self.channels)))
         object.__setattr__(self, "agents", MappingProxyType(dict(self.agents)))

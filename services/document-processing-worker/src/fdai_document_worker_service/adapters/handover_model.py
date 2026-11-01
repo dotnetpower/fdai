@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit
@@ -130,9 +131,20 @@ class AzureReviewedHandoverInterpreter:
             reviewer.family.casefold(),
         ):
             raise ValueError("handover author and reviewer targets MUST be independent")
-        if not author_prompt.strip() or not reviewer_prompt.strip() or max_input_bytes < 1:
+        if (
+            not author_prompt.strip()
+            or not reviewer_prompt.strip()
+            or isinstance(max_input_bytes, bool)
+            or not isinstance(max_input_bytes, int)
+            or max_input_bytes < 1
+        ):
             raise ValueError("handover model prompts and input budget are required")
-        if not 0 < timeout_seconds <= 30:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not isinstance(timeout_seconds, (int, float))
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 30
+        ):
             raise ValueError("handover model deadline MUST be in (0, 30]")
         self._author, self._reviewer = author, reviewer
         self._credential, self._client, self._reservations = credential, client, reservations

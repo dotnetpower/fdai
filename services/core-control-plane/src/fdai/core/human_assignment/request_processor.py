@@ -219,16 +219,25 @@ class AssignmentRequestProcessor:
         reason = self.intake.receipt_reason(notice, record, at=at)
         if reason != "verified_operator_receipt" or record is None:
             raise PermissionError(reason)
-        payload = record["payload"]
+        payload = record.get("payload")
+        if not isinstance(payload, Mapping):
+            raise ValueError("assignment request payload MUST be a mapping")
         if notice.schema_version != "1.1.0":
             removal = payload.get("revocation") is not None
             if notice.operation != "assignments.create":
                 removal = (await self._case(payload)).intent.revocation is not None
             if removal:
                 raise ValueError("revocation commands require transport version 1.1.0")
-        principal = payload["principal"]
+        principal = payload.get("principal")
+        if (
+            not isinstance(principal, Mapping)
+            or not isinstance(principal.get("oid"), str)
+            or not principal["oid"].strip()
+            or not isinstance(principal.get("roles"), (list, tuple))
+        ):
+            raise ValueError("assignment request principal is malformed")
         return payload, Principal(
-            oid=principal["oid"],
+            oid=principal["oid"].strip(),
             roles=frozenset(Role(role) for role in principal["roles"]),
         )
 

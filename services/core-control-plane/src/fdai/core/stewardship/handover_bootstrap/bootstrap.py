@@ -56,17 +56,24 @@ class HandoverBootstrapper:
         directory: PersonDirectory | None = None,
         confidence_floor: float = _DEFAULT_CONFIDENCE_FLOOR,
     ) -> None:
-        if not 0.0 <= confidence_floor <= 1.0:
+        if (
+            isinstance(confidence_floor, bool)
+            or not isinstance(confidence_floor, (int, float))
+            or not math.isfinite(confidence_floor)
+            or not 0.0 <= confidence_floor <= 1.0
+        ):
             raise ValueError("confidence_floor MUST be in [0, 1]")
         self._extractor = extractor or DeterministicExtractor()
         self._interpreter = interpreter or AbstainingInterpreter()
         self._directory = directory or NullPersonDirectory()
-        self._floor = confidence_floor
+        self._floor = float(confidence_floor)
 
     async def bootstrap(
         self, documents: tuple[HandoverDocument, ...], *, version: int = 1
     ) -> StewardMapDraft:
         """Produce a reviewable :class:`StewardMapDraft` from ``documents``."""
+        if isinstance(version, bool) or version not in {1, 2}:
+            raise ValueError("bootstrap version MUST be 1 or 2")
         candidates: list[ExtractedMapping] = []
         for document in documents:
             candidates.extend(self._extractor.extract(document))
@@ -125,10 +132,10 @@ class HandoverBootstrapper:
     async def _resolve_identities(
         self, candidates: list[ExtractedMapping]
     ) -> list[ExtractedMapping]:
-        cache: dict[str, PersonRef] = {}
+        cache: dict[tuple[str, str], PersonRef] = {}
         out: list[ExtractedMapping] = []
         for mapping in candidates:
-            key = mapping.person.display_name.strip().casefold()
+            key = (mapping.person.kind.value, mapping.person.display_name.strip().casefold())
             person = cache.get(key)
             if person is None:
                 identity = await self._directory.resolve(mapping.person.display_name)
@@ -168,7 +175,15 @@ def _dedupe_highest_confidence(
             mapping.responsibility.value,
         )
         current = best.get(key)
-        if current is None or mapping.confidence > current.confidence:
+        if (
+            current is None
+            or mapping.confidence > current.confidence
+            or (
+                mapping.confidence == current.confidence
+                and mapping.source is MappingSource.DETERMINISTIC
+                and current.source is not MappingSource.DETERMINISTIC
+            )
+        ):
             best[key] = mapping
     return tuple(
         sorted(best.values(), key=lambda m: (m.agent_name, -m.confidence, m.person.display_name))
@@ -176,10 +191,13 @@ def _dedupe_highest_confidence(
 
 
 def _distinct_unresolved(mappings: tuple[ExtractedMapping, ...]) -> tuple[PersonRef, ...]:
-    seen: dict[str, PersonRef] = {}
+    seen: dict[tuple[str, str], PersonRef] = {}
     for mapping in mappings:
         if mapping.person.unresolved:
-            seen.setdefault(mapping.person.display_name.strip().casefold(), mapping.person)
+            seen.setdefault(
+                (mapping.person.kind.value, mapping.person.display_name.strip().casefold()),
+                mapping.person,
+            )
     return tuple(seen.values())
 
 

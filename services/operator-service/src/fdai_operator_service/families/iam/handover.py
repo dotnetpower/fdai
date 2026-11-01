@@ -70,7 +70,7 @@ def make_handover_routes(
         if outbox is None:
             return error_response(503, "handover goal outbox is not configured")
         session_id = request.query_params.get("session_id", "").strip()
-        if not session_id:
+        if not session_id or len(session_id) > 256 or any(ord(c) < 32 for c in session_id):
             return error_response(400, "session_id is required")
         try:
             result = await outbox.invitation_for_session(
@@ -224,7 +224,7 @@ def _command_from_body(
 
 def _required_text(body: dict[str, Any], key: str) -> str:
     value = body.get(key)
-    if not isinstance(value, str):
+    if not isinstance(value, str) or not value.strip():
         raise IamFamilyError(f"{key} is required")
     return value
 

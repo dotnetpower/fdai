@@ -212,3 +212,153 @@ def test_channel_binding_requires_uuid_key(valid_raw: dict) -> None:
     valid_raw["stewardship"]["channels"] = {"not-an-oid": "teams-hil-prd"}
     with pytest.raises(StewardshipValidationError, match="valid Entra object id"):
         load_stewardship_from_mapping(valid_raw)
+
+
+def test_stewardship_hardening_rounds_h001_to_h016(
+    valid_raw: dict[str, object], oid: object
+) -> None:
+    from fdai.core.stewardship.coverage import (
+        Finding,
+        Severity,
+        audit_stale_oids,
+        build_coverage_report,
+    )
+    from fdai.core.stewardship.directory import StaticGroupMembershipProvider
+    from fdai.core.stewardship.escalation import (
+        affected_agents_from_stewardship_change,
+        affected_agents_from_workflow,
+        resolve_person_channel,
+        stakeholders_for_change,
+    )
+    from fdai.core.stewardship.governance import StewardshipGovernanceResult
+    from fdai.core.stewardship.migration import migrate_stewardship_mapping_to_v2
+    from fdai.core.stewardship.model import (
+        AgentStewardship,
+        Maintainer,
+        StewardshipMap,
+        StewardSubject,
+    )
+    from fdai.core.stewardship.notify import StewardshipChangeEvent
+
+    # H001-H003: model validation
+    with pytest.raises(StewardshipValidationError, match="Maintainer oid"):
+        Maintainer("   ")
+    with pytest.raises(StewardshipValidationError, match="informed steward subject"):
+        StewardSubject(StewardKind.USER, oid(1), Responsibility.INFORMED, Duty.BACKUP)
+    with pytest.raises(StewardshipValidationError, match="agent_name MUST be non-empty"):
+        AgentStewardship(agent_name=" ")
+    with pytest.raises(StewardshipValidationError, match="accept_autonomous_reason"):
+        AgentStewardship(agent_name="Loki", accept_autonomous_reason="   ")
+
+    # H004: bool rejection in hop_timeout_seconds and over_assigned_max
+    bad_timeout = dict(valid_raw)
+    bad_timeout["stewardship"] = {
+        **valid_raw["stewardship"],
+        "escalation": {"hop_timeout_seconds": True},
+    }
+    with pytest.raises(StewardshipValidationError, match="positive integer"):
+        load_stewardship_from_mapping(bad_timeout)
+
+    bad_threshold = dict(valid_raw)
+    bad_threshold["stewardship"] = {
+        **valid_raw["stewardship"],
+        "thresholds": {"over_assigned_max": True},
+    }
+    with pytest.raises(StewardshipValidationError, match="positive integer"):
+        load_stewardship_from_mapping(bad_threshold)
+
+    # H005: case-insensitive duplicate real maintainers
+    real_a = "10000000" + "-0000-0000-0000-00000000000a"
+    dup_maint = dict(valid_raw)
+    dup_maint["stewardship"] = {
+        **valid_raw["stewardship"],
+        "maintainers": [{"oid": real_a}, {"oid": f" {real_a.upper()} "}],
+    }
+    with pytest.raises(StewardshipValidationError, match="distinct Entra object ids"):
+        load_stewardship_from_mapping(dup_maint)
+
+    # H006: duplicate case-folded channel OIDs
+    dup_chan = dict(valid_raw)
+    chan_oid = "00000000-0000-0000-0000-0000000000aa"
+    dup_chan["stewardship"] = {
+        **valid_raw["stewardship"],
+        "channels": {chan_oid: "ch-1", chan_oid.upper(): "ch-2"},
+    }
+    with pytest.raises(StewardshipValidationError, match="duplicate Entra object id"):
+        load_stewardship_from_mapping(dup_chan)
+
+    # H007: duplicate steward in env tokens
+    env_tokens = f"user:{chan_oid}:accountable,user:{chan_oid.upper()}:informed"
+    with pytest.raises(StewardshipValidationError, match="duplicate steward"):
+        load_stewardship_from_mapping(
+            valid_raw,
+            environ={"FDAI_STEWARD_THOR": env_tokens},
+        )
+
+    # H008: Finding agent validation
+    with pytest.raises(ValueError, match="pantheon agent"):
+        Finding(code="c", severity=Severity.WARN, message="m", agent="UnknownAgent")
+
+    # H010: StaticGroupMembershipProvider strips whitespace
+    provider = StaticGroupMembershipProvider({" grp-1 ": (" u-1 ", "")})
+    import asyncio
+
+    assert asyncio.run(provider.members_of("grp-1")) == ("u-1",)
+
+    # H011-H013: resolve_person_channel, workflow set/frozenset, version change
+    valid_raw["stewardship"]["channels"] = {chan_oid: "teams-custom"}
+    mp = load_stewardship_from_mapping(valid_raw)
+    assert resolve_person_channel(mp, f" {chan_oid.upper()} ", "fallback") == "teams-custom"
+    assert affected_agents_from_workflow({"owners": frozenset({"Thor", "Odin"})}) == frozenset(
+        {"Thor", "Odin"}
+    )
+    mp_v2 = StewardshipMap(
+        version=2,
+        maintainers=mp.maintainers,
+        agents=mp.agents,
+        channels=mp.channels,
+        hop_timeout_seconds=mp.hop_timeout_seconds,
+        over_assigned_max=mp.over_assigned_max,
+    )
+    assert len(affected_agents_from_stewardship_change(mp, mp_v2)) == 15
+    assert len(stakeholders_for_change(mp, ("Thor",))) >= 2
+
+    # H014: migration preserves explicit escalation duty on secondary steward
+    v1_for_mig = load_stewardship_from_mapping(valid_raw)
+    assert build_coverage_report(v1_for_mig).total_agents == 15
+    calls: list[str] = []
+
+    class _CountingDir:
+        async def is_active(self, check_oid: str) -> bool:
+            calls.append(check_oid)
+            return True
+
+    # H009: deduplicated is_active calls per distinct user OID
+    asyncio.run(audit_stale_oids(mp, _CountingDir()))
+    assert len(calls) == len({s.casefold() for s in calls})
+
+    for idx, agent in enumerate(valid_raw["stewardship"]["agents"].values()):
+        stewards = agent.get("stewards", [])
+        if stewards:
+            stewards.append(
+                {
+                    "kind": "user",
+                    "id": f" {oid(700 + idx)} ",
+                    "responsibility": "accountable",
+                }
+            )
+    migrated = migrate_stewardship_mapping_to_v2(valid_raw)
+    assert migrated["stewardship"]["agents"]["Thor"]["stewards"][1]["duty"] == "backup"
+    assert migrated["stewardship"]["agents"]["Thor"]["stewards"][1]["id"] == oid(701)
+
+    # H015-H016: StewardshipChangeEvent & StewardshipGovernanceResult invariants
+    with pytest.raises(ValueError, match="valid pantheon agents"):
+        StewardshipChangeEvent(
+            actor_oid=oid(1),
+            artifact="config/agent-stewardship.yaml",
+            affected_agents=("NotAnAgent",),
+            summary="bad",
+            correlation_id="corr-1",
+        )
+    with pytest.raises(ValueError, match="published=True requires a receipt"):
+        StewardshipGovernanceResult(published=True, receipt=None, idempotency_key="k1")

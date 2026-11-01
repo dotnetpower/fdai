@@ -80,6 +80,15 @@ class HandoverDocument:
     text: str
     title: str | None = None
 
+    def __post_init__(self) -> None:
+        doc_id = self.doc_id.strip() if isinstance(self.doc_id, str) else ""
+        if not doc_id or not isinstance(self.kind, DocumentKind) or not isinstance(self.text, str):
+            raise ValueError("HandoverDocument requires a non-empty doc_id, DocumentKind, and text")
+        object.__setattr__(self, "doc_id", doc_id)
+        if self.title is not None:
+            normalized_title = self.title.strip() if isinstance(self.title, str) else ""
+            object.__setattr__(self, "title", normalized_title or None)
+
 
 @dataclass(frozen=True, slots=True)
 class SourceSpan:
@@ -92,6 +101,10 @@ class SourceSpan:
     doc_id: str
     line: int
     quote: str
+
+    def __post_init__(self) -> None:
+        if isinstance(self.line, bool) or not isinstance(self.line, int) or self.line < 1:
+            raise ValueError("SourceSpan line MUST be a 1-based positive integer")
 
     def to_dict(self) -> dict[str, object]:
         return {"doc_id": self.doc_id, "line": self.line, "quote": self.quote}
@@ -109,6 +122,13 @@ class PersonRef:
     display_name: str
     kind: StewardKind = StewardKind.USER
     oid: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.kind, StewardKind):
+            raise ValueError("PersonRef kind MUST be a StewardKind")
+        if self.oid is not None:
+            normalized_oid = self.oid.strip() if isinstance(self.oid, str) else ""
+            object.__setattr__(self, "oid", normalized_oid or None)
 
     @property
     def unresolved(self) -> bool:
@@ -176,6 +196,19 @@ class StewardMapDraft:
     unresolved_people: tuple[PersonRef, ...] = ()
     unmapped_agents: tuple[str, ...] = ()
     warnings: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        if isinstance(self.version, bool) or self.version not in {1, 2}:
+            raise ValueError("StewardMapDraft version MUST be 1 or 2")
+        if not isinstance(self.outcome, DraftOutcome):
+            raise ValueError("StewardMapDraft outcome MUST be a DraftOutcome")
+        object.__setattr__(self, "mappings", tuple(self.mappings))
+        object.__setattr__(self, "abstained", tuple(self.abstained))
+        object.__setattr__(self, "unresolved_people", tuple(self.unresolved_people))
+        object.__setattr__(self, "unmapped_agents", tuple(self.unmapped_agents))
+        object.__setattr__(self, "warnings", tuple(self.warnings))
+        if (self.outcome is DraftOutcome.DRAFTED) != bool(self.mappings):
+            raise ValueError("StewardMapDraft outcome MUST match whether mappings are non-empty")
 
     def to_dict(self) -> dict[str, object]:
         return {

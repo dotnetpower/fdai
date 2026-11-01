@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -289,6 +290,7 @@ class ScopedDutyPolicy:
         if (
             isinstance(self.read_timeout_seconds, bool)
             or not isinstance(self.read_timeout_seconds, (int, float))
+            or not math.isfinite(self.read_timeout_seconds)
             or not 0 < self.read_timeout_seconds <= 30
         ):
             raise ScopedDutyValidationError(
@@ -297,6 +299,7 @@ class ScopedDutyPolicy:
         if (
             isinstance(self.total_timeout_seconds, bool)
             or not isinstance(self.total_timeout_seconds, int | float)
+            or not math.isfinite(self.total_timeout_seconds)
             or not 0 < self.total_timeout_seconds <= 120
         ):
             raise ScopedDutyValidationError("total plan timeout MUST be within (0, 120] seconds")

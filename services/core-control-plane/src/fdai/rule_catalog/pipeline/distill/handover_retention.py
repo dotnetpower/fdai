@@ -15,10 +15,17 @@ def retention_descriptor(
 ) -> dict[str, Any]:
     """Retain exact source policy separately from candidate text so scrubbed claims stay fenced."""
     documents = []
+    seen_versions: set[tuple[str, str]] = set()
     for envelope in envelopes:
         manifest = envelope.artifact_manifest
         if manifest is None:
             raise ValueError("semantic package retention requires the original artifact manifest")
+        doc_key = (str(envelope.document_id), str(envelope.version_id))
+        if doc_key in seen_versions:
+            raise ValueError(
+                "semantic package retention requires distinct source document versions"
+            )
+        seen_versions.add(doc_key)
         documents.append(
             {
                 "document_id": str(envelope.document_id),

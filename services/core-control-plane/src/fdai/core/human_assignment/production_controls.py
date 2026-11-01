@@ -51,7 +51,11 @@ class AssignmentReconciler:
     """Project held work for operator recovery without invoking a provider."""
 
     def __init__(self, *, store: StateStore, scan_limit: int = 500) -> None:
-        if not 1 <= scan_limit <= 10_000:
+        if (
+            isinstance(scan_limit, bool)
+            or not isinstance(scan_limit, int)
+            or not 1 <= scan_limit <= 10_000
+        ):
             raise ValueError("assignment reconciliation scan_limit is invalid")
         self._store = store
         self._scan_limit = scan_limit
@@ -65,7 +69,7 @@ class AssignmentReconciler:
         durable case/revision audit claims prevent duplicate observations from creating effects.
         """
         timestamp = at or datetime.now(UTC)
-        if timestamp.tzinfo is None:
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             raise ValueError("assignment reconciliation timestamp MUST be timezone-aware")
         async with self._scan_lock:
             return await self._plan_page(timestamp)

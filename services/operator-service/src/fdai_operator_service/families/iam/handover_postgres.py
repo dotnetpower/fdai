@@ -18,6 +18,15 @@ class PostgresHandoverActivityGuard:
     connect_timeout_s: int = 10
     statement_timeout_ms: int = 10_000
 
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.connect_timeout_s, bool)
+            or self.connect_timeout_s < 1
+            or isinstance(self.statement_timeout_ms, bool)
+            or self.statement_timeout_ms < 1
+        ):
+            raise ValueError("handover activity guard timeouts MUST be positive integers")
+
     async def may_invite(self) -> bool:
         try:
             async with await psycopg.AsyncConnection.connect(
@@ -75,6 +84,15 @@ class PostgresHandoverEvidenceVerifier:
     dsn: str
     connect_timeout_s: int = 10
     statement_timeout_ms: int = 10_000
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.connect_timeout_s, bool)
+            or self.connect_timeout_s < 1
+            or isinstance(self.statement_timeout_ms, bool)
+            or self.statement_timeout_ms < 1
+        ):
+            raise ValueError("handover evidence verifier timeouts MUST be positive integers")
 
     async def verify(
         self,

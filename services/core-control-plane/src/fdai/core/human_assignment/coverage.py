@@ -23,7 +23,8 @@ def normalize_principal_ref(value: str) -> str:
 
 def required_review_quorum(role: Role) -> int:
     """Return the independent Owner-review count required by ``role``."""
-
+    if role is Role.BREAK_GLASS:
+        raise AssignmentCoverageError("BreakGlass role has no routine review quorum")
     return 2 if role in {Role.APPROVER, Role.OWNER} else 1
 
 
@@ -38,6 +39,8 @@ def validate_duty_bindings(bindings: Iterable[DutyBinding]) -> None:
                 "one subject cannot hold multiple duties for the same agent and scope"
             )
         seen.add(key)
+    if not seen:
+        raise AssignmentCoverageError("at least one duty binding is required")
 
 
 def validate_reviewer(

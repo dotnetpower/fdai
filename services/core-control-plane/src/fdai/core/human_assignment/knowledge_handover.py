@@ -195,6 +195,10 @@ async def publish_knowledge_conflict(
 
     if left.goal_ref != right.goal_ref or left.claim_key != right.claim_key:
         raise ValueError("knowledge conflict claims MUST address the same goal and claim key")
+    if not isinstance(topic, str) or not topic.strip():
+        raise ValueError("knowledge conflict topic MUST be non-empty")
+    if now is not None and (now.tzinfo is None or now.utcoffset() is None):
+        raise ValueError("knowledge conflict timestamp MUST be timezone-aware")
     if left.evidence_digest == right.evidence_digest:
         return None
     timestamp = (now or datetime.now(UTC)).astimezone(UTC)

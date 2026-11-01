@@ -34,6 +34,15 @@ def _new_goal(
     source_revision: str,
     now: datetime,
 ) -> dict[str, object]:
+    for val, label in (
+        (goal_id, "goal_id"),
+        (subject_ref, "subject_ref"),
+        (agent_name, "agent_name"),
+        (source_revision, "source_revision"),
+    ):
+        if not isinstance(val, str) or not val.strip():
+            raise ValueError(f"handover {label} MUST be non-empty")
+    timestamp = _aware(now)
     return {
         "goal_id": goal_id,
         "subject_ref": subject_ref,
@@ -47,7 +56,7 @@ def _new_goal(
         "evidence": [],
         "not_applicable_reason_ref": None,
         "snoozed_until": None,
-        "created_at": now.isoformat(),
+        "created_at": timestamp.isoformat(),
         "execution_authority": False,
         **checklist_defaults(),
     }

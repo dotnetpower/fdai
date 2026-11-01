@@ -23,12 +23,17 @@ class AssignmentIamRequestReader:
         if set(notice) != {"case_id", "expected_revision", "ownership_digest", "ownership_ref"}:
             raise ValueError("IAM request notice fields are invalid")
         case_id, revision = notice["case_id"], notice["expected_revision"]
+        ownership_digest, ownership_ref = notice["ownership_digest"], notice["ownership_ref"]
         if (
             not isinstance(case_id, str)
-            or not 1 <= len(case_id) <= 256
+            or not 1 <= len(case_id.strip()) <= 256
             or not isinstance(revision, int)
             or isinstance(revision, bool)
             or revision < 1
+            or not isinstance(ownership_digest, str)
+            or not ownership_digest.strip()
+            or not isinstance(ownership_ref, str)
+            or not ownership_ref.strip()
         ):
             raise ValueError("IAM request identity and revision are invalid")
         case = await self.cases.get_case(case_id)

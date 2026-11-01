@@ -639,7 +639,7 @@ def _effect_by(case: AssignmentCase, kind: EffectKind) -> EffectReceipt | None:
 
 def _timestamp(value: datetime | None) -> datetime:
     timestamp = value or datetime.now(UTC)
-    if timestamp.tzinfo is None:
+    if timestamp.tzinfo is None or timestamp.utcoffset() is None:
         raise AssignmentServiceError("assignment timestamp MUST be timezone-aware")
     return timestamp.astimezone(UTC)
 

@@ -213,3 +213,70 @@ def test_parser_ignores_other_operations_and_bad_principals() -> None:
     assert parse_activation_request(base) is not None
     assert parse_activation_request({**base, "operation": "code_security.scan_request"}) is None
     assert parse_activation_request({**base, "principal_id": "bad principal"}) is None
+    assert (
+        parse_activation_request(
+            {
+                **base,
+                "payload": {**base["payload"], "principal_roles": [123]},
+            }
+        )
+        is None
+    )
+
+
+def test_runtime_and_delivery_hardening_rounds_h066_to_h081() -> None:
+    from datetime import UTC, datetime, timedelta
+
+    from fdai.delivery.identity.handover_review_identity import HandoverIdentityFacts
+    from fdai.runtime.handover_knowledge_lifecycle import HandoverKnowledgeLifecycleWorker
+    from fdai.runtime.human_assignment_reconciliation import AssignmentReconciliationWorker
+    from fdai.runtime.stewardship_activation import StewardshipActivationProcessor
+    from fdai.runtime.stewardship_governance import StewardshipGovernanceWorker
+    from fdai.runtime.stewardship_identity_health import StewardshipIdentityHealthWorker
+    from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
+
+    store = InMemoryStateStore()
+    with pytest.raises(ValueError, match="between 1 and 1000"):
+        StewardshipActivationProcessor(store=store, batch_limit=True)
+    with pytest.raises(ValueError, match="interval MUST be in"):
+        HandoverKnowledgeLifecycleWorker(
+            store=store,
+            bus=None,
+            topic="t1",
+            interval_seconds=True,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="interval MUST be positive"):
+        StewardshipGovernanceWorker(
+            store=store,
+            governance=None,
+            interval_seconds=True,  # type: ignore[arg-type]
+        )
+    with pytest.raises(ValueError, match="at least 60 seconds"):
+        StewardshipIdentityHealthWorker(
+            store=store,
+            stewardship=None,  # type: ignore[arg-type]
+            directory=None,  # type: ignore[arg-type]
+            interval_seconds=True,
+        )
+    with pytest.raises(ValueError, match="interval MUST be positive"):
+        StewardshipMergeEffectsWorker(
+            store=store,
+            base=None,  # type: ignore[arg-type]
+            notifications=None,  # type: ignore[arg-type]
+            interval_seconds=True,
+        )
+    with pytest.raises(ValueError, match="interval MUST be positive"):
+        AssignmentReconciliationWorker(
+            reconciler=None,
+            interval_seconds=float("nan"),  # type: ignore[arg-type]
+        )
+    now = datetime(2026, 9, 1, tzinfo=UTC)
+    facts = HandoverIdentityFacts(
+        subject_ref="s1",
+        roles=("Reader",),
+        group_ids=("g1",),
+        observed_at=now,
+        expires_at=now + timedelta(minutes=5),
+    )
+    with pytest.raises(ValueError, match="timezone-aware"):
+        facts.current(datetime(2026, 9, 1))

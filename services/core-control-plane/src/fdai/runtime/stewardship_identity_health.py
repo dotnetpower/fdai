@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -36,11 +37,12 @@ class _CachedIdentityDirectory(IdentityDirectory):
     cache: dict[str, bool] = field(default_factory=dict)
 
     async def is_active(self, oid: str) -> bool:
-        if oid in self.cache:
-            return self.cache[oid]
-        identity = await self.directory.get_by_subject_id(oid)
+        key = oid.strip().casefold()
+        if key in self.cache:
+            return self.cache[key]
+        identity = await self.directory.get_by_subject_id(oid.strip())
         active = identity is not None and identity.active
-        self.cache[oid] = active
+        self.cache[key] = active
         return active
 
 
@@ -54,7 +56,12 @@ class StewardshipIdentityHealthWorker:
     interval_seconds: float = 3600.0
 
     def __post_init__(self) -> None:
-        if self.interval_seconds < 60:
+        if (
+            isinstance(self.interval_seconds, bool)
+            or not isinstance(self.interval_seconds, (int, float))
+            or not math.isfinite(self.interval_seconds)
+            or self.interval_seconds < 60
+        ):
             raise ValueError("stewardship identity audit interval MUST be at least 60 seconds")
 
     async def run_once(self) -> str:

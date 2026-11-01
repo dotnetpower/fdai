@@ -28,6 +28,8 @@ class HandoverIdentityFacts:
 
     def current(self, at: datetime) -> bool:
         """A caller may only shorten the original five-minute directory evidence window."""
+        if not isinstance(at, datetime) or at.tzinfo is None or at.utcoffset() is None:
+            raise ValueError("handover identity clock MUST be timezone-aware")
         return self.observed_at <= at < self.expires_at
 
 

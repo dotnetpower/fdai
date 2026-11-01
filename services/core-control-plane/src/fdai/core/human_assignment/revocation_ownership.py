@@ -36,6 +36,7 @@ def render_revocation_ownership_yaml(
         or original.state is not AssignmentState.DEGRADED
         or original.degraded_reason != "revocation_pending"
         or original.intent.subject != removal.intent.subject
+        or removal.intent.subject.provider != "entra"
         or original.intent.requested_role is not removal.intent.requested_role
         or original.intent.duty_bindings != removal.intent.duty_bindings
     ):

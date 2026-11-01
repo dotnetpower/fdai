@@ -122,6 +122,7 @@ class ScopedDutyCase(BaseModel):
         if (
             self.requester_ref != self.requester_ref.casefold()
             or self.execution_authority is not False
+            or not self.justification.strip()
         ):
             raise ValueError("scoped case requires canonical identity and no execution authority")
         if utc_instant(self.updated_at) < utc_instant(self.created_at):

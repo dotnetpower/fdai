@@ -58,6 +58,14 @@ class StewardshipGovernanceResult:
             raise ValueError(
                 "StewardshipGovernanceResult requires boolean published and idempotency_key"
             )
+        if self.published and (self.receipt is None or self.reason is not None):
+            raise ValueError(
+                "StewardshipGovernanceResult published=True requires a receipt and no skip reason"
+            )
+        if not self.published and self.receipt is not None:
+            raise ValueError(
+                "StewardshipGovernanceResult published=False MUST NOT attach a publish receipt"
+            )
 
 
 def stewardship_idempotency_key(artifact: HandoverDraftArtifact) -> str:

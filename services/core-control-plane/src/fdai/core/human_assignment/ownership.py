@@ -23,6 +23,8 @@ def render_assignment_ownership_yaml(base: StewardshipMap, intent: AssignmentInt
         raise AssignmentOwnershipError(
             "revocation requires the independently verified removal path"
         )
+    if intent.subject.provider != "entra":
+        raise AssignmentOwnershipError("stewardship ownership supports only provider 'entra'")
     if not intent.duty_bindings:
         raise AssignmentOwnershipError("assignment requires at least one duty binding")
     unsupported = sorted(

@@ -20,3 +20,11 @@ class StewardshipCandidateActivationBody(BaseModel):
 
     candidate_id: str = Field(pattern=CANDIDATE_ID_PATTERN)
     candidate_digest: str = Field(pattern=CANDIDATE_DIGEST_PATTERN)
+
+
+__all__ = [
+    "CANDIDATE_DIGEST_PATTERN",
+    "CANDIDATE_ID_PATTERN",
+    "STEWARDSHIP_ACTIVATION_OPERATION",
+    "StewardshipCandidateActivationBody",
+]

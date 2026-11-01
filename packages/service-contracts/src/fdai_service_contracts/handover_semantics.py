@@ -91,6 +91,8 @@ class HandoverSemanticReceipt(BaseModel):
             raise ValueError("held semantic receipt cannot advertise available candidates")
         if self.rule_count + self.ontology_count > 20:
             raise ValueError("semantic receipt exceeds its combined candidate bound")
+        if self.source_id == self.package_digest or self.compiler_digest == self.package_digest:
+            raise ValueError("semantic receipt package_digest MUST be distinct from input digests")
         return self
 
 

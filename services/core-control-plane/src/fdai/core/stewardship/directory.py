@@ -70,10 +70,18 @@ class StaticGroupMembershipProvider:
     """In-memory :class:`GroupMembershipProvider` for tests / upstream default."""
 
     def __init__(self, members: dict[str, tuple[str, ...]] | None = None) -> None:
-        self._members = dict(members or {})
+        if members is not None and not isinstance(members, dict):
+            raise ValueError("members MUST be a mapping when provided")
+        self._members: dict[str, tuple[str, ...]] = {
+            group_oid.strip(): tuple(
+                m.strip() for m in member_oids if isinstance(m, str) and m.strip()
+            )
+            for group_oid, member_oids in (members or {}).items()
+            if isinstance(group_oid, str) and group_oid.strip()
+        }
 
     async def members_of(self, group_oid: str) -> tuple[str, ...]:
-        return self._members.get(group_oid, ())
+        return self._members.get(group_oid.strip(), ())
 
 
 __all__ = [

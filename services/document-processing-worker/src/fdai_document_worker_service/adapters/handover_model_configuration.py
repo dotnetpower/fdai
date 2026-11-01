@@ -75,9 +75,18 @@ def build_handover_interpreter(
         )
         for target in (configuration.author, configuration.reviewer):
             host = urlsplit(target.endpoint).hostname or ""
-            if not host.endswith(".openai.azure.com") or any(
-                character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
-                for character in target.deployment
+            if (
+                not host.endswith(".openai.azure.com")
+                or any(
+                    character
+                    not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+                    for character in target.deployment
+                )
+                or any(
+                    character
+                    not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+                    for character in target.api_version
+                )
             ):
                 raise ValueError("handover model token target is not an Azure OpenAI authority")
         return AzureReviewedHandoverInterpreter(

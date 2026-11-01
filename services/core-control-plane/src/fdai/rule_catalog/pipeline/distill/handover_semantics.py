@@ -97,6 +97,14 @@ class HandoverSemanticVerification:
     context: Callable[[ServiceEnvelope], VerificationContext]
     compiler_digest: str
 
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.compiler_digest, str)
+            or len(self.compiler_digest) != 64
+            or any(c not in "0123456789abcdef" for c in self.compiler_digest)
+        ):
+            raise ValueError("HandoverSemanticVerification compiler_digest MUST be SHA-256 hex")
+
     def compile_document(
         self,
         envelope: ServiceEnvelope,

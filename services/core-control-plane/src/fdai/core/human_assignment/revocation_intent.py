@@ -51,7 +51,12 @@ class AssignmentRevocation:
 
 
 def _case_id(value: object) -> None:
-    if not isinstance(value, str) or not 1 <= len(value) <= 256 or value != value.strip():
+    if (
+        not isinstance(value, str)
+        or not 1 <= len(value) <= 256
+        or value != value.strip()
+        or any(ord(c) < 32 for c in value)
+    ):
         raise ValueError("revocation case reference MUST be bounded exact text")
 
 
