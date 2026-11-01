@@ -456,3 +456,31 @@ def test_post_and_lift_suppression_commands_enforce_confirmation_and_scope(
         {"lifted": installation_id, "scope": "installation"},
     )
     assert client.get(f"/v1/installations/{installation_id}").json()["suppressions"] == []
+
+
+def test_get_installation_and_enrollment_statuses_minimize_queries(
+    client: TestClient, enrolled_store: HubStore, installation: Installation
+) -> None:
+    from sqlalchemy import event as sqlalchemy_event
+
+    installation_queries: list[str] = []
+
+    def count_queries(_conn: object, _cursor: object, statement: str, *_args: object) -> None:
+        normalized = statement.lstrip().upper()
+        if normalized.startswith("SELECT") and "LIFECYCLE_INSTALLATION" in normalized:
+            installation_queries.append(statement)
+
+    sqlalchemy_event.listen(enrolled_store.engine, "before_cursor_execute", count_queries)
+    try:
+        response = client.get(f"/v1/installations/{installation.installation_id}")
+        assert response.status_code == 200
+        assert len(installation_queries) == 1
+
+        installation_queries.clear()
+        statuses = enrolled_store.enrollment_statuses(
+            frozenset({installation.installation_id, "unrequested-id"})
+        )
+        assert statuses == {installation.installation_id: "enrolled"}
+        assert len(installation_queries) == 1
+    finally:
+        sqlalchemy_event.remove(enrolled_store.engine, "before_cursor_execute", count_queries)

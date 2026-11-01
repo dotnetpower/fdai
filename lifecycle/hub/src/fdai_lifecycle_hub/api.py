@@ -56,10 +56,8 @@ from fdai_lifecycle_hub.schemas import (
     SuppressionCommandRequest,
     actor_name,
     enrollment_request,
-    installation_detail_record,
     installation_summary_record,
     pending_enrollment_record,
-    plan_record,
     reported_state_json,
 )
 from fdai_lifecycle_hub.signing import HubSigningKey, verify_key_proof
@@ -233,32 +231,16 @@ def create_app(
 
     async def get_installation(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
-        status = await run_in_threadpool(store.enrollment_status, installation_id)
-        if status is not EnrollmentStatus.ENROLLED:
-            # Only an enrolled installation is on the list screen or has its own detail page.
-            raise NotEnrolledError(installation_id)
-        now = clock()
-        installation = await run_in_threadpool(store.load, installation_id)
-        last_evaluation = await run_in_threadpool(store.last_evaluation, installation_id)
-        open_plan = await run_in_threadpool(store.current_plan, installation_id, now=now)
-        reports = await run_in_threadpool(store.reports, installation_id)
         return JSONResponse(
-            installation_detail_record(
-                installation,
-                enrollment=status,
-                open_plan=open_plan,
-                last_evaluation=last_evaluation,
-                reports=reports,
-                now=now,
-            )
+            await run_in_threadpool(store.installation_detail_view, installation_id, now=clock())
         )
 
     async def get_plan_detail(request: Request) -> Response:
         installation_id = request.path_params["installation_id"]
         plan_id = request.path_params["plan_id"]
-        record = await run_in_threadpool(store.plan_detail, installation_id, plan_id)
-        reports = await run_in_threadpool(store.plan_reports, plan_id)
-        return JSONResponse(plan_record(record, installation_id=installation_id, reports=reports))
+        return JSONResponse(
+            await run_in_threadpool(store.plan_detail_view, installation_id, plan_id)
+        )
 
     async def list_pending(request: Request) -> Response:
         pending = await run_in_threadpool(store.list_pending_enrollments)
@@ -267,14 +249,9 @@ def create_app(
     async def list_bindable(request: Request) -> Response:
         """Installations the deployment bound to an Agent, so the operator picks, not types."""
 
-        pending, enrolled = await run_in_threadpool(
-            lambda: (store.list_pending_enrollments(), store.list_installations())
-        )
-        status = {item.installation.installation_id: "pending" for item in pending} | {
-            item.installation.installation_id: "enrolled" for item in enrolled
-        }
         principals = remote_auth.agent_principals if remote_auth is not None else ()
         bound = sorted({principal.installation_id for principal in principals})
+        status = await run_in_threadpool(store.enrollment_statuses, frozenset(bound))
         return JSONResponse(
             {
                 "installations": [

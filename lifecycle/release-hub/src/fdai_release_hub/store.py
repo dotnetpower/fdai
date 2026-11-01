@@ -72,6 +72,8 @@ from fdai_release_hub.database import (
 )
 
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
+MAX_VERIFIED_MANIFEST_CACHE = 1024
+_TRAILING_REVISION = re.compile(rb',"revision":([0-9]+)\}\Z')
 
 
 def _is_custom_channel(value: str | None) -> bool:
@@ -148,6 +150,8 @@ class ReleaseStore:
         self.key = key
         self._export_lock = threading.Lock()
         self._signed_export: SignedExport | None = None
+        self._verified_lock = threading.Lock()
+        self._verified_manifests: dict[tuple[str, str, str], str] = {}
         self.clock = clock or (lambda: datetime.now(UTC))
         self.engine = (
             create_engine(f"sqlite:///{path}", poolclass=NullPool)
@@ -224,13 +228,25 @@ class ReleaseStore:
         )
         db.execute(event_actors.insert().values(revision=next_revision, actor=actor))
 
-    def _verify_signature(self, manifest: str, signature: str | None) -> None:
+    def _verify_signature(self, manifest: str, signature: str | None) -> str:
+        if not signature:
+            raise CatalogError("Stored Release signature failed verification.", 503)
+        cache_key = (self.key.key_id, manifest, signature)
+        with self._verified_lock:
+            cached = self._verified_manifests.get(cache_key)
+        if cached is not None:
+            return cached
         try:
-            if not signature:
-                raise ValueError("Missing signature.")
-            self.key.public_key.verify(b64decode(signature, validate=True), manifest.encode())
+            raw_manifest = manifest.encode()
+            self.key.public_key.verify(b64decode(signature, validate=True), raw_manifest)
         except (InvalidSignature, ValueError) as error:
             raise CatalogError("Stored Release signature failed verification.", 503) from error
+        digest = hashlib.sha256(raw_manifest).hexdigest()
+        with self._verified_lock:
+            if len(self._verified_manifests) >= MAX_VERIFIED_MANIFEST_CACHE:
+                self._verified_manifests.pop(next(iter(self._verified_manifests)))
+            self._verified_manifests[cache_key] = digest
+        return digest
 
     def _verify_release_state(
         self,
@@ -238,13 +254,14 @@ class ReleaseStore:
         signature: str | None,
         published_at: str | None,
         recalled_at: str | None,
-    ) -> None:
+    ) -> str:
         if (published_at is not None or recalled_at is not None) and not signature:
             self._verify_signature(manifest, signature)
         if signature and published_at is None:
             raise CatalogError("Stored Release publication state is inconsistent.", 503)
         if signature:
-            self._verify_signature(manifest, signature)
+            return self._verify_signature(manifest, signature)
+        return hashlib.sha256(manifest.encode()).hexdigest()
 
     def renew(
         self, change: CatalogConfirmation, *, actor: str = "local-operator"
@@ -627,15 +644,12 @@ class ReleaseStore:
         records = []
         for row in rows:
             record = dict(row)
-            self._verify_release_state(
+            record["signed_payload_sha256"] = self._verify_release_state(
                 record["manifest"],
                 record["signature"],
                 record["published_at"],
                 record["recalled_at"],
             )
-            record["signed_payload_sha256"] = hashlib.sha256(
-                record["manifest"].encode()
-            ).hexdigest()
             record["channels"] = channels_by_release.get(row["id"], [])
             record["state"] = (
                 "recalled" if row["recalled_at"] else "published" if row["signature"] else "draft"
@@ -705,15 +719,12 @@ class ReleaseStore:
             first = True
             for row in stream(db, select(releases).order_by(releases.c.id.desc())):
                 record = dict(row)
-                self._verify_release_state(
+                record["signed_payload_sha256"] = self._verify_release_state(
                     record["manifest"],
                     record["signature"],
                     record["published_at"],
                     record["recalled_at"],
                 )
-                record["signed_payload_sha256"] = hashlib.sha256(
-                    record["manifest"].encode()
-                ).hexdigest()
                 record["channels"] = release_channels(db, record["id"], writer.remaining)
                 record["state"] = (
                     "recalled"
@@ -813,7 +824,10 @@ class ReleaseStore:
             if cached is not None and cached.revision == revision:
                 return cached
             raw, digest = self.export()
-            built_revision = json.loads(raw)["revision"]
+            match = _TRAILING_REVISION.search(raw[-64:])
+            built_revision = (
+                int(match.group(1)) if match is not None else int(json.loads(raw)["revision"])
+            )
             signed = SignedExport(
                 revision=built_revision,
                 raw=raw,

@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useMemo, useRef, useState } from "preact/hooks";
 import {
   actionsFor, activeCapabilityRecalls, artifacts, blockedReleaseCapabilities,
   nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
@@ -27,12 +27,16 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
   const t = (en: string, ko: string) => locale === "ko" ? ko : en;
   const evidence = useRef<HTMLDetailsElement>(null);
   const history = useRef<HTMLElement>(null);
-  const manifest = parseReleaseManifest(release.manifest);
+  const manifest = useMemo(() => parseReleaseManifest(release.manifest), [release.manifest]);
+  const declaredArtifacts = useMemo(() => artifacts(manifest), [manifest]);
   const step = nextReleaseStep(release, catalog);
   const stage = recordedStage(release);
   const transition = nextPromotionTransition(release);
-  const activeCapRecalls = activeCapabilityRecalls(catalog.events);
-  const blockedCaps = blockedReleaseCapabilities(manifest, catalog.events);
+  const activeCapRecalls = useMemo(() => activeCapabilityRecalls(catalog.events), [catalog.events]);
+  const blockedCaps = useMemo(
+    () => blockedReleaseCapabilities(manifest, catalog.events),
+    [manifest, catalog.events],
+  );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
     : t("Development published", "개발용 발행 완료");
@@ -131,7 +135,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
       </dl>
       <h2>{t("Declared artifacts", "선언된 아티팩트")}</h2>
       <p>{t("Declared digests only. No registry, SBOM or provenance verification is established by this view.", "선언된 다이제스트만 표시합니다. 이 화면은 레지스트리, SBOM 또는 출처 검증을 입증하지 않습니다.")}</p>
-      <div class="artifact-list">{artifacts(manifest).map((artifact) => <article key={artifact.component}>
+      <div class="artifact-list">{declaredArtifacts.map((artifact) => <article key={artifact.component}>
         <h3>{artifact.component}</h3><code class="digest">{artifact.digest}</code>
         <details><summary>{t("SBOM digest", "SBOM 다이제스트")}</summary><code class="digest" lang="en">{artifact.sbom}</code></details>
       </article>)}</div>

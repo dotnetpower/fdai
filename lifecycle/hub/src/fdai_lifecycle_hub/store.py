@@ -554,15 +554,56 @@ class HubStore:
         """Every execution report on one Plan, in the order received."""
 
         with self._sessions() as session:
-            records = session.scalars(
-                select(models.PlanReport)
-                .where(models.PlanReport.plan_id == plan_id)
-                .order_by(models.PlanReport.id)
+            return _plan_reports(session, plan_id)
+
+    def plan_detail_view(self, installation_id: str, plan_id: str) -> dict[str, object]:
+        """Load one Plan's detail and execution reports in a single database session."""
+
+        with self._sessions() as session:
+            plan = session.get(models.Plan, plan_id)
+            if plan is None or plan.installation_id != installation_id:
+                raise UnknownPlanError(plan_id)
+            event_rows = session.scalars(plan.events.select().order_by(models.PlanEvent.id)).all()
+            status = (
+                domain.PlanStatus.SUPERSEDED
+                if any(event.kind == PlanEventKind.SUPERSEDED for event in event_rows)
+                else domain.PlanStatus.OPEN
             )
-            return tuple(
-                schemas.RecordedReport.model_validate(record, from_attributes=True)
-                for record in records
+            evaluation_rows = session.scalars(
+                select(models.PlanEvaluation)
+                .where(models.PlanEvaluation.plan_id == plan_id)
+                .order_by(models.PlanEvaluation.id)
             )
+            record = domain.PlanRecord(
+                plan=mapping.issued_plan(plan),
+                status=status,
+                events=tuple(
+                    domain.PlanEventRecord(kind=event.kind, recorded_at=event.recorded_at)
+                    for event in event_rows
+                ),
+                evaluations=tuple(mapping.evaluation(row) for row in evaluation_rows),
+            )
+            return schemas.plan_record(
+                record,
+                installation_id=installation_id,
+                reports=_plan_reports(session, plan_id),
+            )
+
+    def enrollment_statuses(self, installation_ids: frozenset[str]) -> dict[str, str]:
+        """Fetch enrollment status for bound installations in one lightweight query."""
+
+        if not installation_ids:
+            return {}
+        with self._sessions() as session:
+            matched = session.execute(
+                select(models.Installation.installation_id, models.Installation.enrollment).where(
+                    models.Installation.installation_id.in_(installation_ids),
+                    models.Installation.enrollment.in_(
+                        (EnrollmentStatus.PENDING, EnrollmentStatus.ENROLLED)
+                    ),
+                )
+            )
+            return {installation_id: enrollment.value for installation_id, enrollment in matched}
 
     def recompute(
         self, installation_id: str, planner: domain.Planner, *, now: datetime
@@ -792,42 +833,43 @@ class HubStore:
             if row.enrollment is not EnrollmentStatus.ENROLLED:
                 return None
             plan = mapping.open_plan(session, installation_id)
-            if plan is None or now >= plan.expires_at:
-                return None
-            trust = session.get(models.ConfigurationPlanTrust, plan.plan_id)
-            import_pin = session.get(ConfigurationPlanImport, plan.plan_id)
-            imported = session.get(ConfigurationImport, plan.configuration_digest)
-            if (
-                imported is not None
-                and import_pin is None
-                or import_pin is not None
-                and (
-                    trust is None
-                    or imported is None
-                    or import_pin.import_digest != plan.configuration_digest
-                    or import_pin.receipt_digest != imported.receipt_digest
-                )
-            ):
-                return None
-            if trust is not None:
-                try:
-                    binding = resolve_binding(session, row, trust.binding_version, now)
-                except ValueError:
-                    return None
-                if binding.digest != trust.request_digest:
-                    return None
-                if import_pin is not None:
-                    try:
-                        selected = persisted_candidate(session, row, None, now)
-                        if (
-                            selected is None
-                            or selected[0].package.digest != plan.configuration_digest
-                        ):
-                            return None
-                    except ValueError:
-                        return None
             suppressions = schemas.suppressions_json.validate_python(row.suppressions)
-            return None if plan.held_by(suppressions, now) else plan
+            return _eligible_open_plan(session, row, plan, suppressions=suppressions, now=now)
+
+    def installation_detail_view(self, installation_id: str, *, now: datetime) -> dict[str, object]:
+        """Load enrolled installation detail, open Plan, evaluation, and reports in one session."""
+
+        with self._sessions() as session:
+            row = rows.lock_installation(session, installation_id)
+            if row.enrollment is not EnrollmentStatus.ENROLLED:
+                raise NotEnrolledError(installation_id)
+            installation = mapping.to_domain(session, row)
+            open_plan = _eligible_open_plan(
+                session,
+                row,
+                installation.open_plan,
+                suppressions=installation.suppressions,
+                now=now,
+            )
+            last_evaluation = _latest_evaluation(session, row)
+            report_rows = session.scalars(
+                select(models.PlanReport)
+                .join(models.Plan)
+                .where(models.Plan.installation_id == installation_id)
+                .order_by(models.PlanReport.id)
+            )
+            reports = tuple(
+                schemas.RecordedReport.model_validate(record, from_attributes=True)
+                for record in report_rows
+            )
+            return schemas.installation_detail_record(
+                installation,
+                enrollment=row.enrollment,
+                open_plan=open_plan,
+                last_evaluation=last_evaluation,
+                reports=reports,
+                now=now,
+            )
 
     def record_report(
         self, installation_id: str, plan_id: str, report: schemas.PlanReport, *, now: datetime
@@ -1021,6 +1063,59 @@ def _latest_evaluation(session: Session, row: models.Installation) -> domain.Eva
         row.evaluations.select().order_by(models.PlanEvaluation.id.desc()).limit(1)
     ).one_or_none()
     return mapping.evaluation(evaluation) if evaluation is not None else None
+
+
+def _plan_reports(session: Session, plan_id: str) -> tuple[schemas.RecordedReport, ...]:
+    records = session.scalars(
+        select(models.PlanReport)
+        .where(models.PlanReport.plan_id == plan_id)
+        .order_by(models.PlanReport.id)
+    )
+    return tuple(
+        schemas.RecordedReport.model_validate(record, from_attributes=True) for record in records
+    )
+
+
+def _eligible_open_plan(
+    session: Session,
+    row: models.Installation,
+    plan: domain.IssuedPlan | None,
+    *,
+    suppressions: tuple[SuppressionWindow, ...],
+    now: datetime,
+) -> domain.IssuedPlan | None:
+    if plan is None or now >= plan.expires_at:
+        return None
+    trust = session.get(models.ConfigurationPlanTrust, plan.plan_id)
+    import_pin = session.get(ConfigurationPlanImport, plan.plan_id)
+    imported = session.get(ConfigurationImport, plan.configuration_digest)
+    if (
+        imported is not None
+        and import_pin is None
+        or import_pin is not None
+        and (
+            trust is None
+            or imported is None
+            or import_pin.import_digest != plan.configuration_digest
+            or import_pin.receipt_digest != imported.receipt_digest
+        )
+    ):
+        return None
+    if trust is not None:
+        try:
+            binding = resolve_binding(session, row, trust.binding_version, now)
+        except ValueError:
+            return None
+        if binding.digest != trust.request_digest:
+            return None
+        if import_pin is not None:
+            try:
+                selected = persisted_candidate(session, row, None, now)
+                if selected is None or selected[0].package.digest != plan.configuration_digest:
+                    return None
+            except ValueError:
+                return None
+    return None if plan.held_by(suppressions, now) else plan
 
 
 def _audit_suppression(

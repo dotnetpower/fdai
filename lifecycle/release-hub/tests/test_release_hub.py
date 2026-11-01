@@ -1316,3 +1316,23 @@ def test_api_stage_promotion_route_enforces_gates_and_revision_lock(
     body = promoted.json()
     assert body["revision"] == rev + 1
     assert "1.6.0" in body["channels"]["RELEASE_CANDIDATE"]
+
+
+def test_verified_manifest_cache_reuses_digest_and_still_detects_tampering(
+    store: ReleaseStore,
+) -> None:
+    publish(store)
+    assert len(store._verified_manifests) == 1
+    cached_digest = next(iter(store._verified_manifests.values()))
+    # Repeated reads reuse the verified digest cache entry.
+    for _ in range(5):
+        snap = store.snapshot()
+        assert snap["releases"][0]["signed_payload_sha256"] == cached_digest
+        view = json.loads(store.catalog_view(MAX_CATALOG_VIEW_BYTES))
+        assert view["releases"][0]["signed_payload_sha256"] == cached_digest
+    assert len(store._verified_manifests) == 1
+    # Tampering in the database bypasses the cached entry and fails closed.
+    with store.connect() as db:
+        db.exec_driver_sql("UPDATE releases SET signature='tampered'")
+    with pytest.raises(CatalogError, match="failed verification"):
+        store.snapshot()

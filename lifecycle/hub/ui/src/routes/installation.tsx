@@ -1,4 +1,4 @@
-import { useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { hubApi, type InstallationDetail } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { Badge, HealthBadge, OutcomeBadge } from "../components/badge";
@@ -86,12 +86,16 @@ export function InstallationPage({ installationId }: { installationId: string })
   const [tab, setTab] = useState<Tab>("constraints");
   const [notice, setNotice] = useState("");
   const [locale] = useHubLocale();
+  const cachedReadiness = useMemo(
+    () => (detail.status === "ready" ? deriveInstallationReadiness(detail.data) : null),
+    [detail],
+  );
 
   return (
     <AsyncBoundary state={detail}>
       {(installation) => {
         const evaluation = installation.last_evaluation;
-        const readiness = deriveInstallationReadiness(installation);
+        const readiness = cachedReadiness ?? deriveInstallationReadiness(installation);
         const postureVariant =
           readiness.nextStep.posture === "ready"
             ? "ok"
