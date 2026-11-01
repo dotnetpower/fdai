@@ -30,7 +30,7 @@ export function decodeFrameworkGuidance(value: unknown, identity: GuidanceIdenti
   const keys = [
     "schema_version", "framework_id", "control_id", "source_revision", "source_digest",
     "title", "summary", "benefits", "rationale", "applicability", "configuration",
-    "implementation_steps", "verification_steps", "cautions", "reference_image", "diagram", "sources", "content_digest",
+    "implementation_steps", "verification_steps", "cautions", "diagram", "sources", "content_digest",
   ];
   if (Object.keys(raw).some((key) => !keys.includes(key))) invalid("contains unsupported fields");
   if (raw["schema_version"] !== "1.0.0") invalid("schema_version MUST be 1.0.0");
