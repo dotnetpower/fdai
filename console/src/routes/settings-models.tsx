@@ -12,14 +12,15 @@ import {
   saveWebSearchSettings,
 } from "./settings-models.command";
 import { ModelBindingPolicyEditor } from "./settings-model-binding-policy";
+import { ModelCatalogPanel } from "./settings-model-catalog";
 import { modelText } from "./settings-models.i18n";
 import {
-  filterCatalogModels,
   formatDisplayTimestamp,
-  formatTpm,
   independentSecondaryCandidates,
   matchesModelQuery,
   modelReadinessState,
+  modelWorkspaceSearch,
+  modelWorkspaceViewFromSearch,
   nextModelWorkspaceView,
   presentModelStatus,
   type ModelWorkspaceView,
@@ -35,7 +36,6 @@ import {
   removeAllowedDomain,
   renderT2GovernanceDraft,
   t2PairIsValid,
-  type GptModelCatalogEntryView,
   type ModelCapabilityView,
   type ModelEndpointInventoryView,
   type ModelRoutingCandidateView,
@@ -65,10 +65,18 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [view, setView] = useState<ModelSettingsView | null>(null);
   const [selection, setSelection] = useState("auto");
   const [loading, setLoading] = useState(true);
-  const [refreshingCatalog, setRefreshingCatalog] = useState(false);
-  const [catalogQuery, setCatalogQuery] = useState("");
   const [routingQuery, setRoutingQuery] = useState("");
-  const [activeWorkspaceView, setActiveWorkspaceView] = useState<ModelWorkspaceView>("overview");
+  const [activeWorkspaceView, updateWorkspaceView] = useState<ModelWorkspaceView>(() =>
+    modelWorkspaceViewFromSearch(globalThis.location?.search ?? "")
+  );
+  const setActiveWorkspaceView = (next: ModelWorkspaceView) => {
+    updateWorkspaceView(next);
+    history.replaceState(
+      history.state,
+      "",
+      `${location.pathname}${modelWorkspaceSearch(location.search, next)}${location.hash}`,
+    );
+  };
   const [saving, setSaving] = useState(false);
   const [narratorError, setNarratorError] = useState<string | null>(null);
   const [bindingDirty, setBindingDirty] = useState(false);
@@ -99,7 +107,9 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       readonly preserveWebSearch?: boolean;
     },
   ) => {
-    setView(next);
+    setView((current) => next.modelCatalog.loadState === "deferred" && current !== null
+      ? { ...next, modelCatalog: current.modelCatalog }
+      : next);
     if (
       submittedRevisions === undefined
       || (!submittedRevisions.preserveNarrator
@@ -132,14 +142,15 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     };
     setFailedLoad(null);
     if (background) {
-      setRefreshingCatalog(true);
       setBackgroundError(null);
     } else {
       setLoading(true);
       setError(null);
     }
     try {
-      const next = decodeModelSettings(await client.modelSettings({ refreshCatalog, force }));
+      const next = decodeModelSettings(await client.modelSettings({
+        refreshCatalog, force, includeCatalog: refreshCatalog,
+      }));
       if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return false;
       applyProjection(next, submittedRevisions);
       setWebSearchError(null);
@@ -155,18 +166,25 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     } finally {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
         setLoading(false);
-        setRefreshingCatalog(false);
       }
     }
   };
 
   useEffect(() => {
+    mounted.current = true;
+    setView(null);
     void load(false);
     return () => {
       mounted.current = false;
       loadGeneration.current += 1;
     };
   }, [client]);
+
+  useEffect(() => {
+    const restore = () => updateWorkspaceView(modelWorkspaceViewFromSearch(location.search));
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
 
   useEffect(() => {
     if (view === null) return;
@@ -209,9 +227,6 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const t2Draft = t2PairValid && t2Primary !== null && t2Secondary !== null
     ? renderT2GovernanceDraft(t2Primary, t2Secondary)
     : "";
-  const visibleCatalogModels = view === null
-    ? []
-    : filterCatalogModels(view.modelCatalog.models, catalogQuery);
   const visibleModelRouting = view?.modelRouting.filter((routing) => matchesModelQuery(
     routingQuery,
     [
@@ -291,11 +306,12 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       );
   useSettingsDirtyState(
     "settings-models",
-    bindingDirty || narratorDirty || webSearchDirty || t2PolicyDirty,
+    bindingDirty || narratorDirty || webSearchDirty || t2PolicyDirty || domainDraft.trim() !== "",
   );
 
   const copyT2Draft = async () => {
-    if (!t2PairValid || !navigator.clipboard) return;
+    if (!t2PairValid) return;
+    if (!navigator.clipboard) { setT2CopyState("failed"); return; }
     try {
       await navigator.clipboard.writeText(t2Draft);
       setT2CopyState("copied");
@@ -329,7 +345,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
         if (reason instanceof ModelSettingsCommandError && reason.status === 409) {
           try {
-            const latest = decodeModelSettings(await client.modelSettings({ force: true }));
+            const latest = decodeModelSettings(await client.modelSettings({ force: true, includeCatalog: false }));
             if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
               applyProjection(latest, {
                 narrator: narratorDraftRevision.current,
@@ -407,7 +423,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     } catch (reason) {
       if (reason instanceof ModelSettingsCommandError && reason.status === 409) {
         try {
-          const latest = decodeModelSettings(await client.modelSettings({ force: true }));
+          const latest = decodeModelSettings(await client.modelSettings({ force: true, includeCatalog: false }));
           if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
             applyProjection(latest, {
               narrator: submittedRevisions.narrator,
@@ -481,7 +497,8 @@ export function SettingsModelsRoute({ client, auth }: Props) {
         { key: "resolved_metadata_source", value: view.resolvedMetadata.source, group: "models" },
         { key: "resolved_metadata_as_of", value: view.resolvedMetadata.asOf, group: "models" },
         { key: "model_catalog_available", value: view.modelCatalog.available, group: "models" },
-        { key: "model_catalog_count", value: view.modelCatalog.models.length, group: "models" },
+        { key: "model_catalog_count", value: view.modelCatalog.loadState === "ready" ? view.modelCatalog.models.length : null, group: "models" },
+        { key: "model_catalog_load_state", value: view.modelCatalog.loadState, group: "models" },
         {
           key: "web_search_current_model",
           value: view.webSearch.currentAutoPick ?? "unavailable",
@@ -626,9 +643,15 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 onClick={() => {
                   setActiveWorkspaceView("catalog");
                   globalThis.requestAnimationFrame(() => {
-                    const search = document.getElementById("model-catalog-search") as HTMLInputElement | null;
-                    if (search?.disabled) document.getElementById("model-catalog-refresh")?.focus();
-                    else search?.focus();
+                    if (view.modelCatalog.loadState === "deferred") {
+                      document.getElementById("model-catalog-heading")?.focus();
+                      return;
+                    }
+                    const search = document.getElementById("model-catalog-search");
+                    const refresh = document.getElementById("model-catalog-refresh");
+                    if (search instanceof HTMLInputElement && !search.disabled) search.focus();
+                    else if (refresh instanceof HTMLButtonElement && !refresh.disabled) refresh.focus();
+                    else document.getElementById("model-catalog-heading")?.focus();
                   });
                 }}
               >
@@ -647,81 +670,25 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             />
           </div>
 
-          <section
-            class="settings-iam-panel"
-            aria-labelledby="model-catalog-heading"
-            hidden={activeWorkspaceView !== "catalog"}
-          >
-            <header class="settings-iam-panel-head">
-              <div>
-                <h3 id="model-catalog-heading">{modelText("catalogTitle")}</h3>
-                <p>{modelText("catalogHint")}</p>
-              </div>
-              <div class="settings-model-catalog-head-actions">
-                <StatusPill
-                  kind={view.modelCatalog.available ? "success" : "warning"}
-                  label={view.modelCatalog.available
-                    ? modelText("catalogLive")
-                    : modelText("catalogUnavailable")}
-                />
-                <button
-                  id="model-catalog-refresh"
-                  type="button"
-                  class="secondary"
-                  disabled={refreshingCatalog}
-                  onClick={() => { void load(true, true); }}
-                >
-                  {refreshingCatalog ? modelText("refreshing") : modelText("refreshCatalog")}
-                </button>
-              </div>
-            </header>
-            <div class="settings-model-catalog-controls">
-              <label for="model-catalog-search">{modelText("searchCatalog")}</label>
-              <input
-                id="model-catalog-search"
-                type="search"
-                value={catalogQuery}
-                placeholder={modelText("searchCatalogPlaceholder")}
-                disabled={view.modelCatalog.models.length === 0}
-                onInput={(event) => setCatalogQuery(event.currentTarget.value)}
-              />
-              <span>
-                {modelText("catalogSummary")
-                  .replace("{visible}", String(visibleCatalogModels.length))
-                  .replace("{total}", String(view.modelCatalog.models.length))}
-              </span>
-            </div>
-            {!view.modelCatalog.available ? (
-              <div class="settings-model-catalog-empty settings-model-empty-guidance">
-                <p class="muted">{modelText("catalogUnavailableHint")}</p>
-                <a href="/settings/environment-and-deployment">{modelText("reviewEnvironment")}</a>
-              </div>
-            ) : visibleCatalogModels.length === 0 ? (
-              <p class="settings-model-catalog-empty muted">{modelText("catalogNoMatches")}</p>
-            ) : (
-              <div class="settings-model-catalog-grid">
-                {visibleCatalogModels.map((model) => (
-                  <CatalogModelCard
-                    key={`${model.family}:${model.version}`}
-                    model={model}
-                    onSelect={(() => {
-                      const candidate = view.t2ModelPolicy.primaryCandidates.find((item) => (
-                        item.publisher === model.publisher && item.family === model.family
-                      ));
-                      if (candidate === undefined) return null;
-                      return () => {
-                      setT2PrimaryKey(modelChoiceKey(candidate));
-                      setT2CopyState("idle");
-                      document.getElementById("t2-primary-model")?.focus();
-                      };
-                    })()}
-                  />
-                ))}
-              </div>
-            )}
-            <p class="settings-iam-panel-foot">{modelText("autoProvisionBoundary")}</p>
-            <p class="settings-iam-panel-foot">{modelText("secondaryRegistryBoundary")}</p>
-          </section>
+          <ModelCatalogPanel
+            client={client}
+            active={activeWorkspaceView === "catalog"}
+            catalog={view.modelCatalog}
+            onLoaded={(catalog) => setView((current) => current === null ? null : {
+              ...current, modelCatalog: catalog,
+            })}
+            selectionForModel={(model) => {
+              const candidate = view.t2ModelPolicy.primaryCandidates.find((item) => (
+                item.publisher === model.publisher && item.family === model.family
+              ));
+              if (candidate === undefined) return null;
+              return () => {
+                setT2PrimaryKey(modelChoiceKey(candidate));
+                setT2CopyState("idle");
+                document.getElementById("t2-primary-model")?.focus();
+              };
+            }}
+          />
 
           <section
             class="settings-model-routing-filter"
@@ -1312,60 +1279,6 @@ function modelChoiceOptionLabel(choice: T2ModelChoiceView): string {
         ? modelText("quotaUnavailable")
         : modelText("registryCandidate");
   return `${modelChoiceLabel(choice)} · ${status}`;
-}
-
-function CatalogModelCard({ model, onSelect }: {
-  readonly model: GptModelCatalogEntryView;
-  readonly onSelect: (() => void) | null;
-}) {
-  const actionable = onSelect !== null && model.selectable && (model.deployed || model.provisionable);
-  return (
-    <article class="settings-model-catalog-entry">
-      <header>
-        <div>
-          <strong>{model.family}</strong>
-          <small>{model.publisher} / {model.version}</small>
-        </div>
-        <StatusPill
-          kind={model.deployed ? "success" : model.provisionable ? "info" : "warning"}
-          label={model.deployed
-            ? modelText("deployed")
-            : model.provisionable
-              ? modelText("autoProvisionReady")
-              : modelText("quotaUnavailable")}
-        />
-      </header>
-      <dl>
-        <div>
-          <dt>{modelText("availableQuota")}</dt>
-          <dd>{formatTpm(model.availableTpm)}</dd>
-        </div>
-        <div>
-          <dt>{modelText("lifecycle")}</dt>
-          <dd>{model.lifecycle}</dd>
-        </div>
-        <div>
-          <dt>{modelText("supportedSkus")}</dt>
-          <dd>{model.skus.map((sku) => sku.name).join(", ") || "-"}</dd>
-        </div>
-        <div>
-          <dt>{modelText("deployments")}</dt>
-          <dd>{model.deployments.join(", ") || modelText("notDeployed")}</dd>
-        </div>
-      </dl>
-      <a class="settings-model-detail-link" href="/settings/environment-and-deployment">
-        {modelText("reviewDeploymentReadiness")}
-      </a>
-      <button
-        type="button"
-        class="secondary"
-        disabled={!actionable}
-        onClick={onSelect ?? undefined}
-      >
-        {actionable ? modelText("useInT2Draft") : modelText("unavailableForT2Draft")}
-      </button>
-    </article>
-  );
 }
 
 function SummaryDatum({ label, value, status }: {

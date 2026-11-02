@@ -26,6 +26,18 @@ const MODEL_WORKSPACE_VIEW_ORDER: readonly ModelWorkspaceView[] = [
   "web-search",
 ];
 
+export function modelWorkspaceViewFromSearch(search: string): ModelWorkspaceView {
+  const view = new URLSearchParams(search).get("model-view");
+  return view === "catalog" || view === "routing" || view === "web-search" ? view : "overview";
+}
+
+export function modelWorkspaceSearch(search: string, view: ModelWorkspaceView): string {
+  const params = new URLSearchParams(search);
+  if (view === "overview") params.delete("model-view");
+  else params.set("model-view", view);
+  return params.size === 0 ? "" : `?${params}`;
+}
+
 export function modelReadinessState(
   quorumReady: boolean,
   hasActiveSecondary: boolean,

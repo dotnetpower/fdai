@@ -47,7 +47,7 @@ export function SettingsGeneralRoute({ client }: Props) {
           <button
             type="button"
             class="secondary"
-            disabled={controller.savingContext}
+            disabled={controller.savingContext || controller.contextLoading || controller.serverContext === null}
             onClick={() => void controller.reset()}
           >
             {settingsGeneralText("reset")}

@@ -56,6 +56,15 @@ _IDEMPOTENCY_KEY: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
 _NO_STORE_HEADERS: Final = {"cache-control": "no-store"}
 
 
+def _include_model_catalog(request: Request) -> bool:
+    view = request.query_params.get("view", "full")
+    if view not in {"full", "summary"}:
+        raise HTTPException(400, "model settings view MUST be full or summary")
+    if view == "summary" and request.query_params.get("refresh_catalog") == "1":
+        raise HTTPException(400, "catalog refresh requires the full model settings view")
+    return view == "full"
+
+
 def make_model_settings_routes(
     *, outbox: ModelSettingsOutbox | None, authorize: AuthorizePrincipal
 ) -> tuple[Route, ...]:
@@ -65,6 +74,8 @@ def make_model_settings_routes(
         principal = await authorize(request)
         if outbox is None:
             return error_response(503, "model settings outbox is not configured")
+        include_catalog = _include_model_catalog(request)
+        refresh_catalog = request.query_params.get("refresh_catalog") == "1"
         try:
             projection = await outbox.projection(
                 principal.oid,
@@ -74,7 +85,8 @@ def make_model_settings_routes(
                 can_manage_model_bindings=has_capability(
                     principal.roles, IamCapability.MANAGE_MODEL_BINDINGS
                 ),
-                refresh_model_catalog=request.query_params.get("refresh_catalog") == "1",
+                refresh_model_catalog=refresh_catalog,
+                include_model_catalog=include_catalog,
             )
         except IamFamilyError as exc:
             return family_error(exc)
@@ -136,6 +148,7 @@ def make_model_settings_routes(
         principal = await authorize(request)
         if outbox is None:
             return error_response(503, "model settings outbox is not configured")
+        include_catalog = _include_model_catalog(request)
         body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
         requested = body.get("preferred_narrator_model")
         if not isinstance(requested, str):
@@ -148,7 +161,16 @@ def make_model_settings_routes(
                     expected_revision=require_revision(body),
                 )
             )
-            projection = await outbox.projection(principal.oid)
+            projection = await outbox.projection(
+                principal.oid,
+                can_manage_web_search=has_capability(
+                    principal.roles, IamCapability.MANAGE_GROUP_MEMBERSHIP
+                ),
+                can_manage_model_bindings=has_capability(
+                    principal.roles, IamCapability.MANAGE_MODEL_BINDINGS
+                ),
+                include_model_catalog=include_catalog,
+            )
         except IamFamilyError as exc:
             return family_error(exc)
         return JSONResponse(dict(projection), headers=_NO_STORE_HEADERS)
@@ -159,6 +181,7 @@ def make_model_settings_routes(
             return error_response(403, "Owner role is required")
         if outbox is None:
             return error_response(503, "model settings outbox is not configured")
+        include_catalog = _include_model_catalog(request)
         body = await read_json_object(request, maximum=_MAX_BODY_BYTES)
         enabled = body.get("enabled")
         domains = body.get("allowed_domains")
@@ -183,12 +206,16 @@ def make_model_settings_routes(
             projection = await outbox.projection(
                 principal.oid,
                 can_manage_web_search=True,
+                can_manage_model_bindings=has_capability(
+                    principal.roles, IamCapability.MANAGE_MODEL_BINDINGS
+                ),
+                include_model_catalog=include_catalog,
             )
         except IamFamilyError as exc:
             return family_error(exc)
         except ValueError as exc:
             return error_response(400, str(exc))
-        return JSONResponse(dict(projection))
+        return JSONResponse(dict(projection), headers=_NO_STORE_HEADERS)
 
     async def put_document_ocr_policy(request: Request) -> Response:
         principal = await authorize(request)

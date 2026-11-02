@@ -120,8 +120,108 @@ async function installFixture(page: Page, onRead?: () => void): Promise<void> {
     await route.continue();
   };
   await page.route("**/api/**", handle);
-  await page.route("**/models/settings", handle);
+  await page.route((url) => url.pathname.endsWith("/models/settings"), handle);
 }
+
+test("loads configuration without catalog discovery and pages a lazily loaded catalog", async ({ page }) => {
+  await installFixture(page);
+  let release!: () => void;
+  const provider = new Promise<void>((resolve) => { release = resolve; });
+  const reads: string[] = [];
+  await page.route((url) => url.pathname.endsWith("/models/settings"), async (route) => {
+    const summary = new URL(route.request().url()).searchParams.get("view") === "summary";
+    reads.push(summary ? "summary" : "full");
+    if (!summary) await provider;
+    await route.fulfill({ json: {
+      ...projection,
+      model_catalog: summary ? {
+        available: false, source: "azure-management-catalog", region: null,
+        models: [], load_state: "deferred", as_of: null,
+      } : {
+        available: true, source: "azure-management-catalog", region: "example-region",
+        as_of: "2026-11-02T00:00:00Z",
+        models: Array.from({ length: 25 }, (_, index) => ({
+          publisher: "OpenAI", family: `gpt-example-${index}`, version: "1",
+          lifecycle: "GenerallyAvailable", skus: [], available_tpm: 10_000,
+          deployments: [], deployed: false, provisionable: true, selectable: true,
+          status: "provisionable",
+        })),
+      },
+    } });
+  });
+  await page.goto("/settings/models?locale=en");
+  await expect(page.getByRole("heading", { name: "Current model state" })).toBeVisible();
+  expect(reads).toEqual(["summary"]);
+  const navigation = page.getByRole("navigation", { name: "Model settings views" });
+  await page.getByRole("button", { name: "Open catalog", exact: true }).click();
+  await expect(page.getByText("Loading account model catalog...", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Live GPT model catalog", exact: true })).toBeFocused();
+  await expect(page.getByRole("region", { name: "Environment model bindings" })).toBeVisible();
+  await navigation.getByRole("button", { name: "Overview", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Current model state" })).toBeVisible();
+  release();
+  await navigation.getByRole("button", { name: "Catalog and policy" }).click();
+  await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(12);
+  await expect(page).toHaveURL(/model-view=catalog/);
+  const pager = page.getByRole("navigation", { name: "Model catalog pages" });
+  await expect(pager).toContainText("Models 1-12 of 25");
+  await pager.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(pager).toContainText("Models 13-24 of 25");
+  await page.getByRole("searchbox", { name: "Search models" }).fill("gpt-example-24");
+  await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(1);
+  await expect(pager).toContainText("Models 1-1 of 1");
+  await page.getByRole("button", { name: "Clear model search" }).click();
+  await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(12);
+  expect(reads).toEqual(["summary", "full"]);
+});
+
+test("protects a domain draft that has not yet been added to the allowlist", async ({ page }) => {
+  await installFixture(page);
+  await page.route((url) => url.pathname.endsWith("/models/settings"), (route) =>
+    route.fulfill({ json: {
+      ...projection,
+      web_search: {
+        ...projection.web_search, available: true, enabled: true, can_manage: true,
+        allowed_domains: ["example.com"], unavailable_reason: null, project_configured: true,
+        agent_name: "example-search", model_deployment: "example-search-model",
+        readiness_status: "ready", provisioning_status: "configured",
+      },
+    } })
+  );
+  await page.goto("/settings/models?locale=en&model-view=web-search");
+  const draft = page.locator("#web-search-domain-draft");
+  await draft.fill("docs.example.com");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.locator("#settings-overlay nav").getByRole("link", { name: /^General/ }).click();
+  await expect(page).toHaveURL(/\/settings\/models/);
+  await expect(draft).toHaveValue("docs.example.com");
+});
+
+test("reports unsupported clipboard access instead of silently ignoring governance copy", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+  });
+  await installFixture(page);
+  const choice = (publisher: string, family: string) => ({
+    publisher, family, version: null, catalog_status: "registry-only",
+    deployments: [], available_tpm: 0, capacity_unit: "tpm", capacity_value: 0,
+  });
+  await page.route((url) => url.pathname.endsWith("/models/settings"), (route) =>
+    route.fulfill({ json: {
+      ...projection,
+      t2_model_policy: {
+        ...projection.t2_model_policy,
+        primary_candidates: [choice("OpenAI", "example-primary")],
+        secondary_candidates: [choice("Anthropic", "example-secondary")],
+      },
+    } })
+  );
+  await page.goto("/settings/models?locale=en&model-view=catalog");
+  await page.getByRole("button", { name: "Copy governance draft", exact: true }).click();
+  await expect(page.getByText("Clipboard access failed. Select the draft text and copy it manually.", {
+    exact: true,
+  })).toBeVisible();
+});
 
 test("keeps environment model binding bounded and authority-free", async ({ page }) => {
   await installFixture(page);

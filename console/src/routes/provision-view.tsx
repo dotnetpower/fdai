@@ -8,7 +8,7 @@ import { formatConsoleCompactTimestamp } from "../time-format";
 import { t } from "./i18n/provision";
 import type { ProvisionSourceState, ProvisionState } from "./provision";
 
-type ProvisionViewId = "stages" | "readiness" | "resources";
+export type ProvisionViewId = "stages" | "readiness" | "resources";
 
 interface Props {
   readonly consoleUrl: string | null;
@@ -19,6 +19,8 @@ interface Props {
   readonly source: ProvisionSourceState;
   readonly state: ProvisionState;
   readonly status: ProvisionConnectionStatus;
+  readonly evidenceView?: ProvisionViewId | undefined;
+  readonly onEvidenceViewChange?: ((view: ProvisionViewId) => void) | undefined;
 }
 
 const PROVISION_VIEWS: readonly ProvisionViewId[] = ["stages", "readiness", "resources"];
@@ -62,8 +64,15 @@ export function ProvisionView({
   source,
   state,
   status,
+  evidenceView,
+  onEvidenceViewChange,
 }: Props) {
-  const [activeView, setActiveView] = useState<ProvisionViewId>("stages");
+  const [localView, setLocalView] = useState<ProvisionViewId>("stages");
+  const activeView = evidenceView ?? localView;
+  const setActiveView = (view: ProvisionViewId): void => {
+    if (evidenceView === undefined) setLocalView(view);
+    onEvidenceViewChange?.(view);
+  };
   const connection = connectionPresentation(source, status, dataMode, lastError);
   const visibleStreamError = provisionStreamError(lastError);
 

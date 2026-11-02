@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { StatusPill } from "../components/ui";
+import { LoadingState, StatusPill } from "../components/ui";
 import {
   requestDocumentOcrPlan,
   saveDocumentOcrPolicy,
@@ -19,39 +19,56 @@ interface Props {
 }
 
 export function DocumentOcrSettingsPanel({ client, auth }: Props) {
-  const [view, setView] = useState<ModelSettingsView | null>(null);
+  const [loadedView, setView] = useState<ModelSettingsView | null>(null);
+  const loadedClient = useRef(client);
+  const view = loadedClient.current === client ? loadedView : null;
   const [provider, setProvider] = useState<DocumentOcrSettingsView["desiredProvider"]>(
     "local_python",
   );
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
 
   const load = async (force = false) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
     const current = ++generation.current;
+    setLoading(true);
     setError(null);
     try {
-      const next = decodeModelSettings(await client.modelSettings({ force }));
+      const next = decodeModelSettings(await client.modelSettings({ includeCatalog: false, force }));
       if (generation.current !== current) return;
       setView(next);
       setProvider(next.documentOcr.desiredProvider);
-    } catch (reason) {
+    } catch {
       if (generation.current === current) {
-        setError(reason instanceof Error ? reason.message : String(reason));
+        setError(text("ocrLoadFailed"));
+      }
+    } finally {
+      if (generation.current === current) {
+        loadingRef.current = false;
+        setLoading(false);
       }
     }
   };
 
   useEffect(() => {
+    loadedClient.current = client;
+    setView(null);
+    setNotice(null);
+    setSaving(false);
     void load();
     return () => {
       generation.current += 1;
+      loadingRef.current = false;
     };
   }, [client]);
 
   const save = async (deprovisionRequested = false) => {
-    if (view === null || !view.documentOcr.canManage || saving) return;
+    if (view === null || !view.documentOcr.canManage || saving || loading || error) return;
     const environment = view.bindingPolicy.environment;
     if (!isEnvironment(environment)) {
       setError(text("ocrEnvironmentUnavailable"));
@@ -114,10 +131,14 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
           kind={view?.documentOcr.azureResourceState === "ready" ? "success" : "neutral"}
           label={view
             ? text("ocrResourceState", { state: view.documentOcr.azureResourceState })
-            : text("ocrLoading")}
+            : loading ? text("ocrLoading") : text("ocrUnavailable")}
         />
       </div>
       {error ? <div class="error" role="alert">{error}</div> : null}
+      {loading && !view ? <LoadingState label={text("ocrLoading")} /> : null}
+      {error ? <button type="button" class="secondary" disabled={loading || saving} onClick={() => { void load(true); }}>
+        {text("ocrRetry")}
+      </button> : null}
       {notice ? <div class="state-block state-success" role="status">{notice}</div> : null}
       {view ? (
         <>
@@ -128,7 +149,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
                 name="document-ocr-provider"
                 value="local_python"
                 checked={provider === "local_python"}
-                disabled={!view.documentOcr.canManage || saving}
+                disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
                 onChange={() => setProvider("local_python")}
               />
               <strong>{text("ocrLocalTitle")}</strong>
@@ -140,7 +161,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
                 name="document-ocr-provider"
                 value="azure_document_intelligence"
                 checked={provider === "azure_document_intelligence"}
-                disabled={!view.documentOcr.canManage || saving}
+                disabled={!view.documentOcr.canManage || saving || loading || Boolean(error)}
                 onChange={() => setProvider("azure_document_intelligence")}
               />
               <strong>{text("ocrAzureTitle")}</strong>
@@ -169,6 +190,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
               disabled={
                 !view.documentOcr.canManage
                 || saving
+                || loading || Boolean(error)
                 || (
                   provider === view.documentOcr.desiredProvider
                   && view.documentOcr.requestState !== "plan-required"
@@ -188,6 +210,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
               disabled={
                 !view.documentOcr.canManage
                 || saving
+                || loading || Boolean(error)
                 || view.documentOcr.azureResourceState === "absent"
               }
               onClick={() => { void save(true); }}

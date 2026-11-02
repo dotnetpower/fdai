@@ -3,9 +3,33 @@ import {
   decodeOperatorMemory,
   nextOperatorMemoryExpiryDelay,
   operatorMemoryDisplayState,
+  operatorMemoryFilterHref,
+  operatorMemoryFiltersEqual,
+  operatorMemoryQuery,
+  parseOperatorMemoryFilters,
 } from "./operator-memory.model";
 
 describe("operator memory review contract", () => {
+  test("normalizes deep-link filters and preserves unrelated route context", () => {
+    const filters = parseOperatorMemoryFilters(new URLSearchParams("scope_kind=resource&scope_ref=%20resource%3Aexample%20"));
+    expect(filters).toEqual({ scopeKind: "resource", scopeRef: "resource:example", invalid: false });
+    expect(operatorMemoryQuery(filters)).toEqual({ limit: "100", scope_kind: "resource", scope_ref: "resource:example" });
+    expect(operatorMemoryFilterHref("http://localhost:5273/settings/memory?locale=ko&data=sample#record", filters))
+      .toBe("/settings/memory?locale=ko&data=sample&scope_kind=resource&scope_ref=resource%3Aexample#record");
+  });
+  test("clears only owned filter parameters and does not invent a total or cursor", () => {
+    expect(operatorMemoryFilterHref("http://localhost:5273/settings/memory?locale=ko&scope_kind=resource&scope_ref=example",
+      { scopeKind: "", scopeRef: "" })).toBe("/settings/memory?locale=ko");
+    expect(operatorMemoryQuery({ scopeKind: "", scopeRef: "  " })).toEqual({ limit: "100" });
+  });
+  test("keeps pending inputs distinct from the applied scope", () => {
+    expect(operatorMemoryFiltersEqual({ scopeKind: "resource", scopeRef: " a " }, { scopeKind: "resource", scopeRef: "a" })).toBe(true);
+    expect(operatorMemoryFiltersEqual({ scopeKind: "resource", scopeRef: "b" }, { scopeKind: "resource", scopeRef: "a" })).toBe(false);
+  });
+  test("rejects unsupported scope and oversized URL reference instead of sending them", () => {
+    expect(parseOperatorMemoryFilters(new URLSearchParams({ scope_kind: "tenant", scope_ref: "x".repeat(257) })))
+      .toEqual({ scopeKind: "", scopeRef: "", invalid: true });
+  });
   test("expires an active memory at its TTL boundary", () => {
     const view = decodeOperatorMemory({ items: [{
       id: "memory-1",

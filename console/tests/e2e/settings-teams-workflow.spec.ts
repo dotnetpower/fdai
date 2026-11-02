@@ -82,6 +82,10 @@ async function installFixture(page: Page): Promise<{
 }> {
   let teamsBody: unknown = null;
   let slackBody: unknown = null;
+  let deliveryTargets = ["teams-a2-operational-alert", "teams-a4-digest", "console-inbox"];
+  let emailRecipientMode = "login";
+  let customEmail = "";
+  let bindingVersion = "version-1";
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
       await route.continue();
@@ -106,7 +110,7 @@ async function installFixture(page: Page): Promise<{
             ? {
                 visible: true,
                 configured: true,
-                binding_version: "version-1",
+                binding_version: bindingVersion,
                 endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
                 webhook_url: webhookUrl,
                 revealed_at: "2026-09-04T07:00:00Z",
@@ -114,10 +118,21 @@ async function installFixture(page: Page): Promise<{
             : {
                 visible: true,
                 configured: true,
-                binding_version: "version-1",
+                binding_version: bindingVersion,
                 endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
                 observed_at: "2026-09-04T07:00:00Z",
                 saved_at: "2026-09-04T06:00:00Z",
+                delivery_targets: deliveryTargets,
+                email_recipient_mode: emailRecipientMode,
+                custom_email: customEmail,
+                channels: [{
+                  channel_id: "ch-primary",
+                  label: "Example Teams channel",
+                  binding_version: "version-1",
+                  endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+                  enabled: true,
+                  saved_at: "2026-09-04T06:00:00Z",
+                }],
               },
         ),
       });
@@ -125,6 +140,13 @@ async function installFixture(page: Page): Promise<{
     }
     if (path === "/runtime/integrations/teams-workflow/test") {
       teamsBody = route.request().postDataJSON();
+      const request = teamsBody as {
+        delivery_targets?: string[]; email_recipient_mode?: string; custom_email?: string;
+      };
+      deliveryTargets = request.delivery_targets ?? deliveryTargets;
+      emailRecipientMode = request.email_recipient_mode ?? emailRecipientMode;
+      customEmail = request.custom_email ?? customEmail;
+      bindingVersion = "version-2";
       await route.fulfill({
         status: 200,
         contentType: "application/json",

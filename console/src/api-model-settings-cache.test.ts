@@ -31,7 +31,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function installFetch(): ReturnType<typeof vi.fn> {
+function installFetch() {
   return vi.fn(async (input: string | URL | Request) => {
     const path = new URL(String(input)).pathname;
     if (path === "/system/data-sources") {
@@ -87,5 +87,50 @@ describe("Models projection cache", () => {
     await expect(client.modelSettings()).rejects.toThrow("temporary network failure");
     await expect(client.modelSettings()).resolves.toEqual({ revision: 1 });
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  test("summary reads do not wait for an in-flight provider catalog", async () => {
+    let finish!: (value: Response) => void;
+    const fullResponse = new Promise<Response>((resolve) => { finish = resolve; });
+    const fallback = installFetch();
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname !== "/models/settings") return fallback(input);
+      return url.searchParams.get("view") === "summary"
+        ? Promise.resolve(Response.json({ view: "summary" }))
+        : fullResponse;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new OperatorApiClient(config, auth);
+    const full = client.modelSettings();
+    const summary = client.modelSettings({ includeCatalog: false });
+    await expect(summary).resolves.toEqual({ view: "summary" });
+    expect(client.modelSettings({ includeCatalog: false })).toBe(summary);
+    expect(client.modelSettings()).toBe(full);
+    finish(Response.json({ view: "full" }));
+    await expect(full).resolves.toEqual({ view: "full" });
+    expect(fetchMock.mock.calls.filter(([input]) =>
+      new URL(String(input)).pathname === "/models/settings"
+    )).toHaveLength(2);
+  });
+
+  test("invalidates both views without letting an old response reenter the cache", async () => {
+    let finish!: (value: Response) => void;
+    const oldResponse = new Promise<Response>((resolve) => { finish = resolve; });
+    const fallback = installFetch();
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      if (new URL(String(input)).pathname !== "/models/settings") return fallback(input);
+      calls += 1;
+      return calls === 1 ? oldResponse : Promise.resolve(Response.json({ revision: calls }));
+    }));
+    const client = new OperatorApiClient(config, auth);
+    const old = client.modelSettings();
+    await client.modelSettings({ includeCatalog: false });
+    client.invalidateModelSettings();
+    finish(Response.json({ revision: 1 }));
+    await old;
+    await expect(client.modelSettings()).resolves.toEqual({ revision: 3 });
+    await expect(client.modelSettings({ includeCatalog: false })).resolves.toEqual({ revision: 4 });
   });
 });

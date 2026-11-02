@@ -158,7 +158,9 @@ async function putModelSettings(
   path: string,
   body: Record<string, unknown>,
 ): Promise<ModelSettingsView> {
-  return decodeModelSettings(await putGovernedJson(auth, operatorApiBaseUrl, path, body));
+  return decodeModelSettings(await putGovernedJson(
+    auth, operatorApiBaseUrl, `${path}?view=summary`, body,
+  ));
 }
 
 export function decodeModelBindingProposalReceipt(value: unknown): ModelBindingProposalReceipt {

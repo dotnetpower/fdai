@@ -11,8 +11,50 @@ import {
   responseDefaultsPolicyForSave,
   settingsDraftIsCurrent,
 } from "./settings";
+import {
+  contextDraftFromPreference,
+  dailyBriefingTime,
+  normalizeSettingsTimezone,
+  settingsResetIsReady,
+  shouldHydrateSettingsDraft,
+} from "./settings.model";
 
 describe("General Settings validation", () => {
+  it("requires a loaded context before a combined account/browser reset", () => {
+    expect(settingsResetIsReady({ context: null, loading: true, saving: false })).toBe(false);
+    expect(settingsResetIsReady({ context: null, loading: false, saving: false })).toBe(false);
+    expect(settingsResetIsReady({ context: {} as never, loading: false, saving: true })).toBe(false);
+    expect(settingsResetIsReady({ context: {} as never, loading: false, saving: false })).toBe(true);
+  });
+
+  it("normalizes the exact timezone that validation accepts", () => {
+    const timezone = normalizeSettingsTimezone(" UTC ");
+    expect(timezone).toBe("UTC");
+    expect(isValidTimezone(timezone)).toBe(true);
+  });
+
+  it("preserves dirty drafts on ordinary reload and newer edits during saved readback", () => {
+    expect(shouldHydrateSettingsDraft({ currentRevision: 3, startedRevision: 3, dirtyAtStart: true, saveReadback: false })).toBe(false);
+    expect(shouldHydrateSettingsDraft({ currentRevision: 4, startedRevision: 3, dirtyAtStart: true, saveReadback: true })).toBe(false);
+    expect(shouldHydrateSettingsDraft({ currentRevision: 3, startedRevision: 3, dirtyAtStart: true, saveReadback: true })).toBe(true);
+    expect(shouldHydrateSettingsDraft({ currentRevision: 0, startedRevision: 0, dirtyAtStart: false, saveReadback: false })).toBe(true);
+  });
+
+  it("restores only account fields from a saved preference", () => {
+    expect(contextDraftFromPreference({
+      answer_detail: "deep", answer_format: "mixed", answer_preferences_enabled: false,
+      timezone: "UTC", share_with_learner: true,
+    } as never)).toEqual({
+      answerDetail: "deep", answerFormat: "mixed", answerPreferencesEnabled: false,
+      timezone: "UTC", shareWithLearner: true,
+    });
+  });
+
+  it.each([["0 7 * * *", "07:00"], ["5 23 * * *", "23:05"], ["60 1 * * *", null], ["0 24 * * *", null], ["0 * * * *", null]])(
+    "presents only supported daily schedules without guessing: %s", (cron, expected) => {
+      expect(dailyBriefingTime(cron!)).toBe(expected);
+    },
+  );
   it("claims one context mutation synchronously", () => {
     const lock = { current: false };
     expect(claimSettingsMutation(lock)).toBe(true);

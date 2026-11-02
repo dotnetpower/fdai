@@ -1,5 +1,23 @@
 {
   "accountScope": "Your account",
+  "confirmReset": "Reset this browser's display preferences and delete your saved account defaults? Briefings and saved memories will not be deleted.",
+  "contextSaved": "Account preferences saved and read back.",
+  "contextUnavailable": "Account preferences could not be loaded. Saved briefings and memories are not known to be empty.",
+  "contextPending": "Account preferences are loading",
+  "discard": "Discard changes",
+  "retryContext": "Reload account context",
+  "retryPolicy": "Retry response-policy synchronization",
+  "policyPending": "Account preferences were saved, but response-policy synchronization is unfinished. Retry only that step.",
+  "removeSubscription": "Remove briefing subscription: {name}",
+  "removeMemory": "Remove saved memory: {name}",
+  "dailyPreview": "Daily at {time} ({timezone})",
+  "technicalSchedule": "Schedule details",
+  "nextRun": "Next run: {time}",
+  "notAvailable": "Unavailable",
+  "loadedHistory": "Showing {shown} of {total} loaded briefing results",
+  "showMore": "Show more briefing results",
+  "formatChecklist": "Checklist",
+  "formatMixed": "Mixed",
   "accountScopeHint": "Account preferences are saved only after you confirm the changes.",
   "appearance": "Appearance",
   "appearanceDescription": "Browser-local display and accessibility choices apply immediately.",
@@ -19,5 +37,5 @@
   "resetDescription": "Remove saved account defaults and restore this browser to the Console defaults.",
   "resetTitle": "Reset preferences",
   "saveContext": "Save user context",
-  "subtitle": "Display and accessibility preferences stored in this browser."
+  "subtitle": "Browser display choices and account preferences for responses, briefings, and memory."
 }

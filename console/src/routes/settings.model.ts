@@ -23,6 +23,16 @@ export function settingsDraftIsCurrent(currentRevision: number, startedRevision:
   return currentRevision === startedRevision;
 }
 
+export function shouldHydrateSettingsDraft(input: {
+  readonly currentRevision: number;
+  readonly startedRevision: number;
+  readonly dirtyAtStart: boolean;
+  readonly saveReadback: boolean;
+}): boolean {
+  return settingsDraftIsCurrent(input.currentRevision, input.startedRevision)
+    && (!input.dirtyAtStart || input.saveReadback);
+}
+
 export function claimSettingsDelete(claims: Set<string>, key: string): boolean {
   if (claims.has(key)) return false;
   claims.add(key);
@@ -97,6 +107,34 @@ export function isValidTimezone(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function normalizeSettingsTimezone(value: string): string {
+  return value.trim();
+}
+
+export function contextDraftFromPreference(preference: UserPreferencePayload | null | undefined) {
+  return {
+    answerDetail: preference?.answer_detail ?? "standard",
+    answerFormat: preference?.answer_format ?? "prose",
+    answerPreferencesEnabled: preference?.answer_preferences_enabled ?? true,
+    timezone: preference?.timezone ?? defaultTimezone(),
+    shareWithLearner: preference?.share_with_learner ?? false,
+  } as const;
+}
+
+export function settingsResetIsReady(input: {
+  readonly context: UserContextPayload | null;
+  readonly loading: boolean;
+  readonly saving: boolean;
+}): boolean {
+  return input.context !== null && !input.loading && !input.saving;
+}
+
+export function dailyBriefingTime(cron: string): string | null {
+  const match = /^(\d{1,2}) (\d{1,2}) \* \* \*$/.exec(cron);
+  if (!match || Number(match[1]) > 59 || Number(match[2]) > 23) return null;
+  return `${match[2]!.padStart(2, "0")}:${match[1]!.padStart(2, "0")}`;
 }
 
 export function parseBriefingHour(value: string): number | null {

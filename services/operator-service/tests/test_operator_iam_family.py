@@ -927,6 +927,7 @@ class RecordingModelSettings:
         self.binding_plan: ModelBindingRequestCommand | None = None
         self.ocr_policy: DocumentOcrPolicyCommand | None = None
         self.ocr_plan: DocumentOcrPlanCommand | None = None
+        self.include_model_catalog = True
 
     async def projection(
         self,
@@ -935,8 +936,10 @@ class RecordingModelSettings:
         can_manage_web_search: bool = False,
         can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
+        include_model_catalog: bool = True,
     ) -> Mapping[str, Any]:
         del refresh_model_catalog
+        self.include_model_catalog = include_model_catalog
         return {
             "principal_id": principal_id,
             "can_manage": can_manage_web_search,
@@ -2008,6 +2011,43 @@ def test_model_binding_routes_reject_unknown_and_malformed_identity_fields() -> 
             json=invalid_request,
         )
         assert response.status_code == 400
+
+
+def test_model_settings_summary_is_explicit_and_incompatible_refresh_is_rejected() -> None:
+    models = RecordingModelSettings()
+    client = _client(model_settings=models)
+    owner = {"x-test-role": "Owner"}
+    assert client.get("/models/settings?view=summary", headers=owner).status_code == 200
+    assert models.include_model_catalog is False
+    assert client.get("/models/settings", headers=owner).status_code == 200
+    assert models.include_model_catalog is True
+    for query in ("view=unknown", "view=summary&refresh_catalog=1"):
+        assert client.get(f"/models/settings?{query}", headers=owner).status_code == 400
+    assert models.include_model_catalog is True
+
+
+def test_model_settings_mutation_summary_keeps_authority_and_validates_before_write() -> None:
+    models = RecordingModelSettings()
+    client = _client(model_settings=models)
+    owner = {"x-test-role": "Owner"}
+    preference = {"preferred_narrator_model": "auto", "expected_revision": 0}
+    web_search = {"enabled": False, "allowed_domains": [], "expected_revision": 0}
+    for path, body in (
+        ("/me/model-preferences", preference),
+        ("/models/web-search-settings", web_search),
+    ):
+        assert client.put(f"{path}?view=unknown", headers=owner, json=body).status_code == 400
+    assert models.preference is None and models.web is None
+    for path, body in (
+        ("/me/model-preferences", preference),
+        ("/models/web-search-settings", web_search),
+    ):
+        response = client.put(f"{path}?view=summary", headers=owner, json=body)
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store"
+        assert response.json()["can_manage"] is True
+        assert response.json()["can_manage_model_bindings"] is True
+        assert models.include_model_catalog is False
 
 
 def test_iam_settings_redact_nested_sensitive_alias_fields() -> None:

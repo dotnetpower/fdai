@@ -156,8 +156,12 @@ test("production Settings controls share desktop typography and sizing", async (
   await page.goto("/settings/diagnostics");
   const diagnostics = page.locator(".settings-overlay .settings-route");
   const retry = diagnostics.locator(".settings-diagnostic-action");
-  await expect(retry.getByRole("button")).toBeVisible();
-  await expectControlPresentation(retry, 34);
+  await expect(retry).toHaveCount(2);
+  for (let index = 0; index < 2; index += 1) {
+    const action = retry.nth(index);
+    await expect(action.getByRole("button")).toBeVisible();
+    await expectControlPresentation(action, 34);
+  }
 });
 
 for (const locale of ["en", "ko"] as const) {
@@ -178,8 +182,12 @@ for (const locale of ["en", "ko"] as const) {
     await page.goto(`/settings/diagnostics?locale=${locale}`);
     const diagnostics = page.locator(".settings-overlay .settings-route");
     const retry = diagnostics.locator(".settings-diagnostic-action");
-    await expect(retry.getByRole("button")).toBeVisible();
-    await expectControlPresentation(retry, 44);
+    await expect(retry).toHaveCount(2);
+    for (let index = 0; index < 2; index += 1) {
+      const action = retry.nth(index);
+      await expect(action.getByRole("button")).toBeVisible();
+      await expectControlPresentation(action, 44);
+    }
 
     const documentSize = await page.locator("html").evaluate((element) => ({
       clientWidth: element.clientWidth,
