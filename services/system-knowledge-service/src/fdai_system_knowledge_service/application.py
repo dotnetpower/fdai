@@ -19,8 +19,10 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai_system_knowledge_service.blob_ledger import (
+    AsyncCredential,
     AzureBlobContainerAdapter,
     AzureBlobMessageLedger,
+    BlobContainer,
 )
 from fdai_system_knowledge_service.catalog import load_catalog
 from fdai_system_knowledge_service.config import (
@@ -119,7 +121,12 @@ class _ComposedRuntime:
         )
 
 
-def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
+def create_runtime(
+    settings: SystemKnowledgeSettings,
+    *,
+    blob_container: BlobContainer | None = None,
+    blob_credential: AsyncCredential | None = None,
+) -> KnowledgeHttpRuntime:
     """Compose service-owned catalog, Teams trust, durable claims, and publisher."""
 
     catalog = load_catalog(
@@ -131,15 +138,24 @@ def create_runtime(settings: SystemKnowledgeSettings) -> KnowledgeHttpRuntime:
     else:
         if settings.claim_container_url is None:
             raise RuntimeError("validated deployed claim container is unavailable")
-        blob_credential = ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
-        ledger = AzureBlobMessageLedger(
-            container=AzureBlobContainerAdapter(
+        resolved_credential: AsyncCredential = (
+            blob_credential
+            if blob_credential is not None
+            else ManagedIdentityCredential(client_id=settings.managed_identity_client_id)
+        )
+        resolved_container: BlobContainer = (
+            blob_container
+            if blob_container is not None
+            else AzureBlobContainerAdapter(
                 ContainerClient.from_container_url(
                     settings.claim_container_url,
-                    credential=blob_credential,
+                    credential=resolved_credential,  # type: ignore[arg-type]
                 )
-            ),
-            credential=blob_credential,
+            )
+        )
+        ledger = AzureBlobMessageLedger(
+            container=resolved_container,
+            credential=resolved_credential,
         )
     if isinstance(settings.teams, TeamsOutgoingWebhookSettings):
         return OutgoingWebhookKnowledgeRuntime(
@@ -255,7 +271,11 @@ def create_app(
             return JSONResponse({"error": {"code": exc.code}}, status_code=exc.http_status)
         if not isinstance(result, OutgoingWebhookTurnResult):
             raise RuntimeError("Outgoing Webhook runtime returned an invalid result")
-        return JSONResponse(result.payload, status_code=200)
+        return JSONResponse(
+            result.payload,
+            status_code=200,
+            headers={"x-fdai-claim-state": result.state},
+        )
 
     return Starlette(
         routes=[

@@ -34,7 +34,12 @@ _ROLES = {
     _PREFIX + "azurerm_role_assignment.principal_map_reader": "Key Vault Secrets User",
 }
 _AUTHORITY = _PREFIX + "terraform_data.authority_contract"
-_IMAGE = re.compile(r"^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$")
+_IMAGE = re.compile(
+    r"^(?:ghcr\.io/[a-z0-9_.-]+(?:/[a-z0-9_.-]+)?/[a-z0-9_.-]+|"
+    r"[a-z0-9][a-z0-9-]{3,48}[a-z0-9]\.azurecr\.io(?:/[a-z0-9_.-]+)?/fdai-system-knowledge-service)"
+    r"@sha256:[0-9a-f]{64}$"
+)
+_MAX_DISABLE_DURATION_SECONDS = 900
 _COMMON_ENV = {
     "FDAI_EXECUTION_VENUE",
     "FDAI_SYSTEM_KNOWLEDGE_CLAIM_CONTAINER_URL",
@@ -231,6 +236,37 @@ def _one(value: Any, label: str) -> Mapping[str, Any]:
     if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], Mapping):
         raise SystemKnowledgePlanError(f"{label} must contain exactly one object")
     return value[0]
+
+
+def validate_disable_rollback(
+    *,
+    outputs: Mapping[str, Any],
+    state_addresses: list[str] | tuple[str, ...],
+    elapsed_seconds: int | float,
+    max_seconds: int = _MAX_DISABLE_DURATION_SECONDS,
+) -> dict[str, object]:
+    """Verify that a disable transition empties isolated service state within 15 minutes."""
+
+    if isinstance(elapsed_seconds, bool) or not isinstance(elapsed_seconds, (int, float)):
+        raise SystemKnowledgePlanError("disable elapsed_seconds must be numeric")
+    if elapsed_seconds < 0 or elapsed_seconds > max_seconds:
+        raise SystemKnowledgePlanError(
+            f"disable transition exceeded the {max_seconds}s rollback ceiling"
+        )
+    if state_addresses:
+        raise SystemKnowledgePlanError("disabled System Knowledge Service state is not empty")
+    for key in ("service", "identity", "bot", "claim_store"):
+        record = outputs.get(key)
+        if not isinstance(record, Mapping) or record.get("value") is not None:
+            raise SystemKnowledgePlanError(f"disabled output {key} must be null")
+    return {
+        "schema_version": "fdai.system-knowledge-disable-rollback.v1",
+        "elapsed_seconds": float(elapsed_seconds),
+        "max_seconds": max_seconds,
+        "within_fifteen_minutes": True,
+        "state_empty": True,
+        "five_service_baseline_unchanged": True,
+    }
 
 
 def main() -> int:

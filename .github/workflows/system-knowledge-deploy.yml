@@ -437,6 +437,10 @@ jobs:
         if: ${{ inputs.apply && inputs.transition == 'disable' }}
         run: |
           set -euo pipefail
+          (( ${{ steps.apply.outputs.elapsed_seconds }} <= 900 )) || {
+            echo "disable transition exceeded the 900-second rollback ceiling" >&2
+            exit 1
+          }
           jq -e \
             '.service.value == null and .identity.value == null and .bot.value == null and .claim_store.value == null' \
             "$RUNNER_TEMP/system-knowledge-outputs.json" >/dev/null
