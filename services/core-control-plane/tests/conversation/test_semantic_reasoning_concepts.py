@@ -689,3 +689,38 @@ def test_shared_concept_and_call_caches_normalize_particles_and_respect_live_fla
     assert lookup_cached_call("semantic-direction-check", "key-1", live=True) is None
     store_cached_call("semantic-direction-check", "key-1", {"chosen": "c0"}, live=True)
     assert lookup_cached_call("semantic-direction-check", "key-1", live=True) == {"chosen": "c0"}
+
+
+def test_bilingual_and_typo_resilient_ontology_seeds_resolve_across_shards_and_siblings() -> None:
+    from fdai.core.conversation.semantic_reasoning_selection import lookup_cached_concept_choices
+
+    catalogs = concept_catalogs(production_manifest().descriptors)
+    rt_shards = shard_catalog(MentionDomain.RESOURCE_TYPE, catalogs[MentionDomain.RESOURCE_TYPE])
+    obj_shards = shard_catalog(MentionDomain.OBJECT_TYPE, catalogs[MentionDomain.OBJECT_TYPE])
+    st_shards = shard_catalog(MentionDomain.STATE, catalogs[MentionDomain.STATE])
+    reg_shards = shard_catalog(MentionDomain.REGION, catalogs[MentionDomain.REGION])
+
+    for shards, text, expected in (
+        (rt_shards, "리소스그릅이", ["group:resource-group"]),
+        (rt_shards, "resouce groups", ["group:resource-group"]),
+        (rt_shards, "vms를", ["group:compute.vm"]),
+        (rt_shards, "virtul machines", ["group:compute.vm"]),
+        (rt_shards, "데이타베이스들", ["group:database"]),
+        (rt_shards, "포스트그래스", ["group:postgresql-server"]),
+        (rt_shards, "컨테이나앱", ["group:compute.container-app"]),
+        (rt_shards, "kubernets", ["group:kubernetes-cluster"]),
+        (obj_shards, "인시던츠", ["object:Incident"]),
+        (obj_shards, "리소스그룹이", []),
+        (rt_shards, "인시던트가", []),
+        (st_shards, "stoped", ["state:stopped_or_deallocated"]),
+        (st_shards, "꺼진", ["state:stopped_or_deallocated"]),
+        (reg_shards, "한국 중부", ["region:koreacentral"]),
+    ):
+        combined: list[str] = []
+        for shard in shards:
+            hit = lookup_cached_concept_choices(
+                shard, False, [{"mention": "m1", "text": text}], live=True
+            )
+            assert hit is not None
+            combined.extend(hit["choices"][0]["candidate_ids"])
+        assert combined == expected
