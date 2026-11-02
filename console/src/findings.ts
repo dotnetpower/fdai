@@ -68,36 +68,15 @@ export function decodeFindingPage(value: unknown): FindingPage {
         throw new Error("Invalid Finding observation time");
       }
     }
-    const optionalText = (key: string): string | undefined => {
-      const candidate = row[key];
-      return typeof candidate === "string" && candidate.trim().length > 0 && candidate.length <= 512
-        ? candidate.trim()
-        : undefined;
-    };
-    const optionalTimestamp = (key: string): string | undefined => {
-      const candidate = optionalText(key);
-      return candidate !== undefined && Number.isFinite(Date.parse(candidate))
-        ? candidate
-        : undefined;
-    };
-    const revision = Number.isSafeInteger(row.revision) && Number(row.revision) >= 1
-      ? Number(row.revision)
-      : undefined;
-    const recoveryClosed = typeof row.recovery_closed === "boolean"
-      ? row.recovery_closed
-      : row.recovery_closed === null
-        ? null
-        : undefined;
-    const assessedBy = optionalText("assessed_by") ?? (row.assessed_by === null ? null : undefined);
-    const observationKey = optionalText("observation_key");
-    const observationDigest = optionalText("observation_digest");
-    const firstSeenAt = optionalTimestamp("first_seen_at");
-    const recordedAt = optionalTimestamp("recorded_at");
-    const currentState = optionalText("current_state");
-    const publication = optionalText("publication");
+    const extra: Record<string, unknown> = {};
+    if (typeof row.revision === "number" && row.revision >= 1) extra.revision = row.revision;
+    if (typeof row.recovery_closed === "boolean" || row.recovery_closed === null) extra.recovery_closed = row.recovery_closed;
+    for (const k of ["observation_key", "observation_digest", "first_seen_at", "recorded_at", "current_state", "assessed_by", "publication"]) {
+      if (typeof row[k] === "string" && row[k].trim()) extra[k] = row[k].trim();
+    }
     return {
+      ...extra,
       finding_id: row.finding_id,
-      ...(revision !== undefined ? { revision } : {}),
       notification_version: Number(row.notification_version),
       notification_reason: row.notification_reason as CurrentFinding["notification_reason"],
       notification_changed_at: String(row.notification_changed_at),
@@ -107,19 +86,11 @@ export function decodeFindingPage(value: unknown): FindingPage {
       severity: row.severity as CurrentFinding["severity"],
       status: row.status as CurrentFinding["status"],
       observation: String(row.observation),
-      ...(observationKey !== undefined ? { observation_key: observationKey } : {}),
-      ...(observationDigest !== undefined ? { observation_digest: observationDigest } : {}),
-      ...(firstSeenAt !== undefined ? { first_seen_at: firstSeenAt } : {}),
       occurred_at: String(row.occurred_at),
-      ...(recordedAt !== undefined ? { recorded_at: recordedAt } : {}),
-      ...(currentState !== undefined ? { current_state: currentState } : {}),
       evidence_complete: row.evidence_complete,
       evidence_state: String(row.evidence_state),
-      ...(recoveryClosed !== undefined ? { recovery_closed: recoveryClosed } : {}),
-      ...(assessedBy !== undefined ? { assessed_by: assessedBy } : {}),
       evidence_refs: row.evidence_refs,
       evidence_gaps: row.evidence_gaps,
-      ...(publication !== undefined ? { publication } : {}),
     };
   });
   return { items, next_cursor: page.next_cursor as string | null, total_count: Number(page.total_count) };

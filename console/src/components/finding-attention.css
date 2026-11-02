@@ -128,6 +128,39 @@
   border-radius: var(--cs-radius-sm);
   background: var(--cs-shade);
 }
+.current-findings-selected-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.current-findings-filterbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+.current-findings-search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.console-inbox-item-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding-top: 6px;
+}
+.console-inbox-item-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.console-inbox-item-links .btn {
+  text-decoration: none;
+}
 .finding-list,
 .current-findings-list {
   list-style: none;

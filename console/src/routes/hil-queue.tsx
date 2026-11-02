@@ -10,13 +10,15 @@ import type { HilQueueItem } from "../types";
 import type { ReportLineContactRequest } from "./report-lines.model";
 import {
   AsyncBoundary,
+  CopyButton,
   EmptyState,
   PageHeader,
   StatusPill,
   type AsyncState,
+  type PillKind,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
-import { TERMS, agentTerm, composeGlossary } from "../deck/glossary";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/approvals";
@@ -126,12 +128,22 @@ export function HilQueueRoute({ client, auth, dataMode }: Props) {
   }, [client, dataMode, refreshRevision]);
 
   return (
-    <div class="stack">
+    <div class="stack approvals-route">
       <PageHeader
         title={t("route.hilQueue")}
         subtitle={<>{t("approvals.subtitle")}</>}
         actions={
-          <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
+          <div class="approvals-header-actions">
+            <StatusPill kind="neutral" label={t("approvals.requestOnly")} />
+            <button
+              type="button"
+              class="btn secondary btn-sm"
+              disabled={state.status === "loading"}
+              onClick={() => setRefreshRevision((revision) => revision + 1)}
+            >
+              {t("approvals.refresh")}
+            </button>
+          </div>
         }
       />
       <SlackApprovalHandoff client={client} auth={auth} dataMode={dataMode} />
@@ -217,15 +229,32 @@ function ReportLineContactRequests({
           <article class="approval-card" key={item.approvalId}>
             <div class="approval-card-body">
               <header class="approval-card-head">
-                <h3>{item.actionType}</h3>
+                <div class="approval-card-title-group">
+                  <h3>{actionKindTitle(item.actionType)}</h3>
+                  {actionKindTitle(item.actionType) !== item.actionType ? (
+                    <code class="approval-action-token mono">{item.actionType}</code>
+                  ) : null}
+                </div>
                 <StatusPill kind="hil" label={t("approvals.requestOnly")} />
               </header>
-              <p><strong>{t("approvals.fieldTarget")}</strong> {item.targetRef}</p>
-              <p>
-                <strong>{t("approvals.contactRoute")}</strong>{" "}
-                {item.routeSubjects.join(" -> ")}
-              </p>
-              <p>{t("approvals.contactExpires", {
+              <div class="approval-proposal-grid">
+                <div class="approval-proposal-cell">
+                  <span class="approval-proposal-label">{t("approvals.fieldTarget")}</span>
+                  <p class="mono">{item.targetRef}</p>
+                </div>
+                <div class="approval-proposal-cell">
+                  <span class="approval-proposal-label">{t("approvals.contactRoute")}</span>
+                  <div class="approval-route-chain">
+                    {item.routeSubjects.map((subject, index) => (
+                      <span key={`${index}:${subject}`} class="approval-route-step">
+                        {index > 0 ? <span class="approval-route-arrow" aria-hidden="true">-&gt;</span> : null}
+                        <code class="mono">{subject}</code>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <p class="muted small">{t("approvals.contactExpires", {
                 timestamp: formatConsoleTimestamp(item.expiresAt),
               })}</p>
               <details>
@@ -233,11 +262,17 @@ function ReportLineContactRequests({
                 <dl class="approval-facts">
                   <div>
                     <dt>{t("approvals.contactApprovalId")}</dt>
-                    <dd><code>{item.approvalId}</code></dd>
+                    <dd class="approval-fact-copy-row">
+                      <code>{item.approvalId}</code>
+                      <CopyButton text={item.approvalId} />
+                    </dd>
                   </div>
                   <div>
                     <dt>{t("approvals.contactConsentId")}</dt>
-                    <dd><code>{item.consentId}</code></dd>
+                    <dd class="approval-fact-copy-row">
+                      <code>{item.consentId}</code>
+                      <CopyButton text={item.consentId} />
+                    </dd>
                   </div>
                 </dl>
               </details>
@@ -296,6 +331,8 @@ function HilBody({
 }) {
   const { items, total, detailLevel } = data;
   const [now, setNow] = useState(Date.now);
+  const [statusFilter, setStatusFilter] = useState<"all" | "actionable" | "expired">("all");
+  const [sortBy, setSortBy] = useState<"expiry" | "newest" | "impact" | "action">("expiry");
   useEffect(() => {
     const delay = nextApprovalExpiryDelay(items, now);
     if (delay === null) return undefined;
@@ -377,10 +414,17 @@ function HilBody({
   }
 
   const normalizedQuery = query.trim().toLowerCase();
-  const visibleItems = normalizedQuery
-    ? items.filter((item) => approvalSearchText(item).includes(normalizedQuery))
-    : items;
   const expiredCount = items.filter((item) => approvalIsExpired(item, now)).length;
+  const actionableCount = items.length - expiredCount;
+  const visibleItems = items
+    .filter((item) => {
+      if (statusFilter === "actionable" && approvalIsExpired(item, now)) return false;
+      if (statusFilter === "expired" && !approvalIsExpired(item, now)) return false;
+      if (!normalizedQuery) return true;
+      return approvalSearchText(item).includes(normalizedQuery);
+    })
+    .slice()
+    .sort((left, right) => compareApprovals(left, right, sortBy));
 
   return (
     <div class="stack approvals-view">
@@ -409,15 +453,74 @@ function HilBody({
               : t("approvals.requestOnly")}
           />
         </div>
-        <label class="approvals-search">
-          <span class="sr-only">{t("approvals.filter")}</span>
-          <input
-            type="search"
-            value={query}
-            placeholder={t("approvals.filterPlaceholder")}
-            onInput={(event) => updateQuery(event.currentTarget.value)}
-          />
-        </label>
+        <div class="approvals-controls">
+          {items.length > 1 ? (
+            <>
+              <div class="governance-chipset" role="group" aria-label={t("approvals.resource")}>
+                <button
+                  type="button"
+                  class={statusFilter === "all" ? "is-active" : undefined}
+                  onClick={() => setStatusFilter("all")}
+                >
+                  {t("approvals.filterAll")} ({items.length})
+                </button>
+                <button
+                  type="button"
+                  class={statusFilter === "actionable" ? "is-active" : undefined}
+                  onClick={() => setStatusFilter("actionable")}
+                >
+                  {t("approvals.filterActionable")} ({actionableCount})
+                </button>
+                {expiredCount > 0 ? (
+                  <button
+                    type="button"
+                    class={statusFilter === "expired" ? "is-active" : undefined}
+                    onClick={() => setStatusFilter("expired")}
+                  >
+                    {t("approvals.filterExpired")} ({expiredCount})
+                  </button>
+                ) : null}
+              </div>
+              <label class="approvals-sort">
+                <span class="sr-only">{t("approvals.sortLabel")}</span>
+                <select
+                  class="form-input"
+                  aria-label={t("approvals.sortLabel")}
+                  value={sortBy}
+                  onChange={(event) => setSortBy(
+                    event.currentTarget.value as "expiry" | "newest" | "impact" | "action",
+                  )}
+                >
+                  <option value="expiry">{t("approvals.sortExpiry")}</option>
+                  <option value="newest">{t("approvals.sortNewest")}</option>
+                  <option value="impact">{t("approvals.sortImpact")}</option>
+                  <option value="action">{t("approvals.sortAction")}</option>
+                </select>
+              </label>
+            </>
+          ) : null}
+          <label class="approvals-search">
+            <span class="sr-only">{t("approvals.filter")}</span>
+            <input
+              type="search"
+              value={query}
+              placeholder={t("approvals.filterPlaceholder")}
+              onInput={(event) => updateQuery(event.currentTarget.value)}
+            />
+          </label>
+          {query || statusFilter !== "all" ? (
+            <button
+              type="button"
+              class="btn secondary btn-sm"
+              onClick={() => {
+                setStatusFilter("all");
+                updateQuery("");
+              }}
+            >
+              {t("approvals.clearFilter")}
+            </button>
+          ) : null}
+        </div>
       </div>
       {truncated ? (
         <p class="muted footnote">
@@ -503,16 +606,27 @@ function ApprovalCard({
   // The Owner signs in again before approving; rejecting a category-only park grants nothing.
   const awaitingSignIn = ownDevelopment && !reauthenticated;
   const reasons = [...new Set(item.reasons.length > 0 ? item.reasons : [item.reason])];
+  const parsedTarget = item.target_resource_ref
+    ? shortTargetDisplay(item.target_resource_ref)
+    : null;
+  const blastScope = item.blast_radius_scope
+    ? blastScopeLabel(item.blast_radius_scope)
+    : "";
   const blastRadius = item.blast_radius_summary || [
     item.blast_radius_count !== null
       ? t(item.blast_radius_count === 1 ? "approvals.resourceCountOne" : "approvals.resourceCountMany", { count: item.blast_radius_count })
       : "",
-    item.blast_radius_scope,
+    blastScope,
     item.blast_radius_rate_per_minute !== null
       ? t("approvals.rateCap", { count: item.blast_radius_rate_per_minute })
       : "",
   ].filter(Boolean).join(" · ");
-  const rollback = [item.rollback_kind, item.rollback_reference].filter(Boolean).join(" · ");
+  const rollback = [
+    item.rollback_kind ? rollbackKindLabel(item.rollback_kind) : "",
+    item.rollback_reference,
+  ].filter(Boolean).join(" · ");
+  const expiryBadge = approvalExpiryBadge(item.ttl_expires_at, now);
+  const actionTitle = actionKindTitle(item.action_kind);
   const facts = [
     [t("approvals.fieldApprovalId"), item.approval_id],
     [t("approvals.fieldActionId"), item.action_id],
@@ -563,32 +677,63 @@ function ApprovalCard({
   };
 
   return (
-    <article class="approval-card">
+    <article class={`approval-card${expired ? " is-expired" : ""}${decisionRecorded ? " is-decided" : ""}`}>
       <div class="approval-card-body">
         <header class="approval-card-head">
-          <h3>{item.action_kind}</h3>
-          <StatusPill
-            kind={expired ? "danger" : "hil"}
-            label={expired ? t("approvals.expiredApproval") : t("approvals.pendingApproval")}
-          />
-          {item.mode ? (
+          <div class="approval-card-title-group">
+            <h3>
+              {actionTitle !== item.action_kind ? `${actionTitle} (${item.action_kind})` : item.action_kind}
+            </h3>
+            {parsedTarget ? (
+              <span class="approval-target-subtitle mono">
+                {parsedTarget.shortName}
+                {parsedTarget.resourceGroup ? ` · ${parsedTarget.resourceGroup}` : ""}
+              </span>
+            ) : null}
+          </div>
+          <div class="approval-card-badges">
             <StatusPill
-              kind={item.mode === "enforce" ? "enforce" : "shadow"}
-              label={item.mode === "enforce"
-                ? t("approvals.modeEnforce")
-                : t("approvals.modeShadow")}
+              kind={expired ? "danger" : "hil"}
+              label={expired ? t("approvals.expiredApproval") : t("approvals.pendingApproval")}
             />
-          ) : null}
+            {expiryBadge ? (
+              <StatusPill kind={expiryBadge.kind} label={expiryBadge.label} />
+            ) : null}
+            {item.mode ? (
+              <StatusPill
+                kind={item.mode === "enforce" ? "enforce" : "shadow"}
+                label={item.mode === "enforce"
+                  ? t("approvals.modeEnforce")
+                  : t("approvals.modeShadow")}
+              />
+            ) : null}
+          </div>
         </header>
-        <p class="approval-card-what">
-          <strong>{t("approvals.what")}</strong>{" "}
-          {item.target_resource_ref
-            ? t("approvals.applyTarget", { action: item.action_kind, target: item.target_resource_ref })
-            : t("approvals.applyRecorded", { action: item.action_kind })}
-        </p>
-        <div class="approval-card-why">
-          <strong>{t("approvals.why")}</strong>
-          <ul>{reasons.map((reason, index) => <li key={`${index}:${reason}`}>{reason}</li>)}</ul>
+        <div class="approval-proposal-grid">
+          <div class="approval-proposal-cell">
+            <span class="approval-proposal-label">{t("approvals.what")}</span>
+            <p class="approval-card-what">
+              {item.target_resource_ref
+                ? t("approvals.applyTarget", { action: item.action_kind, target: item.target_resource_ref })
+                : t("approvals.applyRecorded", { action: item.action_kind })}
+            </p>
+          </div>
+          <div class="approval-proposal-cell">
+            <span class="approval-proposal-label">{t("approvals.why")}</span>
+            <div class="approval-card-why">
+              <ul>{reasons.map((reason, index) => <li key={`${index}:${reason}`}>{reason}</li>)}</ul>
+            </div>
+          </div>
+        </div>
+        <div class="approval-safeguards-bar" aria-label={t("approvals.safeguardsTitle")}>
+          <span class="approval-safeguards-label">{t("approvals.safeguardsTitle")}</span>
+          <div class="approval-safeguards-pills">
+            <StatusPill kind={item.stop_condition ? "success" : "neutral"} label={t("approvals.safeguardStop")} />
+            <StatusPill kind={rollback ? "success" : "neutral"} label={t("approvals.safeguardRollback")} />
+            <StatusPill kind={blastRadius ? "success" : "neutral"} label={t("approvals.safeguardBlast")} />
+            <StatusPill kind={item.idempotency_key ? "success" : "neutral"} label={t("approvals.safeguardIdempotency")} />
+            <StatusPill kind={item.correlation_id ? "success" : "neutral"} label={t("approvals.safeguardAudit")} />
+          </div>
         </div>
         <dl class="approval-facts">
           {facts.map(([label, value]) => (
@@ -597,19 +742,24 @@ function ApprovalCard({
               <dd>
                 {label === t("approvals.fieldTarget") && item.target_resource_ref ? (
                   dataMode === "live"
-                    ? <a href={architectureHref(item.target_resource_ref)}>{item.target_resource_ref}</a>
-                    : item.target_resource_ref
+                    ? <a class="mono" href={architectureHref(item.target_resource_ref)}>{item.target_resource_ref}</a>
+                    : <span class="mono">{item.target_resource_ref}</span>
                 ) : label === t("approvals.fieldGroundedOn") && item.citing_rule_ids.length > 0 ? (
                   <span class="approval-rule-links">
                     {[...new Set(item.citing_rule_ids)].map((ruleId) =>
                       dataMode === "live"
                         ? (
-                          <a key={ruleId} href={routeHref("rules", { params: { rule: ruleId } })}>
+                          <a key={ruleId} class="approval-rule-chip mono" href={routeHref("rules", { params: { rule: ruleId } })}>
                             {ruleId}
                           </a>
                         )
-                        : <span key={ruleId}>{ruleId}</span>
+                        : <span key={ruleId} class="approval-rule-chip mono">{ruleId}</span>
                     )}
+                  </span>
+                ) : (label === t("approvals.fieldApprovalId") || label === t("approvals.fieldActionId")) && value ? (
+                  <span class="approval-fact-copy-row">
+                    <code class="mono">{value}</code>
+                    <CopyButton text={String(value)} />
                   </span>
                 ) : value || <span class="muted">{t("approvals.notRecorded")}</span>}
               </dd>
@@ -621,8 +771,16 @@ function ApprovalCard({
           {item.ttl_expires_at ? (
             <span>{t("approvals.expires", { timestamp: formatConsoleTimestamp(item.ttl_expires_at) })}</span>
           ) : <span class="muted">{t("approvals.ttlNotRecorded")}</span>}
-          <code>{item.event_id}</code>
-          {item.correlation_id ? <code>{item.correlation_id}</code> : null}
+          <span class="approval-foot-token">
+            <span>{t("approvals.eventLabel")}:</span>
+            <code>{item.event_id}</code>
+          </span>
+          {item.correlation_id ? (
+            <span class="approval-foot-token">
+              <span>{t("approvals.correlationLabel")}:</span>
+              <code>{item.correlation_id}</code>
+            </span>
+          ) : null}
         </footer>
         {item.correlation_id ? (
           <nav class="approval-card-actions" aria-label={t("approvals.relatedEvidence")}>
@@ -653,6 +811,11 @@ function ApprovalCard({
             } })}>
               {t("approvals.openRca")}
             </a>
+            {dataMode === "live" && item.target_resource_ref ? (
+              <a href={`${routeHref("detection-readiness", { params: { resource: item.target_resource_ref, data: "live" } })}#detection-resources`}>
+                {t("approvals.openDetectionCoverage")}
+              </a>
+            ) : null}
           </nav>
         ) : null}
         {canDecide && awaitingSignIn && item.development_owner_only !== true ? (
@@ -689,10 +852,15 @@ function ApprovalCard({
               <p class="muted" role="status">{t("approvals.developmentOwnerOnly")}</p>
             )}
             <label>
-              <span>{t("approvals.justification")}</span>
+              <span class="approval-justification-head">
+                <span>{t("approvals.justification")}</span>
+                <small class="muted mono">{justification.trim().length}/2000</small>
+              </span>
               <textarea
+                class="form-input"
                 value={justification}
                 maxLength={2000}
+                placeholder={t("approvals.justificationPlaceholder")}
                 disabled={pendingDecision !== null}
                 onInput={(event) => setJustification(event.currentTarget.value)}
               />
@@ -742,6 +910,9 @@ function ApprovalCard({
         ) : item.decision_unavailable_reason !== null && dataMode === "live" ? (
           <p class="muted approval-decision-unavailable">
             {t("approvals.decisionUnavailable")}
+            {unavailableReasonLabel(item.decision_unavailable_reason)
+              ? ` (${unavailableReasonLabel(item.decision_unavailable_reason)})`
+              : ""}
           </p>
         ) : null}
       </div>
@@ -779,4 +950,119 @@ export function approvalCanDecide(
 
 function approvalIsExpired(item: HilQueueItem, now: number): boolean {
   return item.ttl_expires_at !== null && Date.parse(item.ttl_expires_at) <= now;
+}
+
+function shortTargetDisplay(resourceRef: string): {
+  readonly shortName: string;
+  readonly resourceGroup: string | null;
+} {
+  const match = /^(?:scope-[^/]+\/resource-group|\/?subscriptions\/[^/]+\/resourcegroups)\/([^/]+)\/providers\/[^/]+\/[^/]+\/(.+)$/i.exec(
+    resourceRef,
+  );
+  if (!match) return { shortName: resourceRef, resourceGroup: null };
+  const [, resourceGroup = "", tail = ""] = match;
+  const parts = tail.split("/").filter(Boolean);
+  return { shortName: parts[parts.length - 1] ?? tail, resourceGroup };
+}
+
+export function actionKindTitle(actionKind: string): string {
+  const known = new Set([
+    "ops.start-vm",
+    "ops.deallocate-vm",
+    "ops.restart-service",
+    "ops.scale-out",
+    "ops.scale-in",
+    "ops.rollback-kubernetes-rollout",
+    "ops.failover-primary",
+    "ops.rotate-cert",
+    "ops.flush-cache",
+    "ops.drain-connection",
+    "remediate.right-size-role",
+    "remediate.enable-zone-redundancy",
+    "remediate.enable-backup-protection",
+    "remediate.enable-diagnostic-settings",
+    "remediate.disable-public-access",
+  ]);
+  return known.has(actionKind) ? t(`approvals.actionTitles.${actionKind}`) : actionKind;
+}
+
+export function rollbackKindLabel(rollbackKind: string): string {
+  const known = new Set([
+    "pr_revert",
+    "scripted",
+    "pitr",
+    "snapshot_restore",
+    "state_forward_only",
+  ]);
+  return known.has(rollbackKind) ? t(`approvals.rollbackKinds.${rollbackKind}`) : rollbackKind;
+}
+
+export function blastScopeLabel(scope: string): string {
+  const known = new Set([
+    "single_resource",
+    "resource_group",
+    "subscription",
+    "cluster",
+    "namespace",
+  ]);
+  return known.has(scope) ? t(`approvals.blastScopes.${scope}`) : scope;
+}
+
+function unavailableReasonLabel(reason: string): string | null {
+  const known = new Set([
+    "missing_expiry",
+    "missing_action_hash",
+    "expired",
+    "sample_mode",
+  ]);
+  return known.has(reason) ? t(`approvals.unavailableReasons.${reason}`) : reason;
+}
+
+export function approvalExpiryBadge(
+  expiresAt: string | null,
+  now: number,
+): { readonly kind: PillKind; readonly label: string } | null {
+  if (expiresAt === null) return null;
+  const parsed = Date.parse(expiresAt);
+  if (!Number.isFinite(parsed)) return null;
+  const deltaMinutes = Math.round((parsed - now) / 60_000);
+  if (deltaMinutes <= 0) {
+    const elapsedMinutes = Math.max(1, Math.abs(deltaMinutes));
+    const label = elapsedMinutes >= 60
+      ? t("approvals.expiredHoursAgo", { count: Math.round(elapsedMinutes / 60) })
+      : t("approvals.expiredMinutesAgo", { count: elapsedMinutes });
+    return { kind: "danger", label };
+  }
+  const label = deltaMinutes >= 60
+    ? t("approvals.expiresInHours", { count: Math.round(deltaMinutes / 60) })
+    : t("approvals.expiresInMinutes", { count: Math.max(1, deltaMinutes) });
+  return {
+    kind: deltaMinutes <= 15 ? "warning" : "neutral",
+    label,
+  };
+}
+
+function compareApprovals(
+  left: HilQueueItem,
+  right: HilQueueItem,
+  sortBy: "expiry" | "newest" | "impact" | "action",
+): number {
+  if (sortBy === "newest") {
+    const delta = Date.parse(right.requested_at) - Date.parse(left.requested_at);
+    if (Number.isFinite(delta) && delta !== 0) return delta;
+  }
+  if (sortBy === "impact") {
+    const delta = (right.blast_radius_count ?? 0) - (left.blast_radius_count ?? 0);
+    if (delta !== 0) return delta;
+  }
+  if (sortBy === "action") {
+    const delta = left.action_kind.localeCompare(right.action_kind);
+    if (delta !== 0) return delta;
+  }
+  const leftExpiry = left.ttl_expires_at === null ? Number.POSITIVE_INFINITY : Date.parse(left.ttl_expires_at);
+  const rightExpiry = right.ttl_expires_at === null ? Number.POSITIVE_INFINITY : Date.parse(right.ttl_expires_at);
+  if (Number.isFinite(leftExpiry) && Number.isFinite(rightExpiry) && leftExpiry !== rightExpiry) {
+    return leftExpiry - rightExpiry;
+  }
+  return left.approval_id.localeCompare(right.approval_id);
 }

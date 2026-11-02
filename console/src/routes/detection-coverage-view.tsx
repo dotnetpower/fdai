@@ -425,6 +425,8 @@ function AttemptComparison({
             <>
               <div><dt>{t("successfulRun.source")}</dt><dd><code>{successfulRun.source}</code></dd></div>
               <div><dt>{t("successfulRun.recordedAt")}</dt><dd>{formatConsoleTimestamp(successfulRun.recorded_at)}</dd></div>
+              <div><dt>{t("analyzerRun.metricAccess")}</dt><dd>{t(`analyzerRun.state.${successfulRun.metric_access}`)}</dd></div>
+              <div><dt>{t("analyzerRun.eventPublication")}</dt><dd>{t(`analyzerRun.state.${successfulRun.event_publication}`)}</dd></div>
             </>
           ) : null}
         </dl>
