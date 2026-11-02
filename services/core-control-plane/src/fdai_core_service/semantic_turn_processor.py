@@ -114,7 +114,7 @@ from .semantic_answer_presentation import (
 )
 from .semantic_answer_presentation import condition_rows as _condition_rows
 from .semantic_answer_presentation import inline_code as _inline_code
-from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_assurance_projection import project_semantic_assurance, user_bounded_query_table
 from .semantic_context_shadow import SemanticContextShadow
 from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
@@ -1586,9 +1586,7 @@ def _project_runtime_result(
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
-            request,
-            "answer_rendering_rejected",
-            result=result,
+            request, "answer_rendering_rejected", result=result
         ), model_extensions
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
@@ -1596,7 +1594,7 @@ def _project_runtime_result(
             "semantic_answer_partial"
             if candidates_found
             or optional_document_evidence_degraded(planning, execution)
-            or _execution_output_incomplete(execution)
+            or _execution_output_incomplete(execution, evidence_requirements=evidence_requirements)
             or "anchor.uniqueness_unproven" in evidence_requirements
             else "semantic_answer_verified"
         ),
@@ -1614,10 +1612,7 @@ def _project_runtime_result(
         checks_completed=checks_completed,
         checks_total=checks_total,
         answer=answer,
-        assurance_observation=project_semantic_assurance(
-            result,
-            disposition="answered",
-        ),
+        assurance_observation=project_semantic_assurance(result, disposition="answered"),
     ), _merge_projection_extensions(
         model_extensions,
         _SemanticProjectionExtensions(
@@ -1628,11 +1623,17 @@ def _project_runtime_result(
     )
 
 
-def _execution_output_incomplete(execution: QueryPlanExecution) -> bool:
+def _execution_output_incomplete(
+    execution: QueryPlanExecution,
+    *,
+    evidence_requirements: Sequence[str] = (),
+) -> bool:
     """Return whether a terminal output table explicitly reports incomplete source coverage."""
 
     return any(
-        isinstance(result.value, QueryTable) and not result.value.complete
+        isinstance(result.value, QueryTable)
+        and not result.value.complete
+        and not user_bounded_query_table(result.value, evidence_requirements)
         for node_id in execution.output_node_ids
         if (result := execution.results.get(node_id)) is not None
     )

@@ -1161,3 +1161,21 @@ async def test_disable_resample_stops_after_first_sample(
 
     assert calls == [1]
     assert result is invalid
+
+
+def test_disable_resample_clamps_deadline_when_future_is_unfinished() -> None:
+    pending_future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+    ticket = CompiledAnswerTicket(
+        pending_future,
+        semantic_compiled_answers._ObservationCollector(),
+        deadline_seconds=30.0,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        cutoff=lambda: _LATER,
+    )
+    ticket.disable_resample()
+    outcome = ticket.outcome(manifest_digest="d", observations=[])
+
+    assert outcome is None
+    assert pending_future.cancelled()
+    assert ticket.decision == "unavailable"

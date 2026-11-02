@@ -323,10 +323,13 @@ class CompiledAnswerTicket:
         )
 
     def disable_resample(self) -> None:
-        """Stop after the first form sample when a verified deterministic frame is already ready."""
+        """Stop after the first form sample, and skip waiting on an unfinished speculative
+        form call when a verified deterministic frame is already ready."""
 
         if self._allow_resample is not None:
             self._allow_resample[0] = False
+        if not self._future.done():
+            self._deadline = min(self._deadline, self._clock())
 
     def cancel(self) -> None:
         """Cancel an unconsumed path; the owner loop drains its provider calls."""

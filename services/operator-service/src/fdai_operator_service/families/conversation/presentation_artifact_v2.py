@@ -101,6 +101,7 @@ _OUTPUT_SHAPES = frozenset(
         "ontology_manifest",
         "ontology_relationships",
         "property_filtered_resources",
+        "resource_changes",
         "resource_event_history",
         "resource_condition_sections",
         "resource_health_list",
@@ -134,7 +135,7 @@ def compile_presentation_artifact_v2(
     evidence_refs = semantic.get("evidence_refs")
     if (
         not isinstance(context, Mapping)
-        or set(context)
+        or (set(context) - {"evidence_requirements"})
         not in (
             {"operation", "output_shape"},
             {"operation", "output_shape", "measure_concepts"},
@@ -358,6 +359,14 @@ def _presentation_intent(
 
 def _preferred_columns(output_shape: str) -> tuple[str, ...]:
     return {
+        "resource_changes": (
+            "occurred_at",
+            "subject_name",
+            "subject_type",
+            "mutation_kind",
+            "operation",
+            "observation_kind",
+        ),
         "resource_event_history": _RESOURCE_EVENT_COLUMNS,
         "resource_health_list": _RESOURCE_HEALTH_COLUMNS,
         "resource_metric_list": _RESOURCE_METRIC_COLUMNS,

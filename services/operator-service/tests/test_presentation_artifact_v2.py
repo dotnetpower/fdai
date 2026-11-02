@@ -1276,3 +1276,46 @@ def test_legacy_projection_without_context_stays_v1() -> None:
 
     assert artifact is not None
     assert artifact["schema_version"] == 1
+
+
+def test_resource_changes_compiles_table_with_evidence_requirements_and_subject_ref() -> None:
+    details = _details(
+        [
+            {
+                "occurred_at": "2026-11-02T02:25:01+00:00",
+                "subject_ref": (
+                    "scope-a/resource-group/rg/providers/microsoft.compute/virtualmachines/vm-1"
+                ),
+                "subject_name": None,
+                "subject_type": "compute.vm",
+                "mutation_kind": "delete",
+                "operation": None,
+                "observation_kind": "tombstone",
+            }
+        ],
+        output_shape="resource_changes",
+    )
+    cast(dict[str, object], details["presentation_context"])["evidence_requirements"] = [
+        "server_recent_default",
+        "result_limit.5",
+    ]
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="ko",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    data = cast(dict[str, object], block["data"])
+    assert data["rows"] == [
+        {
+            "c0": "2026-11-02T02:25:01+00:00",
+            "c1": "vm-1",
+            "c2": "compute.vm",
+            "c3": "delete",
+            "c4": "-",
+            "c5": "tombstone",
+        }
+    ]

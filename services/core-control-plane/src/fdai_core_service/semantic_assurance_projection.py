@@ -420,19 +420,38 @@ def _semantic_output_metadata(
     return tuple(sorted(facts)), tuple(sorted(limitations)), tuple(sorted(claims))
 
 
+def user_bounded_query_table(
+    table: QueryTable,
+    evidence_requirements: Sequence[str] = (),
+) -> bool:
+    """Return whether a table's only truncation is the operator's stated result_limit."""
+
+    return (
+        not table.complete
+        and table.truncation_reason == "result_limit"
+        and len(table.rows) > 0
+        and f"result_limit.{len(table.rows)}" in evidence_requirements
+    )
+
+
 def _evidence_posture(
     result: RuntimeSemanticTurnResult,
 ) -> Literal["fresh", "stale", "incomplete", "conflicting", "unavailable"]:
     execution = result.execution
     if execution is None or not execution.receipts:
         return "unavailable"
+    evidence_requirements = tuple(
+        getattr(getattr(result.planning, "frame", None), "evidence_requirements", ())
+    )
     saw_incomplete = execution.status != "completed"
     saw_stale = False
     saw_conflict = False
     for node_result in execution.results.values():
         value = node_result.value
         if isinstance(value, QueryTable):
-            saw_incomplete = saw_incomplete or not value.complete
+            saw_incomplete = saw_incomplete or (
+                not value.complete and not user_bounded_query_table(value, evidence_requirements)
+            )
             saw_stale = saw_stale or _contains_stale(value.truncation_reason)
             for row in value.rows:
                 saw_conflict = saw_conflict or _mapping_has_conflict(row.values)
@@ -559,4 +578,4 @@ def _contains_stale(value: object) -> bool:
     return isinstance(value, str) and "stale" in value.casefold()
 
 
-__all__ = ["project_semantic_assurance"]
+__all__ = ["project_semantic_assurance", "user_bounded_query_table"]

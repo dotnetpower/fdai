@@ -75,6 +75,10 @@ def readable_row(values: Mapping[str, object]) -> dict[str, object]:
             if candidate is None or isinstance(candidate, Mapping | list):
                 continue
             readable.setdefault(field, _redact_scalar(field, candidate))
+    if readable.get("subject_name") is None and isinstance(values.get("subject_ref"), str):
+        tail = str(values["subject_ref"]).rstrip("/").rsplit("/", 1)[-1].strip()
+        if tail:
+            readable["subject_name"] = _redact_scalar("subject_name", tail)
     return readable
 
 

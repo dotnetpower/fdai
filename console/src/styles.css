@@ -10545,8 +10545,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     }
     .deck-investigation[open]::details-content {
       height: auto;
+      overflow: visible;
     }
   }
+}
+.deck-investigation[open] > .deck-investigation-body {
+  padding-bottom: 8px;
 }
 /* The planning group lists each model call as a quiet, badge-free line with an inline mark. */
 .deck-investigation-item.is-model-group > .deck-investigation-item-disclosure > summary .deck-investigation-summary {
