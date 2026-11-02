@@ -6,6 +6,7 @@ import {
 } from "./api";
 import { DeploymentRequests } from "./deployment-requests";
 import { ReleaseWorkspace } from "./release-workspace";
+import { StencilBuilder } from "./stencil-builder";
 
 const TITLES: Record<Action, string> = {
   register: "Register release",
@@ -205,7 +206,7 @@ export function App() {
     <a class="skip" href="#main" onClick={(event) => { event.preventDefault(); heading.current?.focus(); }}>Skip to content</a>
     <nav class="side" aria-label="Release Hub">
       <div class="brand"><img src="/brand/fdai-logo.png" alt="FDAI" /><span>Release Hub<small>Vendor workspace</small></span></div>
-      {[["/releases", "Releases"], ["/channels", "Channels"], ["/deployment-requests", "Deployment requests"], ["/activity", "Activity"], ["/trust", "Catalog trust"]].map(([path, title]) =>
+      {[["/releases", "Releases"], ["/stencils", "Stencils"], ["/channels", "Channels"], ["/deployment-requests", "Deployment requests"], ["/activity", "Activity"], ["/trust", "Catalog trust"]].map(([path, title]) =>
         <a key={path} class={active === path ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={active === path ? "page" : undefined}>{title}</a>)}
       <div class="side-note"><strong>Development validation</strong><p>No production trust root or deployment authority.</p></div>
     </nav>
@@ -226,6 +227,10 @@ export function App() {
             {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
               : <div class="release-list">{catalog.releases.map((r) => <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p></div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>)}</div>}
           </>           : route === "/deployment-requests" ? null
+          : route === "/stencils" ? <StencilBuilder onPrepareRelease={(draft) => {
+            setRegistration(draft);
+            setPending({ action: "register", release: null });
+          }} />
           : route === "/channels" ? <Channels catalog={catalog} />
           : route === "/activity" ? <><h1>Activity</h1><p>Transactional publication changes, newest first. Development attribution is not a production audit guarantee.</p><Activity catalog={catalog} /></>
           : route === "/trust" ? <>

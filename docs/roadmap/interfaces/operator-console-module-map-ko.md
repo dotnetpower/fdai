@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 1fa0876b40aa13c2c84322751c4788b0a70e2027
-translation_revised: 2026-11-01
+translation_source_sha: 92b40500b386757d6dca489d8cd03686e033dac3
+translation_revised: 2026-11-02
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -23,7 +23,7 @@ WARA 읽기 모델은 정확한 평가기 신원과 구조화된 수동 근거 �
 
 Console 패널 레지스트리는 모든 경로 모듈을 지연 가져오기 뒤에 유지합니다. 이름이 지정된 경로
 내보내기는 하나의 형식 안전 어댑터를 사용하고, 모듈을 공유하는 경로는 하나의 로더를 재사용합니다.
-인시던트 대기/적용 상태는 기존 타임라인 카탈로그 항목을 재사용합니다. 기본 카탈로그는 감사 타임라인의 권위를 바꾸지 않고 전용 인시던트 적용 완료 문구도 정의합니다. 운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 모두 적용합니다.
+인시던트 대기/적용 상태는 기존 타임라인 카탈로그 항목을 재사용합니다. 기본 카탈로그는 감사 타임라인의 권위를 바꾸지 않고 전용 인시던트 적용 완료 문구도 정의합니다. 운영 진입 번들 검사는 필요한 지연 로드 경계를 확인하고 원시 크기와 gzip 한도를 적용하며, `FDAI_STENCIL_ENABLED_PANELS`(`stencil-panels.ts`) 지정 시 필수 안전 코어 패널(`dashboard`, `audit`, `settings-general`)을 보존하면서 제외된 경로 청크를 물리적으로 제거합니다.
 `/gpu-monitoring` 운영 경로도 `/live/stream`을 사용하는 지연 로드 읽기 전용 화면입니다.
 범위가 제한된 `gpu_observation` 세부 레코드만 수락하고 정확한 원본과 GPU ID를 구분하며,
 누락되거나 오래됨, 미래 시각 편차, 충돌 상태인 근거를 명시적으로 표시합니다. Sample 화면은

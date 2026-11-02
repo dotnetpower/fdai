@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: cd5604c327bb8d8f89d57b3a8bdff6ae8694a683
+translation_source_sha: c21c1b69a3b7d5ae9963fe6d53399ebcd7787c25
 translation_revised: 2026-11-02
 ---
 # Lifecycle Release와 채널
@@ -529,8 +529,10 @@ Target Hub도 들어 있습니다.
 ## 현재 한계
 
 - 서명된 배포 번들과 오프라인 키트는 한 방향 채널 이전을 구현합니다. 로컬 Release Hub는 트랜잭션
-  단위 단계 승격(`POST /v1/releases/{release_id}/promote`), 활성 기능 회수 차단 확인, 공급자 작업
-  영역의 확인 문구 자동 입력도 함께 제공하며, 프로덕션 카탈로그 신뢰와 배포는 미완료입니다.
+  단위 단계 승격(`POST /v1/releases/{release_id}/promote`), 활성 기능 회수 차단 확인, 확인 문구 자동
+  입력과 경량(`lite-observe-alert`) 또는 맞춤형 Console 메뉴·루프·워크로드 Release v2 매니페스트를
+  생성하는 Stencil 및 커스텀 메뉴 빌더(`GET /v1/stencils`, `POST /v1/stencils/compose`, `#/stencils`)도
+  함께 제공하며, 프로덕션 카탈로그 신뢰와 배포는 미완료입니다.
 - 프로덕션 신뢰 루트 절차를 아직 수행하지 않았습니다. Hub 경로가 Release를 검증하려면 먼저
   공급업체 release 키가 있어야 합니다.
 - 서명된 번들의 재현 가능한 이중 빌드 검증이 남아 있습니다.

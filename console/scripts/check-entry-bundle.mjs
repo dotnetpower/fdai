@@ -26,6 +26,35 @@ const EXPECTED_LAZY_ROUTES = new Set([
   "src/routes/settings.tsx",
 ]);
 
+const LOCKED_STENCIL_LAZY_ROUTES = new Set([
+  "src/routes/dashboard.tsx",
+  "src/routes/audit.tsx",
+  "src/routes/settings.tsx",
+]);
+
+const PANEL_TO_ROUTE_MODULE = new Map([
+  ["dashboard", "src/routes/dashboard.tsx"],
+  ["dashboard-v2", "src/routes/dashboard-v2.tsx"],
+  ["live", "src/routes/live.tsx"],
+  ["agents", "src/routes/agents.tsx"],
+  ["pantheon", "src/routes/agents.tsx"],
+  ["hil-queue", "src/routes/hil-queue.tsx"],
+  ["provision", "src/routes/provision.tsx"],
+  ["processes", "src/routes/processes.tsx"],
+  ["agent-activity", "src/routes/agent-activity.tsx"],
+  ["audit", "src/routes/audit.tsx"],
+  ["trace", "src/routes/rule-trace.tsx"],
+  ["architecture", "src/routes/architecture.tsx"],
+  ["ontology", "src/routes/ontology.tsx"],
+  ["handover", "src/routes/handover.tsx"],
+  ["rules", "src/routes/rule-catalog.tsx"],
+  ["workflow-builder", "src/routes/workflow-builder.tsx"],
+  ["blast-radius", "src/routes/blast-radius.tsx"],
+  ["promotion-gates", "src/routes/promotion-gates.tsx"],
+  ["llm-cost", "src/routes/llm-cost.tsx"],
+  ["settings-general", "src/routes/settings.tsx"],
+]);
+
 const directory = process.argv[2] ?? "dist";
 const manifest = JSON.parse(await readFile(join(directory, ".vite/manifest.json"), "utf8"));
 const entries = Object.entries(manifest);
@@ -34,9 +63,38 @@ if (!entryPair) throw new Error("bundle check: Vite entry for index.html is miss
 
 const [, entry] = entryPair;
 const actualLazy = new Set(entry.dynamicImports ?? []);
-const missing = [...EXPECTED_LAZY_ROUTES].filter((route) => !actualLazy.has(route));
-if (missing.length > 0) {
-  throw new Error(`bundle check: routes are no longer lazy: ${missing.join(", ")}`);
+const rawStencilPanels = (process.env.FDAI_STENCIL_ENABLED_PANELS ?? "").trim();
+
+if (!rawStencilPanels) {
+  const missing = [...EXPECTED_LAZY_ROUTES].filter((route) => !actualLazy.has(route));
+  if (missing.length > 0) {
+    throw new Error(`bundle check: routes are no longer lazy: ${missing.join(", ")}`);
+  }
+} else {
+  const enabledPanelSet = new Set([
+    "dashboard",
+    "audit",
+    "settings-general",
+    ...rawStencilPanels.split(",").map((item) => item.trim()).filter(Boolean),
+  ]);
+  const expectedStencilRoutes = new Set(LOCKED_STENCIL_LAZY_ROUTES);
+  for (const panelId of enabledPanelSet) {
+    const mod = PANEL_TO_ROUTE_MODULE.get(panelId);
+    if (mod) expectedStencilRoutes.add(mod);
+  }
+  const missing = [...expectedStencilRoutes].filter((route) => !actualLazy.has(route));
+  if (missing.length > 0) {
+    throw new Error(`bundle check (stencil): enabled routes are not lazy: ${missing.join(", ")}`);
+  }
+  // Verify that disabled routes from EXPECTED_LAZY_ROUTES are physically absent from dynamicImports.
+  const unexpectedIncluded = [...EXPECTED_LAZY_ROUTES].filter(
+    (route) => !expectedStencilRoutes.has(route) && actualLazy.has(route),
+  );
+  if (unexpectedIncluded.length > 0) {
+    throw new Error(
+      `bundle check (stencil): excluded routes remained in bundle: ${unexpectedIncluded.join(", ")}`,
+    );
+  }
 }
 
 const initialKeys = new Set();

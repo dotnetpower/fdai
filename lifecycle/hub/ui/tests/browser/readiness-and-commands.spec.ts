@@ -343,3 +343,280 @@ test("release hub workspace promotes stage with one-click confirmation and check
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
 });
+
+test("release hub stencil builder composes lite custom menu build and prepares release draft", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const releaseDir = resolve("../../release-hub/ui/dist");
+  const digest = "d".repeat(64);
+  const composeRequests: unknown[] = [];
+
+  await page.route("https://release-hub.test/**", async (route) => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === "/auth/config") {
+      return route.fulfill({ json: { profile: "local-development" } });
+    }
+    if (path === "/v1/catalog") {
+      return route.fulfill({
+        json: {
+          revision: 1,
+          updated_at: "2026-11-02T00:00:00Z",
+          expires_at: "2099-11-03T00:00:00Z",
+          expired: false,
+          key_id: "dev-key-1",
+          mode: "local-development",
+          export_sha256: digest,
+          releases: [],
+          channels: { DEV: [], RELEASE_CANDIDATE: [], RELEASE: [] },
+          events: [],
+        },
+      });
+    }
+    if (path === "/v1/stencils") {
+      return route.fulfill({
+        json: {
+          presets: [
+            {
+              stencil: {
+                schema_version: "fdai.stencil-definition.v1",
+                stencil_id: "lite-observe-alert",
+                title: "Lite: Agent-Driven Observe, Drift & Alert",
+                title_ko: "경량 에디션: 에이전트 주도 변경·장애 감지 및 알림",
+                description: "Minimal Azure resource footprint.",
+                description_ko: "최소한의 Azure 리소스만 생성하는 경량 버전입니다.",
+                topology_profile: "lite-observe-alert",
+                enabled_workloads: ["core-control-plane", "operator-service"],
+                enabled_scheduled_jobs: ["analyzer", "inventory"],
+                enabled_loops: [
+                  "anomaly-analyzer",
+                  "inventory-reconciliation",
+                  "notification-dispatch",
+                  "saga-audit",
+                ],
+                enabled_addons: ["notifications", "read-only-console"],
+                enabled_panel_ids: ["audit", "dashboard", "incidents", "live", "settings-general"],
+                authority_granted: false,
+              },
+              footprint: {
+                stencil_id: "lite-observe-alert",
+                stencil_digest: `sha256:${digest}`,
+                topology_profile: "lite-observe-alert",
+                workload_count: 2,
+                total_workloads: 5,
+                omitted_workloads: [
+                  "document-ingestion-api",
+                  "document-processing-worker",
+                  "isolated-executor",
+                ],
+                scheduled_job_count: 2,
+                omitted_scheduled_jobs: ["canary", "cost-collector"],
+                includes_clamav_sidecar: false,
+                includes_privileged_executor: false,
+                enabled_panel_count: 5,
+                total_panel_count: 60,
+                omitted_panel_count: 55,
+                active_navigation_groups: ["evidence", "operations", "overview", "settings"],
+                enabled_feature_ids: ["F01.1", "F02.1", "F03.1", "F04.1", "F08.1", "F10.1"],
+                azure_rbac_posture: "read-only-observation",
+                required_azure_roles: ["Reader", "Monitoring Reader", "Log Analytics Reader"],
+                terraform_flags: {
+                  enable_document_ingestion_workloads: false,
+                  enable_isolated_executor: false,
+                  product_profile_mode: "observation-first",
+                },
+                console_build_command:
+                  "FDAI_STENCIL_ENABLED_PANELS='audit,dashboard,incidents,live,settings-general' npm --prefix console run build",
+              },
+            },
+          ],
+          panels: [
+            {
+              id: "dashboard",
+              group: "overview",
+              label: "Overview dashboard",
+              label_ko: "종합 대시보드",
+              locked: true,
+              required_workloads: [],
+              required_loops: [],
+              required_addons: [],
+              feature_ids: ["F01.1"],
+            },
+            {
+              id: "live",
+              group: "operations",
+              label: "Live operations & resource changes",
+              label_ko: "실시간 리소스 및 변경 감지",
+              locked: false,
+              required_workloads: [],
+              required_loops: ["inventory-reconciliation"],
+              required_addons: [],
+              feature_ids: ["F02.1"],
+            },
+            {
+              id: "incidents",
+              group: "operations",
+              label: "Incidents & anomaly alerts",
+              label_ko: "장애 및 이상 징후 인시던트",
+              locked: false,
+              required_workloads: [],
+              required_loops: ["anomaly-analyzer", "notification-dispatch"],
+              required_addons: [],
+              feature_ids: ["F04.1"],
+            },
+            {
+              id: "audit",
+              group: "evidence",
+              label: "Hash-chained audit trail",
+              label_ko: "해시 체인 감사 추적",
+              locked: true,
+              required_workloads: [],
+              required_loops: ["saga-audit"],
+              required_addons: [],
+              feature_ids: ["F10.1"],
+            },
+            {
+              id: "settings-general",
+              group: "settings",
+              label: "Settings: General",
+              label_ko: "설정: 일반",
+              locked: true,
+              required_workloads: [],
+              required_loops: [],
+              required_addons: [],
+              feature_ids: ["F01.1"],
+            },
+          ],
+          workloads: ["core-control-plane", "operator-service", "isolated-executor"],
+          locked_workloads: ["core-control-plane", "operator-service"],
+          scheduled_jobs: ["analyzer", "inventory", "canary"],
+          locked_scheduled_jobs: ["analyzer", "inventory"],
+          loops: [
+            "anomaly-analyzer",
+            "inventory-reconciliation",
+            "notification-dispatch",
+            "saga-audit",
+          ],
+          locked_loops: [
+            "anomaly-analyzer",
+            "inventory-reconciliation",
+            "notification-dispatch",
+            "saga-audit",
+          ],
+          addons: ["notifications", "read-only-console"],
+          locked_addons: ["notifications", "read-only-console"],
+          locked_panels: ["audit", "dashboard", "settings-general"],
+        },
+      });
+    }
+    if (path === "/v1/stencils/compose" && request.method() === "POST") {
+      const body = request.postDataJSON();
+      composeRequests.push(body);
+      return route.fulfill({
+        json: {
+          stencil: {
+            schema_version: "fdai.stencil-definition.v1",
+            stencil_id: body.stencil_id,
+            title: body.title,
+            title_ko: body.title_ko,
+            description: body.description,
+            description_ko: body.description_ko,
+            topology_profile: body.topology_profile,
+            enabled_workloads: ["core-control-plane", "operator-service"],
+            enabled_scheduled_jobs: ["analyzer", "inventory"],
+            enabled_loops: [
+              "anomaly-analyzer",
+              "inventory-reconciliation",
+              "notification-dispatch",
+              "saga-audit",
+            ],
+            enabled_addons: ["notifications", "read-only-console"],
+            enabled_panel_ids: body.requested_panel_ids,
+            authority_granted: false,
+          },
+          footprint: {
+            stencil_id: body.stencil_id,
+            stencil_digest: `sha256:${digest}`,
+            topology_profile: "lite-observe-alert",
+            workload_count: 2,
+            total_workloads: 5,
+            omitted_workloads: [
+              "document-ingestion-api",
+              "document-processing-worker",
+              "isolated-executor",
+            ],
+            scheduled_job_count: 2,
+            omitted_scheduled_jobs: ["canary", "cost-collector"],
+            includes_clamav_sidecar: false,
+            includes_privileged_executor: false,
+            enabled_panel_count: body.requested_panel_ids.length,
+            total_panel_count: 60,
+            omitted_panel_count: 60 - body.requested_panel_ids.length,
+            active_navigation_groups: ["evidence", "operations", "overview", "settings"],
+            enabled_feature_ids: ["F01.1", "F02.1", "F04.1", "F10.1"],
+            azure_rbac_posture: "read-only-observation",
+            required_azure_roles: ["Reader", "Monitoring Reader", "Log Analytics Reader"],
+            terraform_flags: {
+              enable_document_ingestion_workloads: false,
+              enable_isolated_executor: false,
+              product_profile_mode: "observation-first",
+            },
+            console_build_command:
+              "FDAI_STENCIL_ENABLED_PANELS='audit,dashboard,incidents,live,settings-general' npm --prefix console run build",
+          },
+          release_manifest: {
+            schema_version: "fdai.application-release.v2",
+            product: "fdai",
+            release_version: "1.7.0",
+            source_commit: "a".repeat(40),
+            platform_tag: "linux-x86_64",
+            components: {
+              "core-control-plane": { image_digest: `sha256:${digest}` },
+              "operator-service": { image_digest: `sha256:${digest}` },
+              pgvector: { image_digest: `sha256:${digest}` },
+            },
+          },
+        },
+      });
+    }
+    const file = path.startsWith("/assets/") || path.startsWith("/brand/") ? path : "/index.html";
+    return route.fulfill({
+      body: await readFile(resolve(releaseDir, `.${file}`)),
+      contentType: file.endsWith(".js")
+        ? "text/javascript"
+        : file.endsWith(".css")
+        ? "text/css"
+        : file.endsWith(".png")
+        ? "image/png"
+        : "text/html",
+    });
+  });
+
+  await page.goto("https://release-hub.test/#/stencils");
+  await expect(page.getByRole("heading", { name: "Stencils & Custom Build" })).toBeVisible();
+
+  // Switch to Korean and verify heading localization.
+  await page.getByLabel("Builder language").selectOption("ko");
+  await expect(page.getByRole("heading", { name: "Stencil 및 커스텀 메뉴 빌드" })).toBeVisible();
+  await page.getByLabel("빌더 언어").selectOption("en");
+
+  await page.getByRole("button", { name: "Validate & compose custom build" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Composed Stencil & Resource Footprint" }),
+  ).toBeVisible();
+  await expect(page.getByText("Omitted (Lightweight)")).toBeVisible();
+  expect(composeRequests).toHaveLength(1);
+
+  for (const width of [1440, 993, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page
+    .getByRole("button", { name: "Prepare Release 1.7.0 registration with this Stencil" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Register release" })).toBeVisible();
+  await expect(page.getByLabel("Release id (SemVer)")).toHaveValue("1.7.0");
+});

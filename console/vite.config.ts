@@ -1,11 +1,32 @@
 /// <reference types="vitest/config" />
 
 import { fileURLToPath } from "node:url";
-import { defineConfig, loadEnv, type UserConfig } from "vite";
+import { defineConfig, loadEnv, type Plugin, type UserConfig } from "vite";
 import preact from "@preact/preset-vite";
+import {
+  parseStencilEnabledPanelIds,
+  transformPanelsSourceForStencil,
+} from "./src/stencil-panels";
 import { cssHotUpdateGuard } from "./src/vite-css-hmr-guard";
 
 export const CONSOLE_VITE_FS_ALLOW = [fileURLToPath(new URL("..", import.meta.url))];
+
+export function stencilPanelsBuildPlugin(rawEnabledPanels?: string): Plugin {
+  const enabledIds = parseStencilEnabledPanelIds(rawEnabledPanels);
+  return {
+    name: "fdai-stencil-panels",
+    enforce: "pre",
+    transform(code, id) {
+      if (enabledIds === null) return null;
+      const cleanId = id.split("?", 1)[0]?.replaceAll("\\", "/") ?? "";
+      if (!cleanId.endsWith("/console/src/panels.tsx")) return null;
+      return {
+        code: transformPanelsSourceForStencil(code, enabledIds),
+        map: null,
+      };
+    },
+  };
+}
 
 export function resolveViteCacheDir(env: Readonly<Record<string, string>>): string {
   return env.VITE_CACHE_DIR || "node_modules/.vite";
@@ -38,11 +59,24 @@ export function offlineBuildOptions(mode: string): Pick<UserConfig, "envDir" | "
 export default defineConfig(({ mode }) => {
   const offline = mode === "offline";
   const env = offline ? {} : loadEnv(mode, process.cwd(), "");
+  const stencilPanels =
+    process.env.FDAI_STENCIL_ENABLED_PANELS ?? env.VITE_STENCIL_ENABLED_PANELS ?? "";
+  const baseOptions = offlineBuildOptions(mode);
   return {
-    ...offlineBuildOptions(mode),
+    ...baseOptions,
+    define: {
+      ...(baseOptions.define ?? {}),
+      ...(stencilPanels
+        ? { "import.meta.env.VITE_STENCIL_ENABLED_PANELS": JSON.stringify(stencilPanels) }
+        : {}),
+    },
     base: env.VITE_CONSOLE_BASE_PATH ?? "/",
     cacheDir: resolveViteCacheDir(env),
-    plugins: [cssHotUpdateGuard(), preact(PREACT_PLUGIN_OPTIONS)],
+    plugins: [
+      stencilPanelsBuildPlugin(stencilPanels),
+      cssHotUpdateGuard(),
+      preact(PREACT_PLUGIN_OPTIONS),
+    ],
     build: {
       outDir: offline ? "dist/offline" : "dist",
       emptyOutDir: true,

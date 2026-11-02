@@ -10,6 +10,7 @@ from functools import partial
 from pathlib import Path
 from threading import BoundedSemaphore
 
+from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.lifecycle_promotion import (
     CanaryObservation,
     PromotionStageCriteria,
@@ -33,6 +34,11 @@ from fdai_release_hub.deployment_requests import (
     parse_request,
     record_request,
 )
+from fdai_release_hub.stencils import (
+    StencilComposeRequest,
+    compose_stencil_response,
+    stencil_catalog_payload,
+)
 from fdai_release_hub.store import (
     CapabilityChange,
     CatalogConfirmation,
@@ -43,6 +49,7 @@ from fdai_release_hub.store import (
 )
 
 MAX_BODY = 2 * 1024 * 1024
+MAX_STENCIL_BODY = 64 * 1024
 MAX_CATALOG_VIEW_BYTES = 16 * 1024 * 1024
 MAX_INTAKE_CONCURRENCY = 8
 INTAKE_BODY_TIMEOUT_SECONDS = 10
@@ -277,6 +284,54 @@ def create_app(
             return JSONResponse({"error": "Invalid deployment request metadata."}, status_code=422)
         return JSONResponse(record, status_code=201 if created else 200)
 
+    async def stencils_catalog(request: Request) -> Response:
+        return JSONResponse(await run_in_threadpool(stencil_catalog_payload))
+
+    async def stencils_compose(request: Request) -> Response:
+        media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+        if media_type != "application/json":
+            return JSONResponse({"error": "Use application/json."}, status_code=415)
+        if request.headers.get("content-encoding", "identity").strip().lower() != "identity":
+            return JSONResponse(
+                {"error": "Encoded request bodies are not supported."}, status_code=415
+            )
+        declared_length = request.headers.get("content-length")
+        if declared_length is not None:
+            try:
+                content_length = int(declared_length)
+                if content_length < 0:
+                    raise ValueError("Negative length.")
+            except ValueError:
+                return JSONResponse({"error": "Invalid Content-Length."}, status_code=400)
+            if content_length > MAX_STENCIL_BODY:
+                return JSONResponse({"error": "Request body is too large."}, status_code=413)
+        body = bytearray()
+        try:
+            async with asyncio.timeout(INTAKE_BODY_TIMEOUT_SECONDS):
+                async for chunk in request.stream():
+                    if len(chunk) > MAX_STENCIL_BODY - len(body):
+                        return JSONResponse(
+                            {"error": "Request body is too large."}, status_code=413
+                        )
+                    body.extend(chunk)
+        except TimeoutError:
+            return JSONResponse({"error": "Request body deadline exceeded."}, status_code=408)
+        try:
+            raw_bytes = bytes(body)
+            load_json_object(
+                raw_bytes, label="stencil compose", max_bytes=MAX_STENCIL_BODY, strict=True
+            )
+            compose_req = StencilComposeRequest.model_validate_json(raw_bytes)
+            result = await run_in_threadpool(compose_stencil_response, compose_req)
+        except ValidationError:
+            return JSONResponse(
+                {"error": "Invalid Stencil compose fields."},
+                status_code=422,
+            )
+        except ValueError as error:
+            return JSONResponse({"error": str(error)}, status_code=422)
+        return JSONResponse(result)
+
     routes = [
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route(
@@ -295,6 +350,8 @@ def create_app(
         Route("/v1/catalog/metadata", metadata),
         Route("/v1/catalog/renew", partial(change, action="renew"), methods=["POST"]),
         Route("/v1/deployment-requests", deployment_requests, methods=["GET", "POST"]),
+        Route("/v1/stencils", stencils_catalog),
+        Route("/v1/stencils/compose", stencils_compose, methods=["POST"]),
     ]
     routes += [
         Route(
