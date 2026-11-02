@@ -11,12 +11,20 @@ from fdai_service_contracts.semantic_question_form import (
     GoalLevel,
     GoalOperation,
     MentionDomain,
+    MentionForm,
     SemanticQuestionForm,
     SourceSpan,
     SubjectScope,
 )
 
-from .semantic_reasoning_admission import allowed_filter_domains
+from .semantic_reasoning_admission import (
+    AdmissionDisposition,
+    FormAdmission,
+    SpanAccounting,
+    admit_question_form,
+    allowed_filter_domains,
+)
+from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +85,7 @@ def normalize_redundant_property_filter_labels_with_receipt(
 
     if form.alternatives:
         return FormNormalization(form)
-    form = _canonicalize_inverted_type_roles(form)
+    form = _canonicalize_prior_result_roles(_canonicalize_inverted_type_roles(form))
     mentions = {mention.id: mention for mention in form.mentions}
     removable: dict[str, list[SourceSpan]] = {}
     cue_labels = _typed_filter_cue_labels(form)
@@ -184,6 +192,141 @@ def _typed_filter_cue_labels(
 
 def _overlaps(left: SourceSpan, right: SourceSpan) -> bool:
     return left.start < right.end and right.start < left.end
+
+
+def _canonicalize_prior_result_roles(form: SemanticQuestionForm) -> SemanticQuestionForm:
+    """Align subject_scope and mention form when either side explicitly declares prior_result."""
+
+    mentions = {mention.id: mention for mention in form.mentions}
+    updated_mentions = dict(mentions)
+    updated_goals: list[FormGoal] = []
+    changed = False
+    for goal in form.goals:
+        subject_id = goal.subject
+        if subject_id is not None and subject_id in mentions:
+            subj = updated_mentions[subject_id]
+            if (
+                subj.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL}
+                and goal.subject_scope is SubjectScope.COLLECTION
+            ):
+                goal = goal.model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT})
+                changed = True
+            elif (
+                goal.subject_scope is SubjectScope.PRIOR_RESULT and subj.form is MentionForm.CONCEPT
+            ):
+                updated_mentions[subject_id] = subj.model_copy(
+                    update={"form": MentionForm.ANAPHOR, "domain": MentionDomain.INSTANCE}
+                )
+                changed = True
+        updated_goals.append(goal)
+    if not changed:
+        return form
+    return form.model_copy(
+        update={
+            "mentions": tuple(updated_mentions[item.id] for item in form.mentions),
+            "goals": tuple(updated_goals),
+        }
+    )
+
+
+def promote_contextual_admission(
+    form: SemanticQuestionForm,
+    admission: FormAdmission,
+    *,
+    utterance: str,
+    has_context: bool,
+    has_prior_handles: bool,
+    accounting: SpanAccounting,
+) -> tuple[SemanticQuestionForm, FormAdmission]:
+    """Promote bare prior-result follow-ups and relax single-reading confidence under context."""
+
+    if (
+        has_prior_handles
+        and len(form.goals) == 1
+        and form.goals[0].level is GoalLevel.INSTANCE
+        and form.goals[0].effective_operation in {GoalOperation.SELECT, GoalOperation.COUNT}
+        and form.goals[0].subject_scope is SubjectScope.COLLECTION
+        and form.goals[0].subject is None
+        and not form.goals[0].filters
+        and form.goals[0].relation is None
+        and form.goals[0].measure is None
+    ):
+        form = form.model_copy(
+            update={
+                "goals": (
+                    form.goals[0].model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT}),
+                )
+            }
+        )
+        admission = admit_question_form(
+            form,
+            utterance=utterance,
+            confidence_floor=0.55 if has_context else 0.75,
+            accounting=accounting,
+        )
+    if (
+        admission.disposition is AdmissionDisposition.REVIEW
+        and has_context
+        and not form.alternatives
+    ):
+        admission = admit_question_form(
+            form,
+            utterance=utterance,
+            confidence_floor=0.55,
+            accounting=accounting,
+        )
+    return form, admission
+
+
+def retype_unfound_subject_to_prior_result(
+    admission: FormAdmission,
+    receipt: ConceptSelectionReceipt,
+    *,
+    utterance: str,
+    has_context: bool,
+    has_prior_handles: bool,
+) -> FormAdmission:
+    """Convert an unfound generic collection subject to a prior-result anaphor."""
+
+    if not has_prior_handles or len(admission.form.goals) != 1:
+        return admission
+    g0 = admission.form.goals[0]
+    subj_binding = receipt.binding(g0.subject) if g0.subject is not None else None
+    if not (
+        g0.level is GoalLevel.INSTANCE
+        and g0.effective_operation in {GoalOperation.SELECT, GoalOperation.COUNT}
+        and g0.subject_scope is SubjectScope.COLLECTION
+        and g0.subject is not None
+        and not g0.filters
+        and g0.relation is None
+        and subj_binding is not None
+        and subj_binding.outcome is ConceptOutcome.NOT_FOUND
+    ):
+        return admission
+    retyped_form = admission.form.model_copy(
+        update={
+            "mentions": tuple(
+                item.model_copy(
+                    update={"form": MentionForm.ANAPHOR, "domain": MentionDomain.INSTANCE}
+                )
+                if item.id == g0.subject
+                else item
+                for item in admission.form.mentions
+            ),
+            "goals": (g0.model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT}),),
+        }
+    )
+    retyped_admission = admit_question_form(
+        retyped_form,
+        utterance=utterance,
+        confidence_floor=0.55 if has_context else 0.75,
+        accounting=SpanAccounting(required=False),
+    )
+    return (
+        retyped_admission
+        if retyped_admission.disposition is AdmissionDisposition.ADMITTED
+        else admission
+    )
 
 
 def _canonicalize_inverted_type_roles(form: SemanticQuestionForm) -> SemanticQuestionForm:

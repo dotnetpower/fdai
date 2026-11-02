@@ -247,10 +247,10 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
     readable = _READ_MEASURES.get(operation)
     if readable is not None and measure.kind not in readable:
         return f"measure_unsupported:{measure.kind.value}"
-    # Only a collection select without a relation lists a measure; elsewhere it would drop.
+    # Only a collection or prior-result select without a relation lists a measure.
     if operation is GoalOperation.SELECT and (
         goal.level is GoalLevel.SCHEMA
-        or goal.subject_scope is not SubjectScope.COLLECTION
+        or goal.subject_scope not in {SubjectScope.COLLECTION, SubjectScope.PRIOR_RESULT}
         or (goal.relation is not None and not restated_relation(goal))
     ):
         return f"measure_unsupported:{measure.kind.value}"

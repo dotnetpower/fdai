@@ -599,3 +599,54 @@ def test_handle_and_scope_reject_whitespace_only_fields() -> None:
         _handle(rows=("   ",))
     with pytest.raises(ValueError, match="handle scope"):
         HandleScope("   ", "p", PURPOSE, "m", NOW)
+
+
+async def test_pro_drop_prior_result_goal_without_mentions_binds_implicit_anaphor() -> None:
+    utterance = "목록을 전부 나열해서 보여줄래?"
+    form: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "mentions": [],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "cue": span(utterance, "목록을 전부 나열해서 보여줄래"),
+                "subject": None,
+                "subject_scope": "prior_result",
+                "counterpart": None,
+                "filters": [],
+                "relation": None,
+                "measure": None,
+                "time": {"kind": "unspecified", "cue": None, "value": None},
+                "want": "fact",
+                "depends_on": [],
+                "confidence": 0.9,
+            }
+        ],
+        "alternatives": [],
+        "remaining_goals": False,
+        "unsupported_constraints": [],
+        "context": [],
+        "execution_authority": False,
+    }
+    compilation, references = await _compile(utterance, form, (_handle(("aks-1", "vm-2")),))
+
+    assert references.binding("implicit:g1") is not None
+    assert references.binding("implicit:g1").row_ids == ("aks-1", "vm-2")  # type: ignore[union-attr]
+    assert compilation.goals[0].status is GoalStatus.COMPILED
+    assert await _endpoints(compilation) == {"aks-prod-01", "vm-app-dev-01"}
+
+
+def test_canonicalize_prior_result_roles_aligns_anaphor_and_scope() -> None:
+    from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
+    from fdai.core.conversation.semantic_reasoning_normalization import (
+        normalize_redundant_property_filter_labels,
+    )
+
+    form_data = _again_form()
+    form_data["goals"][0]["subject_scope"] = "collection"
+    normalized = normalize_redundant_property_filter_labels(
+        SemanticQuestionForm.model_validate(form_data)
+    )
+    assert normalized.goals[0].subject_scope.value == "prior_result"

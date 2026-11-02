@@ -4967,6 +4967,80 @@ def test_user_bounded_query_table_marks_answer_output_source_complete() -> None:
     assert output["source_total_rows"] == 15
 
 
+def test_result_handle_from_count_output_falls_back_to_upstream_execution_rows() -> None:
+    from fdai_core_service.semantic_result_handle_projection import (
+        result_handle_from_technical_details,
+    )
+    from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
+    from fdai_service_contracts.semantic_turn import SemanticTurnResult as ContractResult
+
+    req = SemanticTurnRequest.model_validate(_request()["semantic_turn"])
+    res = ContractResult(
+        disposition=SemanticTurnDisposition.ANSWERED,
+        reason_code="semantic_answer_verified",
+        semantic_route="verified_query_plan",
+        session_id="sess-1",
+        turn_id="turn-1",
+        turn_sequence=0,
+        ontology_release_digest="sha256:" + "a" * 64,
+        principal_manifest_digest="sha256:" + "b" * 64,
+        plan_digest="sha256:" + "c" * 64,
+        execution_receipt_digest="sha256:" + "d" * 64,
+        evidence_refs=("ev-1",),
+        checks_completed=2,
+        checks_total=2,
+        answer="Count is 2.",
+        execution_authority=False,
+    )
+    execution = QueryPlanExecution(
+        plan_digest="sha256:" + "c" * 64,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "goal-1": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "rg-1", {"id": "rg-1", "name": "rg-1", "type": "resource-group"}
+                            ),
+                            QueryRow.from_values(
+                                "rg-2", {"id": "rg-2", "name": "rg-2", "type": "resource-group"}
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("ev-1",),
+                ),
+                "goal-2": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(QueryRow.from_values("count", {"operation": "count", "value": 2}),),
+                        complete=True,
+                    ),
+                    evidence_refs=("ev-1",),
+                ),
+            }
+        ),
+        receipts=(),
+        output_node_ids=("goal-2",),
+    )
+    details = {
+        "outputs": [
+            {
+                "node_id": "goal-2",
+                "rows": [{"row_id": "count", "values": {"operation": "count", "value": 2}}],
+            }
+        ]
+    }
+    handle = result_handle_from_technical_details(
+        req,
+        res,
+        technical_details=details,
+        execution=execution,
+    )
+    assert handle is not None
+    assert handle.row_identities == ("rg-1", "rg-2")
+
+
 async def test_golden_campaign_profile_overrides_aggressive_t2_setting() -> None:
     runtime = _Runtime()
     settings = _RuntimeSettings(True)
