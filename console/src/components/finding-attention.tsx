@@ -225,25 +225,6 @@ const copy = {
   },
 };
 
-const attentionCopy = {
-  en: {
-    title: "Findings",
-    unavailable: "Finding feed unavailable",
-    new: "New or updated Findings",
-    all: "Review all Findings",
-    close: "Dismiss",
-    severity: { critical: "Critical", high: "High", medium: "Medium", low: "Low" },
-  },
-  ko: {
-    title: "Findings",
-    unavailable: "Finding 알림을 가져올 수 없습니다",
-    new: "새로 생성되거나 갱신된 Finding",
-    all: "모든 Finding 검토",
-    close: "닫기",
-    severity: { critical: "긴급", high: "높음", medium: "보통", low: "낮음" },
-  },
-};
-
 const SEVERITY_PILL: Readonly<Record<CurrentFinding["severity"], PillKind>> = {
   critical: "danger",
   high: "warning",
@@ -251,7 +232,7 @@ const SEVERITY_PILL: Readonly<Record<CurrentFinding["severity"], PillKind>> = {
   low: "neutral",
 };
 
-function attentionText() { return attentionCopy[getLocale() === "ko" ? "ko" : "en"]; }
+function attentionText() { return copy[getLocale() === "ko" ? "ko" : "en"]; }
 const allFindingsHref = () => `${routeHref("detection-readiness", { params: { data: "live" } })}#current-findings`;
 
 export function FindingAttention({
@@ -494,14 +475,12 @@ export function CurrentFindings({ client, enabled = true }: {
                   kind={SEVERITY_PILL[finding.severity]}
                   label={words.severity[finding.severity]}
                 />
-                <StatusPill
-                  kind={finding.evidence_complete ? "success" : "warning"}
-                  label={finding.evidence_complete ? words.complete : words.incomplete}
-                />
-                <StatusPill
-                  kind="neutral"
-                  label={`${words.reason[finding.notification_reason]} (v${finding.notification_version})`}
-                />
+                <span class="finding-kind-chip">
+                  {finding.evidence_complete ? words.complete : words.incomplete}
+                </span>
+                <span class="finding-kind-chip">
+                  {words.reason[finding.notification_reason]} (v{finding.notification_version})
+                </span>
                 <span class="finding-kind-chip">{kindName}</span>
                 <strong class="sr-only">
                   {finding.status === "resolved" ? words.resolved : words.active} - {words.severity[finding.severity]}

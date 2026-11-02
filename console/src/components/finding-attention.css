@@ -182,7 +182,7 @@
 .current-findings-list > li.finding-card-item {
   display: grid;
   gap: 12px;
-  padding: 16px;
+  padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: var(--cs-radius);
   background: var(--bg);
@@ -199,17 +199,21 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 14px;
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: var(--bg-elevated);
+  min-height: 44px;
+  padding: 0 0 10px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
   color: var(--fg);
   text-decoration: none;
 }
-.finding-card-link:hover {
+.finding-card-link:hover .finding-card-short-title {
+  color: var(--accent);
+}
+.finding-card-link:hover .finding-card-cta {
   border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 5%, var(--bg-elevated));
+  background: color-mix(in srgb, var(--accent) 8%, var(--cs-shade));
 }
 .finding-card-link:focus-visible,
 .finding-details-disclosure > summary:focus-visible,
@@ -266,10 +270,7 @@
 .finding-observation-box {
   display: grid;
   gap: 4px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--cs-radius-sm);
-  background: var(--bg-elevated);
+  padding: 0;
 }
 .finding-observation-label,
 .finding-fact-label {
@@ -287,18 +288,16 @@
 .finding-facts-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
-  padding: 1px;
-  border-radius: var(--cs-radius-sm);
-  background: var(--border);
-  overflow: hidden;
+  gap: 8px;
+  padding: 0;
 }
 .finding-fact-cell {
   display: grid;
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  background: var(--bg-elevated);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-shade);
 }
 .finding-fact-value {
   min-width: 0;
@@ -340,10 +339,9 @@
   display: grid;
   gap: 12px;
   margin-top: 10px;
-  padding: 12px;
-  border: 1px solid var(--border);
+  padding: 12px 14px;
   border-radius: var(--cs-radius-sm);
-  background: var(--bg-elevated);
+  background: var(--cs-shade);
 }
 .finding-details-meta-grid {
   display: grid;
@@ -382,6 +380,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+}
+.finding-detail-actions .copy-button {
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: var(--cs-radius-sm);
+  font-size: var(--cs-type-caption-size);
 }
 .finding-detail-actions .btn,
 .current-findings-footer .btn {
