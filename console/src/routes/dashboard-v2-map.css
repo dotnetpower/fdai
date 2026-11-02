@@ -76,6 +76,9 @@
   --dashboard-v2-map-tone: var(--warning, var(--cs-terracotta));
 }
 .dashboard-v2-map .dashboard-v2-map-cell[data-tone="negative"] { --dashboard-v2-map-tone: var(--danger, var(--cs-dusty-red)); }
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone="active"] { --dashboard-v2-map-fallback-tone: var(--success, var(--cs-sage)); }
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone="attention"] { --dashboard-v2-map-fallback-tone: var(--warning, var(--cs-terracotta)); }
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone="negative"] { --dashboard-v2-map-fallback-tone: var(--danger, var(--cs-dusty-red)); }
 
 .dashboard-v2-map .dashboard-v2-map-cell > svg {
   display: block;
@@ -88,18 +91,33 @@
   clip-path: polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
 }
 .dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-cell { position: relative; }
-.dashboard-v2-map .dashboard-v2-map-name { position: absolute; bottom: 10px; inset-inline: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 12px; }
-.dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-symbol { transform: translateY(-3px); }
-.dashboard-v2-map .dashboard-v2-map-axis { fill: white; font-size: 5px; font-weight: 700; }
+.dashboard-v2-map .dashboard-v2-map-name { position: absolute; bottom: 13px; inset-inline: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; line-height: 12px; }
+.dashboard-v2-map[data-density="comfortable"] .dashboard-v2-map-symbol { font-size: 7px; transform: translateY(-4px); }
+.dashboard-v2-map .dashboard-v2-map-axis { fill: var(--dashboard-v2-map-tone); font-size: 5px; font-weight: 700; }
+.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-axis { fill: white; }
 .dashboard-v2-map .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"], [data-tone="neutral"]) .dashboard-v2-map-axis { fill: var(--cs-text-soft); }
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-axis { fill: var(--dashboard-v2-map-fallback-tone); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-surface { fill: var(--dashboard-v2-map-tone); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-symbol { fill: white; font-size: 10px; }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"]) .dashboard-v2-map-surface { fill: var(--cs-card); }
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is([data-tone="unknown"], [data-tone="na"]) .dashboard-v2-map-symbol { fill: var(--cs-text); }
+.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-surface {
+  fill: var(--dashboard-v2-map-fallback-tone);
+}
+.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
+  fill: white;
+}
+.dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-pattern {
+  color: white;
+  opacity: .2;
+}
 .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is(:focus-visible,[aria-pressed="true"]) .dashboard-v2-map-outline { stroke: var(--cs-text); stroke-width: 3; }
 
 .dashboard-v2-map .dashboard-v2-map-surface {
   fill: color-mix(in srgb, var(--dashboard-v2-map-tone) 22%, var(--bg-elevated, var(--cs-card)));
+}
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-surface {
+  fill: color-mix(in srgb, var(--dashboard-v2-map-fallback-tone) 18%, var(--bg-elevated, var(--cs-card)));
 }
 
 .dashboard-v2-map .dashboard-v2-map-pattern {
@@ -109,6 +127,10 @@
 .dashboard-v2-map .dashboard-v2-map-outline {
   stroke: var(--dashboard-v2-map-tone);
   stroke-width: 1;
+}
+.dashboard-v2-map .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone] .dashboard-v2-map-outline {
+  stroke: var(--dashboard-v2-map-fallback-tone);
+  stroke-width: 1.5;
 }
 
 .dashboard-v2-map .dashboard-v2-map-symbol {

@@ -39,20 +39,24 @@
   box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 5%, transparent);
 }
 
-.dashboard-v2-page .dashboard-v2-map-cell[data-tone="active"] {
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="active"],
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone="active"] {
   --dashboard-v2-map-tone: color-mix(in srgb, var(--success, var(--cs-sage)) 88%, black);
+  --dashboard-v2-map-fallback-tone: color-mix(in srgb, var(--success, var(--cs-sage)) 88%, black);
 }
 
-.dashboard-v2-page .dashboard-v2-map-cell[data-tone="attention"] {
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="attention"],
+.dashboard-v2-page .dashboard-v2-map-cell[data-tone="na"][data-fallback-tone="attention"] {
   --dashboard-v2-map-tone: color-mix(in srgb, var(--warning, var(--cs-terracotta)) 82%, black);
+  --dashboard-v2-map-fallback-tone: color-mix(in srgb, var(--warning, var(--cs-terracotta)) 82%, black);
 }
 
-:root[data-theme="dark"] .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:not([data-tone="unknown"], [data-tone="na"]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
+:root[data-theme="dark"] .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is(:not([data-tone="unknown"], [data-tone="na"]), [data-fallback-tone]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
   fill: var(--cs-bg);
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:not([data-tone="unknown"], [data-tone="na"]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
+  :root:not([data-theme]) .dashboard-v2-page .dashboard-v2-map[data-density="dense"] .dashboard-v2-map-cell:is(:not([data-tone="unknown"], [data-tone="na"]), [data-fallback-tone]) :is(.dashboard-v2-map-symbol, .dashboard-v2-map-axis) {
     fill: var(--cs-bg);
   }
 }
@@ -113,6 +117,8 @@
 .dv2-scope p {
   max-width: 76ch;
   margin: 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .dv2-scope p.dv2-scope-boundary {
@@ -157,6 +163,9 @@
 .dv2-summary span {
   color: var(--cs-text-soft);
   font-size: var(--cs-type-compact-size);
+  line-height: 1.35;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .dv2-notice {
@@ -216,6 +225,7 @@
   margin: 6px 0;
   color: var(--cs-text-soft);
   font-size: var(--cs-type-compact-size);
+  word-break: keep-all;
   overflow-wrap: anywhere;
 }
 
@@ -330,27 +340,45 @@
 .dv2-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   margin-block: 6px 18px;
 }
 
 .dv2-legend button {
   max-width: 100%;
+  height: auto;
   min-height: 30px;
-  padding: 4px 8px;
+  padding: 4px 12px;
   border: 1px solid transparent;
+  border-radius: 999px;
   background: transparent;
   color: var(--cs-text);
   font-size: var(--cs-type-label-size);
 }
 
+.dv2-legend button:has(.dv2-state) {
+  padding: 0;
+}
+
 .dv2-legend .dv2-state {
   max-width: 100%;
-  padding: 0;
-  background: transparent;
+  min-height: 28px;
+  padding: 4px 12px;
   text-align: start;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.dv2-legend button[aria-pressed="true"]:has(.dv2-state) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dv2-legend button[aria-pressed="true"] .dv2-state {
+  box-shadow:
+    inset 0 0 0 1.5px currentColor,
+    0 1px 2px color-mix(in srgb, var(--fg) 8%, transparent);
 }
 
 .dv2-state {
@@ -359,7 +387,8 @@
   align-items: center;
   gap: 4px;
   width: fit-content;
-  padding: 4px 9px;
+  max-width: 100%;
+  padding: 4px 12px;
   border-radius: 999px;
   background: var(--bg-subtle);
   color: var(--cs-text);
@@ -414,8 +443,15 @@
 }
 
 .dv2-attention > div {
-  padding-block: 18px;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding-block: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--cs-terracotta) 14%, var(--dv2-border));
+}
+
+.dv2-attention > div > .dv2-note {
+  margin: 0;
 }
 
 .dv2-attention > a {
@@ -506,6 +542,16 @@
   font-size: var(--cs-type-compact-size);
   text-align: left;
   overflow-wrap: anywhere;
+}
+
+.dv2-cell-states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dv2-cell-states .dv2-state {
+  white-space: normal;
 }
 
 .dv2-groups {

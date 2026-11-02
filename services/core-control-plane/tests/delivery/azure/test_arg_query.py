@@ -509,6 +509,16 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
         ({"snapshotAccessState": "Available"}, "Available"),
         ({"status": "running"}, "running"),
         ({"virtualNetworkLinkState": "Completed"}, "Completed"),
+        ({"enabled": True}, "Enabled"),
+        ({"verificationStates": {"Domain": {"status": "Verified"}}}, "Verified"),
+        (
+            {
+                "privateLinkServiceConnections": [
+                    {"properties": {"privateLinkServiceConnectionState": {"status": "Approved"}}}
+                ]
+            },
+            "Approved",
+        ),
     ],
 )
 def test_inventory_retains_resource_specific_operational_state(

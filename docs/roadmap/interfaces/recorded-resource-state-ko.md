@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 49ebf4796f6f587c3a0b6b174f8785f8da65bd8e
-translation_revised: 2026-10-30
+translation_source_sha: 0a3766d49ee8cdc8fef8cde6ed03a4d7d1ee3d65
+translation_revised: 2026-11-02
 ---
 # 기록된 리소스 상태
 
@@ -373,11 +373,16 @@ ResourceType을 선언합니다.
   유지합니다. 긴 레이블과 개수는 선택한 필터나 기록 상태의 의미를 바꾸지 않고 데스크톱과 모바일
   너비에서 리소스 패널 안에 머뭅니다.
 - 색상은 검증 가능한 기록 값을 구분할 뿐 현재 운영 성공을 판정하지 않습니다. Running,
-  Available, Serving, Enabled, Active, Online, Ready 및 검증된 프로비저닝 Succeeded는
-  초록색으로 표시합니다. 프로비저닝 축 마커는 Succeeded를 운영 정상이나 가용성과 구분합니다.
-  Stopped, Deallocated, Offline, Disabled, Failed, Unavailable은 빨간색으로 표시합니다.
-  Transitioning, Degraded, Stale, Paused 및 모든 검토 필요 `?`는 황색으로 표시합니다. 그 밖의
-  기록 값은 중립색을 유지하고, 미제공과 적용 대상 아님은 회색 또는 패턴으로 표시합니다.
+  Available, Serving, Enabled, Active, Online, Ready, Completed, Attached, Reserved, Approved,
+  Connected, Verified 및 검증된 프로비저닝 Succeeded는 초록색으로 표시합니다. 프로비저닝 축
+  마커는 Succeeded를 운영 정상이나 가용성과 구분합니다. Stopped, Deallocated, Offline, Disabled,
+  Failed, Unavailable, Rejected, Disconnected, Canceled, TimedOut은 빨간색으로 표시합니다.
+  Transitioning, Pending, InProgress, Degraded, Stale, Paused, Unattached 및 모든 검토 필요 `?`는
+  황색으로 표시합니다. 그 밖의 기록 값은 중립색을 유지하고, 미제공과 적용 대상 아님은 회색 또는
+  패턴으로 표시하되 단일 축 렌즈에서는 명시적인 `N` 또는 `-` 기호와 함께 검증된 대표 상태 색상과
+  축 표식을 보조로 함께 노출합니다. Resource Health 가용성이 `Unknown`이고 구체적인 프로비저닝
+  값이 기록된 경우 대표 상태는 `P` 축 표식과 함께 프로비저닝 값을 선택하며, 가용성 렌즈와 도구
+  설명에는 `Unknown`을 그대로 유지합니다.
   상태 텍스트는 공유 초록색, 빨간색, 황색 텍스트 역할을 사용하며, 카드, 페이지, 음영, 선택된 행 표면 위의 각 색조 배경에서
   4.5:1 이상의 대비를 유지합니다. 채우기와 테두리는 기본 상태 색을 유지합니다.
 - 적용 가능한 운영 상태, 기록된 프로비저닝 상태 및 공급자 가용성 상태가 없는 `managed-identity`는

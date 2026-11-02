@@ -575,4 +575,148 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dv2-summary")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("dashboard-v2-dark.png") });
   });
+
+  test("surfaces representative state tones on single-axis N and - cells and list rows", async ({ page }) => {
+    await installApi(page);
+    const observedAt = "2026-09-05T03:00:00Z";
+    const fact = (value: string | null, source_path: string | null, reason: string | null = null) => ({
+      value,
+      source_path,
+      observed_at: value ? observedAt : null,
+      recorded_at: value ? observedAt : null,
+      freshness: value ? "fresh" : "unknown",
+      completeness: value ? 1 : null,
+      conflicts: [],
+      reason,
+    });
+    await page.route("**/ontology/instances/states*", async (route) => {
+      await json(route, {
+        schema_version: "1.0.0",
+        source_generation: "example-snapshot-1",
+        source_cutoff: observedAt,
+        ontology_generation: "example-snapshot-1",
+        ontology_manifest_digest: `sha256:${"c".repeat(64)}`,
+        invalidation_watermark: 42,
+        source_kind: "inventory_snapshot_resource",
+        ontology_release_digest: `sha256:${"a".repeat(64)}`,
+        resources: [
+          {
+            id: "dns-link-1",
+            object_type: "Resource",
+            resource_type: "network.private-dns-zone-link",
+            name: "dns-link-1",
+            location: "global",
+            resource_group: "Application",
+            subscription_id: "sub-a",
+            status: "Completed",
+            last_seen: observedAt,
+            selected: false,
+            states: {
+              schema_version: "1.0.0",
+              operational: fact("Completed", "properties.virtualNetworkLinkState"),
+              provisioning: fact("Succeeded", "properties.provisioningState"),
+              availability: fact(null, null, "provider_availability_state_not_exposed"),
+            },
+          },
+          {
+            id: "pe-disconnected-1",
+            object_type: "Resource",
+            resource_type: "network.private-endpoint",
+            name: "pe-disconnected-1",
+            location: "westus3",
+            resource_group: "Application",
+            subscription_id: "sub-a",
+            status: "Disconnected",
+            last_seen: observedAt,
+            selected: false,
+            states: {
+              schema_version: "1.0.0",
+              operational: fact("Disconnected", "properties.privateLinkServiceConnections.privateLinkServiceConnectionState.status"),
+              provisioning: fact("Succeeded", "properties.provisioningState"),
+              availability: fact(null, null, "provider_availability_state_not_exposed"),
+            },
+          },
+          {
+            id: "vmss-unknown-avail-1",
+            object_type: "Resource",
+            resource_type: "compute.vm-scale-set",
+            name: "vmss-unknown-avail-1",
+            location: "westus3",
+            resource_group: "Application",
+            subscription_id: "sub-a",
+            status: null,
+            last_seen: observedAt,
+            selected: false,
+            states: {
+              schema_version: "1.0.0",
+              operational: fact(null, null, "state_not_applicable"),
+              provisioning: fact("Succeeded", "properties.provisioningState"),
+              availability: fact("Unknown", "availabilityState"),
+            },
+          },
+        ],
+        total_count: 3,
+        next_cursor: null,
+        complete: true,
+        execution_authority: false,
+        mutation_authority: false,
+      });
+    });
+
+    await openV2(page);
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1']"))
+      .toHaveAttribute("data-state", "completed");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1']"))
+      .toHaveAttribute("data-tone", "active");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='pe-disconnected-1']"))
+      .toHaveAttribute("data-state", "disconnected");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='pe-disconnected-1']"))
+      .toHaveAttribute("data-tone", "negative");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='vmss-unknown-avail-1']"))
+      .toHaveAttribute("data-state", "succeeded");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='vmss-unknown-avail-1'] .dashboard-v2-map-axis"))
+      .toHaveText("P");
+
+    await page.getByRole("button", { name: "Availability", exact: true }).click();
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1']"))
+      .toHaveAttribute("data-state", "not-provided");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1']"))
+      .toHaveAttribute("data-fallback-tone", "active");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='pe-disconnected-1']"))
+      .toHaveAttribute("data-fallback-tone", "negative");
+    await expect(page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1'] .dashboard-v2-map-axis"))
+      .toHaveText("O");
+
+    const legendChipPaddings = await page.locator(".dv2-legend .dv2-state").evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const rect = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const textRect = range.getBoundingClientRect();
+        return {
+          left: textRect.left - rect.left,
+          right: rect.right - textRect.right,
+        };
+      }),
+    );
+    expect(legendChipPaddings.every((item) => item.left >= 10 && item.right >= 10)).toBe(true);
+
+    const comfortableCell = await page.locator(".dashboard-v2-map-cell[data-resource-id='dns-link-1']").evaluate((cell) => {
+      const sym = cell.querySelector(".dashboard-v2-map-symbol")!.getBoundingClientRect();
+      const name = cell.querySelector(".dashboard-v2-map-name")!.getBoundingClientRect();
+      const axis = cell.querySelector(".dashboard-v2-map-axis")!;
+      return {
+        symNameGap: name.top - sym.bottom,
+        axisFill: getComputedStyle(axis).fill,
+      };
+    });
+    expect(comfortableCell.symNameGap).toBeGreaterThanOrEqual(2);
+    expect(comfortableCell.axisFill).not.toBe("rgb(255, 255, 255)");
+
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await expect(page.locator(".dv2-table-wrap tbody tr").first().locator(".dv2-cell-states .dv2-state")).toHaveCount(2);
+
+    await page.getByRole("button", { name: "Groups", exact: true }).click();
+    await expect(page.locator(".dv2-groups .dv2-state").first()).toContainText("2");
+  });
 });

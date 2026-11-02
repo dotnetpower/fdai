@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
-  dashboardCounts, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateAxis, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
+  dashboardCounts, dashboardFallbackPresentation, dashboardLens, dashboardMapColumns, dashboardResourceState, dashboardScope, dashboardServingRecordedCount, dashboardStateAxis, dashboardStateMatchesFilter, dashboardStatusFilter, dashboardTypeLabel, dashboardUnknownCounts, dashboardUnknownReason,
   decodeDashboardSnapshot, EMPTY_DASHBOARD_FILTERS, STATE_STYLE,
 } from "./dashboard-v2.model";
 import en from "./i18n/dashboard-v2.en.json";
@@ -201,12 +201,88 @@ describe("Dashboard v2 inventory projection", () => {
   test("uses semantic colors for qualified success without treating it as health", () => {
     expect(STATE_STYLE.running.tone).toBe("active");
     expect(STATE_STYLE.available.tone).toBe("active");
+    expect(STATE_STYLE.completed.tone).toBe("active");
+    expect(STATE_STYLE.attached.tone).toBe("active");
+    expect(STATE_STYLE.reserved.tone).toBe("active");
+    expect(STATE_STYLE.approved.tone).toBe("active");
+    expect(STATE_STYLE.connected.tone).toBe("active");
+    expect(STATE_STYLE.verified.tone).toBe("active");
     expect(STATE_STYLE.stopped.tone).toBe("negative");
     expect(STATE_STYLE.unavailable.tone).toBe("negative");
+    expect(STATE_STYLE.rejected.tone).toBe("negative");
+    expect(STATE_STYLE.disconnected.tone).toBe("negative");
+    expect(STATE_STYLE.unattached.tone).toBe("attention");
     expect(STATE_STYLE.transitioning.tone).toBe("attention");
     expect(STATE_STYLE.unknown.tone).toBe("attention");
     expect(STATE_STYLE.succeeded.tone).toBe("active");
     expect(STATE_STYLE.recorded.tone).toBe("neutral");
+  });
+
+  test("maps disk, link, endpoint, and run-command operational states to semantic tones", () => {
+    const fact = (value: string | null, reason: string | null = null) => ({
+      value,
+      source_path: value === null ? null : "state",
+      observed_at: value === null ? null : "2026-09-05T03:00:00Z",
+      recorded_at: value === null ? null : "2026-09-05T03:00:00Z",
+      freshness: value === null ? "unknown" as const : "fresh" as const,
+      completeness: value === null ? null : 1,
+      conflicts: [],
+      reason,
+    });
+    const snapshot = decodeDashboardSnapshot(base);
+    const withOp = (value: string) => ({
+      ...snapshot.resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: fact(value),
+        provisioning: fact("Succeeded"),
+        availability: fact(null, "provider_availability_state_not_exposed"),
+      },
+    });
+
+    expect(dashboardResourceState(withOp("Completed"), snapshot, "resource")).toBe("completed");
+    expect(dashboardResourceState(withOp("Attached"), snapshot, "resource")).toBe("attached");
+    expect(dashboardResourceState(withOp("Reserved"), snapshot, "resource")).toBe("reserved");
+    expect(dashboardResourceState(withOp("Unattached"), snapshot, "resource")).toBe("unattached");
+    expect(dashboardResourceState(withOp("Approved"), snapshot, "resource")).toBe("approved");
+    expect(dashboardResourceState(withOp("Disconnected"), snapshot, "resource")).toBe("disconnected");
+    expect(dashboardResourceState(withOp("Verified"), snapshot, "resource")).toBe("verified");
+    expect(dashboardResourceState(withOp("Pending"), snapshot, "resource")).toBe("transitioning");
+    expect(dashboardResourceState(withOp("TimedOut"), snapshot, "resource")).toBe("failed");
+    expect(dashboardFallbackPresentation(withOp("Completed"), snapshot, "availability")).toEqual({
+      state: "completed",
+      tone: "active",
+      axis: "operational",
+    });
+  });
+
+  test("falls back to concrete provisioning when availability is Unknown", () => {
+    const snapshot = decodeDashboardSnapshot(base);
+    const resource = {
+      ...snapshot.resources[0]!,
+      states: {
+        schema_version: "1.0.0" as const,
+        operational: {
+          value: null, source_path: null, observed_at: null, recorded_at: null,
+          freshness: "unknown" as const, completeness: null, conflicts: [],
+          reason: "state_not_applicable",
+        },
+        provisioning: {
+          value: "Succeeded", source_path: "provisioningState",
+          observed_at: "2026-09-05T03:00:00Z", recorded_at: "2026-09-05T03:00:00Z",
+          freshness: "fresh" as const, completeness: 1, conflicts: [], reason: null,
+        },
+        availability: {
+          value: "Unknown", source_path: "availabilityState",
+          observed_at: "2026-09-05T03:00:00Z", recorded_at: "2026-09-05T03:00:00Z",
+          freshness: "fresh" as const, completeness: 1, conflicts: [], reason: null,
+        },
+      },
+    };
+
+    expect(dashboardStateAxis(resource, "resource")).toBe("provisioning");
+    expect(dashboardResourceState(resource, snapshot, "resource")).toBe("succeeded");
+    expect(dashboardResourceState(resource, snapshot, "availability")).toBe("unknown");
   });
 
   test("uses qualified provisioning success as a positive representative fallback", () => {

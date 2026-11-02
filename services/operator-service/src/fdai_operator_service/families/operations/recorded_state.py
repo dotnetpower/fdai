@@ -23,6 +23,8 @@ from fdai_service_contracts.recorded_resource_state import (
     SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     STATE_FACT_UNAVAILABLE_REASONS_PROPERTY,
     availability_state_paths,
+    extract_recorded_state_value,
+    has_empty_private_link_connections,
     is_recorded_state_value_valid,
     operational_state_paths,
     serving_state_paths,
@@ -151,7 +153,7 @@ def _fact(
     for prefix in ("", "properties.", "properties.properties."):
         for path in selected_paths:
             source_path = prefix + path
-            value = _at(properties, source_path)
+            value = extract_recorded_state_value(properties, source_path, path=path)
             allow_unknown = paths == _AVAILABILITY_PATHS or path == "ready_status"
             if (
                 not isinstance(value, str)
@@ -188,6 +190,12 @@ def _fact(
                     }
                 )
             return result
+    if (
+        paths == _OPERATIONAL_PATHS
+        and resource_type == "network.private-endpoint"
+        and has_empty_private_link_connections(properties)
+    ):
+        result["reason"] = "provider_operational_state_not_exposed"
     unavailable_reason = _unavailable_reason(properties, paths)
     if unavailable_reason is not None:
         result["reason"] = unavailable_reason
