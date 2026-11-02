@@ -37,10 +37,59 @@
   min-width: 0;
 }
 
-.settings-webhook-diagnostic-field span {
+.settings-webhook-diagnostic-field span,
+.settings-webhook-diagnostic-field > label {
   color: var(--fg-muted);
   font-size: 0.78rem;
   font-weight: 650;
+}
+
+.settings-teams-workflow-url-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.settings-teams-workflow-url-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-teams-workflow-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.settings-teams-workflow-icon-btn:hover:not(:disabled) {
+  border-color: var(--fg-muted);
+  color: var(--fg);
+}
+
+.settings-teams-workflow-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-teams-workflow-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-teams-workflow-icon-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .settings-teams-workflow-setup .settings-webhook-diagnostic-field {
@@ -329,6 +378,11 @@
   .settings-webhook-diagnostic-form .btn {
     width: 100%;
     min-height: 44px;
+  }
+
+  .settings-teams-workflow-icon-btn {
+    width: 44px;
+    height: 44px;
   }
 
   .settings-teams-workflow-setup .settings-webhook-diagnostic-form > .btn {

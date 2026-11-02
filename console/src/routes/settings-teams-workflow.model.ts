@@ -36,6 +36,20 @@ export interface TeamsWorkflowSavedBinding {
   readonly observedAt: string;
 }
 
+/** Audited on-demand reveal payload for Contributor, Approver, and Owner roles. */
+export interface TeamsWorkflowRevealedBinding {
+  readonly bindingVersion: string;
+  readonly endpointIdentifier: string;
+  readonly webhookUrl: string;
+  readonly revealedAt: string;
+}
+
+export function maskSavedTeamsWorkflowUrl(endpointIdentifier: string): string {
+  const match = /workflow\s+(\.\.\.[A-Za-z0-9]+)/.exec(endpointIdentifier);
+  const workflowSuffix = match?.[1] ?? "...••••••••";
+  return `https://••••••••/workflows/${workflowSuffix}/triggers/manual/paths/invoke?sig=••••••••••••`;
+}
+
 export function canSubmitTeamsWorkflow(
   webhookUrl: string,
   hasSavedBinding: boolean,
@@ -72,6 +86,37 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
       item["saved_at"] === undefined || item["saved_at"] === null
         ? null
         : isoTimestamp(item["saved_at"], "Teams Workflow binding.saved_at"),
+  };
+}
+
+export function decodeTeamsWorkflowBindingReveal(
+  value: unknown,
+): TeamsWorkflowRevealedBinding {
+  const item = record(value, "Teams Workflow binding reveal");
+  if (item["visible"] !== true || item["configured"] !== true) {
+    throw new Error("Teams Workflow binding reveal MUST report an active visible binding");
+  }
+  const webhookUrl = nonEmptyString(
+    item["webhook_url"],
+    "Teams Workflow binding reveal.webhook_url",
+  );
+  if (!webhookUrl.startsWith("https://")) {
+    throw new Error("Teams Workflow binding reveal.webhook_url MUST be an HTTPS URL");
+  }
+  return {
+    bindingVersion: nonEmptyString(
+      item["binding_version"],
+      "Teams Workflow binding reveal.binding_version",
+    ),
+    endpointIdentifier: nonEmptyString(
+      item["endpoint_identifier"],
+      "Teams Workflow binding reveal.endpoint_identifier",
+    ),
+    webhookUrl,
+    revealedAt: isoTimestamp(
+      item["revealed_at"],
+      "Teams Workflow binding reveal.revealed_at",
+    ),
   };
 }
 

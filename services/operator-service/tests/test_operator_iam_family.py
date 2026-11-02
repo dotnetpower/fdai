@@ -1088,6 +1088,15 @@ class RecordingTeamsWorkflowTester:
             "saved_at": NOW.isoformat(),
         }
 
+    async def reveal_binding(self, *, actor_id: str) -> Mapping[str, object]:
+        self.reveal_actor_id = actor_id
+        return {
+            "binding_version": "version-1",
+            "endpoint_identifier": "workflow ...da483a70 / sha256:123456789abc",
+            "webhook_url": "https://example.e4.environment.api.powerplatform.com/workflows/d74f3e0ee1314a4191c650cfda483a70/triggers/manual/paths/invoke",
+            "revealed_at": NOW.isoformat(),
+        }
+
 
 class RecordingSlackWebhookTester:
     def __init__(self) -> None:
@@ -1833,6 +1842,21 @@ def test_contributor_sees_binding_metadata_without_the_url_and_reader_sees_nothi
     assert reader.status_code == 200
     assert reader.json() == {"visible": False}
     assert "webhook_url" not in reader.text
+
+    revealed = _client(teams_workflow_tester=tester).get(
+        "/runtime/integrations/teams-workflow/binding?reveal=1",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-2"},
+    )
+    reader_reveal = _client(teams_workflow_tester=tester).get(
+        "/runtime/integrations/teams-workflow/binding?reveal=1",
+        headers={"x-test-role": "Reader", "x-test-oid": "reader-1"},
+    )
+
+    assert revealed.status_code == 200
+    assert revealed.headers.get("cache-control") == "no-store"
+    assert revealed.json()["webhook_url"].startswith("https://")
+    assert tester.reveal_actor_id == "contributor-2"
+    assert reader_reveal.status_code == 403
 
 
 def test_owner_can_send_one_secret_free_slack_webhook_diagnostic() -> None:

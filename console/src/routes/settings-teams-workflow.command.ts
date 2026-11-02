@@ -1,9 +1,11 @@
 import type { AuthContext } from "../auth";
 import { getGovernedJson, GovernedCommandError, putGovernedJson } from "../governed-command";
 import {
+  decodeTeamsWorkflowBindingReveal,
   decodeTeamsWorkflowBindingView,
   decodeTeamsWorkflowTestResult,
   type TeamsWorkflowBindingView,
+  type TeamsWorkflowRevealedBinding,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
 
@@ -18,6 +20,19 @@ export async function loadTeamsWorkflowBinding(
       auth,
       operatorApiBaseUrl,
       "/runtime/integrations/teams-workflow/binding",
+    ),
+  );
+}
+
+export async function revealTeamsWorkflowBinding(
+  auth: AuthContext,
+  operatorApiBaseUrl: string,
+): Promise<TeamsWorkflowRevealedBinding> {
+  return decodeTeamsWorkflowBindingReveal(
+    await getGovernedJson(
+      auth,
+      operatorApiBaseUrl,
+      "/runtime/integrations/teams-workflow/binding?reveal=1",
     ),
   );
 }

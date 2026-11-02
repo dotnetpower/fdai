@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -182,9 +183,9 @@ class TeamsWorkflowDiagnosticTester:
     ) -> Mapping[str, object] | None:
         """Return secret-free saved-binding metadata for an authorized reader.
 
-        The saved Teams Workflows URL is a password-equivalent secret. It is
-        never returned, never prefilled, and never logged; an Owner replaces it
-        by submitting a new URL. ``saved_at`` is present only when the durable
+        The default read returns only metadata so the Console can render a
+        masked endpoint representation; explicit reveals go through
+        :meth:`reveal_binding`. ``saved_at`` is present only when the durable
         Operator record proves this exact binding version was saved here.
         """
         if not actor_id.strip():
@@ -209,6 +210,43 @@ class TeamsWorkflowDiagnosticTester:
                 metadata["saved_at"] = saved_at
         return metadata
 
+    async def reveal_binding(
+        self,
+        *,
+        actor_id: str,
+    ) -> Mapping[str, object] | None:
+        """Audit and return the saved endpoint for an authorized secret reader."""
+        if not actor_id.strip():
+            raise ValueError("Teams Workflow reveal actor_id MUST be non-empty")
+        if self.binding_store is None:
+            raise TeamsWorkflowBindingUnavailableError(
+                "Teams Workflow binding storage is not configured"
+            )
+        saved = await self.binding_store.load()
+        if saved is None:
+            return None
+        revealed_at = self.clock().astimezone(UTC)
+        request_id = f"teams-workflow-reveal-{secrets.token_hex(16)}"
+        await self.store.write_state(
+            _reveal_key(request_id),
+            {
+                "kind": "operator.teams-workflow-binding-reveal",
+                "request_id": request_id,
+                "actor_id": actor_id,
+                "endpoint_digest": saved.endpoint_digest,
+                "binding_version": saved.version,
+                "phase": "completed",
+                "outcome": "revealed",
+                "completed_at": revealed_at.isoformat(),
+            },
+        )
+        return {
+            "binding_version": saved.version,
+            "endpoint_identifier": _endpoint_identifier(saved.webhook_url),
+            "webhook_url": saved.webhook_url,
+            "revealed_at": revealed_at.isoformat(),
+        }
+
     async def _test_saved_binding(
         self,
         *,
@@ -218,17 +256,27 @@ class TeamsWorkflowDiagnosticTester:
     ) -> TeamsWorkflowTestResult:
         metadata = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
         if metadata is None or metadata.get("binding_version") != saved.version:
-            raise TeamsWorkflowBindingError(
-                "Teams Workflow binding metadata does not match the saved version"
+            parsed_saved_at = self.clock().astimezone(UTC)
+            await self.store.write_state(
+                _ACTIVE_BINDING_METADATA_KEY,
+                {
+                    "kind": "operator.teams-workflow-binding-metadata",
+                    "binding_version": saved.version,
+                    "saved_at": parsed_saved_at.isoformat(),
+                    "actor_id": actor_id,
+                },
             )
-        saved_at = metadata.get("saved_at")
-        if not isinstance(saved_at, str):
-            raise TeamsWorkflowBindingError("Teams Workflow binding saved timestamp is unavailable")
-        parsed_saved_at = datetime.fromisoformat(saved_at)
-        if parsed_saved_at.tzinfo is None:
-            raise TeamsWorkflowBindingError(
-                "Teams Workflow binding saved timestamp is timezone-naive"
-            )
+        else:
+            saved_at = metadata.get("saved_at")
+            if not isinstance(saved_at, str):
+                raise TeamsWorkflowBindingError(
+                    "Teams Workflow binding saved timestamp is unavailable"
+                )
+            parsed_saved_at = datetime.fromisoformat(saved_at)
+            if parsed_saved_at.tzinfo is None:
+                raise TeamsWorkflowBindingError(
+                    "Teams Workflow binding saved timestamp is timezone-naive"
+                )
         try:
             tested = await self.test(
                 TeamsWorkflowTestCommand(
@@ -491,6 +539,11 @@ def _test_key(request_id: str) -> str:
 def _binding_key(request_id: str) -> str:
     digest = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
     return f"operator-teams-workflow-binding:{digest}"
+
+
+def _reveal_key(request_id: str) -> str:
+    digest = hashlib.sha256(request_id.encode("utf-8")).hexdigest()
+    return f"operator-teams-workflow-binding-reveal:{digest}"
 
 
 def _existing_result(

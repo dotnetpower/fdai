@@ -242,6 +242,36 @@ def test_preserved_repository_state_is_private_and_round_trips(tmp_path: Path) -
     assert _MODULE._read_preserved_state(preserved) == [registration]
 
 
+def test_preserved_teams_workflow_binding_round_trips(tmp_path: Path) -> None:
+    preserved = tmp_path / "state" / "preserved.json"
+    teams_records = [
+        {
+            "key": "operator-teams-workflow-binding-metadata:active",
+            "value": {
+                "kind": "operator.teams-workflow-binding-metadata",
+                "binding_version": "version-1",
+                "saved_at": "2026-10-14T00:00:00+00:00",
+                "actor_id": "owner-1",
+            },
+        },
+        {
+            "key": "operator-teams-workflow-binding:active",
+            "value": {
+                "kind": "operator.local-encrypted-teams-workflow-binding",
+                "version": "version-1",
+                "endpoint_digest": "a" * 64,
+                "ciphertext": "encrypted-token",
+            },
+        },
+    ]
+
+    _MODULE._write_preserved_state(preserved, [], teams_records)
+
+    assert preserved.stat().st_mode & 0o777 == 0o600
+    assert _MODULE._read_preserved_state(preserved) == []
+    assert _MODULE._read_preserved_teams_workflow_records(preserved) == teams_records
+
+
 def test_preserved_repository_state_rejects_unknown_envelope(tmp_path: Path) -> None:
     preserved = tmp_path / "preserved.json"
     preserved.write_text(

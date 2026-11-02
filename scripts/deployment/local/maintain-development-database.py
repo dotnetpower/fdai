@@ -21,6 +21,12 @@ _MIN_MAX_BYTES = 64 * 1024 * 1024
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 _PRESERVED_STATE_VERSION = "1.0.0"
 _PRESERVED_REPOSITORY_PREFIX = "runtime:code-security-repository:"
+_PRESERVED_TEAMS_BINDING_KEYS = frozenset(
+    {
+        "operator-teams-workflow-binding:active",
+        "operator-teams-workflow-binding-metadata:active",
+    }
+)
 _MAX_PRESERVED_REPOSITORIES = 200
 _MAX_PRESERVED_STATE_BYTES = 1024 * 1024
 
@@ -133,12 +139,43 @@ def _preserved_registrations(target: LocalDatabaseTarget) -> list[_PreservedRegi
     return registrations
 
 
-def _write_preserved_state(path: Path, registrations: list[_PreservedRegistration]) -> None:
+def _preserved_teams_workflow_records(
+    target: LocalDatabaseTarget,
+) -> list[_PreservedRegistration]:
+    with psycopg.connect(make_conninfo(**target.connection_info)) as connection:
+        rows = connection.execute(
+            """
+            SELECT key, value
+              FROM state_kv
+             WHERE key = ANY(%s)
+             ORDER BY key
+            """,
+            (sorted(_PRESERVED_TEAMS_BINDING_KEYS),),
+        ).fetchall()
+    records: list[_PreservedRegistration] = []
+    for key, value in rows:
+        if (
+            not isinstance(key, str)
+            or key not in _PRESERVED_TEAMS_BINDING_KEYS
+            or not isinstance(value, dict)
+        ):
+            raise RuntimeError("Teams Workflow binding preservation found malformed state")
+        records.append({"key": key, "value": value})
+    return records
+
+
+def _write_preserved_state(
+    path: Path,
+    registrations: list[_PreservedRegistration],
+    teams_workflow_binding: list[_PreservedRegistration] | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    payload = {
+    payload: dict[str, object] = {
         "schema_version": _PRESERVED_STATE_VERSION,
         "code_security_repositories": registrations,
     }
+    if teams_workflow_binding:
+        payload["teams_workflow_binding"] = teams_workflow_binding
     encoded = (json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
     if len(encoded) > _MAX_PRESERVED_STATE_BYTES:
         raise RuntimeError("preserved local state exceeds its byte bound")
@@ -156,7 +193,9 @@ def _write_preserved_state(path: Path, registrations: list[_PreservedRegistratio
             temporary.unlink()
 
 
-def _read_preserved_state(path: Path) -> list[_PreservedRegistration]:
+def _read_preserved_payload(
+    path: Path,
+) -> tuple[list[_PreservedRegistration], list[_PreservedRegistration]]:
     if path.is_symlink():
         raise ValueError("preserved local state MUST NOT be a symlink")
     stat = path.stat()
@@ -165,10 +204,17 @@ def _read_preserved_state(path: Path) -> list[_PreservedRegistration]:
     if stat.st_size > _MAX_PRESERVED_STATE_BYTES:
         raise ValueError("preserved local state exceeds its byte bound")
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict) or set(payload) != {
+    allowed_keys = {
         "schema_version",
         "code_security_repositories",
-    }:
+        "teams_workflow_binding",
+    }
+    required_keys = {"schema_version", "code_security_repositories"}
+    if (
+        not isinstance(payload, dict)
+        or not required_keys.issubset(payload)
+        or not set(payload).issubset(allowed_keys)
+    ):
         raise ValueError("preserved local state has an invalid envelope")
     if payload["schema_version"] != _PRESERVED_STATE_VERSION:
         raise ValueError("preserved local state has an unsupported schema version")
@@ -186,7 +232,36 @@ def _read_preserved_state(path: Path) -> list[_PreservedRegistration]:
         ):
             raise ValueError("preserved local state has a malformed repository")
         validated.append({"key": item["key"], "value": item["value"]})
-    return validated
+    raw_teams_binding = payload.get("teams_workflow_binding", [])
+    if not isinstance(raw_teams_binding, list) or len(raw_teams_binding) > len(
+        _PRESERVED_TEAMS_BINDING_KEYS
+    ):
+        raise ValueError("preserved local state has an invalid Teams Workflow binding collection")
+    validated_teams_binding: list[_PreservedRegistration] = []
+    seen_teams_keys: set[str] = set()
+    for item in raw_teams_binding:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"key", "value"}
+            or not isinstance(item["key"], str)
+            or item["key"] not in _PRESERVED_TEAMS_BINDING_KEYS
+            or item["key"] in seen_teams_keys
+            or not isinstance(item["value"], dict)
+        ):
+            raise ValueError("preserved local state has a malformed Teams Workflow binding")
+        seen_teams_keys.add(item["key"])
+        validated_teams_binding.append({"key": item["key"], "value": item["value"]})
+    return validated, validated_teams_binding
+
+
+def _read_preserved_state(path: Path) -> list[_PreservedRegistration]:
+    registrations, _ = _read_preserved_payload(path)
+    return registrations
+
+
+def _read_preserved_teams_workflow_records(path: Path) -> list[_PreservedRegistration]:
+    _, teams_workflow_binding = _read_preserved_payload(path)
+    return teams_workflow_binding
 
 
 async def _restore_preserved_state(target: LocalDatabaseTarget, preserved_state: Path) -> int:
@@ -205,7 +280,7 @@ async def _restore_preserved_state(target: LocalDatabaseTarget, preserved_state:
         repository_state_key,
     )
 
-    registrations = _read_preserved_state(preserved_state)
+    registrations, teams_workflow_records = _read_preserved_payload(preserved_state)
     store = PostgresStateStore(
         config=PostgresStateStoreConfig(dsn=make_conninfo(**target.connection_info))
     )
@@ -238,6 +313,17 @@ async def _restore_preserved_state(target: LocalDatabaseTarget, preserved_state:
                 if current is None or dict(current) != record:
                     raise RuntimeError("preserved repository restore changed concurrently")
                 continue
+            restored += 1
+        for item in teams_workflow_records:
+            record = dict(item["value"])
+            current = await store.read_state(item["key"])
+            if current is not None:
+                if dict(current) != record:
+                    raise RuntimeError(
+                        "preserved Teams Workflow binding conflicts with current local state"
+                    )
+                continue
+            await store.write_state(item["key"], record)
             restored += 1
     finally:
         await store.aclose()
@@ -295,6 +381,7 @@ def main() -> int:
             _write_preserved_state(
                 args.preserved_state,
                 _preserved_registrations(target),
+                _preserved_teams_workflow_records(target),
             )
         if args.recreated_marker is not None:
             _write_recreated_marker(args.recreated_marker)

@@ -470,11 +470,17 @@ def make_runtime_settings_routes(
 
     async def get_teams_workflow_binding(request: Request) -> Response:
         principal = await authorize(request)
+        reveal = request.query_params.get("reveal") == "1"
         if not has_capability(
             principal.roles,
             IamCapability.VIEW_INTEGRATION_SECRETS,
         ):
-            return JSONResponse({"visible": False})
+            if reveal:
+                return error_response(
+                    403,
+                    "Contributor, Approver, or Owner role is required",
+                )
+            return JSONResponse({"visible": False}, headers=_NO_STORE_HEADERS)
         if teams_workflow_tester is None:
             return error_response(
                 503,
@@ -482,19 +488,27 @@ def make_runtime_settings_routes(
                 kind="binding_unavailable",
             )
         try:
-            binding = await teams_workflow_tester.describe_binding(actor_id=principal.oid)
+            binding = (
+                await teams_workflow_tester.reveal_binding(actor_id=principal.oid)
+                if reveal
+                else await teams_workflow_tester.describe_binding(actor_id=principal.oid)
+            )
         except TeamsWorkflowBindingUnavailableError as exc:
             return error_response(503, str(exc), kind="binding_unavailable")
         except TeamsWorkflowBindingError as exc:
             return error_response(502, str(exc), kind="binding_provider_error")
         if binding is None:
-            return JSONResponse({"visible": True, "configured": False})
+            return JSONResponse(
+                {"visible": True, "configured": False},
+                headers=_NO_STORE_HEADERS,
+            )
         return JSONResponse(
             {
                 "visible": True,
                 "configured": True,
                 **binding,
-            }
+            },
+            headers=_NO_STORE_HEADERS,
         )
 
     async def test_slack_webhook(request: Request) -> Response:

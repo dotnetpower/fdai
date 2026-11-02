@@ -313,6 +313,32 @@ async def test_describe_returns_metadata_only_and_never_the_saved_url() -> None:
     assert URL not in repr(described)
 
 
+async def test_reveal_binding_audits_secret_free_record_and_returns_url() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    bindings.values.append(URL)
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        clock=lambda: NOW,
+    )
+
+    revealed = await tester.reveal_binding(actor_id="contributor-1")
+
+    assert revealed is not None
+    assert revealed["webhook_url"] == URL
+    assert revealed["binding_version"] == "version-1"
+    assert revealed["revealed_at"] == NOW.isoformat()
+    audit_record = next(
+        value
+        for value in store.values.values()
+        if value["kind"] == "operator.teams-workflow-binding-reveal"
+    )
+    assert audit_record["actor_id"] == "contributor-1"
+    assert audit_record["outcome"] == "revealed"
+    assert URL not in repr(store.values)
+
+
 async def test_describe_reports_saved_at_only_for_the_recorded_version() -> None:
     store = MemoryStore()
     bindings = MemoryBindingStore()

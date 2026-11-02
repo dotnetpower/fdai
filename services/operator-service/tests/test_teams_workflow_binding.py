@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 
 import httpx
 import pytest
@@ -169,3 +170,39 @@ async def test_local_store_persists_ciphertext_and_verifies_plaintext() -> None:
     assert state.value is not None
     assert URL not in repr(state.value)
     assert isinstance(state.value["ciphertext"], str)
+
+
+async def test_local_store_recovers_encrypted_binding_from_private_backup(
+    tmp_path: Path,
+) -> None:
+    class StateStore:
+        value: dict[str, object] | None = None
+
+        async def write_state(self, _: str, value: Mapping[str, object]) -> None:
+            self.value = dict(value)
+
+        async def read_state(self, _: str) -> dict[str, object] | None:
+            return None if self.value is None else dict(self.value)
+
+    backup = tmp_path / "local-teams-workflow-binding.json"
+    state = StateStore()
+    store = LocalEncryptedTeamsWorkflowBindingStore(
+        store=state,
+        key_material="******127.0.0.1/fdai",
+        backup_path=backup,
+    )
+
+    saved = await store.save_and_verify(webhook_url=URL, request_id="save-1")
+    assert backup.is_file()
+    assert backup.stat().st_mode & 0o777 == 0o600
+    assert URL not in backup.read_text(encoding="utf-8")
+
+    # Simulate database state_kv loss and verify self-healing recovery.
+    state.value = None
+    restored = await store.load()
+
+    assert restored is not None
+    assert restored.webhook_url == URL
+    assert restored.version == saved.version
+    assert state.value is not None
+    assert URL not in repr(state.value)

@@ -37,10 +37,12 @@ import {
 } from "./settings-slack-webhook.model";
 import {
   loadTeamsWorkflowBinding,
+  revealTeamsWorkflowBinding,
   testTeamsWorkflowWebhook,
 } from "./settings-teams-workflow.command";
 import {
   canSubmitTeamsWorkflow,
+  maskSavedTeamsWorkflowUrl,
   newTeamsWorkflowTestRequestId,
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
@@ -453,8 +455,17 @@ function TeamsWorkflowTestPanel({
   readonly canManage: boolean;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+  const [isUrlRevealed, setIsUrlRevealed] = useState(false);
+  const [revealedBinding, setRevealedBinding] = useState<{
+    readonly bindingVersion: string;
+    readonly webhookUrl: string;
+  } | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [bindingError, setBindingError] = useState<string | null>(null);
   const [bindingVisibility, setBindingVisibility] = useState<
@@ -463,6 +474,12 @@ function TeamsWorkflowTestPanel({
   const [bindingSaved, setBindingSaved] = useState<TeamsWorkflowSavedBinding | null>(null);
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
   const accountIsValid = !accountHint.trim() || isEmailStyleUserPrincipalName(accountHint.trim());
+
+  useEffect(() => () => {
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -478,9 +495,6 @@ function TeamsWorkflowTestPanel({
           setBindingVisibility("missing");
           return;
         }
-        // The saved URL is password-equivalent and is never returned, so the
-        // field stays empty and an Owner replaces the binding by submitting a
-        // new URL.
         setBindingSaved({
           bindingVersion: binding.bindingVersion,
           endpointIdentifier: binding.endpointIdentifier,
@@ -499,6 +513,85 @@ function TeamsWorkflowTestPanel({
     };
   }, [auth, operatorApiBaseUrl]);
 
+  const markUrlCopied = () => {
+    setUrlCopied(true);
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+    copyTimerRef.current = window.setTimeout(() => {
+      setUrlCopied(false);
+      copyTimerRef.current = null;
+    }, 1500);
+  };
+
+  const toggleRevealSavedUrl = async () => {
+    if (testing || revealing || !bindingSaved) return;
+    if (isUrlRevealed) {
+      setIsUrlRevealed(false);
+      setIsEditingUrl(false);
+      return;
+    }
+    if (revealedBinding && revealedBinding.bindingVersion === bindingSaved.bindingVersion) {
+      setWebhookUrl("");
+      setIsEditingUrl(false);
+      setIsUrlRevealed(true);
+      return;
+    }
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      const revealed = await revealTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      setRevealedBinding({
+        bindingVersion: revealed.bindingVersion,
+        webhookUrl: revealed.webhookUrl,
+      });
+      setWebhookUrl("");
+      setIsEditingUrl(false);
+      setIsUrlRevealed(true);
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const copySavedOrDraftUrl = async () => {
+    if (testing || revealing) return;
+    const draft = webhookUrl.trim();
+    if (draft) {
+      try {
+        await navigator.clipboard.writeText(draft);
+        markUrlCopied();
+      } catch {
+        /* clipboard unavailable in non-secure context */
+      }
+      return;
+    }
+    if (!bindingSaved) return;
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      let fullUrl =
+        revealedBinding && revealedBinding.bindingVersion === bindingSaved.bindingVersion
+          ? revealedBinding.webhookUrl
+          : null;
+      if (!fullUrl) {
+        const revealed = await revealTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+        setRevealedBinding({
+          bindingVersion: revealed.bindingVersion,
+          webhookUrl: revealed.webhookUrl,
+        });
+        fullUrl = revealed.webhookUrl;
+      }
+      await navigator.clipboard.writeText(fullUrl);
+      markUrlCopied();
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     if (
@@ -508,6 +601,11 @@ function TeamsWorkflowTestPanel({
     ) return;
     const submittedUrl = webhookUrl.trim();
     setWebhookUrl("");
+    setIsEditingUrl(false);
+    setIsUrlRevealed(false);
+    if (submittedUrl) {
+      setRevealedBinding(null);
+    }
     setTesting(true);
     setError(null);
     setResult(null);
@@ -544,6 +642,19 @@ function TeamsWorkflowTestPanel({
       setTesting(false);
     }
   };
+
+  const displayedWebhookUrl =
+    webhookUrl !== "" || (canManage && isEditingUrl && !isUrlRevealed)
+      ? webhookUrl
+      : isUrlRevealed
+          && revealedBinding
+          && bindingSaved
+          && revealedBinding.bindingVersion === bindingSaved.bindingVersion
+        ? revealedBinding.webhookUrl
+        : bindingSaved
+          ? maskSavedTeamsWorkflowUrl(bindingSaved.endpointIdentifier)
+          : "";
+  const canInspectSavedUrl = bindingSaved !== null;
 
   return (
     <div class="settings-webhook-diagnostic settings-teams-workflow-setup">
@@ -796,33 +907,144 @@ function TeamsWorkflowTestPanel({
                 class="settings-webhook-diagnostic-form"
                 onSubmit={(event) => { void submit(event); }}
               >
-                <label class="settings-webhook-diagnostic-field">
-                <span>{settingsIntegrationsText("saveUrlLabel")}</span>
-                <input
-                  class="form-input"
-                  type="text"
-                  inputMode="url"
-                  autocomplete="off"
-                  data-1p-ignore
-                  data-bwignore
-                  data-lpignore="true"
-                  spellcheck={false}
-                  maxlength={4096}
-                  value={webhookUrl}
-                  readOnly={!canManage}
-                  disabled={testing}
-                  placeholder={
-                    bindingSaved?.endpointIdentifier
-                    ?? t("settings.teamsWorkflowTest.urlPlaceholder")
-                  }
-                  onInput={(event) => setWebhookUrl(event.currentTarget.value)}
-                />
-                {!canManage ? (
-                  <small class="settings-webhook-diagnostic-help">
-                    {settingsIntegrationsText("contributorReadOnly")}
-                  </small>
-                ) : null}
-                </label>
+                <div class="settings-webhook-diagnostic-field">
+                  <label for="teams-workflow-webhook-url">
+                    {settingsIntegrationsText("saveUrlLabel")}
+                  </label>
+                  <div class="settings-teams-workflow-url-control">
+                    <input
+                      id="teams-workflow-webhook-url"
+                      class="form-input"
+                      type="text"
+                      inputMode="url"
+                      autocomplete="off"
+                      data-1p-ignore
+                      data-bwignore
+                      data-lpignore="true"
+                      spellcheck={false}
+                      maxlength={4096}
+                      value={displayedWebhookUrl}
+                      readOnly={!canManage}
+                      disabled={testing}
+                      placeholder={
+                        bindingSaved?.endpointIdentifier
+                        ?? t("settings.teamsWorkflowTest.urlPlaceholder")
+                      }
+                      onFocus={() => {
+                        if (canManage && !isUrlRevealed && !webhookUrl) {
+                          setIsEditingUrl(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!webhookUrl.trim()) {
+                          setIsEditingUrl(false);
+                        }
+                      }}
+                      onInput={(event) => {
+                        setIsUrlRevealed(false);
+                        setIsEditingUrl(true);
+                        setWebhookUrl(event.currentTarget.value);
+                      }}
+                    />
+                    {canInspectSavedUrl ? (
+                      <div class="settings-teams-workflow-url-actions">
+                        <button
+                          type="button"
+                          class="settings-teams-workflow-icon-btn"
+                          disabled={testing || revealing}
+                          aria-pressed={isUrlRevealed}
+                          aria-label={
+                            isUrlRevealed
+                              ? settingsIntegrationsText("hideSavedUrl")
+                              : settingsIntegrationsText("revealSavedUrl")
+                          }
+                          title={
+                            isUrlRevealed
+                              ? settingsIntegrationsText("hideSavedUrl")
+                              : settingsIntegrationsText("revealSavedUrl")
+                          }
+                          onClick={() => {
+                            void toggleRevealSavedUrl();
+                          }}
+                        >
+                          {isUrlRevealed ? (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                              <line x1="1" y1="1" x2="23" y2="23" />
+                            </svg>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          class="settings-teams-workflow-icon-btn"
+                          disabled={testing || revealing}
+                          aria-label={
+                            urlCopied
+                              ? t("shared.copied")
+                              : settingsIntegrationsText("copySavedUrl")
+                          }
+                          title={
+                            urlCopied
+                              ? t("shared.copied")
+                              : settingsIntegrationsText("copySavedUrl")
+                          }
+                          onClick={() => {
+                            void copySavedOrDraftUrl();
+                          }}
+                        >
+                          {urlCopied ? (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 {canManage ? (
                 <button
                   type="submit"
@@ -840,7 +1062,9 @@ function TeamsWorkflowTestPanel({
                 </button>
                 ) : null}
                 <small class="settings-webhook-diagnostic-help">
-                  {settingsIntegrationsText("bindingNeverReturned")}
+                  {canManage
+                    ? settingsIntegrationsText("bindingNeverReturned")
+                    : settingsIntegrationsText("contributorReadOnly")}
                 </small>
               </form>
             ) : bindingVisibility === "loading" ? (

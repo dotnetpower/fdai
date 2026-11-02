@@ -582,6 +582,14 @@ class TeamsWorkflowTester(Protocol):
         """Return secret-free saved-binding metadata; never the endpoint value."""
         ...
 
+    async def reveal_binding(
+        self,
+        *,
+        actor_id: str,
+    ) -> JsonMapping | None:
+        """Audit and return the saved endpoint value for an authorized reader."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class SlackWebhookTestCommand:
