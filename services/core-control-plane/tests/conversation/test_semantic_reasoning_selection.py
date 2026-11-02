@@ -11,7 +11,11 @@ import pytest
 from fdai.core.conversation import semantic_reasoning_selection
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain
-from fdai.core.conversation.semantic_reasoning_selection import select_chooser_concepts
+from fdai.core.conversation.semantic_reasoning_selection import (
+    lookup_cached_concept_choices,
+    select_chooser_concepts,
+    store_cached_concept_choices,
+)
 
 from tests.conversation.test_semantic_reasoning_concepts import _admission
 
@@ -123,3 +127,23 @@ async def test_failed_shard_wave_cancels_and_drains_its_other_call(
             timeout=2,
         )
     assert drained
+
+
+def test_live_concept_choice_cache_reuses_verified_shard_choices() -> None:
+    mentions = ({"mention": "m1", "text": " 리소스그룹 "},)
+    decoded = ({"mention": "m1", "candidate_ids": ["type:resource-group"]},)
+    store_cached_concept_choices("sha256:test-shard", False, mentions, decoded, live=True)
+
+    cached = lookup_cached_concept_choices(
+        "sha256:test-shard", False, ({"mention": "m9", "text": "리소스그룹"},), live=True
+    )
+    assert cached == {
+        "shard_digest": "sha256:test-shard",
+        "choices": [{"mention": "m9", "candidate_ids": ["type:resource-group"]}],
+    }
+    assert (
+        lookup_cached_concept_choices(
+            "sha256:test-shard", True, ({"mention": "m9", "text": "리소스그룹"},), live=True
+        )
+        is None
+    )

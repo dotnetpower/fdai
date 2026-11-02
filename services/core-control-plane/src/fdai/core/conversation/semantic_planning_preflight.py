@@ -72,7 +72,7 @@ def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
     proposal = result.proposal
     return proposal is not None and (
         proposal.operational_signal in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
-        and proposal.context_dependency in {ContextDependency.NONE, ContextDependency.ACTIVE_THREAD}
+        and proposal.context_dependency is not ContextDependency.PENDING_DECISION
         and proposal.knowledge_signal.value == "none"
         and proposal.social_act.value == "none"
         and not (frozenset(proposal.request_topics) & _NON_PRIMARY_READ_TOPICS)
@@ -81,6 +81,8 @@ def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
             OperationalPreflightFamily.NONE,
             OperationalPreflightFamily.RESOURCE_COLLECTION,
             OperationalPreflightFamily.RESOURCE_CURRENT_STATE,
+            OperationalPreflightFamily.RECENT_RESOURCE_CHANGES,
+            OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
         }
     )
 

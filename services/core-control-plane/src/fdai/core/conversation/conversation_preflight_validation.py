@@ -68,6 +68,16 @@ def discard_details_without_family(value: object) -> object:
     return {**value, **detail_fields}
 
 
+def _compact_preflight_item(item: str) -> str:
+    if not item.startswith("outbound:"):
+        return item
+    lines = [line for line in item.splitlines() if line.strip()]
+    bullets = sum(1 for line in lines if line.lstrip().startswith(("- ", "|")))
+    if len(lines) > 5 and bullets >= 3:
+        return "\n".join((*lines[:3], lines[-1]))
+    return item
+
+
 def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
     """Return the newest context that fits the routing bound, oldest first.
 
@@ -81,7 +91,7 @@ def bounded_context(context: Sequence[str]) -> tuple[str, ...]:
     raw_items = tuple(context)
     if any(not isinstance(item, str) for item in raw_items):
         raise TypeError("conversation preflight context MUST contain strings")
-    items = tuple(item for item in raw_items if item.strip())
+    items = tuple(_compact_preflight_item(item) for item in raw_items if item.strip())
     selected: list[str] = []
     remaining = _MAX_CONTEXT_CHARS
     for item in reversed(items[-_MAX_CONTEXT_ITEMS:]):
