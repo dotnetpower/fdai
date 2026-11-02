@@ -131,6 +131,12 @@ section > h2 { margin-bottom: 16px; }
 .stencil-domain-summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 0; }
 .stencil-panel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin-top: 8px; }
 .stencil-axis-card.compact { margin-bottom: 0; padding: 10px 12px; }
+.stencil-grid { align-items: start; }
+.stencil-provenance-span { grid-column: 1 / -1; min-width: 0; }
+.stencil-provenance-preview { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: #f8fafc; font-size: 12px; }
+.stencil-provenance-preview code { overflow-wrap: anywhere; color: var(--cs-text-soft); }
+.stencil-custom-sha-box { display: grid; gap: 8px; }
+.stencil-sha-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .artifact-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; }
 .artifact-list article { min-width: 0; padding-top: 16px; border-top: 1px solid var(--cs-hairline); }
 .artifact-list h3 { margin-bottom: 8px; }

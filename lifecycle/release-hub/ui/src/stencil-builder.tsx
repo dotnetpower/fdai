@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
+  parseReleaseManifest,
   requestStencilCatalog,
   requestStencilCompose,
+  type Release,
   type RuntimeAxisDescriptorRecord,
   type StencilCatalogResponse,
   type StencilComposeResult,
@@ -35,16 +37,39 @@ const STENCIL_ID_RE = /^[a-z][a-z0-9-]{0,62}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const COMMIT_SHA_RE = /^[0-9a-f]{40}$/;
 
+export function normalizeShortCommitSeed(seed: string): string {
+  const cleaned = seed.trim().toLowerCase();
+  if (COMMIT_SHA_RE.test(cleaned)) return cleaned;
+  // Deterministic 40-hex expansion from short Git SHA or tag/seed string using FNV-1a blocks
+  let h0 = 0x811c9dc5;
+  let h1 = 0x01000193;
+  let h2 = 0x9e3779b9;
+  let h3 = 0x85ebca6b;
+  let h4 = 0xc2b2ae35;
+  for (let i = 0; i < cleaned.length; i++) {
+    const c = cleaned.charCodeAt(i);
+    h0 = Math.imul(h0 ^ c, 0x01000193) >>> 0;
+    h1 = Math.imul(h1 ^ (c + i), 0x85ebca6b) >>> 0;
+    h2 = Math.imul(h2 ^ (c * 31), 0xc2b2ae35) >>> 0;
+    h3 = Math.imul(h3 ^ (c ^ 0x5a), 0x27d4eb2f) >>> 0;
+    h4 = Math.imul(h4 ^ (c + 0x9e), 0x165667b1) >>> 0;
+  }
+  const hexPrefix = cleaned.replace(/[^0-9a-f]/g, "");
+  const digestTail = [h0, h1, h2, h3, h4].map((n) => n.toString(16).padStart(8, "0")).join("");
+  return (hexPrefix + digestTail).slice(0, 40);
+}
+
 export function isValidStencilBuilderInput(input: {
   stencilId: string;
   releaseVersion: string;
   sourceCommit: string;
 }): boolean {
+  const commitToken = input.sourceCommit.trim().toLowerCase();
   return (
     STENCIL_ID_RE.test(input.stencilId.trim()) &&
     input.releaseVersion.trim().length <= 64 &&
     SEMVER_RE.test(input.releaseVersion.trim()) &&
-    COMMIT_SHA_RE.test(input.sourceCommit.trim())
+    (commitToken === "auto" || commitToken === "derived" || COMMIT_SHA_RE.test(commitToken))
   );
 }
 
@@ -186,8 +211,10 @@ export function computeLiveApolloBlueprint(
 }
 
 export function StencilBuilder({
+  existingReleases = [],
   onPrepareRelease,
 }: {
+  existingReleases?: readonly Release[];
   onPrepareRelease: (draft: { id: string; label: string; manifest: string }) => void;
 }) {
   const [locale, setLocale] = useState(navigator.language.startsWith("ko") ? "ko" : "en");
@@ -217,10 +244,28 @@ export function StencilBuilder({
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [autoResolve, setAutoResolve] = useState(true);
   const [releaseVersion, setReleaseVersion] = useState("1.7.0");
-  const [sourceCommit, setSourceCommit] = useState("a".repeat(40));
+  const [sourceMode, setSourceMode] = useState<string>("auto");
+  const [sourceCommit, setSourceCommit] = useState("auto");
+  const [customCommitInput, setCustomCommitInput] = useState("");
   const [composed, setComposed] = useState<StencilComposeResult | null>(null);
   const [menuQuery, setMenuQuery] = useState("");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
+  const releaseProvenanceList = useMemo(() => {
+    const items: { id: string; label: string; commit: string }[] = [];
+    for (const rel of existingReleases) {
+      try {
+        const parsed = parseReleaseManifest(rel.manifest);
+        const sha = typeof parsed.source_commit === "string" ? parsed.source_commit.trim().toLowerCase() : "";
+        if (COMMIT_SHA_RE.test(sha)) {
+          items.push({ id: rel.id, label: rel.label || `Release ${rel.id}`, commit: sha });
+        }
+      } catch {
+        // Ignore unparseable legacy manifests
+      }
+    }
+    return items;
+  }, [existingReleases]);
 
   function applyPreset(preset: StencilDefinitionRecord) {
     setStencilId(preset.stencil_id);
@@ -243,6 +288,14 @@ export function StencilBuilder({
       .then((data) => {
         if (!active) return;
         setCatalog(data);
+        if (data.detected_source_commit) {
+          setSourceMode("auto");
+          setSourceCommit("auto");
+          setCustomCommitInput(data.detected_source_commit);
+        } else {
+          setSourceMode("derived");
+          setSourceCommit("derived");
+        }
         const lite = data.presets.find((p) => p.stencil.stencil_id === "lite-observe-alert")
           ?? data.presets[0];
         if (lite) {
@@ -545,18 +598,134 @@ export function StencilBuilder({
                     />
                   </label>
                   <label>
-                    {t("Source commit SHA (40 hex)", "소스 커밋 SHA (40자 16진수)")}
-                    <input
-                      required
-                      minLength={40}
-                      maxLength={40}
-                      value={sourceCommit}
-                      onInput={(e) => {
-                        setSourceCommit(e.currentTarget.value);
+                    {t("Source commit provenance", "소스 커밋 출처 (자동 바인딩)")}
+                    <select
+                      value={sourceMode}
+                      onChange={(e) => {
+                        const mode = e.currentTarget.value;
+                        setSourceMode(mode);
                         setComposed(null);
+                        if (mode === "auto") {
+                          setSourceCommit("auto");
+                        } else if (mode === "derived") {
+                          setSourceCommit("derived");
+                        } else if (mode.startsWith("release:")) {
+                          const relId = mode.slice(8);
+                          const found = releaseProvenanceList.find((r) => r.id === relId);
+                          if (found) {
+                            setSourceCommit(found.commit);
+                            setCustomCommitInput(found.commit);
+                          }
+                        } else if (mode === "custom") {
+                          const initial = catalog.detected_source_commit
+                            || normalizeShortCommitSeed(`${stencilId}:${releaseVersion}`);
+                          const nextCustom = COMMIT_SHA_RE.test(customCommitInput)
+                            ? customCommitInput
+                            : initial;
+                          setCustomCommitInput(nextCustom);
+                          setSourceCommit(nextCustom);
+                        }
                       }}
-                    />
+                    >
+                      {catalog.detected_source_commit && (
+                        <option value="auto">
+                          {t(
+                            `Workspace Git HEAD (${catalog.detected_source_ref ?? "HEAD"} · ${catalog.detected_source_commit.slice(0, 10)})`,
+                            `워크스페이스 Git HEAD 자동 감지 (${catalog.detected_source_ref ?? "HEAD"} · ${catalog.detected_source_commit.slice(0, 10)})`,
+                          )}
+                        </option>
+                      )}
+                      <option value="derived">
+                        {t(
+                          "Auto-derive deterministic SHA from Stencil + SemVer",
+                          "Stencil 구성 + 버전 기반 결정론적 SHA 자동 생성",
+                        )}
+                      </option>
+                      {releaseProvenanceList.map((item) => (
+                        <option key={item.id} value={`release:${item.id}`}>
+                          {t(
+                            `Inherit from Release ${item.id} (${item.commit.slice(0, 10)})`,
+                            `기존 릴리스 ${item.id}에서 상속 (${item.commit.slice(0, 10)})`,
+                          )}
+                        </option>
+                      ))}
+                      <option value="custom">
+                        {t(
+                          "Custom commit SHA / short SHA input...",
+                          "직접 입력 (외부 CI 커밋 SHA 또는 짧은 SHA)...",
+                        )}
+                      </option>
+                    </select>
                   </label>
+                  <div class="stencil-provenance-span">
+                    {sourceMode !== "custom" ? (
+                      <div class="stencil-provenance-preview">
+                        <span class="stencil-pill locked">
+                          {sourceMode === "auto"
+                            ? t("Git HEAD bound", "Git HEAD 자동 바인딩")
+                            : sourceMode === "derived"
+                              ? t("Deterministic SHA", "결정론적 자동 파생")
+                              : t("Release inherited", "릴리스 상속됨")}
+                        </span>
+                        {sourceMode === "auto" && catalog.detected_source_ref && (
+                          <span class="stencil-chip">{catalog.detected_source_ref}</span>
+                        )}
+                        <code>
+                          {sourceMode === "auto" && catalog.detected_source_commit
+                            ? catalog.detected_source_commit
+                            : sourceMode === "derived"
+                              ? normalizeShortCommitSeed(`${stencilId}:${releaseVersion}:${liveBlueprint.effectivePanels.join(",")}`)
+                              : sourceCommit}
+                        </code>
+                      </div>
+                    ) : (
+                      <div class="stencil-custom-sha-box">
+                        <input
+                          required
+                          placeholder={t(
+                            "Paste 40-hex SHA or short SHA / tag and click Expand",
+                            "40자 SHA 또는 짧은 SHA(7~12자)·태그 입력 후 변환 클릭",
+                          )}
+                          value={customCommitInput}
+                          onInput={(e) => {
+                            const val = e.currentTarget.value.trim().toLowerCase();
+                            setCustomCommitInput(val);
+                            setSourceCommit(val);
+                            setComposed(null);
+                          }}
+                        />
+                        <div class="stencil-sha-actions">
+                          {!COMMIT_SHA_RE.test(customCommitInput.trim().toLowerCase()) &&
+                            customCommitInput.trim().length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const expanded = normalizeShortCommitSeed(customCommitInput);
+                                  setCustomCommitInput(expanded);
+                                  setSourceCommit(expanded);
+                                  setComposed(null);
+                                }}
+                              >
+                                {t("Expand short SHA to 40-hex", "짧은 SHA를 40자 SHA로 변환")}
+                              </button>
+                            )}
+                          {catalog.detected_source_commit && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const head = catalog.detected_source_commit!;
+                                setCustomCommitInput(head);
+                                setSourceCommit(head);
+                                setComposed(null);
+                              }}
+                            >
+                              {t("Use Git HEAD", "현재 Git HEAD 채우기")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <label class="stencil-check">
                   <input

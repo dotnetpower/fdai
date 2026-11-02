@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Literal
 
 from fdai_deployment_cli.contracts import canonical_bytes
@@ -1242,6 +1244,78 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
     }
 
 
+def derive_stencil_source_commit(stencil_digest: str, release_version: str) -> str:
+    """Derive a deterministic 40-hex provenance SHA from Stencil digest and SemVer."""
+
+    seed = f"fdai.stencil-source.v1:{stencil_digest}:{release_version}".encode()
+    return hashlib.sha256(seed).hexdigest()[:40]
+
+
+def detect_workspace_source_commit(start_path: Path | None = None) -> tuple[str | None, str | None]:
+    """Detect the current Git HEAD 40-hex commit SHA and ref label without spawning subprocesses."""
+
+    env_sha = os.environ.get("FDAI_SOURCE_COMMIT", "").strip().lower()
+    if _COMMIT_SHA_RE.fullmatch(env_sha) is not None:
+        return env_sha, "env:FDAI_SOURCE_COMMIT"
+
+    anchor = (start_path or Path(__file__)).resolve()
+    search_roots = [anchor] if anchor.is_dir() else []
+    search_roots.extend(anchor.parents)
+
+    for candidate in search_roots:
+        dot_git = candidate / ".git"
+        try:
+            if dot_git.is_dir():
+                git_dir = dot_git
+                common_dir = dot_git
+            elif dot_git.is_file():
+                first_line = dot_git.read_text(encoding="utf-8").splitlines()[0].strip()
+                if not first_line.startswith("gitdir:"):
+                    continue
+                raw_git_dir = first_line.partition(":")[2].strip()
+                git_dir = (candidate / raw_git_dir).resolve()
+                commondir_file = git_dir / "commondir"
+                if commondir_file.is_file():
+                    rel_common = commondir_file.read_text(encoding="utf-8").strip()
+                    common_dir = (git_dir / rel_common).resolve()
+                else:
+                    common_dir = git_dir
+            else:
+                continue
+
+            head_file = git_dir / "HEAD"
+            if not head_file.is_file():
+                continue
+            head_raw = head_file.read_text(encoding="utf-8").strip()
+            if head_raw.startswith("ref:"):
+                ref_path = head_raw.partition(":")[2].strip()
+                ref_label = ref_path.removeprefix("refs/heads/").removeprefix("refs/tags/")
+                for base_dir in (git_dir, common_dir):
+                    loose_ref = (base_dir / ref_path).resolve()
+                    if loose_ref.is_file():
+                        sha = loose_ref.read_text(encoding="utf-8").strip().lower()
+                        if _COMMIT_SHA_RE.fullmatch(sha) is not None:
+                            return sha, ref_label
+                packed_refs = common_dir / "packed-refs"
+                if packed_refs.is_file():
+                    for line in packed_refs.read_text(encoding="utf-8").splitlines():
+                        stripped = line.strip()
+                        if not stripped or stripped.startswith(("#", "^")):
+                            continue
+                        parts = stripped.split(" ", 1)
+                        if len(parts) == 2 and parts[1].strip() == ref_path:
+                            sha = parts[0].strip().lower()
+                            if _COMMIT_SHA_RE.fullmatch(sha) is not None:
+                                return sha, ref_label
+            else:
+                sha = head_raw.lower()
+                if _COMMIT_SHA_RE.fullmatch(sha) is not None:
+                    return sha, "HEAD"
+        except OSError:
+            continue
+    return None, None
+
+
 def build_stencil_release_manifest(
     stencil: StencilDefinition,
     *,
@@ -1313,7 +1387,7 @@ class StencilComposeRequest(BaseModel):
     requested_addons: tuple[str, ...] = LOCKED_CORE_ADDONS
     auto_resolve_dependencies: bool = True
     release_version: str = Field(default="1.7.0", min_length=1, max_length=64)
-    source_commit: str = Field(default="a" * 40, min_length=40, max_length=40)
+    source_commit: str = Field(default="auto", min_length=0, max_length=64)
 
 
 def _serialize_axis(items: tuple[RuntimeAxisDescriptor, ...]) -> list[dict[str, Any]]:
@@ -1334,7 +1408,10 @@ def _serialize_axis(items: tuple[RuntimeAxisDescriptor, ...]) -> list[dict[str, 
 def stencil_catalog_payload() -> dict[str, Any]:
     """Return all Stencil presets, Console panel metadata, and selectable runtime axes."""
 
+    detected_commit, detected_ref = detect_workspace_source_commit()
     return {
+        "detected_source_commit": detected_commit,
+        "detected_source_ref": detected_ref,
         "presets": [
             {
                 "stencil": preset.model_dump(mode="json"),
@@ -1371,6 +1448,31 @@ def stencil_catalog_payload() -> dict[str, Any]:
     }
 
 
+def resolve_stencil_source_commit(
+    raw_source_commit: str,
+    *,
+    stencil_digest: str,
+    release_version: str,
+) -> tuple[str, str]:
+    """Resolve 'auto', 'derived', or an explicit 40-hex commit into (sha, provenance_mode)."""
+
+    candidate = raw_source_commit.strip().lower()
+    if candidate in ("", "auto"):
+        detected_sha, detected_ref = detect_workspace_source_commit()
+        if detected_sha is not None:
+            return detected_sha, f"workspace-git-head ({detected_ref or 'HEAD'})"
+        return (
+            derive_stencil_source_commit(stencil_digest, release_version),
+            "derived-from-stencil-digest",
+        )
+    if candidate == "derived":
+        return (
+            derive_stencil_source_commit(stencil_digest, release_version),
+            "derived-from-stencil-digest",
+        )
+    return candidate, "explicit-commit-sha"
+
+
 def compose_stencil_response(request: StencilComposeRequest) -> dict[str, Any]:
     """Compose a custom Stencil, evaluate its footprint, and emit a release manifest draft."""
 
@@ -1388,11 +1490,18 @@ def compose_stencil_response(request: StencilComposeRequest) -> dict[str, Any]:
         requested_addons=request.requested_addons,
         auto_resolve_dependencies=request.auto_resolve_dependencies,
     )
+    resolved_commit, provenance_mode = resolve_stencil_source_commit(
+        request.source_commit,
+        stencil_digest=stencil.digest,
+        release_version=request.release_version,
+    )
     footprint = evaluate_stencil_footprint(stencil)
+    footprint["source_commit"] = resolved_commit
+    footprint["source_provenance_mode"] = provenance_mode
     manifest = build_stencil_release_manifest(
         stencil,
         release_version=request.release_version,
-        source_commit=request.source_commit,
+        source_commit=resolved_commit,
     )
     return {
         "stencil": stencil.model_dump(mode="json"),
@@ -1429,6 +1538,9 @@ __all__ = [
     "build_stencil_release_manifest",
     "compose_custom_stencil",
     "compose_stencil_response",
+    "derive_stencil_source_commit",
+    "detect_workspace_source_commit",
     "evaluate_stencil_footprint",
+    "resolve_stencil_source_commit",
     "stencil_catalog_payload",
 ]

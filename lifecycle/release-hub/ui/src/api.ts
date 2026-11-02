@@ -232,6 +232,8 @@ export type StencilFootprint = {
 };
 
 export type StencilCatalogResponse = {
+  detected_source_commit?: string | null;
+  detected_source_ref?: string | null;
   presets: { stencil: StencilDefinitionRecord; footprint: StencilFootprint }[];
   panels: StencilPanelDescriptor[];
   workloads: string[];

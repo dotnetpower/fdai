@@ -3,6 +3,7 @@ import {
   computeLiveApolloBlueprint,
   groupPanelsByDomain,
   isValidStencilBuilderInput,
+  normalizeShortCommitSeed,
 } from "./stencil-builder";
 import type { StencilCatalogResponse, StencilPanelDescriptor } from "./api";
 
@@ -48,16 +49,22 @@ describe("stencil-builder helpers", () => {
     expect(grouped.get("operations")?.map((p) => p.id)).toEqual(["live"]);
   });
 
-  it("validates Stencil ID, SemVer release version, and 40-char hex source commit (C10)", () => {
+  it("validates Stencil ID, SemVer release version, and auto/derived/40-char hex source commit (C10)", () => {
     const valid = {
       stencilId: "lite-observe-alert",
       releaseVersion: "1.7.0",
       sourceCommit: "a".repeat(40),
     };
     expect(isValidStencilBuilderInput(valid)).toBe(true);
+    expect(isValidStencilBuilderInput({ ...valid, sourceCommit: "auto" })).toBe(true);
+    expect(isValidStencilBuilderInput({ ...valid, sourceCommit: "derived" })).toBe(true);
     expect(isValidStencilBuilderInput({ ...valid, stencilId: "Bad_ID" })).toBe(false);
     expect(isValidStencilBuilderInput({ ...valid, releaseVersion: "v1.7" })).toBe(false);
     expect(isValidStencilBuilderInput({ ...valid, sourceCommit: "abc" })).toBe(false);
+
+    const expanded = normalizeShortCommitSeed("4fbb8096cd");
+    expect(expanded).toMatch(/^[0-9a-f]{40}$/);
+    expect(expanded.startsWith("4fbb8096cd")).toBe(true);
   });
 
   it("computes live Apollo blueprint, dependency reasons, and release labels in 0ms", () => {

@@ -171,6 +171,33 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     cat_body = cat_resp.json()
     assert len(cat_body["presets"]) == 3
     assert len(cat_body["panels"]) == len(ALL_PANEL_IDS)
+    assert cat_body["detected_source_commit"] is not None
+    assert len(cat_body["detected_source_commit"]) == 40
+
+    # Also verify "auto" and "derived" source_commit modes work without manual 40-hex entry
+    auto_resp = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "lite-auto-sha",
+            "source_commit": "auto",
+        },
+    )
+    assert auto_resp.status_code == 200
+    assert len(auto_resp.json()["release_manifest"]["source_commit"]) == 40
+    assert auto_resp.json()["footprint"]["source_provenance_mode"].startswith("workspace-git-head")
+
+    derived_resp = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "lite-derived-sha",
+            "source_commit": "derived",
+        },
+    )
+    assert derived_resp.status_code == 200
+    assert len(derived_resp.json()["release_manifest"]["source_commit"]) == 40
+    assert (
+        derived_resp.json()["footprint"]["source_provenance_mode"] == "derived-from-stencil-digest"
+    )
 
     compose_resp = client.post(
         "/v1/stencils/compose",

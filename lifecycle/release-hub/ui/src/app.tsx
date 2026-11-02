@@ -227,10 +227,13 @@ export function App() {
             {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
               : <div class="release-list">{catalog.releases.map((r) => <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p></div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>)}</div>}
           </>           : route === "/deployment-requests" ? null
-          : route === "/stencils" ? <StencilBuilder onPrepareRelease={(draft) => {
-            setRegistration(draft);
-            setPending({ action: "register", release: null });
-          }} />
+          : route === "/stencils" ? <StencilBuilder
+            existingReleases={catalog.releases}
+            onPrepareRelease={(draft) => {
+              setRegistration(draft);
+              setPending({ action: "register", release: null });
+            }}
+          />
           : route === "/channels" ? <Channels catalog={catalog} />
           : route === "/activity" ? <><h1>Activity</h1><p>Transactional publication changes, newest first. Development attribution is not a production audit guarantee.</p><Activity catalog={catalog} /></>
           : route === "/trust" ? <>
