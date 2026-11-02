@@ -21,7 +21,7 @@ import httpx
 from fdai.core.notifications.matrix import NotificationMatrix
 from fdai.core.notifications.router import ChannelBinding, ChannelRegistry
 from fdai.core.notifications.shadow import ShadowDeliveryRecorder
-from fdai.delivery.integration_readiness import endpoint_is_placeholder
+from fdai.delivery.integration_readiness import endpoint_is_placeholder, value_is_placeholder
 from fdai.delivery.notifications.console_inbox import (
     CONSOLE_INBOX_CHANNEL_ID,
     CONSOLE_INBOX_TRUST_TIERS,
@@ -108,6 +108,12 @@ def _build_notification_registry(
     declare that environment name can resolve through it.
     """
     overrides = dict(endpoint_overrides or {})
+    if not overrides:
+        from fdai.delivery.notifications.local_binding import (
+            resolve_local_backup_notification_endpoints,
+        )
+
+        overrides = resolve_local_backup_notification_endpoints(environment=os.environ)
     resolved_env: Mapping[str, str] = {**os.environ, **overrides}
     bindings_raw = os.environ.get("FDAI_NOTIFICATION_BINDINGS_JSON", "").strip()
     if bindings_raw:
@@ -221,6 +227,7 @@ def _build_named_notification_registry(
     )
     from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
     from fdai.delivery.notifications import (
+        SLACK_CHAT_POST_MESSAGE_URL,
         AzureCommunicationEmailChannel,
         AzureCommunicationEmailConfig,
         NotificationBindingKind,
@@ -356,6 +363,21 @@ def _build_named_notification_registry(
                 ),
             )
         elif spec.kind is NotificationBindingKind.SLACK_WEBHOOK:
+            slack_channel_id: str | None = None
+            bot_token: str | None = None
+            if endpoint == SLACK_CHAT_POST_MESSAGE_URL:
+                slack_channel_id = _required_notification_env(
+                    spec.channel_id,
+                    "FDAI_SLACK_OPS_CHANNEL_ID",
+                    endpoint_overrides,
+                    is_protected_value=True,
+                )
+                bot_token = _required_notification_env(
+                    spec.channel_id,
+                    "FDAI_SLACK_BOT_TOKEN",
+                    endpoint_overrides,
+                    is_protected_value=True,
+                )
             channel = cast(
                 NotificationChannel,
                 SlackWebhookChannel(
@@ -363,6 +385,8 @@ def _build_named_notification_registry(
                         channel_id=spec.channel_id,
                         webhook_url=endpoint,
                         trust_tiers=spec.trust_tiers,
+                        slack_channel_id=slack_channel_id,
+                        bot_token=bot_token,
                     ),
                     http_client=http_client,
                 ),
@@ -420,6 +444,7 @@ def _required_notification_env(
     endpoint_overrides: Mapping[str, str] | None = None,
     *,
     is_endpoint_url: bool = False,
+    is_protected_value: bool = False,
 ) -> str:
     """Resolve one binding value, refusing an unconfigured deployment placeholder.
 
@@ -439,6 +464,11 @@ def _required_notification_env(
         raise RuntimeError(
             f"enabled notification binding {channel_id!r} still resolves to the unconfigured "
             f"{env_name} placeholder; save a real endpoint before activating delivery"
+        )
+    if is_protected_value and value_is_placeholder(value):
+        raise RuntimeError(
+            f"enabled notification binding {channel_id!r} still resolves to the unconfigured "
+            f"{env_name} placeholder; save a real value before activating delivery"
         )
     return value
 

@@ -19,7 +19,8 @@ if [[ "$git_dir" != "$common_dir" ]]; then
 fi
 
 bash "$repo_root/scripts/deployment/local/stop-console-services.sh"
-bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
+FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-1}" \
+  bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
   --defer-authoritative-inventory \
   --auth-mode "$auth_mode"
 exec bash "$repo_root/scripts/deployment/local/start-console-services.sh" \

@@ -1,8 +1,8 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 2a3caf0a4438bdc67eae16259301c5fea590efcb
-translation_revised: 2026-10-22
+translation_source_sha: 18278763600cde4d74ee3f82c5dd526a626c1e11
+translation_revised: 2026-11-03
 ---
 # 다중 채널 알림 전달
 
@@ -276,7 +276,7 @@ Managed Identity를 사용합니다. 로컬 프로필은 Operator가 소유하�
 | 모드 | 활성화 입력 | Endpoint 출처 |
 |------|-------------|---------------|
 | 배포 | `enable_teams_notification_delivery`와 `teams_notification_binding` 객체 | 읽기 전용 권한으로 컨트롤 플레인에 주입하는 Key Vault 시크릿 참조 |
-| 로컬 | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | 동일한 암호화된 Operator 소유 레코드를 전달 측 저장소로 읽음. 평문 파일이나 환경 변수 복제 없음 |
+| 로컬 | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | 동일한 암호화된 Operator 소유 레코드를 전달 측 저장소로 읽으며(데이터베이스 재생성 시 소유자 전용 암호화 백업 폴백 및 `postgresql` / `postgresql+psycopg` 키 파생 정규화 포함), 명시적 Slack 웹훅이 없을 때 소유자 전용 로컬 Slack 채널 edge 재정의를 함께 해석함. Teams URL의 평문 파일이나 환경 변수 복제 없음 |
 
 **저장된 URL은 암호에 준하며 절대 반환하지 않습니다.** 바인딩 조회는 메타데이터만 응답합니다.
 `visible`, `configured`, `binding_version`, 관찰 시각, 그리고 해당 버전을 증명하는 영속 Operator
@@ -410,9 +410,10 @@ Slack은 연결 설정 실패를 unavailable로 분류하지만, 전송 이후 �
 오류는 공급자가 요청을 받았을 수 있으므로 ambiguous로 분류합니다. 라우터는 모호한 확인 결과를
 다른 경로로 재시도하지 않습니다.
 
-Slack webhook의 HTTP 200은 `delivered`가 아니라 `accepted`를 만듭니다. 독립적인 게시 관측만
-공급자 수락을 전달 완료로 승격할 수 있습니다. 해당 관측 경로와 승격 근거를 검토하기 전까지
-Slack 기능은 shadow에 머뭅니다.
+Slack webhook의 HTTP 200(또는 `FDAI_SLACK_OPS_CHANNEL_ID`와 `FDAI_SLACK_BOT_TOKEN`으로 바인딩된
+Slack Web API `https://slack.com/api/chat.postMessage`의 `ok: true` 및 범위 제한 메시지 `ts`를 포함한
+HTTP 200)은 `delivered`가 아니라 `accepted`를 만듭니다. 독립적인 게시 관측만 공급자 수락을 전달 완료로
+승격할 수 있습니다.
 
 Teams와 Slack 차단 오류에는 공급자 이름과 HTTP 상태만 남깁니다. 공급자 응답 본문은 신뢰할 수
 없고 메시지 내용을 반사할 수 있으므로 폐기하며, 라우터 감사 텍스트에 포함하지 않습니다.
