@@ -192,6 +192,91 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         )
 
 
+_QUOTE_TRAILING_PARTICLES = (
+    "목록을",
+    "목록이",
+    "목록은",
+    "목록",
+    "리스트",
+    "들을",
+    "들이",
+    "들은",
+    "들의",
+    "들",
+    "에서",
+    "에게",
+    "으로",
+    "로",
+    "이",
+    "가",
+    "을",
+    "를",
+    "은",
+    "는",
+    "의",
+    "에",
+    "도",
+    "만",
+)
+
+
+def _one_edit_match(target: str, candidate: str) -> bool:
+    a, b = target.casefold(), candidate.casefold()
+    if len(a) < 3 or len(b) < 3 or a[0] != b[0] or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        diffs = [i for i in range(len(a)) if a[i] != b[i]]
+        if len(diffs) == 1:
+            return True
+        return (
+            len(diffs) == 2
+            and diffs[1] == diffs[0] + 1
+            and a[diffs[0]] == b[diffs[1]]
+            and a[diffs[1]] == b[diffs[0]]
+        )
+    short, long = (a, b) if len(a) < len(b) else (b, a)
+    i = j = diffs_count = 0
+    while i < len(short) and j < len(long):
+        if short[i] == long[j]:
+            i += 1
+            j += 1
+        else:
+            diffs_count += 1
+            if diffs_count > 1:
+                return False
+            j += 1
+    return True
+
+
+def _locate_typo_quote(text: str, utterance: str) -> tuple[int, int] | None:
+    if len(text) < 3 or " " in text:
+        return None
+    matches: list[tuple[int, int]] = []
+    idx = 0
+    n = len(utterance)
+    while idx < n:
+        while idx < n and utterance[idx].isspace():
+            idx += 1
+        if idx >= n:
+            break
+        end = idx
+        while end < n and not utterance[end].isspace():
+            end += 1
+        raw_token = utterance[idx:end].rstrip("?,!.:;)")
+        tok_end = idx + len(raw_token)
+        if _one_edit_match(text, raw_token):
+            matches.append((idx, tok_end))
+        else:
+            for suffix in _QUOTE_TRAILING_PARTICLES:
+                if len(raw_token) > len(suffix) + 2 and raw_token.endswith(suffix):
+                    stem = raw_token[: -len(suffix)]
+                    if _one_edit_match(text, stem):
+                        matches.append((idx, idx + len(stem)))
+                    break
+        idx = end
+    return matches[0] if len(matches) == 1 else None
+
+
 def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] | None:
     """Return the span of the given verbatim occurrence of ``text``, if any."""
 
@@ -201,6 +286,11 @@ def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] 
     for _ in range(occurrence):
         start = utterance.find(text, start + 1)
         if start < 0:
+            stripped = text.strip()
+            if stripped and stripped != text:
+                return locate_quote(stripped, occurrence, utterance)
+            if occurrence == 1:
+                return _locate_typo_quote(stripped or text, utterance)
             return None
     return start, start + len(text)
 

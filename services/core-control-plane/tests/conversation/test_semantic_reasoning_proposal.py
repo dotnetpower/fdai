@@ -218,3 +218,11 @@ def test_a_qualitative_window_cue_without_digits_normalizes_to_unspecified() -> 
     admission = admit_question_form(resolved.form, utterance=utterance)
     assert admission.disposition is AdmissionDisposition.ADMITTED
     assert admission.reasons == ()
+
+
+def test_locate_quote_recovers_single_token_typo_and_rejects_unrelated_words() -> None:
+    from fdai.core.conversation.semantic_reasoning_proposal import locate_quote
+
+    assert locate_quote("리소스그룹", 1, "리소스그릅이 몇개인가?") == (0, 5)
+    assert locate_quote("virtual", 1, "Show stopped virtul machines") == (13, 19)
+    assert locate_quote("largest", 1, _UTTERANCE) is None
