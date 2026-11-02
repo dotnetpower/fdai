@@ -206,3 +206,31 @@ async def test_local_store_recovers_encrypted_binding_from_private_backup(
     assert restored.version == saved.version
     assert state.value is not None
     assert URL not in repr(state.value)
+
+
+@pytest.mark.parametrize("bad_channel_id", ["", "../escape", "ch-UPPER", "ch-a/b", "other-123"])
+async def test_local_store_rejects_malformed_channel_id(
+    tmp_path: Path, bad_channel_id: str
+) -> None:
+    class StateStore:
+        value: dict[str, object] | None = None
+
+        async def write_state(self, _: str, value: Mapping[str, object]) -> None:
+            self.value = dict(value)
+
+        async def read_state(self, _: str) -> dict[str, object] | None:
+            return None if self.value is None else dict(self.value)
+
+    store = LocalEncryptedTeamsWorkflowBindingStore(
+        store=StateStore(),
+        key_material="******127.0.0.1/fdai",
+        backup_path=tmp_path / "local-teams-workflow-binding.json",
+    )
+    with pytest.raises(ValueError, match="channel_id is invalid"):
+        await store.save_channel_and_verify(
+            channel_id=bad_channel_id,
+            webhook_url=URL,
+            request_id="save-1",
+        )
+    with pytest.raises(ValueError, match="channel_id is invalid"):
+        await store.load_channel(bad_channel_id)

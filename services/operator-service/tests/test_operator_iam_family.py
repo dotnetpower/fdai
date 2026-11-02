@@ -1858,6 +1858,12 @@ def test_contributor_sees_binding_metadata_without_the_url_and_reader_sees_nothi
     assert tester.reveal_actor_id == "contributor-2"
     assert reader_reveal.status_code == 403
 
+    bad_channel_reveal = _client(teams_workflow_tester=tester).get(
+        "/runtime/integrations/teams-workflow/binding?reveal=1&channel_id=../bad",
+        headers={"x-test-role": "Contributor", "x-test-oid": "contributor-2"},
+    )
+    assert bad_channel_reveal.status_code == 400
+
 
 def test_owner_can_send_one_secret_free_slack_webhook_diagnostic() -> None:
     tester = RecordingSlackWebhookTester()

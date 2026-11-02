@@ -140,7 +140,8 @@ export function personalNotificationPrincipalLabel(auth: AuthContext): string | 
 
 export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
-  const runtimeSettings = useRuntimeSettings(client);
+  const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const runtimeSettings = useRuntimeSettings(client, refreshEpoch);
   const incidentEmailTemplate = useIncidentEmailTemplate(client);
 
   usePublishViewContext(
@@ -233,6 +234,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                   auth={auth}
                   operatorApiBaseUrl={client.operatorApiBaseUrl}
                   canManage={runtime.canManage}
+                  onBindingChanged={() => setRefreshEpoch((value) => value + 1)}
                 />
                 <SlackWebhookTestPanel
                   auth={auth}
@@ -399,17 +401,22 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
   );
 }
 
-function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettingsView> {
+function useRuntimeSettings(
+  client: OperatorApiClient,
+  refreshEpoch = 0,
+): AsyncState<RuntimeSettingsView> {
   const [state, setState] = useState<AsyncState<RuntimeSettingsView>>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    setState({ status: "loading" });
+    if (refreshEpoch === 0) {
+      setState({ status: "loading" });
+    }
     void (async () => {
       try {
         const data = decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings"));
         if (active) setState({ status: "ready", data });
       } catch (reason) {
-        if (active) {
+        if (active && refreshEpoch === 0) {
           setState({
             status: "error",
             message: reason instanceof Error ? reason.message : String(reason),
@@ -420,7 +427,7 @@ function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettin
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, refreshEpoch]);
   return state;
 }
 
@@ -455,10 +462,12 @@ function TeamsWorkflowTestPanel({
   auth,
   operatorApiBaseUrl,
   canManage,
+  onBindingChanged,
 }: {
   readonly auth: AuthContext;
   readonly operatorApiBaseUrl: string;
   readonly canManage: boolean;
+  readonly onBindingChanged?: () => void;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [channelLabel, setChannelLabel] = useState("");
@@ -474,6 +483,7 @@ function TeamsWorkflowTestPanel({
   const [revealedChannelUrls, setRevealedChannelUrls] = useState<Readonly<Record<string, string>>>({});
   const [urlCopied, setUrlCopied] = useState(false);
   const copyTimerRef = useRef<number | null>(null);
+  const preferenceGenerationRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [bindingError, setBindingError] = useState<string | null>(null);
   const [bindingVisibility, setBindingVisibility] = useState<
@@ -633,6 +643,7 @@ function TeamsWorkflowTestPanel({
     readonly customEmail?: string;
   }) => {
     if (!canManage || !bindingSaved) return;
+    const generation = ++preferenceGenerationRef.current;
     setBindingError(null);
     try {
       await testTeamsWorkflowWebhook(
@@ -660,6 +671,7 @@ function TeamsWorkflowTestPanel({
         },
       );
       const refreshed = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      if (preferenceGenerationRef.current !== generation) return;
       if (refreshed.visible && refreshed.configured) {
         const nextTargets =
           refreshed.deliveryTargets !== undefined
@@ -689,6 +701,7 @@ function TeamsWorkflowTestPanel({
           emailRecipientMode: nextEmailMode,
           customEmail: nextCustomEmail,
         }));
+        onBindingChanged?.();
       }
     } catch (reason) {
       setBindingError(reason instanceof Error ? reason.message : String(reason));
@@ -791,6 +804,11 @@ function TeamsWorkflowTestPanel({
 
   const removeSavedChannel = (channelId: string) => {
     if (!canManage || testing || !bindingSaved || bindingSaved.channels.length <= 1) return;
+    if (channelId in revealedChannelUrls) {
+      const nextRevealed = { ...revealedChannelUrls };
+      delete nextRevealed[channelId];
+      setRevealedChannelUrls(nextRevealed);
+    }
     const remaining = bindingSaved.channels.filter((ch) => ch.channelId !== channelId);
     const normalized = remaining.some((ch) => ch.enabled)
       ? remaining
@@ -841,6 +859,7 @@ function TeamsWorkflowTestPanel({
     setIsUrlRevealed(false);
     if (submittedUrl) {
       setRevealedBinding(null);
+      setRevealedChannelUrls({});
     }
     setTesting(true);
     setError(null);
@@ -888,6 +907,7 @@ function TeamsWorkflowTestPanel({
         customEmail: nextCustomEmail,
       });
       setBindingVisibility("visible");
+      onBindingChanged?.();
       if (!saved.accepted) {
         setError(
           saved.providerStatus > 0
@@ -1875,6 +1895,30 @@ function integrationLabel(key: string): string {
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Label");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Label");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Label");
+    case "operational-evidence.agent-discussion-read":
+      return settingsIntegrationsText("opEvidence.agent-discussion-read.label");
+    case "operational-evidence.case-history-read":
+      return settingsIntegrationsText("opEvidence.case-history-read.label");
+    case "operational-evidence.current-case-reuse":
+      return settingsIntegrationsText("opEvidence.current-case-reuse.label");
+    case "operational-evidence.forecast-context":
+      return settingsIntegrationsText("opEvidence.forecast-context.label");
+    case "operational-evidence.forecast-history-actions":
+      return settingsIntegrationsText("opEvidence.forecast-history-actions.label");
+    case "operational-evidence.forecast-history-changes":
+      return settingsIntegrationsText("opEvidence.forecast-history-changes.label");
+    case "operational-evidence.forecast-history-excluded_windows":
+      return settingsIntegrationsText("opEvidence.forecast-history-excluded_windows.label");
+    case "operational-evidence.forecast-history-resource_lifecycle":
+      return settingsIntegrationsText("opEvidence.forecast-history-resource_lifecycle.label");
+    case "operational-evidence.operational-test-context":
+      return settingsIntegrationsText("opEvidence.operational-test-context.label");
+    case "operational-evidence.operational-test-observation":
+      return settingsIntegrationsText("opEvidence.operational-test-observation.label");
+    case "operational-evidence.operator-test-context-command":
+      return settingsIntegrationsText("opEvidence.operator-test-context-command.label");
+    case "operational-evidence.test-context-transition":
+      return settingsIntegrationsText("opEvidence.test-context-transition.label");
     default: return t(`settings.integrations.${key}.label`);
   }
 }
@@ -1886,6 +1930,30 @@ function integrationHint(key: string): string {
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Hint");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Hint");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Hint");
+    case "operational-evidence.agent-discussion-read":
+      return settingsIntegrationsText("opEvidence.agent-discussion-read.hint");
+    case "operational-evidence.case-history-read":
+      return settingsIntegrationsText("opEvidence.case-history-read.hint");
+    case "operational-evidence.current-case-reuse":
+      return settingsIntegrationsText("opEvidence.current-case-reuse.hint");
+    case "operational-evidence.forecast-context":
+      return settingsIntegrationsText("opEvidence.forecast-context.hint");
+    case "operational-evidence.forecast-history-actions":
+      return settingsIntegrationsText("opEvidence.forecast-history-actions.hint");
+    case "operational-evidence.forecast-history-changes":
+      return settingsIntegrationsText("opEvidence.forecast-history-changes.hint");
+    case "operational-evidence.forecast-history-excluded_windows":
+      return settingsIntegrationsText("opEvidence.forecast-history-excluded_windows.hint");
+    case "operational-evidence.forecast-history-resource_lifecycle":
+      return settingsIntegrationsText("opEvidence.forecast-history-resource_lifecycle.hint");
+    case "operational-evidence.operational-test-context":
+      return settingsIntegrationsText("opEvidence.operational-test-context.hint");
+    case "operational-evidence.operational-test-observation":
+      return settingsIntegrationsText("opEvidence.operational-test-observation.hint");
+    case "operational-evidence.operator-test-context-command":
+      return settingsIntegrationsText("opEvidence.operator-test-context-command.hint");
+    case "operational-evidence.test-context-transition":
+      return settingsIntegrationsText("opEvidence.test-context-transition.hint");
     default: return t(`settings.integrations.${key}.hint`);
   }
 }

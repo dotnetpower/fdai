@@ -110,6 +110,33 @@ describe("Teams Workflow binding view", () => {
       observed_at: "2026-09-01T04:00:00Z",
       webhook_url: "https://example.environment.api.powerplatform.com/signed",
     })).toThrow("MUST NOT return the saved endpoint value");
+
+    expect(() => decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+      observed_at: "2026-09-01T04:00:00Z",
+      channels: [
+        {
+          channel_id: "ch-1",
+          label: "Ch 1",
+          binding_version: "v1",
+          endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+          enabled: true,
+          webhook_url: "https://example.environment.api.powerplatform.com/signed",
+        },
+      ],
+    })).toThrow("MUST NOT return the saved endpoint value");
+
+    expect(() => decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+      observed_at: "2026-09-01T04:00:00Z",
+      delivery_targets: ["invalid-target"],
+    })).toThrow("invalid target");
   });
 
   test("reports an unconfigured binding without metadata", () => {

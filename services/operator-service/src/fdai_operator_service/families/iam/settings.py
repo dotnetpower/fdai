@@ -555,6 +555,8 @@ def make_runtime_settings_routes(
                 kind="binding_unavailable",
             )
         channel_id = request.query_params.get("channel_id")
+        if channel_id is not None and re.fullmatch(r"^ch-[a-z0-9]{1,32}$", channel_id) is None:
+            return error_response(400, "channel_id is invalid", kind="invalid_channel_id")
         try:
             if reveal:
                 binding = (
@@ -567,6 +569,8 @@ def make_runtime_settings_routes(
                 )
             else:
                 binding = await teams_workflow_tester.describe_binding(actor_id=principal.oid)
+        except ValueError as exc:
+            return error_response(400, str(exc), kind="invalid_channel_id")
         except TeamsWorkflowBindingUnavailableError as exc:
             return error_response(503, str(exc), kind="binding_unavailable")
         except TeamsWorkflowBindingError as exc:

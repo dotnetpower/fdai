@@ -51,6 +51,7 @@ from fdai_operator_service.postgres_iam_configuration_projection import (
     binding_receipt,
     document_ocr_projection,
     document_ocr_receipt,
+    reconcile_runtime_integrations,
     runtime_settings_projection,
     runtime_settings_state,
     state_revision,
@@ -64,6 +65,8 @@ _DOCUMENT_OCR_POLICY_KEY = "operator-document-ocr-policy:current"
 _DOCUMENT_OCR_PLAN_KEY = "operator-document-ocr-plan:current"
 _RUNTIME_SETTINGS_POLICY_KEY = "runtime-settings:policy"
 _TEAMS_A1_ONBOARDING_PLAN_KEY = "operator-teams-a1-onboarding-plan:current"
+_TEAMS_WORKFLOW_BINDING_KEY = "operator-teams-workflow-binding:active"
+_TEAMS_WORKFLOW_METADATA_KEY = "operator-teams-workflow-binding-metadata:active"
 _NARRATOR_PREFERENCE_PREFIX = "operator-narrator-preference:"
 
 
@@ -189,7 +192,14 @@ class PostgresIamConfigurationMixin:
             }
         runtime_policy = await self._state(_RUNTIME_SETTINGS_POLICY_KEY)
         teams_a1_plan = await self._state(_TEAMS_A1_ONBOARDING_PLAN_KEY)
-        runtime_projection = runtime_settings_projection(payload, runtime_policy)
+        teams_workflow_binding = await self._state(_TEAMS_WORKFLOW_BINDING_KEY)
+        teams_workflow_meta = await self._state(_TEAMS_WORKFLOW_METADATA_KEY)
+        runtime_projection = reconcile_runtime_integrations(
+            runtime_settings_projection(payload, runtime_policy),
+            teams_workflow_binding=teams_workflow_binding,
+            teams_workflow_meta=teams_workflow_meta,
+            teams_a1_plan=teams_a1_plan,
+        )
         return {
             **runtime_projection,
             "can_manage": can_manage,

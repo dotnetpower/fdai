@@ -36,6 +36,12 @@ _WORKFLOW_PATH = re.compile(
 )
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SIGNATURE = re.compile(r"^[A-Za-z0-9_-]{20,256}$")
+_CHANNEL_ID = re.compile(r"^ch-[a-z0-9]{1,32}$")
+_EMAIL_ADDRESS = re.compile(
+    r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@"
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+)
 _MAX_URL_LENGTH = 4096
 _ACTIVE_BINDING_METADATA_KEY = "operator-teams-workflow-binding-metadata:active"
 _DIAGNOSTIC_BANNER_TEMPLATE = "templates/teams-workflow-diagnostic-banner.png"
@@ -108,6 +114,10 @@ class TeamsWorkflowDiagnosticTester:
             raise ValueError("Teams Workflow test actor_id MUST be non-empty")
         if not _REQUEST_ID.fullmatch(command.request_id):
             raise ValueError("Teams Workflow test request_id is invalid")
+        if command.channel_label is not None and any(
+            ord(ch) < 32 or ord(ch) == 127 for ch in command.channel_label
+        ):
+            raise ValueError("Teams Workflow channel_label MUST NOT contain control characters")
         if self.binding_store is None:
             raise TeamsWorkflowBindingUnavailableError(
                 "Teams Workflow binding storage is not configured"
@@ -319,6 +329,8 @@ class TeamsWorkflowDiagnosticTester:
         """Audit and return the saved endpoint for an authorized secret reader."""
         if not actor_id.strip():
             raise ValueError("Teams Workflow reveal actor_id MUST be non-empty")
+        if channel_id is not None and _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
         if self.binding_store is None:
             raise TeamsWorkflowBindingUnavailableError(
                 "Teams Workflow binding storage is not configured"
@@ -382,9 +394,19 @@ class TeamsWorkflowDiagnosticTester:
             fallback_identifier=endpoint_id,
             fallback_saved_at=saved_at_val,
         )
-        if remove_channel_id is not None and len(channels) > 1:
+        if remove_channel_id is not None:
+            if _CHANNEL_ID.fullmatch(remove_channel_id) is None:
+                raise ValueError("remove_channel_id is invalid")
+            if len(channels) <= 1 or not any(
+                item.get("channel_id") == remove_channel_id for item in channels
+            ):
+                raise ValueError(
+                    "cannot remove the last remaining or unknown Teams Workflow channel"
+                )
             channels = [item for item in channels if item.get("channel_id") != remove_channel_id]
         if selected_channel_ids is not None:
+            if any(_CHANNEL_ID.fullmatch(cid) is None for cid in selected_channel_ids):
+                raise ValueError("selected_channel_ids contains an invalid channel_id")
             selected_set = set(selected_channel_ids)
             updated_channels: list[dict[str, object]] = []
             for item in channels:
@@ -399,11 +421,12 @@ class TeamsWorkflowDiagnosticTester:
             custom_email,
             prior_meta=record,
         )
+        active_version = str(channels[0].get("binding_version") or saved.version)
         await self.store.write_state(
             _ACTIVE_BINDING_METADATA_KEY,
             {
                 "kind": "operator.teams-workflow-binding-metadata",
-                "binding_version": saved.version,
+                "binding_version": active_version,
                 "saved_at": saved_at_val,
                 "actor_id": actor_id,
                 "channels": channels,
@@ -684,9 +707,9 @@ def _normalized_delivery_targets(
     prior_meta: Mapping[str, object] | None,
 ) -> tuple[str, ...]:
     if requested is not None:
-        filtered = tuple(
-            dict.fromkeys(item for item in requested if item in _ALLOWED_DELIVERY_TARGETS)
-        )
+        if any(item not in _ALLOWED_DELIVERY_TARGETS for item in requested):
+            raise ValueError("delivery_targets contains an unsupported notification channel")
+        filtered = tuple(dict.fromkeys(requested))
         if not filtered:
             raise ValueError("delivery_targets MUST select at least one valid notification channel")
         return filtered
@@ -705,10 +728,7 @@ def _normalized_delivery_targets(
 
 
 def _is_valid_email(value: str) -> bool:
-    if not (1 <= len(value) <= 254) or " " in value:
-        return False
-    parts = value.split("@")
-    return len(parts) == 2 and bool(parts[0]) and bool(parts[1]) and "." in parts[1]
+    return bool(1 <= len(value) <= 254 and _EMAIL_ADDRESS.fullmatch(value))
 
 
 def _normalized_email_recipient(

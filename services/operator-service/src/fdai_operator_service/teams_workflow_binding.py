@@ -27,6 +27,7 @@ KEY_VAULT_SCOPE = "https://vault.azure.net/.default"
 _API_VERSION = "7.4"
 _SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
 _SECRET_VERSION = re.compile(r"^[A-Za-z0-9]{1,64}$")
+_CHANNEL_ID = re.compile(r"^ch-[a-z0-9]{1,32}$")
 
 TokenProvider = Callable[[str], Awaitable[str]]
 
@@ -244,6 +245,8 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         webhook_url: str,
         request_id: str,
     ) -> LoadedTeamsWorkflowBinding:
+        if _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
         saved = await self.save_and_verify(webhook_url=webhook_url, request_id=request_id)
         channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
         primary_record = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
@@ -258,6 +261,8 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         return saved
 
     async def load_channel(self, channel_id: str) -> LoadedTeamsWorkflowBinding | None:
+        if _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
         channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
         target_backup = self._resolved_backup_path()
         channel_backup = (

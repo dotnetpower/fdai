@@ -304,13 +304,26 @@ function decodeOptionalChannels(
   if (!Array.isArray(value)) {
     throw new Error("Teams Workflow binding.channels MUST be an array");
   }
+  const seenIds = new Set<string>();
   return value.map((raw, index) => {
     const entry = record(raw, `Teams Workflow binding.channels[${index}]`);
+    if ("webhook_url" in entry) {
+      throw new Error(
+        `Teams Workflow binding.channels[${index}] MUST NOT return the saved endpoint value`,
+      );
+    }
+    const channelId = nonEmptyString(
+      entry["channel_id"],
+      `Teams Workflow binding.channels[${index}].channel_id`,
+    );
+    if (seenIds.has(channelId)) {
+      throw new Error(
+        `Teams Workflow binding.channels[${index}].channel_id MUST be unique`,
+      );
+    }
+    seenIds.add(channelId);
     return {
-      channelId: nonEmptyString(
-        entry["channel_id"],
-        `Teams Workflow binding.channels[${index}].channel_id`,
-      ),
+      channelId,
       label: nonEmptyString(
         entry["label"],
         `Teams Workflow binding.channels[${index}].label`,
@@ -346,8 +359,13 @@ function decodeOptionalDeliveryTargets(
     throw new Error("Teams Workflow binding.delivery_targets MUST be an array");
   }
   const targets: TeamsNotificationDeliveryTargetKey[] = [];
+  const seen = new Set<string>();
   for (const item of value) {
-    if (typeof item === "string" && DELIVERY_TARGET_SET.has(item)) {
+    if (typeof item !== "string" || !DELIVERY_TARGET_SET.has(item)) {
+      throw new Error("Teams Workflow binding.delivery_targets contains an invalid target");
+    }
+    if (!seen.has(item)) {
+      seen.add(item);
       targets.push(item as TeamsNotificationDeliveryTargetKey);
     }
   }

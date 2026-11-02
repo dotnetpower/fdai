@@ -263,6 +263,12 @@ def _read_preserved_payload(
             or not _is_preserved_teams_binding_key(item["key"])
             or item["key"] in seen_teams_keys
             or not isinstance(item["value"], dict)
+            or "webhook_url" in item["value"]
+            or item["value"].get("kind")
+            not in {
+                "operator.local-encrypted-teams-workflow-binding",
+                "operator.teams-workflow-binding-metadata",
+            }
         ):
             raise ValueError("preserved local state has a malformed Teams Workflow binding")
         seen_teams_keys.add(item["key"])
