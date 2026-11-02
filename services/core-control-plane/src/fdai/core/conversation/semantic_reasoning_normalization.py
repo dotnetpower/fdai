@@ -282,7 +282,7 @@ def promote_contextual_admission(
         admission = admit_question_form(
             form,
             utterance=utterance,
-            confidence_floor=0.55,
+            confidence_floor=0.35,
             accounting=accounting,
         )
     if (
@@ -291,22 +291,37 @@ def promote_contextual_admission(
         and form.goals[0].level is GoalLevel.INSTANCE
         and form.goals[0].effective_operation in {GoalOperation.SELECT, GoalOperation.COUNT}
         and form.goals[0].subject_scope is SubjectScope.COLLECTION
-        and form.goals[0].subject is None
         and not form.goals[0].filters
         and form.goals[0].relation is None
         and form.goals[0].measure is None
+        and (
+            form.goals[0].subject is None
+            or (
+                form.goals[0].effective_operation is GoalOperation.SELECT
+                and form.mention(form.goals[0].subject).domain is MentionDomain.OBJECT_TYPE
+            )
+        )
     ):
+        subj_id = form.goals[0].subject
         form = form.model_copy(
             update={
+                "mentions": tuple(
+                    item.model_copy(
+                        update={"form": MentionForm.ANAPHOR, "domain": MentionDomain.INSTANCE}
+                    )
+                    if item.id == subj_id
+                    else item
+                    for item in form.mentions
+                ),
                 "goals": (
                     form.goals[0].model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT}),
-                )
+                ),
             }
         )
         admission = admit_question_form(
             form,
             utterance=utterance,
-            confidence_floor=0.55 if has_context else 0.75,
+            confidence_floor=0.35 if has_context else 0.75,
             accounting=accounting,
         )
     if (
@@ -317,7 +332,7 @@ def promote_contextual_admission(
         admission = admit_question_form(
             form,
             utterance=utterance,
-            confidence_floor=0.55,
+            confidence_floor=0.35,
             accounting=accounting,
         )
     return form, admission
@@ -345,7 +360,10 @@ def retype_unfound_subject_to_prior_result(
         and not g0.filters
         and g0.relation is None
         and subj_binding is not None
-        and subj_binding.outcome is ConceptOutcome.NOT_FOUND
+        and (
+            subj_binding.outcome in {ConceptOutcome.NOT_FOUND, ConceptOutcome.AMBIGUOUS}
+            or not subj_binding.values
+        )
     ):
         return admission
     retyped_form = admission.form.model_copy(
@@ -364,7 +382,7 @@ def retype_unfound_subject_to_prior_result(
     retyped_admission = admit_question_form(
         retyped_form,
         utterance=utterance,
-        confidence_floor=0.55 if has_context else 0.75,
+        confidence_floor=0.35 if has_context else 0.75,
         accounting=SpanAccounting(required=False),
     )
     return (

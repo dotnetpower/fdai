@@ -635,7 +635,7 @@ async def _run_form_path(
                 retry_args = (
                     {**arguments, "context": ()}
                     if has_context
-                    and not any(item.reference_digest is not None for item in latest.passes)
+                    and not any(":prior_result" in s for item in latest.passes for s in item.shape)
                     else arguments
                 )
                 sample = await run_reasoning_shadow(

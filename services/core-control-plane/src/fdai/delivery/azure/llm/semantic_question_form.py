@@ -327,9 +327,7 @@ class AzureOpenAIQuestionFormModel:
         # Keys encode sorted, so the static catalog shard leads and stays a cacheable prefix.
         redacted_mentions = [_redacted(item) for item in mentions]
         live = not any("example.com" in t.endpoint for t in self._config.candidates)
-        if cached := lookup_cached_concept_choices(
-            shard.digest, second, redacted_mentions, live=live
-        ):
+        if cached := lookup_cached_concept_choices(shard, second, redacted_mentions, live=live):
             return cached
         payload = {
             "catalog_shard": shard.prompt_payload(),
@@ -367,7 +365,7 @@ class AzureOpenAIQuestionFormModel:
             ):
                 return None
             decoded.append({**choice, "candidate_ids": [choices[value] for value in ids]})
-        store_cached_concept_choices(shard.digest, second, redacted_mentions, decoded, live=live)
+        store_cached_concept_choices(shard, second, redacted_mentions, decoded, live=live)
         return {**answer, "choices": decoded}
 
     async def extract_constraints(
@@ -610,10 +608,7 @@ class AzureOpenAIQuestionFormModel:
                         **structured_body_params(target, max_tokens=max_tokens),
                     }
                     family = (target.model_family or target.deployment).casefold()
-                    if "gpt-5" in family and (
-                        name != "semantic-question-form"
-                        or '"repair":' not in messages[-1].get("content", "")
-                    ):
+                    if name != "semantic-question-form" and "gpt-5" in family:
                         body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field

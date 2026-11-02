@@ -67,8 +67,10 @@ _NON_PRIMARY_READ_TOPICS = frozenset(
 def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
     """Select a read candidate only; independent form admission still decides its meaning."""
 
-    if result is None or not result.attempted or result.failure_kind is not None:
+    if result is None or not result.attempted:
         return False
+    if result.failure_kind is not None:
+        return result.failure_kind == "malformed"
     proposal = result.proposal
     return proposal is not None and (
         proposal.operational_signal in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}

@@ -53,7 +53,7 @@ def discard_details_without_family(value: object) -> object:
     invalidating an otherwise valid route.
     """
 
-    if not isinstance(value, Mapping) or value.get("operational_family", "none") != "none":
+    if not isinstance(value, Mapping):
         return value
     detail_fields = {
         "operational_targets": (),
@@ -61,6 +61,13 @@ def discard_details_without_family(value: object) -> object:
         "operational_window": "none",
         "operational_result_limit": None,
     }
+    if (
+        value.get("operational_signal") == "contextual"
+        and value.get("operational_family", "none") != "none"
+    ):
+        return {**value, "operational_family": "none", **detail_fields}
+    if value.get("operational_family", "none") != "none":
+        return value
     if all(
         value.get(name, default) in (default, [], None) for name, default in detail_fields.items()
     ):
