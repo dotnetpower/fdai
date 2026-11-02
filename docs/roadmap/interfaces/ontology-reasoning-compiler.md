@@ -228,8 +228,10 @@ chooser can tell Resource from ResourceType by meaning. FunctionTypes and Action
   bilingual morphology/Jamo-typo-normalized concept shard selections, and full-domain ontology
   catalog seeds (across resource types, classes, object types, states, regions, metrics, health,
   properties, and declaration kinds) are memoized in bounded LRU caches, turn-local blind
-  constraint extraction is keyed by utterance and locale, and blind review accepts grouped aggregate
-  table kinds and same-word semantic cue suffixes.
+  constraint extraction is keyed by utterance and locale, structural proposal normalization repairs
+  mislabeled concept domains, state-qualified metrics, change-history promotions, and Resource
+  Health disambiguation before admission, and blind review accepts grouped aggregate table kinds,
+  default inventory/list context words, and same-word semantic cue suffixes.
 
 ### Anchor binding
 

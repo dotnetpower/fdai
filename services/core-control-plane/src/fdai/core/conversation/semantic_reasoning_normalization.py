@@ -190,14 +190,28 @@ def _typed_filter_cue_labels(
         for item in goal.filters:
             cue = item.cue
             mention = typed_mentions[item.mention]
-            if (
-                cue is None
-                or mention.domain
-                not in allowed_filter_domains(item.role, schema=goal.level is GoalLevel.SCHEMA)
-                or any(_overlaps(cue, candidate.span) for candidate in form.mentions)
+            if cue is None or mention.domain not in allowed_filter_domains(
+                item.role, schema=goal.level is GoalLevel.SCHEMA
             ):
                 continue
-            labels.setdefault((cue.start, cue.end), cue)
+            eff = cue
+            if _overlaps(cue, mention.span):
+                if cue.start < mention.span.start and cue.end <= mention.span.end:
+                    eff = SourceSpan(start=cue.start, end=mention.span.start)
+                elif cue.end > mention.span.end and cue.start >= mention.span.start:
+                    eff = SourceSpan(start=mention.span.end, end=cue.end)
+                else:
+                    continue
+            if any(_overlaps(eff, candidate.span) for candidate in form.mentions):
+                continue
+            labels.setdefault((eff.start, eff.end), eff)
+        if (
+            goal.measure is not None
+            and goal.measure.cue is not None
+            and goal.measure.mention is None
+            and not any(_overlaps(goal.measure.cue, candidate.span) for candidate in form.mentions)
+        ):
+            labels.setdefault((goal.measure.cue.start, goal.measure.cue.end), goal.measure.cue)
     return labels
 
 
@@ -527,6 +541,7 @@ def attach_hangul_unaccounted_context(
     ):
         return resolution, admission
     spans = {(span.start, span.end): span for span in form.context}
+    has_existing_context = bool(form.context)
     for reason in admission.reasons:
         _, _, where = reason.partition(":")
         start_str, _, end_str = where.partition("-")
@@ -534,7 +549,19 @@ def attach_hangul_unaccounted_context(
             return resolution, admission
         start, end = int(start_str), int(end_str)
         fragment = utterance[start:end] if 0 <= start < end <= len(utterance) else ""
-        if not fragment or not all("가" <= ch <= "힣" or ch.isspace() for ch in fragment):
+        is_hangul = bool(fragment) and (
+            any("가" <= ch <= "힣" for ch in fragment)
+            and all("가" <= ch <= "힣" or ch.isdigit() or ch.isspace() for ch in fragment)
+        )
+        is_eng_particle = has_existing_context and fragment.strip().casefold() in {
+            "the",
+            "a",
+            "an",
+            "in",
+            "of",
+            "from",
+        }
+        if not (is_hangul or is_eng_particle):
             return resolution, admission
         spans.setdefault((start, end), SourceSpan(start=start, end=end))
     if len(spans) > 32:
