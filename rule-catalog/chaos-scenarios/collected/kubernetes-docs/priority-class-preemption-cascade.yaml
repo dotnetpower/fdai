@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.priority-class-preemption-cascade
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/
+  source_ref: section=preemption;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: preempt
+intensity: high
+duration_seconds: 360
+expected_signal: pod_restart
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore node pool capacity headroom or bound PriorityClass resource
+  quotas.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: High-PriorityClass workload surge preempts lower-priority worker Pods
+  across constrained nodes.
+tags:
+- kubernetes
+- vendor-doc

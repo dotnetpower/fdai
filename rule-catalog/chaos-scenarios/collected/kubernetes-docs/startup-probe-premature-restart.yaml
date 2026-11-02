@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.startup-probe-premature-restart
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+  source_ref: section=define-startup-probes;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360
+expected_signal: pod_probe_failure
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Configure a startupProbe failureThreshold and periodSeconds covering
+  worst-case initialization time.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Missing or overly short startupProbe causes livenessProbe to kill slow-starting
+  containers before initialization finishes.
+tags:
+- kubernetes
+- vendor-doc

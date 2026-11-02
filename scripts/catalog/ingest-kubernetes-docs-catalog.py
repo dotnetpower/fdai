@@ -332,6 +332,193 @@ _ENTRIES = (
         ),
         rollback_note="Restore the verified container command and arguments in the Pod template.",
     ),
+    Entry(
+        slug="init-container-startup-failure",
+        source_url="https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
+        source_section="understanding-init-containers",
+        category="dependency",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="rollout_stall",
+        description=(
+            "Failing InitContainer blocks main application container startup "
+            "and stalls deployment rollout."
+        ),
+        rollback_note=(
+            "Restore the prerequisite dependency or InitContainer command and restart the rollout."
+        ),
+    ),
+    Entry(
+        slug="startup-probe-premature-restart",
+        source_url=(
+            "https://kubernetes.io/docs/tasks/configure-pod-container/"
+            "configure-liveness-readiness-startup-probes/"
+        ),
+        source_section="define-startup-probes",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="pod_probe_failure",
+        description=(
+            "Missing or overly short startupProbe causes livenessProbe to kill "
+            "slow-starting containers before initialization finishes."
+        ),
+        rollback_note=(
+            "Configure a startupProbe failureThreshold and periodSeconds "
+            "covering worst-case initialization time."
+        ),
+    ),
+    Entry(
+        slug="ephemeral-storage-eviction",
+        source_url=(
+            "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+        ),
+        source_section="local-ephemeral-storage",
+        category="storage",
+        target_type="pod",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="pod_failed",
+        description=(
+            "Container rootfs logs or emptyDir usage exceeds ephemeral-storage "
+            "limits and triggers kubelet Pod eviction."
+        ),
+        rollback_note=(
+            "Rotate or redirect container logs and raise ephemeral-storage "
+            "limits or attach persistent storage."
+        ),
+    ),
+    Entry(
+        slug="cpu-cfs-quota-throttling-latency",
+        source_url=(
+            "https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+        ),
+        source_section="how-pods-with-resource-limits-are-run",
+        category="resource_saturation",
+        target_type="pod",
+        fault_family="throttle",
+        intensity="high",
+        expected_signal="gateway_latency",
+        description=(
+            "Restrictive container CPU limit triggers Linux CFS bandwidth "
+            "throttling and elevates tail request latency."
+        ),
+        rollback_note="Raise the container CPU limit or right-size worker thread concurrency.",
+    ),
+    Entry(
+        slug="topology-spread-skew-hotspot",
+        source_url=(
+            "https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/"
+        ),
+        source_section="spread-constraint-definition",
+        category="compute",
+        target_type="node",
+        fault_family="saturate",
+        intensity="mild",
+        expected_signal="node_cpu",
+        description=(
+            "Missing topologySpreadConstraints concentrates replicas onto a "
+            "single zone or node under traffic load."
+        ),
+        rollback_note=(
+            "Apply zone and hostname topologySpreadConstraints and rebalance Deployment replicas."
+        ),
+    ),
+    Entry(
+        slug="priority-class-preemption-cascade",
+        source_url=(
+            "https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/"
+        ),
+        source_section="preemption",
+        category="compute",
+        target_type="pod",
+        fault_family="preempt",
+        intensity="high",
+        expected_signal="pod_restart",
+        description=(
+            "High-PriorityClass workload surge preempts lower-priority worker "
+            "Pods across constrained nodes."
+        ),
+        rollback_note=(
+            "Restore node pool capacity headroom or bound PriorityClass resource quotas."
+        ),
+    ),
+    Entry(
+        slug="hpa-metrics-api-unavailable",
+        source_url="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/",
+        source_section="how-does-a-horizontalpodautoscaler-work",
+        category="compute",
+        target_type="pod",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="node_cpu",
+        description=(
+            "Unavailable metrics-server or missing Pod CPU requests prevent "
+            "HorizontalPodAutoscaler scale-out during traffic spikes."
+        ),
+        rollback_note=(
+            "Restore metrics-server availability and ensure Pod CPU requests are declared."
+        ),
+    ),
+    Entry(
+        slug="external-traffic-policy-local-blackhole",
+        source_url=(
+            "https://kubernetes.io/docs/tasks/access-application-cluster/"
+            "create-external-load-balancer/"
+        ),
+        source_section="preserving-the-client-source-ip",
+        category="network",
+        target_type="lb",
+        fault_family="misroute",
+        intensity="high",
+        expected_signal="backend_health",
+        description=(
+            "Service with externalTrafficPolicy Local drops health probes on "
+            "nodes without local Pod endpoints."
+        ),
+        rollback_note=(
+            "Ensure Pod placement covers target nodes or switch Service "
+            "externalTrafficPolicy to Cluster."
+        ),
+    ),
+    Entry(
+        slug="prestop-hook-grace-period-drop",
+        source_url="https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/",
+        source_section="pod-termination",
+        category="traffic",
+        target_type="pod",
+        fault_family="drop",
+        intensity="mild",
+        expected_signal="request_failure",
+        description=(
+            "Pod terminates without a preStop drain delay before Service "
+            "endpoint removal propagates, dropping in-flight requests."
+        ),
+        rollback_note=(
+            "Add a preStop sleep hook and align terminationGracePeriodSeconds "
+            "with load-balancer drain timing."
+        ),
+    ),
+    Entry(
+        slug="secret-volume-mount-missing-stall",
+        source_url="https://kubernetes.io/docs/concepts/configuration/secret/",
+        source_section="using-secrets-as-files-from-a-pod",
+        category="dependency",
+        target_type="secret_store",
+        fault_family="deny",
+        intensity="high",
+        expected_signal="pod_unready",
+        description=(
+            "Missing referenced Kubernetes Secret or Key Vault CSI mount "
+            "blocks Pod container creation."
+        ),
+        rollback_note=(
+            "Restore the required Secret object or Key Vault CSI identity "
+            "permission in the target namespace."
+        ),
+    ),
 )
 
 

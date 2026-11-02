@@ -621,3 +621,274 @@ recipes:
     threshold: 0.10
     min_samples: 5
     description: Detect an excessive share of storage spend from unattached disks and stale snapshots.
+  - recipe_id: infrastructure.ephemeral-storage-pressure
+    title: Container ephemeral storage pressure
+    category: reliability
+    severity: high
+    operator: ratio_below
+    metric: container.ephemeral_storage_free_bytes
+    comparison_metric: container.ephemeral_storage_total_bytes
+    threshold: 0.10
+    min_samples: 5
+    description: Detect a Pod or node approaching ephemeral-storage eviction limits.
+  - recipe_id: infrastructure.file-descriptor-saturation
+    title: Open file descriptor saturation
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: system.fd.allocated
+    comparison_metric: system.fd.max
+    threshold: 0.85
+    min_samples: 5
+    description: Detect open file descriptors approaching process ulimit or kernel file-max capacity.
+  - recipe_id: infrastructure.clock-skew-drift
+    title: Host NTP clock-skew drift
+    category: reliability
+    severity: high
+    operator: above
+    metric: system.ntp.offset_ms
+    threshold: 250
+    min_samples: 3
+    description: Detect host clock drift risking TLS validation or lease-ordering failures.
+  - recipe_id: infrastructure.cpu-cfs-throttling
+    title: Container CPU CFS bandwidth throttling
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: container.cpu.cfs_throttled_periods
+    comparison_metric: container.cpu.cfs_periods
+    threshold: 0.25
+    min_samples: 10
+    description: Detect containers throttled by restrictive CPU CFS quota limits.
+  - recipe_id: infrastructure.swap-thrashing
+    title: Host swap paging thrashing
+    category: reliability
+    severity: high
+    operator: above
+    metric: system.swap.pages_swapped_per_sec
+    threshold: 100
+    min_samples: 5
+    description: Detect active swap-in and swap-out paging thrashing degrading host latency.
+  - recipe_id: infrastructure.disk-io-await-spike
+    title: Disk I/O await latency spike
+    category: reliability
+    severity: high
+    operator: above
+    metric: system.disk.io_await_ms
+    threshold: 50
+    min_samples: 5
+    description: Detect elevated block-device I/O wait latency from storage saturation or burst depletion.
+  - recipe_id: infrastructure.kubelet-pleg-latency
+    title: Kubelet PLEG relist latency
+    category: reliability
+    severity: high
+    operator: above
+    metric: kubelet.pleg_relist_duration_ms
+    threshold: 3000
+    min_samples: 5
+    description: Detect slow Pod Lifecycle Event Generator relist cycles risking NodeNotReady transitions.
+  - recipe_id: infrastructure.conntrack-table-saturation
+    title: Netfilter conntrack table saturation
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: system.netfilter.conntrack_count
+    comparison_metric: system.netfilter.conntrack_max
+    threshold: 0.85
+    min_samples: 5
+    description: Detect Linux netfilter connection-tracking table exhaustion before packet drops occur.
+  - recipe_id: network.snat-port-exhaustion
+    title: Outbound SNAT port exhaustion
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: network.snat.used_ports
+    comparison_metric: network.snat.allocated_ports
+    threshold: 0.85
+    min_samples: 5
+    description: Detect NAT Gateway or load balancer outbound SNAT port exhaustion risk.
+  - recipe_id: network.subnet-ip-exhaustion
+    title: VNet subnet available IP exhaustion
+    category: reliability
+    severity: high
+    operator: ratio_below
+    metric: network.subnet.available_ips
+    comparison_metric: network.subnet.total_ips
+    threshold: 0.10
+    min_samples: 3
+    description: Detect a VNet subnet running out of allocatable IP addresses for scale-out.
+  - recipe_id: network.tls-handshake-failure-rate
+    title: TLS handshake failure rate
+    category: security
+    severity: high
+    operator: above
+    metric: network.tls_handshake_failure_rate
+    threshold: 0.02
+    min_samples: 10
+    description: Detect elevated TLS handshake failures from certificate or cipher mismatches.
+  - recipe_id: network.bgp-route-flap-surge
+    title: Hybrid gateway BGP route flap surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: network.bgp.route_flaps
+    threshold: 5
+    description: Detect BGP peer route instability across VPN or ExpressRoute links.
+  - recipe_id: network.ephemeral-port-exhaustion
+    title: Host ephemeral source port exhaustion
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: system.net.ephemeral_ports_in_use
+    comparison_metric: system.net.ephemeral_ports_range
+    threshold: 0.85
+    min_samples: 5
+    description: Detect unpooled outbound connections exhausting local ephemeral ports in TIME_WAIT.
+  - recipe_id: network.waf-blocked-request-surge
+    title: Application Gateway WAF block surge
+    category: security
+    severity: medium
+    operator: percent_change_above
+    metric: gateway.waf_blocked_requests
+    threshold: 100
+    min_samples: 10
+    description: Detect a sharp surge in WAF-blocked requests indicating an attack or false-positive rule.
+  - recipe_id: database.autovacuum-dead-tuple-ratio
+    title: PostgreSQL dead tuple bloat ratio
+    category: reliability
+    severity: medium
+    operator: ratio_above
+    metric: database.dead_tuples
+    comparison_metric: database.live_tuples
+    threshold: 0.25
+    min_samples: 5
+    description: Detect MVCC dead-tuple bloat from blocked or lagging autovacuum workers.
+  - recipe_id: database.temp-files-spill-surge
+    title: Database temporary disk spill surge
+    category: reliability
+    severity: medium
+    operator: delta_above
+    metric: database.temp_bytes_written
+    threshold: 104857600
+    description: Detect large unindexed sort or hash queries spilling to temporary disk files.
+  - recipe_id: database.cache-hit-ratio-drop
+    title: Database buffer cache hit ratio drop
+    category: reliability
+    severity: high
+    operator: below
+    metric: database.buffer_cache_hit_ratio
+    threshold: 0.90
+    min_samples: 10
+    description: Detect degraded buffer-pool locality forcing frequent physical disk reads.
+  - recipe_id: database.xid-wraparound-age-ratio
+    title: PostgreSQL transaction ID wraparound risk
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: database.max_xid_age
+    comparison_metric: database.autovacuum_freeze_max_age
+    threshold: 0.80
+    min_samples: 3
+    description: Detect transaction ID age approaching autovacuum freeze wraparound limits.
+  - recipe_id: database.redis-eviction-surge
+    title: Distributed cache key eviction surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: cache.evicted_keys
+    threshold: 500
+    description: Detect a burst of Redis memory evictions risking downstream database stampedes.
+  - recipe_id: database.redis-memory-fragmentation
+    title: Distributed cache memory fragmentation
+    category: reliability
+    severity: medium
+    operator: above
+    metric: cache.mem_fragmentation_ratio
+    threshold: 1.5
+    min_samples: 5
+    description: Detect elevated allocator memory fragmentation reducing usable cache headroom.
+  - recipe_id: change.helm-pending-release-stale
+    title: Stuck Helm release lock staleness
+    category: config_drift
+    severity: high
+    operator: stale
+    metric: deployment.helm_release_last_deployed
+    threshold: 1800
+    description: Detect a Helm release stuck in pending-upgrade or pending-rollback state.
+  - recipe_id: change.image-pull-failure-surge
+    title: Container image pull failure surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: kubernetes.image_pull_failures
+    threshold: 3
+    description: Detect ImagePullBackOff or ErrImagePull failures blocking workload rollout.
+  - recipe_id: change.pdb-blocked-evictions
+    title: PodDisruptionBudget blocked node drain
+    category: reliability
+    severity: medium
+    operator: delta_above
+    metric: kubernetes.pdb_disruption_denials
+    threshold: 3
+    description: Detect voluntary node drains or cluster upgrades blocked by zero-disruption PDBs.
+  - recipe_id: change.admission-webhook-rejection-surge
+    title: Admission webhook rejection surge
+    category: config_drift
+    severity: high
+    operator: delta_above
+    metric: kubernetes.admission_webhook_rejections
+    threshold: 5
+    description: Detect a surge of Gatekeeper or validating webhook admission denials.
+  - recipe_id: cost.reservation-utilization-drop
+    title: Compute reservation utilization drop
+    category: cost
+    severity: medium
+    operator: below
+    metric: cost.reservation_utilization_ratio
+    threshold: 0.80
+    min_samples: 5
+    description: Detect underutilized Reserved Instances or Savings Plans after SKU or scale changes.
+  - recipe_id: cost.nonprod-offhours-active-ratio
+    title: Non-production off-hours active compute share
+    category: cost
+    severity: medium
+    operator: ratio_above
+    metric: cost.nonprod_offhours_running_vcpus
+    comparison_metric: cost.nonprod_total_vcpus
+    threshold: 0.30
+    min_samples: 5
+    description: Detect non-production compute remaining active during off-hours windows.
+  - recipe_id: cost.egress-transfer-spend-surge
+    title: Data egress transfer spend surge
+    category: cost
+    severity: high
+    operator: percent_change_above
+    metric: cost.egress_data_transfer_daily
+    threshold: 30
+    min_samples: 5
+    description: Detect a sharp increase in cross-region or internet egress data transfer spend.
+  - recipe_id: cost.log-ingestion-cost-surge
+    title: Observability log ingestion spend surge
+    category: cost
+    severity: medium
+    operator: percent_change_above
+    metric: cost.observability_ingestion_daily
+    threshold: 25
+    min_samples: 5
+    description: Detect an unexpected rise in daily log and metric ingestion charges.
+  - recipe_id: security.kube-apiserver-anonymous-or-forbidden-surge
+    title: Kubernetes API server forbidden request surge
+    category: security
+    severity: high
+    operator: delta_above
+    metric: kubernetes.apiserver_forbidden_requests
+    threshold: 25
+    description: Detect a burst of HTTP 403 RBAC denials against the Kubernetes API server.
+  - recipe_id: security.secret-rotation-overdue
+    title: Secret or key rotation overdue
+    category: security
+    severity: high
+    operator: stale
+    metric: security.secret_last_rotated
+    threshold: 7776000
+    description: Detect a managed secret or encryption key exceeding its 90-day rotation window.

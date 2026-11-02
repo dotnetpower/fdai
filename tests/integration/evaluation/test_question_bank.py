@@ -34,9 +34,9 @@ def test_question_bank_generated_artifacts_match_all_sources() -> None:
     assert render_review_catalog(payload) == (_BANK_ROOT / "review-catalog.md").read_text(
         encoding="utf-8"
     )
-    assert payload["summary"]["question_count"] == 500
+    assert payload["summary"]["question_count"] == 600
     assert payload["summary"]["source_counts"] == {
-        "candidate": 400,
+        "candidate": 500,
         "console": 5,
         "golden": 35,
         "manual": 60,
@@ -289,29 +289,29 @@ def test_devops_exercises_sre_scenarios_cover_all_domains_and_categories() -> No
         question for question in _artifact()["questions"] if question["source_refs"] == [source_ref]
     ]
 
-    assert len(questions) == 100
+    assert len(questions) == 200
     assert Counter(question["category"] for question in questions) == {
-        "current_health": 8,
-        "incident": 8,
-        "root_cause": 12,
-        "metrics_observability": 8,
-        "aks_kubernetes": 14,
-        "azure_infrastructure_network": 10,
-        "database_storage": 8,
-        "cost_finops": 8,
-        "capacity_scaling": 6,
-        "prediction": 4,
-        "dependency_impact": 6,
-        "change_deployment_release": 8,
+        "aks_kubernetes": 26,
+        "root_cause": 24,
+        "azure_infrastructure_network": 18,
+        "current_health": 16,
+        "incident": 16,
+        "metrics_observability": 16,
+        "database_storage": 16,
+        "cost_finops": 16,
+        "change_deployment_release": 16,
+        "capacity_scaling": 12,
+        "prediction": 12,
+        "dependency_impact": 12,
     }
     assert Counter(question["domain"] for question in questions) == {
-        "capacity_performance_forecast": 20,
-        "state_incident_detection": 19,
-        "reliability_policy_automation": 18,
-        "root_cause_analysis": 15,
-        "dependency_impact": 12,
-        "change_deployment_impact": 8,
-        "cost_finops": 8,
+        "state_incident_detection": 43,
+        "capacity_performance_forecast": 42,
+        "reliability_policy_automation": 33,
+        "root_cause_analysis": 30,
+        "dependency_impact": 21,
+        "cost_finops": 17,
+        "change_deployment_impact": 14,
     }
     assert all(question["readiness"]["content_review"] == "reviewed" for question in questions)
     assert all(question["readiness"]["validation"] == "contract_passed" for question in questions)
@@ -380,11 +380,11 @@ def test_operator_candidates_remain_customer_agnostic() -> None:
     assert re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", wording) is None
 
 
-def test_question_bank_50_rounds_of_10_questions_satisfy_bilingual_and_safety_invariants() -> None:
+def test_question_bank_60_rounds_of_10_questions_satisfy_bilingual_and_safety_invariants() -> None:
     questions = _artifact()["questions"]
-    assert len(questions) == 500
-    rounds = [questions[index : index + 10] for index in range(0, 500, 10)]
-    assert len(rounds) == 50
+    assert len(questions) == 600
+    rounds = [questions[index : index + 10] for index in range(0, 600, 10)]
+    assert len(rounds) == 60
     for round_index, batch in enumerate(rounds, start=1):
         assert len(batch) == 10, f"round {round_index} must contain 10 questions"
         for item in batch:
@@ -452,8 +452,8 @@ def test_question_bank_100_rounds_achieve_100_percent_bilingual_and_oracle_cover
             }
 
     questions = _artifact()["questions"]
-    assert len(questions) == 500
-    rounds = [questions[index : index + 5] for index in range(0, 500, 5)]
+    assert len(questions) == 600
+    rounds = [questions[index : index + 6] for index in range(0, 600, 6)]
     assert len(rounds) == 100
 
     covered_functions: set[str] = set()
@@ -490,7 +490,7 @@ def test_question_bank_100_rounds_achieve_100_percent_bilingual_and_oracle_cover
     )
 
     for round_number, batch in enumerate(rounds, start=1):
-        assert len(batch) == 5, f"round {round_number} must contain 5 questions"
+        assert len(batch) == 6, f"round {round_number} must contain 6 questions"
         for item in batch:
             assert item["readiness"]["content_review"] == "reviewed"
             assert item["readiness"]["validation"] == "contract_passed"

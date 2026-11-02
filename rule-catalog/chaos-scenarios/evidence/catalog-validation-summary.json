@@ -1,6 +1,6 @@
 {
-  "catalog_entry_count": 147,
-  "catalog_fingerprint": "b8f3601da35467807b08912930cee07ac143ed272c7a81a681a6b2a5dc597b20",
+  "catalog_entry_count": 157,
+  "catalog_fingerprint": "12fe0219759bdd5fcacd45834ddf3edd5fbf10a75af8b2139fb64e13b06aa7ea",
   "entries": [
     {
       "detected": null,
@@ -959,6 +959,14 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.crash-loop-backoff-liveness-probe",
       "scenario_version": 1
     },
@@ -975,6 +983,30 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.ephemeral-storage-eviction",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.external-traffic-policy-local-blackhole",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.hpa-metrics-api-unavailable",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.image-pull-backoff",
       "scenario_version": 1
     },
@@ -984,6 +1016,14 @@
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.ingress-backend-gateway-timeout",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.init-container-startup-failure",
       "scenario_version": 1
     },
     {
@@ -1023,6 +1063,22 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.prestop-hook-grace-period-drop",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.priority-class-preemption-cascade",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.pvc-provisioning-mount-stall",
       "scenario_version": 1
     },
@@ -1047,7 +1103,31 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.secret-volume-mount-missing-stall",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.service-selector-label-mismatch",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.startup-probe-premature-restart",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.topology-spread-skew-hotspot",
       "scenario_version": 1
     },
     {
@@ -1185,7 +1265,7 @@
     "sha256": null,
     "storage": "ci_or_release_artifact"
   },
-  "generated_at": "2026-11-02T19:28:49.940798+00:00",
+  "generated_at": "2026-11-02T20:17:38.292677+00:00",
   "runner_version": "run-catalog-scenario/1",
   "schema_version": 1
 }

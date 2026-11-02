@@ -228,16 +228,16 @@ def build_bilingual_variations(
     _ = (domain, temporal_scope)
     en_core = _strip_terminal(en_base)
     ko_core = _strip_terminal(ko_base)
-    en_clause = _clamp(en_core.split(".")[0], 54)
-    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 40)
+    en_clause = _clamp(en_core.split(".")[0], 38)
+    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 26)
     if en_base.endswith("?"):
-        en_para = _clamp(f"Please verify from ontology evidence: {_lower_first(en_clause)}.", 78)
+        en_para = _clamp(f"Verify from ontology: {_lower_first(en_clause)}.", 60)
     else:
-        en_para = _clamp(f"Can you check from ontology evidence: {_lower_first(en_clause)}?", 78)
+        en_para = _clamp(f"Check from ontology: {_lower_first(en_clause)}?", 60)
     if ko_base.endswith("?"):
-        ko_para = _clamp(f"온톨로지 근거로 확인해 주세요: {ko_clause}.", 66)
+        ko_para = _clamp(f"온톨로지 확인: {ko_clause}.", 46)
     else:
-        ko_para = _clamp(f"온톨로지 근거로 다음을 확인할 수 있나요: {ko_clause}?", 66)
+        ko_para = _clamp(f"온톨로지 확인: {ko_clause}?", 46)
     return {
         "en": [
             {
@@ -269,14 +269,19 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
         or "postgres" in text
         or "sql" in text
         or "replica" in text
+        or "autovacuum" in text
+        or "pgbouncer" in text
+        or "xid" in text
+        or "deadlock" in text
+        or "pitr" in text
         or "database" in category
         or "database" in targets
         or "postgresqlflexibleserver" in targets
         or "sqldatabase" in targets
     ):
-        if "saturation" in text or "connection" in text or "lock" in text:
+        if "saturation" in text or "connection" in text or "lock" in text or "pgbouncer" in text:
             candidates.append("query.mysql_saturation_metric_bundle")
-        elif "demand" in text or "throughput" in text or "query" in text:
+        elif "demand" in text or "throughput" in text or "query" in text or "spill" in text:
             candidates.append("query.mysql_demand_metric_bundle")
         else:
             candidates.append("query.mysql_pressure_evidence")
@@ -285,6 +290,11 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
         or "kubelet" in text
         or "daemonset" in text
         or "statefulset" in text
+        or "initcontainer" in text
+        or "init:" in text
+        or "cronjob" in text
+        or "hpa" in text
+        or "horizontalpodautoscaler" in text
         or "kubernetespod" in targets
         or "aks" in category
     ):
@@ -294,11 +304,20 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
             or "canary" in text
             or "blue/green" in text
             or "imagepullbackoff" in text
+            or "rollingupdate" in text
+            or "helm" in text
         ):
             candidates.append("query.kubernetes_rollout_evidence")
-        elif "restart" in text or "recovery" in text or "crashloopbackoff" in text or "oom" in text:
+        elif (
+            "restart" in text
+            or "recovery" in text
+            or "crashloopbackoff" in text
+            or "oom" in text
+            or "preempt" in text
+            or "evict" in text
+        ):
             candidates.append("query.kubernetes_pod_recovery_evidence")
-        elif "telemetry" in text or "metric" in text or "scrape" in text:
+        elif "telemetry" in text or "metric" in text or "scrape" in text or "cfs" in text:
             candidates.append("query.pod_telemetry_path")
         else:
             candidates.append("query.kubernetes_pod_diagnosis")
@@ -308,6 +327,7 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
         or "load balancer" in text
         or "sticky session" in text
         or "cookie affinity" in text
+        or "waf" in text
     ):
         candidates.extend(
             ("query.gateway_diagnostic_evidence", "query.resource_ingress_configuration")
@@ -321,6 +341,11 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
         or "timeout" in text
         or "connection refused" in text
         or "microsegmentation" in text
+        or "conntrack" in text
+        or "snat" in text
+        or "udr" in text
+        or "mtu" in text
+        or "bgp" in text
     ):
         candidates.append("query.network_path_segments")
     if "document" in text or "runbook" in text or "manual" in text:
@@ -570,7 +595,7 @@ def enrich_question_bank_items(questions: list[dict[str, Any]]) -> None:
     )
     non_golden_active = [item for item in active_items if item["source_kind"] != "golden"]
 
-    for item in active_items:
+    for item_idx, item in enumerate(active_items, start=1):
         domain = str(item["domain"])
         temporal_scope = str(item.get("temporal_scope") or "current")
         variations = item["variations"]
@@ -590,7 +615,7 @@ def enrich_question_bank_items(questions: list[dict[str, Any]]) -> None:
 
         item["presentation_oracle"] = build_presentation_oracle(item)
         item["paired_model_case"] = {
-            "case_id": f"paired.{item['question_id']}",
+            "case_id": f"paired.q{item_idx:03d}",
             "pair_profile": "t1_active_vs_challenger",
         }
         if item["readiness"]["content_review"] != "reviewed":

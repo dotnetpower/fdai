@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.hpa-metrics-api-unavailable
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  source_ref: section=how-does-a-horizontalpodautoscaler-work;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: saturate
+intensity: high
+duration_seconds: 360
+expected_signal: node_cpu
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore metrics-server availability and ensure Pod CPU requests are
+  declared.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Unavailable metrics-server or missing Pod CPU requests prevent HorizontalPodAutoscaler
+  scale-out during traffic spikes.
+tags:
+- kubernetes
+- vendor-doc
