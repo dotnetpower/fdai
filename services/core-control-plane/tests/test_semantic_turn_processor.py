@@ -5013,7 +5013,12 @@ def test_result_handle_from_count_output_falls_back_to_upstream_execution_rows()
                 ),
                 "goal-2": QueryNodeResult(
                     value=QueryTable(
-                        rows=(QueryRow.from_values("count", {"operation": "count", "value": 2}),),
+                        rows=(
+                            QueryRow.from_values(
+                                f"aggregate:{'a' * 64}",
+                                {"operation": "count", "value": 2},
+                            ),
+                        ),
                         complete=True,
                     ),
                     evidence_refs=("ev-1",),
@@ -5027,7 +5032,12 @@ def test_result_handle_from_count_output_falls_back_to_upstream_execution_rows()
         "outputs": [
             {
                 "node_id": "goal-2",
-                "rows": [{"row_id": "count", "values": {"operation": "count", "value": 2}}],
+                "rows": [
+                    {
+                        "row_id": f"aggregate:{'a' * 64}",
+                        "values": {"operation": "count", "value": 2},
+                    }
+                ],
             }
         ]
     }

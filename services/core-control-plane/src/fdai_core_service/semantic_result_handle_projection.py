@@ -110,7 +110,11 @@ def result_handle_from_technical_details(
 
 def _is_aggregate_row(row_id: str, values: Mapping[str, object]) -> bool:
     return (
-        (row_id in {"count", "sum", "min", "max", "avg"} or row_id.startswith("group:"))
+        (
+            row_id in {"count", "sum", "min", "max", "avg"}
+            or row_id.startswith(("aggregate:", "group:"))
+            or ("operation" in values and "value" in values)
+        )
         and "id" not in values
         and "object_type" not in values
         and "subject_ref" not in values
@@ -127,9 +131,15 @@ def _append_execution_table_rows(
     for node_id, node_result in execution.results.items():
         if not isinstance(node_result.value, QueryTable):
             continue
-        synthetic_rows = [
-            {"row_id": row.row_id, "values": dict(row.values)} for row in node_result.value.rows
-        ]
+        synthetic_rows = []
+        for row in node_result.value.rows:
+            vals = dict(row.values)
+            props = vals.get("properties")
+            if isinstance(props, Mapping):
+                for field in _SNAPSHOT_FIELDS:
+                    if field in props and field not in vals:
+                        vals[field] = props[field]
+            synthetic_rows.append({"row_id": row.row_id, "values": vals})
         _append_output_rows(
             {"node_id": node_id, "rows": synthetic_rows},
             row_keys=row_keys,
