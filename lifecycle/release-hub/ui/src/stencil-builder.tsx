@@ -272,7 +272,7 @@ export function StencilBuilder({
                   {t("Stencil ID", "Stencil ID")}
                   <input
                     required
-                    pattern="[a-z][a-z0-9-]{0,62}"
+                    pattern="[a-z][a-z0-9\-]{0,62}"
                     value={stencilId}
                     onInput={(e) => setStencilId(e.currentTarget.value)}
                   />
