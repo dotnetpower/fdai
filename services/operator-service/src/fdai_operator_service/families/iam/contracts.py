@@ -580,23 +580,10 @@ class TeamsWorkflowTester(Protocol):
     """Persist one endpoint, then send and audit one synthetic notification."""
 
     async def save_and_test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
-
-    async def describe_binding(
-        self,
-        *,
-        actor_id: str,
-    ) -> JsonMapping | None:
-        """Return secret-free saved-binding metadata; never the endpoint value."""
-        ...
-
+    async def describe_binding(self, *, actor_id: str) -> JsonMapping | None: ...
     async def reveal_binding(
-        self,
-        *,
-        actor_id: str,
-        channel_id: str | None = None,
-    ) -> JsonMapping | None:
-        """Audit and return the saved endpoint value for an authorized reader."""
-        ...
+        self, *, actor_id: str, channel_id: str | None = None
+    ) -> JsonMapping | None: ...
 
 
 @dataclass(frozen=True, slots=True)

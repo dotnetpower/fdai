@@ -1239,11 +1239,6 @@ function TeamsWorkflowTestPanel({
                               ? settingsIntegrationsText("hideSavedUrl")
                               : settingsIntegrationsText("revealSavedUrl")
                           }
-                          title={
-                            isUrlRevealed
-                              ? settingsIntegrationsText("hideSavedUrl")
-                              : settingsIntegrationsText("revealSavedUrl")
-                          }
                           onClick={() => {
                             void toggleRevealSavedUrl();
                           }}
@@ -1282,11 +1277,6 @@ function TeamsWorkflowTestPanel({
                           class="settings-teams-workflow-icon-btn"
                           disabled={testing || revealing}
                           aria-label={
-                            urlCopied
-                              ? t("shared.copied")
-                              : settingsIntegrationsText("copySavedUrl")
-                          }
-                          title={
                             urlCopied
                               ? t("shared.copied")
                               : settingsIntegrationsText("copySavedUrl")
@@ -1583,15 +1573,6 @@ function TeamsWorkflowTestPanel({
                                       label: channel.label,
                                     })
                               }
-                              title={
-                                rowRevealedUrl
-                                  ? settingsIntegrationsText("hideChannelUrl", {
-                                      label: channel.label,
-                                    })
-                                  : settingsIntegrationsText("revealChannelUrl", {
-                                      label: channel.label,
-                                    })
-                              }
                               onClick={() => {
                                 void toggleRevealChannelRow(channel.channelId);
                               }}
@@ -1631,9 +1612,6 @@ function TeamsWorkflowTestPanel({
                                 class="settings-teams-workflow-icon-btn"
                                 disabled={testing || revealing}
                                 aria-label={settingsIntegrationsText("removeChannel", {
-                                  label: channel.label,
-                                })}
-                                title={settingsIntegrationsText("removeChannel", {
                                   label: channel.label,
                                 })}
                                 onClick={() => removeSavedChannel(channel.channelId)}
