@@ -40,6 +40,20 @@ _MAX_URL_LENGTH = 4096
 _ACTIVE_BINDING_METADATA_KEY = "operator-teams-workflow-binding-metadata:active"
 _DIAGNOSTIC_BANNER_TEMPLATE = "templates/teams-workflow-diagnostic-banner.png"
 _TIMEOUT_SECONDS = 10.0
+_ALLOWED_DELIVERY_TARGETS = frozenset(
+    {
+        "teams-a2-operational-alert",
+        "teams-a4-digest",
+        "slack-webhook",
+        "email",
+        "console-inbox",
+    }
+)
+_DEFAULT_DELIVERY_TARGETS = (
+    "teams-a2-operational-alert",
+    "teams-a4-digest",
+    "console-inbox",
+)
 
 
 class TeamsWorkflowDiagnosticStore(Protocol):
@@ -104,12 +118,37 @@ class TeamsWorkflowDiagnosticTester:
                 raise TeamsWorkflowBindingUnavailableError(
                     "Teams Workflow binding is not configured"
                 )
+            if (
+                command.selected_channel_ids is not None
+                or command.delivery_targets is not None
+                or command.remove_channel_id is not None
+            ):
+                await self._update_channel_preferences(
+                    actor_id=command.actor_id,
+                    saved=saved,
+                    selected_channel_ids=command.selected_channel_ids,
+                    delivery_targets=command.delivery_targets,
+                    remove_channel_id=command.remove_channel_id,
+                )
+            if command.selection_only:
+                now = self.clock().astimezone(UTC)
+                return TeamsWorkflowTestResult(
+                    request_id=command.request_id,
+                    saved=True,
+                    binding_version=saved.version,
+                    saved_at=now,
+                    accepted=True,
+                    provider_status=200,
+                    workflow_run_id=None,
+                    tested_at=now,
+                )
             return await self._test_saved_binding(
                 actor_id=command.actor_id,
                 request_id=command.request_id,
                 saved=saved,
             )
         endpoint_digest = validate_teams_workflow_url(command.webhook_url)
+        channel_id = _channel_id(endpoint_digest)
         now = self.clock()
         if now.tzinfo is None:
             raise RuntimeError("Teams Workflow test clock MUST be timezone-aware")
@@ -126,10 +165,18 @@ class TeamsWorkflowDiagnosticTester:
             existing = await self.store.read_state(key)
             return await self._existing_saved_result(existing=existing, command=command)
         try:
-            saved = await self.binding_store.save_and_verify(
-                webhook_url=command.webhook_url,
-                request_id=command.request_id,
-            )
+            save_channel = getattr(self.binding_store, "save_channel_and_verify", None)
+            if callable(save_channel):
+                saved = await save_channel(
+                    channel_id=channel_id,
+                    webhook_url=command.webhook_url,
+                    request_id=command.request_id,
+                )
+            else:
+                saved = await self.binding_store.save_and_verify(
+                    webhook_url=command.webhook_url,
+                    request_id=command.request_id,
+                )
         except TeamsWorkflowBindingError as exc:
             await self.store.write_state(
                 key,
@@ -165,6 +212,20 @@ class TeamsWorkflowDiagnosticTester:
                 "completed_at": saved_at.isoformat(),
             },
         )
+        prior_meta = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        channels = _merged_channels(
+            prior_meta,
+            channel_id=channel_id,
+            label=command.channel_label or _default_channel_label(command.webhook_url),
+            binding_version=saved.version,
+            endpoint_identifier=_endpoint_identifier(command.webhook_url),
+            saved_at=saved_at.isoformat(),
+            selected_channel_ids=command.selected_channel_ids,
+        )
+        delivery_targets = _normalized_delivery_targets(
+            command.delivery_targets,
+            prior_meta=prior_meta,
+        )
         await self.store.write_state(
             _ACTIVE_BINDING_METADATA_KEY,
             {
@@ -172,6 +233,8 @@ class TeamsWorkflowDiagnosticTester:
                 "binding_version": saved.version,
                 "saved_at": saved_at.isoformat(),
                 "actor_id": command.actor_id,
+                "channels": channels,
+                "delivery_targets": list(delivery_targets),
             },
         )
         return await self._test_saved_binding(
@@ -202,22 +265,38 @@ class TeamsWorkflowDiagnosticTester:
         if saved is None:
             return None
         observed_at = self.clock().astimezone(UTC)
+        endpoint_id = _endpoint_identifier(saved.webhook_url)
+        record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        saved_at_val: str | None = None
+        if record is not None and record.get("binding_version") == saved.version:
+            raw_saved_at = record.get("saved_at")
+            if isinstance(raw_saved_at, str):
+                saved_at_val = raw_saved_at
+        channels = _projected_channels(
+            record,
+            fallback_channel_id=_channel_id(saved.endpoint_digest),
+            fallback_label=_default_channel_label(saved.webhook_url),
+            fallback_version=saved.version,
+            fallback_identifier=endpoint_id,
+            fallback_saved_at=saved_at_val,
+        )
+        delivery_targets = list(_normalized_delivery_targets(None, prior_meta=record))
         metadata: dict[str, object] = {
             "binding_version": saved.version,
-            "endpoint_identifier": _endpoint_identifier(saved.webhook_url),
+            "endpoint_identifier": endpoint_id,
             "observed_at": observed_at.isoformat(),
+            "channels": channels,
+            "delivery_targets": delivery_targets,
         }
-        record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
-        if record is not None and record.get("binding_version") == saved.version:
-            saved_at = record.get("saved_at")
-            if isinstance(saved_at, str):
-                metadata["saved_at"] = saved_at
+        if saved_at_val is not None:
+            metadata["saved_at"] = saved_at_val
         return metadata
 
     async def reveal_binding(
         self,
         *,
         actor_id: str,
+        channel_id: str | None = None,
     ) -> Mapping[str, object] | None:
         """Audit and return the saved endpoint for an authorized secret reader."""
         if not actor_id.strip():
@@ -226,7 +305,11 @@ class TeamsWorkflowDiagnosticTester:
             raise TeamsWorkflowBindingUnavailableError(
                 "Teams Workflow binding storage is not configured"
             )
-        saved = await self.binding_store.load()
+        load_channel = getattr(self.binding_store, "load_channel", None)
+        if channel_id and callable(load_channel):
+            saved = await load_channel(channel_id)
+        else:
+            saved = await self.binding_store.load()
         if saved is None:
             return None
         revealed_at = self.clock().astimezone(UTC)
@@ -244,12 +327,64 @@ class TeamsWorkflowDiagnosticTester:
                 "completed_at": revealed_at.isoformat(),
             },
         )
-        return {
+        result: dict[str, object] = {
             "binding_version": saved.version,
             "endpoint_identifier": _endpoint_identifier(saved.webhook_url),
             "webhook_url": saved.webhook_url,
             "revealed_at": revealed_at.isoformat(),
         }
+        if channel_id:
+            result["channel_id"] = channel_id
+        return result
+
+    async def _update_channel_preferences(
+        self,
+        *,
+        actor_id: str,
+        saved: LoadedTeamsWorkflowBinding,
+        selected_channel_ids: tuple[str, ...] | None,
+        delivery_targets: tuple[str, ...] | None,
+        remove_channel_id: str | None,
+    ) -> None:
+        record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
+        endpoint_id = _endpoint_identifier(saved.webhook_url)
+        raw_saved_at = record.get("saved_at") if record is not None else None
+        saved_at_val = (
+            raw_saved_at
+            if isinstance(raw_saved_at, str)
+            else self.clock().astimezone(UTC).isoformat()
+        )
+        channels = _projected_channels(
+            record,
+            fallback_channel_id=_channel_id(saved.endpoint_digest),
+            fallback_label=_default_channel_label(saved.webhook_url),
+            fallback_version=saved.version,
+            fallback_identifier=endpoint_id,
+            fallback_saved_at=saved_at_val,
+        )
+        if remove_channel_id is not None and len(channels) > 1:
+            channels = [item for item in channels if item.get("channel_id") != remove_channel_id]
+        if selected_channel_ids is not None:
+            selected_set = set(selected_channel_ids)
+            updated_channels: list[dict[str, object]] = []
+            for item in channels:
+                cid = str(item.get("channel_id", ""))
+                updated_channels.append({**item, "enabled": cid in selected_set})
+            if not any(bool(item.get("enabled")) for item in updated_channels) and updated_channels:
+                updated_channels[0] = {**updated_channels[0], "enabled": True}
+            channels = updated_channels
+        targets = _normalized_delivery_targets(delivery_targets, prior_meta=record)
+        await self.store.write_state(
+            _ACTIVE_BINDING_METADATA_KEY,
+            {
+                "kind": "operator.teams-workflow-binding-metadata",
+                "binding_version": saved.version,
+                "saved_at": saved_at_val,
+                "actor_id": actor_id,
+                "channels": channels,
+                "delivery_targets": list(targets),
+            },
+        )
 
     async def _test_saved_binding(
         self,
@@ -281,14 +416,43 @@ class TeamsWorkflowDiagnosticTester:
                 raise TeamsWorkflowBindingError(
                     "Teams Workflow binding saved timestamp is timezone-naive"
                 )
+        load_channel = getattr(self.binding_store, "load_channel", None)
+        enabled_channel_ids = (
+            [
+                str(item.get("channel_id"))
+                for item in (metadata.get("channels") if isinstance(metadata, Mapping) else None)
+                or []
+                if isinstance(item, Mapping)
+                and bool(item.get("enabled", True))
+                and isinstance(item.get("channel_id"), str)
+            ]
+            if metadata is not None
+            else []
+        )
+        urls_to_test: list[str] = []
+        if len(enabled_channel_ids) > 1 and callable(load_channel):
+            for cid in enabled_channel_ids:
+                loaded_ch = await load_channel(cid)
+                if loaded_ch is not None and loaded_ch.webhook_url not in urls_to_test:
+                    urls_to_test.append(loaded_ch.webhook_url)
+        if not urls_to_test:
+            urls_to_test = [saved.webhook_url]
         try:
             tested = await self.test(
                 TeamsWorkflowTestCommand(
                     actor_id=actor_id,
                     request_id=request_id,
-                    webhook_url=saved.webhook_url,
+                    webhook_url=urls_to_test[0],
                 )
             )
+            for idx, extra_url in enumerate(urls_to_test[1:], start=2):
+                await self.test(
+                    TeamsWorkflowTestCommand(
+                        actor_id=actor_id,
+                        request_id=f"{request_id}-ch{idx}"[:128],
+                        webhook_url=extra_url,
+                    )
+                )
         except TeamsWorkflowTestProviderError as exc:
             return TeamsWorkflowTestResult(
                 request_id=request_id,
@@ -475,6 +639,158 @@ def _endpoint_identifier(webhook_url: str) -> str:
     workflow_id = parsed.path.split("/workflows/", maxsplit=1)[1].split("/", maxsplit=1)[0]
     digest = hashlib.sha256(webhook_url.encode("utf-8")).hexdigest()
     return f"workflow ...{workflow_id[-8:]} / sha256:{digest[:12]}"
+
+
+def _channel_id(endpoint_digest: str) -> str:
+    return f"ch-{endpoint_digest[:12]}"
+
+
+def _default_channel_label(webhook_url: str) -> str:
+    parsed = urlsplit(webhook_url)
+    workflow_id = parsed.path.split("/workflows/", maxsplit=1)[1].split("/", maxsplit=1)[0]
+    return f"Teams channel (...{workflow_id[-8:]})"
+
+
+def _normalized_delivery_targets(
+    requested: tuple[str, ...] | None,
+    *,
+    prior_meta: Mapping[str, object] | None,
+) -> tuple[str, ...]:
+    if requested is not None:
+        filtered = tuple(
+            dict.fromkeys(item for item in requested if item in _ALLOWED_DELIVERY_TARGETS)
+        )
+        if not filtered:
+            raise ValueError("delivery_targets MUST select at least one valid notification channel")
+        return filtered
+    raw_prior = prior_meta.get("delivery_targets") if isinstance(prior_meta, Mapping) else None
+    if isinstance(raw_prior, list):
+        prior_filtered = tuple(
+            dict.fromkeys(
+                str(item)
+                for item in raw_prior
+                if isinstance(item, str) and item in _ALLOWED_DELIVERY_TARGETS
+            )
+        )
+        if prior_filtered:
+            return prior_filtered
+    return _DEFAULT_DELIVERY_TARGETS
+
+
+def _projected_channels(
+    record: Mapping[str, object] | None,
+    *,
+    fallback_channel_id: str,
+    fallback_label: str,
+    fallback_version: str,
+    fallback_identifier: str,
+    fallback_saved_at: str | None,
+) -> list[dict[str, object]]:
+    raw_channels = record.get("channels") if isinstance(record, Mapping) else None
+    projected: list[dict[str, object]] = []
+    seen_ids: set[str] = set()
+    if isinstance(raw_channels, list):
+        for item in raw_channels:
+            if not isinstance(item, Mapping):
+                continue
+            cid = item.get("channel_id")
+            label = item.get("label")
+            version = item.get("binding_version")
+            identifier = item.get("endpoint_identifier")
+            if (
+                not isinstance(cid, str)
+                or not cid
+                or cid in seen_ids
+                or not isinstance(label, str)
+                or not label
+                or not isinstance(version, str)
+                or not version
+                or not isinstance(identifier, str)
+                or not identifier
+            ):
+                continue
+            seen_ids.add(cid)
+            entry: dict[str, object] = {
+                "channel_id": cid,
+                "label": label,
+                "binding_version": version,
+                "endpoint_identifier": identifier,
+                "enabled": bool(item.get("enabled", True)),
+            }
+            raw_saved = item.get("saved_at")
+            if isinstance(raw_saved, str) and raw_saved:
+                entry["saved_at"] = raw_saved
+            projected.append(entry)
+    if fallback_channel_id not in seen_ids:
+        fallback_entry: dict[str, object] = {
+            "channel_id": fallback_channel_id,
+            "label": fallback_label,
+            "binding_version": fallback_version,
+            "endpoint_identifier": fallback_identifier,
+            "enabled": True,
+        }
+        if fallback_saved_at is not None:
+            fallback_entry["saved_at"] = fallback_saved_at
+        projected.insert(0, fallback_entry)
+    return projected
+
+
+def _merged_channels(
+    prior_meta: Mapping[str, object] | None,
+    *,
+    channel_id: str,
+    label: str,
+    binding_version: str,
+    endpoint_identifier: str,
+    saved_at: str,
+    selected_channel_ids: tuple[str, ...] | None,
+) -> list[dict[str, object]]:
+    raw_channels = prior_meta.get("channels") if isinstance(prior_meta, Mapping) else None
+    existing: list[dict[str, object]] = []
+    if isinstance(raw_channels, list):
+        for item in raw_channels:
+            if isinstance(item, Mapping) and isinstance(item.get("channel_id"), str):
+                existing.append(dict(item))
+    selected_set = set(selected_channel_ids) if selected_channel_ids is not None else None
+    merged: list[dict[str, object]] = []
+    replaced = False
+    for item in existing:
+        if item.get("channel_id") == channel_id:
+            merged.append(
+                {
+                    "channel_id": channel_id,
+                    "label": label,
+                    "binding_version": binding_version,
+                    "endpoint_identifier": endpoint_identifier,
+                    "enabled": True if selected_set is None else (channel_id in selected_set),
+                    "saved_at": saved_at,
+                }
+            )
+            replaced = True
+        else:
+            cid = str(item.get("channel_id", ""))
+            merged.append(
+                {
+                    **item,
+                    "enabled": bool(item.get("enabled", True))
+                    if selected_set is None
+                    else (cid in selected_set),
+                }
+            )
+    if not replaced:
+        merged.append(
+            {
+                "channel_id": channel_id,
+                "label": label,
+                "binding_version": binding_version,
+                "endpoint_identifier": endpoint_identifier,
+                "enabled": True,
+                "saved_at": saved_at,
+            }
+        )
+    if not any(bool(item.get("enabled")) for item in merged) and merged:
+        merged[-1] = {**merged[-1], "enabled": True}
+    return merged
 
 
 async def _post_workflow(

@@ -436,13 +436,64 @@ def make_runtime_settings_routes(
                 "Teams Workflow diagnostics require the authoritative Operator store",
             )
         body = await read_json_object(request, maximum=8 * 1024)
-        _require_exact_fields(body, {"request_id", "webhook_url"})
+        allowed_fields = {
+            "request_id",
+            "webhook_url",
+            "channel_label",
+            "selected_channel_ids",
+            "delivery_targets",
+            "remove_channel_id",
+            "selection_only",
+        }
+        unknown = sorted(set(body) - allowed_fields)
+        missing = sorted({"request_id", "webhook_url"} - set(body))
+        if unknown or missing:
+            return error_response(
+                400,
+                f"request fields do not match contract: missing={missing}, unknown={unknown}",
+            )
+        raw_label = body.get("channel_label")
+        if raw_label is not None and (not isinstance(raw_label, str) or len(raw_label) > 80):
+            return error_response(400, "channel_label MUST be a bounded string")
+        raw_selected = body.get("selected_channel_ids")
+        if raw_selected is not None and (
+            not isinstance(raw_selected, list)
+            or len(raw_selected) > 32
+            or any(not isinstance(item, str) or not item.strip() for item in raw_selected)
+        ):
+            return error_response(400, "selected_channel_ids MUST be a bounded string list")
+        raw_targets = body.get("delivery_targets")
+        if raw_targets is not None and (
+            not isinstance(raw_targets, list)
+            or len(raw_targets) > 16
+            or any(not isinstance(item, str) or not item.strip() for item in raw_targets)
+        ):
+            return error_response(400, "delivery_targets MUST be a bounded string list")
+        raw_remove = body.get("remove_channel_id")
+        if raw_remove is not None and (not isinstance(raw_remove, str) or not raw_remove.strip()):
+            return error_response(400, "remove_channel_id MUST be a non-empty string")
+        raw_selection_only = body.get("selection_only", False)
+        if not isinstance(raw_selection_only, bool):
+            return error_response(400, "selection_only MUST be a boolean")
         try:
             result = await teams_workflow_tester.save_and_test(
                 TeamsWorkflowTestCommand(
                     actor_id=principal.oid,
                     request_id=require_string(body, "request_id"),
                     webhook_url=require_string(body, "webhook_url"),
+                    channel_label=raw_label.strip() if isinstance(raw_label, str) else None,
+                    selected_channel_ids=(
+                        tuple(item.strip() for item in raw_selected)
+                        if isinstance(raw_selected, list)
+                        else None
+                    ),
+                    delivery_targets=(
+                        tuple(item.strip() for item in raw_targets)
+                        if isinstance(raw_targets, list)
+                        else None
+                    ),
+                    remove_channel_id=raw_remove.strip() if isinstance(raw_remove, str) else None,
+                    selection_only=raw_selection_only,
                 )
             )
         except ValueError as exc:
@@ -487,12 +538,19 @@ def make_runtime_settings_routes(
                 "Teams Workflow binding storage is not configured",
                 kind="binding_unavailable",
             )
+        channel_id = request.query_params.get("channel_id")
         try:
-            binding = (
-                await teams_workflow_tester.reveal_binding(actor_id=principal.oid)
-                if reveal
-                else await teams_workflow_tester.describe_binding(actor_id=principal.oid)
-            )
+            if reveal:
+                binding = (
+                    await teams_workflow_tester.reveal_binding(
+                        actor_id=principal.oid,
+                        channel_id=channel_id,
+                    )
+                    if channel_id
+                    else await teams_workflow_tester.reveal_binding(actor_id=principal.oid)
+                )
+            else:
+                binding = await teams_workflow_tester.describe_binding(actor_id=principal.oid)
         except TeamsWorkflowBindingUnavailableError as exc:
             return error_response(503, str(exc), kind="binding_unavailable")
         except TeamsWorkflowBindingError as exc:

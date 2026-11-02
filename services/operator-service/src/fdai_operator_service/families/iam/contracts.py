@@ -548,11 +548,16 @@ class RuntimeSettingsOutbox(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class TeamsWorkflowTestCommand:
-    """One Owner-scoped synthetic notification test with a transient URL."""
+    """One Owner-scoped synthetic notification test or channel selection update."""
 
     actor_id: str
     request_id: str
     webhook_url: str
+    channel_label: str | None = None
+    selected_channel_ids: tuple[str, ...] | None = None
+    delivery_targets: tuple[str, ...] | None = None
+    remove_channel_id: str | None = None
+    selection_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -586,6 +591,7 @@ class TeamsWorkflowTester(Protocol):
         self,
         *,
         actor_id: str,
+        channel_id: str | None = None,
     ) -> JsonMapping | None:
         """Audit and return the saved endpoint value for an authorized reader."""
         ...

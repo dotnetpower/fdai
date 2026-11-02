@@ -235,8 +235,50 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         )
 
     async def load(self) -> LoadedTeamsWorkflowBinding | None:
-        saved = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
-        target_backup = self.backup_path or _default_local_backup_path()
+        return await self._load_key(LOCAL_TEAMS_BINDING_STATE_KEY, self._resolved_backup_path())
+
+    async def save_channel_and_verify(
+        self,
+        *,
+        channel_id: str,
+        webhook_url: str,
+        request_id: str,
+    ) -> LoadedTeamsWorkflowBinding:
+        saved = await self.save_and_verify(webhook_url=webhook_url, request_id=request_id)
+        channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        primary_record = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
+        if primary_record is not None:
+            await self.store.write_state(channel_key, primary_record)
+            target_backup = self._resolved_backup_path()
+            if target_backup is not None:
+                _write_private_backup(
+                    target_backup.with_name(f"local-teams-workflow-binding-{channel_id}.json"),
+                    primary_record,
+                )
+        return saved
+
+    async def load_channel(self, channel_id: str) -> LoadedTeamsWorkflowBinding | None:
+        channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        target_backup = self._resolved_backup_path()
+        channel_backup = (
+            target_backup.with_name(f"local-teams-workflow-binding-{channel_id}.json")
+            if target_backup is not None
+            else None
+        )
+        loaded = await self._load_key(channel_key, channel_backup)
+        if loaded is not None:
+            return loaded
+        return await self.load()
+
+    def _resolved_backup_path(self) -> Path | None:
+        return self.backup_path or _default_local_backup_path()
+
+    async def _load_key(
+        self,
+        state_key: str,
+        target_backup: Path | None,
+    ) -> LoadedTeamsWorkflowBinding | None:
+        saved = await self.store.read_state(state_key)
         restored_from_backup = False
         if saved is None and target_backup is not None:
             saved = _read_private_backup(target_backup)
@@ -249,7 +291,7 @@ class LocalEncryptedTeamsWorkflowBindingStore:
             return None
         if saved is not None:
             if restored_from_backup:
-                await self.store.write_state(LOCAL_TEAMS_BINDING_STATE_KEY, saved)
+                await self.store.write_state(state_key, saved)
             elif target_backup is not None and not target_backup.exists():
                 _write_private_backup(target_backup, saved)
         webhook_url, version = decoded

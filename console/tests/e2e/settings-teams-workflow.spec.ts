@@ -231,6 +231,13 @@ test("separates approval, notification, and conversation readiness without leaki
   await expect(teamsInput).toHaveValue(webhookUrl);
   await page.getByRole("button", { name: "Hide saved URL" }).click();
   await expect(teamsInput).toHaveValue(maskedUrl);
+  await expect(
+    page.getByRole("checkbox", { name: /A2 operational alert channel/ }),
+  ).toBeChecked();
+  await page.getByRole("button", { name: "Teams A2 only" }).click();
+  await expect(page.getByText("Single channel (1 selected)").first()).toBeVisible();
+  await page.getByRole("button", { name: "Select all" }).click();
+  await expect(page.getByText("Multi-channel simultaneous (5 selected)")).toBeVisible();
   await teamsInput.fill(webhookUrl);
   await page.getByRole("button", { name: "Save and send test" }).click();
 

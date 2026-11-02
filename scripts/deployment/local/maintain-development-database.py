@@ -27,8 +27,16 @@ _PRESERVED_TEAMS_BINDING_KEYS = frozenset(
         "operator-teams-workflow-binding-metadata:active",
     }
 )
+_PRESERVED_TEAMS_CHANNEL_PREFIX = "operator-teams-workflow-binding:active:ch-"
+_MAX_PRESERVED_TEAMS_RECORDS = 34
 _MAX_PRESERVED_REPOSITORIES = 200
 _MAX_PRESERVED_STATE_BYTES = 1024 * 1024
+
+
+def _is_preserved_teams_binding_key(key: str) -> bool:
+    return key in _PRESERVED_TEAMS_BINDING_KEYS or (
+        key.startswith(_PRESERVED_TEAMS_CHANNEL_PREFIX) and len(key) <= 128
+    )
 
 
 class _PreservedRegistration(TypedDict):
@@ -147,16 +155,23 @@ def _preserved_teams_workflow_records(
             """
             SELECT key, value
               FROM state_kv
-             WHERE key = ANY(%s)
+             WHERE key = ANY(%s) OR key LIKE %s
              ORDER BY key
+             LIMIT %s
             """,
-            (sorted(_PRESERVED_TEAMS_BINDING_KEYS),),
+            (
+                sorted(_PRESERVED_TEAMS_BINDING_KEYS),
+                _PRESERVED_TEAMS_CHANNEL_PREFIX + "%",
+                _MAX_PRESERVED_TEAMS_RECORDS + 1,
+            ),
         ).fetchall()
+    if len(rows) > _MAX_PRESERVED_TEAMS_RECORDS:
+        raise RuntimeError("Teams Workflow binding preservation exceeds its row bound")
     records: list[_PreservedRegistration] = []
     for key, value in rows:
         if (
             not isinstance(key, str)
-            or key not in _PRESERVED_TEAMS_BINDING_KEYS
+            or not _is_preserved_teams_binding_key(key)
             or not isinstance(value, dict)
         ):
             raise RuntimeError("Teams Workflow binding preservation found malformed state")
@@ -233,8 +248,9 @@ def _read_preserved_payload(
             raise ValueError("preserved local state has a malformed repository")
         validated.append({"key": item["key"], "value": item["value"]})
     raw_teams_binding = payload.get("teams_workflow_binding", [])
-    if not isinstance(raw_teams_binding, list) or len(raw_teams_binding) > len(
-        _PRESERVED_TEAMS_BINDING_KEYS
+    if (
+        not isinstance(raw_teams_binding, list)
+        or len(raw_teams_binding) > _MAX_PRESERVED_TEAMS_RECORDS
     ):
         raise ValueError("preserved local state has an invalid Teams Workflow binding collection")
     validated_teams_binding: list[_PreservedRegistration] = []
@@ -244,7 +260,7 @@ def _read_preserved_payload(
             not isinstance(item, dict)
             or set(item) != {"key", "value"}
             or not isinstance(item["key"], str)
-            or item["key"] not in _PRESERVED_TEAMS_BINDING_KEYS
+            or not _is_preserved_teams_binding_key(item["key"])
             or item["key"] in seen_teams_keys
             or not isinstance(item["value"], dict)
         ):

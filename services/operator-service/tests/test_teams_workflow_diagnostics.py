@@ -345,6 +345,67 @@ async def test_reveal_binding_audits_secret_free_record_and_returns_url() -> Non
     assert URL not in repr(store.values)
 
 
+async def test_multi_channel_selection_and_simultaneous_fanout() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    called_urls: list[str] = []
+
+    async def post(url: str, _: object) -> TeamsWorkflowProviderResponse:
+        called_urls.append(url)
+        return TeamsWorkflowProviderResponse(202, "run-multi")
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=post,
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="save-ch-1",
+            webhook_url=URL,
+            channel_label="Ops Alerts",
+        )
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="save-ch-2",
+            webhook_url=REGIONAL_URL,
+            channel_label="Daily Digest",
+        )
+    )
+
+    described = await tester.describe_binding(actor_id="owner-1")
+    assert described is not None
+    channels = described["channels"]
+    assert isinstance(channels, list) and len(channels) == 2
+    assert [ch["label"] for ch in channels] == ["Ops Alerts", "Daily Digest"]
+    assert all(ch["enabled"] is True for ch in channels)
+
+    # Select only the first channel and delivery targets without firing a provider call.
+    called_urls.clear()
+    first_id = str(channels[0]["channel_id"])
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="select-single-1",
+            webhook_url="",
+            selected_channel_ids=(first_id,),
+            delivery_targets=("teams-a2-operational-alert",),
+            selection_only=True,
+        )
+    )
+    assert called_urls == []
+    after_single = await tester.describe_binding(actor_id="owner-1")
+    assert after_single is not None
+    single_channels = after_single["channels"]
+    assert isinstance(single_channels, list)
+    assert [ch["enabled"] for ch in single_channels] == [True, False]
+    assert after_single["delivery_targets"] == ["teams-a2-operational-alert"]
+
+
 async def test_describe_reports_saved_at_only_for_the_recorded_version() -> None:
     store = MemoryStore()
     bindings = MemoryBindingStore()

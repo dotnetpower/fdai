@@ -9,12 +9,45 @@ export interface TeamsWorkflowTestResult {
   readonly testedAt: string;
 }
 
+export type TeamsNotificationDeliveryTargetKey =
+  | "teams-a2-operational-alert"
+  | "teams-a4-digest"
+  | "slack-webhook"
+  | "email"
+  | "console-inbox";
+
+export const ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS: readonly TeamsNotificationDeliveryTargetKey[] = [
+  "teams-a2-operational-alert",
+  "teams-a4-digest",
+  "slack-webhook",
+  "email",
+  "console-inbox",
+];
+
+export const DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS: readonly TeamsNotificationDeliveryTargetKey[] = [
+  "teams-a2-operational-alert",
+  "teams-a4-digest",
+  "console-inbox",
+];
+
+const DELIVERY_TARGET_SET: ReadonlySet<string> = new Set(
+  ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
+);
+
+export interface TeamsWorkflowSavedChannel {
+  readonly channelId: string;
+  readonly label: string;
+  readonly bindingVersion: string;
+  readonly endpointIdentifier: string;
+  readonly enabled: boolean;
+  readonly savedAt: string | null;
+}
+
 /**
  * Secret-free saved-binding metadata.
  *
- * The saved Teams Workflows URL is password-equivalent. The Operator API never
- * returns it, so the Console never receives, prefills, stores, or renders it.
- * An Owner replaces a saved binding by submitting a new URL.
+ * The default binding read omits the raw endpoint URL; authorized readers can
+ * reveal or copy it through an audited read.
  */
 export type TeamsWorkflowBindingView =
   | { readonly visible: false }
@@ -26,6 +59,8 @@ export type TeamsWorkflowBindingView =
       readonly endpointIdentifier: string;
       readonly observedAt: string;
       readonly savedAt: string | null;
+      readonly channels?: readonly TeamsWorkflowSavedChannel[];
+      readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
     };
 
 /** Secret-free saved-binding facts the setup panel renders. */
@@ -34,6 +69,8 @@ export interface TeamsWorkflowSavedBinding {
   readonly endpointIdentifier: string;
   readonly savedAt: string | null;
   readonly observedAt: string;
+  readonly channels: readonly TeamsWorkflowSavedChannel[];
+  readonly deliveryTargets: readonly TeamsNotificationDeliveryTargetKey[];
 }
 
 /** Audited on-demand reveal payload for Contributor, Approver, and Owner roles. */
@@ -42,6 +79,15 @@ export interface TeamsWorkflowRevealedBinding {
   readonly endpointIdentifier: string;
   readonly webhookUrl: string;
   readonly revealedAt: string;
+  readonly channelId?: string;
+}
+
+export interface TeamsWorkflowSubmitOptions {
+  readonly channelLabel?: string;
+  readonly selectedChannelIds?: readonly string[];
+  readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
+  readonly removeChannelId?: string;
+  readonly selectionOnly?: boolean;
 }
 
 export function maskSavedTeamsWorkflowUrl(endpointIdentifier: string): string {
@@ -70,23 +116,58 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
   if ("webhook_url" in item) {
     throw new Error("Teams Workflow binding MUST NOT return the saved endpoint value");
   }
+  const bindingVersion = nonEmptyString(
+    item["binding_version"],
+    "Teams Workflow binding.binding_version",
+  );
+  const endpointIdentifier = nonEmptyString(
+    item["endpoint_identifier"],
+    "Teams Workflow binding.endpoint_identifier",
+  );
+  const observedAt = isoTimestamp(item["observed_at"], "Teams Workflow binding.observed_at");
+  const savedAt =
+    item["saved_at"] === undefined || item["saved_at"] === null
+      ? null
+      : isoTimestamp(item["saved_at"], "Teams Workflow binding.saved_at");
+  const channels = decodeOptionalChannels(item["channels"]);
+  const deliveryTargets = decodeOptionalDeliveryTargets(item["delivery_targets"]);
   return {
     visible: true,
     configured: true,
-    bindingVersion: nonEmptyString(
-      item["binding_version"],
-      "Teams Workflow binding.binding_version",
-    ),
-    endpointIdentifier: nonEmptyString(
-      item["endpoint_identifier"],
-      "Teams Workflow binding.endpoint_identifier",
-    ),
-    observedAt: isoTimestamp(item["observed_at"], "Teams Workflow binding.observed_at"),
-    savedAt:
-      item["saved_at"] === undefined || item["saved_at"] === null
-        ? null
-        : isoTimestamp(item["saved_at"], "Teams Workflow binding.saved_at"),
+    bindingVersion,
+    endpointIdentifier,
+    observedAt,
+    savedAt,
+    ...(channels !== undefined ? { channels } : {}),
+    ...(deliveryTargets !== undefined ? { deliveryTargets } : {}),
   };
+}
+
+export function resolveTeamsWorkflowChannels(
+  binding: Extract<TeamsWorkflowBindingView, { readonly visible: true; readonly configured: true }>,
+): readonly TeamsWorkflowSavedChannel[] {
+  if (binding.channels && binding.channels.length > 0) {
+    return binding.channels;
+  }
+  return [
+    {
+      channelId: "ch-primary",
+      label: `Teams channel (${binding.endpointIdentifier.split(" / ")[0] ?? "primary"})`,
+      bindingVersion: binding.bindingVersion,
+      endpointIdentifier: binding.endpointIdentifier,
+      enabled: true,
+      savedAt: binding.savedAt,
+    },
+  ];
+}
+
+export function resolveTeamsDeliveryTargets(
+  binding: Extract<TeamsWorkflowBindingView, { readonly visible: true; readonly configured: true }>,
+): readonly TeamsNotificationDeliveryTargetKey[] {
+  if (binding.deliveryTargets && binding.deliveryTargets.length > 0) {
+    return binding.deliveryTargets;
+  }
+  return DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS;
 }
 
 export function decodeTeamsWorkflowBindingReveal(
@@ -103,6 +184,10 @@ export function decodeTeamsWorkflowBindingReveal(
   if (!webhookUrl.startsWith("https://")) {
     throw new Error("Teams Workflow binding reveal.webhook_url MUST be an HTTPS URL");
   }
+  const channelId =
+    typeof item["channel_id"] === "string" && item["channel_id"].trim()
+      ? item["channel_id"].trim()
+      : undefined;
   return {
     bindingVersion: nonEmptyString(
       item["binding_version"],
@@ -117,6 +202,7 @@ export function decodeTeamsWorkflowBindingReveal(
       item["revealed_at"],
       "Teams Workflow binding reveal.revealed_at",
     ),
+    ...(channelId !== undefined ? { channelId } : {}),
   };
 }
 
@@ -193,6 +279,63 @@ function isoTimestamp(value: unknown, path: string): string {
     throw new Error(`${path} MUST be an ISO timestamp`);
   }
   return text;
+}
+
+function decodeOptionalChannels(
+  value: unknown,
+): readonly TeamsWorkflowSavedChannel[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error("Teams Workflow binding.channels MUST be an array");
+  }
+  return value.map((raw, index) => {
+    const entry = record(raw, `Teams Workflow binding.channels[${index}]`);
+    return {
+      channelId: nonEmptyString(
+        entry["channel_id"],
+        `Teams Workflow binding.channels[${index}].channel_id`,
+      ),
+      label: nonEmptyString(
+        entry["label"],
+        `Teams Workflow binding.channels[${index}].label`,
+      ),
+      bindingVersion: nonEmptyString(
+        entry["binding_version"],
+        `Teams Workflow binding.channels[${index}].binding_version`,
+      ),
+      endpointIdentifier: nonEmptyString(
+        entry["endpoint_identifier"],
+        `Teams Workflow binding.channels[${index}].endpoint_identifier`,
+      ),
+      enabled: boolean(
+        entry["enabled"],
+        `Teams Workflow binding.channels[${index}].enabled`,
+      ),
+      savedAt:
+        entry["saved_at"] === undefined || entry["saved_at"] === null
+          ? null
+          : isoTimestamp(
+              entry["saved_at"],
+              `Teams Workflow binding.channels[${index}].saved_at`,
+            ),
+    };
+  });
+}
+
+function decodeOptionalDeliveryTargets(
+  value: unknown,
+): readonly TeamsNotificationDeliveryTargetKey[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    throw new Error("Teams Workflow binding.delivery_targets MUST be an array");
+  }
+  const targets: TeamsNotificationDeliveryTargetKey[] = [];
+  for (const item of value) {
+    if (typeof item === "string" && DELIVERY_TARGET_SET.has(item)) {
+      targets.push(item as TeamsNotificationDeliveryTargetKey);
+    }
+  }
+  return targets;
 }
 
 function integer(value: unknown, path: string): number {
