@@ -632,14 +632,13 @@ export function CoverageResources({
                           }}
                         >
                           <span class="detection-resource-row-head">
-                            <strong class="mono">
-                              {parsed.hasStructuredScope ? parsed.shortName : resource.resource_ref}
-                            </strong>
+                            <strong>{resourceEvaluationTitle(resource)}</strong>
                             <StatusPill
                               kind={evaluationKind(resource.evaluation_state)}
                               label={t(`resources.state.${resource.evaluation_state}`)}
                             />
                           </span>
+                          <span class="detection-record-resource mono">{parsed.shortName}</span>
                           <span>
                             {resourceTypeLabel(resource.resource_type)}
                             {resource.finding_count > 0
@@ -705,11 +704,11 @@ function ResourceDetail({
     <article id="detection-resource-detail" class="detection-record-detail">
       <div class="detection-resource-detail-head">
         <div class="detection-resource-title-stack">
-          <h4 class="panel-title detection-resource-short-title">
-            <a class="mono" href={architectureHref(resource.resource_ref)}>
-              {parsed.shortName}
-            </a>
-          </h4>
+          <h4 class="panel-title detection-resource-short-title">{resourceEvaluationTitle(resource)}</h4>
+          <p class="detection-result-description">{resourceEvaluationDescription(resource)}</p>
+          <a class="detection-resource-identity mono" href={architectureHref(resource.resource_ref)}>
+            {parsed.shortName}
+          </a>
           {parsed.hasStructuredScope ? (
             <span class="detection-resource-full-ref mono">{resource.resource_ref}</span>
           ) : null}
@@ -861,6 +860,25 @@ export function errorCodeSummary(errorCodes: readonly string[]): string {
   return errorCodes.length > 0
     ? errorCodes.map(errorCodeLabel).join(", ")
     : t("coverage.noErrors");
+}
+
+export function resourceEvaluationTitle(
+  resource: Pick<AnalyzerCoverageResourceView, "evaluation_state">,
+): string {
+  return t(`resources.resultTitle.${resource.evaluation_state}`);
+}
+
+export function resourceEvaluationDescription(
+  resource: Pick<AnalyzerCoverageResourceView, "evaluation_state" | "error_codes">,
+): string {
+  if (resource.evaluation_state === "evaluation_error") {
+    return t("resources.resultDescription.evaluation_error", {
+      reason: resource.error_codes.length > 0
+        ? errorCodeSummary(resource.error_codes)
+        : t("resources.unspecifiedError"),
+    });
+  }
+  return t(`resources.resultDescription.${resource.evaluation_state}`);
 }
 
 function publicationSummary(resource: AnalyzerCoverageResourceView): string {

@@ -412,8 +412,11 @@ for (const locale of ["en", "ko"] as const) {
     const error = panel.locator(".detection-record-list .status-pill-danger").first();
     await expect(error).toHaveCSS("color", "rgb(141, 73, 73)");
     const detail = panel.locator("#detection-resource-detail");
-    await expect(detail.getByRole("heading", { name: "example-mysql-server", exact: true })).toBeVisible();
-    await expect(detail.locator("h4 a")).toHaveCSS("font-size", "18px");
+    await expect(detail.getByRole("heading", {
+      name: locale === "ko" ? "평가를 완료하지 못했습니다" : "Evaluation could not complete", exact: true,
+    })).toBeVisible();
+    await expect(detail.locator("h4")).toHaveCSS("font-size", "18px");
+    await expect(detail.locator(".detection-resource-identity")).toHaveText("example-mysql-server");
     const copy = detail.getByRole("button", { name: locale === "ko" ? "리소스 ID 복사" : "Copy resource ID" });
     for (const viewport of [
       { width: 1440, height: 900 }, { width: 993, height: 641 },

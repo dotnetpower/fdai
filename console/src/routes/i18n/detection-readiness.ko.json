@@ -105,6 +105,19 @@
   "resources": {
     "title": "리소스 평가",
     "description": "리소스를 선택하여 최신 평가와 정확한 전달 근거를 확인합니다.",
+    "resultTitle": {
+      "evaluation_error": "평가를 완료하지 못했습니다",
+      "finding": "발견 사항이 기록되었습니다",
+      "unsupported": "지원되지 않는 평가 결과가 기록되었습니다",
+      "evaluated_no_finding": "발견 사항 없이 평가를 완료했습니다"
+    },
+    "resultDescription": {
+      "evaluation_error": "{reason}. 평가 과정의 오류이며 리소스가 비정상이라는 뜻은 아닙니다.",
+      "finding": "분석기가 발견 사항을 기록했습니다. 탐지 신호와 근거를 확인하세요. 발견 사항만으로 원인을 단정할 수는 없습니다.",
+      "unsupported": "분석기가 지원되지 않는 결과를 기록했습니다. 정상 상태를 판단하기 전에 분석기의 지원 범위와 근거를 확인하세요.",
+      "evaluated_no_finding": "최신 평가에서 발견 사항이 나오지 않았습니다. 리소스가 정상이라는 뜻은 아닙니다."
+    },
+    "unspecifiedError": "구체적인 오류 사유가 보존되지 않았습니다",
     "listLabel": "평가된 리소스",
     "listTitle": "선택된 리소스",
     "emptyTitle": "리소스 평가 없음",
@@ -274,6 +287,10 @@
   "emptyTitle": "감지 준비도 스냅샷 없음",
   "emptyBody": "Huginn에서 Heimdall과 Muninn으로 이어지는 근거 경로를 완료한 대상이 없습니다.",
   "analyzerLifecycle": {
+    "resultTitle": "{signal}: {state}",
+    "resultDescription": "기록된 {signal} 평가 결과: {state}. {evidence}. 보존된 근거를 확인하세요. 원인을 단정한 결과가 아닙니다.",
+    "recordedSignal": "분석기가 기록한 발견 사항",
+    "unclassifiedState": "기록된 상태를 검토해야 합니다",
     "title": "보존된 발견 사항 및 전달",
     "description": "여러 실행에 걸친 발견 사항 이력을 최신 커버리지 시도와 분리하고 정확한 근거 및 전달 결과를 보존합니다.",
     "observedAt": "마지막 증적 {at}",
@@ -327,6 +344,7 @@
       "rollout_replacement": "롤아웃 교체",
       "insufficient_evidence": "근거 부족",
       "conflicting_evidence": "근거 충돌",
+      "resource_availability": "리소스 가용성",
       "host_cpu": "호스트 CPU 임계값",
       "host_memory": "호스트 메모리 부족",
       "disk_pressure": "디스크 압박",

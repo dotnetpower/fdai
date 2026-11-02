@@ -24,6 +24,40 @@ async function expectBounds(page: Page) {
 
 test.describe.configure({ mode: "serial" });
 
+for (const locale of ["en", "ko"] as const) {
+  test(`explains the evaluation and finding before the resource identity (${locale})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const resources = await openView(page, locale, "resources");
+    const detail = resources.locator("#detection-resource-detail");
+    const title = locale === "ko" ? "평가를 완료하지 못했습니다" : "Evaluation could not complete";
+    await expect(detail.getByRole("heading", { name: title, exact: true })).toBeVisible();
+    await expect(resources.locator(".detection-record-list button").first()).toContainText(title);
+    await expect(detail.locator(".detection-result-description"))
+      .toContainText(locale === "ko" ? "분석기 시간 초과" : "Analyzer timed out");
+    await expect(detail.getByRole("link", { name: "example-mysql-server", exact: true })).toBeVisible();
+    await resources.locator(".detection-record-list button").filter({ hasText: "example-api-gateway" }).click();
+    await expect(detail.getByRole("heading")).toContainText(locale === "ko"
+      ? "발견 사항 없이 평가를 완료했습니다" : "Evaluation completed without a finding");
+    await expect(detail.locator(".detection-result-description")).toContainText(locale === "ko"
+      ? "정상이라는 뜻은 아닙니다" : "does not establish resource health");
+    const findings = await openView(page, locale, "findings");
+    const finding = findings.locator("#detection-lifecycle-detail");
+    await expect(finding.getByRole("heading", { level: 4 })).toHaveText(locale === "ko"
+      ? "컨테이너 재시작: 실행 중" : "Container restart: Running");
+    await expect(finding.locator(".detection-result-description")).toContainText(locale === "ko"
+      ? "원인을 단정한 결과가 아닙니다" : "not a cause determination");
+    for (const viewport of [
+      { width: 1440, height: 900 }, { width: 993, height: 641 }, { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expectBounds(page);
+      expect(await finding.evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+      await finding.getByRole("heading", { level: 4 }).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`descriptive-title-${locale}-${viewport.width}.png`) });
+    }
+  });
+}
+
 test("presents a quiet, consistent desktop workspace in English and Korean", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   for (const locale of ["en", "ko"]) {

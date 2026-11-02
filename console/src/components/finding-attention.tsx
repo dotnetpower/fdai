@@ -11,11 +11,6 @@ import { Tooltip } from "./tooltip";
 import { CopyButton, LoadingState, StatusPill, type PillKind } from "./ui";
 import "./finding-attention.css";
 
-function shortResourceName(resourceRef: string): string {
-  const idx = resourceRef.lastIndexOf("/");
-  return idx >= 0 && idx < resourceRef.length - 1 ? resourceRef.slice(idx + 1) : resourceRef;
-}
-
 const copy = {
   en: {
     title: "Findings",
@@ -442,7 +437,6 @@ export function CurrentFindings({ client, enabled = true }: {
       ) : null}
       <ul class="finding-list current-findings-list">
         {rows.slice(offset, offset + 20).map((finding) => {
-          const shortName = shortResourceName(finding.resource_ref);
           const signalName = words.signals[finding.signal] ?? finding.signal;
           const kindName = words.kinds[finding.resource_kind] ?? finding.resource_kind;
           const stateName = finding.current_state
@@ -459,7 +453,7 @@ export function CurrentFindings({ client, enabled = true }: {
               <a class="finding-card-link" href={findingHref(finding)}>
                 <span class="finding-card-link-main">
                   <span class="finding-card-short-title">
-                    {shortName} · {signalName}
+                    {signalName} - {stateName}
                   </span>
                   <span class="finding-card-raw-id mono">
                     {finding.resource_ref} / {finding.signal}
