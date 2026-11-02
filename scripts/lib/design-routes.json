@@ -38,11 +38,13 @@
       "paths": [
         "docs/roadmap/interfaces/recorded-resource-state*.md",
         "docs/roadmap-implementation/interfaces/recorded-resource-state.md",
+        "packages/service-contracts/src/fdai_service_contracts/recorded_resource_state.py",
         "services/operator-service/src/fdai_operator_service/families/operations/*state*.py",
         "services/operator-service/src/fdai_operator_service/families/operations/instance_explorer.py",
         "console/src/recorded-resource-state.ts",
         "console/src/components/recorded-state*",
         "console/src/routes/dashboard-v2*",
+        "console/src/routes/i18n/dashboard-v2*",
         "console/src/routes/ontology-instances*",
         "console/tests/e2e/dashboard-v2.spec.ts"
       ],
@@ -494,7 +496,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "narrator-preference-persistence",
-        "operator-governance-profiles"
+        "operator-governance-profiles",
+        "recorded-resource-state"
       ],
       "docs_update": [
         "docs/roadmap/architecture/aks-diagnostic-evidence-plane.md",
@@ -651,7 +654,8 @@
       ],
       "docs_update_routes": [
         "conversation-attachments",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "recorded-resource-state"
       ],
       "docs_update": [
         "docs/roadmap/architecture/ontology-structural-model.md",
@@ -986,7 +990,8 @@
         "development-diagnostic-channel",
         "reporting-subsystem",
         "operational-evidence-issuance",
-        "operator-governance-profiles"
+        "operator-governance-profiles",
+        "recorded-resource-state"
       ],
       "docs_update": [
         "docs/roadmap/architecture/project-structure.md",
@@ -2638,7 +2643,8 @@
         "slack-hil-actor-handoff",
         "conversation-attachments",
         "human-report-lines",
-        "aks-commerce-business-scenario"
+        "aks-commerce-business-scenario",
+        "recorded-resource-state"
       ],
       "docs_update": [
         "docs/roadmap/architecture/service-graduation-and-ownership.md",

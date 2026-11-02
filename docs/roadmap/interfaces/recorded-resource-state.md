@@ -392,11 +392,17 @@ the exact ResourceTypes whose ARM type is supported:
   wrapping chip. Long labels and counts remain inside the Resource panel at desktop and mobile
   widths without changing the selected filter or recorded-state meaning.
 - State colors organize qualified recorded values; they do not assert a current operational
-  success. Running, Available, Serving, Enabled, Active, Online, Ready, and qualified Provisioning
-  Succeeded use green. The Provisioning axis marker keeps Succeeded distinct from operational
-  health or availability. Stopped, Deallocated, Offline, Disabled, Failed, and Unavailable use red.
-  Transitioning, Degraded, Stale, Paused, and every Needs review `?` use amber. Other recorded
-  values remain neutral, while Not provided and Not applicable retain gray or patterned treatment.
+  success. Running, Available, Serving, Enabled, Active, Online, Ready, Completed, Attached,
+  Reserved, Approved, Connected, Verified, and qualified Provisioning Succeeded use green. The
+  Provisioning axis marker keeps Succeeded distinct from operational health or availability.
+  Stopped, Deallocated, Offline, Disabled, Failed, Unavailable, Rejected, Disconnected, Canceled,
+  and TimedOut use red. Transitioning, Pending, InProgress, Degraded, Stale, Paused, Unattached,
+  and every Needs review `?` use amber. Other recorded values remain neutral, while Not provided
+  and Not applicable retain gray or patterned treatment and, in single-axis lenses, surface any
+  verified representative-state tone and axis marker alongside the explicit `N` or `-` glyph.
+  When Resource Health availability is `Unknown` and a concrete provisioning value is recorded,
+  representative state selects provisioning with its `P` axis marker while retaining `Unknown` on
+  the Availability lens and tooltip.
   State text uses the shared green, red, and amber text roles, which keep at least 4.5:1 contrast on
   their own tints over card, page, shade, and selected-row surfaces; fills and borders keep the base state colors.
 - A `managed-identity` with no applicable operational state, no recorded provisioning state, and no

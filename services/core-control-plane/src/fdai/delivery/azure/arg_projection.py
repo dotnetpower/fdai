@@ -10,6 +10,8 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Final
 
+from fdai_service_contracts.recorded_resource_state import extract_recorded_state_value
+
 from fdai.delivery.azure.arg_relationships import (
     project_provider_relationships,
     provider_parent_id,
@@ -276,6 +278,7 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("state"),
         nested.get("status"),
         nested.get("runningStatus"),
+        nested.get("runningState"),
         nested.get("operationalState"),
         nested.get("dnsResolverState"),
         nested.get("diskState"),
@@ -283,9 +286,19 @@ def resource_operational_status(row: Mapping[str, Any]) -> str | None:
         nested.get("userVisibleState"),
         nested.get("resourceState"),
         nested.get("virtualNetworkLinkState"),
+        extract_recorded_state_value(nested, "verificationStates.Domain.status"),
+        extract_recorded_state_value(
+            nested,
+            "privateLinkServiceConnections.privateLinkServiceConnectionState.status",
+        ),
+        extract_recorded_state_value(
+            nested,
+            "manualPrivateLinkServiceConnections.privateLinkServiceConnectionState.status",
+        ),
         direct_instance_view_properties.get("powerState"),
         direct_instance_view_properties.get("executionState"),
         nested.get("registrationStatus"),
+        extract_recorded_state_value(nested, "enabled", path="enabled"),
         nested.get("availabilityState"),
         nested.get("clusterState"),
         nested.get("connectivityStatus"),
