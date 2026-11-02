@@ -146,22 +146,22 @@ def test_answer_and_presentation_rubrics_follow_runtime_contracts() -> None:
         "rate": 1.0,
     }
     assert coverage["question_presentation_oracle_coverage"] == {
-        "covered": 500,
-        "total": 500,
+        "covered": 600,
+        "total": 600,
         "rate": 1.0,
     }
     assert coverage["paired_model_case_coverage"] == {
-        "covered": 500,
-        "total": 500,
+        "covered": 600,
+        "total": 600,
         "rate": 1.0,
     }
     assert coverage["question_bank_reviewed_rate"] == {
-        "covered": 500,
-        "total": 500,
+        "covered": 600,
+        "total": 600,
         "rate": 1.0,
     }
     assert coverage["question_bank_contract_validation_rate"] == {
-        "covered": 500,
-        "total": 500,
+        "covered": 600,
+        "total": 600,
         "rate": 1.0,
     }

@@ -104,9 +104,9 @@ def test_dry_run_writes_sanitized_fingerprint_bound_summary(tmp_path: Path) -> N
     payload = json.loads(summary_path.read_text())
     outcomes = [entry["outcome"] for entry in payload["entries"]]
     assert payload["evidence_level"] == "dispatchability"
-    assert payload["catalog_entry_count"] == 147
+    assert payload["catalog_entry_count"] == 157
     assert outcomes.count("dispatchable") == 93
-    assert outcomes.count("skipped_non_executable") == 54
+    assert outcomes.count("skipped_non_executable") == 64
 
 
 def test_enforce_requires_explicit_confirmation() -> None:

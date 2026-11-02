@@ -2,8 +2,8 @@
 title: 카오스 엔지니어링
 description: FDAI가 제한된 대상, 중단 조건, 복구 근거를 사용해 카탈로그에 정의된 장애 실험을 실행하는 방법을 알아봅니다.
 translation_of: chaos-engineering.md
-translation_source_sha: 0473956557ab7cad4ab03b0e502b08a7956b492b
-translation_revised: 2026-10-22
+translation_source_sha: 5c4513c80621ca2893b6d1cffcd3bfbb11357f33
+translation_revised: 2026-11-03
 ---
 
 # 카오스 엔지니어링
@@ -76,7 +76,7 @@ translation_revised: 2026-10-22
 장애 유형과 리소스 유형별 시나리오 커버리지, 점검의 신뢰도, 중단 비율, 롤백 성공률, 복구
 시간, 예상하지 못한 영향을 추적합니다. 복구를 확인하지 못한 주입은 성공한 실험이 아닙니다.
 
-[시나리오 검증 인벤토리](scenario-validation-inventory-ko.md)는 카탈로그 항목 132개, 관찰
+[시나리오 검증 인벤토리](scenario-validation-inventory-ko.md)는 카탈로그 항목 157개, 관찰
 커버리지 묶음 18개, 실제 적용 모드 검증 10개, 그리고 별도로 고정한 컨트롤 루프 시나리오를
 서로 구분해서 보여 줍니다.
 

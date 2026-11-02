@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.external-traffic-policy-local-blackhole
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/access-application-cluster/create-external-load-balancer/
+  source_ref: section=preserving-the-client-source-ip;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: network
+target_type: lb
+fault_family: misroute
+intensity: high
+duration_seconds: 360
+expected_signal: backend_health
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Ensure Pod placement covers target nodes or switch Service externalTrafficPolicy
+  to Cluster.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Service with externalTrafficPolicy Local drops health probes on nodes
+  without local Pod endpoints.
+tags:
+- kubernetes
+- vendor-doc

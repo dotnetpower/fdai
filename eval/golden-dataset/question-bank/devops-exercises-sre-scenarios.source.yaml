@@ -1490,3 +1490,1480 @@ questions:
     en: Which production deployments use mutable image tags such as latest instead of immutable digest-pinned
       or semantic-versioned container images?
     ko: 불변 다이제스트 고정 이미지나 시맨틱 버전 태그 대신 latest와 같은 가변 이미지 태그를 사용하고 있는 운영 배포 워크로드는 무엇인가요?
+- id: devops-sre.linux-dmesg-kernel-io-hardware-errors
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.linux_dmesg_kernel_io_hardware_errors
+  target_kinds:
+  - VirtualMachine
+  - KubernetesNode
+  - ManagedDisk
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any Linux hosts or AKS worker nodes reporting kernel ring-buffer I/O errors, filesystem remount-ro
+      events, or hardware bus faults?
+    ko: 현재 Linux 호스트나 AKS 워커 노드 중 커널 링 버퍼(dmesg) I/O 오류, 파일 시스템 읽기 전용 재마운트, 또는 하드웨어 버스 오류를 보고하는 노드가 있나요?
+- id: devops-sre.container-ephemeral-storage-eviction-pressure
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.container_ephemeral_storage_eviction_pressure
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNode
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which AKS Pods or nodes are approaching ephemeral-storage limits from container rootfs writes
+      or emptyDir volumes?
+    ko: 컨테이너 루트 파일 시스템 쓰기나 emptyDir 볼륨 사용으로 인해 임시 스토리지(ephemeral-storage) 축출 한도에 근접한 AKS Pod 또는 노드는 어디인가요?
+- id: devops-sre.linux-open-file-descriptor-limit-pressure
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.linux_open_file_descriptor_limit_pressure
+  target_kinds:
+  - VirtualMachine
+  - KubernetesNode
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which compute hosts or high-concurrency proxy containers are above 80% of their open file-descriptor
+      ulimit or kernel file-max capacity?
+    ko: 열린 파일 디스크립터(ulimit) 또는 커널 file-max 용량의 80%를 초과한 컴퓨팅 호스트나 고동시성 프록시 컨테이너는 무엇인가요?
+- id: devops-sre.node-clock-skew-ntp-synchronization-status
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.node_clock_skew_ntp_synchronization_status
+  target_kinds:
+  - VirtualMachine
+  - KubernetesNode
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any cluster nodes or virtual machines exhibiting NTP clock-skew drift that could invalidate
+      TLS token timestamps or distributed lease ordering?
+    ko: TLS 토큰 타임스탬프 검증이나 분산 리스 순서를 깨뜨릴 수 있는 NTP 시간 오차(clock skew)가 발생한 클러스터 노드나 가상 머신이 있나요?
+- id: devops-sre.kubernetes-endpointslice-terminating-ready-state
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.kubernetes_endpointslice_terminating_ready_state
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesService
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Kubernetes Services currently have a high share of EndpointSlice addresses in terminating
+      or unready state while serving live traffic?
+    ko: 실시간 트래픽을 처리 중인 Kubernetes Service 중 현재 EndpointSlice 주소의 상당수가 종료 중(terminating)이거나 준비되지 않은 상태인
+      서비스는 무엇인가요?
+- id: devops-sre.bastion-management-access-health-posture
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.bastion_management_access_health_posture
+  target_kinds:
+  - BastionHost
+  - VirtualNetwork
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: What is the current provisioning and connectivity health of Bastion hosts providing administrative
+      access to private virtual networks?
+    ko: 프라이빗 가상 네트워크에 대한 관리자 접근을 제공하는 Bastion 호스트들의 현재 프로비저닝 및 연결 상태는 어떠한가요?
+- id: devops-sre.kubelet-pleg-relist-latency-health
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.kubelet_pleg_relist_latency_health
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNode
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Are any AKS nodes reporting elevated Pod Lifecycle Event Generator (PLEG) relist latency or container
+      runtime unresponsive warnings?
+    ko: Pod Lifecycle Event Generator(PLEG) 재조회 지연 시간이 높거나 컨테이너 런타임 응답 지연 경고를 보고하는 AKS 노드가 있나요?
+- id: devops-sre.redis-replication-role-connected-replicas-health
+  category: current_health
+  domain: state_incident_detection
+  intent: devops_sre.redis_replication_role_connected_replicas_health
+  target_kinds:
+  - RedisCache
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Do all Redis cache clusters in the authorized scope have healthy primary-replica links and the
+      expected number of connected replicas?
+    ko: 권한 범위의 모든 Redis 캐시 클러스터가 정상적인 주-복제본 연결 상태와 예상된 연결 복제본 수를 유지하고 있나요?
+- id: devops-sre.http-429-rate-limit-vs-503-overload-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.http_429_rate_limit_vs_503_overload_incident
+  target_kinds:
+  - ApplicationGateway
+  - CognitiveServicesAccount
+  - BusinessService
+  temporal_scope: comparison
+  result_shape: comparison
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, distinguish HTTP 429 rate-limit throttling responses
+      from HTTP 503 backend capacity exhaustion across affected endpoints.
+    ko: 현재 대화에 연결된 장애에서 영향받은 엔드포인트 전반의 HTTP 429 속도 제한 스로틀링 응답과 HTTP 503 백엔드 용량 고갈 응답을 구분해 비교해 주세요.
+- id: devops-sre.tls-handshake-alert-burst-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.tls_handshake_alert_burst_incident
+  target_kinds:
+  - ApplicationGateway
+  - KubernetesIngress
+  - KeyVault
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: During the incident linked to this conversation, did a burst of TLS handshake failures occur after
+      a certificate rotation or minimum TLS cipher update?
+    ko: 현재 대화에 연결된 장애 동안 인증서 교체나 최소 TLS 암호화 정책 변경 직후 TLS 핸드셰이크 실패 급증이 발생했나요?
+- id: devops-sre.kube-apiserver-request-throttling-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.kube_apiserver_request_throttling_incident
+  target_kinds:
+  - KubernetesCluster
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, did Kubernetes API server Priority and Fairness throttling
+      or dropped requests delay controller reconciliation?
+    ko: 현재 대화에 연결된 장애에서 Kubernetes API 서버의 요청 스로틀링이나 드롭된 요청으로 인해 컨트롤러 조정(reconciliation)이 지연되었나요?
+- id: devops-sre.database-deadlock-serialization-surge-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.database_deadlock_serialization_surge_incident
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  - Workload
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: During the incident linked to this conversation, did database transaction deadlocks or lock timeout
+      aborts surge concurrently with application error rates?
+    ko: 현재 대화에 연결된 장애 동안 데이터베이스 트랜잭션 데드락이나 잠금 타임아웃 중단이 애플리케이션 오류율 상승과 동시에 급증했나요?
+- id: devops-sre.container-registry-pull-throttle-scaleout-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.container_registry_pull_throttle_scaleout_incident
+  target_kinds:
+  - ContainerRegistry
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: For the incident linked to this conversation, did Container Registry bandwidth or request throttling
+      delay image pulls during emergency pod scale-out?
+    ko: 현재 대화에 연결된 장애에서 긴급 Pod 스케일 아웃 도중 컨테이너 레지스트리 대역폭이나 요청 스로틀링으로 인해 이미지 풀이 지연되었나요?
+- id: devops-sre.leader-election-lease-loss-split-brain-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.leader_election_lease_loss_split_brain_incident
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - Workload
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, did controller or worker replicas lose their coordination
+      lease and trigger leader re-election churn?
+    ko: 현재 대화에 연결된 장애에서 컨트롤러나 워커 레플리카가 코디네이션 리스(lease)를 상실하여 리더 재선출 혼란이 발생했나요?
+- id: devops-sre.queue-poison-pill-consumer-crash-loop-incident
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.queue_poison_pill_consumer_crash_loop_incident
+  target_kinds:
+  - ServiceBusNamespace
+  - EventHubNamespace
+  - KubernetesPod
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: During the incident linked to this conversation, did an unparseable poison-pill message without
+      dead-letter forwarding cause repeated consumer Pod crashes?
+    ko: 현재 대화에 연결된 장애 동안 데드레터 전달이 설정되지 않은 독성(poison-pill) 메시지로 인해 컨슈머 Pod가 반복해서 충돌했나요?
+- id: devops-sre.azure-service-health-advisory-incident-correlation
+  category: incident
+  domain: state_incident_detection
+  intent: devops_sre.azure_service_health_advisory_incident_correlation
+  target_kinds:
+  - Subscription
+  - AzureResource
+  - BusinessService
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: For the incident linked to this conversation, were any regional Azure Service Health advisories
+      or platform maintenance events active in the same window?
+    ko: 현재 대화에 연결된 장애와 동일한 시간대에 해당 리전의 Azure Service Health 권고나 플랫폼 유지보수 이벤트가 활성화되어 있었나요?
+- id: devops-sre.container-pid1-sigterm-forwarding-graceful-stop-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.container_pid1_sigterm_forwarding_graceful_stop_rca
+  target_kinds:
+  - KubernetesPod
+  - ContainerApp
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: In the linked incident, are containers killed with SIGKILL after terminationGracePeriodSeconds
+      because PID 1 runs a shell wrapper that does not forward SIGTERM?
+    ko: 연결된 장애에서 컨테이너가 terminationGracePeriodSeconds 이후 SIGKILL로 강제 종료되는 원인이 PID 1 셸 래퍼가 SIGTERM 시그널을
+      하위 프로세스로 전달하지 않기 때문인가요?
+- id: devops-sre.kubernetes-ndots5-dns-query-amplification-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.kubernetes_ndots5_dns_query_amplification_rca
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - PrivateDnsZone
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: Is the elevated external lookup latency in the linked incident caused by default ndots:5 resolver
+      search-domain expansion amplifying CoreDNS queries?
+    ko: 연결된 장애에서 외부 도메인 조회 지연이 증가한 원인이 기본 ndots:5 리졸버 검색 도메인 확장으로 인해 CoreDNS 쿼리가 증폭되었기 때문인가요?
+- id: devops-sre.linux-conntrack-table-exhaustion-packet-drop-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.linux_conntrack_table_exhaustion_packet_drop_rca
+  target_kinds:
+  - KubernetesNode
+  - VirtualMachine
+  - NetworkInterface
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: Did intermittent packet drops on the affected AKS node in this incident result from netfilter
+      nf_conntrack table exhaustion under high short-lived connection churn?
+    ko: 이번 장애에서 영향받은 AKS 노드의 간헐적 패킷 드롭이 단기 연결 급증에 따른 netfilter nf_conntrack 테이블 고갈 때문에 발생했나요?
+- id: devops-sre.vnet-udr-asymmetric-routing-return-drop-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.vnet_udr_asymmetric_routing_return_drop_rca
+  target_kinds:
+  - VirtualNetwork
+  - Subnet
+  - NetworkSecurityGroup
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, are stateful firewall drops occurring because a User-Defined
+      Route (UDR) causes asymmetric return routing across peered subnets?
+    ko: 현재 대화에 연결된 장애에서 상태 저장 방화벽 패킷 드롭이 발생하는 원인이 사용자 정의 경로(UDR)로 인한 피어링 서브넷 간 비대칭 왕복 라우팅 때문인가요?
+- id: devops-sre.network-mtu-mss-blackhole-large-payload-hang-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.network_mtu_mss_blackhole_large_payload_hang_rca
+  target_kinds:
+  - VirtualNetwork
+  - KubernetesNode
+  - NetworkInterface
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: 'Why do small health-check pings succeed while large API payloads stall in the linked incident:
+      an overlay network or tunnel MTU/MSS fragmentation blackhole?'
+    ko: 연결된 장애에서 작은 헬스체크 패킷은 성공하지만 큰 API 페이로드 전송이 멈추는 원인이 오버레이 네트워크나 터널 구간의 MTU·MSS 단편화 블랙홀 때문인가요?
+- id: devops-sre.kubernetes-volume-fsgroup-permission-denied-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.kubernetes_volume_fsgroup_permission_denied_rca
+  target_kinds:
+  - KubernetesPod
+  - ManagedDisk
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: Did the rootless container in the linked incident fail on startup with Permission Denied because
+      the Pod securityContext omits fsGroup ownership for the mounted volume?
+    ko: 연결된 장애의 루트리스(non-root) 컨테이너가 마운트된 볼륨에 대한 Pod securityContext의 fsGroup 소유권 설정 누락으로 인해 Permission
+      Denied 오류로 기동에 실패했나요?
+- id: devops-sre.kubernetes-missing-startup-probe-premature-kill-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.kubernetes_missing_startup_probe_premature_kill_rca
+  target_kinds:
+  - KubernetesPod
+  - Workload
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, is the slow-initializing application stuck in a restart
+      loop because livenessProbe fires before initialization without a startupProbe?
+    ko: 현재 대화에 연결된 장애에서 초기화가 느린 애플리케이션이 재시작 루프에 빠진 원인이 startupProbe 없이 livenessProbe가 초기화 완료 전에 먼저 실행되기
+      때문인가요?
+- id: devops-sre.cache-stampede-ttl-expiry-db-overload-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.cache_stampede_ttl_expiry_db_overload_rca
+  target_kinds:
+  - RedisCache
+  - PostgreSQLFlexibleServer
+  - Workload
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: incident_binding
+  wording:
+    en: Did the sudden database CPU spike in the linked incident result from a cache stampede when a high-traffic
+      key expired simultaneously across all application workers?
+    ko: 연결된 장애에서 발생한 급격한 데이터베이스 CPU 급증이 고트래픽 캐시 키의 동시 TTL 만료로 인한 캐시 스탬피드(thundering herd) 현상 때문인가요?
+- id: devops-sre.ephemeral-port-exhaustion-timewait-leak-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.ephemeral_port_exhaustion_timewait_leak_rca
+  target_kinds:
+  - VirtualMachine
+  - KubernetesPod
+  - NetworkInterface
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: Are outbound connections failing with cannot assign requested address in the linked incident because
+      unpooled HTTP clients exhaust ephemeral ports in TIME_WAIT?
+    ko: 연결된 장애에서 커넥션 풀을 사용하지 않는 HTTP 클라이언트가 TIME_WAIT 상태의 임시 포트를 고갈시켜 아웃바운드 연결 실패가 발생하고 있나요?
+- id: devops-sre.postgres-autovacuum-lag-dead-tuple-bloat-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.postgres_autovacuum_lag_dead_tuple_bloat_rca
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: In the incident linked to this conversation, is query latency degrading because long-running transactions
+      block PostgreSQL autovacuum and accumulate dead tuples?
+    ko: 현재 대화에 연결된 장애에서 장기 실행 트랜잭션이 PostgreSQL autovacuum을 가로막고 데드 튜플(dead tuple)을 누적시켜 쿼리 지연 시간이 악화되고
+      있나요?
+- id: devops-sre.kubernetes-subpath-mount-stale-configmap-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.kubernetes_subpath_mount_stale_configmap_rca
+  target_kinds:
+  - KubernetesPod
+  - Workload
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: 'Why did running Pods not pick up the updated ConfigMap in the linked incident: because the ConfigMap
+      is mounted using subPath or referenced via environment variables?'
+    ko: 연결된 장애에서 ConfigMap을 업데이트했는데도 실행 중인 Pod에 반영되지 않은 원인이 subPath 마운트나 환경 변수 참조 방식을 사용하고 있기 때문인가요?
+- id: devops-sre.container-cpu-cfs-bandwidth-throttling-latency-rca
+  category: root_cause
+  domain: root_cause_analysis
+  intent: devops_sre.container_cpu_cfs_bandwidth_throttling_latency_rca
+  target_kinds:
+  - KubernetesPod
+  - KubernetesNode
+  temporal_scope: current
+  result_shape: assessment
+  required_context: incident_binding
+  wording:
+    en: In the linked incident, are tail-latency spikes occurring despite low average node CPU because
+      multi-threaded containers hit restrictive CPU CFS quota limits?
+    ko: 연결된 장애에서 노드 평균 CPU 사용률은 낮음에도 멀티스레드 컨테이너가 엄격한 CPU CFS 쿼터 상한에 걸려 스로틀링되면서 테일 지연 시간 급증이 발생하고 있나요?
+- id: devops-sre.prometheus-histogram-bucket-p99-accuracy
+  category: metrics_observability
+  domain: capacity_performance_forecast
+  intent: devops_sre.prometheus_histogram_bucket_p99_accuracy
+  target_kinds:
+  - AzureMonitorWorkspace
+  - ManagedGrafana
+  - BusinessService
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which service latency histograms in the authorized scope have most observations falling into the
+      highest +Inf bucket, degrading p99 quantile accuracy?
+    ko: 권한 범위의 서비스 지연 시간 히스토그램 중 관측치 대부분이 최상위 +Inf 버킷에 몰려 있어 p99 분위수 추정 정확도가 떨어지는 메트릭은 무엇인가요?
+- id: devops-sre.container-cfs-throttle-ratio-ranking
+  category: metrics_observability
+  domain: capacity_performance_forecast
+  intent: devops_sre.container_cfs_throttle_ratio_ranking
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Rank AKS containers in the authorized scope by the ratio of throttled CFS periods to total scheduling
+      periods over the past 15 minutes.
+    ko: 지난 15분 동안 전체 스케줄링 주기 대비 CFS 스로틀링 발생 주기 비율이 높은 순서대로 권한 범위의 AKS 컨테이너를 보여 주세요.
+- id: devops-sre.managed-disk-iops-throughput-burst-credit-depletion
+  category: metrics_observability
+  domain: capacity_performance_forecast
+  intent: devops_sre.managed_disk_iops_throughput_burst_credit_depletion
+  target_kinds:
+  - ManagedDisk
+  - VirtualMachine
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Managed Disks currently have elevated I/O await latency or depleted IOPS and bandwidth burst
+      credits in the authorized scope?
+    ko: 권한 범위에서 현재 디스크 I/O 대기 지연(await)이 높거나 IOPS 및 대역폭 버스트 크레딧이 소진된 Managed Disk는 무엇인가요?
+- id: devops-sre.coredns-latency-servfail-and-cache-hit-ratio
+  category: metrics_observability
+  domain: capacity_performance_forecast
+  intent: devops_sre.coredns_latency_servfail_and_cache_hit_ratio
+  target_kinds:
+  - KubernetesCluster
+  - PrivateDnsZone
+  temporal_scope: comparison
+  result_shape: comparison
+  required_context: server_scope
+  wording:
+    en: Compare CoreDNS p99 response latency, SERVFAIL rate, and cache hit ratio across AKS clusters against
+      their reviewed baseline.
+    ko: AKS 클러스터 전반의 CoreDNS p99 응답 지연 시간, SERVFAIL 비율, 캐시 적중률을 검토된 기준선과 비교해 주세요.
+- id: devops-sre.alert-flapping-and-noise-ratio-evaluation
+  category: metrics_observability
+  domain: reliability_policy_automation
+  intent: devops_sre.alert_flapping_and_noise_ratio_evaluation
+  target_kinds:
+  - SmartDetectorAlertRule
+  - AzureMonitorWorkspace
+  temporal_scope: historical
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which metric alerts transitioned between firing and resolved states more than 6 times in the past
+      hour, indicating alert flapping or noisy thresholds?
+    ko: 지난 1시간 동안 발생(firing)과 해소(resolved) 상태 전이를 6회 이상 반복하여 알림 플래핑이나 임계치 노이즈를 보이는 메트릭 경보는 무엇인가요?
+- id: devops-sre.distributed-trace-context-propagation-gaps
+  category: metrics_observability
+  domain: state_incident_detection
+  intent: devops_sre.distributed_trace_context_propagation_gaps
+  target_kinds:
+  - ApplicationInsightsComponent
+  - BusinessService
+  - Workload
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which service-to-service hops in Application Insights show broken W3C traceparent context propagation
+      or a surge in unparented root spans?
+    ko: Application Insights의 서비스 간 호출 구간 중 W3C traceparent 컨텍스트 전파가 끊기거나 부모 없는 루트 스팬이 급증한 구간은 어디인가요?
+- id: devops-sre.kube-apiserver-webhook-admission-latency
+  category: metrics_observability
+  domain: capacity_performance_forecast
+  intent: devops_sre.kube_apiserver_webhook_admission_latency
+  target_kinds:
+  - KubernetesCluster
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Rank validating and mutating admission webhooks in AKS by p99 evaluation latency and timeout rejection
+      rate.
+    ko: AKS의 검증(validating) 및 변형(mutating) 어드미션 웹훅을 p99 평가 지연 시간과 타임아웃 거부 비율 순으로 보여 주세요.
+- id: devops-sre.synthetic-probe-vs-ingress-availability-divergence
+  category: metrics_observability
+  domain: state_incident_detection
+  intent: devops_sre.synthetic_probe_vs_ingress_availability_divergence
+  target_kinds:
+  - ApplicationGateway
+  - ApplicationInsightsComponent
+  - BusinessService
+  temporal_scope: comparison
+  result_shape: comparison
+  required_context: server_scope
+  wording:
+    en: Are any services showing 100% synthetic health-probe success while live ingress traffic reports
+      elevated 5xx or client timeout rates?
+    ko: 합성 헬스 프로브는 100% 정상으로 나타나지만 실제 인그레스 트래픽에서는 5xx 오류나 클라이언트 타임아웃 비율이 높게 나타나는 서비스가 있나요?
+- id: devops-sre.aks-init-container-failure-blocking-startup
+  category: aks_kubernetes
+  domain: root_cause_analysis
+  intent: devops_sre.aks_init_container_failure_blocking_startup
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which AKS Pods are currently blocked in Init:Error or Init:CrashLoopBackOff before their application
+      containers can start?
+    ko: 애플리케이션 컨테이너가 시작되기 전 Init:Error 또는 Init:CrashLoopBackOff 상태에 막혀 있는 AKS Pod는 무엇인가요?
+- id: devops-sre.aks-topology-spread-and-pod-antiaffinity-skew
+  category: aks_kubernetes
+  domain: reliability_policy_automation
+  intent: devops_sre.aks_topology_spread_and_pod_antiaffinity_skew
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - KubernetesNode
+  temporal_scope: current
+  result_shape: comparison
+  required_context: server_scope
+  wording:
+    en: Which multi-replica AKS Deployments lack topologySpreadConstraints or podAntiAffinity rules and
+      have all replicas concentrated in a single availability zone or node?
+    ko: 다중 레플리카 AKS Deployment 중 topologySpreadConstraints나 podAntiAffinity 규칙이 없어 모든 레플리카가 단일 가용 영역이나
+      단일 노드에 몰려 있는 워크로드는 무엇인가요?
+- id: devops-sre.aks-priorityclass-preemption-eviction-events
+  category: aks_kubernetes
+  domain: state_incident_detection
+  intent: devops_sre.aks_priorityclass_preemption_eviction_events
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: server_scope
+  wording:
+    en: Which lower-priority AKS Pods were preempted or evicted during the past 60 minutes to make room
+      for higher PriorityClass workloads?
+    ko: 지난 60분 동안 더 높은 PriorityClass 워크로드의 리소스 확보를 위해 선점(preemption)되거나 축출된 하위 우선순위 AKS Pod는 무엇인가요?
+- id: devops-sre.aks-hpa-failed-metric-computation-status
+  category: aks_kubernetes
+  domain: state_incident_detection
+  intent: devops_sre.aks_hpa_failed_metric_computation_status
+  target_kinds:
+  - KubernetesCluster
+  - Workload
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any HorizontalPodAutoscalers in the authorized scope reporting ScalingActive=False or FailedGetResourceMetric
+      because metrics-server or Pod resource requests are missing?
+    ko: 권한 범위의 HorizontalPodAutoscaler(HPA) 중 metrics-server 장애나 Pod 리소스 request 누락으로 인해 ScalingActive=False
+      또는 FailedGetResourceMetric을 보고하는 항목이 있나요?
+- id: devops-sre.aks-cronjob-missed-schedule-and-failed-history
+  category: aks_kubernetes
+  domain: state_incident_detection
+  intent: devops_sre.aks_cronjob_missed_schedule_and_failed_history
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - Workload
+  temporal_scope: historical
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Kubernetes CronJobs missed scheduled runs, exceeded startingDeadlineSeconds, or accumulated
+      failed Job Pods in the past 24 hours?
+    ko: 지난 24시간 동안 예약 실행을 놓쳤거나, startingDeadlineSeconds를 초과했거나, 실패한 Job Pod가 누적된 Kubernetes CronJob은 무엇인가요?
+- id: devops-sre.aks-ingress-tls-secret-and-route-collision
+  category: aks_kubernetes
+  domain: dependency_impact
+  intent: devops_sre.aks_ingress_tls_secret_and_route_collision
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesIngress
+  - KubernetesService
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Do any Kubernetes Ingress resources reference missing TLS Secrets, non-existent backend service
+      ports, or conflicting host and path rules?
+    ko: 존재하지 않는 TLS Secret이나 백엔드 서비스 포트를 참조하거나 호스트 및 경로 규칙이 충돌하는 Kubernetes Ingress 리소스가 있나요?
+- id: devops-sre.aks-service-external-traffic-policy-local-imbalance
+  category: aks_kubernetes
+  domain: dependency_impact
+  intent: devops_sre.aks_service_external_traffic_policy_local_imbalance
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesService
+  - LoadBalancer
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: 'Which LoadBalancer Services use externalTrafficPolicy: Local on nodes that currently host zero
+      local Pod endpoints, causing health-probe drops?'
+    ko: 'externalTrafficPolicy: Local이 설정된 LoadBalancer Service 중 로컬 Pod 엔드포인트가 없는 노드로 인해 헬스 프로브 드롭이나
+      트래픽 불균형이 발생하는 서비스는 무엇인가요?'
+- id: devops-sre.aks-container-security-context-capabilities-audit
+  category: aks_kubernetes
+  domain: reliability_policy_automation
+  intent: devops_sre.aks_container_security_context_capabilities_audit
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which running AKS containers omit runAsNonRoot, allowPrivilegeEscalation=false, readOnlyRootFilesystem,
+      or Linux capability drops?
+    ko: 실행 중인 AKS 컨테이너 중 runAsNonRoot, allowPrivilegeEscalation=false, readOnlyRootFilesystem 또는 Linux
+      capability 제거 설정이 누락된 컨테이너는 무엇인가요?
+- id: devops-sre.aks-namespace-stuck-terminating-finalizers
+  category: aks_kubernetes
+  domain: root_cause_analysis
+  intent: devops_sre.aks_namespace_stuck_terminating_finalizers
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNamespace
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any Kubernetes namespaces stuck in Terminating state due to unresolved resource finalizers
+      or unavailable APIService extensions?
+    ko: 해소되지 않은 리소스 파이널라이저(finalizer)나 응답하지 않는 APIService 확장 때문에 Terminating 상태에 멈춰 있는 Kubernetes 네임스페이스가
+      있나요?
+- id: devops-sre.aks-kube-proxy-sync-rules-latency
+  category: aks_kubernetes
+  domain: capacity_performance_forecast
+  intent: devops_sre.aks_kube_proxy_sync_rules_latency
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNode
+  - KubernetesService
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Are any AKS nodes experiencing high kube-proxy iptables or IPVS rule synchronization latency when
+      Service endpoints change?
+    ko: Service 엔드포인트가 변경될 때 kube-proxy의 iptables 또는 IPVS 규칙 동기화 지연 시간이 높게 나타나는 AKS 노드가 있나요?
+- id: devops-sre.aks-workload-identity-federated-token-health
+  category: aks_kubernetes
+  domain: reliability_policy_automation
+  intent: devops_sre.aks_workload_identity_federated_token_health
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - ManagedIdentity
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any AKS Pods failing Entra Workload Identity token exchange due to missing service-account
+      annotations, OIDC issuer mismatch, or federated credential drift?
+    ko: 서비스 어카운트 어노테이션 누락, OIDC 발급자 불일치 또는 페더레이션 자격 증명 드리프트로 인해 Entra 워크로드 ID 토큰 교환에 실패하는 AKS Pod가 있나요?
+- id: devops-sre.aks-emptydir-memory-tmpfs-oom-exposure
+  category: aks_kubernetes
+  domain: capacity_performance_forecast
+  intent: devops_sre.aks_emptydir_memory_tmpfs_oom_exposure
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which AKS Pods use memory-backed emptyDir (tmpfs) volumes without a sizeLimit, risking container
+      OOM kills when temporary files grow?
+    ko: sizeLimit 설정 없이 메모리 기반 emptyDir(tmpfs) 볼륨을 사용하여 임시 파일 증가 시 컨테이너 OOM 종료 위험이 있는 AKS Pod는 무엇인가요?
+- id: devops-sre.appgw-waf-rule-block-spike-analysis
+  category: azure_infrastructure_network
+  domain: state_incident_detection
+  intent: devops_sre.appgw_waf_rule_block_spike_analysis
+  target_kinds:
+  - ApplicationGateway
+  - BusinessService
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Application Gateway WAF rules generated the largest increase in blocked requests over the
+      past 30 minutes, and which backend routes were targeted?
+    ko: 지난 30분 동안 차단 요청 증가 폭이 가장 큰 Application Gateway WAF 규칙은 무엇이며, 어떤 백엔드 경로가 대상이 되었나요?
+- id: devops-sre.vnet-subnet-available-ip-exhaustion-check
+  category: azure_infrastructure_network
+  domain: capacity_performance_forecast
+  intent: devops_sre.vnet_subnet_available_ip_exhaustion_check
+  target_kinds:
+  - VirtualNetwork
+  - Subnet
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Rank all VNet subnets in the authorized scope by available IP address headroom, highlighting subnets
+      with fewer than 15% free addresses.
+    ko: 권한 범위의 모든 VNet 서브넷을 사용 가능한 IP 주소 여유율 순으로 나열하고, 가용 주소가 15% 미만인 서브넷을 강조해 주세요.
+- id: devops-sre.hub-firewall-network-application-rule-denies
+  category: azure_infrastructure_network
+  domain: root_cause_analysis
+  intent: devops_sre.hub_firewall_network_application_rule_denies
+  target_kinds:
+  - VirtualNetwork
+  - NetworkSecurityGroup
+  - Workload
+  temporal_scope: historical
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which spoke-to-spoke or outbound flows were denied by hub firewall network or application rules
+      during the past hour?
+    ko: 지난 1시간 동안 허브 방화벽의 네트워크 규칙이나 애플리케이션 규칙에 의해 거부된 스포크 간 또는 아웃바운드 트래픽 흐름은 무엇인가요?
+- id: devops-sre.hybrid-gateway-bgp-route-flap-and-tunnel-drops
+  category: azure_infrastructure_network
+  domain: state_incident_detection
+  intent: devops_sre.hybrid_gateway_bgp_route_flap_and_tunnel_drops
+  target_kinds:
+  - VirtualNetwork
+  - PublicIPAddress
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: server_scope
+  wording:
+    en: Did any hybrid VPN or ExpressRoute gateways experience BGP peer route flaps or tunnel packet drops
+      over the past 60 minutes?
+    ko: 지난 60분 동안 하이브리드 VPN이나 ExpressRoute 게이트웨이에서 BGP 피어 경로 플래핑이나 터널 패킷 드롭이 발생했나요?
+- id: devops-sre.vnet-ddos-protection-coverage-posture
+  category: azure_infrastructure_network
+  domain: reliability_policy_automation
+  intent: devops_sre.vnet_ddos_protection_coverage_posture
+  target_kinds:
+  - VirtualNetwork
+  - PublicIPAddress
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which virtual networks hosting public IP endpoints lack an attached Azure DDoS Protection plan?
+    ko: 공인 IP 엔드포인트를 호스팅하는 가상 네트워크 중 Azure DDoS Protection 플랜이 연결되지 않은 네트워크는 무엇인가요?
+- id: devops-sre.azure-policy-noncompliant-resource-assignments
+  category: azure_infrastructure_network
+  domain: reliability_policy_automation
+  intent: devops_sre.azure_policy_noncompliant_resource_assignments
+  target_kinds:
+  - PolicyAssignment
+  - AzureResource
+  - ResourceGroup
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which active Azure Policy assignments have the highest count of non-compliant resources in the
+      authorized scope?
+    ko: 권한 범위에서 비준수(non-compliant) 리소스 수가 가장 많은 활성 Azure Policy 할당은 무엇인가요?
+- id: devops-sre.subscription-regional-quota-utilization-headroom
+  category: azure_infrastructure_network
+  domain: capacity_performance_forecast
+  intent: devops_sre.subscription_regional_quota_utilization_headroom
+  target_kinds:
+  - Subscription
+  - VirtualMachineScaleSet
+  - KubernetesCluster
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which regional subscription quotas for vCPU families, Public IPs, or network rules are above 80%
+      utilization and could block failover or scale-out?
+    ko: vCPU 패밀리, 공인 IP 또는 네트워크 규칙에 대한 리전별 구독 쿼터 중 사용률이 80%를 초과하여 페일오버나 스케일 아웃을 차단할 수 있는 항목은 무엇인가요?
+- id: devops-sre.standing-management-access-vs-bastion-posture
+  category: azure_infrastructure_network
+  domain: reliability_policy_automation
+  intent: devops_sre.standing_management_access_vs_bastion_posture
+  target_kinds:
+  - VirtualMachine
+  - BastionHost
+  - NetworkSecurityGroup
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which virtual machines expose standing public management ports instead of routing administrative
+      access exclusively through Bastion or Just-In-Time rules?
+    ko: 관리자 접근을 Bastion이나 적시(JIT) 접근 규칙으로만 제한하지 않고 상시 공인 관리 포트를 노출하고 있는 가상 머신은 무엇인가요?
+- id: devops-sre.database-pitr-window-and-wal-archive-health
+  category: database_storage
+  domain: reliability_policy_automation
+  intent: devops_sre.database_pitr_window_and_wal_archive_health
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: What is the earliest Point-in-Time Restore (PITR) timestamp and transaction-log archive health
+      for each production database in the authorized scope?
+    ko: 권한 범위 내 각 운영 데이터베이스의 가장 빠른 특정 시점 복원(PITR) 가능 시각과 트랜잭션 로그 아카이브 상태는 어떠한가요?
+- id: devops-sre.postgres-pgbouncer-pool-wait-and-saturation
+  category: database_storage
+  domain: capacity_performance_forecast
+  intent: devops_sre.postgres_pgbouncer_pool_wait_and_saturation
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - Workload
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Are any PostgreSQL Flexible Server instances experiencing queued client waits in PgBouncer connection
+      pools or exhausting backend server connections?
+    ko: PgBouncer 커넥션 풀에서 클라이언트 대기열 지연이 발생하거나 백엔드 서버 연결 한도를 소진하고 있는 PostgreSQL Flexible Server 인스턴스가 있나요?
+- id: devops-sre.redis-maxmemory-policy-and-fragmentation-ratio
+  category: database_storage
+  domain: reliability_policy_automation
+  intent: devops_sre.redis_maxmemory_policy_and_fragmentation_ratio
+  target_kinds:
+  - RedisCache
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Redis caches use a noeviction maxmemory policy that returns write errors when full, or have
+      a memory fragmentation ratio above 1.5?
+    ko: 메모리 포화 시 쓰기 오류를 반환하는 noeviction 정책을 사용 중이거나 메모리 단편화 비율이 1.5를 초과한 Redis 캐시는 무엇인가요?
+- id: devops-sre.storage-shared-key-disabled-entra-rbac-posture
+  category: database_storage
+  domain: reliability_policy_automation
+  intent: devops_sre.storage_shared_key_disabled_entra_rbac_posture
+  target_kinds:
+  - StorageAccount
+  - ManagedIdentity
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Storage Accounts still permit shared-key authentication instead of enforcing Entra ID RBAC
+      authorization exclusively?
+    ko: Entra ID RBAC 권한 부여만 강제하지 않고 여전히 공유 키(Shared Key) 인증을 허용하고 있는 Storage Account는 무엇인가요?
+- id: devops-sre.database-failover-group-readiness-posture
+  category: database_storage
+  domain: reliability_policy_automation
+  intent: devops_sre.database_failover_group_readiness_posture
+  target_kinds:
+  - SqlDatabase
+  - PostgreSQLFlexibleServer
+  temporal_scope: current
+  result_shape: assessment
+  required_context: server_scope
+  wording:
+    en: Verify failover-group partner synchronization state and read-write listener grace-period configuration
+      across multi-region databases.
+    ko: 다중 리전 데이터베이스 전반의 장애 조치(failover) 그룹 파트너 동기화 상태와 읽기/쓰기 리스너 유예 시간 설정을 확인해 주세요.
+- id: devops-sre.database-temp-tablespace-spill-surge
+  category: database_storage
+  domain: capacity_performance_forecast
+  intent: devops_sre.database_temp_tablespace_spill_surge
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which databases experienced a surge in temporary disk file spills from large unindexed sort or
+      hash-join queries over the past hour?
+    ko: 지난 1시간 동안 인덱스가 없는 대규모 정렬이나 해시 조인 쿼리로 인해 임시 디스크 파일 쓰기(temp spill)가 급증한 데이터베이스는 무엇인가요?
+- id: devops-sre.keyvault-secret-rotation-policy-and-expiry
+  category: database_storage
+  domain: reliability_policy_automation
+  intent: devops_sre.keyvault_secret_rotation_policy_and_expiry
+  target_kinds:
+  - KeyVault
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Key Vault secrets or keys lack an automated rotation policy or have not been rotated within
+      their 90-day compliance window?
+    ko: 자동 교체 정책이 누락되었거나 90일 규정 준수 기간 내에 교체되지 않은 Key Vault 시크릿 또는 키는 무엇인가요?
+- id: devops-sre.storage-geo-replication-last-sync-lag
+  category: database_storage
+  domain: state_incident_detection
+  intent: devops_sre.storage_geo_replication_last_sync_lag
+  target_kinds:
+  - StorageAccount
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: For geo-redundant Storage Accounts, what is the current last-sync time lag to the secondary region,
+      and do any accounts exceed their RPO target?
+    ko: 지역 중복(GRS/RA-GRS) Storage Account의 보조 리전 마지막 동기화 지연 시간은 얼마이며, 목표 RPO를 초과한 계정이 있나요?
+- id: devops-sre.finops-reservation-and-savings-plan-utilization
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_reservation_and_savings_plan_utilization
+  target_kinds:
+  - Subscription
+  - SizingRecommendation
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which compute Reservations or Savings Plans have utilization below 85% over the past 7 days due
+      to workload SKU changes or deallocations?
+    ko: 워크로드 SKU 변경이나 할당 해제로 인해 지난 7일간 활용률이 85% 미만으로 떨어진 컴퓨팅 예약(Reservation)이나 절감 플랜(Savings Plan)은 무엇인가요?
+- id: devops-sre.finops-idle-load-balancers-and-gateways-waste
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_idle_load_balancers_and_gateways_waste
+  target_kinds:
+  - ApplicationGateway
+  - LoadBalancer
+  - PublicIPAddress
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Application Gateways or Standard Load Balancers have zero active backend targets or near-zero
+      request volume while incurring hourly fixed charges?
+    ko: 활성 백엔드 대상이 없거나 처리 트래픽이 거의 없음에도 시간당 고정 비용을 발생시키고 있는 유휴 Application Gateway 또는 Load Balancer는 무엇인가요?
+- id: devops-sre.finops-nonprod-compute-offhours-scheduling-waste
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_nonprod_compute_offhours_scheduling_waste
+  target_kinds:
+  - VirtualMachine
+  - VirtualMachineScaleSet
+  - KubernetesCluster
+  temporal_scope: historical
+  result_shape: ranked_list
+  required_context: server_scope
+  safety:
+    action_posture: advise_only
+    execution_authority: false
+  wording:
+    en: Which development or test compute resources remained running continuously during nights and weekends
+      with under 5% CPU utilization?
+    ko: 야간 및 주말 시간대에 CPU 사용률이 5% 미만인 상태로 계속 실행되어 비용을 낭비한 개발·테스트 환경 컴퓨팅 리소스는 무엇인가요?
+- id: devops-sre.finops-overprovisioned-disk-sku-iops-waste
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_overprovisioned_disk_sku_iops_waste
+  target_kinds:
+  - ManagedDisk
+  - SizingRecommendation
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Premium SSD or Ultra Disk volumes used less than 20% of their provisioned IOPS and throughput
+      capacity over the past 14 days?
+    ko: 지난 14일 동안 프로비저닝된 IOPS 및 처리량 용량의 20% 미만을 사용한 과다 프로비저닝 Premium SSD 또는 Ultra Disk 볼륨은 무엇인가요?
+- id: devops-sre.finops-nat-gateway-and-peering-processing-cost
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_nat_gateway_and_peering_processing_cost
+  target_kinds:
+  - VirtualNetwork
+  - StorageAccount
+  - ContainerRegistry
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which NAT Gateways or VNet peerings incur high per-GB data processing charges because traffic
+      to Storage or ACR traverses public paths instead of Private Endpoints?
+    ko: Storage나 컨테이너 레지스트리로 향하는 트래픽이 프라이빗 엔드포인트 대신 공용 경로를 통과하여 높은 GB당 데이터 처리 비용을 유발하는 NAT Gateway나 VNet
+      피어링은 어디인가요?
+- id: devops-sre.finops-acr-untagged-stale-image-retention-cost
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_acr_untagged_stale_image_retention_cost
+  target_kinds:
+  - ContainerRegistry
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Container Registries lack an automated retention policy to purge untagged manifests and
+      stale container image layers?
+    ko: 태그 없는 매니페스트와 오래된 컨테이너 이미지 레이어를 자동 정리하는 보존 정책이 누락되어 스토리지 비용이 누적되는 컨테이너 레지스트리는 무엇인가요?
+- id: devops-sre.finops-log-analytics-table-retention-tiering
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_log_analytics_table_retention_tiering
+  target_kinds:
+  - LogAnalyticsWorkspace
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which high-volume Log Analytics tables retain verbose diagnostic logs in the Analytics tier instead
+      of Basic logs or archive retention?
+    ko: 대용량 Log Analytics 테이블 중 상세 진단 로그를 Basic 로그나 아카이브 티어로 전환하지 않고 고비용 Analytics 티어에 보관 중인 테이블은 무엇인가요?
+- id: devops-sre.finops-database-vcore-rightsizing-candidates
+  category: cost_finops
+  domain: cost_finops
+  intent: devops_sre.finops_database_vcore_rightsizing_candidates
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  - SizingRecommendation
+  temporal_scope: comparison
+  result_shape: ranked_list
+  required_context: server_scope
+  safety:
+    action_posture: advise_only
+    execution_authority: false
+  wording:
+    en: Which database instances maintained peak CPU and memory utilization below 30% over the past 30
+      days and are candidates for vCore right-sizing?
+    ko: 지난 30일 동안 피크 CPU 및 메모리 사용률이 30% 미만으로 유지되어 vCore 적정 규모 조정(right-sizing) 후보가 되는 데이터베이스 인스턴스는 무엇인가요?
+- id: devops-sre.scaling-keda-queue-lag-vs-pod-startup-time
+  category: capacity_scaling
+  domain: capacity_performance_forecast
+  intent: devops_sre.scaling_keda_queue_lag_vs_pod_startup_time
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - ServiceBusNamespace
+  temporal_scope: comparison
+  result_shape: comparison
+  required_context: server_scope
+  wording:
+    en: For queue-driven workloads, compare KEDA scale-out trigger latency and Pod cold-start duration
+      against message queue arrival bursts.
+    ko: 큐 기반 워크로드에 대해 메시지 유입 급증 속도 대비 KEDA 스케일 아웃 트리거 반응 지연과 Pod 콜드 스타트 소요 시간을 비교해 주세요.
+- id: devops-sre.scaling-cluster-autoscaler-max-node-ceiling
+  category: capacity_scaling
+  domain: capacity_performance_forecast
+  intent: devops_sre.scaling_cluster_autoscaler_max_node_ceiling
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNode
+  - VirtualMachineScaleSet
+  temporal_scope: current
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which AKS node pools are currently operating at or within one node of their Cluster Autoscaler
+      maxCount ceiling?
+    ko: 현재 Cluster Autoscaler의 최대 노드 수(maxCount) 상한에 도달했거나 여유 노드가 1대 이하인 AKS 노드 풀은 어디인가요?
+- id: devops-sre.scaling-cluster-autoscaler-scaledown-blockers
+  category: capacity_scaling
+  domain: capacity_performance_forecast
+  intent: devops_sre.scaling_cluster_autoscaler_scaledown_blockers
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNode
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which underutilized AKS nodes cannot be scaled down by Cluster Autoscaler due to non-daemonset
+      local storage Pods, restrictive PDBs, or safe-to-evict=false annotations?
+    ko: 사용률이 낮음에도 로컬 스토리지 사용 Pod, 엄격한 PDB, 또는 safe-to-evict=false 어노테이션 때문에 Cluster Autoscaler가 축소(scale-down)하지
+      못하는 AKS 노드는 어디인가요?
+- id: devops-sre.scaling-pod-scaleout-exceeding-db-connection-limit
+  category: capacity_scaling
+  domain: dependency_impact
+  intent: devops_sre.scaling_pod_scaleout_exceeding_db_connection_limit
+  target_kinds:
+  - KubernetesCluster
+  - Workload
+  - PostgreSQLFlexibleServer
+  temporal_scope: current
+  result_shape: assessment
+  required_context: server_scope
+  wording:
+    en: If each HPA-managed service scales to its configured maxReplicas, which downstream databases would
+      have their max_connections limit exceeded by aggregate pool sizes?
+    ko: HPA가 관리하는 각 서비스가 최대 레플리카(maxReplicas)까지 확장될 경우, 합산 커넥션 풀 크기가 데이터베이스 max_connections 한도를 초과하게 되는
+      하위 데이터베이스는 무엇인가요?
+- id: devops-sre.scaling-prewarmed-headroom-for-flash-spikes
+  category: capacity_scaling
+  domain: capacity_performance_forecast
+  intent: devops_sre.scaling_prewarmed_headroom_for_flash_spikes
+  target_kinds:
+  - KubernetesCluster
+  - VirtualMachineScaleSet
+  - Workload
+  temporal_scope: current
+  result_shape: assessment
+  required_context: server_scope
+  wording:
+    en: Do latency-critical services maintain enough warm standby replica headroom to absorb a 2x traffic
+      surge while new nodes provision?
+    ko: 지연 시간에 민감한 핵심 서비스들이 신규 노드 프로비저닝이 완료되는 동안 2배의 트래픽 급증을 흡수할 수 있는 예열(warm) 예비 레플리카 여유분을 확보하고 있나요?
+- id: devops-sre.scaling-multimetric-hpa-stabilization-posture
+  category: capacity_scaling
+  domain: reliability_policy_automation
+  intent: devops_sre.scaling_multimetric_hpa_stabilization_posture
+  target_kinds:
+  - KubernetesCluster
+  - Workload
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which HorizontalPodAutoscalers combine CPU and custom metrics without a scaleDown stabilizationWindowSeconds
+      policy to prevent premature scale-in?
+    ko: CPU와 커스텀 메트릭을 함께 사용하는 HorizontalPodAutoscaler 중 성급한 축소를 방지하기 위한 scaleDown stabilizationWindowSeconds
+      정책이 누락된 항목은 무엇인가요?
+- id: devops-sre.predict-subnet-ip-exhaustion-under-scaleout
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_subnet_ip_exhaustion_under_scaleout
+  target_kinds:
+  - VirtualNetwork
+  - Subnet
+  - KubernetesCluster
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Based on current pod and node growth trends, which VNet subnets are forecast to run out of allocatable
+      IP addresses within the next 7 days?
+    ko: 현재 Pod 및 노드 증가 추세를 기준으로 향후 7일 이내에 할당 가능한 IP 주소가 고갈될 것으로 예측되는 VNet 서브넷은 어디인가요?
+- id: devops-sre.predict-tls-certificate-expiry-impact-window
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_tls_certificate_expiry_impact_window
+  target_kinds:
+  - KeyVault
+  - ApplicationGateway
+  - KubernetesIngress
+  temporal_scope: forecast
+  result_shape: timeline
+  required_context: server_scope
+  wording:
+    en: Project the upcoming timeline of TLS certificate expirations over the next 45 days and the dependent
+      public endpoints that will fail if auto-renewal does not complete.
+    ko: 향후 45일 동안 도래하는 TLS 인증서 만료 일정과 자동 갱신이 완료되지 않을 경우 장애가 발생할 의존 공용 엔드포인트를 예측해 보여 주세요.
+- id: devops-sre.predict-monthly-budget-overrun-date
+  category: prediction
+  domain: cost_finops
+  intent: devops_sre.predict_monthly_budget_overrun_date
+  target_kinds:
+  - Budget
+  - Subscription
+  - ResourceGroup
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: From the current 7-day amortized spend velocity, forecast the exact date each subscription or
+      resource group will cross 100% of its monthly budget.
+    ko: 최근 7일간의 상각 비용 지출 속도를 기준으로 각 구독이나 리소스 그룹이 월간 예산의 100%를 초과하게 될 예상 날짜를 예측해 주세요.
+- id: devops-sre.predict-stream-consumer-lag-slo-breach
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_stream_consumer_lag_slo_breach
+  target_kinds:
+  - EventHubNamespace
+  - ServiceBusNamespace
+  - Workload
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: At the current producer-to-consumer throughput deficit, which event streaming pipelines are forecast
+      to breach their processing freshness SLO within 2 hours?
+    ko: 현재 프로듀서 대비 컨슈머 처리량 부족 추세가 지속될 때 향후 2시간 이내에 데이터 처리 최신성 SLO를 위반할 것으로 예측되는 스트리밍 파이프라인은 무엇인가요?
+- id: devops-sre.predict-disk-burst-credit-exhaustion-time
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_disk_burst_credit_exhaustion_time
+  target_kinds:
+  - ManagedDisk
+  - VirtualMachine
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Managed Disks consuming burst IOPS above their baseline tier are forecast to exhaust their
+      burst credit balance within the next 4 hours?
+    ko: 기본 티어 이상의 버스트 IOPS를 소모 중인 Managed Disk 중 향후 4시간 이내에 버스트 크레딧 잔량이 고갈될 것으로 예측되는 디스크는 무엇인가요?
+- id: devops-sre.predict-snat-port-exhaustion-during-batch
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_snat_port_exhaustion_during_batch
+  target_kinds:
+  - LoadBalancer
+  - PublicIPAddress
+  - VirtualNetwork
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Based on outbound connection growth slopes, which load balancer outbound rules or NAT paths are
+      forecast to hit SNAT port exhaustion within 60 minutes?
+    ko: 아웃바운드 연결 증가 기울기를 기준으로 향후 60분 이내에 SNAT 포트 고갈에 도달할 것으로 예측되는 로드밸런서 아웃바운드 규칙이나 NAT 경로는 어디인가요?
+- id: devops-sre.predict-namespace-quota-exhaustion-horizon
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_namespace_quota_exhaustion_horizon
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesNamespace
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Which Kubernetes namespaces are forecast to exhaust their CPU, memory, or Pod count ResourceQuota
+      under scheduled autoscaling within 24 hours?
+    ko: 예정된 오토스케일링 추세에 따라 향후 24시간 이내에 CPU, 메모리 또는 Pod 수 ResourceQuota가 소진될 것으로 예측되는 Kubernetes 네임스페이스는
+      어디인가요?
+- id: devops-sre.predict-postgres-xid-wraparound-threshold
+  category: prediction
+  domain: capacity_performance_forecast
+  intent: devops_sre.predict_postgres_xid_wraparound_threshold
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  temporal_scope: forecast
+  result_shape: ranked_list
+  required_context: server_scope
+  wording:
+    en: Based on transaction ID consumption and autovacuum freeze progress, are any PostgreSQL servers
+      forecast to approach XID wraparound protection thresholds?
+    ko: 트랜잭션 ID 소모 속도와 autovacuum 동결(freeze) 진행률을 볼 때 XID 랩어라운드 보호 임계치에 근접할 것으로 예측되는 PostgreSQL 서버가 있나요?
+- id: devops-sre.shared-nat-gateway-egress-ip-blast-radius
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.shared_nat_gateway_egress_ip_blast_radius
+  target_kinds:
+  - VirtualNetwork
+  - PublicIPAddress
+  - Workload
+  temporal_scope: current
+  result_shape: graph
+  required_context: server_scope
+  wording:
+    en: Which workloads and subnets share the same outbound NAT Gateway or egress Public IP and would
+      be simultaneously rate-limited by external third-party APIs?
+    ko: 동일한 아웃바운드 NAT Gateway나 송신 공인 IP를 공유하고 있어 외부 서드파티 API의 IP 속도 제한 시 동시에 영향을 받는 워크로드와 서브넷은 무엇인가요?
+- id: devops-sre.identity-oidc-issuer-dependency-blast-radius
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.identity_oidc_issuer_dependency_blast_radius
+  target_kinds:
+  - ManagedIdentity
+  - KubernetesCluster
+  - BusinessService
+  temporal_scope: current
+  result_shape: graph
+  required_context: server_scope
+  wording:
+    en: Map all workloads and services that depend on the cluster OIDC token issuer and Managed Identity
+      federation for database and Key Vault access.
+    ko: 데이터베이스 및 Key Vault 접근을 위해 클러스터 OIDC 토큰 발급자와 관리 ID 페더레이션에 의존하는 모든 워크로드와 서비스를 매핑해 주세요.
+- id: devops-sre.shared-redis-cluster-noisy-neighbor-impact
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.shared_redis_cluster_noisy_neighbor_impact
+  target_kinds:
+  - RedisCache
+  - BusinessService
+  - Workload
+  temporal_scope: current
+  result_shape: graph
+  required_context: server_scope
+  wording:
+    en: Which independent business services share the same Redis cache instance and are exposed to noisy-neighbor
+      memory eviction or single-threaded command blocking?
+    ko: 동일한 Redis 캐시 인스턴스를 공유하고 있어 이웃 워크로드(noisy neighbor)의 메모리 축출이나 단일 스레드 명령 블로킹에 노출된 비즈니스 서비스는 무엇인가요?
+- id: devops-sre.registry-outage-imagepullpolicy-always-impact
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.registry_outage_imagepullpolicy_always_impact
+  target_kinds:
+  - ContainerRegistry
+  - KubernetesCluster
+  - KubernetesPod
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: 'Which critical AKS workloads configure imagePullPolicy: Always and would fail Pod rescheduling
+      during a Container Registry outage even when images are cached on nodes?'
+    ko: '노드에 이미지가 캐시되어 있어도 컨테이너 레지스트리 장애 시 Pod 재스케줄링이 실패하도록 imagePullPolicy: Always로 설정된 핵심 AKS 워크로드는
+      무엇인가요?'
+- id: devops-sre.cross-zone-sync-replication-write-latency-impact
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.cross_zone_sync_replication_write_latency_impact
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  - BusinessService
+  temporal_scope: current
+  result_shape: graph
+  required_context: server_scope
+  wording:
+    en: Which latency-sensitive write services depend on synchronous cross-availability-zone database
+      commit acknowledgment and would be impacted by inter-zone network jitter?
+    ko: 가용 영역 간 동기식 데이터베이스 커밋 응답에 의존하고 있어 영역 간 네트워크 지터 발생 시 쓰기 지연 영향을 받는 서비스는 무엇인가요?
+- id: devops-sre.admission-webhook-failure-policy-blast-radius
+  category: dependency_impact
+  domain: dependency_impact
+  intent: devops_sre.admission_webhook_failure_policy_blast_radius
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - Workload
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: 'Which admission webhooks in AKS set failurePolicy: Fail without high-availability replicas, risking
+      a cluster-wide Pod creation block if the webhook Pod is unavailable?'
+    ko: '고가용성 레플리카 없이 failurePolicy: Fail로 설정되어 웹훅 Pod 장애 시 클러스터 전체 Pod 생성을 차단할 위험이 있는 AKS 어드미션 웹훅은 무엇인가요?'
+- id: devops-sre.rollingupdate-maxunavailable-maxsurge-safety-check
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.rollingupdate_maxunavailable_maxsurge_safety_check
+  target_kinds:
+  - KubernetesCluster
+  - Workload
+  - Deployment
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Kubernetes Deployments configure RollingUpdate maxUnavailable high enough to drop serving
+      capacity below minimum required replicas during a rollout?
+    ko: 롤아웃 도중 가용 처리 용량이 최소 필수 레플리카 수 아래로 떨어지도록 RollingUpdate maxUnavailable이 높게 설정된 Kubernetes Deployment는
+      무엇인가요?
+- id: devops-sre.helm-release-stuck-pending-upgrade-lock
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.helm_release_stuck_pending_upgrade_lock
+  target_kinds:
+  - KubernetesCluster
+  - Deployment
+  - Workload
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Are any Helm releases in the authorized scope stuck in pending-upgrade, pending-install, or pending-rollback
+      state and blocking new deployments?
+    ko: 권한 범위의 Helm 릴리스 중 pending-upgrade, pending-install 또는 pending-rollback 상태에 멈춰 후속 배포를 차단하고 있는 항목이
+      있나요?
+- id: devops-sre.database-schema-migration-canary-compatibility
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.database_schema_migration_canary_compatibility
+  target_kinds:
+  - PostgreSQLFlexibleServer
+  - SqlDatabase
+  - Deployment
+  temporal_scope: current
+  result_shape: assessment
+  required_context: server_scope
+  safety:
+    action_posture: advise_only
+    execution_authority: false
+  wording:
+    en: Do any active Canary or Blue/Green application rollouts include destructive database schema changes
+      that break backward compatibility with the active production version?
+    ko: 진행 중인 카나리(Canary) 또는 블루/그린(Blue/Green) 롤아웃 중 현재 운영 버전과의 하위 호환성을 깨뜨리는 파괴적 데이터베이스 스키마 변경을 포함한 배포가
+      있나요?
+- id: devops-sre.argocd-auto-prune-stateful-resource-risk
+  category: change_deployment_release
+  domain: reliability_policy_automation
+  intent: devops_sre.argocd_auto_prune_stateful_resource_risk
+  target_kinds:
+  - KubernetesCluster
+  - Workload
+  - ManagedDisk
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which GitOps applications enable automated sync with prune=true on namespaces containing StatefulSets
+      or PersistentVolumeClaims without deletion protection?
+    ko: 삭제 보호 설정이 없는 StatefulSet이나 PersistentVolumeClaim이 포함된 네임스페이스에서 prune=true 자동 동기화가 활성화된 GitOps
+      애플리케이션은 무엇인가요?
+- id: devops-sre.terraform-unpinned-provider-and-module-drift
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.terraform_unpinned_provider_and_module_drift
+  target_kinds:
+  - ConfigurationBaseline
+  - Deployment
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which Terraform configurations or environment baselines lack exact provider lockfiles or pinned
+      module versions across development, staging, and production?
+    ko: 개발·스테이징·운영 환경 전반에서 정확한 프로바이더 잠금 파일이나 고정된 모듈 버전이 누락된 Terraform 구성 또는 환경 베이스라인은 무엇인가요?
+- id: devops-sre.feature-flag-config-change-error-correlation
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.feature_flag_config_change_error_correlation
+  target_kinds:
+  - ConfigurationDriftFinding
+  - BusinessService
+  - Workload
+  temporal_scope: historical
+  result_shape: timeline
+  required_context: server_scope
+  wording:
+    en: Did any dynamic feature-flag, App Configuration, or ConfigMap updates precede service error-rate
+      spikes without a container image deployment?
+    ko: 컨테이너 이미지 배포 없이 동적 기능 플래그(Feature Flag), App Configuration 또는 ConfigMap 변경이 서비스 오류율 급증에 선행하여 발생한
+      내역이 있나요?
+- id: devops-sre.container-prestop-hook-drain-grace-alignment
+  category: change_deployment_release
+  domain: reliability_policy_automation
+  intent: devops_sre.container_prestop_hook_drain_grace_alignment
+  target_kinds:
+  - KubernetesCluster
+  - KubernetesPod
+  - ApplicationGateway
+  temporal_scope: current
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which HTTP-serving AKS workloads lack a preStop lifecycle hook or sufficient terminationGracePeriodSeconds
+      to allow load-balancer endpoint removal before socket close?
+    ko: 소켓 종료 전 로드밸런서 엔드포인트 제거 시간을 확보하기 위한 preStop 라이프사이클 훅이나 충분한 terminationGracePeriodSeconds가 누락된 HTTP
+      처리 AKS 워크로드는 무엇인가요?
+- id: devops-sre.post-deployment-synthetic-smoke-gate-status
+  category: change_deployment_release
+  domain: change_deployment_impact
+  intent: devops_sre.post_deployment_synthetic_smoke_gate_status
+  target_kinds:
+  - Deployment
+  - BusinessService
+  - Workload
+  temporal_scope: historical
+  result_shape: list
+  required_context: server_scope
+  wording:
+    en: Which recent production releases promoted traffic to 100% without a passing automated post-deployment
+      smoke test or synthetic canary verification receipt?
+    ko: 자동화된 배포 후 스모크 테스트나 합성 카나리 검증 통과 영수증 없이 트래픽을 100%로 승격한 최근 운영 릴리스는 무엇인가요?

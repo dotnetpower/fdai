@@ -2,14 +2,14 @@
 title: SRE 시나리오 검증
 description: FDAI가 사용하는 모든 SRE 시나리오 묶음과 카탈로그 검증, 재생, 관찰 모드 적용 범위, 실제 변경 적용 검증의 근거 수준을 살펴봅니다.
 translation_of: scenario-validation-inventory.md
-translation_source_sha: d9ba0337898c92c6fa4d3e9f3f7807fd066f195f
+translation_source_sha: de3774e7770962c8a53932e03a08febc1a24d98b
 translation_revised: 2026-11-03
 ---
 # SRE 시나리오 검증
 
 FDAI는 검증 목적에 따라 여러 시나리오 집합을 사용합니다. 카탈로그 항목은 시나리오가 올바른 형식으로 작성되었으며 알려진 신호에 연결되어 있음을 입증합니다. 재생은 컨트롤 루프가 예상한 결과에 도달했음을 입증합니다. 실제 적용 실행은 일회용 Azure 환경에서 실제 장애를 주입하고 관찰한 후 원상 복구했음을 입증합니다. 이러한 증거 수준은 서로 대체할 수 없습니다.
 
-이 문서에서는 현재 사용 중인 모든 SRE 시나리오 집합과 카탈로그에 등록된 시나리오 ID 147개를 나열합니다. 이 현황은 2026-11-03에 저장소를 기준으로 다시 집계했습니다.
+이 문서에서는 현재 사용 중인 모든 SRE 시나리오 집합과 카탈로그에 등록된 시나리오 ID 157개를 나열합니다. 이 현황은 2026-11-03에 저장소를 기준으로 다시 집계했습니다.
 
 ## 검증 수준
 
@@ -20,7 +20,7 @@ FDAI는 검증 목적에 따라 여러 시나리오 집합을 사용합니다. �
 | 고정된 컨트롤 루프 집합 `v2026.07` | 9 | 무결성 및 재생 테스트 66개 통과 | 변경, DR, FinOps 기대 결과가 제공되는 루프에서 재생됨 |
 | 에이전트 결정 시나리오 | 6 | 에이전트 시나리오 테스트 22개에 포함되어 통과 | Forseti가 예상 auto, 사람 승인, 거부, 판단 보류 반환 |
 | 에이전트 파이프라인 시나리오 | 8 | 에이전트 시나리오 테스트 22개에 포함되어 통과 | Forseti, Thor, Var, Saga 사이의 안전성 불변식 유지 |
-| Chaos 카탈로그 | 147 | 147/147 스키마, 신호, symptom-index 검증 | 모든 카탈로그 기록이 구조적으로 유효하고 검색 가능 |
+| Chaos 카탈로그 | 157 | 157/157 스키마, 신호, symptom-index 검증 | 모든 카탈로그 기록이 구조적으로 유효하고 검색 가능 |
 | 기본 팩토리 전달 하위 집합 | 93 | 93/93 주입기 및 탐색 쌍 사전 검증 빌드 | 전달 연결이 존재함. 실제 장애 실행을 뜻하지 않음 |
 | 승격된 카탈로그 | 0 | 승격된 항목 없음 | 수집된 항목에 적용 모드 실행 자격이 자동으로 부여되지 않음 |
 
@@ -113,12 +113,12 @@ FDAI는 검증 목적에 따라 여러 시나리오 집합을 사용합니다. �
 | 자기 승인 시도 | 차단되고 보안 신호로 측정됨 |
 | 반복된 자기 승인 | 재시도가 보안 신호 개수를 부풀리지 않음 |
 
-## 카오스 카탈로그: 시나리오 ID 147개
+## 카오스 카탈로그: 시나리오 ID 157개
 
 현재 카탈로그에서 기본 팩토리가 실행 가능으로 분류하고 사전 검증 단계에서 만들어 내는
-항목은 93개입니다. 나머지 54개는 AWS FIS 교차 클라우드 참고용 17개, 별도 주입기나 하드웨어가
-필요한 GPU 시나리오 21개, Kubernetes 문서 기반 후보 15개, 예전 Redis 재부팅 시나리오
-1개입니다. 147개 모두 `collected/`에 있고 `promoted/`에는 아직 하나도 없습니다.
+항목은 93개입니다. 나머지 64개는 AWS FIS 교차 클라우드 참고용 17개, 별도 주입기나 하드웨어가
+필요한 GPU 시나리오 21개, Kubernetes 문서 기반 후보 25개, 예전 Redis 재부팅 시나리오
+1개입니다. 157개 모두 `collected/`에 있고 `promoted/`에는 아직 하나도 없습니다.
 
 <details>
 <summary>Azure Chaos Studio - ID 15개</summary>
@@ -184,23 +184,33 @@ FDAI는 검증 목적에 따라 여러 시나리오 집합을 사용합니다. �
 </details>
 
 <details>
-<summary>Kubernetes 문서 기반 - ID 15개</summary>
+<summary>Kubernetes 문서 기반 - ID 25개</summary>
 
 - `chaos.kubernetes-docs.configmap-drift-rollout-regression`
 - `chaos.kubernetes-docs.container-abnormal-exit-entrypoint`
 - `chaos.kubernetes-docs.container-oom-killed-memory-limit`
+- `chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency`
 - `chaos.kubernetes-docs.crash-loop-backoff-liveness-probe`
 - `chaos.kubernetes-docs.dns-resolution-failure`
+- `chaos.kubernetes-docs.ephemeral-storage-eviction`
+- `chaos.kubernetes-docs.external-traffic-policy-local-blackhole`
+- `chaos.kubernetes-docs.hpa-metrics-api-unavailable`
 - `chaos.kubernetes-docs.image-pull-backoff`
 - `chaos.kubernetes-docs.ingress-backend-gateway-timeout`
+- `chaos.kubernetes-docs.init-container-startup-failure`
 - `chaos.kubernetes-docs.kubelet-node-not-ready-stop`
 - `chaos.kubernetes-docs.network-policy-egress-deny-drop`
 - `chaos.kubernetes-docs.node-taint-untolerated-pending`
 - `chaos.kubernetes-docs.pod-disruption-budget-gap`
+- `chaos.kubernetes-docs.prestop-hook-grace-period-drop`
+- `chaos.kubernetes-docs.priority-class-preemption-cascade`
 - `chaos.kubernetes-docs.pvc-provisioning-mount-stall`
 - `chaos.kubernetes-docs.readiness-probe-endpoint-removal`
 - `chaos.kubernetes-docs.resource-quota-admission-denial`
+- `chaos.kubernetes-docs.secret-volume-mount-missing-stall`
 - `chaos.kubernetes-docs.service-selector-label-mismatch`
+- `chaos.kubernetes-docs.startup-probe-premature-restart`
+- `chaos.kubernetes-docs.topology-spread-skew-hotspot`
 
 </details>
 

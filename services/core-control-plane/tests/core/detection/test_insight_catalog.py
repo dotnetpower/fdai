@@ -115,10 +115,10 @@ def _non_firing_observation(recipe: InsightRecipe) -> InsightObservation:
     )
 
 
-def test_catalog_contains_seventy_unique_executable_features() -> None:
+def test_catalog_contains_one_hundred_unique_executable_features() -> None:
     recipes = load_operational_insight_recipes(_CATALOG)
-    assert len(recipes) == 70
-    assert len({recipe.recipe_id for recipe in recipes}) == 70
+    assert len(recipes) == 100
+    assert len({recipe.recipe_id for recipe in recipes}) == 100
 
     for recipe in recipes:
         engine = OperationalInsightEngine([recipe])
@@ -126,6 +126,17 @@ def test_catalog_contains_seventy_unique_executable_features() -> None:
         assert len(findings) == 1, recipe.recipe_id
         assert findings[0].recipe_id == recipe.recipe_id
         assert engine.evaluate(_non_firing_observation(recipe)) == (), recipe.recipe_id
+
+
+def test_readme_documents_all_one_hundred_catalog_recipes() -> None:
+    import re
+
+    recipes = load_operational_insight_recipes(_CATALOG)
+    expected_ids = {recipe.recipe_id for recipe in recipes}
+    readme_text = (_CATALOG.parent / "README.md").read_text(encoding="utf-8")
+    inventory_section = readme_text.split("## Capability Inventory", 1)[1].split("## Testing", 1)[0]
+    documented_ids = set(re.findall(r"`([a-z0-9]+(?:\.[a-z0-9_-]+)+)`", inventory_section))
+    assert documented_ids == expected_ids
 
 
 def test_catalog_spans_required_operational_domains() -> None:

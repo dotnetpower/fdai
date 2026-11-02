@@ -19,7 +19,7 @@ def _render_question_bank_json(payload: dict[str, Any]) -> str:
     head = {key: value for key, value in payload.items() if key != "questions"}
     head_json = json.dumps(head, ensure_ascii=False, indent=2)
     rows = [
-        "    " + json.dumps(question, ensure_ascii=False, separators=(", ", ": "))
+        "  " + json.dumps(question, ensure_ascii=False, separators=(",", ":"))
         for question in payload["questions"]
     ]
     return head_json[:-2] + ',\n  "questions": [\n' + ",\n".join(rows) + "\n  ]\n}\n"

@@ -11,7 +11,7 @@ that the control loop reaches the expected result. A live enforcement run proves
 that a real fault was injected, observed, and reverted on a disposable Azure
 substrate. These evidence levels are not interchangeable.
 
-This page lists every current SRE scenario set and every one of the 147 catalog
+This page lists every current SRE scenario set and every one of the 157 catalog
 scenario IDs. The snapshot was recalculated from the repository on 2026-11-03.
 
 ## Validation levels
@@ -23,7 +23,7 @@ scenario IDs. The snapshot was recalculated from the repository on 2026-11-03.
 | Frozen control-loop set `v2026.07` | 9 | 66 integrity and replay tests passed | Balanced Change, DR, and FinOps expected outcomes replay through the shipped loop |
 | Agent decision scenarios | 6 | Included in 22 agent scenario tests passed | Forseti returns expected auto, human approval, deny, or hold for review outcomes |
 | Agent pipeline scenarios | 8 | Included in 22 agent scenario tests passed | Forseti, Thor, Var, and Saga preserve cross-agent safety invariants |
-| Chaos catalog | 147 | 147/147 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
+| Chaos catalog | 157 | 157/157 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
 | Default-factory dispatch subset | 93 | 93/93 injector and probe pairs build in dry-run | Delivery wiring exists; this is not a live fault run |
 | Promoted catalog | 0 | No entries promoted | No collected entry has inherited enforce eligibility |
 
@@ -119,13 +119,13 @@ true cold-start latency.
 | Self-approval attempt | Blocked and measured as a security signal |
 | Repeated self-approval | Retry does not inflate the security count |
 
-## Chaos catalog: 147 scenario IDs
+## Chaos catalog: 157 scenario IDs
 
 The catalog currently contains 93 entries that the default factory classifies
-as executable and builds in dry-run. The remaining 54 are 17 AWS FIS
+as executable and builds in dry-run. The remaining 64 are 17 AWS FIS
 cross-CSP references, 21 GPU scenarios requiring an injector or hardware,
-15 Kubernetes documentation candidates, and the legacy Redis reboot
-scenario. All 147 remain under `collected/`; zero are under `promoted/`.
+25 Kubernetes documentation candidates, and the legacy Redis reboot
+scenario. All 157 remain under `collected/`; zero are under `promoted/`.
 
 <details>
 <summary>Azure Chaos Studio - 15 IDs</summary>
@@ -191,23 +191,33 @@ scenario. All 147 remain under `collected/`; zero are under `promoted/`.
 </details>
 
 <details>
-<summary>Kubernetes documentation - 15 IDs</summary>
+<summary>Kubernetes documentation - 25 IDs</summary>
 
 - `chaos.kubernetes-docs.configmap-drift-rollout-regression`
 - `chaos.kubernetes-docs.container-abnormal-exit-entrypoint`
 - `chaos.kubernetes-docs.container-oom-killed-memory-limit`
+- `chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency`
 - `chaos.kubernetes-docs.crash-loop-backoff-liveness-probe`
 - `chaos.kubernetes-docs.dns-resolution-failure`
+- `chaos.kubernetes-docs.ephemeral-storage-eviction`
+- `chaos.kubernetes-docs.external-traffic-policy-local-blackhole`
+- `chaos.kubernetes-docs.hpa-metrics-api-unavailable`
 - `chaos.kubernetes-docs.image-pull-backoff`
 - `chaos.kubernetes-docs.ingress-backend-gateway-timeout`
+- `chaos.kubernetes-docs.init-container-startup-failure`
 - `chaos.kubernetes-docs.kubelet-node-not-ready-stop`
 - `chaos.kubernetes-docs.network-policy-egress-deny-drop`
 - `chaos.kubernetes-docs.node-taint-untolerated-pending`
 - `chaos.kubernetes-docs.pod-disruption-budget-gap`
+- `chaos.kubernetes-docs.prestop-hook-grace-period-drop`
+- `chaos.kubernetes-docs.priority-class-preemption-cascade`
 - `chaos.kubernetes-docs.pvc-provisioning-mount-stall`
 - `chaos.kubernetes-docs.readiness-probe-endpoint-removal`
 - `chaos.kubernetes-docs.resource-quota-admission-denial`
+- `chaos.kubernetes-docs.secret-volume-mount-missing-stall`
 - `chaos.kubernetes-docs.service-selector-label-mismatch`
+- `chaos.kubernetes-docs.startup-probe-premature-restart`
+- `chaos.kubernetes-docs.topology-spread-skew-hotspot`
 
 </details>
 
