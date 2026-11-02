@@ -90,6 +90,204 @@ LOCKED_CORE_PANELS: tuple[str, ...] = (
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeAxisDescriptor:
+    """Human-readable bilingual title, summary, and Pantheon agents for a runtime axis."""
+
+    id: str
+    label: str
+    label_ko: str
+    summary: str
+    summary_ko: str
+    agents: tuple[str, ...] = ()
+    locked: bool = False
+
+
+WORKLOAD_DESCRIPTORS: tuple[RuntimeAxisDescriptor, ...] = (
+    RuntimeAxisDescriptor(
+        id="core-control-plane",
+        label="Core Control Plane (15-Agent Pantheon)",
+        label_ko="코어 컨트롤 플레인 (15-에이전트 판테온 엔진)",
+        summary="In-process event bus running all 15 Pantheon agents and Saga audit.",
+        summary_ko=(
+            "15개 판테온 에이전트, T0/T1/T2 신뢰 라우팅, 해시 체인 감사를 "
+            "단일 컨테이너에서 구동합니다."
+        ),
+        agents=("Huginn", "Heimdall", "Tyr", "Mimir", "Odin", "Forseti", "Bragi", "Saga"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="operator-service",
+        label="Operator API & Console Read Service",
+        label_ko="운영자 API 및 Console 프로젝션 서비스",
+        summary="Non-privileged API serving Console projections, alerts, and bounded requests.",
+        summary_ko=(
+            "Console 화면 조회, 인시던트/알림 피드 및 권한 검증 요청을 처리하는 비특권 API입니다."
+        ),
+        agents=("Bragi", "Var", "Saga"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="isolated-executor",
+        label="Isolated Action Executor",
+        label_ko="격리된 조치 실행기 (Isolated Executor)",
+        summary="Holds scoped Azure mutation identity to execute approved remediation plans.",
+        summary_ko=(
+            "인간 승인(HIL)을 거친 리소스 변경 및 복구 조치를 수행하는 격리 실행 컨테이너입니다."
+        ),
+        agents=("Thor", "Vidar", "Idunn"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="document-ingestion-api",
+        label="Document Ingestion Gateway API",
+        label_ko="문서 지식 수집 게이트웨이 API",
+        summary="Receives uploaded runbooks and architecture documents for knowledge indexing.",
+        summary_ko="업로드된 런북 및 아키텍처 문서를 수신하는 수집 게이트웨이 컨테이너입니다.",
+        agents=("Huginn", "Heimdall", "Muninn"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="document-processing-worker",
+        label="Document Processing Worker (+ ClamAV Sidecar)",
+        label_ko="문서 처리 워커 (+ ClamAV 백신 사이드카)",
+        summary="Scans documents with ClamAV and extracts embeddings into pgvector.",
+        summary_ko=(
+            "ClamAV 사이드카로 악성코드를 검사하고 문서를 파싱·임베딩하는 고메모리 워커입니다."
+        ),
+        agents=("Muninn", "Norns", "Saga"),
+        locked=False,
+    ),
+)
+
+LOOP_DESCRIPTORS: tuple[RuntimeAxisDescriptor, ...] = (
+    RuntimeAxisDescriptor(
+        id="inventory-reconciliation",
+        label="Resource Change & Drift Detection",
+        label_ko="리소스 변경 및 구성 드리프트 감지",
+        summary="Observes Azure Resource Graph snapshots and detects configuration drift.",
+        summary_ko="주기적으로 리소스 스냅샷을 수집해 추가·변경·삭제 및 기준선 이탈을 감지합니다.",
+        agents=("Huginn", "Tyr", "Heimdall"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="anomaly-analyzer",
+        label="Failure & Anomaly Detection",
+        label_ko="장애 및 이상 징후 감지",
+        summary="Evaluates metrics, health, and deterministic T0 rules to open incidents.",
+        summary_ko=(
+            "메트릭과 리소스 헬스를 결정론적(T0) 규칙으로 평가해 장애 인시던트를 생성합니다."
+        ),
+        agents=("Heimdall", "Mimir", "Odin", "Forseti"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="notification-dispatch",
+        label="Alert & Briefing Notification Dispatch",
+        label_ko="알림 및 브리핑 발송",
+        summary="Composes localized incident briefings and dispatches webhook/email/inbox alerts.",
+        summary_ko=(
+            "감지된 장애·변경 요약을 한국어/영어로 작성해 웹훅·이메일·인박스로 즉시 발송합니다."
+        ),
+        agents=("Bragi", "Var"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="saga-audit",
+        label="Hash-Chained Audit Ledger",
+        label_ko="해시 체인 불변 감사 원장",
+        summary="Records every observation, detection, and notification in a tamper-evident chain.",
+        summary_ko="모든 감지 결과와 알림 증적을 위변조 방지 해시 체인 원장에 기록합니다.",
+        agents=("Saga",),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="remediation-execution",
+        label="Governed Remediation & Rollback Loop",
+        label_ko="승인 기반 자동 조치 및 롤백 루프",
+        summary="Routes high-risk actions through HIL approval, dry-run, and verification.",
+        summary_ko="위험 게이트, 인간 승인(HIL), 사전 검증, 실행 및 사후 효과 검증을 수행합니다.",
+        agents=("Forseti", "Var", "Thor", "Vidar", "Idunn"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="document-ingestion",
+        label="Document Knowledge Ingestion Loop",
+        label_ko="문서 및 외부 지식베이스 수집 루프",
+        summary="Ingests, scans, and indexes operational documents and Git knowledge sources.",
+        summary_ko="운영 문서와 GitHub/GitLab/ADO 지식 소스를 수집·검증·인덱싱합니다.",
+        agents=("Huginn", "Muninn", "Norns"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="cost-governance",
+        label="Cloud Cost Governance & FinOps Loop",
+        label_ko="클라우드 비용 거버넌스 및 이상 감지",
+        summary="Collects billing telemetry, detects spend anomalies, and evaluates SKU sizing.",
+        summary_ko="클라우드 사용량·비용 급증을 감지하고 SKU 최적화 권고안을 도출합니다.",
+        agents=("Mimir", "Odin", "Norns"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="code-security",
+        label="Repository Code Security Scanning Loop",
+        label_ko="저장소 코드 보안 취약점 스캔 루프",
+        summary="Scans connected repositories and surfaces SARIF/dataflow security findings.",
+        summary_ko="연결된 소스 저장소의 보안 취약점과 데이터 흐름을 정적 분석합니다.",
+        agents=("Heimdall", "Forseti", "Saga"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="assurance-twin",
+        label="Digital Assurance Twin Loop",
+        label_ko="보증 디지털 트윈 시뮬레이션 루프",
+        summary="Evaluates change impact and resilience posture against twin state projections.",
+        summary_ko="디지털 트윈 상태 투영을 기반으로 변경 영향도와 복원력을 사전 검증합니다.",
+        agents=("Loki", "Tyr", "Vidar"),
+        locked=False,
+    ),
+)
+
+SCHEDULED_JOB_DESCRIPTORS: tuple[RuntimeAxisDescriptor, ...] = (
+    RuntimeAxisDescriptor(
+        id="inventory",
+        label="Inventory Reconciler CronJob",
+        label_ko="인벤토리 변경 감지 스케줄러 (CronJob)",
+        summary="Scheduled Azure Resource Graph & Kubernetes topology discovery tick.",
+        summary_ko="주기적으로 리소스 인벤토리와 토폴로지 변경 사항을 동기화합니다.",
+        agents=("Huginn", "Tyr"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="analyzer",
+        label="Anomaly & Health Analyzer CronJob",
+        label_ko="장애 및 헬스 분석 스케줄러 (CronJob)",
+        summary="Scheduled metric, SLO, and Resource Health deterministic evaluation tick.",
+        summary_ko="주기적으로 메트릭·SLO·리소스 헬스를 검사해 이상 징후를 판정합니다.",
+        agents=("Heimdall", "Mimir", "Odin"),
+        locked=True,
+    ),
+    RuntimeAxisDescriptor(
+        id="canary",
+        label="Synthetic Canary Observer CronJob",
+        label_ko="카나리 자가 진단 스케줄러 (CronJob)",
+        summary="Verifies end-to-end control-plane liveness and post-upgrade canary health.",
+        summary_ko="컨트롤 플레인의 종단간 응답성과 업그레이드 후 카나리 상태를 검증합니다.",
+        agents=("Vidar", "Heimdall"),
+        locked=False,
+    ),
+    RuntimeAxisDescriptor(
+        id="cost-collector",
+        label="Cost Telemetry Collector CronJob",
+        label_ko="비용 텔레메트리 수집 스케줄러 (CronJob)",
+        summary="Scheduled retail price and billing meter synchronization job.",
+        summary_ko="클라우드 과금 데이터 및 소매 요금표를 주기적으로 수집합니다.",
+        agents=("Huginn", "Norns"),
+        locked=False,
+    ),
+)
+
+
+@dataclass(frozen=True, slots=True)
 class ConsolePanelDescriptor:
     """Metadata and dependency contract for one selectable FDAI Console menu panel."""
 
@@ -969,6 +1167,35 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
         rbac_roles.append("Scoped Executor Action Role (privileged mutation)")
 
     panel_csv = ",".join(stencil.enabled_panel_ids)
+    rbac_posture = "read-only-observation" if not includes_executor else "governed-execution"
+    release_labels = [
+        f"stencil:{stencil.stencil_id}",
+        f"profile:{stencil.topology_profile}",
+        f"rbac:{rbac_posture}",
+        f"clamav:{'included' if includes_clamav else 'omitted'}",
+        f"executor:{'included' if includes_executor else 'omitted'}",
+        f"workloads:{len(stencil.enabled_workloads)}",
+        f"menus:{len(stencil.enabled_panel_ids)}",
+    ]
+
+    workload_reasons: dict[str, list[str]] = {
+        w: ["locked-core"] if w in LOCKED_CORE_WORKLOADS else [] for w in stencil.enabled_workloads
+    }
+    loop_reasons: dict[str, list[str]] = {
+        lp: ["locked-core"] if lp in LOCKED_CORE_LOOPS else [] for lp in stencil.enabled_loops
+    }
+    for panel_id in stencil.enabled_panel_ids:
+        desc = PANEL_BY_ID[panel_id]
+        for req_w in desc.required_workloads:
+            if req_w in workload_reasons and f"menu:{panel_id}" not in workload_reasons[req_w]:
+                workload_reasons[req_w].append(f"menu:{panel_id}")
+        for req_l in desc.required_loops:
+            if req_l in loop_reasons and f"menu:{panel_id}" not in loop_reasons[req_l]:
+                loop_reasons[req_l].append(f"menu:{panel_id}")
+
+    removed_sidecars = [] if includes_clamav else ["clamav"]
+    omitted_loops = tuple(sorted(set(ALL_LOOPS) - set(stencil.enabled_loops)))
+
     return {
         "stencil_id": stencil.stencil_id,
         "stencil_digest": stencil.digest,
@@ -978,6 +1205,7 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
         "omitted_workloads": list(omitted_workloads),
         "scheduled_job_count": len(stencil.enabled_scheduled_jobs),
         "omitted_scheduled_jobs": list(omitted_jobs),
+        "omitted_loops": list(omitted_loops),
         "includes_clamav_sidecar": includes_clamav,
         "includes_privileged_executor": includes_executor,
         "enabled_panel_count": len(stencil.enabled_panel_ids),
@@ -985,10 +1213,24 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
         "omitted_panel_count": len(omitted_panels),
         "active_navigation_groups": list(active_groups),
         "enabled_feature_ids": list(stencil.enabled_feature_ids),
-        "azure_rbac_posture": (
-            "read-only-observation" if not includes_executor else "governed-execution"
-        ),
+        "azure_rbac_posture": rbac_posture,
         "required_azure_roles": rbac_roles,
+        "release_labels": release_labels,
+        "dependency_reasons": {
+            "workloads": workload_reasons,
+            "loops": loop_reasons,
+        },
+        "apollo_diff_vs_full": {
+            "retained_workloads": list(stencil.enabled_workloads),
+            "removed_workloads": list(omitted_workloads),
+            "removed_sidecars": removed_sidecars,
+            "retained_scheduled_jobs": list(stencil.enabled_scheduled_jobs),
+            "removed_scheduled_jobs": list(omitted_jobs),
+            "retained_loops": list(stencil.enabled_loops),
+            "removed_loops": list(omitted_loops),
+            "retained_panel_count": len(stencil.enabled_panel_ids),
+            "removed_panel_count": len(omitted_panels),
+        },
         "terraform_flags": {
             "enable_document_ingestion_workloads": includes_clamav,
             "enable_isolated_executor": includes_executor,
@@ -1074,6 +1316,21 @@ class StencilComposeRequest(BaseModel):
     source_commit: str = Field(default="a" * 40, min_length=40, max_length=40)
 
 
+def _serialize_axis(items: tuple[RuntimeAxisDescriptor, ...]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": item.id,
+            "label": item.label,
+            "label_ko": item.label_ko,
+            "summary": item.summary,
+            "summary_ko": item.summary_ko,
+            "agents": list(item.agents),
+            "locked": item.locked,
+        }
+        for item in items
+    ]
+
+
 def stencil_catalog_payload() -> dict[str, Any]:
     """Return all Stencil presets, Console panel metadata, and selectable runtime axes."""
 
@@ -1101,10 +1358,13 @@ def stencil_catalog_payload() -> dict[str, Any]:
         ],
         "workloads": list(ALL_WORKLOADS),
         "locked_workloads": list(LOCKED_CORE_WORKLOADS),
+        "workloads_catalog": _serialize_axis(WORKLOAD_DESCRIPTORS),
         "scheduled_jobs": list(ALL_SCHEDULED_JOBS),
         "locked_scheduled_jobs": list(LOCKED_CORE_SCHEDULED_JOBS),
+        "scheduled_jobs_catalog": _serialize_axis(SCHEDULED_JOB_DESCRIPTORS),
         "loops": list(ALL_LOOPS),
         "locked_loops": list(LOCKED_CORE_LOOPS),
+        "loops_catalog": _serialize_axis(LOOP_DESCRIPTORS),
         "addons": list(ALL_ADDONS),
         "locked_addons": list(LOCKED_CORE_ADDONS),
         "locked_panels": list(LOCKED_CORE_PANELS),
@@ -1154,11 +1414,15 @@ __all__ = [
     "LOCKED_CORE_PANELS",
     "LOCKED_CORE_SCHEDULED_JOBS",
     "LOCKED_CORE_WORKLOADS",
+    "LOOP_DESCRIPTORS",
     "PANEL_BY_ID",
+    "SCHEDULED_JOB_DESCRIPTORS",
     "STANDARD_SRE_PANELS",
     "STENCIL_DEFINITION_SCHEMA",
     "STENCIL_PRESETS",
+    "WORKLOAD_DESCRIPTORS",
     "ConsolePanelDescriptor",
+    "RuntimeAxisDescriptor",
     "StencilComposeRequest",
     "StencilDefinition",
     "TopologyProfile",

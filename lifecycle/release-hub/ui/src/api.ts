@@ -178,6 +178,16 @@ export type StencilDefinitionRecord = {
   authority_granted: false;
 };
 
+export type RuntimeAxisDescriptorRecord = {
+  id: string;
+  label: string;
+  label_ko: string;
+  summary: string;
+  summary_ko: string;
+  agents: string[];
+  locked: boolean;
+};
+
 export type StencilFootprint = {
   stencil_id: string;
   stencil_digest: string;
@@ -187,6 +197,7 @@ export type StencilFootprint = {
   omitted_workloads: string[];
   scheduled_job_count: number;
   omitted_scheduled_jobs: string[];
+  omitted_loops?: string[];
   includes_clamav_sidecar: boolean;
   includes_privileged_executor: boolean;
   enabled_panel_count: number;
@@ -196,6 +207,22 @@ export type StencilFootprint = {
   enabled_feature_ids: string[];
   azure_rbac_posture: string;
   required_azure_roles: string[];
+  release_labels?: string[];
+  dependency_reasons?: {
+    workloads: Record<string, string[]>;
+    loops: Record<string, string[]>;
+  };
+  apollo_diff_vs_full?: {
+    retained_workloads: string[];
+    removed_workloads: string[];
+    removed_sidecars: string[];
+    retained_scheduled_jobs: string[];
+    removed_scheduled_jobs: string[];
+    retained_loops: string[];
+    removed_loops: string[];
+    retained_panel_count: number;
+    removed_panel_count: number;
+  };
   terraform_flags: {
     enable_document_ingestion_workloads: boolean;
     enable_isolated_executor: boolean;
@@ -209,10 +236,13 @@ export type StencilCatalogResponse = {
   panels: StencilPanelDescriptor[];
   workloads: string[];
   locked_workloads: string[];
+  workloads_catalog?: RuntimeAxisDescriptorRecord[];
   scheduled_jobs: string[];
   locked_scheduled_jobs: string[];
+  scheduled_jobs_catalog?: RuntimeAxisDescriptorRecord[];
   loops: string[];
   locked_loops: string[];
+  loops_catalog?: RuntimeAxisDescriptorRecord[];
   addons: string[];
   locked_addons: string[];
   locked_panels: string[];

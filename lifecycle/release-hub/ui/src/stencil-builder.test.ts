@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { groupPanelsByDomain, isValidStencilBuilderInput } from "./stencil-builder";
-import type { StencilPanelDescriptor } from "./api";
+import {
+  computeLiveApolloBlueprint,
+  groupPanelsByDomain,
+  isValidStencilBuilderInput,
+} from "./stencil-builder";
+import type { StencilCatalogResponse, StencilPanelDescriptor } from "./api";
 
 const samplePanels: StencilPanelDescriptor[] = [
   {
@@ -54,5 +58,78 @@ describe("stencil-builder helpers", () => {
     expect(isValidStencilBuilderInput({ ...valid, stencilId: "Bad_ID" })).toBe(false);
     expect(isValidStencilBuilderInput({ ...valid, releaseVersion: "v1.7" })).toBe(false);
     expect(isValidStencilBuilderInput({ ...valid, sourceCommit: "abc" })).toBe(false);
+  });
+
+  it("computes live Apollo blueprint, dependency reasons, and release labels in 0ms", () => {
+    const catalog: StencilCatalogResponse = {
+      presets: [],
+      panels: [
+        ...samplePanels,
+        {
+          id: "documents",
+          group: "knowledge",
+          label: "Documents",
+          label_ko: "문서 수집",
+          locked: false,
+          required_workloads: ["document-ingestion-api", "document-processing-worker"],
+          required_loops: ["document-ingestion"],
+          required_addons: [],
+          feature_ids: ["F11.1"],
+        },
+      ],
+      workloads: [
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+      ],
+      locked_workloads: ["core-control-plane", "operator-service"],
+      scheduled_jobs: ["analyzer", "inventory", "canary"],
+      locked_scheduled_jobs: ["analyzer", "inventory"],
+      loops: [
+        "anomaly-analyzer",
+        "document-ingestion",
+        "inventory-reconciliation",
+        "notification-dispatch",
+        "saga-audit",
+      ],
+      locked_loops: [
+        "anomaly-analyzer",
+        "inventory-reconciliation",
+        "notification-dispatch",
+        "saga-audit",
+      ],
+      addons: ["notifications", "read-only-console"],
+      locked_addons: ["notifications", "read-only-console"],
+      locked_panels: ["dashboard"],
+    };
+
+    const liteBp = computeLiveApolloBlueprint(catalog, {
+      stencilId: "lite-observe-alert",
+      topologyProfile: "lite-observe-alert",
+      selectedPanels: ["live"],
+      selectedWorkloads: [],
+      selectedLoops: [],
+      selectedJobs: [],
+      autoResolve: true,
+    });
+    expect(liteBp.effectiveWorkloads).toEqual(["core-control-plane", "operator-service"]);
+    expect(liteBp.includesClamav).toBe(false);
+    expect(liteBp.releaseLabels).toContain("clamav:omitted");
+    expect(liteBp.releaseLabels).toContain("rbac:read-only-observation");
+
+    const docBp = computeLiveApolloBlueprint(catalog, {
+      stencilId: "custom-docs",
+      topologyProfile: "full-enterprise",
+      selectedPanels: ["live", "documents"],
+      selectedWorkloads: [],
+      selectedLoops: [],
+      selectedJobs: [],
+      autoResolve: true,
+    });
+    expect(docBp.includesClamav).toBe(true);
+    expect(docBp.workloadReasons["document-ingestion-api"]).toContain("menu:documents");
+    expect(docBp.releaseLabels).toContain("clamav:included");
   });
 });

@@ -54,6 +54,10 @@ def test_stencil_presets_and_footprint_calculations() -> None:
     assert lite_fp["includes_clamav_sidecar"] is False
     assert lite_fp["includes_privileged_executor"] is False
     assert lite_fp["azure_rbac_posture"] == "read-only-observation"
+    assert "stencil:lite-observe-alert" in lite_fp["release_labels"]
+    assert "clamav:omitted" in lite_fp["release_labels"]
+    assert lite_fp["apollo_diff_vs_full"]["removed_sidecars"] == ["clamav"]
+    assert "isolated-executor" in lite_fp["apollo_diff_vs_full"]["removed_workloads"]
     assert set(lite.enabled_workloads) == {"core-control-plane", "operator-service"}
     assert set(lite.enabled_loops) == set(LOCKED_CORE_LOOPS)
     assert set(LOCKED_CORE_PANELS).issubset(lite.enabled_panel_ids)
