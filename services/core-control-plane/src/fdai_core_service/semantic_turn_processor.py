@@ -3155,8 +3155,9 @@ def _render_query_answer(
     answer_output_limit = 220_000 if inventory_document else 48_000
     if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
-    if candidate_output is not None and outputs != [candidate_output]:
-        return None, None
+    if candidate_output is not None:
+        if outputs != [candidate_output]:
+            return None, None
         return render_instance_candidates(request.locale, candidate_output), technical_details
     if projected_incident and len(outputs) == 1:
         answer = render_incident_answer(request, outputs[0])
@@ -5883,10 +5884,9 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
 
 
 def _pantheon_assurance_case_id(purpose: str) -> str | None:
-    prefix = "conversation-assurance:"
-    if not purpose.startswith(prefix):
+    if not purpose.startswith("conversation-assurance:"):
         return None
-    case_id = purpose.removeprefix(prefix)
+    case_id = purpose.removeprefix("conversation-assurance:")
     if not case_id or len(case_id) > 192:
         raise SemanticTurnRejectedError("conversation_assurance_case_invalid")
     return case_id
