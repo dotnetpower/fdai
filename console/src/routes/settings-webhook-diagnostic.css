@@ -222,6 +222,48 @@
   font-weight: 600;
 }
 
+.settings-teams-workflow-email-recipient {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.settings-teams-workflow-email-recipient > p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.settings-teams-workflow-email-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.settings-teams-workflow-email-modes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-teams-workflow-email-modes input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.settings-teams-workflow-email-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .settings-teams-workflow-setup .settings-webhook-diagnostic-field {
   grid-column: 1;
   grid-row: 1;

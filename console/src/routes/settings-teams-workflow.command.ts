@@ -65,6 +65,12 @@ export async function testTeamsWorkflowWebhook(
   if (options?.removeChannelId) {
     body["remove_channel_id"] = options.removeChannelId;
   }
+  if (options?.emailRecipientMode) {
+    body["email_recipient_mode"] = options.emailRecipientMode;
+  }
+  if (options?.customEmail !== undefined) {
+    body["custom_email"] = options.customEmail;
+  }
   if (options?.selectionOnly) {
     body["selection_only"] = true;
   }

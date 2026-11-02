@@ -122,6 +122,8 @@ class TeamsWorkflowDiagnosticTester:
                 command.selected_channel_ids is not None
                 or command.delivery_targets is not None
                 or command.remove_channel_id is not None
+                or command.email_recipient_mode is not None
+                or command.custom_email is not None
             ):
                 await self._update_channel_preferences(
                     actor_id=command.actor_id,
@@ -129,6 +131,8 @@ class TeamsWorkflowDiagnosticTester:
                     selected_channel_ids=command.selected_channel_ids,
                     delivery_targets=command.delivery_targets,
                     remove_channel_id=command.remove_channel_id,
+                    email_recipient_mode=command.email_recipient_mode,
+                    custom_email=command.custom_email,
                 )
             if command.selection_only:
                 now = self.clock().astimezone(UTC)
@@ -226,6 +230,11 @@ class TeamsWorkflowDiagnosticTester:
             command.delivery_targets,
             prior_meta=prior_meta,
         )
+        email_mode, custom_email = _normalized_email_recipient(
+            command.email_recipient_mode,
+            command.custom_email,
+            prior_meta=prior_meta,
+        )
         await self.store.write_state(
             _ACTIVE_BINDING_METADATA_KEY,
             {
@@ -235,6 +244,8 @@ class TeamsWorkflowDiagnosticTester:
                 "actor_id": command.actor_id,
                 "channels": channels,
                 "delivery_targets": list(delivery_targets),
+                "email_recipient_mode": email_mode,
+                "custom_email": custom_email,
             },
         )
         return await self._test_saved_binding(
@@ -281,12 +292,19 @@ class TeamsWorkflowDiagnosticTester:
             fallback_saved_at=saved_at_val,
         )
         delivery_targets = list(_normalized_delivery_targets(None, prior_meta=record))
+        email_mode, custom_email = _normalized_email_recipient(
+            None,
+            None,
+            prior_meta=record,
+        )
         metadata: dict[str, object] = {
             "binding_version": saved.version,
             "endpoint_identifier": endpoint_id,
             "observed_at": observed_at.isoformat(),
             "channels": channels,
             "delivery_targets": delivery_targets,
+            "email_recipient_mode": email_mode,
+            "custom_email": custom_email,
         }
         if saved_at_val is not None:
             metadata["saved_at"] = saved_at_val
@@ -345,6 +363,8 @@ class TeamsWorkflowDiagnosticTester:
         selected_channel_ids: tuple[str, ...] | None,
         delivery_targets: tuple[str, ...] | None,
         remove_channel_id: str | None,
+        email_recipient_mode: str | None = None,
+        custom_email: str | None = None,
     ) -> None:
         record = await self.store.read_state(_ACTIVE_BINDING_METADATA_KEY)
         endpoint_id = _endpoint_identifier(saved.webhook_url)
@@ -374,6 +394,11 @@ class TeamsWorkflowDiagnosticTester:
                 updated_channels[0] = {**updated_channels[0], "enabled": True}
             channels = updated_channels
         targets = _normalized_delivery_targets(delivery_targets, prior_meta=record)
+        email_mode, normalized_custom_email = _normalized_email_recipient(
+            email_recipient_mode,
+            custom_email,
+            prior_meta=record,
+        )
         await self.store.write_state(
             _ACTIVE_BINDING_METADATA_KEY,
             {
@@ -383,6 +408,8 @@ class TeamsWorkflowDiagnosticTester:
                 "actor_id": actor_id,
                 "channels": channels,
                 "delivery_targets": list(targets),
+                "email_recipient_mode": email_mode,
+                "custom_email": normalized_custom_email,
             },
         )
 
@@ -675,6 +702,39 @@ def _normalized_delivery_targets(
         if prior_filtered:
             return prior_filtered
     return _DEFAULT_DELIVERY_TARGETS
+
+
+def _is_valid_email(value: str) -> bool:
+    if not (1 <= len(value) <= 254) or " " in value:
+        return False
+    parts = value.split("@")
+    return len(parts) == 2 and bool(parts[0]) and bool(parts[1]) and "." in parts[1]
+
+
+def _normalized_email_recipient(
+    requested_mode: str | None,
+    requested_email: str | None,
+    *,
+    prior_meta: Mapping[str, object] | None,
+) -> tuple[str, str]:
+    prior_mode = (
+        str(prior_meta.get("email_recipient_mode"))
+        if isinstance(prior_meta, Mapping)
+        and prior_meta.get("email_recipient_mode") in {"login", "custom"}
+        else "login"
+    )
+    prior_email = (
+        str(prior_meta.get("custom_email")).strip()
+        if isinstance(prior_meta, Mapping) and isinstance(prior_meta.get("custom_email"), str)
+        else ""
+    )
+    mode = requested_mode if requested_mode in {"login", "custom"} else prior_mode
+    email = requested_email.strip() if requested_email is not None else prior_email
+    if email and not _is_valid_email(email):
+        raise ValueError("custom_email MUST be a valid email address")
+    if mode == "custom" and not email:
+        raise ValueError("custom_email is required when email_recipient_mode is custom")
+    return mode, email
 
 
 def _projected_channels(

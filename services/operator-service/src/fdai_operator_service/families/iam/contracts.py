@@ -557,6 +557,8 @@ class TeamsWorkflowTestCommand:
     selected_channel_ids: tuple[str, ...] | None = None
     delivery_targets: tuple[str, ...] | None = None
     remove_channel_id: str | None = None
+    email_recipient_mode: str | None = None
+    custom_email: str | None = None
     selection_only: bool = False
 
 

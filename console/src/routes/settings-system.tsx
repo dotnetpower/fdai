@@ -48,6 +48,7 @@ import {
   newTeamsWorkflowTestRequestId,
   resolveTeamsDeliveryTargets,
   resolveTeamsWorkflowChannels,
+  type TeamsEmailRecipientMode,
   type TeamsNotificationDeliveryTargetKey,
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
@@ -482,8 +483,20 @@ function TeamsWorkflowTestPanel({
   const [selectedTargets, setSelectedTargets] = useState<
     readonly TeamsNotificationDeliveryTargetKey[]
   >(DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS);
+  const [emailRecipientMode, setEmailRecipientMode] =
+    useState<TeamsEmailRecipientMode>("login");
+  const [customEmail, setCustomEmail] = useState("");
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
   const accountIsValid = !accountHint.trim() || isEmailStyleUserPrincipalName(accountHint.trim());
+  const customEmailIsValid =
+    emailRecipientMode !== "custom"
+    || (Boolean(customEmail.trim()) && isEmailStyleUserPrincipalName(customEmail.trim()));
+  const loginEmail =
+    auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable");
+  const effectiveRecipientEmail =
+    emailRecipientMode === "custom" && customEmail.trim()
+      ? customEmail.trim()
+      : loginEmail;
 
   useEffect(() => () => {
     if (copyTimerRef.current !== null) {
@@ -506,7 +519,11 @@ function TeamsWorkflowTestPanel({
           return;
         }
         const resolvedTargets = resolveTeamsDeliveryTargets(binding);
+        const resolvedEmailMode = binding.emailRecipientMode ?? "login";
+        const resolvedCustomEmail = binding.customEmail ?? "";
         setSelectedTargets(resolvedTargets);
+        setEmailRecipientMode(resolvedEmailMode);
+        setCustomEmail(resolvedCustomEmail);
         setBindingSaved({
           bindingVersion: binding.bindingVersion,
           endpointIdentifier: binding.endpointIdentifier,
@@ -514,6 +531,8 @@ function TeamsWorkflowTestPanel({
           observedAt: binding.observedAt,
           channels: resolveTeamsWorkflowChannels(binding),
           deliveryTargets: resolvedTargets,
+          emailRecipientMode: resolvedEmailMode,
+          customEmail: resolvedCustomEmail,
         });
         setBindingVisibility("visible");
       } catch (reason) {
@@ -610,8 +629,11 @@ function TeamsWorkflowTestPanel({
     readonly selectedChannelIds?: readonly string[];
     readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
     readonly removeChannelId?: string;
+    readonly emailRecipientMode?: TeamsEmailRecipientMode;
+    readonly customEmail?: string;
   }) => {
     if (!canManage || !bindingSaved) return;
+    setBindingError(null);
     try {
       await testTeamsWorkflowWebhook(
         auth,
@@ -628,6 +650,12 @@ function TeamsWorkflowTestPanel({
           ...(options.removeChannelId !== undefined
             ? { removeChannelId: options.removeChannelId }
             : {}),
+          ...(options.emailRecipientMode !== undefined
+            ? { emailRecipientMode: options.emailRecipientMode }
+            : {}),
+          ...(options.customEmail !== undefined
+            ? { customEmail: options.customEmail }
+            : {}),
           selectionOnly: true,
         },
       );
@@ -637,7 +665,17 @@ function TeamsWorkflowTestPanel({
           refreshed.deliveryTargets !== undefined
             ? resolveTeamsDeliveryTargets(refreshed)
             : options.deliveryTargets ?? selectedTargets;
+        const nextEmailMode =
+          refreshed.emailRecipientMode
+          ?? options.emailRecipientMode
+          ?? emailRecipientMode;
+        const nextCustomEmail =
+          refreshed.customEmail !== undefined
+            ? refreshed.customEmail
+            : options.customEmail ?? customEmail;
         setSelectedTargets(nextTargets);
+        setEmailRecipientMode(nextEmailMode);
+        setCustomEmail(nextCustomEmail);
         setBindingSaved((current) => ({
           bindingVersion: refreshed.bindingVersion,
           endpointIdentifier: refreshed.endpointIdentifier,
@@ -648,10 +686,55 @@ function TeamsWorkflowTestPanel({
               ? resolveTeamsWorkflowChannels(refreshed)
               : current?.channels ?? resolveTeamsWorkflowChannels(refreshed),
           deliveryTargets: nextTargets,
+          emailRecipientMode: nextEmailMode,
+          customEmail: nextCustomEmail,
         }));
       }
     } catch (reason) {
       setBindingError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const selectEmailRecipientMode = (nextMode: TeamsEmailRecipientMode) => {
+    if (!canManage || testing) return;
+    setEmailRecipientMode(nextMode);
+    if (nextMode === "login" && bindingSaved) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode: "login",
+        customEmail: customEmail.trim(),
+      });
+    } else if (
+      nextMode === "custom"
+      && bindingSaved
+      && customEmail.trim()
+      && isEmailStyleUserPrincipalName(customEmail.trim())
+    ) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode: "custom",
+        customEmail: customEmail.trim(),
+      });
+    }
+  };
+
+  const saveCustomRecipientEmail = () => {
+    if (!canManage || testing || !customEmailIsValid) return;
+    if (bindingSaved) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode,
+        customEmail: customEmail.trim(),
+      });
     }
   };
 
@@ -785,7 +868,15 @@ function TeamsWorkflowTestPanel({
         throw new Error("Saved Teams Workflow binding metadata is unavailable");
       }
       const nextTargets = resolveTeamsDeliveryTargets(refreshedBinding);
+      const nextEmailMode =
+        refreshedBinding.emailRecipientMode ?? emailRecipientMode;
+      const nextCustomEmail =
+        refreshedBinding.customEmail !== undefined
+          ? refreshedBinding.customEmail
+          : customEmail;
       setSelectedTargets(nextTargets);
+      setEmailRecipientMode(nextEmailMode);
+      setCustomEmail(nextCustomEmail);
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
         endpointIdentifier: refreshedBinding.endpointIdentifier,
@@ -793,6 +884,8 @@ function TeamsWorkflowTestPanel({
         observedAt: saved.testedAt,
         channels: resolveTeamsWorkflowChannels(refreshedBinding),
         deliveryTargets: nextTargets,
+        emailRecipientMode: nextEmailMode,
+        customEmail: nextCustomEmail,
       });
       setBindingVisibility("visible");
       if (!saved.accepted) {
@@ -1325,6 +1418,75 @@ function TeamsWorkflowTestPanel({
                       </label>
                     );
                   })}
+                </div>
+                <div class="settings-teams-workflow-email-recipient">
+                  <div class="settings-teams-workflow-channel-selector-head">
+                    <strong>{settingsIntegrationsText("emailRecipientTitle")}</strong>
+                    <StatusPill
+                      kind="neutral"
+                      label={settingsIntegrationsText("emailRecipientActivePill", {
+                        email: effectiveRecipientEmail,
+                      })}
+                    />
+                  </div>
+                  <p>{settingsIntegrationsText("emailRecipientHint")}</p>
+                  <div class="settings-teams-workflow-email-modes">
+                    <label>
+                      <input
+                        type="radio"
+                        name="teams-workflow-email-recipient-mode"
+                        checked={emailRecipientMode === "login"}
+                        disabled={!canManage || testing}
+                        onChange={() => selectEmailRecipientMode("login")}
+                      />
+                      <span>
+                        {settingsIntegrationsText("emailRecipientModeLogin", {
+                          email: loginEmail,
+                        })}
+                      </span>
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="teams-workflow-email-recipient-mode"
+                        checked={emailRecipientMode === "custom"}
+                        disabled={!canManage || testing}
+                        onChange={() => selectEmailRecipientMode("custom")}
+                      />
+                      <span>{settingsIntegrationsText("emailRecipientModeCustom")}</span>
+                    </label>
+                  </div>
+                  {emailRecipientMode === "custom" ? (
+                    <div class="settings-teams-workflow-email-custom-row">
+                      <input
+                        class="form-input"
+                        type="email"
+                        maxlength={254}
+                        aria-label={settingsIntegrationsText("emailRecipientCustomLabel")}
+                        aria-invalid={!customEmailIsValid ? "true" : undefined}
+                        value={customEmail}
+                        disabled={!canManage || testing}
+                        placeholder={settingsIntegrationsText(
+                          "emailRecipientCustomPlaceholder",
+                        )}
+                        onInput={(event) => setCustomEmail(event.currentTarget.value)}
+                      />
+                      {canManage ? (
+                        <button
+                          type="button"
+                          class="btn btn-small primary"
+                          disabled={
+                            testing
+                            || !customEmail.trim()
+                            || !customEmailIsValid
+                          }
+                          onClick={() => saveCustomRecipientEmail()}
+                        >
+                          {settingsIntegrationsText("emailRecipientSave")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
                 {bindingSaved && bindingSaved.channels.length > 0 ? (
                   <div class="settings-teams-workflow-saved-channels">

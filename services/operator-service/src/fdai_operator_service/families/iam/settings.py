@@ -443,6 +443,8 @@ def make_runtime_settings_routes(
             "selected_channel_ids",
             "delivery_targets",
             "remove_channel_id",
+            "email_recipient_mode",
+            "custom_email",
             "selection_only",
         }
         unknown = sorted(set(body) - allowed_fields)
@@ -472,6 +474,14 @@ def make_runtime_settings_routes(
         raw_remove = body.get("remove_channel_id")
         if raw_remove is not None and (not isinstance(raw_remove, str) or not raw_remove.strip()):
             return error_response(400, "remove_channel_id MUST be a non-empty string")
+        raw_email_mode = body.get("email_recipient_mode")
+        if raw_email_mode is not None and raw_email_mode not in {"login", "custom"}:
+            return error_response(400, "email_recipient_mode MUST be login or custom")
+        raw_custom_email = body.get("custom_email")
+        if raw_custom_email is not None and (
+            not isinstance(raw_custom_email, str) or len(raw_custom_email) > 254
+        ):
+            return error_response(400, "custom_email MUST be a bounded string")
         raw_selection_only = body.get("selection_only", False)
         if not isinstance(raw_selection_only, bool):
             return error_response(400, "selection_only MUST be a boolean")
@@ -493,6 +503,12 @@ def make_runtime_settings_routes(
                         else None
                     ),
                     remove_channel_id=raw_remove.strip() if isinstance(raw_remove, str) else None,
+                    email_recipient_mode=(
+                        raw_email_mode if isinstance(raw_email_mode, str) else None
+                    ),
+                    custom_email=(
+                        raw_custom_email.strip() if isinstance(raw_custom_email, str) else None
+                    ),
                     selection_only=raw_selection_only,
                 )
             )

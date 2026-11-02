@@ -34,6 +34,8 @@ const DELIVERY_TARGET_SET: ReadonlySet<string> = new Set(
   ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
 );
 
+export type TeamsEmailRecipientMode = "login" | "custom";
+
 export interface TeamsWorkflowSavedChannel {
   readonly channelId: string;
   readonly label: string;
@@ -61,6 +63,8 @@ export type TeamsWorkflowBindingView =
       readonly savedAt: string | null;
       readonly channels?: readonly TeamsWorkflowSavedChannel[];
       readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
+      readonly emailRecipientMode?: TeamsEmailRecipientMode;
+      readonly customEmail?: string;
     };
 
 /** Secret-free saved-binding facts the setup panel renders. */
@@ -71,6 +75,8 @@ export interface TeamsWorkflowSavedBinding {
   readonly observedAt: string;
   readonly channels: readonly TeamsWorkflowSavedChannel[];
   readonly deliveryTargets: readonly TeamsNotificationDeliveryTargetKey[];
+  readonly emailRecipientMode: TeamsEmailRecipientMode;
+  readonly customEmail: string;
 }
 
 /** Audited on-demand reveal payload for Contributor, Approver, and Owner roles. */
@@ -87,6 +93,8 @@ export interface TeamsWorkflowSubmitOptions {
   readonly selectedChannelIds?: readonly string[];
   readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
   readonly removeChannelId?: string;
+  readonly emailRecipientMode?: TeamsEmailRecipientMode;
+  readonly customEmail?: string;
   readonly selectionOnly?: boolean;
 }
 
@@ -131,6 +139,12 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
       : isoTimestamp(item["saved_at"], "Teams Workflow binding.saved_at");
   const channels = decodeOptionalChannels(item["channels"]);
   const deliveryTargets = decodeOptionalDeliveryTargets(item["delivery_targets"]);
+  const emailRecipientMode =
+    item["email_recipient_mode"] === "login" || item["email_recipient_mode"] === "custom"
+      ? item["email_recipient_mode"]
+      : undefined;
+  const customEmail =
+    typeof item["custom_email"] === "string" ? item["custom_email"].trim() : undefined;
   return {
     visible: true,
     configured: true,
@@ -140,6 +154,8 @@ export function decodeTeamsWorkflowBindingView(value: unknown): TeamsWorkflowBin
     savedAt,
     ...(channels !== undefined ? { channels } : {}),
     ...(deliveryTargets !== undefined ? { deliveryTargets } : {}),
+    ...(emailRecipientMode !== undefined ? { emailRecipientMode } : {}),
+    ...(customEmail !== undefined ? { customEmail } : {}),
   };
 }
 
