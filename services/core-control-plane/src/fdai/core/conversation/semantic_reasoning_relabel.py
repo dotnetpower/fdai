@@ -108,7 +108,7 @@ _TRAILING_REQUEST_CUES = (
 )
 
 
-def normalize_raw_proposal_payload(payload: dict[str, Any], utterance: str) -> None:
+def normalize_raw_proposal_payload(payload: dict[str, Any], source_text: str) -> None:
     """Normalize structural proposer mistakes before Pydantic contract validation."""
 
     from .semantic_reasoning_selection import (
@@ -131,7 +131,7 @@ def normalize_raw_proposal_payload(payload: dict[str, Any], utterance: str) -> N
         ):
             span = item.get("span")
             txt = (
-                utterance[span.get("start", 0) : span.get("end", 0)]
+                source_text[span.get("start", 0) : span.get("end", 0)]
                 if isinstance(span, dict)
                 else ""
             )
@@ -163,12 +163,12 @@ def normalize_raw_proposal_payload(payload: dict[str, Any], utterance: str) -> N
                     and f_item.get("mention") in retyped
                 ):
                     f_item["role"] = "type"
-    _rescue_unsupported_and_history(payload, mentions, goals, utterance)
-    _normalize_state_and_health_proposals(mentions, goals, utterance)
+    _rescue_unsupported_and_history(payload, mentions, goals, source_text)
+    _normalize_state_and_health_proposals(mentions, goals, source_text)
 
 
 def _rescue_unsupported_and_history(
-    payload: dict[str, Any], mentions: list[Any], goals: list[Any], utterance: str
+    payload: dict[str, Any], mentions: list[Any], goals: list[Any], source_text: str
 ) -> None:
     import re
 
@@ -180,7 +180,9 @@ def _rescue_unsupported_and_history(
         for span in unsupported:
             if not isinstance(span, dict):
                 continue
-            raw_txt = utterance[span.get("start", 0) : span.get("end", 0)].strip(" .,?!").casefold()
+            raw_txt = (
+                source_text[span.get("start", 0) : span.get("end", 0)].strip(" .,?!").casefold()
+            )
             if raw_txt in _INVENTORY_WORDS:
                 context.append(span)
             elif "".join(raw_txt.split()) in _CHANGE_HISTORY_COMPACT:
@@ -202,7 +204,7 @@ def _rescue_unsupported_and_history(
             m_obj = by_id.get(m_id) if isinstance(m_id, str) else None
             m_span = m_obj.get("span") if isinstance(m_obj, dict) else None
             m_txt = (
-                utterance[m_span.get("start", 0) : m_span.get("end", 0)].strip(" .,?!").casefold()
+                source_text[m_span.get("start", 0) : m_span.get("end", 0)].strip(" .,?!").casefold()
                 if isinstance(m_span, dict)
                 else ""
             )
@@ -247,7 +249,7 @@ def _rescue_unsupported_and_history(
         span = m.get("span")
         if not isinstance(span, dict):
             continue
-        raw_txt = utterance[span.get("start", 0) : span.get("end", 0)].strip()
+        raw_txt = source_text[span.get("start", 0) : span.get("end", 0)].strip()
         digits = "".join(ch for ch in raw_txt if ch.isdigit())
         rest = "".join(ch for ch in raw_txt if not ch.isdigit()).strip()
         if digits and rest in {"개", "건", "개를", "건을", "개만"}:
@@ -279,7 +281,9 @@ def _rescue_unsupported_and_history(
                 m_span = m_obj.get("span") if isinstance(m_obj, dict) else None
                 compact = (
                     "".join(
-                        utterance[m_span.get("start", 0) : m_span.get("end", 0)].casefold().split()
+                        source_text[m_span.get("start", 0) : m_span.get("end", 0)]
+                        .casefold()
+                        .split()
                     )
                     if isinstance(m_span, dict)
                     else ""
@@ -303,7 +307,7 @@ def _rescue_unsupported_and_history(
             and not goal.get("filters")
         ):
             for phrase in _CHANGE_HISTORY_PHRASES[:11]:
-                idx = utterance.find(phrase)
+                idx = source_text.find(phrase)
                 if idx >= 0:
                     promoted_history_cue = {"start": idx, "end": idx + len(phrase)}
                     break
@@ -323,7 +327,7 @@ def _rescue_unsupported_and_history(
                 }
             elif goal["measure"].get("cue") is None and promoted_history_cue is not None:
                 goal["measure"]["cue"] = promoted_history_cue
-            rec_idx = utterance.find("최근")
+            rec_idx = source_text.find("최근")
             time_obj = goal.get("time")
             if rec_idx >= 0 and isinstance(time_obj, dict) and time_obj.get("cue") is None:
                 time_obj.update(
@@ -338,11 +342,14 @@ def _rescue_unsupported_and_history(
             if (
                 isinstance(cue_obj, dict)
                 and cue_obj.get("start") == 0
-                and cue_obj.get("end") == len(utterance)
+                and cue_obj.get("end") == len(source_text)
             ):
                 for tc in _TRAILING_REQUEST_CUES:
-                    if utterance.endswith(tc):
-                        goal["cue"] = {"start": len(utterance) - len(tc), "end": len(utterance)}
+                    if source_text.endswith(tc):
+                        goal["cue"] = {
+                            "start": len(source_text) - len(tc),
+                            "end": len(source_text),
+                        }
                         break
             if len(goals) == 1:
                 goal["filters"] = []
@@ -374,7 +381,7 @@ def _rescue_unsupported_and_history(
                 }
                 dropped.add(lim_id)
             else:
-                m_cnt = re.search(r"(\d+)\s*(?:개|건)(?:를|을|만)?", utterance)
+                m_cnt = re.search(r"(\d+)\s*(?:개|건)(?:를|을|만)?", source_text)
                 if m_cnt:
                     d_end = m_cnt.start(1) + len(m_cnt.group(1))
                     goal["measure"]["order"] = {
@@ -388,7 +395,7 @@ def _rescue_unsupported_and_history(
 
 
 def _normalize_state_and_health_proposals(
-    mentions: list[Any], goals: list[Any], utterance: str
+    mentions: list[Any], goals: list[Any], source_text: str
 ) -> None:
     from .semantic_reasoning_selection import (
         _DOMAIN_SEED_INDEX,
@@ -425,8 +432,8 @@ def _normalize_state_and_health_proposals(
                 c_start, c_end = min(c_start, q_span["start"]), max(c_end, q_span["end"])
             if isinstance(item.get("cue"), dict):
                 c_start, c_end = min(c_start, item["cue"]["start"]), max(c_end, item["cue"]["end"])
-            m_text = utterance[m_span.get("start", 0) : m_span.get("end", 0)].strip().casefold()
-            combined_norm = _normalize_concept_term(utterance[c_start:c_end])
+            m_text = source_text[m_span.get("start", 0) : m_span.get("end", 0)].strip().casefold()
+            combined_norm = _normalize_concept_term(source_text[c_start:c_end])
             is_state_term = (
                 m_obj.get("domain") in {"state", "health"}
                 or m_text in _STATE_LABEL_NOUNS
@@ -480,13 +487,13 @@ def _normalize_state_and_health_proposals(
                         dropped.add(str(other["id"]))
     if dropped:
         mentions[:] = [m for m in mentions if not (isinstance(m, dict) and m.get("id") in dropped)]
-    _normalize_resource_health_proposal(mentions, goals, utterance)
+    _normalize_resource_health_proposal(mentions, goals, source_text)
 
 
 def _normalize_resource_health_proposal(
-    mentions: list[Any], goals: list[Any], utterance: str
+    mentions: list[Any], goals: list[Any], source_text: str
 ) -> None:
-    rh_idx = utterance.casefold().find("resource health")
+    rh_idx = source_text.casefold().find("resource health")
     if rh_idx < 0 or len(goals) != 1 or not isinstance(goals[0], dict):
         return
     rh_span = {"start": rh_idx, "end": rh_idx + 15}
@@ -507,10 +514,10 @@ def _normalize_resource_health_proposal(
                     m_obj["domain"] = "health"
                     m_obj["form"] = "concept"
                 goal["measure"] = None
-    res_idx = utterance.find("리소스", rh_span["end"])
+    res_idx = source_text.find("리소스", rh_span["end"])
     h_span = None
     for hp in _HEALTH_PHRASES:
-        idx = utterance.find(hp, rh_span["end"])
+        idx = source_text.find(hp, rh_span["end"])
         if idx >= 0:
             h_span = {"start": idx, "end": idx + len(hp)}
             break
