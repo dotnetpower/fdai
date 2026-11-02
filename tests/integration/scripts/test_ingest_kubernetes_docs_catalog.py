@@ -40,12 +40,19 @@ def test_ingester_is_idempotent_and_outputs_schema_valid_entries(
     first = {path.name: path.read_bytes() for path in out.glob("*.yaml")}
     assert module.main() == 0
 
-    assert len(first) == 3
+    assert len(first) == 15
     assert first == {path.name: path.read_bytes() for path in out.glob("*.yaml")}
     entries = load_all(root)
     assert {entry.expected_signal for entry in entries} == {
         "backend_health",
+        "config_drift",
+        "gateway_latency",
+        "pod_abnormal_termination",
+        "pod_crash_loop_back_off",
+        "pod_oom_killed",
+        "pod_unready",
         "request_failure",
+        "resource_availability",
         "rollout_stall",
     }
     assert all("license=CC-BY-4.0" in entry.spec["provenance"]["source_ref"] for entry in entries)
@@ -54,8 +61,14 @@ def test_ingester_is_idempotent_and_outputs_schema_valid_entries(
 @pytest.mark.parametrize(
     ("changes", "reason"),
     [
+        ({"slug": "Bad_Slug"}, "invalid_slug"),
         ({"source_url": "https://example.com/postmortem"}, "unsupported_source_url"),
         ({"source_section": ""}, "missing_source_section"),
+        ({"category": "invalid_cat"}, "unsupported_category"),
+        ({"target_type": "invalid_target"}, "unsupported_target_type"),
+        ({"fault_family": "invalid_fault"}, "unsupported_fault_family"),
+        ({"intensity": "invalid_intensity"}, "unsupported_intensity"),
+        ({"description": "   "}, "missing_description_or_rollback_note"),
         ({"expected_signal": "unknown"}, "unknown_expected_signal"),
         ({"expected_signal": "member_hotspot"}, "rca_only_signal_not_scenario_eligible"),
     ],

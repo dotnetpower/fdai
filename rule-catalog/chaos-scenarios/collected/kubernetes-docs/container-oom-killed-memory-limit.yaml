@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.container-oom-killed-memory-limit
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/
+  source_ref: section=exceed-a-container-s-memory-limit;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: resource_saturation
+target_type: pod
+fault_family: oom
+intensity: high
+duration_seconds: 360
+expected_signal: pod_oom_killed
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore safe memory limit and request sizing or roll back the leaking
+  workload revision.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Container memory usage exceeds its cgroup limit and triggers kernel OOMKilled
+  termination.
+tags:
+- kubernetes
+- vendor-doc

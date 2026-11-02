@@ -15,17 +15,18 @@ operator-facing domains, independent readiness axes, and one deterministic drift
 | [`question-bank.source.schema.json`](./question-bank.source.schema.json) | Strict schema for the authoring source. |
 | [`operator-question-expansion.source.yaml`](./operator-question-expansion.source.yaml) | Two hundred additional bilingual operator candidates grouped by the 12 supplied operational categories. |
 | [`current-resource-sre-questions.source.yaml`](./current-resource-sre-questions.source.yaml) | Fifty bilingual, read-only SRE questions covering 19 generic Azure resource types in a current inventory. |
+| [`devops-exercises-sre-scenarios.source.yaml`](./devops-exercises-sre-scenarios.source.yaml) | One hundred bilingual SRE and cloud-operations troubleshooting scenario questions adapted from real-world DevOps exercises across all 12 categories and seven domains. |
 | [`question-expansion.source.schema.json`](./question-expansion.source.schema.json) | Strict schema for an external candidate source. |
 | [`question-bank.json`](./question-bank.json) | Generated machine-readable inventory of Golden, manual, Console, and candidate questions. |
 | [`question-bank.schema.json`](./question-bank.schema.json) | Strict schema for the generated inventory. |
 | [`review-catalog.md`](./review-catalog.md) | Generated bilingual view for human review. |
 
-The materialized inventory contains 400 logical questions:
+The materialized inventory contains 500 logical questions:
 
 - 35 reviewed Golden expectations;
 - 60 bilingual pairs formed from Q001-Q120;
 - 5 Console starter questions;
-- 300 operator candidates across seven domains, including 50 current-resource SRE questions.
+- 400 operator candidates across seven domains, including 50 current-resource SRE questions and 100 DevOps/SRE troubleshooting scenarios.
 
 ## Source ownership
 
@@ -41,6 +42,7 @@ The registry is federated rather than duplicating existing source text:
 | [`question-bank.source.yaml`](./question-bank.source.yaml) | Cross-source mappings, baseline operator candidates, and external candidate-source registration. |
 | [`operator-question-expansion.source.yaml`](./operator-question-expansion.source.yaml) | The 200-question operational expansion. |
 | [`current-resource-sre-questions.source.yaml`](./current-resource-sre-questions.source.yaml) | The 50-question current-resource SRE set. |
+| [`devops-exercises-sre-scenarios.source.yaml`](./devops-exercises-sre-scenarios.source.yaml) | The 100-question DevOps/SRE troubleshooting scenario set. |
 
 This boundary avoids a second editable copy of reviewed questions. The generated inventory records
 the SHA-256 digest of every input so changes on any source surface require regeneration.

@@ -11,6 +11,7 @@ making catalog generation depend on network availability.
 from __future__ import annotations
 
 import pathlib
+import re
 from dataclasses import dataclass
 
 import yaml
@@ -22,6 +23,63 @@ _OUT_DIR = _REPO_ROOT / "rule-catalog" / "chaos-scenarios" / "collected" / "kube
 _SOURCE_PREFIX = "https://kubernetes.io/docs/"
 _SOURCE_LICENSE = "CC-BY-4.0"
 _REVIEWED_AT = "2026-07-17"
+_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+_ALLOWED_CATEGORIES = frozenset(
+    {
+        "compute",
+        "network",
+        "storage",
+        "state",
+        "dependency",
+        "traffic",
+        "time",
+        "resource_saturation",
+        "identity",
+        "quota",
+        "cost_governance",
+    }
+)
+_ALLOWED_TARGET_TYPES = frozenset(
+    {
+        "pod",
+        "node",
+        "vm",
+        "vmss",
+        "db",
+        "lb",
+        "dns",
+        "disk",
+        "cache",
+        "secret_store",
+        "identity",
+        "ingress",
+        "egress",
+        "quota",
+        "llm_endpoint",
+        "control_plane",
+    }
+)
+_ALLOWED_FAULT_FAMILIES = frozenset(
+    {
+        "stop",
+        "delay",
+        "drop",
+        "corrupt",
+        "saturate",
+        "throttle",
+        "deny",
+        "misroute",
+        "expire",
+        "quota_shrink",
+        "oom",
+        "hang",
+        "preempt",
+        "checkpoint_fail",
+        "cache_overflow",
+        "ramp",
+    }
+)
+_ALLOWED_INTENSITIES = frozenset({"mild", "high", "extreme"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,14 +133,225 @@ _ENTRIES = (
         description="A workload cannot pull its declared image and the rollout stalls.",
         rollback_note="Restore the previous resolvable image reference and restart the rollout.",
     ),
+    Entry(
+        slug="crash-loop-backoff-liveness-probe",
+        source_url=(
+            "https://kubernetes.io/docs/tasks/configure-pod-container/"
+            "configure-liveness-readiness-startup-probes/"
+        ),
+        source_section="define-a-liveness-command",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="pod_crash_loop_back_off",
+        description=(
+            "Misconfigured or failing livenessProbe repeatedly restarts the container "
+            "into CrashLoopBackOff."
+        ),
+        rollback_note="Restore valid livenessProbe command or threshold parameters and redeploy.",
+    ),
+    Entry(
+        slug="readiness-probe-endpoint-removal",
+        source_url=(
+            "https://kubernetes.io/docs/tasks/configure-pod-container/"
+            "configure-liveness-readiness-startup-probes/"
+        ),
+        source_section="define-readiness-probes",
+        category="traffic",
+        target_type="pod",
+        fault_family="deny",
+        intensity="mild",
+        expected_signal="pod_unready",
+        description=(
+            "Failing readinessProbe removes the Pod from Service EndpointSlices "
+            "without restarting the container."
+        ),
+        rollback_note="Restore backend dependency health or readinessProbe port configuration.",
+    ),
+    Entry(
+        slug="container-oom-killed-memory-limit",
+        source_url="https://kubernetes.io/docs/tasks/configure-pod-container/assign-memory-resource/",
+        source_section="exceed-a-container-s-memory-limit",
+        category="resource_saturation",
+        target_type="pod",
+        fault_family="oom",
+        intensity="high",
+        expected_signal="pod_oom_killed",
+        description=(
+            "Container memory usage exceeds its cgroup limit and triggers "
+            "kernel OOMKilled termination."
+        ),
+        rollback_note=(
+            "Restore safe memory limit and request sizing or roll back "
+            "the leaking workload revision."
+        ),
+    ),
+    Entry(
+        slug="kubelet-node-not-ready-stop",
+        source_url="https://kubernetes.io/docs/concepts/architecture/nodes/",
+        source_section="node-status",
+        category="compute",
+        target_type="node",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="resource_availability",
+        description=(
+            "Stopped kubelet agent causes NodeReady status to become Unknown "
+            "and triggers pod eviction."
+        ),
+        rollback_note="Restart the node kubelet service and verify NodeReady status recovery.",
+    ),
+    Entry(
+        slug="network-policy-egress-deny-drop",
+        source_url="https://kubernetes.io/docs/concepts/services-networking/network-policies/",
+        source_section="default-deny-all-egress-traffic",
+        category="network",
+        target_type="egress",
+        fault_family="drop",
+        intensity="high",
+        expected_signal="request_failure",
+        description=(
+            "Restrictive egress NetworkPolicy drops outbound Pod traffic "
+            "despite destination ingress allowance."
+        ),
+        rollback_note=(
+            "Restore the egress NetworkPolicy allow rule for the target service selector and port."
+        ),
+    ),
+    Entry(
+        slug="service-selector-label-mismatch",
+        source_url="https://kubernetes.io/docs/concepts/services-networking/service/",
+        source_section="defining-a-service",
+        category="network",
+        target_type="lb",
+        fault_family="misroute",
+        intensity="high",
+        expected_signal="backend_health",
+        description=(
+            "Service label selector mismatch leaves EndpointSlices empty "
+            "and collapses backend health."
+        ),
+        rollback_note="Align the Service selector labels with the active Pod template labels.",
+    ),
+    Entry(
+        slug="resource-quota-admission-denial",
+        source_url="https://kubernetes.io/docs/concepts/policy/resource-quotas/",
+        source_section="compute-resource-quota",
+        category="quota",
+        target_type="quota",
+        fault_family="quota_shrink",
+        intensity="mild",
+        expected_signal="rollout_stall",
+        description=(
+            "Namespace ResourceQuota exhaustion blocks ReplicaSet Pod creation during rollout."
+        ),
+        rollback_note="Restore namespace ResourceQuota headroom or right-size workload requests.",
+    ),
+    Entry(
+        slug="node-taint-untolerated-pending",
+        source_url="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+        source_section="concepts",
+        category="compute",
+        target_type="node",
+        fault_family="deny",
+        intensity="mild",
+        expected_signal="rollout_stall",
+        description=(
+            "Untolerated NoSchedule or NoExecute node taints leave newly "
+            "scheduled Pods in Pending state."
+        ),
+        rollback_note=(
+            "Remove the unintended node taint or add the matching toleration to the workload spec."
+        ),
+    ),
+    Entry(
+        slug="pvc-provisioning-mount-stall",
+        source_url="https://kubernetes.io/docs/concepts/storage/persistent-volumes/",
+        source_section="lifecycle-of-a-volume-and-claim",
+        category="storage",
+        target_type="disk",
+        fault_family="hang",
+        intensity="high",
+        expected_signal="pod_unready",
+        description=(
+            "Unbound PersistentVolumeClaim or cross-zone volume attach failure stalls Pod startup."
+        ),
+        rollback_note=(
+            "Restore StorageClass availability or attach a zone-aligned PersistentVolume."
+        ),
+    ),
+    Entry(
+        slug="ingress-backend-gateway-timeout",
+        source_url="https://kubernetes.io/docs/concepts/services-networking/ingress/",
+        source_section="the-ingress-resource",
+        category="traffic",
+        target_type="ingress",
+        fault_family="delay",
+        intensity="high",
+        expected_signal="gateway_latency",
+        description=(
+            "Slow upstream Pod response across Ingress routing rules elevates "
+            "gateway first-byte latency."
+        ),
+        rollback_note=(
+            "Restore upstream service response latency or roll back the Ingress backend route."
+        ),
+    ),
+    Entry(
+        slug="configmap-drift-rollout-regression",
+        source_url="https://kubernetes.io/docs/concepts/configuration/configmap/",
+        source_section="using-configmaps",
+        category="state",
+        target_type="pod",
+        fault_family="corrupt",
+        intensity="mild",
+        expected_signal="config_drift",
+        description=(
+            "Out-of-band ConfigMap mutation introduces runtime configuration drift "
+            "from declared manifests."
+        ),
+        rollback_note=(
+            "Reconcile the ConfigMap with the declared GitOps revision and restart affected Pods."
+        ),
+    ),
+    Entry(
+        slug="container-abnormal-exit-entrypoint",
+        source_url=(
+            "https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/"
+        ),
+        source_section="writing-and-reading-a-termination-message",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="pod_abnormal_termination",
+        description=(
+            "Invalid container entrypoint or command causes immediate non-zero exit "
+            "upon container start."
+        ),
+        rollback_note="Restore the verified container command and arguments in the Pod template.",
+    ),
 )
 
 
 def _validate_entry(entry: Entry) -> None:
+    if not _SLUG_PATTERN.fullmatch(entry.slug):
+        raise ValueError("invalid_slug")
     if not entry.source_url.startswith(_SOURCE_PREFIX):
         raise ValueError("unsupported_source_url")
-    if not entry.source_section:
+    if not entry.source_section.strip():
         raise ValueError("missing_source_section")
+    if entry.category not in _ALLOWED_CATEGORIES:
+        raise ValueError("unsupported_category")
+    if entry.target_type not in _ALLOWED_TARGET_TYPES:
+        raise ValueError("unsupported_target_type")
+    if entry.fault_family not in _ALLOWED_FAULT_FAMILIES:
+        raise ValueError("unsupported_fault_family")
+    if entry.intensity not in _ALLOWED_INTENSITIES:
+        raise ValueError("unsupported_intensity")
+    if not entry.description.strip() or not entry.rollback_note.strip():
+        raise ValueError("missing_description_or_rollback_note")
     signal = known_signals().get(entry.expected_signal)
     if signal is None:
         raise ValueError("unknown_expected_signal")
@@ -120,6 +389,9 @@ def _to_body(entry: Entry) -> dict[str, object]:
 
 
 def main() -> int:
+    slugs = [entry.slug for entry in _ENTRIES]
+    if len(slugs) != len(set(slugs)):
+        raise ValueError("duplicate_slug")
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     valid_names = {f"{entry.slug}.yaml" for entry in _ENTRIES}
     for existing in _OUT_DIR.glob("*.yaml"):

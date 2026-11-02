@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any, cast
@@ -11,6 +12,17 @@ from typing import Any, cast
 import yaml
 from jsonschema import Draft202012Validator
 from scripts.automation.question_bank_sources import collect_questions
+
+_UUID_PATTERN = re.compile(
+    r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
+    re.IGNORECASE,
+)
+_IPV4_PATTERN = re.compile(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b")
+_ESCAPED_HANGUL_PATTERN = re.compile(r"\\u(?:ac|ad|[b-d][0-9a-f])[0-9a-f]{2}", re.IGNORECASE)
+_FORBIDDEN_PUNCTUATION = frozenset(
+    {"\u2013", "\u2014", "\u2018", "\u2019", "\u201c", "\u201d", "\u2026", "\u00a0"}
+)
+_FORBIDDEN_SUBSTRINGS = ("/subscriptions/", "/resourcegroups/", ".azure.com")
 
 _DOMAIN_ORDER = (
     "state_incident_detection",
@@ -77,7 +89,9 @@ def build_question_bank(*, repo_root: Path, source_path: Path) -> dict[str, Any]
             identity for identity, count in Counter(identities).items() if count > 1
         )
         raise ValueError(f"question bank ids MUST be unique: {duplicates}")
+    _validate_duplicate_references(questions)
     _reject_duplicate_wording(questions)
+    _validate_wording_hygiene(questions)
 
     source_files = _source_files(
         repo_root,
@@ -229,6 +243,60 @@ def _source_files(repo_root: Path, paths: tuple[Path, ...]) -> list[dict[str, st
     ]
 
 
+def _validate_duplicate_references(questions: list[dict[str, Any]]) -> None:
+    by_id = {_string(item["question_id"], "question_id"): item for item in questions}
+    for question_id, item in by_id.items():
+        if "duplicate_of" not in item:
+            continue
+        target_id = _string(item["duplicate_of"], "duplicate_of")
+        if target_id == question_id:
+            raise ValueError(f"question bank duplicate_of MUST NOT self-reference: {question_id}")
+        target = by_id.get(target_id)
+        if target is None:
+            raise ValueError(
+                f"question bank duplicate_of references unknown question id: "
+                f"{question_id} -> {target_id}"
+            )
+        if "duplicate_of" in target:
+            raise ValueError(
+                f"question bank duplicate_of MUST reference a canonical non-duplicate id: "
+                f"{question_id} -> {target_id}"
+            )
+
+
+def _validate_wording_hygiene(questions: list[dict[str, Any]]) -> None:
+    for item in questions:
+        question_id = _string(item["question_id"], "question_id")
+        wording = _mapping(item["wording"], "wording")
+        for locale in ("en", "ko"):
+            text = _string(wording[locale], f"{question_id}.{locale}")
+            lowered = text.casefold()
+            for token in _FORBIDDEN_SUBSTRINGS:
+                if token in lowered:
+                    raise ValueError(
+                        f"question bank wording contains customer-specific token {token!r}: "
+                        f"{question_id} ({locale})"
+                    )
+            if _UUID_PATTERN.search(text) is not None:
+                raise ValueError(
+                    f"question bank wording contains a UUID literal: {question_id} ({locale})"
+                )
+            if _IPV4_PATTERN.search(text) is not None:
+                raise ValueError(
+                    f"question bank wording contains an IPv4 literal: {question_id} ({locale})"
+                )
+            if any(char in _FORBIDDEN_PUNCTUATION for char in text):
+                raise ValueError(
+                    f"question bank wording contains non-ASCII smart punctuation: "
+                    f"{question_id} ({locale})"
+                )
+            if _ESCAPED_HANGUL_PATTERN.search(text) is not None:
+                raise ValueError(
+                    f"question bank wording contains escaped Hangul literals: "
+                    f"{question_id} ({locale})"
+                )
+
+
 def _reject_duplicate_wording(questions: list[dict[str, Any]]) -> None:
     for locale in ("en", "ko"):
         identities_by_text: dict[str, list[str]] = {}
@@ -298,13 +366,13 @@ def _array(value: object, name: str) -> list[Any]:
 
 
 def _string(value: object, name: str) -> str:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} MUST be a non-empty string")
     return value
 
 
 def _markdown_cell(value: object) -> str:
-    return _string(value, "Markdown cell").replace("|", "\\|").replace("\n", " ")
+    return " ".join(_string(value, "Markdown cell").split()).replace("|", "\\|")
 
 
 __all__ = ["build_question_bank", "render_review_catalog"]

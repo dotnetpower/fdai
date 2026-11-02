@@ -1,5 +1,5 @@
 schema_version: "1.0.0"
-catalog_version: "1.2.0"
+catalog_version: "1.3.0"
 
 sources:
   golden_questions: eval/golden-dataset/questions.source.yaml
@@ -14,6 +14,7 @@ sources:
 candidate_sources:
   - eval/golden-dataset/question-bank/operator-question-expansion.source.yaml
   - eval/golden-dataset/question-bank/current-resource-sre-questions.source.yaml
+  - eval/golden-dataset/question-bank/devops-exercises-sre-scenarios.source.yaml
 
 golden_category_domains:
   change_safety: change_deployment_impact

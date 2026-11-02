@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.configmap-drift-rollout-regression
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/configuration/configmap/
+  source_ref: section=using-configmaps;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: state
+target_type: pod
+fault_family: corrupt
+intensity: mild
+duration_seconds: 360
+expected_signal: config_drift
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Reconcile the ConfigMap with the declared GitOps revision and restart
+  affected Pods.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Out-of-band ConfigMap mutation introduces runtime configuration drift
+  from declared manifests.
+tags:
+- kubernetes
+- vendor-doc

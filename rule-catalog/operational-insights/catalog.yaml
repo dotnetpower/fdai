@@ -442,3 +442,182 @@ recipes:
     threshold: 0.05
     min_samples: 20
     description: Detect network degradation through elevated TCP retransmissions.
+  - recipe_id: database.replication-lag
+    title: Database read replica lag
+    category: reliability
+    severity: high
+    operator: above
+    metric: database.replication_lag_seconds
+    threshold: 30
+    min_samples: 5
+    description: Detect asynchronous read-replica lag causing stale reads after writes.
+  - recipe_id: database.connection-pool-saturation
+    title: Database connection pool saturation
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: database.active_connections
+    comparison_metric: database.max_connections
+    threshold: 0.85
+    min_samples: 5
+    description: Detect active database connections approaching the configured pool ceiling.
+  - recipe_id: database.deadlock-surge
+    title: Database deadlock surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: database.deadlocks_total
+    threshold: 3
+    description: Detect a burst of transaction deadlocks within one evaluation window.
+  - recipe_id: infrastructure.scaling-oscillation
+    title: Autoscaling thrashing oscillation
+    category: reliability
+    severity: medium
+    operator: delta_above
+    metric: autoscale.direction_reversals
+    threshold: 4
+    description: Detect rapid scale-out and scale-in oscillation caused by aggressive cooldowns.
+  - recipe_id: infrastructure.inode-pressure
+    title: Filesystem inode exhaustion pressure
+    category: reliability
+    severity: high
+    operator: ratio_below
+    metric: system.filesystem.inodes_free
+    comparison_metric: system.filesystem.inodes_total
+    threshold: 0.10
+    min_samples: 5
+    description: Detect a volume running out of free inodes despite available byte capacity.
+  - recipe_id: infrastructure.oom-kill-surge
+    title: Kernel or container OOM kill surge
+    category: reliability
+    severity: critical
+    operator: delta_above
+    metric: system.memory.oom_kills
+    threshold: 1
+    description: Detect one or more kernel or container out-of-memory terminations.
+  - recipe_id: infrastructure.zombie-process-surge
+    title: Defunct zombie process accumulation
+    category: reliability
+    severity: medium
+    operator: above
+    metric: system.processes.zombie_count
+    threshold: 50
+    min_samples: 5
+    description: Detect accumulation of unreaped defunct child processes on a host.
+  - recipe_id: infrastructure.load-average-saturation
+    title: Host run-queue load average saturation
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: system.load.average_5m
+    comparison_metric: system.cpu.logical_cores
+    threshold: 1.5
+    min_samples: 5
+    description: Detect sustained run-queue or I/O-wait load exceeding logical CPU cores.
+  - recipe_id: infrastructure.cross-zone-load-imbalance
+    title: Cross-zone instance load imbalance
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: zone.max_instance_load
+    comparison_metric: zone.min_instance_load
+    threshold: 1.8
+    min_samples: 5
+    description: Detect asymmetric load across availability zones from uneven instance distribution.
+  - recipe_id: network.connection-timeout-surge
+    title: Network connection timeout surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: network.connection_timeouts
+    threshold: 10
+    description: Detect silent packet drops or unreachable routes causing connection timeouts.
+  - recipe_id: network.connection-refused-surge
+    title: Network connection refused surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: network.connection_refused
+    threshold: 10
+    description: Detect closed listener ports or crashed daemons returning TCP RST or ICMP reject.
+  - recipe_id: network.dns-lookup-failure-rate
+    title: DNS lookup failure rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: network.dns_lookup_failure_rate
+    threshold: 0.02
+    min_samples: 10
+    description: Detect elevated NXDOMAIN, SERVFAIL, or resolver timeout responses.
+  - recipe_id: network.lb-unhealthy-host-ratio
+    title: Load balancer unhealthy backend ratio
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: lb.unhealthy_targets
+    comparison_metric: lb.total_targets
+    threshold: 0.30
+    min_samples: 5
+    description: Detect a material share of backend pool targets failing health probes.
+  - recipe_id: network.sticky-session-imbalance
+    title: Load balancer sticky-session skew
+    category: reliability
+    severity: medium
+    operator: ratio_above
+    metric: lb.max_backend_sessions
+    comparison_metric: lb.median_backend_sessions
+    threshold: 2.5
+    min_samples: 10
+    description: Detect severe session concentration on a single backend from cookie affinity.
+  - recipe_id: network.connection-draining-timeout-surge
+    title: Connection draining forced termination surge
+    category: reliability
+    severity: medium
+    operator: delta_above
+    metric: lb.draining_forced_terminations
+    threshold: 5
+    description: Detect active client connections dropped when scale-in draining expires.
+  - recipe_id: change.canary-analysis-failure-rate
+    title: Canary rollout analysis failure rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: deployment.canary_analysis_failure_rate
+    threshold: 0.10
+    min_samples: 5
+    description: Detect failing automated canary or blue-green rollout verification checks.
+  - recipe_id: change.gitops-out-of-sync-duration
+    title: GitOps application out-of-sync staleness
+    category: config_drift
+    severity: medium
+    operator: stale
+    metric: gitops.last_in_sync_timestamp
+    threshold: 900
+    description: Detect a workload remaining OutOfSync from its declared GitOps manifest.
+  - recipe_id: change.state-lock-wait-duration
+    title: Infrastructure state lock contention
+    category: config_drift
+    severity: medium
+    operator: above
+    metric: iac.state_lock_wait_seconds
+    threshold: 120
+    min_samples: 3
+    description: Detect prolonged Terraform or IaC remote state lock contention.
+  - recipe_id: cost.spot-eviction-surge
+    title: Spot instance eviction surge
+    category: cost
+    severity: high
+    operator: delta_above
+    metric: compute.spot_evictions
+    threshold: 2
+    description: Detect a surge of Spot or preemptible compute evictions in one window.
+  - recipe_id: cost.unattached-storage-spend-share
+    title: Orphaned storage spend share
+    category: cost
+    severity: medium
+    operator: ratio_above
+    metric: cost.unattached_storage
+    comparison_metric: cost.total_storage
+    threshold: 0.10
+    min_samples: 5
+    description: Detect an excessive share of storage spend from unattached disks and stale snapshots.

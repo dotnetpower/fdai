@@ -52,6 +52,8 @@ def _firing_observation(recipe: InsightRecipe) -> InsightObservation:
     elif recipe.operator is InsightOperator.STALE:
         values[recipe.metric] = 1.0
         last_seen[recipe.metric] = _NOW - timedelta(seconds=recipe.threshold + 1.0)
+    elif recipe.operator is InsightOperator.ABSENT:
+        values.pop(recipe.metric, None)
 
     return InsightObservation(
         resource_ref="resource:example/operational-target",
@@ -65,15 +67,65 @@ def _firing_observation(recipe: InsightRecipe) -> InsightObservation:
     )
 
 
-def test_catalog_contains_fifty_unique_executable_features() -> None:
+def _non_firing_observation(recipe: InsightRecipe) -> InsightObservation:
+    values: dict[str, float] = {}
+    previous: dict[str, float] = {}
+    baselines: dict[str, float] = {}
+    last_seen: dict[str, datetime] = {}
+
+    if recipe.operator is InsightOperator.ABOVE:
+        values[recipe.metric] = recipe.threshold - 0.01
+    elif recipe.operator is InsightOperator.BELOW:
+        values[recipe.metric] = recipe.threshold + 0.01
+    elif recipe.operator is InsightOperator.DELTA_ABOVE:
+        previous[recipe.metric] = 100.0
+        values[recipe.metric] = 100.0 + recipe.threshold
+    elif recipe.operator is InsightOperator.DELTA_BELOW:
+        previous[recipe.metric] = 100.0
+        values[recipe.metric] = 100.0 + recipe.threshold
+    elif recipe.operator is InsightOperator.PERCENT_CHANGE_ABOVE:
+        baselines[recipe.metric] = 100.0
+        values[recipe.metric] = 100.0 + recipe.threshold
+    elif recipe.operator is InsightOperator.PERCENT_CHANGE_BELOW:
+        baselines[recipe.metric] = 100.0
+        values[recipe.metric] = 100.0 + recipe.threshold
+    elif recipe.operator is InsightOperator.RATIO_ABOVE:
+        assert recipe.comparison_metric is not None
+        values[recipe.comparison_metric] = 10.0
+        values[recipe.metric] = max(0.0, (recipe.threshold - 0.01) * 10.0)
+    elif recipe.operator is InsightOperator.RATIO_BELOW:
+        assert recipe.comparison_metric is not None
+        values[recipe.comparison_metric] = 10.0
+        values[recipe.metric] = (recipe.threshold + 0.05) * 10.0
+    elif recipe.operator is InsightOperator.STALE:
+        values[recipe.metric] = 1.0
+        last_seen[recipe.metric] = _NOW - timedelta(seconds=max(0.0, recipe.threshold - 1.0))
+    elif recipe.operator is InsightOperator.ABSENT:
+        values[recipe.metric] = 1.0
+
+    return InsightObservation(
+        resource_ref="resource:example/operational-target",
+        window_bucket="2026-07-18T12:00Z",
+        values=values,
+        previous_values=previous,
+        baseline_values=baselines,
+        sample_counts={recipe.metric: max(1, recipe.min_samples)},
+        last_seen_at=last_seen,
+        evaluated_at=_NOW,
+    )
+
+
+def test_catalog_contains_seventy_unique_executable_features() -> None:
     recipes = load_operational_insight_recipes(_CATALOG)
-    assert len(recipes) == 50
-    assert len({recipe.recipe_id for recipe in recipes}) == 50
+    assert len(recipes) == 70
+    assert len({recipe.recipe_id for recipe in recipes}) == 70
 
     for recipe in recipes:
-        findings = OperationalInsightEngine([recipe]).evaluate(_firing_observation(recipe))
+        engine = OperationalInsightEngine([recipe])
+        findings = engine.evaluate(_firing_observation(recipe))
         assert len(findings) == 1, recipe.recipe_id
         assert findings[0].recipe_id == recipe.recipe_id
+        assert engine.evaluate(_non_firing_observation(recipe)) == (), recipe.recipe_id
 
 
 def test_catalog_spans_required_operational_domains() -> None:
@@ -117,4 +169,50 @@ def test_loader_rejects_duplicate_recipe_ids(tmp_path: Path) -> None:
 """
     catalog.write_text(f"version: 1\nrecipes:{recipe}{recipe}")
     with pytest.raises(ValueError, match="unique"):
+        load_operational_insight_recipes(catalog)
+
+
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        ("description: '   '", "description MUST be a non-empty string"),
+        ("metric: 'invalid metric'", "metric MUST use lowercase ASCII"),
+        ("threshold: .nan", "threshold MUST be finite"),
+        ("min_samples: 0", "min_samples MUST be an integer >= 1"),
+        (
+            "operator: above\n    comparison_metric: peer.metric",
+            "comparison_metric is only allowed for ratio operators",
+        ),
+        (
+            "operator: ratio_above\n    comparison_metric: example.metric",
+            "comparison_metric MUST differ from metric",
+        ),
+        (
+            "operator: ratio_below\n    comparison_metric: peer.metric\n    threshold: -0.1",
+            "threshold MUST be >= 0 for ratio operators",
+        ),
+        (
+            "operator: stale\n    threshold: 0",
+            "threshold MUST be > 0 for stale operator",
+        ),
+    ],
+)
+def test_loader_rejects_malformed_recipe_invariants(
+    tmp_path: Path, override: str, match: str
+) -> None:
+    catalog = tmp_path / "invalid_invariant.yaml"
+    catalog.write_text(
+        "version: 1\nrecipes:\n"
+        "  - recipe_id: example.recipe\n"
+        "    title: Example\n"
+        "    category: reliability\n"
+        "    severity: high\n"
+        "    operator: above\n"
+        "    metric: example.metric\n"
+        "    threshold: 1.0\n"
+        "    description: Valid description.\n"
+        f"    {override}\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match=match):
         load_operational_insight_recipes(catalog)
