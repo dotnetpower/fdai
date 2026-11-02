@@ -10,6 +10,8 @@ from fdai.core.conversation.result_handle_store import (
     result_handle_conversation_id,
 )
 from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
+from fdai.core.ontology_platform import QueryPlanExecution
+from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.reasoning_handles import (
@@ -44,6 +46,7 @@ def result_handle_from_technical_details(
     result: SemanticTurnResult,
     *,
     technical_details: Mapping[str, object],
+    execution: QueryPlanExecution | None = None,
 ) -> ResultHandle | None:
     """Build a result handle from verified rendered table rows, when present."""
 
@@ -66,6 +69,19 @@ def result_handle_from_technical_details(
                 row_identities=row_identities,
                 snapshot_rows=snapshot_rows,
             )
+    if execution is not None and (
+        not row_keys
+        or any(
+            isinstance(output, Mapping) and output.get("display_truncated") is True
+            for output in outputs
+        )
+    ):
+        _append_execution_table_rows(
+            execution,
+            row_keys=row_keys,
+            row_identities=row_identities,
+            snapshot_rows=snapshot_rows,
+        )
     if not row_keys:
         return None
     ordered = tuple(row_keys[:1000])
@@ -92,6 +108,36 @@ def result_handle_from_technical_details(
     )
 
 
+def _is_aggregate_row(row_id: str, values: Mapping[str, object]) -> bool:
+    return (
+        (row_id in {"count", "sum", "min", "max", "avg"} or row_id.startswith("group:"))
+        and "id" not in values
+        and "object_type" not in values
+        and "subject_ref" not in values
+    )
+
+
+def _append_execution_table_rows(
+    execution: QueryPlanExecution,
+    *,
+    row_keys: list[TypedRowKey],
+    row_identities: list[str],
+    snapshot_rows: list[SnapshotRow],
+) -> None:
+    for node_id, node_result in execution.results.items():
+        if not isinstance(node_result.value, QueryTable):
+            continue
+        synthetic_rows = [
+            {"row_id": row.row_id, "values": dict(row.values)} for row in node_result.value.rows
+        ]
+        _append_output_rows(
+            {"node_id": node_id, "rows": synthetic_rows},
+            row_keys=row_keys,
+            row_identities=row_identities,
+            snapshot_rows=snapshot_rows,
+        )
+
+
 def _append_output_rows(
     output: Mapping[str, object],
     *,
@@ -114,6 +160,7 @@ def _append_output_rows(
             or not row_id.strip()
             or row_id in seen_row_ids
             or not isinstance(values, Mapping)
+            or _is_aggregate_row(row_id, values)
         ):
             continue
         seen_row_ids.add(row_id)

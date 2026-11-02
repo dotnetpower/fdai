@@ -1179,3 +1179,35 @@ def test_disable_resample_clamps_deadline_when_future_is_unfinished() -> None:
     assert outcome is None
     assert pending_future.cancelled()
     assert ticket.decision == "unavailable"
+
+
+async def test_context_confused_review_pass_retries_without_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    low_conf = _observation(
+        released=False,
+        review=None,
+        passes=(
+            ShadowPass(
+                0, "review", ("low_confidence:g1",), shape=("g1:instance:select:collection",)
+            ),
+        ),
+        compilations=(),
+    )
+    samples = [low_conf, _observation()]
+    seen_contexts: list[tuple[str, ...]] = []
+
+    async def shadow(**arguments: Any) -> ReasoningShadowObservation:
+        seen_contexts.append(arguments.get("context", ()))
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+    result = await semantic_compiled_answers._run_form_path(
+        object(),  # type: ignore[arg-type]
+        collector,
+        context=("inbound:earlier question", "outbound:earlier answer"),
+    )
+
+    assert seen_contexts == [("inbound:earlier question", "outbound:earlier answer"), ()]
+    assert result.released

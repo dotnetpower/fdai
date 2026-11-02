@@ -7,6 +7,7 @@ from .conversation_preflight import (
     ConversationPreflightResult,
     OperationalPreflightFamily,
     OperationalSignal,
+    RequestTopic,
 )
 
 DIRECT_RESPONSE_PROFILE = {
@@ -54,6 +55,15 @@ _PREFLIGHT_OPERATIONAL_INTENTS = {
 }
 
 
+_NON_PRIMARY_READ_TOPICS = frozenset(
+    {
+        RequestTopic.ACTION_REQUEST,
+        RequestTopic.GOVERNED_DOCUMENTS,
+        RequestTopic.INCIDENT,
+    }
+)
+
+
 def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
     """Select a read candidate only; independent form admission still decides its meaning."""
 
@@ -61,11 +71,11 @@ def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
         return False
     proposal = result.proposal
     return proposal is not None and (
-        proposal.operational_signal is OperationalSignal.EXPLICIT
-        and proposal.context_dependency is ContextDependency.NONE
+        proposal.operational_signal in {OperationalSignal.EXPLICIT, OperationalSignal.CONTEXTUAL}
+        and proposal.context_dependency in {ContextDependency.NONE, ContextDependency.ACTIVE_THREAD}
         and proposal.knowledge_signal.value == "none"
         and proposal.social_act.value == "none"
-        and not proposal.request_topics
+        and not (frozenset(proposal.request_topics) & _NON_PRIMARY_READ_TOPICS)
         and proposal.operational_family
         in {
             OperationalPreflightFamily.NONE,

@@ -81,8 +81,16 @@ async def bind_stored_references(
 
     if store is None or not references:
         return None
+    needed = [
+        mention_id
+        for goal in admission.form.goals
+        if (mention_id := reference_mention(admission, goal.id)) is not None
+    ]
+    if not needed:
+        return ReferenceReceipt(())
+    selected_ref = references[0]
     loaded = await store.get(
-        references[0],
+        selected_ref,
         binding=binding,
         allowed_snapshot_fields=_SNAPSHOT_REFERENCE_FIELDS,
     )
@@ -98,17 +106,44 @@ async def bind_stored_references(
             purpose=purpose,
             as_of=as_of,
         )
+        if not row_map and len(references) > 1:
+            for candidate_ref in references[1:]:
+                cand_loaded = await store.get(
+                    candidate_ref,
+                    binding=binding,
+                    allowed_snapshot_fields=_SNAPSHOT_REFERENCE_FIELDS,
+                )
+                if cand_loaded.status is ResultHandleGetStatus.BOUND and cand_loaded.handle:
+                    cand_map, cand_gen = await _authorized_row_map(
+                        cand_loaded.handle,
+                        gateway=gateway,
+                        projection_request=projection_request,
+                        purpose=purpose,
+                        as_of=as_of,
+                    )
+                    if cand_map:
+                        selected_ref = candidate_ref
+                        loaded = cand_loaded
+                        outcome = _outcome_for_status(cand_loaded.status)
+                        handle = cand_loaded.handle
+                        row_map = cand_map
+                        source_generation = cand_gen
+                        break
     bindings: dict[str, ReferenceBinding] = {}
     for goal in admission.form.goals:
         mention_id = reference_mention(admission, goal.id)
         if mention_id is None or mention_id in bindings:
             continue
-        mention = admission.form.mention(mention_id)
+        if mention_id.startswith("implicit:"):
+            m_form, m_pos = MentionForm.ANAPHOR, None
+        else:
+            mention = admission.form.mention(mention_id)
+            m_form, m_pos = mention.form, mention.position
         bindings[mention_id] = _bind_one(
             mention_id,
-            mention.form,
-            mention.position,
-            handle_ref=references[0].handle_ref,
+            m_form,
+            m_pos,
+            handle_ref=selected_ref.handle_ref,
             row_keys=handle.row_keys if handle is not None else (),
             truncated=handle.truncated if handle is not None else False,
             row_map=row_map,
