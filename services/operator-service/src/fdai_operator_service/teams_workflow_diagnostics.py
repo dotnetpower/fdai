@@ -467,16 +467,16 @@ class TeamsWorkflowDiagnosticTester:
                     "Teams Workflow binding saved timestamp is timezone-naive"
                 )
         load_channel = getattr(self.binding_store, "load_channel", None)
+        raw_channels = metadata.get("channels") if isinstance(metadata, Mapping) else None
         enabled_channel_ids = (
             [
                 str(item.get("channel_id"))
-                for item in (metadata.get("channels") if isinstance(metadata, Mapping) else None)
-                or []
+                for item in raw_channels
                 if isinstance(item, Mapping)
                 and bool(item.get("enabled", True))
                 and isinstance(item.get("channel_id"), str)
             ]
-            if metadata is not None
+            if isinstance(raw_channels, list)
             else []
         )
         urls_to_test: list[str] = []
