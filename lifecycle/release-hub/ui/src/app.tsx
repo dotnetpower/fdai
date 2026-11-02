@@ -1,9 +1,11 @@
+import { PublicClientApplication } from "@azure/msal-browser";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   activeCapabilityRecalls, catalogChangeObserved, catalogRecovery, computeApolloReleaseDiff,
   extractReleaseStencil, isCustomChannel, nextPromotionTransition,
-  releaseStateIndex, releaseTitle, requestCatalog, requestStencilCatalog, requestStencilCompose,
-  type Action, type Catalog, type Change, type Release,
+  releaseStateIndex, releaseTitle, requestCatalog, requestEntraLogin, requestEntraLogout,
+  requestEntraSession, requestStencilCatalog, requestStencilCompose,
+  type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
 } from "./api";
 import { DeploymentRequests } from "./deployment-requests";
 import { ReleaseWorkspace } from "./release-workspace";
@@ -557,6 +559,225 @@ function CapabilityRecallControl({
   );
 }
 
+function EntraSignInDialog({
+  entraStatus,
+  locale,
+  close,
+  onSignedIn,
+}: {
+  entraStatus: EntraSessionStatus | null;
+  locale: "en" | "ko";
+  close: () => void;
+  onSignedIn: (next: EntraSessionStatus, message: string) => void;
+}) {
+  const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const detected = entraStatus?.detected_accounts ?? [];
+  const defaultAccount = detected[0];
+  const [tenantId, setTenantId] = useState(
+    defaultAccount?.tenant_id ?? "00000000-0000-0000-0000-000000000000",
+  );
+  const [clientId, setClientId] = useState("00000000-0000-0000-0000-000000000000");
+  const [principalInput, setPrincipalInput] = useState(
+    defaultAccount?.principal ?? "operator@microsoft.com",
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    const previous = document.activeElement;
+    dialog.current?.showModal();
+    return () => {
+      dialog.current?.close();
+      if (previous instanceof HTMLElement) previous.focus();
+    };
+  }, []);
+
+  async function signInWorkstation(principal?: string, tenant?: string, label?: string) {
+    if (busy) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const next = await requestEntraLogin({
+        mode: "workstation",
+        principal: (principal ?? principalInput).trim(),
+        tenant_id: (tenant ?? tenantId).trim(),
+        display_name: label ?? "",
+      });
+      onSignedIn(
+        next,
+        t(
+          `Signed in with Microsoft Entra ID as ${next.session?.principal ?? next.actor}.`,
+          `Microsoft Entra ID 계정(${next.session?.principal ?? next.actor})으로 로그인되었습니다. 이후 모든 릴리스 작업에 이 계정이 기록됩니다.`,
+        ),
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Microsoft Entra ID sign-in failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signInMsalPopup() {
+    if (busy) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const cleanTenant = tenantId.trim().toLowerCase();
+      const cleanClient = clientId.trim();
+      const msal = new PublicClientApplication({
+        auth: {
+          clientId: cleanClient,
+          authority: `https://login.microsoftonline.com/${cleanTenant}`,
+          redirectUri: window.location.origin,
+        },
+        cache: { cacheLocation: "sessionStorage" },
+      });
+      await msal.initialize();
+      const authResult = await msal.loginPopup({
+        scopes: ["openid", "profile", "email"],
+        prompt: "select_account",
+      });
+      const acct = authResult.account;
+      if (!acct) throw new Error("No Microsoft Entra ID account returned from popup.");
+      const next = await requestEntraLogin({
+        mode: "msal_account",
+        principal: acct.username || acct.localAccountId,
+        display_name: acct.name || acct.username,
+        tenant_id: acct.tenantId || cleanTenant,
+        client_id: cleanClient,
+      });
+      onSignedIn(
+        next,
+        t(
+          `Signed in via MSAL OAuth2 PKCE as ${next.session?.principal}.`,
+          `MSAL OAuth2 PKCE를 통해 Microsoft Entra ID(${next.session?.principal})로 로그인되었습니다.`,
+        ),
+      );
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? e.message
+          : t("MSAL popup sign-in was cancelled or failed.", "MSAL 팝업 로그인이 취소되었거나 실패했습니다."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby="entra-dialog-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) close();
+      }}
+    >
+      <header>
+        <h2 id="entra-dialog-title">
+          {t("Sign in with Microsoft Entra ID", "Microsoft Entra ID 운영자 로그인")}
+        </h2>
+        <p>
+          {t(
+            "Bind your Microsoft Entra ID identity so every Release registration, DEV publication, stage promotion, and capability recall is attributed to your account.",
+            "Microsoft Entra ID 계정으로 로그인하면 릴리스 등록, DEV 전자서명 발행, 단계 승격, 긴급 기능 리콜 등 모든 감사 이력(Activity)에 귀하의 Entra ID 신원이 기록됩니다.",
+          )}
+        </p>
+      </header>
+
+      {err && <p class="error" role="alert">{err}</p>}
+
+      {detected.length > 0 && (
+        <section style="margin-top: 16px;">
+          <h3>
+            {t(
+              "1. Detected Workstation Microsoft Entra ID Account (1-Click)",
+              "1. 현재 워크스테이션에 연결된 Microsoft Entra ID 계정 (원클릭 로그인)",
+            )}
+          </h3>
+          <div class="apollo-diff-list">
+            {detected.map((acct) => (
+              <div
+                key={`${acct.principal}-${acct.tenant_id}`}
+                class="stencil-provenance-preview"
+                style="justify-content: space-between;"
+              >
+                <div>
+                  <strong>{acct.principal}</strong>
+                  <div class="preset-metrics" style="margin-top: 4px;">
+                    <span class="stencil-chip">Tenant: {acct.tenant_id}</span>
+                    <span class="stencil-chip">{acct.tenant_label}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void signInWorkstation(acct.principal, acct.tenant_id, `${acct.principal} (${acct.tenant_label})`)
+                  }
+                >
+                  {t(`Continue as ${acct.principal}`, `${acct.principal} 계정으로 즉시 로그인`)}
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section style="margin-top: 24px;">
+        <h3>
+          {t(
+            "2. Interactive MSAL OAuth2 PKCE Sign-In or Custom Entra Principal",
+            "2. 브라우저 MSAL OAuth2 팝업 로그인 또는 Entra 계정 직접 지정",
+          )}
+        </h3>
+        <div class="stencil-grid">
+          <label>
+            {t("Microsoft Entra Tenant ID (UUID)", "Microsoft Entra 테넌트 ID (UUID)")}
+            <input
+              value={tenantId}
+              onInput={(e) => setTenantId(e.currentTarget.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+            />
+          </label>
+          <label>
+            {t("Entra SPA Application (Client) ID", "Entra SPA 애플리케이션 (Client) ID")}
+            <input
+              value={clientId}
+              onInput={(e) => setClientId(e.currentTarget.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+            />
+          </label>
+          <label class="stencil-provenance-span">
+            {t("Operator UPN / Email", "운영자 Entra ID 이메일 (UPN)")}
+            <input
+              value={principalInput}
+              onInput={(e) => setPrincipalInput(e.currentTarget.value)}
+              placeholder="operator@microsoft.com"
+            />
+          </label>
+        </div>
+        <div class="actions">
+          <button type="button" class="primary" disabled={busy} onClick={() => void signInWorkstation()}>
+            {t("Sign in with UPN & Tenant ID", "입력한 Entra ID 계정으로 로그인")}
+          </button>
+          <button type="button" disabled={busy} onClick={() => void signInMsalPopup()}>
+            {t("Open Microsoft login popup (MSAL PKCE)", "Microsoft 공식 로그인 팝업 열기 (MSAL PKCE)")}
+          </button>
+        </div>
+      </section>
+
+      <footer>
+        <button type="button" disabled={busy} onClick={close}>
+          {t("Close", "닫기")}
+        </button>
+      </footer>
+    </dialog>
+  );
+}
+
 export function App() {
   const [locale, setLocaleState] = useState<"en" | "ko">(() => {
     try {
@@ -578,6 +799,8 @@ export function App() {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
 
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [entraStatus, setEntraStatus] = useState<EntraSessionStatus | null>(null);
+  const [entraDialogOpen, setEntraDialogOpen] = useState(false);
   const [route, setRoute] = useState(locationRoute);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -588,7 +811,16 @@ export function App() {
   const heading = useRef<HTMLElement>(null);
   async function refresh() {
     setLoading(true);
-    try { const current = await requestCatalog(); setCatalog(current); setError(""); return current; }
+    try {
+      const [current, session] = await Promise.all([
+        requestCatalog(),
+        requestEntraSession(),
+      ]);
+      setCatalog(current);
+      if (session) setEntraStatus(session);
+      setError("");
+      return current;
+    }
     catch (failure) { setError(catalogRecovery(failure)); return null; }
     finally { setLoading(false); }
   }
@@ -616,12 +848,61 @@ export function App() {
       <div class="brand"><img src="/brand/fdai-logo.png" alt="FDAI" /><span>Release Hub<small>{t("Vendor workspace", "릴리스 컨트롤 플레인")}</small></span></div>
       {navItems.map(([path, titleEn, titleKo]) =>
         <a key={path} class={active === path ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={active === path ? "page" : undefined}>{locale === "ko" ? titleKo : titleEn}</a>)}
-      <div class="side-note"><strong>{t("Development validation", "로컬 검증 모드")}</strong><p>{t("No production trust root or deployment authority.", "외부 레지스트리나 운영 클러스터를 직접 변경하지 않습니다.")}</p></div>
+      <div class="side-note">
+        <strong>
+          {entraStatus?.authenticated
+            ? t("Microsoft Entra ID verified", "Microsoft Entra ID 로그인됨")
+            : t("Development validation", "로컬 검증 모드 (미로그인)")}
+        </strong>
+        <p>
+          {entraStatus?.authenticated && entraStatus.session
+            ? `${entraStatus.session.principal} (Tenant ${entraStatus.session.tenant_id.slice(0, 8)}...)`
+            : t("No production trust root or deployment authority.", "상단 'Microsoft Entra ID 로그인' 버튼으로 운영자 계정을 연결하세요.")}
+        </p>
+      </div>
     </nav>
     <main id="main" class="main" ref={heading} tabIndex={-1}>
       <div class="workspace-bar">
         <span>{t("Vendor / FDAI", "FDAI 릴리스 허브 (권장 순서: 1. 스텐실 구성 -> 2. 릴리스 등록/발행 -> 3. 채널 승격)")}</span>
         <div class="actions" style="margin-top: 0;">
+          {entraStatus?.authenticated && entraStatus.session ? (
+            <span class="stencil-provenance-preview" style="padding: 4px 10px;">
+              <span class="stage-pill done">Entra ID</span>
+              <strong>{entraStatus.session.principal}</strong>
+              <button
+                type="button"
+                class="chip-btn"
+                onClick={() => setEntraDialogOpen(true)}
+              >
+                {t("Switch account", "계정 전환")}
+              </button>
+              <button
+                type="button"
+                class="chip-btn"
+                onClick={() => {
+                  void requestEntraLogout().then((next) => {
+                    setEntraStatus(next);
+                    setNotice(
+                      t(
+                        "Signed out of Microsoft Entra ID.",
+                        "Microsoft Entra ID에서 로그아웃되었습니다.",
+                      ),
+                    );
+                  });
+                }}
+              >
+                {t("Sign out", "로그아웃")}
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              class="primary"
+              onClick={() => setEntraDialogOpen(true)}
+            >
+              {t("Sign in with Microsoft Entra ID", "Microsoft Entra ID 로그인")}
+            </button>
+          )}
           <label style="display: inline-flex; align-items: center; gap: 8px; margin: 0;">
             <span>{t("Language", "화면 언어")}</span>
             <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
@@ -758,6 +1039,19 @@ export function App() {
             </section>
           </> : <><h1>Page not found</h1><a href="#/releases">Back to releases</a></>}
       </>}
+      {entraDialogOpen && (
+        <EntraSignInDialog
+          entraStatus={entraStatus}
+          locale={locale}
+          close={() => setEntraDialogOpen(false)}
+          onSignedIn={(next, msg) => {
+            setEntraStatus(next);
+            setEntraDialogOpen(false);
+            setUncertain(false);
+            setNotice(msg);
+          }}
+        />
+      )}
       {pending && catalog && <Confirm pending={pending} catalog={catalog} locale={locale} registration={registration} setRegistration={setRegistration} close={() => setPending(null)} done={async (id, change) => {
         const renewed = pending.action === "renew";
         setUncertain(false);

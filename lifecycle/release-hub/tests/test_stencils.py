@@ -352,6 +352,40 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     assert std_promote_blocked.status_code == 409
     assert "capability_recalled" in std_promote_blocked.json()["error"]
 
+    # Verify Microsoft Entra ID sign-in attributes subsequent catalog actions to entra:<principal>
+    session_before = client.get("/v1/auth/session")
+    assert session_before.status_code == 200
+    assert session_before.json()["authenticated"] is False
+
+    login_resp = client.post(
+        "/v1/auth/entra/login",
+        json={
+            "mode": "workstation",
+            "principal": "operator@contoso.com",
+            "tenant_id": "00000000-0000-0000-0000-000000000000",
+            "display_name": "Contoso SRE Operator",
+        },
+    )
+    assert login_resp.status_code == 200
+    assert login_resp.json()["authenticated"] is True
+    assert login_resp.json()["actor"] == "entra:operator@contoso.com"
+
+    lift_cap = client.post(
+        "/v1/capabilities/isolated-executor/lift",
+        json={
+            "revision": 6,
+            "confirmation": "isolated-executor",
+            "lifting_release_id": "1.7.1",
+            "reason": "Lift capability recall under Entra ID operator session",
+        },
+    )
+    assert lift_cap.status_code == 200
+    assert lift_cap.json()["events"][0]["actor"] == "entra:operator@contoso.com"
+
+    logout_resp = client.post("/v1/auth/entra/logout")
+    assert logout_resp.status_code == 200
+    assert logout_resp.json()["authenticated"] is False
+
 
 def test_stencil_api_rejects_duplicate_json_keys_cross_origin_and_invalid_inputs(
     client: TestClient,

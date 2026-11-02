@@ -502,6 +502,74 @@ export async function requestStencilCompose(
   return body as StencilComposeResult;
 }
 
+export type EntraDetectedAccount = {
+  principal: string;
+  tenant_id: string;
+  tenant_label: string;
+  is_default: boolean;
+};
+
+export type EntraActiveSession = {
+  principal: string;
+  display_name: string;
+  tenant_id: string;
+  auth_method: "entra-workstation" | "entra-msal-pkce" | "entra-remote-jwt";
+  signed_in_at: string;
+};
+
+export type EntraSessionStatus = {
+  authenticated: boolean;
+  actor: string;
+  session: EntraActiveSession | null;
+  detected_accounts: EntraDetectedAccount[];
+};
+
+export async function requestEntraSession(): Promise<EntraSessionStatus | null> {
+  try {
+    const response = await authenticatedFetch("/v1/auth/session", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as EntraSessionStatus;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestEntraLogin(payload: {
+  mode: "workstation" | "msal_account";
+  principal?: string;
+  display_name?: string;
+  tenant_id?: string;
+  client_id?: string;
+}): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/v1/auth/entra/login", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof body.error === "string" && body.error.trim()
+      ? body.error
+      : `Entra ID sign-in failed (${response.status}).`;
+    throw new Error(message);
+  }
+  return body as EntraSessionStatus;
+}
+
+export async function requestEntraLogout(): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/v1/auth/entra/logout", {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(5_000),
+  });
+  return (await response.json()) as EntraSessionStatus;
+}
+
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
   const parsed: unknown = JSON.parse(manifest);
   if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");
