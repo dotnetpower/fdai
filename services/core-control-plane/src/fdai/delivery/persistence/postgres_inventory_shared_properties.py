@@ -6,7 +6,6 @@ from collections.abc import Sequence
 from typing import Any
 
 import psycopg
-from compression import zstd  # type: ignore[import-not-found]
 
 from fdai.delivery.persistence.postgres_inventory_shared_membership import (
     canonical_json,
@@ -59,7 +58,7 @@ def train_property_body_dictionary(
 def compress_property_body(
     body: str,
     *,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
     min_compress_bytes: int = _DEFAULT_MIN_COMPRESS_BYTES,
     level: int = DEFAULT_ZSTD_LEVEL,
 ) -> str:
@@ -79,7 +78,7 @@ def decompress_property_body(
     stored_body: str,
     *,
     expected_digest: str | None = None,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> str:
     """Restore and SHA-256-verify a canonical JSON property body from plain or ``zstd1:`` text."""
     return decode_zstd_text_armor(
@@ -95,7 +94,7 @@ async def share_property_rows(
     rows: list[dict[str, Any]],
     *,
     compress: bool = False,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> list[dict[str, Any]]:
     """Lock against bounded orphan collection until the caller commits its row references."""
     if not await inventory_storage_available(connection, _RELATED):

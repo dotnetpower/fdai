@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from compression import zstd  # type: ignore[import-not-found]
+from fdai.rule_catalog.schema._zstd_compat import zstd_runtime as zstd
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 DEFAULT_ZSTD_LEVEL = 3
@@ -78,7 +78,7 @@ class ZstdRecordDictionary:
     sample_count: int
     total_sample_bytes: int
 
-    def as_zstd_dict(self) -> zstd.ZstdDict:
+    def as_zstd_dict(self) -> Any:
         return zstd.ZstdDict(self.dict_bytes)
 
 
@@ -116,7 +116,7 @@ def compress_bytes(
     data: bytes,
     *,
     level: int = DEFAULT_ZSTD_LEVEL,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> ZstdEnvelope:
     """Compress ``data`` with ``compression.zstd`` and record its uncompressed SHA-256."""
     if not isinstance(data, (bytes, bytearray)):
@@ -150,7 +150,7 @@ def decompress_bytes(
     *,
     max_output_size: int = DEFAULT_MAX_OUTPUT_BYTES,
     expected_uncompressed_sha256: str | None = None,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> bytes:
     """Decompress one Zstandard frame with strict output-size and SHA-256 bounds."""
     if not isinstance(data, (bytes, bytearray)) or not data:
@@ -212,7 +212,7 @@ def compress_json(
     *,
     level: int = DEFAULT_ZSTD_LEVEL,
     sort_keys: bool = True,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> ZstdEnvelope:
     """Serialize ``payload`` as canonical UTF-8 JSON and compress with Zstandard."""
     try:
@@ -233,7 +233,7 @@ def decompress_json(
     *,
     max_output_size: int = DEFAULT_MAX_OUTPUT_BYTES,
     expected_uncompressed_sha256: str | None = None,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> Any:
     """Decompress a Zstandard JSON payload within ``max_output_size`` and parse it."""
     raw = decompress_bytes(
@@ -349,7 +349,7 @@ def encode_zstd_text_armor(
     text: str,
     *,
     level: int = DEFAULT_ZSTD_LEVEL,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> str:
     """Compress UTF-8 ``text`` into a ``zstd1:<uncompressed_sha256>:<base64>`` string."""
     if not isinstance(text, str) or not text:
@@ -364,7 +364,7 @@ def decode_zstd_text_armor(
     *,
     max_output_size: int = DEFAULT_MAX_OUTPUT_BYTES,
     expected_uncompressed_sha256: str | None = None,
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> str:
     """Decode either a ``zstd1:<sha256>:<base64>`` armored string or a plain UTF-8 string."""
     if not isinstance(value, str) or not value:
@@ -472,15 +472,17 @@ def read_zstd_json(
 
 
 def _resolve_zstd_dict(
-    dictionary: ZstdRecordDictionary | zstd.ZstdDict | None,
-) -> zstd.ZstdDict | None:
+    dictionary: ZstdRecordDictionary | Any | None,
+) -> Any | None:
     if dictionary is None:
         return None
     if isinstance(dictionary, ZstdRecordDictionary):
         return dictionary.as_zstd_dict()
     if isinstance(dictionary, zstd.ZstdDict):
         return dictionary
-    raise ZstdCodecError("dictionary MUST be a ZstdRecordDictionary or zstd.ZstdDict")
+    if hasattr(dictionary, "dict_content") and hasattr(dictionary, "dict_id"):
+        return zstd.ZstdDict(bytes(dictionary.dict_content))
+    raise ZstdCodecError("dictionary MUST be a ZstdRecordDictionary or ZstdDict")
 
 
 __all__ = [

@@ -11,6 +11,12 @@ from fdai.rule_catalog.pipeline.snapshot_mirror import (
     SnapshotMirror,
     decode_mirrored_file_content,
 )
+from fdai.rule_catalog.schema._zstd_compat import (
+    CtypesZstdDecompressor,
+    CtypesZstdError,
+    ctypes_compress,
+    ctypes_train_dict,
+)
 from fdai.rule_catalog.schema.discovery_rule import (
     deserialize_discovery_rule_bundle,
     discovery_tree_sha256,
@@ -271,3 +277,30 @@ async def test_snapshot_mirror_zstd_preserves_tree_sha256_and_verifies_readback(
         )
         == raw_content
     )
+
+
+def test_ctypes_libzstd_fallback_parity_with_zstd_codec() -> None:
+    samples = [
+        f'{{"id":"case-{idx:03d}","domain":"root_cause_analysis","status":"reviewed"}}'.encode()
+        for idx in range(40)
+    ]
+    c_dict = ctypes_train_dict(samples, 4096)
+    assert c_dict.dict_id > 0
+
+    compressed = ctypes_compress(samples[0], level=3, zstd_dict=c_dict)
+    decompressor = CtypesZstdDecompressor(zstd_dict=c_dict)
+    restored = decompressor.decompress(compressed, max_length=4096)
+    assert restored == samples[0]
+    assert decompressor.eof
+    assert decompressor.unused_data == b""
+
+    # Verify cross-compatibility with zstd_codec decompress_bytes / compress_bytes
+    assert decompress_bytes(compressed, dictionary=c_dict) == samples[0]
+    env = compress_bytes(samples[1], level=3, dictionary=c_dict)
+    assert (
+        CtypesZstdDecompressor(zstd_dict=c_dict).decompress(env.compressed_bytes, 4096)
+        == samples[1]
+    )
+
+    with pytest.raises(CtypesZstdError):
+        CtypesZstdDecompressor().decompress(b"invalid-zstd-frame", 4096)

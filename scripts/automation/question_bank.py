@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
-from compression import zstd  # type: ignore[import-not-found]
+from fdai.rule_catalog.schema._zstd_compat import zstd_runtime as zstd
 from jsonschema import Draft202012Validator
 from scripts.automation.question_bank_sources import collect_questions
 
