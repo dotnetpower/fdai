@@ -270,7 +270,17 @@ async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None
     ) in connection.statement
     assert "pending.scope_ref IN" not in connection.statement
     # No exact subjects: every pending object observation in the active scopes counts.
-    assert connection.params == ([], [], [], [], "inventory-ontology:active-scope-checkpoint")
+    assert connection.params == (
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        "inventory-ontology:active-scope-checkpoint",
+    )
     assert "cardinality(%s::text[])=0 OR (pending.subject_kind='object'" in connection.statement
     assert "active_checkpoint.value->'scope_refs'=snapshot.scopes" in connection.statement
     assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (
@@ -514,6 +524,10 @@ async def test_an_exact_id_read_counts_only_its_own_pending_observations() -> No
         ["object-a", "object-b"],
         [],
         [],
+        ["object-a", "object-b"],
+        ["object-a", "object-b"],
+        [],
+        [],
         "inventory-ontology:active-scope-checkpoint",
     )
     assert "pending.subject_ref=ANY(%s::text[])" in connection.statement
@@ -535,6 +549,10 @@ async def test_a_typed_read_counts_only_pending_observations_of_its_types() -> N
     )
 
     assert connection.params == (
+        [],
+        [],
+        ["compute.vm"],
+        ["compute.vm"],
         [],
         [],
         ["compute.vm"],

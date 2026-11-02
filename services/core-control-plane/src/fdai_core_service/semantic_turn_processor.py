@@ -3097,6 +3097,7 @@ def _render_query_answer(
                     table=table,
                     rows=candidate_rows,
                     evidence_refs=result.evidence_refs,
+                    evidence_requirements=evidence_requirements,
                 ),
             ]
             answer_output_limit = 220_000 if inventory_document else 48_000
@@ -3109,17 +3110,18 @@ def _render_query_answer(
             table=table,
             rows=rows,
             evidence_refs=result.evidence_refs,
+            evidence_requirements=evidence_requirements,
         )
         if output_shape == "resource_health_list":
             health_summary = summarize_health_rows(table.rows)
             if health_summary is not None:
                 shown_output["health_summary"] = health_summary
         outputs.append(shown_output)
-    if rule_search is not None and not projected_rule_search:
-        return None, None
-    if incident_evidence is not None and not projected_incident:
-        return None, None
-    if ontology_relationships is not None and not projected_relationships:
+    if (
+        (rule_search is not None and not projected_rule_search)
+        or (incident_evidence is not None and not projected_incident)
+        or (ontology_relationships is not None and not projected_relationships)
+    ):
         return None, None
     _resource_health_answer.attach_resource_health_narration_claims(outputs)
     technical_details = {
@@ -3153,9 +3155,8 @@ def _render_query_answer(
     answer_output_limit = 220_000 if inventory_document else 48_000
     if len(_answer_json(outputs).encode("utf-8")) > answer_output_limit:
         return None, None
-    if candidate_output is not None:
-        if outputs != [candidate_output]:
-            return None, None
+    if candidate_output is not None and outputs != [candidate_output]:
+        return None, None
         return render_instance_candidates(request.locale, candidate_output), technical_details
     if projected_incident and len(outputs) == 1:
         answer = render_incident_answer(request, outputs[0])
@@ -5643,18 +5644,19 @@ def _answer_output(
     table: QueryTable,
     rows: list[dict[str, object]],
     evidence_refs: Sequence[str],
+    evidence_requirements: Sequence[str] = (),
 ) -> dict[str, object]:
     continuation_ref = _recent_change_continuation_ref(table)
+    user_bounded = user_bounded_query_table(table, evidence_requirements)
     return {
         "node_id": node_id,
         "evidence_refs": list(evidence_refs),
         "rows": rows,
         "returned_rows": len(rows),
         "total_rows": len(table.rows),
-        "source_complete": table.complete,
-        "source_truncation_reason": table.truncation_reason,
+        "source_complete": True if user_bounded else table.complete,
+        "source_truncation_reason": None if user_bounded else table.truncation_reason,
         "display_truncated": len(rows) < len(table.rows),
-        # The exact count a source holds beyond its read bound, when the reader counted it.
         **({"source_total_rows": table.total_rows} if table.total_rows is not None else {}),
         **({"continuation_ref": continuation_ref} if continuation_ref is not None else {}),
     }
@@ -5871,15 +5873,13 @@ def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
         raise ValueError("stored semantic projection payload MUST be an object")
     if projection_payload.get("request_digest") != request_digest:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
-    if loaded.get("schema_version") == "1.3.0":
-        return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
-    if loaded.get("schema_version") == "1.6.0":
-        return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
-    if loaded.get("schema_version") == "1.7.0":
-        return OPERATOR_PROJECTION_PRODUCER_V17.encode(loaded)
-    if loaded.get("schema_version") == "1.8.0":
-        return OPERATOR_PROJECTION_PRODUCER_V18.encode(loaded)
-    return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
+    producer = {
+        "1.3.0": OPERATOR_PROJECTION_PRODUCER_V13,
+        "1.6.0": OPERATOR_PROJECTION_PRODUCER_V16,
+        "1.7.0": OPERATOR_PROJECTION_PRODUCER_V17,
+        "1.8.0": OPERATOR_PROJECTION_PRODUCER_V18,
+    }.get(str(loaded.get("schema_version")), OPERATOR_PROJECTION_PRODUCER_V14)
+    return producer.encode(loaded)
 
 
 def _pantheon_assurance_case_id(purpose: str) -> str | None:

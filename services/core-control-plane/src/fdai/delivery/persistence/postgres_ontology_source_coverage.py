@@ -88,8 +88,25 @@ async def resource_graph_source_coverage_detail(
         "ON correction.scope_ref=correction_scope.scope "
         "WHERE correction.state='correction_pending' "
         "AND (snapshot.metadata->>'coverage_scope' IS DISTINCT FROM 'full_provider_scope' "
-        "OR correction.last_watermark>COALESCE("
-        "(manifest.value->>'journal_high_watermark')::bigint, 0))) AS pending_correction, "
+        "OR correction.last_watermark>CASE WHEN "
+        "active_checkpoint.value->>'generation'=active.snapshot_id "
+        "AND active_checkpoint.value->'scope_refs'=snapshot.scopes "
+        "THEN COALESCE((active_checkpoint.value->>'projection_high_watermark')::bigint, 0) "
+        "ELSE GREATEST(COALESCE((manifest.value->>'journal_high_watermark')::bigint, 0), "
+        "COALESCE((observation_watermarks.value->>'ontology_projection_watermark')::bigint, 0)) "
+        "END) "
+        "AND (NOT EXISTS (SELECT 1 FROM inventory_observation_journal AS c_any "
+        "WHERE c_any.scope_ref=correction.scope_ref "
+        "AND c_any.watermark=correction.last_watermark) "
+        "OR EXISTS (SELECT 1 FROM inventory_observation_journal AS c_pending "
+        "WHERE c_pending.scope_ref=correction.scope_ref "
+        "AND c_pending.watermark=correction.last_watermark "
+        "AND (cardinality(%s::text[])=0 OR (c_pending.subject_kind='object' "
+        "AND c_pending.subject_ref=ANY(%s::text[]))) "
+        "AND (cardinality(%s::text[])=0 OR (c_pending.subject_kind='object' "
+        "AND c_pending.subject_type=ANY(%s::text[]))) "
+        "AND NOT (c_pending.source_revision=active.snapshot_id "
+        "OR c_pending.effective_at<=snapshot.started_at)))) AS pending_correction, "
         "EXISTS (SELECT 1 FROM jsonb_array_elements_text(snapshot.scopes) "
         "AS active_scope(scope) JOIN state_kv AS marker ON "
         "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope) "
@@ -121,6 +138,10 @@ async def resource_graph_source_coverage_detail(
         "ON storage_pressure.key='operational-history:storage-pressure' "
         "WHERE active.singleton=TRUE",
         (
+            list(exact_subjects),
+            list(exact_subjects),
+            list(subject_types),
+            list(subject_types),
             list(exact_subjects),
             list(exact_subjects),
             list(subject_types),
