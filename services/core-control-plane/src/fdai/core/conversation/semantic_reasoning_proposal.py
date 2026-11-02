@@ -221,8 +221,10 @@ _QUOTE_TRAILING_PARTICLES = (
 
 
 def _one_edit_match(target: str, candidate: str) -> bool:
+    if "-" in target or "-" in candidate:
+        return False
     a, b = target.casefold(), candidate.casefold()
-    if len(a) < 3 or len(b) < 3 or a[0] != b[0] or abs(len(a) - len(b)) > 1:
+    if len(a) < 3 or len(b) < 3 or a[0] != b[0] or a == b or abs(len(a) - len(b)) > 1:
         return False
     if len(a) == len(b):
         diffs = [i for i in range(len(a)) if a[i] != b[i]]
@@ -248,10 +250,18 @@ def _one_edit_match(target: str, candidate: str) -> bool:
     return True
 
 
+def _strip_quote_particle(token: str) -> str:
+    for suffix in _QUOTE_TRAILING_PARTICLES:
+        if len(token) > len(suffix) + 1 and token.endswith(suffix):
+            return token[: -len(suffix)]
+    return token
+
+
 def _locate_typo_quote(text: str, utterance: str) -> tuple[int, int] | None:
-    if len(text) < 3 or " " in text:
+    compact_target = "".join(text.split())
+    if len(compact_target) < 3:
         return None
-    matches: list[tuple[int, int]] = []
+    tokens: list[tuple[int, int, str]] = []
     idx = 0
     n = len(utterance)
     while idx < n:
@@ -263,18 +273,28 @@ def _locate_typo_quote(text: str, utterance: str) -> tuple[int, int] | None:
         while end < n and not utterance[end].isspace():
             end += 1
         raw_token = utterance[idx:end].rstrip("?,!.:;)")
-        tok_end = idx + len(raw_token)
-        if _one_edit_match(text, raw_token):
-            matches.append((idx, tok_end))
-        else:
-            for suffix in _QUOTE_TRAILING_PARTICLES:
-                if len(raw_token) > len(suffix) + 2 and raw_token.endswith(suffix):
-                    stem = raw_token[: -len(suffix)]
-                    if _one_edit_match(text, stem):
-                        matches.append((idx, idx + len(stem)))
-                    break
+        if raw_token:
+            tokens.append((idx, idx + len(raw_token), raw_token))
         idx = end
-    return matches[0] if len(matches) == 1 else None
+    word_count = len(text.split())
+    max_window = min(3, max(2, word_count + 1))
+    matches: list[tuple[int, int]] = []
+    for win in range(1, max_window + 1):
+        for i in range(len(tokens) - win + 1):
+            span_start = tokens[i][0]
+            last_start, last_end, last_raw = tokens[i + win - 1]
+            mid_parts = [tokens[j][2] for j in range(i, i + win - 1)]
+            full_compact = "".join((*mid_parts, last_raw))
+            if _one_edit_match(compact_target, full_compact):
+                matches.append((span_start, last_end))
+                continue
+            stem_last = _strip_quote_particle(last_raw)
+            if stem_last != last_raw:
+                stem_compact = "".join((*mid_parts, stem_last))
+                if _one_edit_match(compact_target, stem_compact):
+                    matches.append((span_start, last_start + len(stem_last)))
+    unique = list(dict.fromkeys(matches))
+    return unique[0] if len(unique) == 1 else None
 
 
 def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] | None:
