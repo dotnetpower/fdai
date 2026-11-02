@@ -356,7 +356,7 @@ export function CurrentFindings({ client, enabled = true }: {
           </div>
           <h2>{selected ? words.detail : words.title}</h2>
           {!loading && !error ? (
-            <p class="current-findings-subtitle">
+            <p class="current-findings-subtitle" role="status">
               {rows.length} {words.retained}. {words.delivery}
             </p>
           ) : null}
@@ -384,6 +384,7 @@ export function CurrentFindings({ client, enabled = true }: {
                 key={mode}
                 type="button"
                 class={statusFilter === mode ? "is-active" : undefined}
+                aria-pressed={statusFilter === mode}
                 onClick={() => {
                   setStatusFilter(mode);
                   setPage(0);

@@ -560,7 +560,6 @@ export function CopyButton({ text, label = t("shared.copy") }: CopyButtonProps) 
       type="button"
       class="btn btn-small copy-btn"
       onClick={copy}
-      aria-label={copied ? t("shared.copied") : label}
     >
       {copied ? t("shared.copied") : label}
     </button>

@@ -1321,7 +1321,7 @@ function DetectionLifecycle({
         </label>
         <button
           type="button"
-          class="secondary"
+          class="btn secondary"
           onClick={() => {
             setQuery("");
             setEvidence("all");
@@ -1333,7 +1333,7 @@ function DetectionLifecycle({
           {t("analyzerLifecycle.clearFilters")}
         </button>
       </div>
-      <p class="filter-summary">
+      <p class="filter-summary" role="status">
         <span>
           {t("analyzerLifecycle.resultCount", {
             filtered: filteredTargets.length,
@@ -1428,14 +1428,14 @@ function DetectionLifecycle({
               return (
                 <div class="detection-resource-detail-head">
                   <div class="detection-resource-title-stack">
-                    {parsedSelected.hasStructuredScope ? (
-                      <strong class="detection-resource-short-title mono">{parsedSelected.shortName}</strong>
-                    ) : null}
-                    <h4 class="panel-title mono">
+                    <h4 class="panel-title detection-resource-short-title">
                       <a class="mono" href={architectureHref(selected.resource_ref)}>
-                        {selected.resource_ref}
+                        {parsedSelected.shortName}
                       </a>
                     </h4>
+                    {parsedSelected.hasStructuredScope ? (
+                      <span class="detection-resource-full-ref mono">{selected.resource_ref}</span>
+                    ) : null}
                   </div>
                   <div class="detection-resource-detail-actions">
                     <CopyButton text={selected.resource_ref} label={t("resources.copyResourceId")} />

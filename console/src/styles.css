@@ -13362,6 +13362,10 @@ main { padding-bottom: 60px !important; }
   outline-offset: -1px;
   background: color-mix(in srgb, var(--accent) 8%, var(--bg));
 }
+.detection-record-list button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+}
 .detection-record-list strong,
 .detection-record-list span {
   min-width: 0;
@@ -13373,7 +13377,7 @@ main { padding-bottom: 60px !important; }
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
 }
-.detection-record-list span {
+.detection-record-list span:not(.status-pill) {
   color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
   line-height: var(--cs-type-caption-line-height);
@@ -13424,16 +13428,18 @@ main { padding-bottom: 60px !important; }
   color: var(--fg);
   overflow-wrap: anywhere;
 }
-.detection-resource-short-title + .panel-title {
+.detection-resource-full-ref {
+  color: var(--fg-muted);
   font-size: var(--cs-type-caption-size);
   line-height: var(--cs-type-caption-line-height);
-  font-weight: 500;
+  overflow-wrap: anywhere;
 }
-.detection-resource-short-title + .panel-title a {
-  color: var(--fg-muted);
+.detection-resource-short-title a {
+  color: var(--fg);
+  font-size: inherit;
   text-decoration: none;
 }
-.detection-resource-short-title + .panel-title a:hover {
+.detection-resource-short-title a:hover {
   color: var(--accent);
   text-decoration: underline;
 }
@@ -13443,8 +13449,8 @@ main { padding-bottom: 60px !important; }
   flex-wrap: wrap;
   gap: 8px;
 }
-.detection-resource-detail-actions .copy-button {
-  min-height: 30px;
+.detection-resource-detail-actions .copy-btn {
+  min-height: var(--cs-control-height);
   padding: 4px 10px;
   border-radius: var(--cs-radius-sm);
   font-size: var(--cs-type-caption-size);
@@ -13530,37 +13536,42 @@ main { padding-bottom: 60px !important; }
 }
 .detection-resource-toolbar,
 .detection-finding-toolbar {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(140px, 1fr)) auto;
-  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 10px;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: var(--cs-radius);
   background: var(--bg-elevated);
 }
-.detection-finding-toolbar {
-  grid-template-columns: minmax(180px, 1.4fr) repeat(4, minmax(130px, 1fr)) auto;
-}
 .detection-resource-toolbar label,
 .detection-finding-toolbar label {
   display: grid;
+  flex: 1 1 140px;
   min-width: 0;
   gap: 4px;
+}
+.detection-resource-toolbar > label:first-child,
+.detection-finding-toolbar > label:first-child {
+  flex: 2 1 220px;
 }
 .detection-resource-toolbar label > span,
 .detection-finding-toolbar label > span {
   color: var(--fg-muted);
-  font-size: var(--cs-type-caption-size);
+  font-size: var(--cs-type-label-size);
 }
 .detection-resource-toolbar .form-input,
 .detection-finding-toolbar .form-input {
   min-width: 0;
+  min-height: var(--cs-control-height);
   width: 100%;
 }
 .detection-resource-toolbar button,
 .detection-finding-toolbar button {
   min-height: var(--cs-control-height);
+  max-width: 100%;
+  white-space: normal;
 }
 .detection-resource-toolbar :is(input, select, button):focus-visible,
 .detection-finding-toolbar :is(input, select, button):focus-visible {
@@ -13591,7 +13602,7 @@ main { padding-bottom: 60px !important; }
   flex-wrap: wrap;
   gap: 8px;
 }
-.detection-lifecycle-facts {
+.detection-readiness-route .detection-lifecycle-facts {
   margin-top: 12px;
 }
 .detection-lifecycle-evidence {
@@ -13689,13 +13700,9 @@ main { padding-bottom: 60px !important; }
   .coverage-funnel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .detection-resource-toolbar,
-  .detection-finding-toolbar {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .detection-resource-toolbar > label:first-child,
   .detection-finding-toolbar > label:first-child {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
   .detection-record-workspace {
     grid-template-columns: minmax(0, 1fr);
@@ -13714,6 +13721,19 @@ main { padding-bottom: 60px !important; }
   }
 }
 @media (max-width: 640px) {
+  .detection-resource-toolbar .form-input,
+  .detection-finding-toolbar .form-input,
+  .detection-resource-toolbar button,
+  .detection-finding-toolbar button,
+  .detection-resource-detail-actions .btn,
+  .detection-resource-quick-links .btn,
+  .detection-resource-finding-preview .btn,
+  .coverage-heading-actions .btn {
+    min-height: var(--cs-control-height-touch);
+  }
+  .detection-record-detail {
+    padding: 16px;
+  }
   .detection-readiness-route .governance-readonly-banner {
     align-items: flex-start;
     flex-direction: column;

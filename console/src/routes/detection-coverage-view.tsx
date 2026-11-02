@@ -495,7 +495,7 @@ export function CoverageResources({
           <h3 class="section-title">{t("resources.title")}</h3>
           <p class="section-description">{t("resources.description")}</p>
         </div>
-        <span class="filter-summary">
+        <span class="filter-summary" role="status">
           <span>
             {t("resources.resultCount", {
               filtered: filtered.length,
@@ -528,6 +528,9 @@ export function CoverageResources({
             onChange={(event) => update({ resourceType: event.currentTarget.value })}
           >
             <option value="all">{t("resources.allTypes")}</option>
+            {controls.resourceType !== "all" && !resourceTypes.includes(controls.resourceType) ? (
+              <option value={controls.resourceType}>{resourceTypeLabel(controls.resourceType)}</option>
+            ) : null}
             {resourceTypes.map((resourceType) => (
               <option key={resourceType} value={resourceType}>
                 {resourceTypeLabel(resourceType)}
@@ -569,7 +572,7 @@ export function CoverageResources({
         </label>
         <button
           type="button"
-          class="secondary"
+          class="btn secondary"
           onClick={() => onControlsChange(
             {
               query: "",
@@ -702,14 +705,14 @@ function ResourceDetail({
     <article id="detection-resource-detail" class="detection-record-detail">
       <div class="detection-resource-detail-head">
         <div class="detection-resource-title-stack">
-          {parsed.hasStructuredScope ? (
-            <strong class="detection-resource-short-title mono">{parsed.shortName}</strong>
-          ) : null}
-          <h4 class="panel-title">
+          <h4 class="panel-title detection-resource-short-title">
             <a class="mono" href={architectureHref(resource.resource_ref)}>
-              {resource.resource_ref}
+              {parsed.shortName}
             </a>
           </h4>
+          {parsed.hasStructuredScope ? (
+            <span class="detection-resource-full-ref mono">{resource.resource_ref}</span>
+          ) : null}
           <span class="muted small">
             {resourceTypeLabel(resource.resource_type)}
             {resourceKindLabel(resource.resource_kind) !== resource.resource_kind
