@@ -52,7 +52,12 @@ from .shadow_recorder import (
     ShadowDeliveryConflictError,
     StateStoreShadowDeliveryRecorder,
 )
-from .slack import SlackWebhookChannel, SlackWebhookConfig, render_slack_payload
+from .slack import (
+    SLACK_CHAT_POST_MESSAGE_URL,
+    SlackWebhookChannel,
+    SlackWebhookConfig,
+    render_slack_payload,
+)
 from .sms import AzureCommunicationSmsChannel, AzureCommunicationSmsConfig
 from .teams import (
     TeamsWebhookChannel,
@@ -84,6 +89,7 @@ __all__ = [
     "NotificationReceiptRejectedError",
     "PagerDutyEventsV2Channel",
     "PagerDutyEventsV2Config",
+    "SLACK_CHAT_POST_MESSAGE_URL",
     "SlackWebhookChannel",
     "SlackWebhookConfig",
     "ShadowDeliveryConflictError",

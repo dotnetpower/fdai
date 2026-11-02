@@ -277,7 +277,7 @@ placeholder.
 | Mode | Activation input | Endpoint source |
 |------|------------------|-----------------|
 | Deployed | `enable_teams_notification_delivery` plus the `teams_notification_binding` object | Key Vault secret reference injected into the control plane with read-only authority |
-| Local | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | The same encrypted Operator-owned record, read through the delivery-side store; no plaintext file or environment copy |
+| Local | `FDAI_TEAMS_NOTIFICATION_ACTIVATION` | The same encrypted Operator-owned record, read through the delivery-side store (with fallback to the owner-only encrypted local backup across database resets and normalized `postgresql` / `postgresql+psycopg` key derivation) plus owner-only local Slack channel-edge overrides when no explicit Slack webhook is set; no plaintext file or environment copy of the Teams URL |
 
 **The saved URL is password-equivalent and is never returned.** The binding read answers with
 metadata only - `visible`, `configured`, `binding_version`, the observation time, and a `saved_at`
@@ -415,9 +415,10 @@ Slack classifies connection establishment failures as unavailable, but a timeout
 error after dispatch as ambiguous because the provider may have received the request. The router
 doesn't retry an ambiguous acknowledgement through another path.
 
-A Slack webhook HTTP 200 produces `accepted`, not `delivered`. Only an independent publication
-observation may promote provider acceptance to delivery, and the Slack capability remains in shadow
-until that observation path and its promotion evidence are reviewed.
+A Slack webhook HTTP 200 (or a Slack Web API `https://slack.com/api/chat.postMessage` HTTP 200 with
+`ok: true` and a bounded message `ts` when bound with `FDAI_SLACK_OPS_CHANNEL_ID` and
+`FDAI_SLACK_BOT_TOKEN`) produces `accepted`, not `delivered`. Only an independent publication
+observation may promote provider acceptance to delivery.
 
 Teams and Slack rejection errors retain only the provider name and HTTP status. Provider response
 bodies are discarded because they are untrusted and may reflect message content; they never enter

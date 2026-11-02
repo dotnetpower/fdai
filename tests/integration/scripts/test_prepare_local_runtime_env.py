@@ -407,6 +407,20 @@ def test_full_stack_task_explicitly_activates_saved_teams_notifications() -> Non
     prepare = next(task for task in tasks if task.get("label") == "console: prepare full stack")
 
     assert prepare["options"]["env"]["FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION"] == "1"
+    restart_source = (
+        _REPO_ROOT / "scripts/deployment/local/restart-console-services.sh"
+    ).read_text(encoding="utf-8")
+    watch_source = (_REPO_ROOT / "scripts/deployment/local/watch-console-services.sh").read_text(
+        encoding="utf-8"
+    )
+    assert (
+        'FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-1}"'
+        in restart_source
+    )
+    assert (
+        'FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-1}"'
+        in watch_source
+    )
 
 
 def test_full_stack_cache_binds_local_activation_inputs() -> None:

@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
+from pathlib import Path
 
 import pytest
 from fdai.delivery.notifications.local_binding import (
     ACTIVATION_ENV,
     DEFAULT_LOCAL_ENDPOINT_ENV,
+    DEFAULT_LOCAL_SLACK_BOT_TOKEN_ENV,
+    DEFAULT_LOCAL_SLACK_CHANNEL_ENV,
+    DEFAULT_LOCAL_SLACK_ENDPOINT_ENV,
     notification_activation_requested,
     resolve_local_notification_endpoints,
 )
@@ -121,3 +126,41 @@ async def test_explicit_activation_fails_closed_when_the_state_store_is_unavaila
             state_store=FailingStore(),
             key_material=DSN,
         )
+
+
+async def test_explicit_activation_recovers_teams_from_backup_and_loads_local_slack(
+    tmp_path: Path,
+) -> None:
+    fdai_dir = tmp_path / ".fdai"
+    fdai_dir.mkdir(mode=0o700)
+    backup = fdai_dir / "local-teams-workflow-binding.json"
+    backup.write_text(
+        json.dumps(
+            _saved_record(
+                key_material=OPERATOR_DSN.replace("postgresql://", "postgresql+psycopg://")
+            )
+        ),
+        encoding="utf-8",
+    )
+    backup.chmod(0o600)
+    input_env = fdai_dir / "local-channel-edge-input.env"
+    input_env.write_text("FDAI_SLACK_BOT_TOKEN='synthetic-slack-bot-token'\n", encoding="utf-8")
+    input_env.chmod(0o600)
+    channel_file = fdai_dir / "slack-public-channel"
+    channel_file.write_text("C0EXAMPLE01\n", encoding="utf-8")
+    channel_file.chmod(0o600)
+
+    overrides = await resolve_local_notification_endpoints(
+        environment={ACTIVATION_ENV: "1"},
+        state_store=MemoryStateStore(),
+        key_material=DSN,
+        backup_path=backup,
+        local_fdai_dir=fdai_dir,
+    )
+
+    assert overrides == {
+        DEFAULT_LOCAL_ENDPOINT_ENV: ENDPOINT,
+        DEFAULT_LOCAL_SLACK_ENDPOINT_ENV: "https://slack.com/api/chat.postMessage",
+        DEFAULT_LOCAL_SLACK_CHANNEL_ENV: "C0EXAMPLE01",
+        DEFAULT_LOCAL_SLACK_BOT_TOKEN_ENV: "synthetic-slack-bot-token",
+    }
