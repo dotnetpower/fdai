@@ -186,12 +186,18 @@ def verify_export(
     except (TypeError, ValueError) as error:
         raise ValueError("Hub recall history is invalid") from error
     members = channels.get(channel, [])
-    capabilities = tuple(record.target for record in records if record.scope == "capability")
+    all_recalled_caps = tuple(record.target for record in records if record.scope == "capability")
     eligible = [
         version
         for version in members
         if evaluate_recall_candidate(
-            release_id=version, capability_ids=capabilities, recall_records=tuple(records)
+            release_id=version,
+            capability_ids=(
+                tuple(sorted(parsed[version].capability_maximums))
+                if parsed[version].capability_maximums
+                else all_recalled_caps
+            ),
+            recall_records=tuple(records),
         ).allowed
     ]
     if release_id is not None:

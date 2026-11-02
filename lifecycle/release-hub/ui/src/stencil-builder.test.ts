@@ -7,7 +7,10 @@ import {
 } from "./stencil-builder";
 import {
   artifacts,
+  computeApolloReleaseDiff,
+  evaluateApolloPromotionReadiness,
   extractReleaseStencil,
+  type Release,
   type StencilCatalogResponse,
   type StencilPanelDescriptor,
 } from "./api";
@@ -177,5 +180,57 @@ describe("stencil-builder helpers", () => {
       "operator-service",
       "pgvector",
     ]);
+
+    const liteRel: Release = {
+      id: "1.7.0",
+      label: "lite",
+      manifest: JSON.stringify(manifestObj),
+      digest: "sha256:" + "a".repeat(64),
+      signed_payload_sha256: "b".repeat(64),
+      signature: "sig",
+      signature_status: "verified",
+      state: "published",
+      channels: ["DEV"],
+      published_at: "2026-11-02T00:00:00Z",
+      recalled_at: null,
+    };
+    const readiness = evaluateApolloPromotionReadiness({
+      release: liteRel,
+      manifest: manifestObj,
+      events: [
+        {
+          revision: 1,
+          release_id: "isolated-executor",
+          action: "recall_capability",
+          reason: "test",
+          channel: null,
+          occurred_at: "2026-11-02T00:00:00Z",
+        },
+      ],
+      sourceChannel: "DEV",
+      targetChannel: "RELEASE_CANDIDATE",
+    });
+    expect(readiness.allowed).toBe(true);
+
+    const stdManifest = {
+      ...manifestObj,
+      release_version: "1.8.0",
+      stencil: {
+        ...manifestObj.stencil,
+        stencil_id: "standard-sre",
+        azure_rbac_posture: "governed-execution",
+        enabled_workloads: ["core-control-plane", "operator-service", "isolated-executor"],
+        enabled_panel_ids: ["audit", "dashboard", "live", "remediation", "settings-general"],
+      },
+    };
+    const stdRel: Release = {
+      ...liteRel,
+      id: "1.8.0",
+      manifest: JSON.stringify(stdManifest),
+    };
+    const diff = computeApolloReleaseDiff(liteRel, stdRel);
+    expect(diff.addedWorkloads).toEqual(["isolated-executor"]);
+    expect(diff.addedPanelCount).toBe(1);
+    expect(diff.rbacChanged).toBe(true);
   });
 });

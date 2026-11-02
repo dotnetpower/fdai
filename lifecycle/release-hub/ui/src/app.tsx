@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  catalogChangeObserved, catalogRecovery, extractReleaseStencil, isCustomChannel, nextPromotionTransition,
+  activeCapabilityRecalls, catalogChangeObserved, catalogRecovery, computeApolloReleaseDiff,
+  extractReleaseStencil, isCustomChannel, nextPromotionTransition,
   releaseStateIndex, releaseTitle, requestCatalog,
   type Action, type Catalog, type Change, type Release,
 } from "./api";
@@ -185,21 +186,223 @@ function Activity({ catalog, releaseId }: { catalog: Catalog; releaseId?: string
   })}</ol> : <p class="empty">No recorded activity.</p>;
 }
 
+const CHANNEL_GUARDRAILS: Record<string, { tier: string; policy: string }> = {
+  DEV: {
+    tier: "Development ring",
+    policy: "Immediate signed publication · 0s soak · sandbox/dev fleet eligibility",
+  },
+  RELEASE_CANDIDATE: {
+    tier: "Canary / Staging ring",
+    policy: "Requires DEV membership, zero active capability recalls, and verified Stencil labels",
+  },
+  RELEASE: {
+    tier: "Production ring",
+    policy: "Requires RELEASE_CANDIDATE soak, healthy canary quorum, and full recall clearance",
+  },
+};
+
 function Channels({ catalog }: { catalog: Catalog }) {
   const states = releaseStateIndex(catalog.releases);
   const stencilByRelease = new Map(
     catalog.releases.map((r) => [r.id, extractReleaseStencil(r)] as const),
   );
   return <>
-    <div class="page-head"><div><p class="eyebrow">Eligibility curation</p><h1>Channels</h1><p>Manual contributions only. Promotion gate results are not exposed in this workspace.</p></div></div>
-    <div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) => <section class="channel" key={channel}><h2>{channel}</h2><p>{members.length} memberships (including recalled releases)</p>
-      {members.map((id) => {
-        const st = stencilByRelease.get(id);
-        return <p key={id}><a href={`#/releases/${id}`}>Release {id}</a> {states.get(id) === "recalled" ? " / Recalled" : ""} {st ? <span class="stencil-chip">{st.stencil_id} · {st.enabled_workloads.length}w/{st.enabled_panel_ids.length}m</span> : null}</p>;
-      })}
-      {!members.length && <p>No releases added.</p>}
-    </section>)}</div><p>Channel membership is eligibility, not permission to deploy. Installation constraints remain authoritative.</p>
+    <div class="page-head"><div><p class="eyebrow">Eligibility curation</p><h1>Channels</h1><p>Manual contributions and Apollo stage-promoted channel rings.</p></div></div>
+    <div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) => {
+      const guardrail = CHANNEL_GUARDRAILS[channel] ?? {
+        tier: "Custom channel ring",
+        policy: "Explicit operator-curated channel membership and recall verification",
+      };
+      const eligibleMembers = members.filter((id) => states.get(id) !== "recalled");
+      const headRelease = eligibleMembers[0] ?? null;
+      return <section class="channel" key={channel}>
+        <div class="preset-card-head">
+          <h2>{channel}</h2>
+          <span class="stencil-pill count-pill">{guardrail.tier}</span>
+        </div>
+        <p><small>{guardrail.policy}</small></p>
+        <p><strong>{eligibleMembers.length} active</strong> / {members.length} total memberships {headRelease ? `(Channel head: Release ${headRelease})` : ""}</p>
+        {members.map((id) => {
+          const st = stencilByRelease.get(id);
+          return <p key={id}><a href={`#/releases/${id}`}>Release {id}</a> {states.get(id) === "recalled" ? " / Recalled" : ""} {st ? <span class="stencil-chip">{st.stencil_id} · {st.enabled_workloads.length}w/{st.enabled_panel_ids.length}m</span> : null}</p>;
+        })}
+        {!members.length && <p>No releases added.</p>}
+      </section>;
+    })}</div><p>Channel membership is eligibility, not permission to deploy. Installation constraints remain authoritative.</p>
   </>;
+}
+
+function ReleaseDiffInspector({ releases }: { releases: readonly Release[] }) {
+  const [baseId, setBaseId] = useState(releases[releases.length - 1]?.id ?? "");
+  const [targetId, setTargetId] = useState(releases[0]?.id ?? "");
+  if (releases.length < 2) return null;
+  const base = releases.find((r) => r.id === baseId) ?? releases[releases.length - 1];
+  const target = releases.find((r) => r.id === targetId) ?? releases[0];
+  if (!base || !target) return null;
+  const diff = computeApolloReleaseDiff(base, target);
+  return (
+    <section aria-labelledby="release-diff-title">
+      <h2 id="release-diff-title">Apollo Release-to-Release Diff Inspector</h2>
+      <p>Compare topology, workload containers, Console menu count, and RBAC posture between two registered Releases.</p>
+      <div class="stencil-grid">
+        <label>
+          Base Release
+          <select value={base.id} onChange={(e) => setBaseId(e.currentTarget.value)}>
+            {releases.map((r) => <option key={r.id} value={r.id}>Release {r.id} ({r.label || "No label"})</option>)}
+          </select>
+        </label>
+        <label>
+          Target Release
+          <select value={target.id} onChange={(e) => setTargetId(e.currentTarget.value)}>
+            {releases.map((r) => <option key={r.id} value={r.id}>Release {r.id} ({r.label || "No label"})</option>)}
+          </select>
+        </label>
+      </div>
+      <div class="facts">
+        <div><span>Stencil transition</span><strong>{diff.baseProfile} {"->"} {diff.targetProfile}</strong></div>
+        <div><span>RBAC transition</span><strong>{diff.rbacChanged ? `${diff.baseRbac} -> ${diff.targetRbac}` : `${diff.targetRbac} (unchanged)`}</strong></div>
+        <div><span>Menu delta</span><strong>+{diff.addedPanelCount} / -{diff.removedPanelCount} menus</strong></div>
+        <div><span>Changed image digests</span><strong>{diff.changedComponents.length} component(s)</strong></div>
+      </div>
+      {(diff.addedWorkloads.length > 0 || diff.removedWorkloads.length > 0) && (
+        <ul class="apollo-diff-list">
+          {diff.addedWorkloads.map((w) => (
+            <li key={`add-${w}`} class="diff-keep"><span class="diff-sign">+</span><code>{w}</code><small>added in {target.id}</small></li>
+          ))}
+          {diff.removedWorkloads.map((w) => (
+            <li key={`rem-${w}`} class="diff-drop"><span class="diff-sign">-</span><code>{w}</code><small>omitted in {target.id}</small></li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CapabilityRecallControl({
+  catalog,
+  disabled,
+  onUpdated,
+}: {
+  catalog: Catalog;
+  disabled: boolean;
+  onUpdated: (next: Catalog, message: string) => void;
+}) {
+  const recalled = activeCapabilityRecalls(catalog.events);
+  const [capTarget, setCapTarget] = useState("isolated-executor");
+  const [capAction, setCapAction] = useState<"recall" | "lift">("recall");
+  const [liftingReleaseId, setLiftingReleaseId] = useState(
+    catalog.releases.find((r) => r.state === "published")?.id ?? "",
+  );
+  const [reason, setReason] = useState("Surgical Apollo capability recall / lift verification");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submitCap(event: SubmitEvent) {
+    event.preventDefault();
+    if (busy || disabled || !capTarget.trim() || reason.trim().length < 3) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const next = await requestCatalog(
+        `/v1/capabilities/${encodeURIComponent(capTarget.trim())}/${capAction}`,
+        {
+          revision: catalog.revision,
+          confirmation: capTarget.trim(),
+          reason: reason.trim(),
+          ...(capAction === "lift" ? { lifting_release_id: liftingReleaseId.trim() } : {}),
+        },
+      );
+      onUpdated(
+        next,
+        capAction === "recall"
+          ? `Capability '${capTarget}' recalled. Releases declaring '${capTarget}' are now blocked from promotion.`
+          : `Capability '${capTarget}' recall lifted by Release ${liftingReleaseId}.`,
+      );
+    } catch (e) {
+      setErr(catalogRecovery(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby="cap-recall-title">
+      <h2 id="cap-recall-title">Apollo Surgical Capability Recall & Lift Control</h2>
+      <p>
+        Recall a specific workload or agent loop (for example <code>isolated-executor</code>,{" "}
+        <code>remediation-execution</code>, or <code>document-ingestion</code>) without recalling unaffected
+        lightweight Releases such as <code>lite-observe-alert</code>.
+      </p>
+      <div class="preset-metrics" style="margin-bottom: 16px;">
+        <strong>Active capability recalls:</strong>
+        {recalled.length === 0 ? (
+          <span class="stencil-chip">None (All capabilities healthy)</span>
+        ) : (
+          recalled.map((c) => <span key={c} class="stencil-pill locked">RECALLED: {c}</span>)
+        )}
+      </div>
+      {err && <p class="error" role="alert">{err}</p>}
+      <form onSubmit={submitCap} class="stencil-grid">
+        <label>
+          Target capability / workload / loop ID
+          <input
+            required
+            list="apollo-capabilities-list"
+            value={capTarget}
+            onInput={(e) => setCapTarget(e.currentTarget.value)}
+          />
+          <datalist id="apollo-capabilities-list">
+            <option value="isolated-executor" />
+            <option value="remediation-execution" />
+            <option value="document-ingestion" />
+            <option value="document-ingestion-api" />
+            <option value="cost-governance" />
+            <option value="code-security" />
+            <option value="assurance-twin" />
+          </datalist>
+        </label>
+        <label>
+          Operation
+          <select
+            value={capAction}
+            onChange={(e) => setCapAction(e.currentTarget.value as "recall" | "lift")}
+          >
+            <option value="recall">Recall capability (Block promotion of dependent Releases)</option>
+            <option value="lift">Lift capability recall (Requires published lifting Release)</option>
+          </select>
+        </label>
+        {capAction === "lift" && (
+          <label>
+            Lifting Release ID (Published SemVer)
+            <input
+              required
+              value={liftingReleaseId}
+              onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
+              placeholder="1.8.0"
+            />
+          </label>
+        )}
+        <label>
+          Audit reason
+          <input
+            required
+            minLength={3}
+            value={reason}
+            onInput={(e) => setReason(e.currentTarget.value)}
+          />
+        </label>
+        <div class="stencil-provenance-span">
+          <button type="submit" class={capAction === "recall" ? "danger" : "primary"} disabled={busy || disabled}>
+            {busy
+              ? "Applying..."
+              : capAction === "recall"
+                ? `Recall capability '${capTarget}'`
+                : `Lift capability '${capTarget}'`}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
 }
 
 export function App() {
@@ -251,10 +454,13 @@ export function App() {
             <div class="page-head"><div><p class="eyebrow">Release catalog</p><h1>Releases</h1><p>Publish once. Curate eligibility. Keep the evidence in view.</p></div><button class="primary" disabled={disabled} onClick={() => setPending({ action: "register", release: null })}>Register release</button></div>
             <div class="summary"><strong>{catalog.releases.length} releases</strong><span>Revision {catalog.revision}</span><span>Updated {time(catalog.updated_at)}</span></div>
             {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
-              : <div class="release-list">{catalog.releases.map((r) => {
-                const st = extractReleaseStencil(r);
-                return <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p>{st && <div class="preset-metrics"><span class="stencil-pill locked">{st.stencil_id}</span><span class="stencil-chip">{st.enabled_workloads.length} workloads · {st.enabled_panel_ids.length} menus</span><span class="stencil-chip">{st.azure_rbac_posture}</span></div>}</div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>;
-              })}</div>}
+              : <>
+                <div class="release-list">{catalog.releases.map((r) => {
+                  const st = extractReleaseStencil(r);
+                  return <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p>{st && <div class="preset-metrics"><span class="stencil-pill locked">{st.stencil_id}</span><span class="stencil-chip">{st.enabled_workloads.length} workloads · {st.enabled_panel_ids.length} menus</span><span class="stencil-chip">{st.azure_rbac_posture}</span></div>}</div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>;
+                })}</div>
+                <ReleaseDiffInspector releases={catalog.releases} />
+              </>}
           </>           : route === "/deployment-requests" ? null
           : route === "/stencils" ? <StencilBuilder
             existingReleases={catalog.releases}
@@ -288,6 +494,15 @@ export function App() {
                 </dl>
               </section>
             )}
+            <CapabilityRecallControl
+              catalog={catalog}
+              disabled={disabled}
+              onUpdated={(next, msg) => {
+                setCatalog(next);
+                setUncertain(false);
+                setNotice(msg);
+              }}
+            />
             <section><h2>Renew development freshness</h2>
               <p>After reviewing the releases, channels and recalls, extend freshness by 24 hours from publication without changing their content. This creates an attributed catalog event and a new export pin; it does not update customer Hubs or deploy anything.</p>
               <button disabled={disabled} onClick={() => setPending({ action: "renew", release: null })}>Renew catalog freshness</button>

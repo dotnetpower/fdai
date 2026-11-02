@@ -18,6 +18,10 @@ export function DeploymentRequests({ catalog }: { catalog?: Catalog | null }) {
     () => new Map((catalog?.releases ?? []).map((r) => [r.id, extractReleaseStencil(r)] as const)),
     [catalog],
   );
+  const releaseById = useMemo(
+    () => new Map((catalog?.releases ?? []).map((r) => [r.id, r] as const)),
+    [catalog],
+  );
   const [draft, setDraft] = useState("");
   const [filter, setFilter] = useState("");
   const [offset, setOffset] = useState(0);
@@ -66,11 +70,23 @@ export function DeploymentRequests({ catalog }: { catalog?: Catalog | null }) {
               <th scope="col">Release / channel</th><th scope="col">Region</th><th scope="col">Request evidence</th></tr></thead>
             <tbody>{page.requests.map((record) => {
               const st = stencilByRelease.get(record.release_id);
+              const rel = releaseById.get(record.release_id);
+              const chanMembers = (catalog?.channels[record.channel] ?? []).filter(
+                (id) => releaseById.get(id)?.state !== "recalled",
+              );
+              const chanHead = chanMembers[0] ?? null;
+              const fleetStatus = rel?.state === "recalled"
+                ? "Recalled release"
+                : chanHead === record.release_id
+                  ? "Latest channel head"
+                  : chanHead
+                    ? `Behind head (${chanHead})`
+                    : null;
               return <tr key={record.request_id}>
               <td><time dateTime={record.recorded_at}>{new Date(record.recorded_at).toISOString().replace("T", " ").replace("Z", "")}</time>
                 <small>Requested / self-reported</small></td>
               <td><code>{record.subscription_id}</code><small>Ownership unverified</small></td>
-              <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}</td>
+              <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}{fleetStatus && <span class="stencil-chip">{fleetStatus}</span>}</td>
               <td>{record.region}</td>
               <td><details><summary>Metadata</summary><dl>
                 <dt>Request id</dt><dd><code class="digest">{record.request_id}</code></dd>

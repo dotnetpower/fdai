@@ -276,6 +276,82 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
         "pgvector",
     }
 
+    # Apollo surgical capability recall: recalling 'isolated-executor' blocks standard-sre (1.7.1)
+    # while allowing lite-observe-alert (1.7.0) to promote to RELEASE_CANDIDATE!
+    std_compose = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "standard-sre",
+            "topology_profile": "standard-sre",
+            "requested_workloads": ["core-control-plane", "operator-service", "isolated-executor"],
+            "requested_loops": [
+                "anomaly-analyzer",
+                "inventory-reconciliation",
+                "notification-dispatch",
+                "remediation-execution",
+                "saga-audit",
+            ],
+            "release_version": "1.7.1",
+            "source_commit": "auto",
+        },
+    ).json()
+    client.post(
+        "/v1/releases/1.7.1/register",
+        json={
+            "revision": 2,
+            "confirmation": "1.7.1",
+            "reason": "Register Standard SRE Release",
+            "label": "standard-sre",
+            "manifest": json.dumps(std_compose["release_manifest"]),
+        },
+    )
+    client.post(
+        "/v1/releases/1.7.1/publish",
+        json={
+            "revision": 3,
+            "confirmation": "1.7.1",
+            "reason": "Publish Standard SRE Release to DEV",
+        },
+    )
+
+    recall_cap = client.post(
+        "/v1/capabilities/isolated-executor/recall",
+        json={
+            "revision": 4,
+            "confirmation": "isolated-executor",
+            "reason": "Surgical recall of isolated-executor capability",
+        },
+    )
+    assert recall_cap.status_code == 200
+
+    # Lite Release 1.7.0 does NOT include isolated-executor -> promotes to RELEASE_CANDIDATE!
+    lite_promote = client.post(
+        "/v1/releases/1.7.0/promote",
+        json={
+            "revision": 5,
+            "confirmation": "1.7.0",
+            "reason": "Promote unaffected Lite Release to RC",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+        },
+    )
+    assert lite_promote.status_code == 200
+    assert "1.7.0" in lite_promote.json()["channels"]["RELEASE_CANDIDATE"]
+
+    # Standard SRE Release 1.7.1 DOES include isolated-executor -> blocked by capability recall!
+    std_promote_blocked = client.post(
+        "/v1/releases/1.7.1/promote",
+        json={
+            "revision": 6,
+            "confirmation": "1.7.1",
+            "reason": "Attempt to promote affected Standard Release",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+        },
+    )
+    assert std_promote_blocked.status_code == 409
+    assert "capability_recalled" in std_promote_blocked.json()["error"]
+
 
 def test_stencil_api_rejects_duplicate_json_keys_cross_origin_and_invalid_inputs(
     client: TestClient,

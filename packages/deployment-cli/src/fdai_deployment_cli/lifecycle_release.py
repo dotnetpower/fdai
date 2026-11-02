@@ -109,7 +109,19 @@ class ApplicationRelease:
 
     @property
     def capability_maximums(self) -> Mapping[str, str]:
-        return {}
+        if self.stencil is None:
+            return {}
+        caps: dict[str, str] = {}
+        stencil_id = self.stencil.get("stencil_id")
+        if isinstance(stencil_id, str):
+            caps[f"stencil:{stencil_id}"] = "enabled"
+        for key in ("enabled_workloads", "enabled_loops"):
+            items = self.stencil.get(key)
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str):
+                        caps[item] = "enabled"
+        return caps
 
     def to_mapping(self) -> dict[str, object]:
         return load_json_object(self._catalog, label="application release", strict=True)

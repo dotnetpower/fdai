@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useMemo, useRef, useState } from "preact/hooks";
 import {
   actionsFor, activeCapabilityRecalls, artifacts, blockedReleaseCapabilities,
-  extractReleaseStencil, nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
+  evaluateApolloPromotionReadiness, extractReleaseStencil, nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
   type Action, type Catalog, type Release,
 } from "./api";
 
@@ -37,6 +37,19 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
   const blockedCaps = useMemo(
     () => blockedReleaseCapabilities(manifest, catalog.events),
     [manifest, catalog.events],
+  );
+  const apolloReadiness = useMemo(
+    () =>
+      transition
+        ? evaluateApolloPromotionReadiness({
+            release,
+            manifest,
+            events: catalog.events,
+            sourceChannel: transition.sourceChannel,
+            targetChannel: transition.targetChannel,
+          })
+        : null,
+    [release, manifest, catalog.events, transition],
   );
   const status = release.state === "recalled" ? t("Recalled", "회수됨")
     : release.state === "draft" ? t("Draft / unsigned", "초안 / 서명 없음")
@@ -99,6 +112,11 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
           </span>
           <span class="stencil-chip">
             {t("Console menus:", "메뉴:")} {stencil.enabled_panel_ids.length}
+          </span>
+          <span class="stencil-chip">
+            {manifest.schema_expand
+              ? t("Upgrade: Schema expand migration", "업그레이드: 스키마 확장 마이그레이션")
+              : t("Upgrade: Zero-downtime rolling", "업그레이드: 무중단 롤링(Zero-downtime)")}
           </span>
         </div>
         <dl>
@@ -172,6 +190,20 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
           ? t(`Catalog has ${activeCapRecalls.length} active capability recall(s) (${activeCapRecalls.join(", ")}); none declared by this release`, `카탈로그에 활성 기능 회수 ${activeCapRecalls.length}건(${activeCapRecalls.join(", ")})이 있으나 이 릴리스에는 해당하지 않음`)
           : t("No active capability recalls in catalog", "카탈로그에 활성 기능 회수 없음")}</dd>
       </dl>
+      {apolloReadiness && (
+        <div style="margin: 16px 0;">
+          <h3>{t("Apollo Promotion Gate Pre-check", "Apollo 승격 게이트 사전 검증")}</h3>
+          <ul class="apollo-diff-list">
+            {apolloReadiness.gates.map((g) => (
+              <li key={g.id} class={g.passed ? "diff-keep" : "diff-drop"}>
+                <span class="diff-sign">{g.passed ? "✓" : "✕"}</span>
+                <strong>{locale === "ko" ? g.label_ko : g.label}</strong>
+                <small>{locale === "ko" ? g.detail_ko : g.detail}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {transition && blockedCaps.length === 0 && !catalog.expired && (
         <div class="actions">
           <button type="button" class="primary" disabled={disabled} onClick={() => act("promote", release)}>
