@@ -572,11 +572,7 @@ async def _extract(
     """Ask the independent extractor for every constraint the question states."""
 
     cache = _TURN_EXTRACTION_CACHE.get()
-    key = (
-        content_digest({"utterance": utterance, "context": context, "locale": locale})
-        if cache is not None
-        else None
-    )
+    key = content_digest({"utterance": utterance, "locale": locale}) if cache is not None else None
     if cache is not None and key is not None and not force_refresh:
         cached = cache.get(key)
         if cached is not None:

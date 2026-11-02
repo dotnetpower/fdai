@@ -658,3 +658,34 @@ def test_concept_selection_rejects_negative_calls_and_mismatched_presented_count
     )
     disagreed = agree_concepts(left, right)
     assert disagreed.bindings[0].outcome is ConceptOutcome.AMBIGUOUS
+
+
+def test_shared_concept_and_call_caches_normalize_particles_and_respect_live_flag() -> None:
+    from fdai.core.conversation.semantic_reasoning_selection import (
+        lookup_cached_call,
+        lookup_cached_concept_choices,
+        store_cached_call,
+        store_cached_concept_choices,
+    )
+
+    mentions = [{"mention": "m1", "text": "리소스그룹이"}]
+    decoded = [{"mention": "m1", "candidate_ids": ["resource-group"]}]
+    store_cached_concept_choices("shard-digest-1", False, mentions, decoded, live=False)
+    assert lookup_cached_concept_choices("shard-digest-1", False, mentions, live=True) is None
+
+    store_cached_concept_choices("shard-digest-1", False, mentions, decoded, live=True)
+    hit = lookup_cached_concept_choices(
+        "shard-digest-1",
+        False,
+        [{"mention": "m9", "text": "리소스그룹"}],
+        live=True,
+    )
+    assert hit == {
+        "shard_digest": "shard-digest-1",
+        "choices": [{"mention": "m9", "candidate_ids": ["resource-group"]}],
+    }
+
+    store_cached_call("semantic-direction-check", "key-1", {"chosen": "c0"}, live=False)
+    assert lookup_cached_call("semantic-direction-check", "key-1", live=True) is None
+    store_cached_call("semantic-direction-check", "key-1", {"chosen": "c0"}, live=True)
+    assert lookup_cached_call("semantic-direction-check", "key-1", live=True) == {"chosen": "c0"}

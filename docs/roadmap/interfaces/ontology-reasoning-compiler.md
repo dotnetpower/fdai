@@ -224,7 +224,10 @@ chooser can tell Resource from ResourceType by meaning. FunctionTypes and Action
   schema closed over the presented mention ids, candidate ids, and shard digest, so a text answer or
   an invented identifier cannot parse. The secret and identifier scan of a reviewed shard runs once
   per shard digest rather than for every chooser, shard, and retry, so presenting a complete catalog
-  does not block the event loop.
+  does not block the event loop. On live HTTP transports, validated non-repair stage calls and
+  particle-normalized concept shard selections are memoized in bounded LRU caches, and turn-local
+  blind constraint extraction is keyed by utterance and locale so context-free retries reuse the
+  same turn extraction.
 
 ### Anchor binding
 
