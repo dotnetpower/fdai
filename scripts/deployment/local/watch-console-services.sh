@@ -53,7 +53,8 @@ while true; do
     fi
     printf '%s service=console-watchdog event=recover status=unavailable\n' \
       "$(date '+%Y-%m-%dT%H:%M:%S.%6N%:z')"
-    if bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
+    if FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION="${FDAI_LOCAL_TEAMS_NOTIFICATION_ACTIVATION:-1}" \
+      bash "$repo_root/scripts/deployment/local/prepare-console-full-stack.sh" \
       --auth-mode browser-entra; then
       bash "$repo_root/scripts/deployment/local/start-console-services.sh" \
         --auth-mode browser-entra &

@@ -33,6 +33,7 @@ from fdai.delivery.notifications import (
 from fdai.delivery.notifications._http import post_json, truncate
 from fdai.delivery.notifications.email_rendering import render_email_content
 from fdai.shared.providers.notifications import (
+    ChannelAmbiguousError,
     ChannelDeliveryError,
     ChannelUnavailableError,
     NotificationMessage,
@@ -372,6 +373,97 @@ class TestSlackAdapter:
                 await adapter.send(
                     _message(severity=sev, correlation_id="", audit_id=None, links=())
                 )
+
+    async def test_posts_block_kit_via_slack_web_api_chat_post_message(self) -> None:
+        captured: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured.append(request)
+            return httpx.Response(
+                200,
+                json={"ok": True, "channel": "C0EXAMPLE01", "ts": "1730590000.123456"},
+            )
+
+        async with _client(handler) as http:
+            adapter = SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-web-1",
+                    webhook_url="https://slack.com/api/chat.postMessage",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT, TrustTier.A4_DIGEST}),
+                    slack_channel_id="C0EXAMPLE01",
+                    bot_token="synthetic-slack-bot-token",
+                ),
+                http_client=http,
+            )
+            receipt = await adapter.send(_message())
+
+        assert receipt.delivered is False
+        assert receipt.accepted is True
+        assert receipt.provider_message_id == "1730590000.123456"
+        assert captured[0].headers["Authorization"] == "Bearer synthetic-slack-bot-token"
+        import json as _json
+
+        body = _json.loads(captured[0].content.decode("utf-8"))
+        assert body["channel"] == "C0EXAMPLE01"
+        assert body["attachments"][0]["color"] == "#E01E5A"
+
+    async def test_slack_web_api_guards_and_error_classification(self) -> None:
+        good_http = httpx.AsyncClient()
+        with pytest.raises(ValueError, match="configured together"):
+            SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-web",
+                    webhook_url="https://slack.com/api/chat.postMessage",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    slack_channel_id="C0EXAMPLE01",
+                ),
+                http_client=good_http,
+            )
+        with pytest.raises(ValueError, match="chat.postMessage URL"):
+            SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-web",
+                    webhook_url="https://hooks.slack.example/wh",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    slack_channel_id="C0EXAMPLE01",
+                    bot_token="synthetic-slack-bot-token",
+                ),
+                http_client=good_http,
+            )
+
+        def reject_handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"ok": False, "error": "channel_not_found"})
+
+        async with _client(reject_handler) as http:
+            adapter = SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-web",
+                    webhook_url="https://slack.com/api/chat.postMessage",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    slack_channel_id="C0EXAMPLE01",
+                    bot_token="synthetic-slack-bot-token",
+                ),
+                http_client=http,
+            )
+            with pytest.raises(ChannelDeliveryError, match="rejected the request"):
+                await adapter.send(_message())
+
+        def missing_ts_handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"ok": True, "ts": "invalid"})
+
+        async with _client(missing_ts_handler) as http:
+            adapter = SlackWebhookChannel(
+                config=SlackWebhookConfig(
+                    channel_id="slack-web",
+                    webhook_url="https://slack.com/api/chat.postMessage",
+                    trust_tiers=frozenset({TrustTier.A2_OPERATIONAL_ALERT}),
+                    slack_channel_id="C0EXAMPLE01",
+                    bot_token="synthetic-slack-bot-token",
+                ),
+                http_client=http,
+            )
+            with pytest.raises(ChannelAmbiguousError, match="missing a valid message ts"):
+                await adapter.send(_message())
 
 
 # ---------------------------------------------------------------------------

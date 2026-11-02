@@ -21,6 +21,9 @@ def _clear_default_notification_env(monkeypatch: pytest.MonkeyPatch) -> None:
         "FDAI_NOTIFICATION_BINDINGS_JSON",
         "FDAI_TEAMS_OPS_ENDPOINT",
         "FDAI_SLACK_OPS_WEBHOOK_URL",
+        "FDAI_SLACK_API_ENDPOINT",
+        "FDAI_SLACK_OPS_CHANNEL_ID",
+        "FDAI_SLACK_BOT_TOKEN",
         "FDAI_EMAIL_ENDPOINT",
         "FDAI_EMAIL_SENDER_ADDRESS",
         "FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON",
@@ -334,3 +337,23 @@ def test_an_endpoint_override_activates_a_binding_without_an_environment_value(
     )
 
     assert set(registry.channels) == {"teams-ops"}
+
+
+def test_slack_web_api_binding_parses_and_resolves_through_endpoint_overrides(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _clear_default_notification_env(monkeypatch)
+    overrides = {
+        "FDAI_SLACK_OPS_WEBHOOK_URL": "https://slack.com/api/chat.postMessage",
+        "FDAI_SLACK_OPS_CHANNEL_ID": "C0EXAMPLE01",
+        "FDAI_SLACK_BOT_TOKEN": "synthetic-slack-bot-token",
+    }
+    raw = default_notification_bindings_from_env(overrides)
+    specs = parse_notification_bindings(raw)
+    assert len(specs) == 1
+    assert specs[0].channel_id == "slack-ops-prd"
+    assert specs[0].endpoint_env == "FDAI_SLACK_OPS_WEBHOOK_URL"
+
+    registry = _build_notification_registry(httpx.AsyncClient(), overrides)
+    assert set(registry.channels) == {"slack-ops-prd"}
+    assert registry.channels["slack-ops-prd"]._config.slack_channel_id == "C0EXAMPLE01"
