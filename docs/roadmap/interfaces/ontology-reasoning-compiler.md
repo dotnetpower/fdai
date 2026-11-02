@@ -227,9 +227,9 @@ chooser can tell Resource from ResourceType by meaning. FunctionTypes and Action
   does not block the event loop. On live HTTP transports, validated non-repair stage calls,
   bilingual morphology/Jamo-typo-normalized concept shard selections, and full-domain ontology
   catalog seeds (across resource types, classes, object types, states, regions, metrics, health,
-  properties, and declaration kinds) are memoized in bounded LRU caches, and turn-local blind
-  constraint extraction is keyed by utterance and locale so context-free retries reuse the same turn
-  extraction.
+  properties, and declaration kinds) are memoized in bounded LRU caches, turn-local blind
+  constraint extraction is keyed by utterance and locale, and blind review accepts grouped aggregate
+  table kinds and same-word semantic cue suffixes.
 
 ### Anchor binding
 

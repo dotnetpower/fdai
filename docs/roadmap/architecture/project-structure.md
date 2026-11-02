@@ -666,7 +666,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   With `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`, the same topic also carries a content-free
   `semantic-model-call-progress` report for each planning model call, which Operator streams as a
   live-only activity, while live HTTP adapters memoize verified non-repair stage calls and
-  full-domain bilingual ontology concept seeds in bounded LRU caches.
+  full-domain bilingual ontology concept seeds (including phrasal and colloquial synonyms) in
+  bounded LRU caches.
   Durable terminals and evidence receipts remain authoritative; consumers retain content-free degraded
   health, resettable backoff, atomic Live cursor order, and retryable outbox closure. Transport or optional
   observation failures cannot grant authority or promote partial answers, attachments, or Incident actions.

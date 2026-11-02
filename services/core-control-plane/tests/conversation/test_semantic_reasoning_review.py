@@ -1677,3 +1677,53 @@ def test_a_declaration_word_needs_no_span_only_beside_schema_goals() -> None:
     # Read as a restriction it still needs a span, and beside an instance goal it always does.
     assert verdict(schema, "restricts").reasons == ("review_uncovered:restricts:9-17",)
     assert verdict(instance, "declares").reasons == ("review_uncovered:declares:9-17",)
+
+
+def test_grouped_aggregate_and_semantic_cue_suffixes_satisfy_blind_review() -> None:
+    utterance = "최근에 리소스 그룹별 리소스 개수를 알려줘"
+    raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": _quote("리소스", 2),
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "resource_type",
+                "span": _quote("리소스 그룹"),
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "aggregate",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "measure": {
+                    "kind": "count",
+                    "group_by": "container",
+                    "mention": "m2",
+                    "cue": _quote("개수"),
+                },
+                "time": {"kind": "unspecified", "cue": _quote("최근")},
+                "cue": _quote("알려줘"),
+                "confidence": 0.95,
+            }
+        ],
+    }
+    form = _typed(raw, utterance)
+    for kind in ("count", "list", "value"):
+        extraction = {
+            "constraints": [
+                _constraint("최근", "times"),
+                _constraint("리소스 그룹별", "groups"),
+                {"quote": _quote("리소스", 2), "role": "names"},
+                _constraint("개수를", "measures"),
+            ],
+            "answer_kind": kind,
+        }
+        assert review_forms((form,), extraction, utterance=utterance).faithful
