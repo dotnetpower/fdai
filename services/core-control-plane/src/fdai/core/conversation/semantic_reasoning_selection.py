@@ -8,7 +8,8 @@ and runoffs run in waves of at most two provider calls inside the chooser's call
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
+from collections import OrderedDict
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from typing import Any, Protocol
 
@@ -22,6 +23,56 @@ from .semantic_reasoning_concepts import (
     runoff_requests,
     shard_answer_valid,
 )
+
+_MAX_SHARED_CONCEPT_CACHE = 512
+_SHARED_CONCEPT_CACHE: OrderedDict[tuple[str, bool, str], tuple[str, ...]] = OrderedDict()
+
+
+def _mention_cache_key(item: Mapping[str, Any]) -> str:
+    return " ".join(str(item.get("text", "")).strip().casefold().split())
+
+
+def lookup_cached_concept_choices(
+    shard_digest: str,
+    second: bool,
+    mentions: Sequence[Mapping[str, Any]],
+    *,
+    live: bool,
+) -> dict[str, Any] | None:
+    if not live or not mentions:
+        return None
+    choices: list[dict[str, Any]] = []
+    for item in mentions:
+        key = (shard_digest, second, _mention_cache_key(item))
+        cached = _SHARED_CONCEPT_CACHE.get(key)
+        if cached is None:
+            return None
+        _SHARED_CONCEPT_CACHE.move_to_end(key)
+        choices.append({"mention": str(item.get("mention")), "candidate_ids": list(cached)})
+    return {"shard_digest": shard_digest, "choices": choices}
+
+
+def store_cached_concept_choices(
+    shard_digest: str,
+    second: bool,
+    mentions: Sequence[Mapping[str, Any]],
+    decoded: Sequence[Mapping[str, Any]],
+    *,
+    live: bool,
+) -> None:
+    if not live or len(decoded) != len(mentions):
+        return
+    by_id = {str(item.get("mention")): _mention_cache_key(item) for item in mentions}
+    for choice in decoded:
+        mention_id = str(choice.get("mention"))
+        text_key = by_id.get(mention_id)
+        ids = choice.get("candidate_ids")
+        if text_key and isinstance(ids, list):
+            key = (shard_digest, second, text_key)
+            _SHARED_CONCEPT_CACHE[key] = tuple(str(v) for v in ids)
+            _SHARED_CONCEPT_CACHE.move_to_end(key)
+            while len(_SHARED_CONCEPT_CACHE) > _MAX_SHARED_CONCEPT_CACHE:
+                _SHARED_CONCEPT_CACHE.popitem(last=False)
 
 
 class ConceptChooser(Protocol):
@@ -134,4 +185,10 @@ async def select_chooser_concepts(
     return apply_runoff(receipt, runoff, runoff_answers)
 
 
-__all__ = ["ConceptChooser", "select_chooser_concepts", "select_concepts"]
+__all__ = [
+    "ConceptChooser",
+    "lookup_cached_concept_choices",
+    "select_chooser_concepts",
+    "select_concepts",
+    "store_cached_concept_choices",
+]

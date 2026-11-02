@@ -30,6 +30,10 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
 )
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
+from fdai.core.conversation.semantic_reasoning_selection import (
+    lookup_cached_concept_choices,
+    store_cached_concept_choices,
+)
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
 from fdai.core.prompts import PromptReplayManifest
 from fdai.delivery.azure.llm.completion_body import structured_body_params
@@ -93,12 +97,7 @@ _CONCEPT_CHOICE_SCHEMA: dict[str, Any] = {
 def _concept_choice_schema(
     mention_ids: list[str], candidate_ids: list[str], shard_digest: str
 ) -> dict[str, Any]:
-    """Close the choice schema over exactly what this shard presents.
-
-    The model can then name only a presented mention and a presented candidate and echo
-    only this shard's digest, so a text answer or an invented identifier cannot parse.
-    """
-
+    """Close the choice schema over exactly what this shard presents."""
     schema = copy.deepcopy(_CONCEPT_CHOICE_SCHEMA)
     properties = schema["properties"]
     properties["shard_digest"] = {"type": "string", "enum": [shard_digest]}
@@ -326,9 +325,15 @@ class AzureOpenAIQuestionFormModel:
             return None
         # Concept choice needs no verbatim quotes, so raw text is redacted before encoding.
         # Keys encode sorted, so the static catalog shard leads and stays a cacheable prefix.
+        redacted_mentions = [_redacted(item) for item in mentions]
+        live = not any("example.com" in t.endpoint for t in self._config.candidates)
+        if cached := lookup_cached_concept_choices(
+            shard.digest, second, redacted_mentions, live=live
+        ):
+            return cached
         payload = {
             "catalog_shard": shard.prompt_payload(),
-            "mentions": [_redacted(item) for item in mentions],
+            "mentions": redacted_mentions,
             "shard_digest": shard.digest,
             "utterance": redact_text(utterance),
         }
@@ -362,6 +367,7 @@ class AzureOpenAIQuestionFormModel:
             ):
                 return None
             decoded.append({**choice, "candidate_ids": [choices[value] for value in ids]})
+        store_cached_concept_choices(shard.digest, second, redacted_mentions, decoded, live=live)
         return {**answer, "choices": decoded}
 
     async def extract_constraints(
@@ -604,7 +610,10 @@ class AzureOpenAIQuestionFormModel:
                         **structured_body_params(target, max_tokens=max_tokens),
                     }
                     family = (target.model_family or target.deployment).casefold()
-                    if name != "semantic-question-form" and "gpt-5" in family:
+                    if "gpt-5" in family and (
+                        name != "semantic-question-form"
+                        or '"repair":' not in messages[-1].get("content", "")
+                    ):
                         body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
@@ -711,18 +720,10 @@ def _hides_secret(text: str) -> bool:
 
 
 def _hides_identity(text: str) -> bool:
-    """Return whether decoding reveals an exact identifier that masking would not hide.
-
-    Masking finds identifiers in the raw text only. Each raw identifier span is blanked
-    first, so decoding checks only the remaining text, and any identifier found there,
-    even a duplicate of a masked one, could reach the model and holds the call.
-    """
-
+    """Return whether decoding reveals an exact identifier that masking would not hide."""
     blanked = _blanked(text, identity_segments(text))
     copies, complete = detection_copies(blanked)
-    if not complete:
-        return True
-    return any(identity_matches(copy) for copy in copies[1:])
+    return not complete or any(identity_matches(copy) for copy in copies[1:])
 
 
 def _blanked(text: str, spans: tuple[tuple[int, int], ...]) -> str:
@@ -736,12 +737,8 @@ def _blanked(text: str, spans: tuple[tuple[int, int], ...]) -> str:
 
 
 def _concept_text(text: str) -> str:
-    """Return raw text safe for concept selection, or the redaction marker when decoding
-    reveals a secret or an identifier that raw redaction could not remove."""
-
-    if _hides_secret(text) or _hides_identity(text):
-        return "[REDACTED]"
-    return redact_text(text)
+    """Return raw text safe for concept selection, or the redaction marker."""
+    return "[REDACTED]" if _hides_secret(text) or _hides_identity(text) else redact_text(text)
 
 
 _CHECKED_KEYS = frozenset({"utterance", "context"})

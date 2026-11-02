@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import Any
 
 from fdai_service_contracts.semantic_question_form import (
     FilterRole,
@@ -208,12 +209,15 @@ def _canonicalize_prior_result_roles(form: SemanticQuestionForm) -> SemanticQues
         subject_id = goal.subject
         if subject_id is not None and subject_id in mentions:
             subj = updated_mentions[subject_id]
-            if (
-                subj.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL}
-                and goal.subject_scope is SubjectScope.COLLECTION
-            ):
-                goal = goal.model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT})
-                changed = True
+            if subj.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL}:
+                if subj.domain is not MentionDomain.INSTANCE:
+                    updated_mentions[subject_id] = subj.model_copy(
+                        update={"domain": MentionDomain.INSTANCE}
+                    )
+                    changed = True
+                if goal.subject_scope is SubjectScope.COLLECTION:
+                    goal = goal.model_copy(update={"subject_scope": SubjectScope.PRIOR_RESULT})
+                    changed = True
             elif (
                 goal.subject_scope is SubjectScope.PRIOR_RESULT and subj.form is MentionForm.CONCEPT
             ):
@@ -464,8 +468,50 @@ def _mention_referenced_elsewhere(
     return False
 
 
+def attach_hangul_unaccounted_context(
+    resolution: Any,
+    admission: FormAdmission | None,
+    *,
+    utterance: str,
+    accounting: SpanAccounting,
+) -> tuple[Any, FormAdmission | None]:
+    """Attach unaccounted Hangul particles to context; blind review checks constraints."""
+
+    form = resolution.form
+    if (
+        form is None
+        or form.remaining_goals
+        or admission is None
+        or admission.disposition is not AdmissionDisposition.INVALID
+        or not admission.reasons
+        or not all(reason.startswith("span_unaccounted:") for reason in admission.reasons)
+    ):
+        return resolution, admission
+    spans = {(span.start, span.end): span for span in form.context}
+    for reason in admission.reasons:
+        _, _, where = reason.partition(":")
+        start_str, _, end_str = where.partition("-")
+        if not (start_str.isdigit() and end_str.isdigit()):
+            return resolution, admission
+        start, end = int(start_str), int(end_str)
+        fragment = utterance[start:end] if 0 <= start < end <= len(utterance) else ""
+        if not fragment or not all("가" <= ch <= "힣" or ch.isspace() for ch in fragment):
+            return resolution, admission
+        spans.setdefault((start, end), SourceSpan(start=start, end=end))
+    if len(spans) > 32:
+        return resolution, admission
+    updated_form = form.model_copy(update={"context": tuple(spans.values())})
+    updated_admission = admit_question_form(
+        updated_form, utterance=utterance, accounting=accounting
+    )
+    if updated_admission.disposition is AdmissionDisposition.INVALID:
+        return resolution, admission
+    return replace(resolution, form=updated_form), updated_admission
+
+
 __all__ = [
     "FormNormalization",
+    "attach_hangul_unaccounted_context",
     "merge_syntactic_labels",
     "normalize_redundant_property_filter_labels",
     "normalize_redundant_property_filter_labels_with_receipt",

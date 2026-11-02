@@ -313,6 +313,16 @@ def _validated_metric_concepts(values: Sequence[str]) -> tuple[str, ...]:
     return concepts
 
 
+def _compact_outbound_turn_content(direction: str, content: str) -> str:
+    if direction != "outbound":
+        return content
+    lines = [line for line in content.splitlines() if line.strip()]
+    bullets = sum(1 for line in lines if line.lstrip().startswith(("- ", "|")))
+    if len(lines) > 5 and bullets >= 3:
+        return "\n".join((*lines[:3], lines[-1]))
+    return content
+
+
 def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
     selected = prior_turns[-_MAX_CONTEXT_TURNS:]
     result: list[str] = []
@@ -323,7 +333,7 @@ def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:
         if prefix_tokens >= remaining:
             break
         content, _shortened = fit_prompt_to_token_budget(
-            turn.content,
+            _compact_outbound_turn_content(turn.direction, turn.content),
             token_budget=remaining - prefix_tokens,
         )
         if not content:

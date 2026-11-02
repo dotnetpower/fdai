@@ -42,6 +42,7 @@ from .semantic_reasoning_form import (
     Want,
 )
 from .semantic_reasoning_normalization import (
+    attach_hangul_unaccounted_context,
     merge_syntactic_labels,
     normalize_redundant_property_filter_labels_with_receipt,
 )
@@ -97,6 +98,9 @@ async def propose_with_repair(
         resolution = replace(resolution, form=normalized.form)
         syntactic_labels = normalized.syntactic_labels
     admission = _admit(resolution, utterance, accounting)
+    resolution, admission = attach_hangul_unaccounted_context(
+        resolution, admission, utterance=utterance, accounting=accounting
+    )
     repair = repair_for(raw, resolution, admission, utterance=utterance) if repairs > 0 else None
     if repair is None:
         return FormProposal(resolution, admission, syntactic_labels=syntactic_labels)
