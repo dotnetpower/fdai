@@ -692,13 +692,53 @@ def test_shared_concept_and_call_caches_normalize_particles_and_respect_live_fla
 
 
 def test_bilingual_and_typo_resilient_ontology_seeds_resolve_across_shards_and_siblings() -> None:
-    from fdai.core.conversation.semantic_reasoning_selection import lookup_cached_concept_choices
+    from fdai.core.conversation.semantic_reasoning_selection import (
+        _build_domain_seed_index,
+        lookup_cached_concept_choices,
+    )
+    from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
 
-    catalogs = concept_catalogs(production_manifest().descriptors)
+    from tests.conversation.semantic_reasoning_support import production_catalog
+
+    cat = production_catalog()
+    metric_reg = load_metric_semantic_registry(
+        ROOT / "rule-catalog" / "vocabulary" / "metric-semantics.yaml"
+    )
+    inv_lang = load_inventory_query_language_from_mapping(
+        yaml.safe_load(
+            (ROOT / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+    )
+    vocab = ConceptVocabularies(
+        metric_registry=metric_reg,
+        inventory_query_language=inv_lang,
+        property_semantics=cat.property_semantics,
+    )
+    catalogs = concept_catalogs(
+        production_manifest().descriptors,
+        object_labels={item.name: item.description for item in cat.object_types},
+        metric_labels=vocab.metric_labels(),
+        health_labels=vocab.health_labels(),
+        property_reads=vocab.property_reads(),
+    )
+    seed_idx = _build_domain_seed_index()
+    for dom, cands in catalogs.items():
+        seeded_ids = set(seed_idx.get(dom, {}).values())
+        unseeded = [c.id for c in cands if c.id != "any:resource" and c.id not in seeded_ids]
+        assert unseeded == [], f"Unseeded candidates in {dom}: {unseeded}"
+
     rt_shards = shard_catalog(MentionDomain.RESOURCE_TYPE, catalogs[MentionDomain.RESOURCE_TYPE])
     obj_shards = shard_catalog(MentionDomain.OBJECT_TYPE, catalogs[MentionDomain.OBJECT_TYPE])
     st_shards = shard_catalog(MentionDomain.STATE, catalogs[MentionDomain.STATE])
     reg_shards = shard_catalog(MentionDomain.REGION, catalogs[MentionDomain.REGION])
+    met_shards = shard_catalog(MentionDomain.METRIC, catalogs[MentionDomain.METRIC])
+    hl_shards = shard_catalog(MentionDomain.HEALTH, catalogs[MentionDomain.HEALTH])
+    pr_shards = shard_catalog(MentionDomain.PROPERTY, catalogs[MentionDomain.PROPERTY])
+    dk_shards = shard_catalog(
+        MentionDomain.DECLARATION_KIND, catalogs[MentionDomain.DECLARATION_KIND]
+    )
 
     for shards, text, expected in (
         (rt_shards, "리소스그릅이", ["group:resource-group"]),
@@ -709,12 +749,22 @@ def test_bilingual_and_typo_resilient_ontology_seeds_resolve_across_shards_and_s
         (rt_shards, "포스트그래스", ["group:postgresql-server"]),
         (rt_shards, "컨테이나앱", ["group:compute.container-app"]),
         (rt_shards, "kubernets", ["group:kubernetes-cluster"]),
+        (rt_shards, "구독이", ["value:subscription"]),
+        (rt_shards, "배포 슬롯", ["group:compute.app-slot"]),
         (obj_shards, "인시던츠", ["object:Incident"]),
+        (obj_shards, "보안 이벤트", ["object:SecurityEvent"]),
         (obj_shards, "리소스그룹이", []),
         (rt_shards, "인시던트가", []),
         (st_shards, "stoped", ["state:stopped_or_deallocated"]),
         (st_shards, "꺼진", ["state:stopped_or_deallocated"]),
+        (st_shards, "열린 인시던트", ["state:lifecycle:Incident.status=open"]),
         (reg_shards, "한국 중부", ["region:koreacentral"]),
+        (reg_shards, "스위스 북부", ["region:switzerlandnorth"]),
+        (met_shards, "CPU 사용률", ["metric:resource.cpu.utilization_pct"]),
+        (met_shards, "메모리 사용량", ["metric:resource.memory.usage_pct"]),
+        (hl_shards, "비정상", ["health:resource_health.unhealthy"]),
+        (pr_shards, "가용성 영역", ["property:resilience.availability.zones"]),
+        (dk_shards, "액션 선언", ["kind:action"]),
     ):
         combined: list[str] = []
         for shard in shards:
