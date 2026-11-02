@@ -89,6 +89,12 @@ state programmatically, and announce updated result counts. A resource type rest
 stays visible even when the current snapshot has no matching resource. The readable resource name
 owns the detail heading; its canonical reference remains available for inspection and copying.
 
+Detection coverage presents its three views through a compact rounded selector. Coverage and
+retained-Finding totals use flat metric bands rather than elevated cards. Filters and detail
+metadata use spacing and hairlines instead of nested boxes; status colors stay local to the
+relevant values and labels. On narrow screens, retained-Finding totals become a single-column
+label/value list while keeping their detail links.
+
 ## Product vocabulary
 
 Use one product name and plain operational labels:
