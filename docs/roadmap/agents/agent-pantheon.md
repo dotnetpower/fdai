@@ -19,20 +19,13 @@ Heimdall sensing recovery persists subject records and an ordered active-members
 Repeated exactly equal records reuse acknowledged durable state after checking for another writer; legacy snapshot recovery remains available.
 This storage optimization changes no AgentSpec, topic ownership, authority, approval, event identity, detection threshold, or required audit behavior.
 
-The manifest binds each active subject's canonical digest. New checkpoints first persist immutable
-content-addressed subject/node versions and a separate bounded bucket manifest, then atomically
-replace the root pointer. An interrupted write restores the previous acknowledged checkpoint,
-never a mixture of current mutable locations. Every referenced version still passes its hash,
-membership, rank, identity and byte-bound checks; missing or changed versions require repair.
-Legacy checkpoints keep strict verification. An explicit offline repair planner accepts only a
-complete known leaf/branch graph with write-order evidence of interruption, validates all subject
-references, and produces immutable index records without altering the input. Applying a plan
-requires a stopped writer, preserved originals, exact-source fencing and two-phase audit; ordinary
-rehydration never repairs or ignores corruption automatically.
-Independent immutable node and subject reads run with at most eight in-flight storage calls;
-every integrity check still completes before the recovered agent starts consuming events.
-Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
-characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
+The manifest binds each active subject's canonical digest. New checkpoints persist immutable content-addressed subject/node versions and a separate bounded bucket manifest before atomically replacing the root pointer.
+An interrupted write restores the previous acknowledged checkpoint, never a mixture of current mutable locations.
+Every referenced version passes hash, membership, rank, identity and byte-bound checks; missing or changed versions require repair.
+Legacy checkpoints keep strict verification. An explicit offline planner accepts only complete known leaf/branch graphs with interruption write-order evidence, validates every subject reference, and produces immutable index records without altering input.
+Applying a plan requires a stopped writer, preserved originals, exact-source fencing and two-phase audit; ordinary rehydration never repairs or ignores corruption automatically.
+Independent immutable node/subject reads allow at most eight in-flight storage calls; every integrity check completes before event consumption.
+Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
 
 Active references use 64 fixed hash buckets with durable insertion ranks. Oversized leaves use radix-16 subpages (`bucket_node_format=radix16-v1`); leaf, branch and large-value fragment writes stay below 5,000 JSON bytes while unpaged v2 buckets remain readable. Stop older writers before paged-node cutover; code rollback alone is insufficient. Updating or evicting a subject changes its bucket path rather than shifting every subsequent page.
 The root contains a bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,
