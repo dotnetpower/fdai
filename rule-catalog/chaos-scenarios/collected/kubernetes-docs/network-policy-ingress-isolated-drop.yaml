@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.network-policy-ingress-isolated-drop
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  source_ref: section=default-deny-all-ingress-traffic;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: network
+target_type: ingress
+fault_family: drop
+intensity: high
+duration_seconds: 360
+expected_signal: request_failure
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Add an ingress NetworkPolicy rule allowing the gateway and probe namespaces.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Default-deny ingress NetworkPolicy blocks health probes and upstream
+  callers.
+tags:
+- kubernetes
+- vendor-doc

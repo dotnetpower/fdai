@@ -1,0 +1,26 @@
+id: chaos.aws-fis.lambda-invocation-http-error
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:lambda:invocation-error
+  synthesis_method: collected
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS disables the invocation fault injection at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Force serverless function invocations to fail with unhandled errors.
+params:
+  action_id: aws:lambda:invocation-error
+  percentage: '100'
+tags:
+- aws-fis

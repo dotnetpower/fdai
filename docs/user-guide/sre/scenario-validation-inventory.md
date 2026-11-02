@@ -11,7 +11,7 @@ that the control loop reaches the expected result. A live enforcement run proves
 that a real fault was injected, observed, and reverted on a disposable Azure
 substrate. These evidence levels are not interchangeable.
 
-This page lists every current SRE scenario set and every one of the 157 catalog
+This page lists every current SRE scenario set and every one of the 207 catalog
 scenario IDs. The snapshot was recalculated from the repository on 2026-11-03.
 
 ## Validation levels
@@ -23,7 +23,7 @@ scenario IDs. The snapshot was recalculated from the repository on 2026-11-03.
 | Frozen control-loop set `v2026.07` | 9 | 66 integrity and replay tests passed | Balanced Change, DR, and FinOps expected outcomes replay through the shipped loop |
 | Agent decision scenarios | 6 | Included in 22 agent scenario tests passed | Forseti returns expected auto, human approval, deny, or hold for review outcomes |
 | Agent pipeline scenarios | 8 | Included in 22 agent scenario tests passed | Forseti, Thor, Var, and Saga preserve cross-agent safety invariants |
-| Chaos catalog | 157 | 157/157 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
+| Chaos catalog | 207 | 207/207 schema, signal, and symptom-index validation | Every catalog record is structurally valid and searchable |
 | Default-factory dispatch subset | 93 | 93/93 injector and probe pairs build in dry-run | Delivery wiring exists; this is not a live fault run |
 | Promoted catalog | 0 | No entries promoted | No collected entry has inherited enforce eligibility |
 
@@ -119,13 +119,13 @@ true cold-start latency.
 | Self-approval attempt | Blocked and measured as a security signal |
 | Repeated self-approval | Retry does not inflate the security count |
 
-## Chaos catalog: 157 scenario IDs
+## Chaos catalog: 207 scenario IDs
 
 The catalog currently contains 93 entries that the default factory classifies
-as executable and builds in dry-run. The remaining 64 are 17 AWS FIS
+as executable and builds in dry-run. The remaining 114 are 42 AWS FIS
 cross-CSP references, 21 GPU scenarios requiring an injector or hardware,
-25 Kubernetes documentation candidates, and the legacy Redis reboot
-scenario. All 157 remain under `collected/`; zero are under `promoted/`.
+50 Kubernetes documentation candidates, and the legacy Redis reboot
+scenario. All 207 remain under `collected/`; zero are under `promoted/`.
 
 <details>
 <summary>Azure Chaos Studio - 15 IDs</summary>
@@ -191,33 +191,58 @@ scenario. All 157 remain under `collected/`; zero are under `promoted/`.
 </details>
 
 <details>
-<summary>Kubernetes documentation - 25 IDs</summary>
+<summary>Kubernetes documentation - 50 IDs</summary>
 
+- `chaos.kubernetes-docs.apiserver-admission-webhook-timeout`
 - `chaos.kubernetes-docs.configmap-drift-rollout-regression`
 - `chaos.kubernetes-docs.container-abnormal-exit-entrypoint`
 - `chaos.kubernetes-docs.container-oom-killed-memory-limit`
+- `chaos.kubernetes-docs.container-runtime-image-gc-stall`
+- `chaos.kubernetes-docs.coredns-upstream-forward-timeout`
 - `chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency`
 - `chaos.kubernetes-docs.crash-loop-backoff-liveness-probe`
+- `chaos.kubernetes-docs.cronjob-concurrency-forbid-stall`
+- `chaos.kubernetes-docs.csi-volume-multi-attach-conflict`
+- `chaos.kubernetes-docs.daemonset-node-taint-eviction-gap`
+- `chaos.kubernetes-docs.dns-ndots-search-path-amplification`
 - `chaos.kubernetes-docs.dns-resolution-failure`
+- `chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole`
+- `chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom`
+- `chaos.kubernetes-docs.endpointslice-stale-terminating-ready`
 - `chaos.kubernetes-docs.ephemeral-storage-eviction`
+- `chaos.kubernetes-docs.etcd-quorum-leader-election-stall`
 - `chaos.kubernetes-docs.external-traffic-policy-local-blackhole`
 - `chaos.kubernetes-docs.hpa-metrics-api-unavailable`
 - `chaos.kubernetes-docs.image-pull-backoff`
 - `chaos.kubernetes-docs.ingress-backend-gateway-timeout`
+- `chaos.kubernetes-docs.ingress-class-controller-mismatch`
 - `chaos.kubernetes-docs.init-container-startup-failure`
+- `chaos.kubernetes-docs.job-backoff-limit-exceeded-failure`
+- `chaos.kubernetes-docs.kube-proxy-iptables-sync-lag`
 - `chaos.kubernetes-docs.kubelet-node-not-ready-stop`
+- `chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready`
+- `chaos.kubernetes-docs.limitrange-default-request-admission-reject`
 - `chaos.kubernetes-docs.network-policy-egress-deny-drop`
+- `chaos.kubernetes-docs.network-policy-ingress-isolated-drop`
+- `chaos.kubernetes-docs.node-disk-pressure-taint-eviction`
+- `chaos.kubernetes-docs.node-memory-pressure-qos-eviction`
+- `chaos.kubernetes-docs.node-pid-pressure-fork-denial`
 - `chaos.kubernetes-docs.node-taint-untolerated-pending`
 - `chaos.kubernetes-docs.pod-disruption-budget-gap`
 - `chaos.kubernetes-docs.prestop-hook-grace-period-drop`
 - `chaos.kubernetes-docs.priority-class-preemption-cascade`
 - `chaos.kubernetes-docs.pvc-provisioning-mount-stall`
 - `chaos.kubernetes-docs.readiness-probe-endpoint-removal`
+- `chaos.kubernetes-docs.replicaset-selector-adoption-conflict`
 - `chaos.kubernetes-docs.resource-quota-admission-denial`
 - `chaos.kubernetes-docs.secret-volume-mount-missing-stall`
 - `chaos.kubernetes-docs.service-selector-label-mismatch`
+- `chaos.kubernetes-docs.service-session-affinity-clientip-skew`
 - `chaos.kubernetes-docs.startup-probe-premature-restart`
+- `chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating`
 - `chaos.kubernetes-docs.topology-spread-skew-hotspot`
+- `chaos.kubernetes-docs.volume-fsgroup-permission-denied`
+- `chaos.kubernetes-docs.volume-subpath-configmap-stale-mount`
 
 </details>
 
@@ -304,19 +329,44 @@ scenario. All 157 remain under `collected/`; zero are under `promoted/`.
 </details>
 
 <details>
-<summary>AWS FIS cross-CSP reference - 17 IDs</summary>
+<summary>AWS FIS cross-CSP reference - 42 IDs</summary>
 
+- `chaos.aws-fis.bedrock-model-invocation-throttle`
+- `chaos.aws-fis.dynamodb-global-table-pause-replication`
+- `chaos.aws-fis.ebs-volume-io-latency`
+- `chaos.aws-fis.ebs-volume-io-pause`
+- `chaos.aws-fis.ec2-asg-insufficient-instance-capacity`
 - `chaos.aws-fis.ec2-reboot-instances`
 - `chaos.aws-fis.ec2-send-spot-instance-interruptions`
 - `chaos.aws-fis.ec2-stop-instances`
 - `chaos.aws-fis.ec2-terminate-instances`
 - `chaos.aws-fis.ecs-stop-task`
+- `chaos.aws-fis.ecs-task-cpu-stress`
+- `chaos.aws-fis.ecs-task-io-stress`
+- `chaos.aws-fis.ecs-task-kill-process`
+- `chaos.aws-fis.ecs-task-network-latency`
+- `chaos.aws-fis.ecs-task-network-packet-loss`
 - `chaos.aws-fis.eks-pod-cpu-stress`
+- `chaos.aws-fis.eks-pod-delete`
+- `chaos.aws-fis.eks-pod-io-stress`
+- `chaos.aws-fis.eks-pod-memory-stress`
+- `chaos.aws-fis.eks-pod-network-blackhole`
 - `chaos.aws-fis.eks-pod-network-latency`
+- `chaos.aws-fis.eks-pod-network-packet-loss`
+- `chaos.aws-fis.eks-terminate-nodegroup-instances`
+- `chaos.aws-fis.elasticache-failover-shard`
+- `chaos.aws-fis.elasticache-interrupt-cluster-power`
+- `chaos.aws-fis.iam-role-access-denied`
+- `chaos.aws-fis.lambda-invocation-delay`
+- `chaos.aws-fis.lambda-invocation-http-error`
+- `chaos.aws-fis.lambda-tmp-disk-fill`
 - `chaos.aws-fis.network-disrupt-connectivity`
+- `chaos.aws-fis.network-route-table-disrupt`
+- `chaos.aws-fis.network-transit-gateway-disrupt`
 - `chaos.aws-fis.rds-failover-db-cluster`
 - `chaos.aws-fis.rds-reboot-db-instances`
 - `chaos.aws-fis.s3-bucket-pause-replication`
+- `chaos.aws-fis.sqs-queue-pause-delivery`
 - `chaos.aws-fis.ssm-cpu-stress`
 - `chaos.aws-fis.ssm-disk-fill`
 - `chaos.aws-fis.ssm-kill-process`

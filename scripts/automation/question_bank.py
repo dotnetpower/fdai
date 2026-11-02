@@ -264,36 +264,50 @@ def _validate_duplicate_references(questions: list[dict[str, Any]]) -> None:
             )
 
 
+def _validate_text_hygiene(text: str, *, question_id: str, locale: str) -> None:
+    lowered = text.casefold()
+    for token in _FORBIDDEN_SUBSTRINGS:
+        if token in lowered:
+            raise ValueError(
+                f"question bank wording contains customer-specific token {token!r}: "
+                f"{question_id} ({locale})"
+            )
+    if _UUID_PATTERN.search(text) is not None:
+        raise ValueError(f"question bank wording contains a UUID literal: {question_id} ({locale})")
+    if _IPV4_PATTERN.search(text) is not None:
+        raise ValueError(
+            f"question bank wording contains an IPv4 literal: {question_id} ({locale})"
+        )
+    if any(char in _FORBIDDEN_PUNCTUATION for char in text):
+        raise ValueError(
+            f"question bank wording contains non-ASCII smart punctuation: {question_id} ({locale})"
+        )
+    if _ESCAPED_HANGUL_PATTERN.search(text) is not None:
+        raise ValueError(
+            f"question bank wording contains escaped Hangul literals: {question_id} ({locale})"
+        )
+
+
 def _validate_wording_hygiene(questions: list[dict[str, Any]]) -> None:
     for item in questions:
         question_id = _string(item["question_id"], "question_id")
+        safety = _mapping(item.get("safety", {"execution_authority": False}), "safety")
+        if safety.get("execution_authority") is not False:
+            raise ValueError(
+                f"question bank item MUST keep execution_authority=False: {question_id}"
+            )
         wording = _mapping(item["wording"], "wording")
+        variations = _mapping(item.get("variations", {"en": [], "ko": []}), "variations")
         for locale in ("en", "ko"):
             text = _string(wording[locale], f"{question_id}.{locale}")
-            lowered = text.casefold()
-            for token in _FORBIDDEN_SUBSTRINGS:
-                if token in lowered:
-                    raise ValueError(
-                        f"question bank wording contains customer-specific token {token!r}: "
-                        f"{question_id} ({locale})"
-                    )
-            if _UUID_PATTERN.search(text) is not None:
-                raise ValueError(
-                    f"question bank wording contains a UUID literal: {question_id} ({locale})"
-                )
-            if _IPV4_PATTERN.search(text) is not None:
-                raise ValueError(
-                    f"question bank wording contains an IPv4 literal: {question_id} ({locale})"
-                )
-            if any(char in _FORBIDDEN_PUNCTUATION for char in text):
-                raise ValueError(
-                    f"question bank wording contains non-ASCII smart punctuation: "
-                    f"{question_id} ({locale})"
-                )
-            if _ESCAPED_HANGUL_PATTERN.search(text) is not None:
-                raise ValueError(
-                    f"question bank wording contains escaped Hangul literals: "
-                    f"{question_id} ({locale})"
+            _validate_text_hygiene(text, question_id=question_id, locale=locale)
+            for variation in _array(
+                variations.get(locale, []), f"{question_id}.variations.{locale}"
+            ):
+                var_map = _mapping(variation, f"{question_id}.variation")
+                var_text = _string(var_map["text"], f"{question_id}.variation.text")
+                _validate_text_hygiene(
+                    var_text, question_id=question_id, locale=f"{locale}.variation"
                 )
 
 

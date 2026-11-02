@@ -1,22 +1,9 @@
 """Independent, blind extraction of the constraints a question states.
 
-Admission bounds the proposer but cannot check its judgment: a word it labels context,
-a cue stretched over a constraint, or a constraint it never saw all pass deterministic
-checks, and a reviewer shown the proposal tends to repeat its reading. A second,
-independent model call therefore reads only the question and extracts every constraint
-with a closed role. Core never interprets the question; it compares the two independent
-outputs structurally. Every letter and digit of each extracted constraint must lie in a
-span that states meaning, never only in a goal cue or context, and a named thing must
-overlap a mention. One mention binds one concept or one identity, so a mention may not
-hold a restriction the extractor found beside another constraint it found: binding would
-keep one and silently drop the other. A literal operand, the mention a name-fragment
-filter reads, is used verbatim, so its quote must equal a literal the extractor quoted on
-its own; no single reader decides where a literal ends. No closed field states an
-exclusion such as not or only, and only a ranking or comparison goal states an order or a
-comparison, so those roles need an unsupported constraint or that goal's cue; a cue,
-context, or particle that covers one would drop it. Roles beyond that stay advisory, because two
-independent readers may fairly disagree on whether a word restricts or relates. A
-malformed, empty, unlocated, or unavailable extraction releases nothing.
+A second, independent model call reads only the question and extracts every constraint
+with a closed role. Core compares the admitted forms and the extraction structurally:
+every alphanumeric character of each extracted constraint must lie in a semantic span,
+named things must overlap a mention, and literal operands must match an extracted literal.
 """
 
 from __future__ import annotations
@@ -266,38 +253,48 @@ def answer_kinds(goal: FormGoal) -> frozenset[AnswerKind]:
         )
     operation = goal.effective_operation
     measure = goal.measure.kind if goal.measure is not None else None
+    grouped = goal.measure is not None and goal.measure.group_by.value != "none"
     if operation is GoalOperation.COUNT or (
         operation is GoalOperation.AGGREGATE and measure is MeasureKind.COUNT
     ):
-        return frozenset({AnswerKind.COUNT})
+        return (
+            frozenset({AnswerKind.COUNT, AnswerKind.LIST, AnswerKind.VALUE})
+            if grouped
+            else frozenset({AnswerKind.COUNT})
+        )
     if operation is GoalOperation.AGGREGATE:
-        return frozenset({AnswerKind.COUNT, AnswerKind.VALUE})
+        return (
+            frozenset({AnswerKind.COUNT, AnswerKind.LIST, AnswerKind.VALUE})
+            if grouped
+            else frozenset({AnswerKind.COUNT, AnswerKind.VALUE})
+        )
     if operation in {GoalOperation.SELECT, GoalOperation.RANK}:
         kinds = {AnswerKind.LIST, *_relation_kinds(goal)}
-        # A list filtered by a state answers whether its members are in that state.
         if any(item.role in {FilterRole.STATE, FilterRole.HEALTH} for item in goal.filters):
             kinds.add(AnswerKind.STATE)
-        # A metric threshold or a metric order reads each member's measured value, and a
-        # threshold also answers whether members cross it.
+        if any(item.role is FilterRole.REGION for item in goal.filters):
+            kinds.add(AnswerKind.LOCATION)
         if any(item.role is FilterRole.METRIC for item in goal.filters):
             kinds.update({AnswerKind.STATE, AnswerKind.VALUE})
-        if operation is GoalOperation.RANK and measure is MeasureKind.METRIC:
+        if measure in _VALUE_MEASURES:
             kinds.add(AnswerKind.VALUE)
+        if measure in _STATE_MEASURES:
+            kinds.add(AnswerKind.STATE)
         return frozenset(kinds)
     if operation in {GoalOperation.TRAVERSE, GoalOperation.PATH, GoalOperation.IMPACT}:
         return frozenset({AnswerKind.LIST, AnswerKind.RELATION, *_relation_kinds(goal)})
     if operation is GoalOperation.LOOKUP:
         if measure in _STATE_MEASURES:
             return frozenset({AnswerKind.STATE})
+        if measure is MeasureKind.PROPERTY:
+            return frozenset({AnswerKind.VALUE, AnswerKind.LOCATION, AnswerKind.STATE})
         if measure in _VALUE_MEASURES:
             return frozenset({AnswerKind.VALUE})
         return frozenset({AnswerKind.STATE, AnswerKind.VALUE})
     if operation is GoalOperation.HISTORY:
-        return frozenset({AnswerKind.HISTORY, AnswerKind.LIST})
-    if operation is GoalOperation.EXPLAIN_CAUSE:
-        return frozenset({AnswerKind.CAUSE})
-    if operation is GoalOperation.DIAGNOSE:
-        return frozenset({AnswerKind.CAUSE, AnswerKind.STATE})
+        return frozenset({AnswerKind.HISTORY, AnswerKind.LIST, AnswerKind.STATE, AnswerKind.COUNT})
+    if operation in {GoalOperation.EXPLAIN_CAUSE, GoalOperation.DIAGNOSE}:
+        return frozenset({AnswerKind.CAUSE, AnswerKind.STATE, AnswerKind.RELATION})
     return frozenset(AnswerKind)
 
 
@@ -367,9 +364,9 @@ def uncovered_constraints(
     """Return each extracted constraint the admitted forms do not state."""
 
     semantic, mentions = _semantic_spans(forms)
-    # A particle attached after a mention in the same word, such as the case ending of a
-    # Korean name, belongs to that mention; only whitespace delimits the word.
-    suffixes = [suffix for span in mentions if (suffix := _attached(span, utterance)) is not None]
+    # A particle attached after a mention or semantic cue in the same word, such as the case
+    # ending of a Korean word, belongs to that word; only whitespace delimits the word.
+    suffixes = [suffix for span in semantic if (suffix := _attached(span, utterance)) is not None]
     # A hypothetical premise, such as if it fails, is what an impact goal states.
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals

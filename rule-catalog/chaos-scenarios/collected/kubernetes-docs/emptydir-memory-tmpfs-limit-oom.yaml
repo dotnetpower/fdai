@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/storage/volumes/
+  source_ref: section=emptydir;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: resource_saturation
+target_type: pod
+fault_family: oom
+intensity: high
+duration_seconds: 360
+expected_signal: pod_oom_killed
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Declare emptyDir sizeLimit or switch medium from Memory to disk storage.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Unbounded memory-backed emptyDir tmpfs writes count against Pod memory
+  limit.
+tags:
+- kubernetes
+- vendor-doc

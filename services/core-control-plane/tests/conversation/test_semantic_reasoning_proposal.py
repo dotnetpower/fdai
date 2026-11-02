@@ -225,6 +225,13 @@ def test_locate_quote_recovers_single_token_typo_and_rejects_unrelated_words() -
 
     assert locate_quote("리소스그룹", 1, "리소스그릅이 몇개인가?") == (0, 5)
     assert locate_quote("리소스 그룹", 1, "리소스 그릅이 몇개인가?") == (0, 6)
+    assert locate_quote("'rg-app'", 1, "Show rg-app resources") == (5, 11)
     assert locate_quote("virtual", 1, "Show stopped virtul machines") == (13, 19)
     assert locate_quote("virtual machines", 1, "Show stopped virtul machines") == (13, 28)
     assert locate_quote("largest", 1, _UTTERANCE) is None
+
+
+def test_comparison_value_strips_trailing_unit_when_digits_match_value_span() -> None:
+    admission = _admit(_threshold_form(value="90%"), _THRESHOLD)
+    assert admission.disposition is AdmissionDisposition.ADMITTED
+    assert admission.form.goals[0].filters[0].comparison.value == "90"  # type: ignore[union-attr]

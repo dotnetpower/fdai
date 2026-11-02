@@ -35,14 +35,73 @@ any file whose slug is no longer in `_ENTRIES`.
 from __future__ import annotations
 
 import pathlib
+import re
 from dataclasses import dataclass
 
 import yaml
+from fdai.core.detection.signals import SignalRole, known_signals
 
 _HERE = pathlib.Path(__file__).resolve()
 _REPO_ROOT = next(parent for parent in _HERE.parents if (parent / "pyproject.toml").is_file())
 _OUT_DIR = _REPO_ROOT / "rule-catalog" / "chaos-scenarios" / "collected" / "azure-chaos-studio"
 _ALERT_WINDOW_S = 360.0
+_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+_ALLOWED_CATEGORIES = frozenset(
+    {
+        "compute",
+        "network",
+        "storage",
+        "state",
+        "dependency",
+        "traffic",
+        "time",
+        "resource_saturation",
+        "identity",
+        "quota",
+        "cost_governance",
+    }
+)
+_ALLOWED_TARGET_TYPES = frozenset(
+    {
+        "pod",
+        "node",
+        "vm",
+        "vmss",
+        "db",
+        "lb",
+        "dns",
+        "disk",
+        "cache",
+        "secret_store",
+        "identity",
+        "ingress",
+        "egress",
+        "quota",
+        "llm_endpoint",
+        "control_plane",
+    }
+)
+_ALLOWED_FAULT_FAMILIES = frozenset(
+    {
+        "stop",
+        "delay",
+        "drop",
+        "corrupt",
+        "saturate",
+        "throttle",
+        "deny",
+        "misroute",
+        "expire",
+        "quota_shrink",
+        "oom",
+        "hang",
+        "preempt",
+        "checkpoint_fail",
+        "cache_overflow",
+        "ramp",
+    }
+)
+_ALLOWED_INTENSITIES = frozenset({"mild", "high", "extreme"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -351,7 +410,34 @@ _ENTRIES: tuple[Entry, ...] = (
 )
 
 
-def _to_body(e: Entry) -> dict:
+def _validate_entry(e: Entry) -> None:
+    if not _SLUG_PATTERN.fullmatch(e.slug):
+        raise ValueError("invalid_slug")
+    if not e.fault_name.startswith("urn:csci:microsoft:"):
+        raise ValueError("unsupported_fault_name")
+    if not (e.injector == "needs-injector" or e.injector.startswith("az:")):
+        raise ValueError("unsupported_injector")
+    if e.category not in _ALLOWED_CATEGORIES:
+        raise ValueError("unsupported_category")
+    if e.target_type not in _ALLOWED_TARGET_TYPES:
+        raise ValueError("unsupported_target_type")
+    if e.fault_family not in _ALLOWED_FAULT_FAMILIES:
+        raise ValueError("unsupported_fault_family")
+    if e.intensity not in _ALLOWED_INTENSITIES:
+        raise ValueError("unsupported_intensity")
+    if e.blast_radius_cap < 1:
+        raise ValueError("invalid_blast_radius_cap")
+    if not e.description.strip() or not e.rollback_note.strip():
+        raise ValueError("missing_description_or_rollback_note")
+    signal = known_signals().get(e.expected_signal)
+    if signal is None:
+        raise ValueError("unknown_expected_signal")
+    if signal.role is SignalRole.RCA_ONLY:
+        raise ValueError("rca_only_signal_not_scenario_eligible")
+
+
+def _to_body(e: Entry) -> dict[str, object]:
+    _validate_entry(e)
     return {
         "id": f"chaos.azure-chaos-studio.{e.slug}",
         "version": 1,
@@ -379,6 +465,9 @@ def _to_body(e: Entry) -> dict:
 
 
 def main() -> int:
+    slugs = [e.slug for e in _ENTRIES]
+    if len(slugs) != len(set(slugs)):
+        raise ValueError("duplicate_slug")
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     # Drop any stale files from a previous ingest (e.g. the 3 chaos-mesh
     # wrapper duplicates removed on 2026-07-13). Otherwise the loader keeps

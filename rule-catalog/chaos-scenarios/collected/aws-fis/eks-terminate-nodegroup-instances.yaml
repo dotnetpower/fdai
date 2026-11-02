@@ -1,0 +1,26 @@
+id: chaos.aws-fis.eks-terminate-nodegroup-instances
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:eks:terminate-nodegroup-instances
+  synthesis_method: collected
+category: compute
+target_type: node
+fault_family: stop
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: pod_restart
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: Managed nodegroup provisions replacement worker nodes.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Terminate a percentage of managed EKS nodegroup instances.
+params:
+  action_id: aws:eks:terminate-nodegroup-instances
+  percent: '50'
+tags:
+- aws-fis

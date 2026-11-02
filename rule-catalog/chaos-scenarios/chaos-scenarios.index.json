@@ -1,4 +1,32 @@
 {
+  "backend_health|cache|": [
+    {
+      "category": "dependency",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-interrupt-cluster-power",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-interrupt-cluster-power.yaml",
+      "target_type": "cache"
+    }
+  ],
+  "backend_health|cache|high": [
+    {
+      "category": "dependency",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-interrupt-cluster-power",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-interrupt-cluster-power.yaml",
+      "target_type": "cache"
+    }
+  ],
   "backend_health|ingress|": [
     {
       "category": "network",
@@ -16,12 +44,36 @@
       "category": "network",
       "expected_signal": "backend_health",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.network-transit-gateway-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-transit-gateway-disrupt.yaml",
+      "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
       "id": "chaos.azure-chaos-studio.nsg-security-rule",
       "injector": "az:nsg-rule",
       "intensity": "extreme",
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/azure-chaos-studio/nsg-security-rule.yaml",
+      "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.ingress-class-controller-mismatch",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ingress-class-controller-mismatch.yaml",
       "target_type": "ingress"
     }
   ],
@@ -42,12 +94,38 @@
       "category": "network",
       "expected_signal": "backend_health",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.network-transit-gateway-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-transit-gateway-disrupt.yaml",
+      "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
       "id": "chaos.azure-chaos-studio.nsg-security-rule",
       "injector": "az:nsg-rule",
       "intensity": "extreme",
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/azure-chaos-studio/nsg-security-rule.yaml",
+      "target_type": "ingress"
+    }
+  ],
+  "backend_health|ingress|medium": [
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.ingress-class-controller-mismatch",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ingress-class-controller-mismatch.yaml",
       "target_type": "ingress"
     }
   ],
@@ -208,6 +286,18 @@
       "category": "network",
       "expected_signal": "backend_health",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-blackhole",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-blackhole.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
       "id": "chaos.chaos-mesh.network-partition",
       "injector": "chaos-mesh:NetworkChaos",
       "intensity": "extreme",
@@ -230,6 +320,18 @@
     }
   ],
   "backend_health|pod|high": [
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-blackhole",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-blackhole.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "network",
       "expected_signal": "backend_health",
@@ -290,12 +392,48 @@
       "category": "network",
       "expected_signal": "backend_health",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-blackhole",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-blackhole.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-interrupt-cluster-power",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-interrupt-cluster-power.yaml",
+      "target_type": "cache"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.network-disrupt-connectivity",
       "injector": "cross-csp-reference",
       "intensity": "extreme",
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-disrupt-connectivity.yaml",
+      "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.network-transit-gateway-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-transit-gateway-disrupt.yaml",
       "target_type": "ingress"
     },
     {
@@ -395,6 +533,18 @@
       "target_type": "lb"
     },
     {
+      "category": "network",
+      "expected_signal": "backend_health",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.ingress-class-controller-mismatch",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ingress-class-controller-mismatch.yaml",
+      "target_type": "ingress"
+    },
+    {
       "category": "compute",
       "expected_signal": "backend_health",
       "gpu_domain": null,
@@ -473,6 +623,30 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/configmap-drift-rollout-regression.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.replicaset-selector-adoption-conflict",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/replicaset-selector-adoption-conflict.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-subpath-configmap-stale-mount",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-subpath-configmap-stale-mount.yaml",
+      "target_type": "pod"
     }
   ],
   "config_drift|pod|low": [
@@ -487,6 +661,30 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/configmap-drift-rollout-regression.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.replicaset-selector-adoption-conflict",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/replicaset-selector-adoption-conflict.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-subpath-configmap-stale-mount",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-subpath-configmap-stale-mount.yaml",
+      "target_type": "pod"
     }
   ],
   "config_drift||": [
@@ -500,6 +698,30 @@
       "requires_hardware": false,
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/configmap-drift-rollout-regression.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.replicaset-selector-adoption-conflict",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/replicaset-selector-adoption-conflict.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "config_drift",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-subpath-configmap-stale-mount",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-subpath-configmap-stale-mount.yaml",
       "target_type": "pod"
     }
   ],
@@ -663,6 +885,34 @@
       "target_type": "training_job"
     }
   ],
+  "gateway_latency|disk|": [
+    {
+      "category": "storage",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-latency.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "gateway_latency|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-latency.yaml",
+      "target_type": "disk"
+    }
+  ],
   "gateway_latency|dns|": [
     {
       "category": "network",
@@ -699,6 +949,30 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/dns-delay-gateway-latency-mild.yaml",
       "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.coredns-upstream-forward-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/coredns-upstream-forward-timeout.yaml",
+      "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-ndots-search-path-amplification",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-ndots-search-path-amplification.yaml",
+      "target_type": "dns"
     }
   ],
   "gateway_latency|dns|high": [
@@ -727,6 +1001,18 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/dns-delay-gateway-latency-mild.yaml",
       "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-ndots-search-path-amplification",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-ndots-search-path-amplification.yaml",
+      "target_type": "dns"
     }
   ],
   "gateway_latency|dns|medium": [
@@ -741,9 +1027,33 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/dns-delay-gateway-latency-high.yaml",
       "target_type": "dns"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.coredns-upstream-forward-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/coredns-upstream-forward-timeout.yaml",
+      "target_type": "dns"
     }
   ],
   "gateway_latency|ingress|": [
+    {
+      "category": "dependency",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.sqs-queue-pause-delivery",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/sqs-queue-pause-delivery.yaml",
+      "target_type": "ingress"
+    },
     {
       "category": "traffic",
       "expected_signal": "gateway_latency",
@@ -759,6 +1069,18 @@
   ],
   "gateway_latency|ingress|medium": [
     {
+      "category": "dependency",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.sqs-queue-pause-delivery",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/sqs-queue-pause-delivery.yaml",
+      "target_type": "ingress"
+    },
+    {
       "category": "traffic",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
@@ -771,7 +1093,47 @@
       "target_type": "ingress"
     }
   ],
+  "gateway_latency|node|": [
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kube-proxy-iptables-sync-lag",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kube-proxy-iptables-sync-lag.yaml",
+      "target_type": "node"
+    }
+  ],
+  "gateway_latency|node|low": [
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kube-proxy-iptables-sync-lag",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kube-proxy-iptables-sync-lag.yaml",
+      "target_type": "node"
+    }
+  ],
   "gateway_latency|pod|": [
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-latency.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "network",
       "expected_signal": "gateway_latency",
@@ -782,6 +1144,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-latency.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-delay",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-delay.yaml",
       "target_type": "pod"
     },
     {
@@ -1022,12 +1396,36 @@
       "category": "network",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-latency.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.eks-pod-network-latency",
       "injector": "cross-csp-reference",
       "intensity": "high",
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-latency.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-delay",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-delay.yaml",
       "target_type": "pod"
     },
     {
@@ -1169,6 +1567,30 @@
   ],
   "gateway_latency||": [
     {
+      "category": "storage",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-latency.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-latency",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-latency.yaml",
+      "target_type": "pod"
+    },
+    {
       "category": "network",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
@@ -1179,6 +1601,30 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-latency.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-delay",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-delay.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.sqs-queue-pause-delivery",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/sqs-queue-pause-delivery.yaml",
+      "target_type": "ingress"
     },
     {
       "category": "network",
@@ -1349,6 +1795,18 @@
       "target_type": "pod"
     },
     {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.coredns-upstream-forward-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/coredns-upstream-forward-timeout.yaml",
+      "target_type": "dns"
+    },
+    {
       "category": "resource_saturation",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
@@ -1361,6 +1819,18 @@
       "target_type": "pod"
     },
     {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dns-ndots-search-path-amplification",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dns-ndots-search-path-amplification.yaml",
+      "target_type": "dns"
+    },
+    {
       "category": "traffic",
       "expected_signal": "gateway_latency",
       "gpu_domain": null,
@@ -1371,6 +1841,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ingress-backend-gateway-timeout.yaml",
       "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "gateway_latency",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kube-proxy-iptables-sync-lag",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kube-proxy-iptables-sync-lag.yaml",
+      "target_type": "node"
     },
     {
       "category": "traffic",
@@ -1942,6 +2424,30 @@
       "category": "storage",
       "expected_signal": "host_cpu",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-io-stress.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-io-stress.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.ssm-disk-fill",
       "injector": "cross-csp-reference",
       "intensity": "extreme",
@@ -2076,6 +2582,30 @@
     }
   ],
   "host_cpu|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-io-stress.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-io-stress.yaml",
+      "target_type": "disk"
+    },
     {
       "category": "storage",
       "expected_signal": "host_cpu",
@@ -2343,6 +2873,30 @@
   ],
   "host_cpu||": [
     {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-io-stress.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "host_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-io-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-io-stress.yaml",
+      "target_type": "disk"
+    },
+    {
       "category": "compute",
       "expected_signal": "host_cpu",
       "gpu_domain": null,
@@ -2540,6 +3094,18 @@
       "category": "resource_saturation",
       "expected_signal": "host_memory",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-memory-pressure-qos-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-memory-pressure-qos-eviction.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
       "id": "chaos.litmus.node-memory-hog",
       "injector": "litmus:node-memory-hog",
       "intensity": "extreme",
@@ -2563,7 +3129,33 @@
       "target_type": "node"
     }
   ],
+  "host_memory|node|medium": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-memory-pressure-qos-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-memory-pressure-qos-eviction.yaml",
+      "target_type": "node"
+    }
+  ],
   "host_memory|pod|": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-memory-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-memory-stress.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "resource_saturation",
       "expected_signal": "host_memory",
@@ -2590,6 +3182,18 @@
     }
   ],
   "host_memory|pod|medium": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-memory-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-memory-stress.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "resource_saturation",
       "expected_signal": "host_memory",
@@ -2748,6 +3352,18 @@
       "category": "resource_saturation",
       "expected_signal": "host_memory",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-memory-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-memory-stress.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.ssm-memory-stress",
       "injector": "cross-csp-reference",
       "intensity": "high",
@@ -2815,6 +3431,18 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/vm-saturate-host-memory-mild.yaml",
       "target_type": "vm"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "host_memory",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-memory-pressure-qos-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-memory-pressure-qos-eviction.yaml",
+      "target_type": "node"
     },
     {
       "category": "resource_saturation",
@@ -2967,6 +3595,34 @@
       "target_type": "training_job"
     }
   ],
+  "node_cpu|lb|": [
+    {
+      "category": "traffic",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.service-session-affinity-clientip-skew",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/service-session-affinity-clientip-skew.yaml",
+      "target_type": "lb"
+    }
+  ],
+  "node_cpu|lb|low": [
+    {
+      "category": "traffic",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.service-session-affinity-clientip-skew",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/service-session-affinity-clientip-skew.yaml",
+      "target_type": "lb"
+    }
+  ],
   "node_cpu|node|": [
     {
       "category": "compute",
@@ -2996,6 +3652,18 @@
     }
   ],
   "node_cpu|pod|": [
+    {
+      "category": "compute",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-cpu-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-cpu-stress.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "compute",
       "expected_signal": "node_cpu",
@@ -3162,6 +3830,18 @@
       "category": "compute",
       "expected_signal": "node_cpu",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-cpu-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-cpu-stress.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.eks-pod-cpu-stress",
       "injector": "cross-csp-reference",
       "intensity": "high",
@@ -3220,6 +3900,18 @@
     }
   ],
   "node_cpu||": [
+    {
+      "category": "compute",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-cpu-stress",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-cpu-stress.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "compute",
       "expected_signal": "node_cpu",
@@ -3317,6 +4009,18 @@
       "target_type": "pod"
     },
     {
+      "category": "traffic",
+      "expected_signal": "node_cpu",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.service-session-affinity-clientip-skew",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/service-session-affinity-clientip-skew.yaml",
+      "target_type": "lb"
+    },
+    {
       "category": "compute",
       "expected_signal": "node_cpu",
       "gpu_domain": null,
@@ -3339,6 +4043,34 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/litmus/pod-cpu-hog.yaml",
       "target_type": "pod"
+    }
+  ],
+  "pod_abnormal_termination|node|": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_abnormal_termination",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-pid-pressure-fork-denial",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-pid-pressure-fork-denial.yaml",
+      "target_type": "node"
+    }
+  ],
+  "pod_abnormal_termination|node|medium": [
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_abnormal_termination",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-pid-pressure-fork-denial",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-pid-pressure-fork-denial.yaml",
+      "target_type": "node"
     }
   ],
   "pod_abnormal_termination|pod|": [
@@ -3381,6 +4113,46 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-abnormal-exit-entrypoint.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_abnormal_termination",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-pid-pressure-fork-denial",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-pid-pressure-fork-denial.yaml",
+      "target_type": "node"
+    }
+  ],
+  "pod_crash_loop_back_off|disk|": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_crash_loop_back_off",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-fsgroup-permission-denied",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-fsgroup-permission-denied.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "pod_crash_loop_back_off|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_crash_loop_back_off",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-fsgroup-permission-denied",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-fsgroup-permission-denied.yaml",
+      "target_type": "disk"
     }
   ],
   "pod_crash_loop_back_off|pod|": [
@@ -3423,6 +4195,46 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/crash-loop-backoff-liveness-probe.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "pod_crash_loop_back_off",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.volume-fsgroup-permission-denied",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/volume-fsgroup-permission-denied.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "pod_failed|disk|": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-tmp-disk-fill",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-tmp-disk-fill.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "pod_failed|disk|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-tmp-disk-fill",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-tmp-disk-fill.yaml",
+      "target_type": "disk"
     }
   ],
   "pod_failed|pod|": [
@@ -3436,6 +4248,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ephemeral-storage-eviction.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.job-backoff-limit-exceeded-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/job-backoff-limit-exceeded-failure.yaml",
       "target_type": "pod"
     }
   ],
@@ -3451,9 +4275,33 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ephemeral-storage-eviction.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.job-backoff-limit-exceeded-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/job-backoff-limit-exceeded-failure.yaml",
+      "target_type": "pod"
     }
   ],
   "pod_failed||": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-tmp-disk-fill",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-tmp-disk-fill.yaml",
+      "target_type": "disk"
+    },
     {
       "category": "storage",
       "expected_signal": "pod_failed",
@@ -3464,6 +4312,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/ephemeral-storage-eviction.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_failed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.job-backoff-limit-exceeded-failure",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/job-backoff-limit-exceeded-failure.yaml",
       "target_type": "pod"
     }
   ],
@@ -3479,6 +4339,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-oom-killed-memory-limit.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_oom_killed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/emptydir-memory-tmpfs-limit-oom.yaml",
+      "target_type": "pod"
     }
   ],
   "pod_oom_killed|pod|medium": [
@@ -3493,6 +4365,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-oom-killed-memory-limit.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_oom_killed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/emptydir-memory-tmpfs-limit-oom.yaml",
+      "target_type": "pod"
     }
   ],
   "pod_oom_killed||": [
@@ -3506,6 +4390,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-oom-killed-memory-limit.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "resource_saturation",
+      "expected_signal": "pod_oom_killed",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/emptydir-memory-tmpfs-limit-oom.yaml",
       "target_type": "pod"
     }
   ],
@@ -3556,6 +4452,30 @@
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-terminate-nodegroup-instances",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-terminate-nodegroup-instances.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-disk-pressure-taint-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-disk-pressure-taint-eviction.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
       "id": "chaos.litmus.node-drain",
       "injector": "litmus:node-drain",
       "intensity": "extreme",
@@ -3570,12 +4490,38 @@
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-terminate-nodegroup-instances",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-terminate-nodegroup-instances.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
       "id": "chaos.litmus.node-drain",
       "injector": "litmus:node-drain",
       "intensity": "extreme",
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/litmus/node-drain.yaml",
+      "target_type": "node"
+    }
+  ],
+  "pod_restart|node|medium": [
+    {
+      "category": "storage",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-disk-pressure-taint-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-disk-pressure-taint-eviction.yaml",
       "target_type": "node"
     }
   ],
@@ -3590,6 +4536,30 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-stop-task.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-kill-process",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-kill-process.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-delete",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-delete.yaml",
       "target_type": "pod"
     },
     {
@@ -3752,6 +4722,30 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-stop-task.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-kill-process",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-kill-process.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-delete",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-delete.yaml",
       "target_type": "pod"
     },
     {
@@ -4082,6 +5076,42 @@
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-kill-process",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-kill-process.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-delete",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-delete.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-terminate-nodegroup-instances",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-terminate-nodegroup-instances.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
       "id": "chaos.aws-fis.ssm-kill-process",
       "injector": "cross-csp-reference",
       "intensity": "extreme",
@@ -4211,6 +5241,18 @@
       "target_type": "pod"
     },
     {
+      "category": "storage",
+      "expected_signal": "pod_restart",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.node-disk-pressure-taint-eviction",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/node-disk-pressure-taint-eviction.yaml",
+      "target_type": "node"
+    },
+    {
       "category": "compute",
       "expected_signal": "pod_restart",
       "gpu_domain": null,
@@ -4264,6 +5306,18 @@
       "category": "storage",
       "expected_signal": "pod_unready",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.csi-volume-multi-attach-conflict",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/csi-volume-multi-attach-conflict.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.pvc-provisioning-mount-stall",
       "injector": "needs-injector",
       "intensity": "high",
@@ -4278,6 +5332,18 @@
       "category": "storage",
       "expected_signal": "pod_unready",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.csi-volume-multi-attach-conflict",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/csi-volume-multi-attach-conflict.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.pvc-provisioning-mount-stall",
       "injector": "needs-injector",
       "intensity": "high",
@@ -4285,6 +5351,34 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/pvc-provisioning-mount-stall.yaml",
       "target_type": "disk"
+    }
+  ],
+  "pod_unready|node|": [
+    {
+      "category": "compute",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.daemonset-node-taint-eviction-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/daemonset-node-taint-eviction-gap.yaml",
+      "target_type": "node"
+    }
+  ],
+  "pod_unready|node|medium": [
+    {
+      "category": "compute",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.daemonset-node-taint-eviction-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/daemonset-node-taint-eviction-gap.yaml",
+      "target_type": "node"
     }
   ],
   "pod_unready|pod|": [
@@ -4348,6 +5442,30 @@
       "category": "storage",
       "expected_signal": "pod_unready",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.csi-volume-multi-attach-conflict",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/csi-volume-multi-attach-conflict.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.daemonset-node-taint-eviction-gap",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/daemonset-node-taint-eviction-gap.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "pod_unready",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.pvc-provisioning-mount-stall",
       "injector": "needs-injector",
       "intensity": "high",
@@ -4382,6 +5500,18 @@
     }
   ],
   "rate_limit|llm_endpoint|": [
+    {
+      "category": "quota",
+      "expected_signal": "rate_limit",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.bedrock-model-invocation-throttle",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/bedrock-model-invocation-throttle.yaml",
+      "target_type": "llm_endpoint"
+    },
     {
       "category": "quota",
       "expected_signal": "rate_limit",
@@ -4452,6 +5582,18 @@
       "category": "quota",
       "expected_signal": "rate_limit",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.bedrock-model-invocation-throttle",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/bedrock-model-invocation-throttle.yaml",
+      "target_type": "llm_endpoint"
+    },
+    {
+      "category": "quota",
+      "expected_signal": "rate_limit",
+      "gpu_domain": null,
       "id": "chaos.general.llm_endpoint-throttle-rate-limit-high",
       "injector": "aoai:rate-limit",
       "intensity": "high",
@@ -4462,6 +5604,18 @@
     }
   ],
   "rate_limit||": [
+    {
+      "category": "quota",
+      "expected_signal": "rate_limit",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.bedrock-model-invocation-throttle",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/bedrock-model-invocation-throttle.yaml",
+      "target_type": "llm_endpoint"
+    },
     {
       "category": "quota",
       "expected_signal": "rate_limit",
@@ -4504,6 +5658,18 @@
       "category": "dependency",
       "expected_signal": "request_failure",
       "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-failover-shard",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-failover-shard.yaml",
+      "target_type": "cache"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
       "id": "chaos.azure-chaos-studio.redis-reboot",
       "injector": "needs-injector",
       "intensity": "extreme",
@@ -4527,7 +5693,33 @@
       "target_type": "cache"
     }
   ],
+  "request_failure|cache|medium": [
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-failover-shard",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-failover-shard.yaml",
+      "target_type": "cache"
+    }
+  ],
   "request_failure|db|": [
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.dynamodb-global-table-pause-replication",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/dynamodb-global-table-pause-replication.yaml",
+      "target_type": "db"
+    },
     {
       "category": "dependency",
       "expected_signal": "request_failure",
@@ -4592,6 +5784,18 @@
     }
   ],
   "request_failure|db|medium": [
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.dynamodb-global-table-pause-replication",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/dynamodb-global-table-pause-replication.yaml",
+      "target_type": "db"
+    },
     {
       "category": "dependency",
       "expected_signal": "request_failure",
@@ -4716,16 +5920,26 @@
       "category": "network",
       "expected_signal": "request_failure",
       "gpu_domain": null,
-      "id": "chaos.kubernetes-docs.network-policy-egress-deny-drop",
+      "id": "chaos.aws-fis.network-route-table-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-route-table-disrupt.yaml",
+      "target_type": "egress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole",
       "injector": "needs-injector",
       "intensity": "high",
       "requires_hardware": false,
       "severity_bucket": "medium",
-      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-egress-deny-drop.yaml",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dual-stack-ipv6-route-blackhole.yaml",
       "target_type": "egress"
-    }
-  ],
-  "request_failure|egress|medium": [
+    },
     {
       "category": "network",
       "expected_signal": "request_failure",
@@ -4739,6 +5953,74 @@
       "target_type": "egress"
     }
   ],
+  "request_failure|egress|high": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.network-route-table-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-route-table-disrupt.yaml",
+      "target_type": "egress"
+    }
+  ],
+  "request_failure|egress|medium": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dual-stack-ipv6-route-blackhole.yaml",
+      "target_type": "egress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.network-policy-egress-deny-drop",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-egress-deny-drop.yaml",
+      "target_type": "egress"
+    }
+  ],
+  "request_failure|identity|": [
+    {
+      "category": "identity",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.iam-role-access-denied",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/iam-role-access-denied.yaml",
+      "target_type": "identity"
+    }
+  ],
+  "request_failure|identity|high": [
+    {
+      "category": "identity",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.iam-role-access-denied",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/iam-role-access-denied.yaml",
+      "target_type": "identity"
+    }
+  ],
   "request_failure|ingress|": [
     {
       "category": "dependency",
@@ -4750,6 +6032,18 @@
       "requires_hardware": false,
       "severity_bucket": "high",
       "source_path": "rule-catalog/chaos-scenarios/collected/azure-chaos-studio/service-bus-firewall-block.yaml",
+      "target_type": "ingress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.network-policy-ingress-isolated-drop",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-ingress-isolated-drop.yaml",
       "target_type": "ingress"
     }
   ],
@@ -4767,7 +6061,85 @@
       "target_type": "ingress"
     }
   ],
+  "request_failure|ingress|medium": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.network-policy-ingress-isolated-drop",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-ingress-isolated-drop.yaml",
+      "target_type": "ingress"
+    }
+  ],
+  "request_failure|lb|": [
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.endpointslice-stale-terminating-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/endpointslice-stale-terminating-ready.yaml",
+      "target_type": "lb"
+    }
+  ],
+  "request_failure|lb|medium": [
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.endpointslice-stale-terminating-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/endpointslice-stale-terminating-ready.yaml",
+      "target_type": "lb"
+    }
+  ],
   "request_failure|pod|": [
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-http-error",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-http-error.yaml",
+      "target_type": "pod"
+    },
     {
       "category": "traffic",
       "expected_signal": "request_failure",
@@ -4991,6 +6363,42 @@
   ],
   "request_failure|pod|medium": [
     {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-http-error",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-http-error.yaml",
+      "target_type": "pod"
+    },
+    {
       "category": "traffic",
       "expected_signal": "request_failure",
       "gpu_domain": null,
@@ -5168,6 +6576,90 @@
     }
   ],
   "request_failure||": [
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.dynamodb-global-table-pause-replication",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/dynamodb-global-table-pause-replication.yaml",
+      "target_type": "db"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ecs-task-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ecs-task-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.eks-pod-network-packet-loss",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/eks-pod-network-packet-loss.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.elasticache-failover-shard",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/elasticache-failover-shard.yaml",
+      "target_type": "cache"
+    },
+    {
+      "category": "identity",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.iam-role-access-denied",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/iam-role-access-denied.yaml",
+      "target_type": "identity"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.lambda-invocation-http-error",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/lambda-invocation-http-error.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.network-route-table-disrupt",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/network-route-table-disrupt.yaml",
+      "target_type": "egress"
+    },
     {
       "category": "dependency",
       "expected_signal": "request_failure",
@@ -5412,6 +6904,30 @@
       "category": "network",
       "expected_signal": "request_failure",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/dual-stack-ipv6-route-blackhole.yaml",
+      "target_type": "egress"
+    },
+    {
+      "category": "traffic",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.endpointslice-stale-terminating-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/endpointslice-stale-terminating-ready.yaml",
+      "target_type": "lb"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.network-policy-egress-deny-drop",
       "injector": "needs-injector",
       "intensity": "high",
@@ -5419,6 +6935,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-egress-deny-drop.yaml",
       "target_type": "egress"
+    },
+    {
+      "category": "network",
+      "expected_signal": "request_failure",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.network-policy-ingress-isolated-drop",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/network-policy-ingress-isolated-drop.yaml",
+      "target_type": "ingress"
     },
     {
       "category": "traffic",
@@ -5481,6 +7009,62 @@
       "target_type": "pod"
     }
   ],
+  "resource_availability|control_plane|": [
+    {
+      "category": "state",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.etcd-quorum-leader-election-stall",
+      "injector": "needs-injector",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/etcd-quorum-leader-election-stall.yaml",
+      "target_type": "control_plane"
+    }
+  ],
+  "resource_availability|control_plane|high": [
+    {
+      "category": "state",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.etcd-quorum-leader-election-stall",
+      "injector": "needs-injector",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/etcd-quorum-leader-election-stall.yaml",
+      "target_type": "control_plane"
+    }
+  ],
+  "resource_availability|disk|": [
+    {
+      "category": "storage",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-pause",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-pause.yaml",
+      "target_type": "disk"
+    }
+  ],
+  "resource_availability|disk|high": [
+    {
+      "category": "storage",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-pause",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-pause.yaml",
+      "target_type": "disk"
+    }
+  ],
   "resource_availability|node|": [
     {
       "category": "compute",
@@ -5492,6 +7076,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-node-not-ready-stop.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-pleg-unhealthy-node-not-ready.yaml",
       "target_type": "node"
     }
   ],
@@ -5507,9 +7103,45 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-node-not-ready-stop.yaml",
       "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-pleg-unhealthy-node-not-ready.yaml",
+      "target_type": "node"
     }
   ],
   "resource_availability||": [
+    {
+      "category": "storage",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ebs-volume-io-pause",
+      "injector": "cross-csp-reference",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ebs-volume-io-pause.yaml",
+      "target_type": "disk"
+    },
+    {
+      "category": "state",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.etcd-quorum-leader-election-stall",
+      "injector": "needs-injector",
+      "intensity": "extreme",
+      "requires_hardware": false,
+      "severity_bucket": "high",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/etcd-quorum-leader-election-stall.yaml",
+      "target_type": "control_plane"
+    },
     {
       "category": "compute",
       "expected_signal": "resource_availability",
@@ -5521,9 +7153,61 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-node-not-ready-stop.yaml",
       "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "resource_availability",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/kubelet-pleg-unhealthy-node-not-ready.yaml",
+      "target_type": "node"
+    }
+  ],
+  "rollout_stall|control_plane|": [
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.apiserver-admission-webhook-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/apiserver-admission-webhook-timeout.yaml",
+      "target_type": "control_plane"
+    }
+  ],
+  "rollout_stall|control_plane|medium": [
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.apiserver-admission-webhook-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/apiserver-admission-webhook-timeout.yaml",
+      "target_type": "control_plane"
     }
   ],
   "rollout_stall|node|": [
+    {
+      "category": "storage",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.container-runtime-image-gc-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-runtime-image-gc-stall.yaml",
+      "target_type": "node"
+    },
     {
       "category": "compute",
       "expected_signal": "rollout_stall",
@@ -5538,6 +7222,18 @@
     }
   ],
   "rollout_stall|node|low": [
+    {
+      "category": "storage",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.container-runtime-image-gc-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-runtime-image-gc-stall.yaml",
+      "target_type": "node"
+    },
     {
       "category": "compute",
       "expected_signal": "rollout_stall",
@@ -5589,6 +7285,18 @@
       "target_type": "pod"
     },
     {
+      "category": "compute",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.cronjob-concurrency-forbid-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/cronjob-concurrency-forbid-stall.yaml",
+      "target_type": "pod"
+    },
+    {
       "category": "dependency",
       "expected_signal": "rollout_stall",
       "gpu_domain": null,
@@ -5610,6 +7318,18 @@
       "requires_hardware": false,
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/init-container-startup-failure.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/statefulset-ordinal-pod-stuck-terminating.yaml",
       "target_type": "pod"
     }
   ],
@@ -5638,6 +7358,18 @@
       "requires_hardware": false,
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/synthesized/pod-corrupt-rollout-stall-mild.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.cronjob-concurrency-forbid-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/cronjob-concurrency-forbid-stall.yaml",
       "target_type": "pod"
     }
   ],
@@ -5677,9 +7409,33 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/init-container-startup-failure.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "state",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/statefulset-ordinal-pod-stuck-terminating.yaml",
+      "target_type": "pod"
     }
   ],
   "rollout_stall|quota|": [
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.limitrange-default-request-admission-reject",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/limitrange-default-request-admission-reject.yaml",
+      "target_type": "quota"
+    },
     {
       "category": "quota",
       "expected_signal": "rollout_stall",
@@ -5698,6 +7454,18 @@
       "category": "quota",
       "expected_signal": "rollout_stall",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.limitrange-default-request-admission-reject",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/limitrange-default-request-admission-reject.yaml",
+      "target_type": "quota"
+    },
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.resource-quota-admission-denial",
       "injector": "needs-injector",
       "intensity": "mild",
@@ -5707,7 +7475,47 @@
       "target_type": "quota"
     }
   ],
+  "rollout_stall|vmss|": [
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ec2-asg-insufficient-instance-capacity",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ec2-asg-insufficient-instance-capacity.yaml",
+      "target_type": "vmss"
+    }
+  ],
+  "rollout_stall|vmss|medium": [
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ec2-asg-insufficient-instance-capacity",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ec2-asg-insufficient-instance-capacity.yaml",
+      "target_type": "vmss"
+    }
+  ],
   "rollout_stall||": [
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.aws-fis.ec2-asg-insufficient-instance-capacity",
+      "injector": "cross-csp-reference",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/aws-fis/ec2-asg-insufficient-instance-capacity.yaml",
+      "target_type": "vmss"
+    },
     {
       "category": "state",
       "expected_signal": "rollout_stall",
@@ -5748,6 +7556,42 @@
       "category": "dependency",
       "expected_signal": "rollout_stall",
       "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.apiserver-admission-webhook-timeout",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/apiserver-admission-webhook-timeout.yaml",
+      "target_type": "control_plane"
+    },
+    {
+      "category": "storage",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.container-runtime-image-gc-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/container-runtime-image-gc-stall.yaml",
+      "target_type": "node"
+    },
+    {
+      "category": "compute",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.cronjob-concurrency-forbid-stall",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/cronjob-concurrency-forbid-stall.yaml",
+      "target_type": "pod"
+    },
+    {
+      "category": "dependency",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
       "id": "chaos.kubernetes-docs.image-pull-backoff",
       "injector": "needs-injector",
       "intensity": "high",
@@ -5767,6 +7611,18 @@
       "severity_bucket": "medium",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/init-container-startup-failure.yaml",
       "target_type": "pod"
+    },
+    {
+      "category": "quota",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.limitrange-default-request-admission-reject",
+      "injector": "needs-injector",
+      "intensity": "mild",
+      "requires_hardware": false,
+      "severity_bucket": "low",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/limitrange-default-request-admission-reject.yaml",
+      "target_type": "quota"
     },
     {
       "category": "compute",
@@ -5791,6 +7647,18 @@
       "severity_bucket": "low",
       "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/resource-quota-admission-denial.yaml",
       "target_type": "quota"
+    },
+    {
+      "category": "state",
+      "expected_signal": "rollout_stall",
+      "gpu_domain": null,
+      "id": "chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating",
+      "injector": "needs-injector",
+      "intensity": "high",
+      "requires_hardware": false,
+      "severity_bucket": "medium",
+      "source_path": "rule-catalog/chaos-scenarios/collected/kubernetes-docs/statefulset-ordinal-pod-stuck-terminating.yaml",
+      "target_type": "pod"
     }
   ],
   "spot_preempt_cascade|training_job|": [

@@ -1,0 +1,26 @@
+id: chaos.aws-fis.lambda-tmp-disk-fill
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:lambda:invocation-write-ephemeral-storage
+  synthesis_method: collected
+category: storage
+target_type: disk
+fault_family: saturate
+intensity: high
+duration_seconds: 360.0
+expected_signal: pod_failed
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS clears the ephemeral storage fill at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Exhaust serverless ephemeral /tmp disk capacity during invocation.
+params:
+  action_id: aws:lambda:invocation-write-ephemeral-storage
+  percent: '95'
+tags:
+- aws-fis

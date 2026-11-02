@@ -1,0 +1,25 @@
+id: chaos.aws-fis.iam-role-access-denied
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:iam:deny-role-access
+  synthesis_method: collected
+category: identity
+target_type: identity
+fault_family: deny
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS detaches the temporary Deny policy at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Attach a temporary explicit Deny policy to a workload IAM role.
+params:
+  action_id: aws:iam:deny-role-access
+tags:
+- aws-fis

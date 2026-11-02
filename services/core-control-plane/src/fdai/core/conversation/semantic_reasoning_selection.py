@@ -30,15 +30,18 @@ from .semantic_reasoning_form import MentionDomain
 _MAX_SHARED_CONCEPT_CACHE = 2048
 _SHARED_CONCEPT_CACHE: OrderedDict[tuple[str, bool, str], tuple[str, ...]] = OrderedDict()
 _LEADING_MODIFIERS = (
-    "the ", "an ", "a ", "all ", "every ", "my ", "our ", "this ", "that ",
-    "these ", "those ", "current ", "existing ",
+    "the ", "an ", "a ", "all ", "every ", "any ", "each ", "some ", "which ", "what ",
+    "my ", "our ", "this ", "that ", "these ", "those ",
+    "current ", "existing ", "active ", "registered ", "deployed ", "configured ",
     "모든 ", "전체 ", "현재 ", "기존 ", "우리 ", "내 ", "해당 ", "각 ",
+    "등록된 ", "생성된 ", "배포된 ", "설정된 ", "연결된 ", "사용중인 ",
 )  # fmt: skip
 _TRAILING_PARTICLES = (
     "목록들을", "목록들이", "목록들은", "목록들", "목록을", "목록이", "목록은", "목록",
     "리스트를", "리스트가", "리스트는", "리스트", "현황을", "현황이", "현황은", "현황",
+    "내역을", "내역이", "내역은", "내역", "정보를", "정보가", "정보는", "정보",
     "개수를", "개수가", "개수는", "개수", "상태를", "상태가", "상태는", "상태인", "상태의", "상태",
-    "인가요", "입니까", "인가", "인지", "이야", "중에서", "중에", "별로",
+    "인가요", "입니까", "인가", "인지", "이야", "중에서", "중에", "별로", "전부", "모두",
     "들을", "들이", "들은", "들의", "들에", "들로", "들만", "들도", "들",
     "이란", "란", "이나", "나", "이랑", "랑", "하고", "부터", "까지", "마다",
     "에서", "에게", "으로", "로",
@@ -46,7 +49,7 @@ _TRAILING_PARTICLES = (
 )  # fmt: skip
 _PRESERVE_S_SUFFIX = (
     "ss", "redis", "cosmos", "insights", "analytics", "kubernetes", "k8s",
-    "aks", "vmss", "dns", "ddos", "ampls", "status", "series", "acs",
+    "aks", "vmss", "dns", "ddos", "ampls", "status", "series", "acs", "avs",
 )  # fmt: skip
 _TYPO_SUBSTITUTIONS: tuple[tuple[str, str], ...] = (
     ("데이타베이스", "데이터베이스"), ("데이타", "데이터"),
@@ -68,6 +71,10 @@ _TYPO_SUBSTITUTIONS: tuple[tuple[str, str], ...] = (
     ("네임스패이스", "네임스페이스"), ("오토스케일라", "오토스케일러"),
     ("프로메태우스", "프로메테우스"), ("그라파냐", "그라파나"),
     ("서브스크립션", "구독"), ("섭스크립션", "구독"),
+    ("아키택처", "아키텍처"), ("컴피그레이션", "컨피규레이션"),
+    ("인프라스트럭춰", "인프라스트럭처"), ("오케스트래이션", "오케스트레이션"),
+    ("리파지토리", "레지스트리"), ("서티피케이트", "인증서"),
+    ("노티피케이션", "알림"), ("익스텐숀", "익스텐션"), ("디플로이먼드", "디플로이먼트"),
     ("virtulmachine", "virtualmachine"), ("virutalmachine", "virtualmachine"),
     ("resoucegroup", "resourcegroup"), ("resourcgroup", "resourcegroup"),
     ("postgrsql", "postgresql"), ("posgresql", "postgresql"), ("postgressql", "postgresql"),
@@ -84,11 +91,11 @@ group:storage=storage|storageresource|스토리지|스토리지리소스|저장�
 group:observability=observability|monitoring|monitoringresource|관측성|모니터링|모니터링리소스|관제리소스;group:governance=governance|governanceresource|거버넌스|거버넌스리소스
 group:cache-services=cacheservice|캐시서비스;group:function-container-applications=functionorcontainerapplication|functionandcontainerapplication|함수또는컨테이너앱|함수및컨테이너앱
 value:subscription=subscription|azuresubscription|sub|구독|애저구독;value:unclassified-resource=unclassifiedresource|미분류리소스|기타리소스
-group:resource-group=resourcegroup|rg|리소스그룹|자원그룹|리소스그릅;group:database=database|db|rdb|rdbms|데이터베이스|디비|데이터베이스서버|db서버
-group:compute.vm=virtualmachine|vm|가상머신|가상서버|브이엠;group:compute.vm-scale-set=virtualmachinescaleset|vmscaleset|scaleset|vmss|가상머신확장집합|vm확장집합|확장집합|스케일셋
-group:compute.container-app=containerapp|containerapplication|aca|컨테이너앱|컨테이너애플리케이션;group:compute.container-app-job=containerappjob|containerappsjob|컨테이너앱작업|컨테이너앱잡
-group:compute.container-app-environment=containerappenvironment|managedenvironment|cae|컨테이너앱환경;group:compute.function=functionapp|azurefunction|funcapp|함수앱|펑션앱|애저함수
-group:compute.web-app=webapp|appservice|웹앱|앱서비스;group:app-service-plan=appserviceplan|asp|앱서비스계획|앱서비스플랜|앱서비스요금제;group:static-web-app=staticwebapp|swa|정적웹앱
+group:resource-group=resourcegroup|rg|리소스그룹|자원그룹|리소스그릅|rg목록;group:database=database|db|rdb|rdbms|데이터베이스|디비|데이터베이스서버|db서버|관계형데이터베이스|디비서버
+group:compute.vm=virtualmachine|vm|가상머신|가상서버|브이엠|클라우드서버|vm인스턴스|가상머신인스턴스;group:compute.vm-scale-set=virtualmachinescaleset|vmscaleset|scaleset|vmss|가상머신확장집합|vm확장집합|확장집합|스케일셋
+group:compute.container-app=containerapp|containerapplication|aca|컨테이너앱|컨테이너애플리케이션|도커컨테이너앱;group:compute.container-app-job=containerappjob|containerappsjob|컨테이너앱작업|컨테이너앱잡
+group:compute.container-app-environment=containerappenvironment|managedenvironment|cae|컨테이너앱환경;group:compute.function=functionapp|azurefunction|funcapp|함수앱|펑션앱|애저함수|서버리스함수|펑션
+group:compute.web-app=webapp|appservice|웹앱|앱서비스|웹서버|웹애플리케이션;group:app-service-plan=appserviceplan|asp|앱서비스계획|앱서비스플랜|앱서비스요금제;group:static-web-app=staticwebapp|swa|정적웹앱
 group:compute.app-slot=deploymentslot|applicationslot|appslot|배포슬롯|앱슬롯|슬롯;group:compute.batch-account=batchaccount|azurebatch|배치계정|일괄처리계정
 group:compute.desktop-host-pool=desktophostpool|hostpool|avdhostpool|데스크톱호스트풀|호스트풀;group:compute.desktop-scaling-plan=desktopscalingplan|desktopautoscale|데스크톱크기조정계획|데스크톱스케일링플랜
 group:compute.gallery-image=galleryimagedefinition|갤러리이미지정의|갤러리이미지;group:compute.gallery-image-version=galleryimageversion|imageversion|갤러리이미지버전|이미지버전
@@ -96,14 +103,14 @@ group:compute.image=managedimage|machineimage|vmimage|관리형이미지|머신�
 group:compute.image-template=imagetemplate|imagebuildertemplate|이미지템플릿;group:compute.private-virtualization-cloud=privatevirtualizationcloud|azurevmwaresolution|avs|프라이빗가상화클라우드|vmware솔루션
 group:compute.vm-extension=vmextension|virtualmachineextension|vm확장|가상머신확장|익스텐션;group:compute.vm-run-command=vmruncommand|runcommand|vm실행명령|실행명령|런커맨드
 group:compute.vm-shutdown-schedule=vmshutdownschedule|vmautoshutdownschedule|가상머신자동종료일정|vm자동종료일정|자동종료일정;group:bot-service=botservice|azurebot|봇서비스|애저봇|챗봇서비스
-group:communication-service=communicationservice|azurecommunicationservices|acs|커뮤니케이션서비스;group:kubernetes-cluster=aks|akscluster|kubernetescluster|k8scluster|kubernetes|k8s|쿠버네티스|쿠버네티스클러스터|aks클러스터
-group:kubernetes-node-pool=nodepool|agentpool|aksnodepool|노드풀|에이전트풀|aks노드풀;group:kubernetes.namespace=kubernetesnamespace|k8snamespace|쿠버네티스네임스페이스|네임스페이스
-group:kubernetes.node=kubernetesnode|k8snode|쿠버네티스노드;group:kubernetes.pod=kubernetespod|k8spod|pod|쿠버네티스파드|파드|포드
-group:kubernetes.service=kubernetesservice|k8sservice|쿠버네티스서비스;group:kubernetes.endpoints=kubernetesendpoints|쿠버네티스엔드포인트
-group:kubernetes.endpoint-slice=endpointslice|엔드포인트슬라이스|쿠버네티스엔드포인트슬라이스;group:kubernetes.ingress=kubernetesingress|k8singress|ingress|쿠버네티스인그레스|인그레스
-group:kubernetes.ingress-class=ingressclass|인그레스클래스;group:kubernetes.job=kubernetesjob|k8sjob|쿠버네티스잡|쿠버네티스작업
-group:kubernetes.cron-job=cronjob|k8scronjob|크론잡|쿠버네티스크론잡;group:kubernetes.deployment=kubernetesdeployment|k8sdeployment|rollout|쿠버네티스디플로이먼트|쿠버네티스배포|롤아웃
-group:kubernetes.replica-set=replicaset|rs|레플리카셋;group:kubernetes.daemon-set=daemonset|ds|데몬셋;group:kubernetes.stateful-set=statefulset|sts|스테이트풀셋
+group:communication-service=communicationservice|azurecommunicationservices|acs|커뮤니케이션서비스;group:kubernetes-cluster=aks|akscluster|kubernetescluster|k8scluster|kubernetes|k8s|쿠버네티스|쿠버네티스클러스터|aks클러스터|k8s클러스터
+group:kubernetes-node-pool=nodepool|agentpool|aksnodepool|노드풀|에이전트풀|aks노드풀|k8s노드풀;group:kubernetes.namespace=kubernetesnamespace|k8snamespace|쿠버네티스네임스페이스|네임스페이스|k8s네임스페이스
+group:kubernetes.node=kubernetesnode|k8snode|쿠버네티스노드|k8s노드|워커노드;group:kubernetes.pod=kubernetespod|k8spod|pod|쿠버네티스파드|파드|포드|k8s파드
+group:kubernetes.service=kubernetesservice|k8sservice|쿠버네티스서비스|k8s서비스;group:kubernetes.endpoints=kubernetesendpoints|쿠버네티스엔드포인트|k8s엔드포인트
+group:kubernetes.endpoint-slice=endpointslice|엔드포인트슬라이스|쿠버네티스엔드포인트슬라이스;group:kubernetes.ingress=kubernetesingress|k8singress|ingress|쿠버네티스인그레스|인그레스|k8s인그레스
+group:kubernetes.ingress-class=ingressclass|인그레스클래스;group:kubernetes.job=kubernetesjob|k8sjob|쿠버네티스잡|쿠버네티스작업|k8s잡
+group:kubernetes.cron-job=cronjob|k8scronjob|크론잡|쿠버네티스크론잡|k8s크론잡;group:kubernetes.deployment=kubernetesdeployment|k8sdeployment|rollout|쿠버네티스디플로이먼트|쿠버네티스배포|롤아웃|k8s디플로이먼트
+group:kubernetes.replica-set=replicaset|rs|레플리카셋|k8s레플리카셋;group:kubernetes.daemon-set=daemonset|ds|데몬셋|k8s데몬셋;group:kubernetes.stateful-set=statefulset|sts|스테이트풀셋|k8s스테이트풀셋
 group:kubernetes.persistent-volume-claim=persistentvolumeclaim|pvc|영구볼륨클레임|퍼시스턴트볼륨클레임;group:kubernetes.persistent-volume=persistentvolume|pv|영구볼륨|퍼시스턴트볼륨
 group:kubernetes.storage-class=storageclass|sc|스토리지클래스;group:kubernetes.horizontal-pod-autoscaler=horizontalpodautoscaler|hpa|수평파드오토스케일러|파드자동확장|오토스케일러
 group:kubernetes.pod-disruption-budget=poddisruptionbudget|pdb|파드중단예산;group:kubernetes.network-policy=networkpolicy|netpol|네트워크정책|쿠버네티스네트워크정책
@@ -111,52 +118,52 @@ group:kubernetes.resource-quota=resourcequota|리소스쿼터|리소스할당량
 group:workflow.logic-app=logicapp|로직앱|논리앱;group:workflow.api-connection=apiconnection|logicappconnection|api연결|로직앱연결
 group:ai-project=aiproject|foundryproject|ai프로젝트|foundry프로젝트|파운드리프로젝트;group:ml-model-registry=machinelearningregistry|modelregistry|기계학습레지스트리|모델레지스트리
 group:ml-workspace=machinelearningworkspace|mlworkspace|aml|기계학습작업영역|ml워크스페이스;group:web-search-service=bingsearch|bingsearchaccount|bing검색|웹검색서비스
-group:network.vnet=vnet|virtualnetwork|가상네트워크|브이넷;group:network.subnet=subnet|서브넷;group:network.nsg=nsg|networksecuritygroup|네트워크보안그룹|보안그룹
+group:network.vnet=vnet|virtualnetwork|가상네트워크|브이넷|가상망;group:network.subnet=subnet|서브넷|하위네트워크;group:network.nsg=nsg|networksecuritygroup|네트워크보안그룹|보안그룹|방화벽그룹
 group:network.firewall=azurefirewall|firewall|fw|애저방화벽|방화벽;group:network.firewall-policy=firewallpolicy|방화벽정책
-group:network.interface=networkinterface|nic|네트워크인터페이스|네트워크카드;group:network.private-endpoint=privateendpoint|pe|프라이빗엔드포인트|사설엔드포인트
-group:network.load-balancer=loadbalancer|lb|로드밸런서|부하분산장치|부하분산기;group:network.application-gateway=applicationgateway|appgateway|agw|appgw|애플리케이션게이트웨이|앱게이트웨이
-group:api-gateway=apimanagement|apim|apigateway|api관리|api게이트웨이;group:network.dns-zone=dnszone|publicdnszone|dns영역|dns존
+group:network.interface=networkinterface|nic|네트워크인터페이스|네트워크카드|랜카드;group:network.private-endpoint=privateendpoint|pe|프라이빗엔드포인트|사설엔드포인트|프라이빗링크엔드포인트
+group:network.load-balancer=loadbalancer|lb|로드밸런서|부하분산장치|부하분산기|엘비;group:network.application-gateway=applicationgateway|appgateway|agw|appgw|애플리케이션게이트웨이|앱게이트웨이
+group:api-gateway=apimanagement|apim|apigateway|api관리|api게이트웨이;group:network.dns-zone=dnszone|publicdnszone|dns영역|dns존|퍼블릭dns영역
 group:network.private-dns-zone=privatednszone|프라이빗dns영역|사설dns영역|프라이빗dns존;group:network.private-dns-zone-group=privatednszonegroup|dnszonegroup|프라이빗dns영역그룹|dns영역그룹
-group:network.private-dns-zone-link=privatednszonelink|virtualnetworklink|프라이빗dns영역링크|dns영역링크|가상네트워크링크;group:network.public-ip=publicip|pip|publicipaddress|공인ip|퍼블릭ip|공용ip
+group:network.private-dns-zone-link=privatednszonelink|virtualnetworklink|프라이빗dns영역링크|dns영역링크|가상네트워크링크;group:network.public-ip=publicip|pip|publicipaddress|공인ip|퍼블릭ip|공용ip|공인아이피|퍼블릭아이피
 group:network.nat-gateway=natgateway|natgw|nat게이트웨이;group:network.route-table=routetable|udr|userdefinedroute|라우트테이블|경로테이블|라우팅테이블
 group:network.virtual-network-gateway=virtualnetworkgateway|vpngateway|vpngw|가상네트워크게이트웨이|vpn게이트웨이;group:network.bastion-host=bastion|bastionhost|azurebastion|베스천|배스천|배스천호스트
 group:network.cdn-profile=cdnprofile|contentdeliveryprofile|콘텐츠배달프로필|cdn프로필;group:network.cdn-origin-group=cdnorigingroup|origingroup|원본그룹|오리진그룹
-group:network.connection=gatewayconnection|networkconnection|게이트웨이연결|네트워크연결;group:network.ddos-protection-plan=ddosprotectionplan|ddosplan|ddos보호계획|디도스보호계획
+group:network.connection=gatewayconnection|networkconnection|게이트웨이연결|네트워크연결;group:network.ddos-protection-plan=ddosprotectionplan|ddosplan|ddos보호계획|디도스보호계획|디도스플랜
 group:network.dns-resolver=dnsresolver|privatednsresolver|dns리졸버|dns확인자;group:network.dns-resolver-inbound-endpoint=dnsresolverinboundendpoint|inboundendpoint|인바운드엔드포인트
 group:network.dns-routing-profile=trafficmanagerprofile|dnsroutingprofile|트래픽매니저|dns라우팅프로필;group:network.private-access-scope=privatelinkscope|azuremonitorprivatelinkscope|ampls|프라이빗링크범위
-group:network.private-circuit=expressroutecircuit|privatenetworkcircuit|익스프레스라우트|프라이빗네트워크회선;group:network.private-circuit-gateway=privatecircuitgateway|virtualhubexpressroutegateway|프라이빗회선게이트웨이
+group:network.private-circuit=expressroutecircuit|privatenetworkcircuit|익스프레스라우트|프라이빗네트워크회선|전용회선;group:network.private-circuit-gateway=privatecircuitgateway|virtualhubexpressroutegateway|프라이빗회선게이트웨이
 group:network.private-peering-port=expressrouteport|privatepeeringport|프라이빗피어링포트;group:network.registered-domain=registereddomain|appservicedomain|등록된도메인
 group:network.site-vpn-gateway=sitevpngateway|sitetositevpngateway|사이트vpn게이트웨이;group:network.user-vpn-gateway=uservpngateway|pointtositevpngateway|사용자vpn게이트웨이
 group:network.virtual-hub=virtualhub|vhub|가상허브;group:network.virtual-router=virtualrouter|가상라우터;group:network.vpn-site=vpnsite|vpn사이트
-group:object-storage=storageaccount|blobstorage|스토리지계정|스토리지어카운트|저장소계정;group:container-registry=containerregistry|acr|컨테이너레지스트리
-group:file-share=fileshare|azurefileshare|파일공유;group:file-volume=managedfilevolume|netappvolume|anfvolume|관리형파일볼륨|넷앱볼륨
+group:object-storage=storageaccount|blobstorage|스토리지계정|스토리지어카운트|저장소계정|오브젝트스토리지|블롭스토리지;group:container-registry=containerregistry|acr|컨테이너레지스트리|이미지레지스트리
+group:file-share=fileshare|azurefileshare|파일공유|공유파일;group:file-volume=managedfilevolume|netappvolume|anfvolume|관리형파일볼륨|넷앱볼륨
 group:storage.file-account=managedfilestorageaccount|netappaccount|관리형파일저장소계정|넷앱계정;group:storage.file-capacity-pool=filestoragecapacitypool|filecapacitypool|파일저장소용량풀
-group:disk=disk|manageddisk|osdisk|datadisk|디스크|관리디스크|관리형디스크;group:disk-snapshot=disksnapshot|snapshot|디스크스냅샷|스냅샷
-group:backup-vault=backupvault|recoveryservicesvault|rsv|백업볼트|백업자격증명모음|복구서비스자격증명모음;group:sql-server=sqlserver|logicalsqlserver|mssqlserver|mssql|sql서버|mssql서버
+group:disk=disk|manageddisk|osdisk|datadisk|디스크|관리디스크|관리형디스크|매니지드디스크;group:disk-snapshot=disksnapshot|snapshot|디스크스냅샷|스냅샷
+group:backup-vault=backupvault|recoveryservicesvault|rsv|백업볼트|백업자격증명모음|복구서비스자격증명모음|백업저장소;group:sql-server=sqlserver|logicalsqlserver|mssqlserver|mssql|sql서버|mssql서버
 group:sql-database=sqldatabase|sqldb|azuresqldb|sql데이터베이스|sql디비;group:sql-managed-instance=sqlmanagedinstance|sqlmi|sql관리형인스턴스
-group:postgresql-server=postgres|postgresql|postgresserver|postgresqlserver|psql|pg|포스트그레스|포스트그레서버|포스트그레스서버;group:mysql-server=mysql|mysqlserver|mysqldatabase|mysql서버|mysql데이터베이스|마이에스큐엘
-group:nosql-database=cosmosdb|azurecosmosdb|cosmos|nosqldatabase|코스모스db|코스모스디비|코즈모스db|cosmosdb계정;group:database.dedicated-infrastructure=dedicateddatabaseinfrastructure|oracledatabaseinfrastructure|전용데이터베이스인프라
-group:database.vm-cluster=databasevmcluster|databasevirtualmachinecluster|데이터베이스vm클러스터;group:cache=rediscache|standardredis|redis|레디스|레디스캐시|캐시
-group:redis-enterprise=redisenterprise|enterpriseredis|레디스엔터프라이즈|엔터프라이즈레디스;group:secret-store=keyvault|kv|akv|secretstore|키볼트|자격증명모음
-group:managed-identity=managedidentity|userassignedidentity|uami|msi|관리형id|관리id|관리형아이덴티티|관리형신원;group:authorization.role-assignment=roleassignment|rbacassignment|역할할당|rbac할당|권한할당
-group:certificate=keyvaultcertificate|tlscertificate|sslcertificate|certificate|인증서|tls인증서;group:managed-certificate=managedcertificate|관리형인증서
+group:postgresql-server=postgres|postgresql|postgresserver|postgresqlserver|psql|pg|포스트그레스|포스트그레서버|포스트그레스서버|포스트그레스큐엘;group:mysql-server=mysql|mysqlserver|mysqldatabase|mysql서버|mysql데이터베이스|마이에스큐엘|마이sql
+group:nosql-database=cosmosdb|azurecosmosdb|cosmos|nosqldatabase|코스모스db|코스모스디비|코즈모스db|cosmosdb계정|nosql디비;group:database.dedicated-infrastructure=dedicateddatabaseinfrastructure|oracledatabaseinfrastructure|전용데이터베이스인프라
+group:database.vm-cluster=databasevmcluster|databasevirtualmachinecluster|데이터베이스vm클러스터;group:cache=rediscache|standardredis|redis|레디스|레디스캐시|캐시|인메모리캐시
+group:redis-enterprise=redisenterprise|enterpriseredis|레디스엔터프라이즈|엔터프라이즈레디스;group:secret-store=keyvault|kv|akv|secretstore|키볼트|자격증명모음|시크릿스토어|비밀저장소
+group:managed-identity=managedidentity|userassignedidentity|uami|msi|관리형id|관리id|관리형아이덴티티|관리형신원|매니지드아이덴티티;group:authorization.role-assignment=roleassignment|rbacassignment|역할할당|rbac할당|권한할당|권한부여
+group:certificate=keyvaultcertificate|tlscertificate|sslcertificate|certificate|인증서|tls인증서|ssl인증서;group:managed-certificate=managedcertificate|관리형인증서
 group:ssh-public-key=sshkey|sshpublickey|ssh키|ssh공개키;group:directory.managed-domain=manageddomain|관리형도메인
 group:devops-account=azuredevopsaccount|devopsaccount|ado|azuredevops계정|데브옵스계정;group:email-domain=emaildomain|senderdomain|이메일도메인|발신도메인
 group:email-service=emailservice|emailcommunicationservice|이메일서비스;group:event-topic=eventgridcustomtopic|customeventtopic|사용자지정이벤트토픽|커스텀토픽
-group:log-workspace=loganalyticsworkspace|loganalytics|logworkspace|law|loganalytics작업영역|로그분석작업영역|로그애널리틱스|로그워크스페이스;group:metrics-workspace=azuremonitorworkspace|metricsworkspace|prometheusworkspace|amw|azuremonitor작업영역|메트릭워크스페이스|모니터작업영역
+group:log-workspace=loganalyticsworkspace|loganalytics|logworkspace|law|loganalytics작업영역|로그분석작업영역|로그애널리틱스|로그워크스페이스|로그분석워크스페이스;group:metrics-workspace=azuremonitorworkspace|metricsworkspace|prometheusworkspace|amw|azuremonitor작업영역|메트릭워크스페이스|모니터작업영역|모니터링워크스페이스
 group:application-insights=applicationinsights|appinsights|appi|애플리케이션인사이트|앱인사이트;group:data-collection-rule=datacollectionrule|dcr|데이터수집규칙
-group:data-collection-endpoint=datacollectionendpoint|dce|데이터수집엔드포인트;group:alert-rules=alertrule|경고규칙|알림규칙|얼럿규칙|알람규칙
-group:alert-rule=scheduledqueryrule|logalert|logalertrule|로그경고규칙|로그알림규칙;group:metric-alert-rule=metricalert|metricalertrule|메트릭경고|메트릭경고규칙|메트릭알림규칙
-group:anomaly-alert-rule=smartdetectoralertrule|anomalyalertrule|스마트감지경고규칙|이상감지경고규칙;group:activity-log-alert=activitylogalert|활동로그경고|액티비티로그경고
-group:action-group=actiongroup|ag|작업그룹|액션그룹;group:prometheus-rule-group=prometheusrulegroup|prometheusrule|프로메테우스규칙그룹
-group:managed-sre-agent=sreagent|azuresreagent|sre에이전트;group:observability.dashboard-service=managedgrafana|azuremanagedgrafana|grafana|grafanainstance|그라파나|관리형그라파나
+group:data-collection-endpoint=datacollectionendpoint|dce|데이터수집엔드포인트;group:alert-rules=alertrule|경고규칙|알림규칙|얼럿규칙|알람규칙|경고룰|알람룰|얼럿룰
+group:alert-rule=scheduledqueryrule|logalert|logalertrule|로그경고규칙|로그알림규칙|로그알람;group:metric-alert-rule=metricalert|metricalertrule|메트릭경고|메트릭경고규칙|메트릭알림규칙|메트릭알람
+group:anomaly-alert-rule=smartdetectoralertrule|anomalyalertrule|스마트감지경고규칙|이상감지경고규칙;group:activity-log-alert=activitylogalert|활동로그경고|액티비티로그경고|활동로그알람
+group:action-group=actiongroup|ag|작업그룹|액션그룹|수신자그룹;group:prometheus-rule-group=prometheusrulegroup|prometheusrule|프로메테우스규칙그룹
+group:managed-sre-agent=sreagent|azuresreagent|sre에이전트;group:observability.dashboard-service=managedgrafana|azuremanagedgrafana|grafana|grafanainstance|그라파나|관리형그라파나|그라파나대시보드
 group:observability.dashboard=portaldashboard|azuredashboard|shareddashboard|포털대시보드|애저대시보드;group:observability.network-monitor=networkwatcher|네트워크감시자|네트워크워처
 group:observability.network-flow-log=networkflowlog|flowlog|네트워크흐름로그|플로우로그;group:observability.query-pack=querypack|logquerypack|쿼리팩
 group:observability.solution=monitoringsolution|loganalyticssolution|모니터링솔루션;group:observability.traffic-collector=trafficcollector|트래픽수집기
-group:observability.workbook=workbook|azureworkbook|monitorworkbook|통합문서|워크북;group:llm-endpoint=azureopenai|azureopenaiaccount|openaiaccount|openairesource|cognitiveservicesaccount|aiservicesaccount|aoai|ai서비스계정|azureopenai리소스|openai리소스
-group:llm-model-deployment=modeldeployment|deployedllm|llmdeployment|gptmodel|gptresource|deployedgptmodel|모델배포|배포된llm|llm배포|gpt모델|gpt리소스|배포된gpt모델
-group:event-hub=eventhub|eventhubnamespace|eh|이벤트허브;group:service-bus-namespace=servicebus|servicebusnamespace|messagebroker|sb|서비스버스|메시지브로커
-group:event-grid-topic=eventgridtopic|eventgridsystemtopic|systemtopic|이벤트그리드토픽|eventgrid시스템토픽;group:search-service=aisearch|azureaisearch|cognitivesearch|searchservice|검색서비스|ai검색
+group:observability.workbook=workbook|azureworkbook|monitorworkbook|통합문서|워크북;group:llm-endpoint=azureopenai|azureopenaiaccount|openaiaccount|openairesource|cognitiveservicesaccount|aiservicesaccount|aoai|ai서비스계정|azureopenai리소스|openai리소스|오픈ai|애저오픈ai
+group:llm-model-deployment=modeldeployment|deployedllm|llmdeployment|gptmodel|gptresource|deployedgptmodel|모델배포|배포된llm|llm배포|gpt모델|gpt리소스|배포된gpt모델|llm모델
+group:event-hub=eventhub|eventhubnamespace|eh|이벤트허브;group:service-bus-namespace=servicebus|servicebusnamespace|messagebroker|sb|서비스버스|메시지브로커|메시지큐
+group:event-grid-topic=eventgridtopic|eventgridsystemtopic|systemtopic|이벤트그리드토픽|eventgrid시스템토픽|이벤트브로커;group:search-service=aisearch|azureaisearch|cognitivesearch|searchservice|검색서비스|ai검색
 group:application-configuration=applicationconfigurationstore|appconfiguration|appconfig|앱구성저장소|앱컨피그;group:automation-account=automationaccount|자동화계정|오토메이션계정
 group:analytics.workspace=analyticsworkspace|databricksworkspace|databricks|분석작업영역|데이터브릭스;group:iot-hub=iothub|devicehub|iot허브
 group:realtime-messaging-service=signalrservice|signalr|realtimemessagingservice|실시간메시징서비스|시그널알;group:stream-analytics-job=streamanalyticsjob|streaminganalytics|스트림분석작업|스트림애널리틱스
@@ -204,12 +211,12 @@ object:UserMemoryFact=usermemoryfact|사용자메모리|장기메모리;object:U
 object:WorkflowBinding=workflowbinding|워크플로바인딩;object:WorkflowDefinition=workflowdefinition|워크플로정의;object:Workload=workload|워크로드
 """,
     MentionDomain.STATE: """
-state:stopped_or_deallocated=stop|stopped|stoppedstate|shut|shutdown|poweredoff|notrunning|down|inactive|중지|중지된|중지됨|정지|정지된|정지됨|멈춘|멈춤|꺼진|꺼짐|내려간|비활성|가동중지
+state:stopped_or_deallocated=stop|stopped|stoppedstate|shut|shutdown|poweredoff|notrunning|down|inactive|offline|중지|중지된|중지됨|정지|정지된|정지됨|멈춘|멈춤|멈춰있는|꺼진|꺼짐|꺼져있는|내려간|죽은|죽어있는|비활성|가동중지|작동안하는
 state:resource_state.stopped=allocatedstopped|할당유지중지
 state:resource_state.deallocated=deallocated|deallocate|할당해제|할당해제된|할당해제됨
-state:resource_state.running=running|runningstate|active|started|up|실행중|실행중인|가동중|가동중인|동작중|켜진|켜져있는|활성
-state:resource_state.failed=failed|failedstate|failure|errorstate|실패|실패한|실패됨|오류상태
-state:resource_state.degraded=degraded|degradedstate|성능저하|저하된|저하됨|저하
+state:resource_state.running=running|runningstate|active|started|up|alive|실행중|실행중인|가동중|가동중인|동작중|동작중인|돌아가는|살아있는|켜진|켜져있는|활성|작동중인
+state:resource_state.failed=failed|failedstate|failure|errorstate|broken|실패|실패한|실패됨|오류상태|에러난|장애난|고장난
+state:resource_state.degraded=degraded|degradedstate|성능저하|저하된|저하됨|저하|느려진
 state:resource_state.unavailable=unavailable|unavailablestate|사용불가능|이용불가|사용불가|불능
 state:resource_state.available=available|availablestate|사용가능|사용가능한|가용
 state:resource_state.online=online|onlinestate|온라인
@@ -255,31 +262,31 @@ region:spaincentral=spaincentral|스페인중부;region:switzerlandnorth=switzer
 region:uaecentral=uaecentral|아랍에미리트중부|uae중부;region:uaenorth=uaenorth|아랍에미리트북부|uae북부
 """,
     MentionDomain.METRIC: """
-metric:resource.cpu.utilization_pct=cpuutilization|cpuusage|cpu|processorutilization|cpu사용률|cpu사용량|시피유사용률|시피유;metric:resource.memory.usage_pct=memoryusage|memoryutilization|ramusage|메모리사용률|메모리사용량|램사용률|메모리
-metric:resource.memory.available_pct=availablememory|freememory|가용메모리|남은메모리|여유메모리;metric:resource.saturation=resourcesaturation|cpusaturation|리소스포화도|cpu포화도
-metric:resource.activation.failure=activationfailure|containeractivationfailure|활성화실패|컨테이너활성화실패;metric:service.latency=servicelatency|responselatency|responsetime|서비스지연시간|응답지연시간|응답시간|레이턴시
-metric:dependency.latency=dependencylatency|의존성지연시간|외부호출지연;metric:request.errors=requesterror|errorcount|servererror|요청오류|오류수|에러수
-metric:request.timeout=requesttimeout|timeoutcount|요청타임아웃|시간초과요청|타임아웃수;metric:request.volume=requestvolume|requestcount|trafficvolume|요청량|트래픽양|요청수
-metric:pod.restart.history=podrestart|podrestarthistory|restartcount|파드재시작|파드재시작횟수|재시작이력;metric:deployment.change=deploymentchange|배포변경|배포이벤트
+metric:resource.cpu.utilization_pct=cpuutilization|cpuusage|cpu|processorutilization|cpu사용률|cpu사용량|cpu점유율|프로세서사용률|시피유사용률|시피유;metric:resource.memory.usage_pct=memoryusage|memoryutilization|ramusage|메모리사용률|메모리사용량|메모리점유율|램사용률|메모리
+metric:resource.memory.available_pct=availablememory|freememory|가용메모리|남은메모리|여유메모리|남은램;metric:resource.saturation=resourcesaturation|cpusaturation|리소스포화도|cpu포화도
+metric:resource.activation.failure=activationfailure|containeractivationfailure|활성화실패|컨테이너활성화실패;metric:service.latency=servicelatency|responselatency|responsetime|서비스지연시간|응답지연시간|응답시간|응답속도|처리지연|레이턴시
+metric:dependency.latency=dependencylatency|의존성지연시간|외부호출지연;metric:request.errors=requesterror|errorcount|servererror|요청오류|오류수|에러수|500에러
+metric:request.timeout=requesttimeout|timeoutcount|요청타임아웃|시간초과요청|타임아웃수;metric:request.volume=requestvolume|requestcount|trafficvolume|요청량|트래픽양|트래픽볼륨|초당요청|요청수
+metric:pod.restart.history=podrestart|podrestarthistory|restartcount|파드재시작|파드재시작횟수|파드재기동|컨테이너재시작|재시작이력;metric:deployment.change=deploymentchange|배포변경|배포이벤트
 metric:network.change=networkchange|네트워크변경;metric:storage.write.success=storagewritesuccess|스토리지쓰기성공
-metric:database.mysql.cpu.utilization_pct=mysqlcpu|mysqlcpuutilization|mysqlcpu사용률;metric:database.mysql.active_connections=mysqlactiveconnection|activeconnection|mysql활성연결|활성커넥션수
-metric:database.mysql.query.count=mysqlquerycount|mysql쿼리수;metric:database.mysql.slow_query.count=mysqlslowquery|slowquery|슬로우쿼리|느린쿼리수
+metric:database.mysql.cpu.utilization_pct=mysqlcpu|mysqlcpuutilization|mysqlcpu사용률;metric:database.mysql.active_connections=mysqlactiveconnection|activeconnection|mysql활성연결|활성커넥션수|db커넥션수
+metric:database.mysql.query.count=mysqlquerycount|mysql쿼리수;metric:database.mysql.slow_query.count=mysqlslowquery|slowquery|슬로우쿼리|슬로우쿼리개수|느린쿼리수
 metric:api_gateway.request.count=apigatewayrequestcount|api게이트웨이요청수;metric:api_gateway.duration=apigatewayduration|api게이트웨이응답시간
-metric:api_gateway.backend.duration=apigatewaybackendduration|api게이트웨이백엔드지연;metric:api_gateway.response.429.count=apigateway429|api게이트웨이429
-metric:api_gateway.response.500.count=apigateway500|api게이트웨이500;metric:api_gateway.response.503.count=apigateway503|api게이트웨이503
+metric:api_gateway.backend.duration=apigatewaybackendduration|api게이트웨이백엔드지연;metric:api_gateway.response.429.count=apigateway429|api게이트웨이429|429에러
+metric:api_gateway.response.500.count=apigateway500|api게이트웨이500;metric:api_gateway.response.503.count=apigateway503|api게이트웨이503|503에러
 metric:api_gateway.backend.response.429.count=apigatewaybackend429|백엔드429;metric:api_gateway.backend.response.500.count=apigatewaybackend500|백엔드500
 metric:api_gateway.backend.response.503.count=apigatewaybackend503|백엔드503;metric:gateway.total_time=gatewaytotaltime|게이트웨이총소요시간
 metric:gateway.response.5xx.count=gateway5xx|게이트웨이5xx;metric:gateway.backend.response.5xx.count=gatewaybackend5xx|게이트웨이백엔드5xx
 metric:gateway.backend.connect_time=gatewaybackendconnecttime|백엔드연결시간;metric:gateway.backend.first_byte_time=gatewaybackendfirstbytetime|ttfb|첫바이트응답시간
 metric:gateway.backend.last_byte_time=gatewaybackendlastbytetime|마지막바이트응답시간;metric:gateway.backend.healthy_host_count=healthyhostcount|정상백엔드호스트수
 metric:gateway.backend.unhealthy_host_count=unhealthyhostcount|비정상백엔드호스트수;metric:model.request.count=modelrequestcount|llmrequestcount|모델요청수|llm호출수
-metric:model.token.count=modeltokencount|tokenconsumption|tokenusage|토큰사용량|모델토큰수;metric:model.time_to_response=modeltimetoresponse|모델응답시간
+metric:model.token.count=modeltokencount|tokenconsumption|tokenusage|토큰사용량|모델토큰수|llm토큰소모량;metric:model.time_to_response=modeltimetoresponse|모델응답시간
 metric:model.time_to_last_byte=modeltimetolastbyte|모델마지막토큰시간;metric:model.response.200.count=modelresponse200|모델200응답수
-metric:model.response.429.count=modelresponse429|모델429응답수|모델스로틀링;metric:model.response.500.count=modelresponse500|모델500응답수;metric:model.response.503.count=modelresponse503|모델503응답수
+metric:model.response.429.count=modelresponse429|모델429응답수|모델스로틀링|스로틀링횟수;metric:model.response.500.count=modelresponse500|모델500응답수;metric:model.response.503.count=modelresponse503|모델503응답수
 """,
     MentionDomain.HEALTH: """
 health:resource_health.degraded=degraded|resourcehealthdegraded|성능저하|일부장애|저하상태;health:resource_health.not_ready=notready|resourcehealthnotready|준비안됨|미준비
-health:resource_health.unavailable=unavailable|resourcehealthunavailable|사용불가|서비스불가|다운상태;health:resource_health.unhealthy=unhealthy|resourcehealthunhealthy|비정상|불건전|문제있는
+health:resource_health.unavailable=unavailable|resourcehealthunavailable|사용불가|서비스불가|다운상태;health:resource_health.unhealthy=unhealthy|resourcehealthunhealthy|비정상|불건전|문제있는|건강하지않은|언헬시
 """,
     MentionDomain.PROPERTY: """
 property:Resource.location=location|region|리전|위치|지역;property:Resource.type=type|resourcetype|리소스유형|리소스타입|종류

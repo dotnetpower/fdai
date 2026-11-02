@@ -1,0 +1,26 @@
+id: chaos.aws-fis.ecs-task-network-packet-loss
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ecs:task-network-packet-loss
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: drop
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS removes the task packet-loss rule at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Drop outbound packets on ECS task network interfaces.
+params:
+  action_id: aws:ecs:task-network-packet-loss
+  loss_percent: '20'
+tags:
+- aws-fis

@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.volume-fsgroup-permission-denied
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  source_ref: section=configure-volume-permission-and-ownership-change-policy-for-pods;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: storage
+target_type: disk
+fault_family: deny
+intensity: high
+duration_seconds: 360
+expected_signal: pod_crash_loop_back_off
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Set securityContext fsGroup matching the non-root container group ID.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Missing Pod securityContext fsGroup prevents non-root container volume
+  writes.
+tags:
+- kubernetes
+- vendor-doc

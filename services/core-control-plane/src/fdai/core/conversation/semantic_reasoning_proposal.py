@@ -171,6 +171,7 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
     measure_words_to_cue(mentions, goals)
     valueless_window_to_unspecified(goals)
+    _normalize_comparison_values(goals, utterance)
     try:
         return FormResolution(
             SemanticQuestionForm.model_validate(payload), (), request_kind=request_kind
@@ -309,6 +310,9 @@ def locate_quote(text: str, occurrence: int, utterance: str) -> tuple[int, int] 
             stripped = text.strip()
             if stripped and stripped != text:
                 return locate_quote(stripped, occurrence, utterance)
+            unquoted = stripped.strip("'\"`")
+            if unquoted and unquoted != stripped and len(unquoted) >= 2:
+                return locate_quote(unquoted, occurrence, utterance)
             if occurrence == 1:
                 return _locate_typo_quote(stripped or text, utterance)
             return None
@@ -438,6 +442,29 @@ def valueless_window_to_unspecified(goals: list[Any]) -> None:
             and isinstance(time_field.get("cue"), dict)
         ):
             time_field["kind"] = "unspecified"
+
+
+def _normalize_comparison_values(goals: list[Any], utterance: str) -> None:
+    """Strip formatting commas or trailing units from comparison.value when matching value_span."""
+
+    for goal in goals:
+        filters = goal.get("filters") if isinstance(goal, dict) else None
+        for item in filters if isinstance(filters, list) else ():
+            comparison = item.get("comparison") if isinstance(item, dict) else None
+            if not isinstance(comparison, dict):
+                continue
+            raw_val = comparison.get("value")
+            vspan = comparison.get("value_span")
+            if not isinstance(raw_val, str) or not isinstance(vspan, dict):
+                continue
+            cleaned = "".join(ch for ch in raw_val.strip() if ch.isdigit() or ch == ".")
+            start, end = vspan.get("start", -1), vspan.get("end", -1)
+            if 0 <= start < end <= len(utterance):
+                span_digits = "".join(
+                    ch for ch in utterance[start:end] if ch.isdigit() or ch == "."
+                )
+                if cleaned and cleaned != raw_val and cleaned == span_digits:
+                    comparison["value"] = cleaned
 
 
 def _holds(outer: object, inner: object) -> bool:
