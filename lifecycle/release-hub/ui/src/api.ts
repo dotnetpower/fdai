@@ -150,6 +150,128 @@ export function blockedReleaseCapabilities(
   return declared.filter((cap) => recalled.has(cap)).sort();
 }
 
+export type StencilPanelDescriptor = {
+  id: string;
+  group: string;
+  label: string;
+  label_ko: string;
+  locked: boolean;
+  required_workloads: string[];
+  required_loops: string[];
+  required_addons: string[];
+  feature_ids: string[];
+};
+
+export type StencilDefinitionRecord = {
+  schema_version: string;
+  stencil_id: string;
+  title: string;
+  title_ko: string;
+  description: string;
+  description_ko: string;
+  topology_profile: "lite-observe-alert" | "standard-sre" | "full-enterprise";
+  enabled_workloads: string[];
+  enabled_scheduled_jobs: string[];
+  enabled_loops: string[];
+  enabled_addons: string[];
+  enabled_panel_ids: string[];
+  authority_granted: false;
+};
+
+export type StencilFootprint = {
+  stencil_id: string;
+  stencil_digest: string;
+  topology_profile: string;
+  workload_count: number;
+  total_workloads: number;
+  omitted_workloads: string[];
+  scheduled_job_count: number;
+  omitted_scheduled_jobs: string[];
+  includes_clamav_sidecar: boolean;
+  includes_privileged_executor: boolean;
+  enabled_panel_count: number;
+  total_panel_count: number;
+  omitted_panel_count: number;
+  active_navigation_groups: string[];
+  enabled_feature_ids: string[];
+  azure_rbac_posture: string;
+  required_azure_roles: string[];
+  terraform_flags: {
+    enable_document_ingestion_workloads: boolean;
+    enable_isolated_executor: boolean;
+    product_profile_mode: string;
+  };
+  console_build_command: string;
+};
+
+export type StencilCatalogResponse = {
+  presets: { stencil: StencilDefinitionRecord; footprint: StencilFootprint }[];
+  panels: StencilPanelDescriptor[];
+  workloads: string[];
+  locked_workloads: string[];
+  scheduled_jobs: string[];
+  locked_scheduled_jobs: string[];
+  loops: string[];
+  locked_loops: string[];
+  addons: string[];
+  locked_addons: string[];
+  locked_panels: string[];
+};
+
+export type StencilComposePayload = {
+  stencil_id: string;
+  title: string;
+  title_ko: string;
+  description: string;
+  description_ko: string;
+  topology_profile: "lite-observe-alert" | "standard-sre" | "full-enterprise";
+  requested_panel_ids: string[];
+  requested_workloads: string[];
+  requested_scheduled_jobs: string[];
+  requested_loops: string[];
+  requested_addons: string[];
+  auto_resolve_dependencies: boolean;
+  release_version: string;
+  source_commit: string;
+};
+
+export type StencilComposeResult = {
+  stencil: StencilDefinitionRecord;
+  footprint: StencilFootprint;
+  release_manifest: Record<string, unknown>;
+};
+
+export async function requestStencilCatalog(): Promise<StencilCatalogResponse> {
+  const response = await authenticatedFetch("/v1/stencils", {
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) {
+    throw new Error(`Stencil catalog unavailable (${response.status}).`);
+  }
+  return (await response.json()) as StencilCatalogResponse;
+}
+
+export async function requestStencilCompose(
+  payload: StencilComposePayload,
+): Promise<StencilComposeResult> {
+  const response = await authenticatedFetch("/v1/stencils/compose", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof body.error === "string" && body.error.trim()
+      ? body.error
+      : `Stencil composition failed (${response.status}).`;
+    throw new Error(message);
+  }
+  return body as StencilComposeResult;
+}
+
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
   const parsed: unknown = JSON.parse(manifest);
   if (typeof parsed !== "object" || parsed === null) throw new Error("Invalid manifest.");

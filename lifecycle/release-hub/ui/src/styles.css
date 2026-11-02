@@ -78,6 +78,11 @@ section { margin-top: 48px; min-width: 0; }
 section > h2 { margin-bottom: 16px; }
 .channel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
 .channel { padding: 20px 0; margin: 0; border-top: 1px solid var(--cs-hairline); min-width: 0; overflow-wrap: anywhere; }
+.stencil-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin-bottom: 16px; }
+.stencil-grid label { display: grid; gap: 8px; min-width: 0; }
+.stencil-grid input, .stencil-grid select { width: 100%; min-width: 0; }
+.stencil-check { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 0; min-width: 0; overflow-wrap: anywhere; }
+.stencil-check input[type="checkbox"] { min-height: 20px; width: 20px; padding: 0; flex: none; }
 .artifact-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; }
 .artifact-list article { min-width: 0; padding-top: 16px; border-top: 1px solid var(--cs-hairline); }
 .artifact-list h3 { margin-bottom: 8px; }
@@ -108,7 +113,7 @@ dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 
   .main { padding: 24px; }
   .release-row { grid-template-columns: minmax(120px, 1fr) minmax(100px, 1fr); gap: 16px; }
   .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .channel-grid { grid-template-columns: 1fr; gap: 16px; }
+  .channel-grid, .stencil-grid { grid-template-columns: 1fr; gap: 16px; }
 }
 @media (max-width: 700px) {
   .app { display: block; }

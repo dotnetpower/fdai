@@ -24,6 +24,11 @@ import {
   type ConsolePanel,
   type PanelGroup,
 } from "../panels";
+import {
+  activeStencilPanelIds,
+  filterNavigationGroupsByStencil,
+  filterPanelsByStencil,
+} from "../stencil-panels";
 import { panelPath } from "../router";
 import { chatIcon, groupIcon, moreIcon, pinIcon, settingsIcon } from "./rail-icons";
 import { Tooltip } from "./tooltip";
@@ -56,11 +61,16 @@ const ACTIVITY_BAR_MENU_MARGIN = 8;
 const ACTIVITY_BAR_MENU_ITEM_HEIGHT = 34;
 
 export function visibleNavigationGroups(devMode: boolean): readonly (typeof PANEL_GROUPS)[number][] {
-  return PANEL_GROUPS.filter((group) => !group.devOnly || devMode);
+  const baseGroups = PANEL_GROUPS.filter((group) => !group.devOnly || devMode);
+  const stencilIds = activeStencilPanelIds();
+  if (stencilIds === null) return baseGroups;
+  return filterNavigationGroupsByStencil(baseGroups, resolvePanels(), stencilIds);
 }
 
 export function visibleExplorerPanels(panels: readonly ConsolePanel[]): readonly ConsolePanel[] {
-  return panels.filter((panel) => !EXPLORER_HIDDEN_PANEL_IDS.has(panel.id));
+  return filterPanelsByStencil(
+    panels.filter((panel) => !EXPLORER_HIDDEN_PANEL_IDS.has(panel.id)),
+  );
 }
 
 export function NavigationShell({
@@ -210,9 +220,13 @@ export function NavigationShell({
       ?.focus();
   }, [activityBarMenu]);
 
-  const selectedMeta = PANEL_GROUPS.find((group) => group.id === selectedGroup)!;
-  const eligiblePanels = visibleExplorerPanels(panelsInGroup(selectedGroup));
-  const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[selectedGroup]);
+  const effectiveGroup: PanelGroup = visibleGroups.some((group) => group.id === selectedGroup)
+    ? selectedGroup
+    : "overview";
+  const selectedMeta =
+    PANEL_GROUPS.find((group) => group.id === effectiveGroup) ?? PANEL_GROUPS[0]!;
+  const eligiblePanels = visibleExplorerPanels(panelsInGroup(effectiveGroup));
+  const orderedPanels = orderPanels(eligiblePanels, preferences.groupOrder[effectiveGroup]);
   const visiblePanels = orderedPanels.filter(
     (panel) => panel.id === activePanelId || !preferences.hiddenPanelIds.includes(panel.id),
   );

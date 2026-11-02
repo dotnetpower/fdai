@@ -751,8 +751,31 @@ def generate_fdai_runtime_bundle(
     scheduled_job_image_component: str = "core-control-plane",
     identity_bridge_config_map: str | None = None,
     identity_bridge_size_limit: str = "256Mi",
+    enabled_workloads: frozenset[str] | None = None,
+    enabled_scheduled_jobs: frozenset[str] | None = None,
 ) -> GeneratedRuntimeTopology:
     """Convert AKS workload maps into a verified Hub runtime bundle and native scope."""
+
+    if enabled_workloads is not None:
+        if not {"core-control-plane", "operator-service"}.issubset(enabled_workloads):
+            raise ValueError(
+                "Stencil runtime bundle requires both 'core-control-plane' and 'operator-service'."
+            )
+        unknown_workloads = sorted(enabled_workloads - set(workloads))
+        if unknown_workloads:
+            missing_str = ", ".join(unknown_workloads)
+            raise ValueError(f"Enabled Stencil workload(s) not in topology input: {missing_str}")
+        workloads = {k: v for k, v in workloads.items() if k in enabled_workloads}
+    if enabled_scheduled_jobs is not None:
+        if not {"analyzer", "inventory"}.issubset(enabled_scheduled_jobs):
+            raise ValueError(
+                "Stencil runtime bundle requires both 'analyzer' and 'inventory' scheduled jobs."
+            )
+        unknown_jobs = sorted(enabled_scheduled_jobs - set(scheduled_jobs))
+        if unknown_jobs:
+            missing_jobs = ", ".join(unknown_jobs)
+            raise ValueError(f"Enabled Stencil scheduled job(s) not in topology: {missing_jobs}")
+        scheduled_jobs = {k: v for k, v in scheduled_jobs.items() if k in enabled_scheduled_jobs}
 
     if not workloads:
         raise ValueError("At least one AKS workload is required.")

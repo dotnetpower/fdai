@@ -466,6 +466,45 @@ def test_generator_rejects_conflicting_observer_env_and_invalid_inputs() -> None
         )
 
 
+def test_lite_stencil_bundle_excludes_heavy_workloads_and_enforces_core_guards() -> None:
+    workloads, scheduled_jobs = _stewardship_topology_fixture()
+
+    lite = generate_fdai_runtime_bundle(
+        workloads=workloads,
+        scheduled_jobs=scheduled_jobs,
+        installation_id="installation-fdai-dev-wus3",
+        identity_bridge_config_map="fdai-identity-bridge",
+        enabled_workloads=frozenset({"core-control-plane", "operator-service"}),
+        enabled_scheduled_jobs=frozenset({"analyzer", "inventory"}),
+    )
+
+    assert lite.native_scope.components == ("core-control-plane", "operator-service")
+    assert lite.native_scope.scheduled_components == ("analyzer", "inventory")
+    assert set(lite.component_images) == {"core-control-plane", "operator-service"}
+    assert "clamav" not in lite.component_images
+    assert "document-ingestion-api" not in lite.component_images
+    assert "document-processing-worker" not in lite.component_images
+    assert len(lite.bundle.objects) == 8
+
+    # Missing required core workloads or scheduled jobs is rejected fail-closed.
+    with pytest.raises(
+        ValueError, match="requires both 'core-control-plane' and 'operator-service'"
+    ):
+        generate_fdai_runtime_bundle(
+            workloads=workloads,
+            scheduled_jobs=scheduled_jobs,
+            installation_id="installation-fdai-dev-wus3",
+            enabled_workloads=frozenset({"core-control-plane"}),
+        )
+    with pytest.raises(ValueError, match="requires both 'analyzer' and 'inventory'"):
+        generate_fdai_runtime_bundle(
+            workloads=workloads,
+            scheduled_jobs=scheduled_jobs,
+            installation_id="installation-fdai-dev-wus3",
+            enabled_scheduled_jobs=frozenset({"analyzer"}),
+        )
+
+
 def test_cli_generates_bundle_and_prepares_fourteen_day_development_approval(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
