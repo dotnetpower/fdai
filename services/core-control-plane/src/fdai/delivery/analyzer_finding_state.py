@@ -74,7 +74,10 @@ class AnalyzerFindingStateStore:
             stored = await self.state_store.read_state(key)
             previous = FindingState.model_validate(stored) if stored is not None else None
             if previous is not None:
-                if receipt.idempotency_key == previous.observation_key:
+                if (
+                    receipt.idempotency_key == previous.observation_key
+                    and receipt.occurred_at == previous.occurred_at
+                ):
                     if digest != previous.observation_digest:
                         raise ValueError("Finding observation identity collision")
                     return

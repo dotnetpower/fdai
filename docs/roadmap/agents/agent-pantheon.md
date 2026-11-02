@@ -19,7 +19,16 @@ Heimdall sensing recovery persists subject records and an ordered active-members
 Repeated exactly equal records reuse acknowledged durable state after checking for another writer; legacy snapshot recovery remains available.
 This storage optimization changes no AgentSpec, topic ownership, authority, approval, event identity, detection threshold, or required audit behavior.
 
-The manifest binds each active subject's canonical digest. A subject update followed by a failed manifest write cannot silently restore a mixed checkpoint: recovery reports repair required.
+The manifest binds each active subject's canonical digest. New checkpoints first persist immutable
+content-addressed subject/node versions and a separate bounded bucket manifest, then atomically
+replace the root pointer. An interrupted write restores the previous acknowledged checkpoint,
+never a mixture of current mutable locations. Every referenced version still passes its hash,
+membership, rank, identity and byte-bound checks; missing or changed versions require repair.
+Legacy checkpoints keep strict verification. An explicit offline repair planner accepts only a
+complete known leaf/branch graph with write-order evidence of interruption, validates all subject
+references, and produces immutable index records without altering the input. Applying a plan
+requires a stopped writer, preserved originals, exact-source fencing and two-phase audit; ordinary
+rehydration never repairs or ignores corruption automatically.
 Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
 characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -33,9 +34,12 @@ def project_analyzer_lifecycle(
     receipts = [
         _decode_receipt(row.get("value"), newest_rank=index) for index, row in enumerate(rows)
     ]
-    by_assessment: dict[str, list[dict[str, object]]] = defaultdict(list)
+    by_assessment: dict[tuple[str, str], list[dict[str, object]]] = defaultdict(list)
     for receipt in receipts:
-        by_assessment[str(receipt["idempotency_key"])].append(receipt)
+        # A publication window suppresses repeated deliveries, not distinct observations.
+        by_assessment[(str(receipt["idempotency_key"]), str(receipt["occurred_at"]))].append(
+            receipt
+        )
 
     assessments = [_assessment(items) for items in by_assessment.values()]
     by_resource: dict[str, list[dict[str, object]]] = defaultdict(list)
@@ -46,7 +50,7 @@ def project_analyzer_lifecycle(
     for resource_ref, resource_assessments in sorted(by_resource.items()):
         ordered = sorted(
             resource_assessments,
-            key=lambda item: (str(item["occurred_at"]), str(item["idempotency_key"])),
+            key=lambda item: (str(item["occurred_at"]), str(item["assessment_id"])),
             reverse=True,
         )
         targets.append(
@@ -107,6 +111,9 @@ def _assessment(receipts: list[dict[str, object]]) -> dict[str, object]:
         "verified" if recovery_closed is True else "open" if recovery_closed is False else "unknown"
     )
     return {
+        "assessment_id": hashlib.sha256(
+            (str(newest["idempotency_key"]) + "\0" + str(newest["occurred_at"])).encode()
+        ).hexdigest(),
         "idempotency_key": newest["idempotency_key"],
         "resource_ref": newest["resource_ref"],
         "resource_kind": newest["resource_kind"],

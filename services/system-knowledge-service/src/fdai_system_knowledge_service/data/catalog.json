@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:31a8dcdc9d6c7467485d22f8f02ae188f681bf7e1bc9267f0b9bfc6957190110",
+  "catalog_digest": "sha256:02546e757a4036902820554a9a813f85cf9b27faec42b61859f329b38bd4cc37",
   "execution_authority": false,
-  "generated_at": "2026-11-02T19:29:47.738478Z",
+  "generated_at": "2026-11-02T20:38:59.819505Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,13 +149,13 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:bb47080805bf651bbf427c7c0388a62f7245bccec9b7b721dd06ca3e000a671f",
+      "record_digest": "sha256:ca1e3a373bd8b70997ca3d8e9649eb81e186618ffbd3b50be82d37473f144c6d",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "897e9ccf62fd69cede45c65bbc76d355af4e1de3",
-          "line_end": 60,
-          "line_start": 60,
+          "blob_sha": "8c65ad6b1a8a410538f798ac32aa1264438ca8b1",
+          "line_end": 69,
+          "line_start": 69,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Two-port model"
@@ -551,13 +551,13 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:e69ce23f8131141f6594ff04ad001015ee897a97f4c658ac95f91f42a2b3aff0",
+      "record_digest": "sha256:d6cb691deea461953ff4d117509a6e04b7d7a6ca09b4884401e7328146311bfc",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "897e9ccf62fd69cede45c65bbc76d355af4e1de3",
-          "line_end": 49,
-          "line_start": 49,
+          "blob_sha": "8c65ad6b1a8a410538f798ac32aa1264438ca8b1",
+          "line_end": 58,
+          "line_start": 58,
           "path": "docs/roadmap/agents/agent-pantheon.md",
           "source_kind": "doc",
           "symbol": "Design principles"
@@ -854,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "75d8849f02bdda4ad8eda930c8f09ded34e32ea3"
+  "source_revision": "cfd757bd0c96660caae23aa58b6d727ed13a57e3"
 }

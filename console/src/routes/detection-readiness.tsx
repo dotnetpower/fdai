@@ -198,6 +198,7 @@ interface DetectionReadinessView {
 }
 
 interface DetectionLifecycleAssessment {
+  readonly assessment_id: string;
   readonly idempotency_key: string;
   readonly resource_ref: string;
   readonly resource_kind: string;
@@ -439,6 +440,9 @@ function decodeAssessment(value: unknown, label: string): DetectionLifecycleAsse
     throw new OperatorApiError(502, "invalid Operator API response: detection lifecycle widened its read-only boundary");
   }
   return {
+    assessment_id: typeof row["assessment_id"] === "string" && row["assessment_id"].length > 0
+      ? row["assessment_id"]
+      : `${panelNonEmptyString(row, "idempotency_key", label)}:${panelNonEmptyString(row, "occurred_at", label)}`,
     idempotency_key: panelNonEmptyString(row, "idempotency_key", label),
     resource_ref: panelNonEmptyString(row, "resource_ref", label),
     resource_kind: panelNonEmptyString(row, "resource_kind", label),
@@ -1515,7 +1519,7 @@ function DetectionLifecycle({
                 <>
                   <ol>
                     {selected.history.slice(0, historyLimit).map((assessment) => (
-                      <li key={assessment.idempotency_key}>
+                      <li key={assessment.assessment_id}>
                         <LifecycleAssessment assessment={assessment} />
                       </li>
                     ))}

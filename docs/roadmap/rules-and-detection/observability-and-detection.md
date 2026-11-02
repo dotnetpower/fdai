@@ -662,6 +662,12 @@ Console history pager. An explicitly supplied count-retention policy may still p
 projection; complete tick-report retention remains independently bounded at 500 by default.
 Pagination cannot recover records already deleted under an earlier policy and grants no audit,
 approval, or execution authority.
+The retry-stable publication-window key is not an observation identity. Receipt storage and
+history group publication attempts by that key **and** the exact observation time; later samples
+inside one suppression window keep their own evidence. The projected `assessment_id` identifies
+this pair without replacing the original publication key. Exact legacy retries remain idempotent.
+Current-Finding observations may advance inside the same publication window without issuing a
+repeat notification; conflicting content for the same observation time still fails closed.
 Protected split-service deployment verifies provenance, SBOM, and Core model-material attestations
 from the digest-pinned GHCR OCI subject, avoiding unrelated public Blob DNS dependencies on the
 private deployment runner.

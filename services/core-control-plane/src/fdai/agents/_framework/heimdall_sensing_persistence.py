@@ -23,6 +23,8 @@ BUCKET_COUNT = 64
 BUCKET_PREFIX = _STATE_KEY + "/buckets/"
 NODE_FORMAT = "radix16-v1"
 MAX_NODE_BYTES = 5_000
+VERSION_PREFIX = _STATE_KEY + "/versions/"
+MANIFEST_PREFIX = _STATE_KEY + "/manifests/"
 _RADIX = "0123456789abcdef"
 
 
@@ -163,7 +165,7 @@ async def _read_fragment(
     parts = []
     for index in range(count):
         key = _node_key(slot, path) + f"/value/{index}"
-        chunk = await agent._state_store.read_state(key)
+        chunk = await _read_version(agent, key, expected)
         if (
             chunk is None
             or _subject_digest(chunk) != expected
@@ -223,7 +225,7 @@ async def _read_node(
     allow_legacy: bool = False,
 ) -> str:
     key = _node_key(slot, path)
-    body = prefetched if prefetched is not None else await agent._state_store.read_state(key)
+    body = prefetched if prefetched is not None else await _read_version(agent, key, expected)
     if body is None or body.get("slot") != slot:
         raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
     observed = _subject_digest(body)
@@ -306,6 +308,11 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
     if not hasattr(agent, "_persisted_sensing_records"):
         agent._persisted_sensing_records = {}
     previous = getattr(agent, "_sensing_bucket_entries", {})
+    # Seed acknowledged legacy bodies before any mutable location is advanced.
+    if not getattr(agent, "_sensing_versioned_layout", False):
+        for key, body in agent._persisted_sensing_records.items():
+            if key != _STATE_KEY and not key.startswith(BUCKET_PREFIX):
+                await agent._state_store.write_state(VERSION_PREFIX + _subject_digest(body), body)
     next_ordinal = getattr(agent, "_sensing_next_ordinal", 0)
     entries: dict[str, dict[str, Any]] = {}
     previous_rank: dict[str, int] = {}
@@ -397,14 +404,23 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
             {key for key in changed | dirty_subjects if _bucket_slot(key) == slot},
             migrate,
         )
+    digests = [agent._persisted_sensing_digests[bucket_key(slot)] for slot in range(BUCKET_COUNT)]
+    commitment = _bucket_commitment(digests)
+    acknowledged_root = agent._persisted_sensing_records.get(_STATE_KEY, {})
+    if (
+        acknowledged_root.get("bucket_digest") != commitment
+        or acknowledged_root.get("immutable_records") is not True
+    ):
+        await agent._state_store.write_state(
+            MANIFEST_PREFIX + commitment, {"bucket_digests": digests}
+        )
     root = {
         "schema_version": "1.0.0",
         "revision": 1,
         "storage_layout": BUCKET_LAYOUT,
         "bucket_node_format": NODE_FORMAT,
-        "bucket_digest": _bucket_commitment(
-            [agent._persisted_sensing_digests[bucket_key(slot)] for slot in range(BUCKET_COUNT)]
-        ),
+        "bucket_digest": commitment,
+        "immutable_records": True,
         "next_ordinal": next_ordinal,
     }
     await write_changed_state(agent, _STATE_KEY, root)
@@ -413,6 +429,7 @@ async def persist_bucket_checkpoint(agent: Any) -> None:
     agent._sensing_bucket_layout = True
     agent._sensing_trie_layout = True
     agent._sensing_subject_layout = True
+    agent._sensing_versioned_layout = True
     active = {_STATE_KEY, *entries, *_reachable_nodes(agent)}
     agent._persisted_sensing_records = {
         key: value for key, value in agent._persisted_sensing_records.items() if key in active
@@ -431,6 +448,22 @@ async def read_bucket_records(
     digests = record.get("bucket_digests")
     expected_commitment = record.get("bucket_digest")
     node_format = record.get("bucket_node_format")
+    agent._sensing_versioned_layout = record.get("immutable_records") is True
+    if agent._sensing_versioned_layout:
+        manifest = await agent._state_store.read_state(MANIFEST_PREFIX + str(expected_commitment))
+        if manifest is None:
+            raise ValueError("Heimdall sensing checkpoint manifest missing; repair required")
+        digests = manifest.get("bucket_digests")
+        if (
+            not isinstance(digests, list)
+            or len(digests) != BUCKET_COUNT
+            or not all(isinstance(item, str) for item in digests)
+        ):
+            raise ValueError("Heimdall sensing checkpoint manifest invalid; repair required")
+        if _bucket_commitment(digests) != expected_commitment:
+            raise ValueError(
+                "Heimdall sensing checkpoint manifest digest mismatch; repair required"
+            )
     next_ordinal = record.get("next_ordinal")
     if (
         node_format not in (None, NODE_FORMAT)
@@ -448,7 +481,8 @@ async def read_bucket_records(
     observed_digests: list[str] = []
     roots: list[Mapping[str, Any]] = []
     for slot in range(BUCKET_COUNT):
-        body = await agent._state_store.read_state(bucket_key(slot))
+        expected = digests[slot] if isinstance(digests, list) else None
+        body = await _read_version(agent, bucket_key(slot), expected)
         if body is None or body.get("slot") != slot:
             raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
         observed = _subject_digest(body)
@@ -516,7 +550,7 @@ async def read_bucket_records(
                 "Heimdall sensing checkpoint subject reference invalid; repair required"
             )
         ranks.add(rank)
-        row = await agent._state_store.read_state(key)
+        row = await _read_version(agent, key, entry.get("digest"))
         if row is None:
             raise ValueError("Heimdall sensing manifest references missing subject state")
         if _subject_digest(row) != entry.get("digest"):
@@ -563,6 +597,8 @@ async def write_changed_state(agent: Any, key: str, value: dict[str, Any]) -> bo
         # Another instance can have advanced the shared row since our acknowledgment.
         if await agent._state_store.read_state(key) == value:
             return False
+    if key != _STATE_KEY:
+        await agent._state_store.write_state(VERSION_PREFIX + _subject_digest(value), value)
     await agent._state_store.write_state(key, value)
     cache[key] = deepcopy(value)
     if key != _STATE_KEY:
@@ -571,6 +607,15 @@ async def write_changed_state(agent: Any, key: str, value: dict[str, Any]) -> bo
             digests = agent._persisted_sensing_digests = {}
         digests[key] = _subject_digest(value)
     return True
+
+
+async def _read_version(agent: Any, key: str, expected: str | None) -> Mapping[str, Any] | None:
+    if getattr(agent, "_sensing_versioned_layout", False):
+        if not isinstance(expected, str):
+            raise ValueError("Heimdall sensing checkpoint version missing; repair required")
+        key = VERSION_PREFIX + expected
+    body: Mapping[str, Any] | None = await agent._state_store.read_state(key)
+    return body
 
 
 async def read_subject_records(

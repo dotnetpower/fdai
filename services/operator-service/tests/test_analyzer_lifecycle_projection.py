@@ -109,6 +109,27 @@ def test_projection_keeps_missed_conflicting_and_incomplete_states_explicit() ->
     )
 
 
+def test_publication_window_does_not_merge_distinct_observations() -> None:
+    first = _row("shared-publication-window", occurred_at="2026-08-31T06:59:01+00:00")
+    second = _row(
+        "shared-publication-window",
+        publication="duplicate_suppressed",
+        occurred_at="2026-08-31T06:59:40+00:00",
+    )
+    second["value"]["evidence_refs"] = ["metric:later-observation"]
+    result = project_analyzer_lifecycle([second, first])
+    target = result["targets"][0]
+    assert result["assessment_count"] == 2
+    assert target["current"]["occurred_at"] == second["value"]["occurred_at"]
+    assert target["current"]["assessment_id"] != target["history"][0]["assessment_id"]
+    assert target["history"][0]["evidence_refs"] == ["pod-old", "pod-new"]
+    conflicting = _row("shared-publication-window", publication="failed")
+    conflicting["value"]["occurred_at"] = first["value"]["occurred_at"]
+    conflicting["value"]["evidence_refs"] = ["conflicting-same-time"]
+    with pytest.raises(ProjectionUnavailableError, match="identity is conflicting"):
+        project_analyzer_lifecycle([conflicting, first])
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     (
@@ -223,6 +244,25 @@ async def test_complete_history_pages_group_publications_and_preserve_snapshot()
         )
         with pytest.raises(ValueError, match="snapshot changed"):
             await read_analyzer_history(fetch, replace(query, cursor=next_cursor))
+        for sample in range(2):
+            observed = _row(
+                "same-window-paging-test",
+                publication="published" if sample == 0 else "duplicate_suppressed",
+                occurred_at=(NOW + timedelta(seconds=sample)).isoformat(),
+            )
+            await connection.execute(
+                "INSERT INTO state_kv VALUES (%s,%s,%s)",
+                (
+                    f"runtime:analyzer-finding-receipt:same-window-{sample}",
+                    Jsonb(observed["value"]),
+                    NOW,
+                ),
+            )
+        distinct = await read_analyzer_history(
+            fetch, replace(query, params={"q": ("same-window-paging-test",)})
+        )
+        assert distinct["pagination"]["total_assessments"] == 2
+        assert distinct["lifecycle"]["assessment_count"] == 2
         await connection.execute(
             "DELETE FROM state_kv WHERE key = %s", ("runtime:analyzer-finding-receipt:0-published",)
         )
