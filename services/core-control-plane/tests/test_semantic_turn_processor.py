@@ -272,6 +272,23 @@ def test_incomplete_output_table_downgrades_answer_verification() -> None:
     )
 
     assert _execution_output_incomplete(execution) is True
+    bounded_row = QueryRow.from_values("r1", {"subject_name": "vm-1"})
+    bounded_exec = QueryPlanExecution(
+        plan_digest="sha256:" + "a" * 64,
+        status="completed",
+        results={
+            "output": QueryNodeResult(
+                QueryTable(rows=(bounded_row,), complete=False, truncation_reason="result_limit")
+            )
+        },
+        receipts=(),
+        output_node_ids=("output",),
+    )
+    assert (
+        _execution_output_incomplete(bounded_exec, evidence_requirements=("result_limit.1",))
+        is False
+    )
+    assert _execution_output_incomplete(bounded_exec, evidence_requirements=()) is True
 
 
 def test_resource_state_answer_lists_verified_names_and_observed_states() -> None:

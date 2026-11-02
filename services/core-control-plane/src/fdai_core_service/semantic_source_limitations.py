@@ -144,6 +144,10 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "원본 완전성을 확인할 수 없습니다",
         "source completeness could not be verified",
     ),
+    "result_limit": (
+        "요청된 표시 개수 상한까지만 포함했습니다",
+        "only rows up to the requested result limit are listed",
+    ),
 }
 
 
