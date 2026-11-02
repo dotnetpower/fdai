@@ -101,6 +101,8 @@ for (const locale of ["en", "ko"] as const) {
     await page.locator(".finding-toast a").click();
     await expect(page).toHaveURL(new RegExp(`finding=${id}`));
     await expect(current).toContainText("Fixture-only CPU threshold exceeded.");
+    await expect(current.locator(".finding-card-short-title")).toHaveText(locale === "ko"
+      ? "호스트 CPU 임계값 - 미해결" : "Host CPU threshold - Active");
     await expect(page.locator(".finding-toast")).toHaveCount(0);
     await current.locator("summary").click();
     await expect(current).toContainText("metric:fixture");

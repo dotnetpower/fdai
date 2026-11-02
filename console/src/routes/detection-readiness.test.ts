@@ -1,4 +1,5 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
+import { setLocale } from "../i18n";
 
 import type { OperatorApiClient } from "../api";
 import {
@@ -7,13 +8,45 @@ import {
   decodeLifecycle,
   detectionCoverageViewFromHash,
   loadDetectionReadinessState,
+  findingAssessmentTitle,
 } from "./detection-readiness";
 import {
   parseResourceRefDisplay,
   resourceKindLabel,
   resourceTypeLabel,
+  resourceEvaluationTitle,
+  resourceEvaluationDescription,
 } from "./detection-coverage-view";
 import PINNED from "./fixtures/detection-lifecycle-projection.json";
+
+afterEach(() => setLocale("en"));
+
+describe("grounded descriptive detection titles", () => {
+  test.each([
+    ["en", "Evaluation could not complete", "Analyzer timed out", "Host CPU threshold: Metrics missing"],
+    ["ko", "평가를 완료하지 못했습니다", "분석기 시간 초과", "호스트 CPU 임계값: 메트릭 누락"],
+  ] as const)("describes recorded outcomes in %s without asserting resource health", (locale, title, reason, finding) => {
+    setLocale(locale);
+    expect(resourceEvaluationTitle({ evaluation_state: "evaluation_error" })).toBe(title);
+    const description = resourceEvaluationDescription({
+      evaluation_state: "evaluation_error", error_codes: ["analyzer_timeout"],
+    });
+    expect(description).toContain(reason);
+    expect(description).toContain(locale === "en" ? "not proof" : "뜻은 아닙니다");
+    expect(resourceEvaluationDescription({
+      evaluation_state: "evaluated_no_finding", error_codes: [],
+    })).toContain(locale === "en" ? "does not establish resource health" : "정상이라는 뜻은 아닙니다");
+    expect(resourceEvaluationTitle({ evaluation_state: "unsupported" }))
+      .toContain(locale === "en" ? "unsupported" : "지원되지 않는");
+    expect(resourceEvaluationTitle({ evaluation_state: "finding" }))
+      .toContain(locale === "en" ? "finding" : "발견 사항");
+    expect(findingAssessmentTitle({ signal: "host_cpu", current_state: "metrics_missing" })).toBe(finding);
+    expect(findingAssessmentTitle({ signal: "custom_signal", current_state: "custom_state" }))
+      .toBe(locale === "en"
+        ? "Recorded analyzer finding: Recorded state needs review"
+        : "분석기가 기록한 발견 사항: 기록된 상태를 검토해야 합니다");
+  });
+});
 
 const RESPONSE = {
   source: "muninn-state-snapshot",

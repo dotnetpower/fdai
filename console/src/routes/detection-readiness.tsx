@@ -1433,14 +1433,13 @@ function DetectionLifecycle({
                       }}
                     >
                       <span class="detection-resource-row-head">
-                        <strong class="mono">
-                          {parsed.hasStructuredScope ? parsed.shortName : target.resource_ref}
-                        </strong>
+                        <strong>{findingAssessmentTitle(target.current)}</strong>
                         <StatusPill
                           kind={evidenceKind(target.current.evidence_state)}
                           label={t(`analyzerLifecycle.evidence.${target.current.evidence_state}`)}
                         />
                       </span>
+                      <span class="detection-record-resource mono">{parsed.shortName}</span>
                       <span>
                         {currentStateLabel(target.current.current_state)}
                         {" / "}
@@ -1473,11 +1472,15 @@ function DetectionLifecycle({
               return (
                 <div class="detection-resource-detail-head">
                   <div class="detection-resource-title-stack">
-                    <h4 class="panel-title detection-resource-short-title">
-                      <a class="mono" href={architectureHref(selected.resource_ref)}>
-                        {parsedSelected.shortName}
-                      </a>
-                    </h4>
+                    <h4 class="panel-title detection-resource-short-title">{findingAssessmentTitle(selected.current)}</h4>
+                    <p class="detection-result-description">{t("analyzerLifecycle.resultDescription", {
+                      signal: signalLabel(selected.current.signal),
+                      state: currentStateLabel(selected.current.current_state),
+                      evidence: t(`analyzerLifecycle.evidence.${selected.current.evidence_state}`),
+                    })}</p>
+                    <a class="detection-resource-identity mono" href={architectureHref(selected.resource_ref)}>
+                      {parsedSelected.shortName}
+                    </a>
                     {parsedSelected.hasStructuredScope ? (
                       <span class="detection-resource-full-ref mono">{selected.resource_ref}</span>
                     ) : null}
@@ -1774,6 +1777,21 @@ function findingMatches(
     );
 }
 
+export function findingAssessmentTitle(
+  assessment: Pick<DetectionLifecycleAssessment, "signal" | "current_state">,
+): string {
+  const signal = signalLabel(assessment.signal);
+  const state = currentStateLabel(assessment.current_state);
+  return t("analyzerLifecycle.resultTitle", {
+    signal: signal === assessment.signal
+      ? t("analyzerLifecycle.recordedSignal")
+      : signal,
+    state: state === assessment.current_state
+      ? t("analyzerLifecycle.unclassifiedState")
+      : state,
+  });
+}
+
 function currentStateLabel(state: string): string {
   const known = new Set([
     "running",
@@ -1805,6 +1823,7 @@ function signalLabel(signal: string): string {
     "network_drop",
     "latency_spike",
     "error_rate",
+    "resource_availability",
   ]);
   return known.has(signal)
     ? t(`analyzerLifecycle.signal.${signal}`)

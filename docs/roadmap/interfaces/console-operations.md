@@ -86,8 +86,12 @@ Detection coverage (`/detection-coverage`) keeps its primary `Coverage`, `Resour
 Resource and Finding inspectors use shared filter, reset, and copy controls with 34 px desktop
 and 44 px narrow-screen targets. Filters wrap within the available width, expose their selected
 state programmatically, and announce updated result counts. A resource type restored from a URL
-stays visible even when the current snapshot has no matching resource. The readable resource name
-owns the detail heading; its canonical reference remains available for inspection and copying.
+stays visible even when the current snapshot has no matching resource. Localized evaluation
+outcomes and recorded signal/state descriptions own list and detail titles, with a short explanation
+of the available evidence. Resource names remain supporting identity links, and canonical references
+remain available for inspection and copying. Unknown signal/state extensions receive a localized
+review-needed title while their original machine values remain in technical facts. Evaluation
+failure is not presented as resource failure, and no-finding results never establish health.
 
 Detection coverage presents its three views through a compact rounded selector. Coverage and
 retained-Finding totals use flat metric bands rather than elevated cards. Filters and detail

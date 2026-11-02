@@ -105,6 +105,19 @@
   "resources": {
     "title": "Resource evaluations",
     "description": "Select a resource to inspect its latest evaluation and exact delivery evidence.",
+    "resultTitle": {
+      "evaluation_error": "Evaluation could not complete",
+      "finding": "A finding was recorded",
+      "unsupported": "An unsupported evaluation was recorded",
+      "evaluated_no_finding": "Evaluation completed without a finding"
+    },
+    "resultDescription": {
+      "evaluation_error": "{reason}. This is an evaluation error, not proof that the resource is unhealthy.",
+      "finding": "The analyzer recorded a finding. Review its signal and evidence; a finding alone does not establish a cause.",
+      "unsupported": "The analyzer recorded an unsupported outcome. Review analyzer support and evidence before drawing a health conclusion.",
+      "evaluated_no_finding": "The latest evaluation produced no finding. This does not establish resource health."
+    },
+    "unspecifiedError": "No specific error reason was retained",
     "listLabel": "Evaluated resources",
     "listTitle": "Selected resources",
     "emptyTitle": "No resource evaluations",
@@ -274,6 +287,10 @@
   "emptyTitle": "No detection readiness snapshots",
   "emptyBody": "No target has completed the Huginn to Heimdall to Muninn evidence path.",
   "analyzerLifecycle": {
+    "resultTitle": "{signal}: {state}",
+    "resultDescription": "Recorded {signal} result: {state}. {evidence}. Review the retained evidence; this is not a cause determination.",
+    "recordedSignal": "Recorded analyzer finding",
+    "unclassifiedState": "Recorded state needs review",
     "title": "Retained findings and delivery",
     "description": "Cross-run finding history remains separate from the latest coverage attempt and preserves exact evidence and delivery outcomes.",
     "observedAt": "Last receipt {at}",
@@ -327,6 +344,7 @@
       "rollout_replacement": "Rollout replacement",
       "insufficient_evidence": "Insufficient evidence",
       "conflicting_evidence": "Conflicting evidence",
+      "resource_availability": "Resource availability",
       "host_cpu": "Host CPU threshold",
       "host_memory": "Host memory pressure",
       "disk_pressure": "Disk pressure",
