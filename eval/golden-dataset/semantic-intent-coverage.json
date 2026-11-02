@@ -31,9 +31,9 @@
       "total": 39
     },
     "paired_model_case_coverage": {
-      "covered": 500,
+      "covered": 600,
       "rate": 1.0,
-      "total": 500
+      "total": 600
     },
     "pantheon_domain_semantic_contract_coverage": {
       "covered": 47,
@@ -46,9 +46,9 @@
       "total": 13
     },
     "question_bank_contract_validation_rate": {
-      "covered": 500,
+      "covered": 600,
       "rate": 1.0,
-      "total": 500
+      "total": 600
     },
     "question_bank_domain_inventory_coverage": {
       "covered": 7,
@@ -56,14 +56,14 @@
       "total": 7
     },
     "question_bank_reviewed_rate": {
-      "covered": 500,
+      "covered": 600,
       "rate": 1.0,
-      "total": 500
+      "total": 600
     },
     "question_presentation_oracle_coverage": {
-      "covered": 500,
+      "covered": 600,
       "rate": 1.0,
-      "total": 500
+      "total": 600
     }
   },
   "evaluation_axes": {
@@ -323,7 +323,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:15bc3007361596289e4bf7ebea9f5538a653df7fcd931bb73adf8a96c35cdaa7",
+  "inventory_digest": "sha256:2f6e99866014193095dc3f867da0a7dff2914cc00d87ff67d28ba7a97bc1381e",
   "metric_contract": {
     "ambiguity": [
       {
@@ -963,8 +963,8 @@
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:db7d2c4f48eafe488f127676911ac26d63d742e8ea6e732f2735f87f488d9474",
-    "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:fcc042c26291bc74ce220ce57b11325d801ac2ea5d92daedb0ed22852eac99cf",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:0056c1d81b2ba2b7293a1af0a00b39d2945197cd0c5634101feb4ac304901522",
+    "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:f8fb64c18c2599565e5f874225a3cd638a52d9a2cc4e6e44686510b06b645c9a",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
     "scripts/automation/conversation_quality_sources.py": "sha256:ad55ac417e5ad437c8c113059d787c972a992fd5f6f8b52d733528fd00edfaf0",
@@ -1037,8 +1037,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 12,
-        "intent_contract_case_count": 12,
+        "golden_expectation_count": 19,
+        "intent_contract_case_count": 19,
         "topic_id": "query.gateway_diagnostic_evidence"
       },
       {
@@ -1061,14 +1061,14 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 39,
-        "intent_contract_case_count": 41,
+        "golden_expectation_count": 60,
+        "intent_contract_case_count": 62,
         "topic_id": "query.kubernetes_pod_diagnosis"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 14,
-        "intent_contract_case_count": 14,
+        "golden_expectation_count": 23,
+        "intent_contract_case_count": 23,
         "topic_id": "query.kubernetes_pod_recovery_evidence"
       },
       {
@@ -1079,8 +1079,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 13,
-        "intent_contract_case_count": 13,
+        "golden_expectation_count": 14,
+        "intent_contract_case_count": 14,
         "topic_id": "query.latency_recovery_evidence"
       },
       {
@@ -1091,32 +1091,32 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 2,
-        "intent_contract_case_count": 2,
+        "golden_expectation_count": 3,
+        "intent_contract_case_count": 3,
         "topic_id": "query.mysql_demand_metric_bundle"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 35,
-        "intent_contract_case_count": 43,
+        "golden_expectation_count": 51,
+        "intent_contract_case_count": 59,
         "topic_id": "query.mysql_pressure_evidence"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 6,
-        "intent_contract_case_count": 6,
+        "golden_expectation_count": 11,
+        "intent_contract_case_count": 11,
         "topic_id": "query.mysql_saturation_metric_bundle"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 41,
-        "intent_contract_case_count": 47,
+        "golden_expectation_count": 51,
+        "intent_contract_case_count": 57,
         "topic_id": "query.network_path_segments"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 35,
-        "intent_contract_case_count": 38,
+        "golden_expectation_count": 37,
+        "intent_contract_case_count": 40,
         "topic_id": "query.ontology_declaration"
       },
       {
@@ -1133,8 +1133,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 54,
-        "intent_contract_case_count": 31,
+        "golden_expectation_count": 56,
+        "intent_contract_case_count": 33,
         "topic_id": "query.ontology_relationships"
       },
       {
@@ -1145,8 +1145,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 2,
-        "intent_contract_case_count": 2,
+        "golden_expectation_count": 6,
+        "intent_contract_case_count": 6,
         "topic_id": "query.pod_telemetry_path"
       },
       {
@@ -1163,8 +1163,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 28,
-        "intent_contract_case_count": 32,
+        "golden_expectation_count": 30,
+        "intent_contract_case_count": 34,
         "topic_id": "query.resource_change_activity"
       },
       {
@@ -1175,8 +1175,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 6,
-        "intent_contract_case_count": 6,
+        "golden_expectation_count": 7,
+        "intent_contract_case_count": 7,
         "topic_id": "query.resource_configuration_changes"
       },
       {
@@ -1187,8 +1187,8 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 86,
-        "intent_contract_case_count": 87,
+        "golden_expectation_count": 91,
+        "intent_contract_case_count": 92,
         "topic_id": "query.resource_current_state"
       },
       {
@@ -1223,14 +1223,14 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 39,
-        "intent_contract_case_count": 39,
+        "golden_expectation_count": 42,
+        "intent_contract_case_count": 42,
         "topic_id": "query.resource_metric_series"
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 30,
-        "intent_contract_case_count": 31,
+        "golden_expectation_count": 35,
+        "intent_contract_case_count": 36,
         "topic_id": "query.resource_state_inventory"
       },
       {
@@ -1259,17 +1259,17 @@
       },
       {
         "coverage_state": "reviewed_golden",
-        "golden_expectation_count": 34,
-        "intent_contract_case_count": 34,
+        "golden_expectation_count": 40,
+        "intent_contract_case_count": 40,
         "topic_id": "query.vm_process_cpu_evidence"
       }
     ],
     "operating_domains": [
       {
         "contract_validated": {
-          "covered": 359,
+          "covered": 429,
           "rate": 1.0,
-          "total": 359
+          "total": 429
         },
         "mapping_kind": "reviewed_evaluation_crosswalk",
         "question_bank_domains": [
@@ -1278,19 +1278,19 @@
           "root_cause_analysis",
           "state_incident_detection"
         ],
-        "question_count": 359,
+        "question_count": 429,
         "reviewed": {
-          "covered": 359,
+          "covered": 429,
           "rate": 1.0,
-          "total": 359
+          "total": 429
         },
         "topic_id": "sre_operations"
       },
       {
         "contract_validated": {
-          "covered": 194,
+          "covered": 233,
           "rate": 1.0,
-          "total": 194
+          "total": 233
         },
         "mapping_kind": "reviewed_evaluation_crosswalk",
         "question_bank_domains": [
@@ -1298,49 +1298,49 @@
           "reliability_policy_automation",
           "root_cause_analysis"
         ],
-        "question_count": 194,
+        "question_count": 233,
         "reviewed": {
-          "covered": 194,
+          "covered": 233,
           "rate": 1.0,
-          "total": 194
+          "total": 233
         },
         "topic_id": "resilience_engineering"
       },
       {
         "contract_validated": {
-          "covered": 107,
+          "covered": 128,
           "rate": 1.0,
-          "total": 107
+          "total": 128
         },
         "mapping_kind": "reviewed_evaluation_crosswalk",
         "question_bank_domains": [
           "change_deployment_impact",
           "reliability_policy_automation"
         ],
-        "question_count": 107,
+        "question_count": 128,
         "reviewed": {
-          "covered": 107,
+          "covered": 128,
           "rate": 1.0,
-          "total": 107
+          "total": 128
         },
         "topic_id": "change_architecture_governance"
       },
       {
         "contract_validated": {
-          "covered": 110,
+          "covered": 141,
           "rate": 1.0,
-          "total": 110
+          "total": 141
         },
         "mapping_kind": "reviewed_evaluation_crosswalk",
         "question_bank_domains": [
           "capacity_performance_forecast",
           "cost_finops"
         ],
-        "question_count": 110,
+        "question_count": 141,
         "reviewed": {
-          "covered": 110,
+          "covered": 141,
           "rate": 1.0,
-          "total": 110
+          "total": 141
         },
         "topic_id": "finops"
       }
@@ -1349,7 +1349,7 @@
       {
         "agent": "Bragi",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 1,
+        "semantic_contract_case_count": 2,
         "topic_id": "capability_list"
       },
       {
@@ -1367,31 +1367,31 @@
       {
         "agent": "Forseti",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 1,
+        "semantic_contract_case_count": 3,
         "topic_id": "why_denied"
       },
       {
         "agent": "Forseti",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 38,
+        "semantic_contract_case_count": 49,
         "topic_id": "why_rca"
       },
       {
         "agent": "Freyr",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 46,
+        "semantic_contract_case_count": 59,
         "topic_id": "capacity_status"
       },
       {
         "agent": "Freyr",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 2,
+        "semantic_contract_case_count": 3,
         "topic_id": "sizing_recommendation"
       },
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 13,
+        "semantic_contract_case_count": 16,
         "topic_id": "anomaly"
       },
       {
@@ -1415,7 +1415,7 @@
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 29,
+        "semantic_contract_case_count": 36,
         "topic_id": "forecast"
       },
       {
@@ -1427,7 +1427,7 @@
       {
         "agent": "Heimdall",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 37,
+        "semantic_contract_case_count": 42,
         "topic_id": "resource_change_history"
       },
       {
@@ -1439,7 +1439,7 @@
       {
         "agent": "Huginn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 9,
+        "semantic_contract_case_count": 10,
         "topic_id": "event_source_health"
       },
       {
@@ -1475,7 +1475,7 @@
       {
         "agent": "Mimir",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 36,
+        "semantic_contract_case_count": 47,
         "topic_id": "policy_explain"
       },
       {
@@ -1487,7 +1487,7 @@
       {
         "agent": "Mimir",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 7,
+        "semantic_contract_case_count": 9,
         "topic_id": "rule_lookup"
       },
       {
@@ -1499,25 +1499,25 @@
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 29,
+        "semantic_contract_case_count": 30,
         "topic_id": "case_history"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 106,
+        "semantic_contract_case_count": 122,
         "topic_id": "current_state"
       },
       {
         "agent": "Muninn",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 53,
+        "semantic_contract_case_count": 61,
         "topic_id": "resource_context"
       },
       {
         "agent": "Njord",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 3,
+        "semantic_contract_case_count": 4,
         "topic_id": "budget_status"
       },
       {
@@ -1529,7 +1529,7 @@
       {
         "agent": "Njord",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 32,
+        "semantic_contract_case_count": 38,
         "topic_id": "cost_breakdown"
       },
       {
@@ -1565,7 +1565,7 @@
       {
         "agent": "Odin",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 14,
+        "semantic_contract_case_count": 17,
         "topic_id": "priority_conflict"
       },
       {
@@ -1607,13 +1607,13 @@
       {
         "agent": "Var",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 8,
+        "semantic_contract_case_count": 13,
         "topic_id": "hil_pending"
       },
       {
         "agent": "Vidar",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 13,
+        "semantic_contract_case_count": 15,
         "topic_id": "dr_readiness"
       },
       {
@@ -1625,11 +1625,109 @@
       {
         "agent": "Vidar",
         "coverage_state": "covered",
-        "semantic_contract_case_count": 6,
+        "semantic_contract_case_count": 7,
         "topic_id": "rollback_status"
       }
     ],
     "question_bank_categories": [
+      {
+        "contract_validated": {
+          "covered": 46,
+          "rate": 1.0,
+          "total": 46
+        },
+        "question_count": 46,
+        "reviewed": {
+          "covered": 46,
+          "rate": 1.0,
+          "total": 46
+        },
+        "topic_id": "aks_kubernetes"
+      },
+      {
+        "contract_validated": {
+          "covered": 44,
+          "rate": 1.0,
+          "total": 44
+        },
+        "question_count": 44,
+        "reviewed": {
+          "covered": 44,
+          "rate": 1.0,
+          "total": 44
+        },
+        "topic_id": "azure_infrastructure_network"
+      },
+      {
+        "contract_validated": {
+          "covered": 32,
+          "rate": 1.0,
+          "total": 32
+        },
+        "question_count": 32,
+        "reviewed": {
+          "covered": 32,
+          "rate": 1.0,
+          "total": 32
+        },
+        "topic_id": "capacity_scaling"
+      },
+      {
+        "contract_validated": {
+          "covered": 27,
+          "rate": 1.0,
+          "total": 27
+        },
+        "question_count": 27,
+        "reviewed": {
+          "covered": 27,
+          "rate": 1.0,
+          "total": 27
+        },
+        "topic_id": "change_deployment_release"
+      },
+      {
+        "contract_validated": {
+          "covered": 40,
+          "rate": 1.0,
+          "total": 40
+        },
+        "question_count": 40,
+        "reviewed": {
+          "covered": 40,
+          "rate": 1.0,
+          "total": 40
+        },
+        "topic_id": "cost_finops"
+      },
+      {
+        "contract_validated": {
+          "covered": 46,
+          "rate": 1.0,
+          "total": 46
+        },
+        "question_count": 46,
+        "reviewed": {
+          "covered": 46,
+          "rate": 1.0,
+          "total": 46
+        },
+        "topic_id": "current_health"
+      },
+      {
+        "contract_validated": {
+          "covered": 31,
+          "rate": 1.0,
+          "total": 31
+        },
+        "question_count": 31,
+        "reviewed": {
+          "covered": 31,
+          "rate": 1.0,
+          "total": 31
+        },
+        "topic_id": "database_storage"
+      },
       {
         "contract_validated": {
           "covered": 34,
@@ -1642,7 +1740,7 @@
           "rate": 1.0,
           "total": 34
         },
-        "topic_id": "aks_kubernetes"
+        "topic_id": "dependency_impact"
       },
       {
         "contract_validated": {
@@ -1656,145 +1754,47 @@
           "rate": 1.0,
           "total": 36
         },
-        "topic_id": "azure_infrastructure_network"
-      },
-      {
-        "contract_validated": {
-          "covered": 26,
-          "rate": 1.0,
-          "total": 26
-        },
-        "question_count": 26,
-        "reviewed": {
-          "covered": 26,
-          "rate": 1.0,
-          "total": 26
-        },
-        "topic_id": "capacity_scaling"
-      },
-      {
-        "contract_validated": {
-          "covered": 19,
-          "rate": 1.0,
-          "total": 19
-        },
-        "question_count": 19,
-        "reviewed": {
-          "covered": 19,
-          "rate": 1.0,
-          "total": 19
-        },
-        "topic_id": "change_deployment_release"
-      },
-      {
-        "contract_validated": {
-          "covered": 32,
-          "rate": 1.0,
-          "total": 32
-        },
-        "question_count": 32,
-        "reviewed": {
-          "covered": 32,
-          "rate": 1.0,
-          "total": 32
-        },
-        "topic_id": "cost_finops"
-      },
-      {
-        "contract_validated": {
-          "covered": 38,
-          "rate": 1.0,
-          "total": 38
-        },
-        "question_count": 38,
-        "reviewed": {
-          "covered": 38,
-          "rate": 1.0,
-          "total": 38
-        },
-        "topic_id": "current_health"
-      },
-      {
-        "contract_validated": {
-          "covered": 23,
-          "rate": 1.0,
-          "total": 23
-        },
-        "question_count": 23,
-        "reviewed": {
-          "covered": 23,
-          "rate": 1.0,
-          "total": 23
-        },
-        "topic_id": "database_storage"
-      },
-      {
-        "contract_validated": {
-          "covered": 28,
-          "rate": 1.0,
-          "total": 28
-        },
-        "question_count": 28,
-        "reviewed": {
-          "covered": 28,
-          "rate": 1.0,
-          "total": 28
-        },
-        "topic_id": "dependency_impact"
-      },
-      {
-        "contract_validated": {
-          "covered": 28,
-          "rate": 1.0,
-          "total": 28
-        },
-        "question_count": 28,
-        "reviewed": {
-          "covered": 28,
-          "rate": 1.0,
-          "total": 28
-        },
         "topic_id": "incident"
       },
       {
         "contract_validated": {
-          "covered": 34,
+          "covered": 42,
           "rate": 1.0,
-          "total": 34
+          "total": 42
         },
-        "question_count": 34,
+        "question_count": 42,
         "reviewed": {
-          "covered": 34,
+          "covered": 42,
           "rate": 1.0,
-          "total": 34
+          "total": 42
         },
         "topic_id": "metrics_observability"
       },
       {
         "contract_validated": {
-          "covered": 20,
+          "covered": 28,
           "rate": 1.0,
-          "total": 20
+          "total": 28
         },
-        "question_count": 20,
+        "question_count": 28,
         "reviewed": {
-          "covered": 20,
+          "covered": 28,
           "rate": 1.0,
-          "total": 20
+          "total": 28
         },
         "topic_id": "prediction"
       },
       {
         "contract_validated": {
-          "covered": 32,
+          "covered": 44,
           "rate": 1.0,
-          "total": 32
+          "total": 44
         },
-        "question_count": 32,
+        "question_count": 44,
         "reviewed": {
-          "covered": 32,
+          "covered": 44,
           "rate": 1.0,
-          "total": 32
+          "total": 44
         },
         "topic_id": "root_cause"
       },
@@ -1816,99 +1816,99 @@
     "question_bank_domains": [
       {
         "contract_validated": {
-          "covered": 76,
+          "covered": 98,
           "rate": 1.0,
-          "total": 76
+          "total": 98
         },
-        "question_count": 76,
+        "question_count": 98,
         "reviewed": {
-          "covered": 76,
+          "covered": 98,
           "rate": 1.0,
-          "total": 76
+          "total": 98
         },
         "topic_id": "capacity_performance_forecast"
       },
       {
         "contract_validated": {
-          "covered": 45,
+          "covered": 51,
           "rate": 1.0,
-          "total": 45
+          "total": 51
         },
-        "question_count": 45,
+        "question_count": 51,
         "reviewed": {
-          "covered": 45,
+          "covered": 51,
           "rate": 1.0,
-          "total": 45
+          "total": 51
         },
         "topic_id": "change_deployment_impact"
       },
       {
         "contract_validated": {
-          "covered": 34,
+          "covered": 43,
           "rate": 1.0,
-          "total": 34
+          "total": 43
         },
-        "question_count": 34,
+        "question_count": 43,
         "reviewed": {
-          "covered": 34,
+          "covered": 43,
           "rate": 1.0,
-          "total": 34
+          "total": 43
         },
         "topic_id": "cost_finops"
       },
       {
         "contract_validated": {
-          "covered": 61,
+          "covered": 70,
           "rate": 1.0,
-          "total": 61
+          "total": 70
         },
-        "question_count": 61,
+        "question_count": 70,
         "reviewed": {
-          "covered": 61,
+          "covered": 70,
           "rate": 1.0,
-          "total": 61
+          "total": 70
         },
         "topic_id": "dependency_impact"
       },
       {
         "contract_validated": {
-          "covered": 62,
+          "covered": 77,
           "rate": 1.0,
-          "total": 62
+          "total": 77
         },
-        "question_count": 62,
+        "question_count": 77,
         "reviewed": {
-          "covered": 62,
+          "covered": 77,
           "rate": 1.0,
-          "total": 62
+          "total": 77
         },
         "topic_id": "reliability_policy_automation"
       },
       {
         "contract_validated": {
-          "covered": 71,
+          "covered": 86,
           "rate": 1.0,
-          "total": 71
+          "total": 86
         },
-        "question_count": 71,
+        "question_count": 86,
         "reviewed": {
-          "covered": 71,
+          "covered": 86,
           "rate": 1.0,
-          "total": 71
+          "total": 86
         },
         "topic_id": "root_cause_analysis"
       },
       {
         "contract_validated": {
-          "covered": 151,
+          "covered": 175,
           "rate": 1.0,
-          "total": 151
+          "total": 175
         },
-        "question_count": 151,
+        "question_count": 175,
         "reviewed": {
-          "covered": 151,
+          "covered": 175,
           "rate": 1.0,
-          "total": 151
+          "total": 175
         },
         "topic_id": "state_incident_detection"
       }

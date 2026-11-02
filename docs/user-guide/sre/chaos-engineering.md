@@ -80,7 +80,7 @@ abort rate, rollback success, recovery time, and unexpected impact. A successful
 injection without verified recovery is not a successful experiment.
 
 The [scenario validation inventory](scenario-validation-inventory.md) separates
-all 132 catalog entries from the 18-scenario shadow-coverage pack, the 10 live
+all 157 catalog entries from the 18-scenario shadow-coverage pack, the 10 live
 enforce validations, and the independent frozen control-loop scenarios.
 
 ## Next steps

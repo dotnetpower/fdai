@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.topology-spread-skew-hotspot
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/
+  source_ref: section=spread-constraint-definition;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: node
+fault_family: saturate
+intensity: mild
+duration_seconds: 360
+expected_signal: node_cpu
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Apply zone and hostname topologySpreadConstraints and rebalance Deployment
+  replicas.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Missing topologySpreadConstraints concentrates replicas onto a single
+  zone or node under traffic load.
+tags:
+- kubernetes
+- vendor-doc

@@ -121,7 +121,7 @@ already valid.
 | On-call and escalation | [On-call and escalation](on-call-and-escalation.md) | Partial until a paging adapter and direct-message targeting are bound |
 | Post-incident learning | [Postmortems and learning](postmortems-and-learning.md) | Covered |
 | Outcome measurement | [Measuring SRE outcomes](measuring-sre-outcomes.md) | Covered when baseline and treatment windows exist |
-| Scenario evidence | [Scenario validation inventory](scenario-validation-inventory.md) | 18 demo, 10 live enforcement, 9 frozen replay, 132 catalog scenarios |
+| Scenario evidence | [Scenario validation inventory](scenario-validation-inventory.md) | 18 demo, 10 live enforcement, 9 frozen replay, 157 catalog scenarios |
 | Disaster recovery | [Disaster recovery and drills](disaster-recovery-and-drills.md) | Covered for shipped drills and adapters |
 | Chaos engineering | [Chaos engineering](chaos-engineering.md) | Covered, and every scenario starts in observation mode |
 

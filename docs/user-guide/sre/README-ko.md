@@ -2,8 +2,8 @@
 title: 사이트 신뢰성 엔지니어링
 description: 신호와 인시던트부터 대응, 복구, 학습까지 이어지는 FDAI의 SRE 운영 모델을 살펴봅니다.
 translation_of: README.md
-translation_source_sha: dbfcf2ed0f47ed20f8a222ded2fe57c1778e9915
-translation_revised: 2026-10-22
+translation_source_sha: d143efd71cd1604708c84dd420edafee97a44db7
+translation_revised: 2026-11-03
 ---
 
 # 사이트 신뢰성 엔지니어링
@@ -114,7 +114,7 @@ FDAI는 근거가 없다고 해서 정상이라고 보지 않습니다. 프로�
 | 온콜과 에스컬레이션 | [온콜과 에스컬레이션](on-call-and-escalation-ko.md) | 페이징 어댑터와 개인 메시지 지정이 연결될 때까지는 부분 지원입니다. |
 | 인시던트 이후 학습 | [포스트모템과 학습](postmortems-and-learning-ko.md) | 지원됩니다. |
 | 성과 측정 | [SRE 성과 측정](measuring-sre-outcomes-ko.md) | 기준선과 적용군 측정 기간이 있으면 지원됩니다. |
-| 시나리오 근거 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) | 데모 18개, 실제 적용 모드 10개, 고정 재생 9개, 카탈로그 시나리오 132개 |
+| 시나리오 근거 | [시나리오 검증 인벤토리](scenario-validation-inventory-ko.md) | 데모 18개, 실제 적용 모드 10개, 고정 재생 9개, 카탈로그 시나리오 157개 |
 | 재해 복구 | [재해 복구와 훈련](disaster-recovery-and-drills-ko.md) | 제공되는 훈련과 어댑터 범위에서 지원됩니다. |
 | 카오스 엔지니어링 | [카오스 엔지니어링](chaos-engineering-ko.md) | 지원됩니다. 모든 시나리오는 관찰 모드에서 시작합니다. |
 

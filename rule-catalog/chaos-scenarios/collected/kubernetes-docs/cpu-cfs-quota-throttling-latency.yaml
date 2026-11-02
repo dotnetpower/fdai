@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+  source_ref: section=how-pods-with-resource-limits-are-run;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: resource_saturation
+target_type: pod
+fault_family: throttle
+intensity: high
+duration_seconds: 360
+expected_signal: gateway_latency
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Raise the container CPU limit or right-size worker thread concurrency.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Restrictive container CPU limit triggers Linux CFS bandwidth throttling
+  and elevates tail request latency.
+tags:
+- kubernetes
+- vendor-doc
