@@ -169,6 +169,9 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
                 quotes[index] = holder["span"]
     if failures:
         return FormResolution(None, tuple(dict.fromkeys(failures)), tuple(notes[:16]))
+    from .semantic_reasoning_relabel import normalize_raw_proposal_payload
+
+    normalize_raw_proposal_payload(payload, utterance)
     measure_words_to_cue(mentions, goals)
     valueless_window_to_unspecified(goals)
     _normalize_comparison_values(goals, utterance)
@@ -208,6 +211,8 @@ _QUOTE_TRAILING_PARTICLES = (
     "에게",
     "으로",
     "로",
+    "된",
+    "한",
     "이",
     "가",
     "을",
@@ -286,14 +291,26 @@ def _locate_typo_quote(text: str, utterance: str) -> tuple[int, int] | None:
             last_start, last_end, last_raw = tokens[i + win - 1]
             mid_parts = [tokens[j][2] for j in range(i, i + win - 1)]
             full_compact = "".join((*mid_parts, last_raw))
-            if _one_edit_match(compact_target, full_compact):
+            has_hangul = any("가" <= ch <= "힣" for ch in compact_target)
+            if (has_hangul and compact_target == full_compact) or _one_edit_match(
+                compact_target, full_compact
+            ):
                 matches.append((span_start, last_end))
                 continue
             stem_last = _strip_quote_particle(last_raw)
-            if stem_last != last_raw:
-                stem_compact = "".join((*mid_parts, stem_last))
-                if _one_edit_match(compact_target, stem_compact):
-                    matches.append((span_start, last_start + len(stem_last)))
+            stem_mids = [_strip_quote_particle(p) for p in mid_parts]
+            for m_parts, s_last, end_pos in (
+                (mid_parts, stem_last, last_start + len(stem_last)),
+                (stem_mids, last_raw, last_end),
+                (stem_mids, stem_last, last_start + len(stem_last)),
+            ):
+                stem_compact = "".join((*m_parts, s_last))
+                if stem_compact != full_compact and (
+                    (has_hangul and compact_target == stem_compact)
+                    or _one_edit_match(compact_target, stem_compact)
+                ):
+                    matches.append((span_start, end_pos))
+                    break
     unique = list(dict.fromkeys(matches))
     return unique[0] if len(unique) == 1 else None
 
@@ -427,20 +444,23 @@ def measure_words_to_cue(mentions: list[Any], goals: list[Any]) -> None:
 def valueless_window_to_unspecified(goals: list[Any]) -> None:
     """Keep a qualitative time cue (such as 'recent' / '최근' with no number) as unspecified.
 
-    When the proposer labels a numberless time cue as ``window`` with ``value: null``,
-    the closed schema requires ``unspecified`` so the history compiler applies its
-    default window while still accounting for the quoted time cue span.
+    When the proposer labels a numberless time cue as ``window`` or ``as_of`` with ``value: null``
+    (or an empty TemporalValue dict), the closed schema requires ``unspecified`` so the history
+    compiler applies its default window while still accounting for the quoted time cue span.
     """
 
     for goal in goals:
         time_field = goal.get("time") if isinstance(goal, dict) else None
-        if (
-            isinstance(time_field, dict)
-            and time_field.get("kind") == "window"
-            and time_field.get("value") is None
-            and not time_field.get("windows")
-            and isinstance(time_field.get("cue"), dict)
-        ):
+        if not isinstance(time_field, dict) or time_field.get("windows"):
+            continue
+        val = time_field.get("value")
+        is_empty = val is None or (
+            isinstance(val, dict)
+            and val.get("duration") is None
+            and val.get("calendar_offset_days") is None
+        )
+        if is_empty and time_field.get("kind") in {"window", "as_of"}:
+            time_field["value"] = None
             time_field["kind"] = "unspecified"
 
 

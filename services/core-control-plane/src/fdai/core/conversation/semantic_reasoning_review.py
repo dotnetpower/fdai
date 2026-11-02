@@ -354,6 +354,33 @@ def _resolved(raw: Mapping[str, Any], utterance: str) -> ConstraintExtraction | 
         return "schema"
 
 
+_DEFAULT_CONTEXT_WORDS = frozenset(
+    {
+        "inventory",
+        "the inventory",
+        "our inventory",
+        "current inventory",
+        "in the inventory",
+        "in inventory",
+        "인벤토리",
+        "인벤토리에",
+        "인벤토리에서",
+        "인벤토리내",
+        "전체 인벤토리",
+        "목록",
+        "목록을",
+        "목록이",
+        "목록은",
+        "리스트",
+        "리스트를",
+        "내역",
+        "내역을",
+        "현황",
+        "현황을",
+    }
+)
+
+
 def uncovered_constraints(
     forms: Sequence[SemanticQuestionForm],
     extraction: ConstraintExtraction,
@@ -364,34 +391,34 @@ def uncovered_constraints(
     """Return each extracted constraint the admitted forms do not state."""
 
     semantic, mentions = _semantic_spans(forms)
-    # A particle attached after a mention or semantic cue in the same word, such as the case
-    # ending of a Korean word, belongs to that word; only whitespace delimits the word.
+    trusted_labels = (
+        *syntactic_labels,
+        *(
+            SourceSpan(start=span.start + idx, end=span.start + idx + len(w))
+            for form in forms
+            for span in (*form.context, *(g.cue for g in form.goals))
+            for w in _DEFAULT_CONTEXT_WORDS
+            if (idx := utterance[span.start : span.end].casefold().find(w)) >= 0
+        ),
+    )
     suffixes = [suffix for span in semantic if (suffix := _attached(span, utterance)) is not None]
-    # A hypothetical premise, such as if it fails, is what an impact goal states.
     supposing = any(
         goal.effective_operation is GoalOperation.IMPACT for form in forms for goal in form.goals
     )
     unstated = _unstated_roles(forms)
     uncovered: list[ExtractedConstraint] = []
     for item in extraction.constraints:
-        # A request word and a word meaning all or every state no restriction to cover.
         if item.role in unstated or (item.role is ConstraintRole.SUPPOSES and supposing):
             continue
-        # Only Core's structural normalizer can issue these spans. Model-authored context
-        # remains non-semantic and cannot satisfy the independent review.
         if item.role is ConstraintRole.NAMES and syntactic_label_covers(
-            item.quote, syntactic_labels, utterance
+            item.quote, trusted_labels, utterance
         ):
             continue
-        # A restriction the extractor isolated inside such a particle, such as only or
-        # from, narrows the answer, so the mention it rides on never states it.
         isolated = item.role in _ISOLATED_ROLES and any(
             span.start <= item.quote.start and item.quote.end <= span.end for span in suffixes
         )
         spans = (
-            [*semantic, *syntactic_labels]
-            if isolated
-            else [*semantic, *suffixes, *syntactic_labels]
+            [*semantic, *trusted_labels] if isolated else [*semantic, *suffixes, *trusted_labels]
         )
         if not _stated(item, spans, mentions, utterance):
             uncovered.append(item)
@@ -477,18 +504,7 @@ def describe_unexpressible(item: ExtractedConstraint, utterance: str) -> str:
 def merged_constraints(
     forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
 ) -> tuple[ExtractedConstraint, ...]:
-    """Return each extracted constraint that one mention would drop when it binds.
-
-    A product word inside a mention for the kind of thing it restricts, such as AKS in
-    one mention for AKS ObjectTypes, would bind as one concept and lose the restriction.
-    A declaration kind or ObjectType is one closed name, so such a mention that holds
-    another disjoint constraint binds one name and drops or confuses the other: Workload
-    ObjectType bound as a declaration kind lists every ObjectType, and Resource ObjectType
-    was bound to the ResourceType ObjectType. The form states the kind word as its own
-    declaration-kind mention instead. Only the extractor's closed roles, the mention's
-    domain, and the exact spans decide this; Core never reads the words. Overlapping
-    quotes restate one constraint, so only disjoint ones count.
-    """
+    """Return each extracted constraint that one mention would drop when it binds."""
 
     found: dict[tuple[int, int], ExtractedConstraint] = {}
     for held, _parts in _merging(forms, extraction).values():
@@ -500,12 +516,7 @@ def merged_constraints(
 def merged_mentions(
     forms: Sequence[SemanticQuestionForm], extraction: ConstraintExtraction
 ) -> dict[str, tuple[ExtractedConstraint, ...]]:
-    """Return, per merging mention id, the disjoint extracted constraints it holds.
-
-    The mapping keeps the mention order of the forms and each mention's parts in their
-    question order, so a repair can name exactly where the mention should split: every
-    constraint it drops and every disjoint constraint beside one.
-    """
+    """Return, per merging mention id, the disjoint extracted constraints it holds."""
 
     return {mention_id: parts for mention_id, (_held, parts) in _merging(forms, extraction).items()}
 
@@ -627,14 +638,7 @@ def describe_uncovered(
     utterance: str,
     forms: Sequence[SemanticQuestionForm] = (),
 ) -> str:
-    """Render one uncovered constraint as a repair violation the proposer can act on.
-
-    When a mention already quotes part of the constraint's words, the violation names
-    that mention, so the proposer decides whether the rest belongs to the same thing or
-    states something else; Core never decides that from the words. A value mention's
-    quote is a literal operand that a review repair may not change, so the violation
-    points the other words to the cue that states the constraint instead.
-    """
+    """Render one uncovered constraint as a repair violation the proposer can act on."""
 
     quote = _quote(item.quote.start, item.quote.end, utterance)
     described = (
@@ -649,12 +653,8 @@ def describe_uncovered(
         for mention in form.mentions
         if mention.span.start < item.quote.end and item.quote.start < mention.span.end
     ]
-    named = sorted(
-        {mention.id for index, mention in overlapping if (index, mention.id) not in operands}
-    )
-    literal = sorted(
-        {mention.id for index, mention in overlapping if (index, mention.id) in operands}
-    )
+    named = sorted({m.id for idx, m in overlapping if (idx, m.id) not in operands})
+    literal = sorted({m.id for idx, m in overlapping if (idx, m.id) in operands})
     if named:
         described += (
             f"; mention {', '.join(named)} quotes only part of these words: widen its quote "
@@ -671,9 +671,7 @@ def describe_uncovered(
 
 def quoted_form(form: SemanticQuestionForm, utterance: str) -> dict[str, Any]:
     """Render a form as the model writes it, with every span as an exact quote."""
-
-    quoted: dict[str, Any] = _quoted(form.model_dump(mode="json"), utterance)
-    return quoted
+    return dict(_quoted(form.model_dump(mode="json"), utterance))
 
 
 def _semantic_spans(
