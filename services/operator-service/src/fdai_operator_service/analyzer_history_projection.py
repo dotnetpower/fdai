@@ -25,11 +25,13 @@ WITH visible AS MATERIALIZED (
 ), grouped AS (
     SELECT value->>'idempotency_key' AS identity,
            MAX((value->>'occurred_at')::timestamptz) AS occurred,
-           encode(sha256(convert_to(value->>'idempotency_key', 'UTF8')), 'hex') AS sort_key,
+           encode(sha256(convert_to(
+               (value->>'idempotency_key') || chr(10) || (value->>'occurred_at'), 'UTF8')),
+               'hex') AS sort_key,
            (array_agg(value ORDER BY updated_at DESC, key DESC))[1] AS latest,
            jsonb_agg(jsonb_build_object('value', value)
                      ORDER BY updated_at DESC, key DESC) AS receipts
-    FROM visible GROUP BY value->>'idempotency_key'
+    FROM visible GROUP BY value->>'idempotency_key', value->>'occurred_at'
 ), filtered AS MATERIALIZED (
     SELECT * FROM grouped
     WHERE (%s = '' OR strpos(lower(latest::text), lower(%s)) > 0)

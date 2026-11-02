@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 28c5c70fd3b9571c1a362c3316037e0c10b5649e
+translation_source_sha: f26a11b3c486bdb980c11d2a81db7dad1b723d43
 translation_revised: 2026-11-03
 ---
 # 관측성 및 탐지(Observability and Detection)
@@ -609,6 +609,11 @@ telemetry / metrics
 정리할 수 있으며, 전체 실행 보고서의 보존은 이와 별개로 기본 500건 제한을 유지합니다.
 페이지 조회는 이전 정책에 따라 이미 삭제된 레코드를 복원하지 않으며 감사, 승인 또는 실행
 권한을 부여하지 않습니다.
+재시도에도 유지되는 게시 구간 키는 관찰 신원이 아닙니다. 증적 저장과 이력 조회는 게시 시도를
+이 키와 정확한 관찰 시각의 조합으로 묶으며, 같은 중복 억제 구간의 이후 샘플도 자체 근거를
+유지합니다. 표시 데이터의 `assessment_id`는 원래 게시 키를 바꾸지 않고 이 조합을 식별합니다.
+이전 형식의 정확한 재시도도 멱등성을 유지합니다. 같은 게시 구간에서도 현재 Finding의 관찰을
+갱신할 수 있지만 알림을 반복하지는 않습니다. 같은 관찰 시각에 내용이 충돌하면 계속 차단합니다.
 보호된 분리 서비스 배포는 다이제스트로 고정된 GHCR OCI 대상을 통해 provenance, SBOM, Core
 모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
 않습니다.

@@ -422,7 +422,7 @@ REFERENCE_SEEDS = (
         knowledge_id="system-knowledge-service",
         subject_id="system-knowledge-service",
         title="System Knowledge Service",
-        status=SystemKnowledgeStatus.IN_PROGRESS,
+        status=SystemKnowledgeStatus.IMPLEMENTED,
         owner="Muninn and Bragi",
         question_aliases=(
             "How does the FDAI system knowledge bot work?",
@@ -433,7 +433,7 @@ REFERENCE_SEEDS = (
             "The service exposes no operational provider, approval, or execution capability.",
         ),
         implemented_behavior=(
-            "The independent package, catalog compiler, deterministic search, Teams boundary, and focused tests are part of the current change.",
+            "The independent package, 21-record catalog compiler, deterministic search, Bot Framework and Outgoing Webhook Teams boundaries, Managed Identity Blob CAS claim ledger, incremental cost estimator, and <15m disable/restore rehearsal are implemented.",
         ),
         limitations=(
             "Production Teams registration, persistent-volume binding, scale evidence, and timed rollback remain open.",

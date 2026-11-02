@@ -11,11 +11,16 @@ import json
 import os
 import re
 from collections.abc import Mapping
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-_DIGEST_IMAGE = re.compile(r"^ghcr\.io/[a-z0-9_.-]+/[a-z0-9_.-]+@sha256:[0-9a-f]{64}$")
+_DIGEST_IMAGE = re.compile(
+    r"^(?:ghcr\.io/[a-z0-9_.-]+(?:/[a-z0-9_.-]+)?/[a-z0-9_.-]+|"
+    r"[a-z0-9][a-z0-9-]{3,48}[a-z0-9]\.azurecr\.io(?:/[a-z0-9_.-]+)?/fdai-system-knowledge-service)"
+    r"@sha256:[0-9a-f]{64}$"
+)
 _GIT_REVISION = re.compile(r"^[0-9a-f]{40}$")
 _GUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 _NAME = re.compile(r"^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$")
@@ -75,7 +80,9 @@ def build_inputs(
         _DIGEST_IMAGE.fullmatch(image_ref) is None
         or _DIGEST_IMAGE.fullmatch(previous_image_ref) is None
     ):
-        raise DeploymentInputError("service images must be digest-pinned GHCR references")
+        raise DeploymentInputError(
+            "service images must be digest-pinned GHCR or platform ACR references"
+        )
     if _GIT_REVISION.fullmatch(source_revision) is None:
         raise DeploymentInputError("source revision must be a lowercase Git object id")
 
@@ -139,6 +146,12 @@ def build_inputs(
     container_environment = _output(platform_outputs, "container_app_environment_id")
     registry_name = _output(platform_outputs, "container_registry_name")
     registry_server = _output(platform_outputs, "container_registry_login_server")
+    for candidate_image in (image_ref, previous_image_ref):
+        registry_host = candidate_image.split("/", 1)[0]
+        if registry_host.endswith(".azurecr.io") and registry_host != registry_server:
+            raise DeploymentInputError(
+                "ACR service image must use the platform container_registry_login_server"
+            )
     vault_uri = _output(platform_outputs, "key_vault_uri")
     storage_name = _output(platform_outputs, "document_storage_account_name")
     if not storage_name:
@@ -218,6 +231,7 @@ def build_inputs(
             "fdai:layer": "system-knowledge",
         },
     }
+    cost_estimate = estimate_incremental_cost(tfvars)
     context_body: dict[str, object] = {
         "schema_version": "fdai.system-knowledge-deployment.v1",
         "transition": transition,
@@ -230,8 +244,82 @@ def build_inputs(
         "teams_profile_digest": _digest(profile),
         "principal_map_digest": _digest(principal_map),
         "outgoing_hmac_digest": _digest(hmac_secret) if hmac_secret is not None else None,
+        "incremental_cost": cost_estimate,
     }
     return tfvars, {**context_body, "context_digest": _digest(context_body)}
+
+
+def estimate_incremental_cost(
+    tfvars: Mapping[str, Any],
+    *,
+    development_budget_usd: Decimal = Decimal("15.00"),
+    parent_baseline_usd: Decimal = Decimal("71.00"),
+) -> dict[str, object]:
+    """Compute the bounded monthly incremental cost for the System Knowledge Service."""
+
+    enabled = bool(tfvars.get("enabled", True))
+    scaling = tfvars.get("scaling")
+    teams = tfvars.get("teams")
+    if not isinstance(scaling, Mapping) or not isinstance(teams, Mapping):
+        raise DeploymentInputError("scaling and teams settings are required for cost estimation")
+    min_replicas = scaling.get("min_replicas")
+    max_replicas = scaling.get("max_replicas")
+    cpu = scaling.get("cpu")
+    memory = scaling.get("memory")
+    if min_replicas != 1 or max_replicas != 1 or cpu != 0.5 or memory != "1Gi":
+        raise DeploymentInputError(
+            "System Knowledge Service must remain single-replica 0.5 vCPU / 1Gi"
+        )
+    transport = str(teams.get("transport", "bot_framework"))
+    container_app_usd = Decimal("6.85") if enabled else Decimal("0.00")
+    blob_claims_usd = Decimal("0.05") if enabled else Decimal("0.00")
+    key_vault_usd = Decimal("0.03") if enabled else Decimal("0.00")
+    total_usd = container_app_usd + blob_claims_usd + key_vault_usd
+    twenty_percent_ceiling = (parent_baseline_usd * Decimal("0.20")).quantize(Decimal("0.01"))
+    if total_usd > development_budget_usd or total_usd > twenty_percent_ceiling:
+        raise DeploymentInputError("System Knowledge Service incremental cost exceeds budget")
+    return {
+        "schema_version": "fdai.system-knowledge-cost.v1",
+        "enabled": enabled,
+        "teams_transport": transport,
+        "monthly_incremental_usd": str(total_usd),
+        "development_budget_usd": str(development_budget_usd),
+        "parent_five_service_baseline_usd": str(parent_baseline_usd),
+        "parent_twenty_percent_ceiling_usd": str(twenty_percent_ceiling),
+        "within_development_budget": total_usd <= development_budget_usd,
+        "within_parent_twenty_percent_gate": total_usd <= twenty_percent_ceiling,
+        "lines": [
+            {
+                "component": "azurerm_container_app.service",
+                "sku": "Consumption (1 replica, 0.5 vCPU, 1Gi idle-metered)",
+                "monthly_usd": str(container_app_usd),
+            },
+            {
+                "component": "azurerm_storage_container.claims",
+                "sku": "Private Blob CAS container (LRS)",
+                "monthly_usd": str(blob_claims_usd),
+            },
+            {
+                "component": "key_vault_secret_references",
+                "sku": "Standard Key Vault secret operations",
+                "monthly_usd": str(key_vault_usd),
+            },
+            {
+                "component": "azurerm_user_assigned_identity.service_and_roles",
+                "sku": "Free (1 UAMI + 3 role assignments)",
+                "monthly_usd": "0.00",
+            },
+            {
+                "component": "teams_transport",
+                "sku": (
+                    "Team-scoped Outgoing Webhook (no Azure Bot)"
+                    if transport == "outgoing_webhook"
+                    else "Azure Bot F0 (Free tier)"
+                ),
+                "monthly_usd": "0.00",
+            },
+        ],
+    }
 
 
 def write_private_json(path: Path, value: Mapping[str, object]) -> None:

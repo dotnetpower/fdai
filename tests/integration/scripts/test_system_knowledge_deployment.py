@@ -309,3 +309,84 @@ def test_secret_materializer_validates_outgoing_hmac_and_reads_back() -> None:
             access_token="header.payload.signature",
             transport=client,
         )
+
+
+def test_prepare_and_guard_accept_contributor_acr_and_three_segment_ghcr_images() -> None:
+    prepare = _module(PREPARE, "prepare_system_knowledge_acr")
+    guard = _module(GUARD, "guard_system_knowledge_acr")
+    acr_image = "crexample.azurecr.io/fdai-system-knowledge-service@sha256:" + ("c" * 64)
+    ghcr_repo_image = "ghcr.io/dotnetpower/fdai/fdai-system-knowledge-service@sha256:" + ("d" * 64)
+
+    tfvars, context = prepare.build_inputs(
+        platform_outputs=_platform_outputs(),
+        teams_profile_json=_outgoing_profile(),
+        principal_map_json='{"aad-example":"principal-example"}',
+        subscription_id="00000000-0000-0000-0000-000000000001",
+        region="westus3",
+        environment="dev",
+        image_ref=acr_image,
+        previous_image_ref=ghcr_repo_image,
+        source_revision="b" * 40,
+        transition="bootstrap",
+    )
+    assert tfvars["image"] == acr_image
+    assert context["incremental_cost"]["within_development_budget"] is True
+    assert context["incremental_cost"]["within_parent_twenty_percent_gate"] is True
+
+    with pytest.raises(prepare.DeploymentInputError, match="container_registry_login_server"):
+        prepare.build_inputs(
+            platform_outputs=_platform_outputs(),
+            teams_profile_json=_outgoing_profile(),
+            principal_map_json='{"aad-example":"principal-example"}',
+            subscription_id="00000000-0000-0000-0000-000000000001",
+            region="westus3",
+            environment="dev",
+            image_ref="otheracr.azurecr.io/fdai-system-knowledge-service@sha256:" + ("e" * 64),
+            previous_image_ref=acr_image,
+            source_revision="b" * 40,
+            transition="bootstrap",
+        )
+
+    disable_receipt = guard.validate_disable_rollback(
+        outputs={
+            "service": {"value": None},
+            "identity": {"value": None},
+            "bot": {"value": None},
+            "claim_store": {"value": None},
+        },
+        state_addresses=[],
+        elapsed_seconds=120,
+    )
+    assert disable_receipt["within_fifteen_minutes"] is True
+    with pytest.raises(guard.SystemKnowledgePlanError, match="rollback ceiling"):
+        guard.validate_disable_rollback(
+            outputs={
+                "service": {"value": None},
+                "identity": {"value": None},
+                "bot": {"value": None},
+                "claim_store": {"value": None},
+            },
+            state_addresses=[],
+            elapsed_seconds=901,
+        )
+
+
+async def test_outgoing_webhook_rollout_rehearsal_script_succeeds() -> None:
+    rehearse = _module(
+        ROOT / "scripts/deployment/system_knowledge/rehearse_outgoing_webhook.py",
+        "rehearse_system_knowledge_outgoing",
+    )
+    receipt = await rehearse.rehearse_outgoing_webhook_rollout(
+        image_ref="crexample.azurecr.io/fdai-system-knowledge-service@sha256:" + ("a" * 64)
+    )
+    assert receipt["schema_version"] == "fdai.system-knowledge-rollout-rehearsal.v1"
+    transitions = receipt["transitions"]
+    assert transitions["bootstrap"]["unconfigured_webhook_http_status"] == 503
+    assert transitions["mention_and_replay"]["first_claim_state"] == "responded"
+    assert transitions["mention_and_replay"]["replay_claim_state"] == "duplicate"
+    assert transitions["restart_recovery"]["delivered_claim_after_restart"] == "duplicate"
+    assert transitions["restart_recovery"]["ambiguous_claim_after_restart"] == "ambiguous"
+    assert transitions["restart_recovery"]["interrupted_processing_after_restart"] == "responded"
+    assert transitions["incremental_cost"]["within_development_budget"] is True
+    assert transitions["disable"]["within_fifteen_minutes"] is True
+    assert transitions["restore"]["restored_enabled"] is True

@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:31a8dcdc9d6c7467485d22f8f02ae188f681bf7e1bc9267f0b9bfc6957190110",
+  "catalog_digest": "sha256:f4972678d6d725f629815d0f20693b4277cb2139adcdc4fdaabd152dcce52a9b",
   "execution_authority": false,
-  "generated_at": "2026-11-02T19:29:47.738478Z",
+  "generated_at": "2026-11-02T21:44:10.513693Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,17 +149,8 @@
         "What is Bragi responsible for?",
         "Bragi는 무엇을 담당하나요?"
       ],
-      "record_digest": "sha256:bb47080805bf651bbf427c7c0388a62f7245bccec9b7b721dd06ca3e000a671f",
+      "record_digest": "sha256:1c873c18fbedd368296a05c84eac6442d5020ab48b8a07edd8f0a1da133066d7",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "897e9ccf62fd69cede45c65bbc76d355af4e1de3",
-          "line_end": 60,
-          "line_start": 60,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Two-port model"
-        },
         {
           "authority_role": "implementation",
           "blob_sha": "da0134ab36da3f86c4d8b9e721299f4c624983a8",
@@ -168,6 +159,15 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "_BRAGI"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "e71e0bc6055b64fb9fd8d98e21108ad46aefe855",
+          "line_end": 64,
+          "line_start": 64,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Two-port model"
         }
       ],
       "status": "implemented",
@@ -551,17 +551,8 @@
         "How are FDAI agents organized?",
         "FDAI agent 조직은 어떻게 구성되나요?"
       ],
-      "record_digest": "sha256:e69ce23f8131141f6594ff04ad001015ee897a97f4c658ac95f91f42a2b3aff0",
+      "record_digest": "sha256:776d6d2dc800a968a0979904dc0ed4f4b865e6ad724c9e24ae3551463d4a3b24",
       "sources": [
-        {
-          "authority_role": "design",
-          "blob_sha": "897e9ccf62fd69cede45c65bbc76d355af4e1de3",
-          "line_end": 49,
-          "line_start": 49,
-          "path": "docs/roadmap/agents/agent-pantheon.md",
-          "source_kind": "doc",
-          "symbol": "Design principles"
-        },
         {
           "authority_role": "implementation",
           "blob_sha": "da0134ab36da3f86c4d8b9e721299f4c624983a8",
@@ -570,6 +561,15 @@
           "path": "services/core-control-plane/src/fdai/agents/_framework/pantheon.py",
           "source_kind": "code",
           "symbol": "PANTHEON_SPECS"
+        },
+        {
+          "authority_role": "design",
+          "blob_sha": "e71e0bc6055b64fb9fd8d98e21108ad46aefe855",
+          "line_end": 53,
+          "line_start": 53,
+          "path": "docs/roadmap/agents/agent-pantheon.md",
+          "source_kind": "doc",
+          "symbol": "Design principles"
         }
       ],
       "status": "implemented",
@@ -706,11 +706,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:0add59dbec29cdb94f0ea22b68596a94ac539ae8a17281a0ad9b03039cc8e536",
+      "record_digest": "sha256:4abbc0ec7ffeb365c8dbcc8176b44cf633e7017efc99278904f8db37b13edd77",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
+          "blob_sha": "9e907302010da1cd536d4b560a912a776726f3c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -781,7 +781,7 @@
       ],
       "execution_authority": false,
       "implemented_behavior": [
-        "The independent package, catalog compiler, deterministic search, Teams boundary, and focused tests are part of the current change."
+        "The independent package, 21-record catalog compiler, deterministic search, Bot Framework and Outgoing Webhook Teams boundaries, Managed Identity Blob CAS claim ledger, incremental cost estimator, and <15m disable/restore rehearsal are implemented."
       ],
       "knowledge_id": "system-knowledge-service",
       "limitations": [
@@ -792,11 +792,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:46cb5f9cee5d156f6cb39fd17260f017e4e21395f3b3116bc05ba400ce2ca1b9",
+      "record_digest": "sha256:0a1c41fe1393b4a5c3d7fac10b8360cbf585052310c1fec186888b5b9b67981d",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
+          "blob_sha": "9e907302010da1cd536d4b560a912a776726f3c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -804,7 +804,7 @@
           "symbol": "Revised design"
         }
       ],
-      "status": "in_progress",
+      "status": "implemented",
       "subject_id": "system-knowledge-service",
       "title": "System Knowledge Service"
     },
@@ -854,5 +854,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "75d8849f02bdda4ad8eda930c8f09ded34e32ea3"
+  "source_revision": "f8a0c499984d430e4a6dd0f57cfba818c7827f9e"
 }
