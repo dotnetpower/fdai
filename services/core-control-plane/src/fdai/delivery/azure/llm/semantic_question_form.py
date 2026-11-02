@@ -31,7 +31,9 @@ from fdai.core.conversation.semantic_reasoning_proposal import (
 from fdai.core.conversation.semantic_reasoning_repair import FormRepair
 from fdai.core.conversation.semantic_reasoning_review import extraction_schema
 from fdai.core.conversation.semantic_reasoning_selection import (
+    lookup_cached_call,
     lookup_cached_concept_choices,
+    store_cached_call,
     store_cached_concept_choices,
 )
 from fdai.core.conversation.turn_reservations import TurnReservationHeldError
@@ -326,7 +328,7 @@ class AzureOpenAIQuestionFormModel:
         # Concept choice needs no verbatim quotes, so raw text is redacted before encoding.
         # Keys encode sorted, so the static catalog shard leads and stays a cacheable prefix.
         redacted_mentions = [_redacted(item) for item in mentions]
-        live = not any("example.com" in t.endpoint for t in self._config.candidates)
+        live = not isinstance(getattr(self._http, "_transport", None), httpx.MockTransport)
         if cached := lookup_cached_concept_choices(shard, second, redacted_mentions, live=live):
             return cached
         payload = {
@@ -573,6 +575,10 @@ class AzureOpenAIQuestionFormModel:
         if exceeded:
             _held("request_budget_exceeded", name=name, raise_error=require_verbatim)
             return None
+        live = not isinstance(getattr(self._http, "_transport", None), httpx.MockTransport)
+        cache_key = str(messages[-1].get("content", ""))
+        if cached := lookup_cached_call(name, cache_key, live=live):
+            return cached
 
         async def attempt() -> Mapping[str, Any] | None:
             return await self._attempt(
@@ -584,7 +590,10 @@ class AzureOpenAIQuestionFormModel:
                 candidates=request_candidates,
             )
 
-        return await run_scoped_model(attempt)
+        result = await run_scoped_model(attempt)
+        if result is not None:
+            store_cached_call(name, cache_key, result, live=live)
+        return result
 
     async def _attempt(
         self,

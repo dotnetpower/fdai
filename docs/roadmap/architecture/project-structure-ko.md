@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f845adba700a7a299706f9b59af265e5aca1e3ed
+translation_source_sha: f503d7f1940259e5e7873882a0d8bdde4d1a1f8f
 translation_revised: 2026-11-02
 ---
 # 프로젝트 구조
@@ -674,7 +674,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   같은 topic은 고정된 계획의 첫 노드 전이보다 먼저 계획 시점의 `semantic-work-progress` 고정 형태를
   한 번 전달합니다. 이 고정 형태는 표현 밀도만 정합니다.
   `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`이면 같은 topic이 계획 단계 모델 호출마다 내용 없는
-  `semantic-model-call-progress` 보고도 전달하고, Operator는 이를 실시간 전용 활동으로 스트리밍합니다.
+  `semantic-model-call-progress` 보고도 전달하고, Operator는 이를 실시간 전용 활동으로 스트리밍하며,
+  라이브 HTTP 어댑터는 복구가 아닌 검증된 단계 호출을 상한이 있는 LRU 캐시에 저장합니다.
   영속 최종 결과와 근거 증적은 계속 권위가 있으며, 소비자는 내용이 없는 성능 저하 상태, 재설정 가능한
   대기, 원자적 Live cursor 순서, 재시도 가능한 발신함 종료를 유지합니다. 전송 또는 선택적 관찰 실패는
   권한을 부여하거나 부분 답변, 첨부 파일, 인시던트 작업을 승격할 수 없습니다.

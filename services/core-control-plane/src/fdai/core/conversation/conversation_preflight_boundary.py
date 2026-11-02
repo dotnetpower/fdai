@@ -37,6 +37,7 @@ from .conversation_preflight_validation import (
     repair_instruction as _repair_instruction,
 )
 from .model_observation import ConversationModelObservation, ConversationModelResponse
+from .semantic_reasoning_selection import lookup_cached_call, store_cached_call
 
 _MAX_UTTERANCE_CHARS = 32_000
 _MAX_SCHEMA_ATTEMPTS = 2
@@ -84,6 +85,32 @@ class ConversationPreflightBoundary:
             return ConversationPreflightResult(proposal=None)
         response_locale = "ko" if locale.casefold().startswith("ko") else "en"
         profile_digest = content_digest(bounded_profile)
+        http_client = getattr(binding.model, "_http", None)
+        live = (
+            http_client is not None
+            and type(getattr(http_client, "_transport", None)).__name__ != "MockTransport"
+        )
+        cache_key = content_digest(
+            {
+                "u": utterance,
+                "c": bounded_context,
+                "l": response_locale,
+                "p": profile_digest,
+                "m": binding.model_config_digest,
+            }
+        )
+        if cached := lookup_cached_call("conversation-preflight", cache_key, live=live):
+            proposal = without_unbound_thread(ConversationPreflightProposal.model_validate(cached))
+            return ConversationPreflightResult(
+                proposal=proposal,
+                observations=(),
+                attempted=True,
+                input_digest=_preflight_input_digest(utterance),
+                proposal_digest=content_digest(proposal.model_dump(mode="json")),
+                model_config_digest=binding.model_config_digest,
+                prompt_digest=binding.prompt_digest,
+                direct_response_profile_digest=profile_digest,
+            )
         observations: list[ConversationModelObservation] = []
         schema_repair: tuple[dict[str, str], ...] = ()
         for attempt in range(_MAX_SCHEMA_ATTEMPTS):
@@ -147,6 +174,12 @@ class ConversationPreflightBoundary:
                     attempted=True,
                     failure_kind="malformed",
                 )
+            store_cached_call(
+                "conversation-preflight",
+                cache_key,
+                proposal.model_dump(mode="json"),
+                live=live,
+            )
             return ConversationPreflightResult(
                 proposal=proposal,
                 observations=tuple(observations),

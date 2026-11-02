@@ -8,6 +8,7 @@ and runoffs run in waves of at most two provider calls inside the chooser's call
 from __future__ import annotations
 
 import asyncio
+import copy
 from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
@@ -116,6 +117,30 @@ def store_cached_concept_choices(
             _SHARED_CONCEPT_CACHE.move_to_end(key)
             while len(_SHARED_CONCEPT_CACHE) > _MAX_SHARED_CONCEPT_CACHE:
                 _SHARED_CONCEPT_CACHE.popitem(last=False)
+
+
+_SHARED_CALL_CACHE: OrderedDict[tuple[str, str], Mapping[str, Any]] = OrderedDict()
+
+
+def lookup_cached_call(kind: str, key: str, *, live: bool) -> dict[str, Any] | None:
+    if not live or not key or kind == "semantic-concept-selection" or '"repair":' in key:
+        return None
+    cache_key = (kind, key)
+    cached = _SHARED_CALL_CACHE.get(cache_key)
+    if cached is None:
+        return None
+    _SHARED_CALL_CACHE.move_to_end(cache_key)
+    return copy.deepcopy(dict(cached))
+
+
+def store_cached_call(kind: str, key: str, value: Mapping[str, Any], *, live: bool) -> None:
+    if not live or not key or kind == "semantic-concept-selection" or '"repair":' in key:
+        return
+    cache_key = (kind, key)
+    _SHARED_CALL_CACHE[cache_key] = copy.deepcopy(dict(value))
+    _SHARED_CALL_CACHE.move_to_end(cache_key)
+    while len(_SHARED_CALL_CACHE) > _MAX_SHARED_CONCEPT_CACHE:
+        _SHARED_CALL_CACHE.popitem(last=False)
 
 
 class ConceptChooser(Protocol):
@@ -230,8 +255,10 @@ async def select_chooser_concepts(
 
 __all__ = [
     "ConceptChooser",
+    "lookup_cached_call",
     "lookup_cached_concept_choices",
     "select_chooser_concepts",
     "select_concepts",
+    "store_cached_call",
     "store_cached_concept_choices",
 ]
