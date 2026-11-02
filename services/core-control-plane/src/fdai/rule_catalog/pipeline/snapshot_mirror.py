@@ -26,6 +26,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+from fdai.rule_catalog.schema.zstd_codec import (
+    DEFAULT_ZSTD_LEVEL,
+    compress_bytes,
+    decompress_bytes,
+    is_zstd_frame,
+)
+
 _MAX_SNAPSHOT_FILE_BYTES = 8 * 1024 * 1024
 _SAFE_PREFIX = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
 
@@ -55,6 +62,7 @@ class MirroredFile:
     digest: str
     size_bytes: int
     newly_written: bool
+    compressed_size_bytes: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,11 +100,15 @@ class SnapshotMirror:
         *,
         store: SnapshotArtifactStore,
         storage_prefix: str = "rule-catalog-snapshots",
+        compress_zstd: bool = False,
+        zstd_level: int = DEFAULT_ZSTD_LEVEL,
     ) -> None:
         if _SAFE_PREFIX.fullmatch(storage_prefix) is None:
             raise ValueError("snapshot mirror storage_prefix MUST be a safe lowercase segment")
         self._store = store
         self._prefix = storage_prefix
+        self._compress_zstd = bool(compress_zstd)
+        self._zstd_level = zstd_level
 
     async def mirror(
         self,
@@ -116,16 +128,27 @@ class SnapshotMirror:
             content = path.read_bytes()
             if not content or len(content) > _MAX_SNAPSHOT_FILE_BYTES:
                 raise ValueError(f"snapshot file size is outside the allowed range: {relative}")
-            digest = hashlib.sha256(content).hexdigest()
-            storage_ref = f"{self._prefix}/{source_id}/{resolved_revision}/{relative}"
-            newly_written = await self._store.put(storage_ref, content, digest=digest)
+            raw_digest = hashlib.sha256(content).hexdigest()
+            if self._compress_zstd:
+                envelope = compress_bytes(content, level=self._zstd_level)
+                stored_bytes = envelope.compressed_bytes
+                stored_digest = hashlib.sha256(stored_bytes).hexdigest()
+                storage_ref = f"{self._prefix}/{source_id}/{resolved_revision}/{relative}.zst"
+                compressed_size: int | None = len(stored_bytes)
+            else:
+                stored_bytes = content
+                stored_digest = raw_digest
+                storage_ref = f"{self._prefix}/{source_id}/{resolved_revision}/{relative}"
+                compressed_size = None
+            newly_written = await self._store.put(storage_ref, stored_bytes, digest=stored_digest)
             files.append(
                 MirroredFile(
                     relative_path=relative,
                     storage_ref=storage_ref,
-                    digest=digest,
+                    digest=raw_digest,
                     size_bytes=len(content),
                     newly_written=newly_written,
+                    compressed_size_bytes=compressed_size,
                 )
             )
         return SnapshotMirrorReceipt(
@@ -133,6 +156,27 @@ class SnapshotMirror:
             resolved_revision=resolved_revision,
             files=tuple(sorted(files, key=lambda file: file.relative_path)),
         )
+
+
+def decode_mirrored_file_content(
+    stored_bytes: bytes,
+    *,
+    expected_uncompressed_digest: str,
+) -> bytes:
+    """Restore and SHA-256-verify either raw or Zstd-compressed mirrored file bytes."""
+    if len(expected_uncompressed_digest) != 64:
+        raise ValueError("expected_uncompressed_digest MUST be a 64-char hex SHA-256")
+    if is_zstd_frame(stored_bytes):
+        return decompress_bytes(
+            stored_bytes,
+            max_output_size=_MAX_SNAPSHOT_FILE_BYTES,
+            expected_uncompressed_sha256=f"sha256:{expected_uncompressed_digest}",
+        )
+    if len(stored_bytes) > _MAX_SNAPSHOT_FILE_BYTES:
+        raise ValueError("mirrored file exceeds maximum allowed size")
+    if hashlib.sha256(stored_bytes).hexdigest() != expected_uncompressed_digest:
+        raise ValueError("mirrored file uncompressed SHA-256 mismatch")
+    return bytes(stored_bytes)
 
 
 def _iter_files(root: Path) -> Iterator[Path]:
@@ -146,4 +190,5 @@ __all__ = [
     "SnapshotArtifactStore",
     "SnapshotMirror",
     "SnapshotMirrorReceipt",
+    "decode_mirrored_file_content",
 ]
