@@ -39,8 +39,9 @@ The Core and Cost Governance images build OPA with the same pinned Go toolchain 
 Ordinary clone deployment uses [Hub-image bootstrap](hub-image-deployment.md) through
 `https://hub.msfdai.com`. This AKS bootstrap reuses the existing Foundation and application
 coordinator, carries the exact verified catalog selection to the managed host, imports all seven
-signed component image digests into the installation registry, and verifies them before workload
-apply. Checkout-supplied infrastructure, migrations and Console remain separately attributed.
+signed component image digests (or the exact signed Stencil component subset when the `v2` manifest
+embeds a verified `stencil` blueprint) into the installation registry, and verifies them before
+workload apply. Checkout-supplied infrastructure, migrations and Console remain separately attributed.
 
 Selecting Hub images does not change runtime-profile defaults, product add-ons, executor identity,
 approval, licensing or health/zero-change-plan requirements. Explicit source mode retains its

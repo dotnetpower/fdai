@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: a9cc495809790a558231c536182453902c10dabb
+translation_source_sha: dc0851f364eee274f95f3a7f649a5e0da08c16ac
 translation_revised: 2026-11-01
 ---
 # 런타임 배포 프로파일
@@ -40,7 +40,8 @@ Core와 Cost Governance 이미지는 두 런타임 프로필에서 같은 고정
 [Hub 이미지 초기 설치](hub-image-deployment-ko.md)를 사용합니다.
 이 AKS 초기 설치는 기존 Foundation 및 애플리케이션 조정기를 재사용합니다.
 검증한 정확한 카탈로그 선택을 Managed Host로 전달하고, 서명된 일곱 구성 요소의 이미지
-다이제스트를 설치본 레지스트리로 가져온 뒤 워크로드 적용 전에 검증합니다.
+다이제스트(`v2` 매니페스트가 검증된 `stencil` 블루프린트를 내장한 경우에는 해당 Stencil 구성 요소
+부분집합)를 설치본 레지스트리로 가져온 뒤 워크로드 적용 전에 검증합니다.
 저장소에서 제공하는 인프라, 마이그레이션과 Console의 출처는 별도로 기록합니다.
 
 Hub 이미지 선택은 런타임 프로필 기본값, 제품 추가 기능, 실행기 신원, 승인, 라이선싱,
