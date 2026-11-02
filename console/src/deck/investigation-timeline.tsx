@@ -145,8 +145,12 @@ export function investigationTone(
   activities: readonly InvestigationActivity[],
   branches: readonly EvidenceBranch[],
 ): "completed" | "partial" | "unavailable" | "failed" {
+  const nonModelActivities = activities.filter((activity) => !isModelCallStep(activity));
+  const relevantActivities = nonModelActivities.length > 0 || branches.length > 0
+    ? nonModelActivities
+    : activities;
   const statuses = [
-    ...activities.map((activity) => activity.status),
+    ...relevantActivities.map((activity) => activity.status),
     ...branches.map((branch) => branch.status),
   ];
   if (statuses.some((status) => ["failed", "timed_out", "cancelled"].includes(status))) {
@@ -749,7 +753,11 @@ export function InvestigationTimeline({
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
   // The planning model calls render as one row, so they count as one event.
-  const plannedCalls = activities.filter(isModelCallStep);
+  const allModelCalls = activities.filter(isModelCallStep);
+  const completedModelCalls = allModelCalls.filter((call) => call.status === "completed");
+  const plannedCalls = answerSettled && !running && !stopped && completedModelCalls.length > 0
+    ? completedModelCalls
+    : allModelCalls;
   const listedActivities = activities.filter((activity) => !isModelCallStep(activity));
   const planningGroupCount = plannedCalls.length > 0 ? 1 : 0;
   const planningGroupSettled = plannedCalls.length > 0 && plannedCalls.every((call) =>

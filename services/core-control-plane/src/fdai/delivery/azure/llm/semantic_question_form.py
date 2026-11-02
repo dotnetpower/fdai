@@ -603,6 +603,9 @@ class AzureOpenAIQuestionFormModel:
                         "response_format": dict(response_format),
                         **structured_body_params(target, max_tokens=max_tokens),
                     }
+                    family = (target.model_family or target.deployment).casefold()
+                    if name != "semantic-question-form" and "gpt-5" in family:
+                        body["reasoning_effort"] = "minimal"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     trace_start = start_model_trace(messages)

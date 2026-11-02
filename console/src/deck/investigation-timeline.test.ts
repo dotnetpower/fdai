@@ -465,4 +465,18 @@ describe("investigationTone", () => {
     expect(investigationTone([], [branch("completed")])).toBe("completed");
     expect(investigationTone([], [branch("completed"), branch("failed")])).toBe("failed");
   });
+
+  it("ignores unsettled or cancelled model_call steps when observed evidence completed", () => {
+    const modelRunning: InvestigationActivity = {
+      ...activity("semantic:model:speculative", "running"),
+      kind: "model_call",
+    };
+    const modelFailed: InvestigationActivity = {
+      ...activity("semantic:model:cancelled", "failed"),
+      kind: "model_call",
+    };
+    expect(
+      investigationTone([modelRunning, modelFailed, activity("query", "completed")], []),
+    ).toBe("completed");
+  });
 });

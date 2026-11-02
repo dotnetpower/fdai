@@ -65,8 +65,10 @@ def primary_read_candidate(result: ConversationPreflightResult | None) -> bool:
         and proposal.context_dependency is ContextDependency.NONE
         and proposal.knowledge_signal.value == "none"
         and proposal.social_act.value == "none"
+        and not proposal.request_topics
         and proposal.operational_family
         in {
+            OperationalPreflightFamily.NONE,
             OperationalPreflightFamily.RESOURCE_COLLECTION,
             OperationalPreflightFamily.RESOURCE_CURRENT_STATE,
         }

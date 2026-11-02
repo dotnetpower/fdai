@@ -330,6 +330,7 @@ class CompiledAnswerTicket:
             self._allow_resample[0] = False
         if not self._future.done():
             self._deadline = min(self._deadline, self._clock())
+            self._future.cancel()
 
     def cancel(self) -> None:
         """Cancel an unconsumed path; the owner loop drains its provider calls."""
