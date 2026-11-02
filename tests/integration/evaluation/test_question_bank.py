@@ -13,7 +13,14 @@ from typing import Any, cast
 import pytest
 import yaml
 from scripts.automation import build_question_bank as generator
-from scripts.automation.question_bank import build_question_bank, render_review_catalog
+from scripts.automation.question_bank import (
+    build_question_bank,
+    compress_question_bank_bundle,
+    compress_questions_with_dictionary,
+    decompress_question_bank_bundle,
+    decompress_questions_with_dictionary,
+    render_review_catalog,
+)
 
 _ROOT = Path(__file__).resolve().parents[3]
 _BANK_ROOT = _ROOT / "eval" / "golden-dataset" / "question-bank"
@@ -398,6 +405,20 @@ def test_ten_rounds_of_reinforcement_across_question_bank_insights_and_chaos_cat
         assert all(item["safety"]["execution_authority"] is False for item in q_slice)
         assert all(recipe.min_samples >= 1 for recipe in r_slice)
         assert all(entry.id.startswith("chaos.") for entry in c_slice)
+
+
+def test_question_bank_zstd_bundle_and_dictionary_compression_roundtrip() -> None:
+    payload = _artifact()
+    compressed_bundle = compress_question_bank_bundle(payload, level=3)
+    raw_size = (_BANK_ROOT / "question-bank.json").stat().st_size
+
+    assert len(compressed_bundle) < raw_size * 0.15
+    assert decompress_question_bank_bundle(compressed_bundle) == payload
+
+    questions = payload["questions"]
+    dict_bundle = compress_questions_with_dictionary(questions, dict_size=32768, level=3)
+    assert dict_bundle["compression_ratio"] > 5.5
+    assert decompress_questions_with_dictionary(dict_bundle) == questions
 
 
 def test_operator_candidates_remain_customer_agnostic() -> None:

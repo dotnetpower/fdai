@@ -10,8 +10,12 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
+from compression import zstd  # type: ignore[import-not-found]
 from jsonschema import Draft202012Validator
 from scripts.automation.question_bank_sources import collect_questions
+
+_ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
+_MAX_QUESTION_BANK_BYTES = 16 * 1024 * 1024
 
 _UUID_PATTERN = re.compile(
     r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
@@ -389,4 +393,105 @@ def _markdown_cell(value: object) -> str:
     return " ".join(_string(value, "Markdown cell").split()).replace("|", "\\|")
 
 
-__all__ = ["build_question_bank", "render_review_catalog"]
+def compress_question_bank_bundle(
+    payload: dict[str, Any],
+    *,
+    level: int = 19,
+) -> bytes:
+    """Serialize and Zstandard-compress a validated question-bank payload."""
+    serialized = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return bytes(zstd.compress(serialized, level=level))
+
+
+def decompress_question_bank_bundle(
+    data: bytes,
+    *,
+    max_output_size: int = _MAX_QUESTION_BANK_BYTES,
+) -> dict[str, Any]:
+    """Decompress and schema-validate a Zstandard-compressed question-bank bundle."""
+    if not isinstance(data, (bytes, bytearray)) or bytes(data[:4]) != _ZSTD_MAGIC:
+        raise ValueError("question-bank bundle MUST start with the Zstandard magic header")
+    decompressor = zstd.ZstdDecompressor()
+    output = decompressor.decompress(bytes(data), max_length=max_output_size + 1)
+    if len(output) > max_output_size or not decompressor.eof or decompressor.unused_data:
+        raise ValueError("question-bank bundle exceeds max_output_size or has trailing data")
+    loaded = json.loads(output.decode("utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError("question-bank bundle MUST decode to a JSON object")
+    schema_path = (
+        Path(__file__).resolve().parents[2]
+        / "eval/golden-dataset/question-bank/question-bank.schema.json"
+    )
+    _validator(schema_path).validate(loaded)
+    return cast(dict[str, Any], loaded)
+
+
+def compress_questions_with_dictionary(
+    questions: list[dict[str, Any]],
+    *,
+    dict_size: int = 32 * 1024,
+    level: int = 3,
+) -> dict[str, Any]:
+    """Train a shared Zstandard dictionary and compress each question row individually."""
+    if len(questions) < 8:
+        raise ValueError("dictionary compression requires at least 8 questions")
+    samples = [
+        json.dumps(item, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        for item in questions
+    ]
+    zdict = zstd.train_dict(samples, dict_size=dict_size)
+    dict_bytes = bytes(zdict.dict_content)
+    compressed_rows = [zstd.compress(sample, level=level, zstd_dict=zdict) for sample in samples]
+    raw_total = sum(len(sample) for sample in samples)
+    comp_total = sum(len(row) for row in compressed_rows)
+    return {
+        "dict_id": int(zdict.dict_id),
+        "dict_sha256": "sha256:" + hashlib.sha256(dict_bytes).hexdigest(),
+        "dict_bytes": dict_bytes,
+        "question_count": len(questions),
+        "uncompressed_total_bytes": raw_total,
+        "compressed_total_bytes": comp_total,
+        "compression_ratio": raw_total / comp_total if comp_total > 0 else 1.0,
+        "compressed_rows": tuple(compressed_rows),
+    }
+
+
+def decompress_questions_with_dictionary(
+    bundle: dict[str, Any],
+    *,
+    max_row_bytes: int = 256 * 1024,
+) -> list[dict[str, Any]]:
+    """Decompress individual question rows using their shared Zstandard dictionary."""
+    dict_bytes = bytes(bundle["dict_bytes"])
+    expected_sha = str(bundle["dict_sha256"])
+    if "sha256:" + hashlib.sha256(dict_bytes).hexdigest() != expected_sha:
+        raise ValueError("question dictionary SHA-256 mismatch")
+    zdict = zstd.ZstdDict(dict_bytes)
+    if int(zdict.dict_id) != int(bundle["dict_id"]):
+        raise ValueError("question dictionary ID mismatch")
+    restored: list[dict[str, Any]] = []
+    for raw_row in bundle["compressed_rows"]:
+        decompressor = zstd.ZstdDecompressor(zstd_dict=zdict)
+        decoded = decompressor.decompress(bytes(raw_row), max_length=max_row_bytes + 1)
+        if len(decoded) > max_row_bytes or not decompressor.eof or decompressor.unused_data:
+            raise ValueError("compressed question row exceeds max_row_bytes or is malformed")
+        restored.append(_mapping(json.loads(decoded.decode("utf-8")), "question row"))
+    if len(restored) != int(bundle["question_count"]):
+        raise ValueError("question count mismatch in dictionary bundle")
+    return restored
+
+
+__all__ = [
+    "build_question_bank",
+    "compress_question_bank_bundle",
+    "compress_questions_with_dictionary",
+    "decompress_question_bank_bundle",
+    "decompress_questions_with_dictionary",
+    "render_review_catalog",
+]
