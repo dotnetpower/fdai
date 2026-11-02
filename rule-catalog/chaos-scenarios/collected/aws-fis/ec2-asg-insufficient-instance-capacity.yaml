@@ -1,0 +1,25 @@
+id: chaos.aws-fis.ec2-asg-insufficient-instance-capacity
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ec2:asg-insufficient-instance-capacity-error
+  synthesis_method: collected
+category: quota
+target_type: vmss
+fault_family: quota_shrink
+intensity: high
+duration_seconds: 360.0
+expected_signal: rollout_stall
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS clears the capacity block at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Inject InsufficientInstanceCapacity errors on Auto Scaling Group launches.
+params:
+  action_id: aws:ec2:asg-insufficient-instance-capacity-error
+tags:
+- aws-fis

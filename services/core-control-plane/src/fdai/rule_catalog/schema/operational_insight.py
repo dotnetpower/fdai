@@ -92,10 +92,16 @@ def _parse_recipe(raw: object, *, index: int) -> InsightRecipe:
             raise ValueError("comparison_metric is only allowed for ratio operators")
         if operator is InsightOperator.STALE and threshold_value <= 0.0:
             raise ValueError("threshold MUST be > 0 for stale operator")
+        if operator is InsightOperator.ABSENT and threshold_value != 1.0:
+            raise ValueError("threshold MUST equal 1 for absent operator")
+        title = _bounded_string(item["title"], field=f"recipes[{index}].title", max_length=120)
+        description = _bounded_string(
+            item["description"], field=f"recipes[{index}].description", max_length=300
+        )
 
         return InsightRecipe(
             recipe_id=_identifier(item["recipe_id"], field=f"recipes[{index}].recipe_id"),
-            title=_string(item["title"], field=f"recipes[{index}].title"),
+            title=title,
             category=Category(_string(item["category"], field=f"recipes[{index}].category")),
             severity=Severity(_string(item["severity"], field=f"recipes[{index}].severity")),
             operator=operator,
@@ -103,7 +109,7 @@ def _parse_recipe(raw: object, *, index: int) -> InsightRecipe:
             threshold=threshold_value,
             comparison_metric=comparison_metric,
             min_samples=min_samples,
-            description=_string(item["description"], field=f"recipes[{index}].description"),
+            description=description,
         )
     except ValueError as exc:
         raise ValueError(f"recipes[{index}] is invalid: {exc}") from exc
@@ -121,13 +127,21 @@ def _string(raw: object, *, field: str) -> str:
     return raw.strip()
 
 
-def _identifier(raw: object, *, field: str) -> str:
+def _bounded_string(raw: object, *, field: str, max_length: int) -> str:
     value = _string(raw, field=field)
-    if not _ID_PATTERN.fullmatch(value):
+    if len(value) > max_length:
+        raise ValueError(f"{field} MUST be at most {max_length} characters")
+    return value
+
+
+def _identifier(raw: object, *, field: str) -> str:
+    if not isinstance(raw, str) or not raw:
+        raise ValueError(f"{field} MUST be a non-empty string")
+    if raw != raw.strip() or not _ID_PATTERN.fullmatch(raw):
         raise ValueError(
             f"{field} MUST use lowercase ASCII letters, digits, dot, dash, or underscore"
         )
-    return value
+    return raw
 
 
 def _optional_identifier(raw: object, *, field: str) -> str | None:

@@ -40,13 +40,14 @@ def test_ingester_is_idempotent_and_outputs_schema_valid_entries(
     first = {path.name: path.read_bytes() for path in out.glob("*.yaml")}
     assert module.main() == 0
 
-    assert len(first) == 25
+    assert len(first) == 50
     assert first == {path.name: path.read_bytes() for path in out.glob("*.yaml")}
     entries = load_all(root)
     assert {entry.expected_signal for entry in entries} == {
         "backend_health",
         "config_drift",
         "gateway_latency",
+        "host_memory",
         "node_cpu",
         "pod_abnormal_termination",
         "pod_crash_loop_back_off",

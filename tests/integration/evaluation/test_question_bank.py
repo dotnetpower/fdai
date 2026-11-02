@@ -358,6 +358,47 @@ def test_question_bank_compiler_rejects_invalid_duplicate_refs_and_hygiene_viola
                 ]
             )
 
+    with pytest.raises(ValueError, match="customer-specific token"):
+        _validate_wording_hygiene(
+            [
+                {
+                    "question_id": "q.variation-hygiene",
+                    "wording": {"en": "Clean question?", "ko": "정상 질문인가요?"},
+                    "variations": {
+                        "en": [{"kind": "paraphrase", "text": "Check /subscriptions/1234 now."}],
+                        "ko": [{"kind": "paraphrase", "text": "온톨로지 확인: 정상 질문."}],
+                    },
+                }
+            ]
+        )
+
+
+def test_ten_rounds_of_reinforcement_across_question_bank_insights_and_chaos_catalog() -> None:
+    from fdai.core.chaos.scenario_catalog import load_all
+    from fdai.rule_catalog.schema.operational_insight import load_operational_insight_recipes
+
+    questions = _artifact()["questions"]
+    recipes = load_operational_insight_recipes(
+        _ROOT / "rule-catalog" / "operational-insights" / "catalog.yaml"
+    )
+    chaos_entries = load_all()
+
+    assert len(questions) == 600
+    assert len(recipes) == 150
+    assert len(chaos_entries) == 207
+
+    for round_idx in range(10):
+        q_slice = questions[round_idx * 60 : (round_idx + 1) * 60]
+        r_slice = recipes[round_idx * 15 : (round_idx + 1) * 15]
+        c_slice = chaos_entries[round_idx * 20 : (round_idx + 1) * 20]
+        assert len(q_slice) == 60
+        assert len(r_slice) == 15
+        assert len(c_slice) == 20
+        assert len(q_slice) + len(r_slice) + len(c_slice) == 95
+        assert all(item["safety"]["execution_authority"] is False for item in q_slice)
+        assert all(recipe.min_samples >= 1 for recipe in r_slice)
+        assert all(entry.id.startswith("chaos.") for entry in c_slice)
+
 
 def test_operator_candidates_remain_customer_agnostic() -> None:
     candidates = [

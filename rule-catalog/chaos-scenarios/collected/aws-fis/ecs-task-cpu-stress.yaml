@@ -1,0 +1,26 @@
+id: chaos.aws-fis.ecs-task-cpu-stress
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ecs:task-cpu-stress
+  synthesis_method: collected
+category: compute
+target_type: pod
+fault_family: saturate
+intensity: high
+duration_seconds: 360.0
+expected_signal: node_cpu
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS stops the task CPU stressor at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Inject CPU saturation into running ECS tasks via SSM agent.
+params:
+  action_id: aws:ecs:task-cpu-stress
+  cpu_percent: '90'
+tags:
+- aws-fis

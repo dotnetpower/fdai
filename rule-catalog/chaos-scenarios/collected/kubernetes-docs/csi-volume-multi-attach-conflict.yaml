@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.csi-volume-multi-attach-conflict
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  source_ref: section=access-modes;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: storage
+target_type: disk
+fault_family: deny
+intensity: high
+duration_seconds: 360
+expected_signal: pod_unready
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Detach the stale VolumeAttachment or use ReadWriteMany shared file
+  storage.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: ReadWriteOnce disk remains attached to a prior node and blocks new Pod
+  mount.
+tags:
+- kubernetes
+- vendor-doc

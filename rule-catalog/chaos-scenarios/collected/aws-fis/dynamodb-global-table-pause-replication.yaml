@@ -1,0 +1,25 @@
+id: chaos.aws-fis.dynamodb-global-table-pause-replication
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:dynamodb:global-table-pause-replication
+  synthesis_method: collected
+category: dependency
+target_type: db
+fault_family: throttle
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS resumes global table replication at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Pause cross-region replication on a global NoSQL table.
+params:
+  action_id: aws:dynamodb:global-table-pause-replication
+tags:
+- aws-fis

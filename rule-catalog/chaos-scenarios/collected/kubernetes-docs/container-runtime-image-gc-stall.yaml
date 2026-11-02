@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.container-runtime-image-gc-stall
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/architecture/garbage-collection/
+  source_ref: section=containers-images;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: storage
+target_type: node
+fault_family: saturate
+intensity: mild
+duration_seconds: 360
+expected_signal: rollout_stall
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Clear unreferenced container images and verify imageGCHighThresholdPercent.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Failed kubelet image garbage collection leaves node imagefs full during
+  rollout.
+tags:
+- kubernetes
+- vendor-doc

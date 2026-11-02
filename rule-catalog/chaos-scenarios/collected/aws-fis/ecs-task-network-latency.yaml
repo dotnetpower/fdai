@@ -1,0 +1,26 @@
+id: chaos.aws-fis.ecs-task-network-latency
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ecs:task-network-latency
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: delay
+intensity: high
+duration_seconds: 360.0
+expected_signal: gateway_latency
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS removes the task netem rule at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Add outbound network latency to ECS task network interfaces.
+params:
+  action_id: aws:ecs:task-network-latency
+  latency_ms: '250'
+tags:
+- aws-fis

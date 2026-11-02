@@ -1,0 +1,25 @@
+id: chaos.aws-fis.sqs-queue-pause-delivery
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:sqs:pause-message-delivery
+  synthesis_method: collected
+category: dependency
+target_type: ingress
+fault_family: throttle
+intensity: high
+duration_seconds: 360.0
+expected_signal: gateway_latency
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS restores queue message delivery at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Pause message delivery from a queue to downstream consumers.
+params:
+  action_id: aws:sqs:pause-message-delivery
+tags:
+- aws-fis

@@ -115,20 +115,22 @@ def _non_firing_observation(recipe: InsightRecipe) -> InsightObservation:
     )
 
 
-def test_catalog_contains_one_hundred_unique_executable_features() -> None:
+def test_catalog_contains_one_hundred_fifty_unique_executable_features() -> None:
     recipes = load_operational_insight_recipes(_CATALOG)
-    assert len(recipes) == 100
-    assert len({recipe.recipe_id for recipe in recipes}) == 100
+    assert len(recipes) == 150
+    assert len({recipe.recipe_id for recipe in recipes}) == 150
 
     for recipe in recipes:
         engine = OperationalInsightEngine([recipe])
         findings = engine.evaluate(_firing_observation(recipe))
         assert len(findings) == 1, recipe.recipe_id
         assert findings[0].recipe_id == recipe.recipe_id
+        event = engine.to_event(findings[0])
+        assert event.payload["recipe_id"] == recipe.recipe_id
         assert engine.evaluate(_non_firing_observation(recipe)) == (), recipe.recipe_id
 
 
-def test_readme_documents_all_one_hundred_catalog_recipes() -> None:
+def test_readme_documents_all_one_hundred_fifty_catalog_recipes() -> None:
     import re
 
     recipes = load_operational_insight_recipes(_CATALOG)
@@ -205,6 +207,18 @@ def test_loader_rejects_duplicate_recipe_ids(tmp_path: Path) -> None:
         (
             "operator: stale\n    threshold: 0",
             "threshold MUST be > 0 for stale operator",
+        ),
+        (
+            "operator: absent\n    threshold: 0",
+            "threshold MUST equal 1 for absent operator",
+        ),
+        (
+            "metric: ' padded.metric '",
+            "metric MUST use lowercase ASCII",
+        ),
+        (
+            f"title: '{'x' * 125}'",
+            "title MUST be at most 120 characters",
         ),
     ],
 )

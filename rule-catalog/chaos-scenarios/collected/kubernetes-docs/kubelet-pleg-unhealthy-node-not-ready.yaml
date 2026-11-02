@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/architecture/nodes/
+  source_ref: section=condition;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: node
+fault_family: hang
+intensity: high
+duration_seconds: 360
+expected_signal: resource_availability
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restart containerd and kubelet on the affected worker node.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Container runtime relist stall triggers PLEG unhealthy and NodeNotReady
+  state.
+tags:
+- kubernetes
+- vendor-doc

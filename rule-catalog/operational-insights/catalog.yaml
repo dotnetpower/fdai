@@ -892,3 +892,449 @@ recipes:
     metric: security.secret_last_rotated
     threshold: 7776000
     description: Detect a managed secret or encryption key exceeding its 90-day rotation window.
+  - recipe_id: kubernetes.apiserver-request-latency-p99
+    title: Kubernetes API server p99 request latency
+    category: reliability
+    severity: high
+    operator: above
+    metric: kubernetes.apiserver_request_latency_p99_ms
+    threshold: 1000
+    min_samples: 10
+    description: Detect elevated Kubernetes API server tail latency affecting control loops.
+  - recipe_id: kubernetes.etcd-wal-fsync-latency-p99
+    title: Etcd WAL fsync p99 latency
+    category: reliability
+    severity: critical
+    operator: above
+    metric: kubernetes.etcd_wal_fsync_duration_p99_ms
+    threshold: 25
+    min_samples: 10
+    description: Detect slow etcd disk WAL fsync operations risking quorum election instability.
+  - recipe_id: kubernetes.scheduler-pending-pods
+    title: Unscheduled pending Pod backlog
+    category: reliability
+    severity: high
+    operator: above
+    metric: kubernetes.scheduler_pending_pods
+    threshold: 10
+    min_samples: 5
+    description: Detect a growing queue of Pending Pods waiting for scheduler placement.
+  - recipe_id: kubernetes.node-not-ready-ratio
+    title: Cluster NodeNotReady ratio
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: kubernetes.nodes_not_ready
+    comparison_metric: kubernetes.nodes_total
+    threshold: 0.10
+    min_samples: 3
+    description: Detect a material share of cluster worker nodes reporting NotReady or Unknown.
+  - recipe_id: kubernetes.kube-proxy-sync-latency
+    title: Kube-proxy dataplane rule sync latency
+    category: reliability
+    severity: medium
+    operator: above
+    metric: kubernetes.kube_proxy_sync_rules_latency_p99_ms
+    threshold: 500
+    min_samples: 5
+    description: Detect delayed iptables or IPVS dataplane rule programming on worker nodes.
+  - recipe_id: kubernetes.hpa-maxed-out-replicas
+    title: HorizontalPodAutoscaler ceiling saturation
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: kubernetes.hpa_current_replicas
+    comparison_metric: kubernetes.hpa_max_replicas
+    threshold: 0.95
+    min_samples: 5
+    description: Detect an HPA pinned at or near its configured maxReplicas ceiling.
+  - recipe_id: kubernetes.daemonset-unavailable-pods
+    title: DaemonSet unavailable node Pods
+    category: reliability
+    severity: high
+    operator: above
+    metric: kubernetes.daemonset_unavailable_pods
+    threshold: 0
+    min_samples: 3
+    description: Detect missing or unready DaemonSet Pods across eligible cluster nodes.
+  - recipe_id: kubernetes.cronjob-missed-runs
+    title: CronJob missed schedule runs
+    category: reliability
+    severity: medium
+    operator: delta_above
+    metric: kubernetes.cronjob_missed_schedules
+    threshold: 1
+    description: Detect scheduled CronJob executions skipped due to concurrency locks or deadlines.
+  - recipe_id: kubernetes.pvc-volume-usage-ratio
+    title: PersistentVolumeClaim capacity pressure
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: kubernetes.pvc_used_bytes
+    comparison_metric: kubernetes.pvc_capacity_bytes
+    threshold: 0.85
+    min_samples: 5
+    description: Detect a mounted PersistentVolumeClaim approaching storage capacity exhaustion.
+  - recipe_id: kubernetes.init-container-restart-surge
+    title: InitContainer startup failure surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: kubernetes.init_container_restarts
+    threshold: 2
+    description: Detect failing InitContainers blocking main application container startup.
+  - recipe_id: infrastructure.kernel-io-error-surge
+    title: Kernel block device I/O error surge
+    category: reliability
+    severity: critical
+    operator: delta_above
+    metric: system.kernel.blk_io_errors
+    threshold: 0
+    description: Detect hardware or virtual block-device I/O errors reported by the kernel.
+  - recipe_id: infrastructure.systemd-failed-units
+    title: Host failed systemd service units
+    category: reliability
+    severity: high
+    operator: above
+    metric: system.systemd.failed_units
+    threshold: 0
+    min_samples: 3
+    description: Detect one or more critical host systemd service units in failed state.
+  - recipe_id: infrastructure.container-startup-duration
+    title: Container cold-start duration spike
+    category: reliability
+    severity: medium
+    operator: above
+    metric: container.startup_duration_ms
+    threshold: 30000
+    min_samples: 5
+    description: Detect excessive container image pull and initialization latency during scale-out.
+  - recipe_id: infrastructure.disk-burst-credit-low
+    title: Managed disk burst credit depletion
+    category: reliability
+    severity: high
+    operator: below
+    metric: system.disk.burst_credit_balance_pct
+    threshold: 15
+    min_samples: 5
+    description: Detect a storage volume exhausting its IOPS or throughput burst credits.
+  - recipe_id: infrastructure.context-switch-surge
+    title: Host CPU context-switch storm
+    category: reliability
+    severity: medium
+    operator: percent_change_above
+    metric: system.cpu.context_switches_per_sec
+    threshold: 150
+    min_samples: 5
+    description: Detect thread contention driving a sharp increase in kernel context switches.
+  - recipe_id: network.tcp-syn-drop-surge
+    title: TCP SYN listen backlog drop surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: network.tcp_syn_backlog_drops
+    threshold: 10
+    description: Detect incoming TCP connection drops from exhausted socket listen queues.
+  - recipe_id: network.coredns-servfail-rate
+    title: CoreDNS SERVFAIL response rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: network.coredns_servfail_rate
+    threshold: 0.01
+    min_samples: 10
+    description: Detect elevated CoreDNS upstream forwarding or zone resolution failures.
+  - recipe_id: network.gateway-5xx-error-ratio
+    title: Application Gateway HTTP 5xx ratio
+    category: reliability
+    severity: critical
+    operator: ratio_above
+    metric: gateway.http_5xx_responses
+    comparison_metric: gateway.http_total_responses
+    threshold: 0.05
+    min_samples: 10
+    description: Detect a high share of HTTP 502, 503, or 504 gateway responses.
+  - recipe_id: network.gateway-backend-connect-latency
+    title: Gateway backend TCP connect latency
+    category: reliability
+    severity: high
+    operator: above
+    metric: gateway.backend_connect_latency_p95_ms
+    threshold: 500
+    min_samples: 10
+    description: Detect slow TCP connection establishment between the gateway and backend pools.
+  - recipe_id: network.service-mesh-mtls-failure-surge
+    title: Service mesh mTLS handshake failure surge
+    category: security
+    severity: high
+    operator: delta_above
+    metric: mesh.mtls_handshake_failures
+    threshold: 5
+    description: Detect failing mutual-TLS handshakes between sidecar proxies.
+  - recipe_id: database.wal-archiver-failure-surge
+    title: Database WAL archiver failure surge
+    category: reliability
+    severity: critical
+    operator: delta_above
+    metric: database.wal_archive_failures
+    threshold: 0
+    description: Detect failing transaction-log archiving risking Point-in-Time Restore gaps.
+  - recipe_id: database.pgbouncer-client-wait-time
+    title: Connection pooler client wait latency
+    category: reliability
+    severity: high
+    operator: above
+    metric: database.pgbouncer_avg_wait_ms
+    threshold: 100
+    min_samples: 5
+    description: Detect client transactions queuing for available backend database connections.
+  - recipe_id: database.long-running-transaction-age
+    title: Long-running open database transaction
+    category: reliability
+    severity: high
+    operator: above
+    metric: database.max_transaction_duration_seconds
+    threshold: 600
+    min_samples: 3
+    description: Detect open transactions holding locks and blocking vacuum cleanup.
+  - recipe_id: stream.partition-skew-ratio
+    title: Stream consumer partition lag skew
+    category: reliability
+    severity: medium
+    operator: ratio_above
+    metric: stream.max_partition_lag
+    comparison_metric: stream.median_partition_lag
+    threshold: 3
+    min_samples: 5
+    description: Detect hot-key partition skew concentrating backlog on a single consumer worker.
+  - recipe_id: stream.poison-message-retry-surge
+    title: Stream poison-pill retry exhaustion surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: stream.delivery_retry_exhaustions
+    threshold: 5
+    description: Detect repeated message processing failures exhausting delivery retry limits.
+  - recipe_id: change.rollback-frequency-surge
+    title: Deployment rollback frequency surge
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: deployment.rollbacks_total
+    threshold: 2
+    description: Detect multiple emergency deployment rollbacks within one operating window.
+  - recipe_id: change.blue-green-preview-error-rate
+    title: Blue-green preview slot error rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: deployment.preview_slot_error_rate
+    threshold: 0.02
+    min_samples: 5
+    description: Detect elevated errors on the pre-promotion blue-green preview service.
+  - recipe_id: change.terraform-drift-resource-count
+    title: Infrastructure drifted resource count
+    category: config_drift
+    severity: medium
+    operator: above
+    metric: iac.drifted_resources_count
+    threshold: 0
+    min_samples: 1
+    description: Detect live cloud resources diverging from their declared Terraform state.
+  - recipe_id: change.deployment-duration-regression
+    title: Deployment rollout duration regression
+    category: reliability
+    severity: medium
+    operator: percent_change_above
+    metric: deployment.rollout_duration_seconds
+    threshold: 50
+    min_samples: 5
+    description: Detect rollouts taking materially longer than their historical baseline.
+  - recipe_id: change.post-deploy-smoke-test-failures
+    title: Post-deployment smoke check failure
+    category: reliability
+    severity: critical
+    operator: delta_above
+    metric: deployment.smoke_test_failures
+    threshold: 0
+    description: Detect failing automated post-deployment verification smoke checks.
+  - recipe_id: cost.orphan-public-ip-count
+    title: Unassociated public IP address waste
+    category: cost
+    severity: low
+    operator: above
+    metric: cost.unassociated_public_ips
+    threshold: 0
+    min_samples: 3
+    description: Detect unattached static Public IP addresses incurring hourly reservation charges.
+  - recipe_id: cost.stale-snapshot-spend-share
+    title: Stale disk snapshot spend share
+    category: cost
+    severity: medium
+    operator: ratio_above
+    metric: cost.stale_snapshot_spend
+    comparison_metric: cost.total_storage
+    threshold: 0.08
+    min_samples: 5
+    description: Detect aged disk snapshots consuming a disproportionate share of storage budget.
+  - recipe_id: cost.nat-gateway-data-processing-surge
+    title: NAT Gateway data processing spend surge
+    category: cost
+    severity: medium
+    operator: percent_change_above
+    metric: cost.nat_gateway_bytes_processed
+    threshold: 40
+    min_samples: 5
+    description: Detect rising NAT Gateway per-GB charges preventable with Private Endpoints.
+  - recipe_id: cost.cold-blob-hot-tier-ratio
+    title: Cold object data in Hot storage tier
+    category: cost
+    severity: medium
+    operator: ratio_above
+    metric: storage.cold_blobs_in_hot_tier_bytes
+    comparison_metric: storage.total_hot_tier_bytes
+    threshold: 0.30
+    min_samples: 5
+    description: Detect unaccessed blobs retained in the Hot tier without lifecycle tiering rules.
+  - recipe_id: cost.acr-untagged-manifest-ratio
+    title: Container registry untagged manifest waste
+    category: cost
+    severity: low
+    operator: ratio_above
+    metric: registry.untagged_manifest_bytes
+    comparison_metric: registry.total_storage_bytes
+    threshold: 0.25
+    min_samples: 3
+    description: Detect unpurged dangling container image layers inflating registry storage cost.
+  - recipe_id: security.public-storage-blob-exposure
+    title: Publicly accessible blob container exposure
+    category: security
+    severity: critical
+    operator: above
+    metric: security.public_blob_containers
+    threshold: 0
+    min_samples: 1
+    description: Detect Storage Account containers permitting anonymous public read access.
+  - recipe_id: security.nsg-open-management-ports
+    title: Internet-exposed SSH or RDP security rules
+    category: security
+    severity: critical
+    operator: above
+    metric: security.nsg_internet_ssh_rdp_rules
+    threshold: 0
+    min_samples: 1
+    description: Detect Network Security Group rules allowing inbound SSH or RDP from 0.0.0.0/0.
+  - recipe_id: security.workload-identity-token-failures
+    title: Workload identity token exchange failures
+    category: security
+    severity: high
+    operator: delta_above
+    metric: identity.federated_token_exchange_failures
+    threshold: 5
+    description: Detect failing OIDC federated credential exchanges for workload identities.
+  - recipe_id: security.container-privileged-pod-count
+    title: Privileged container execution exposure
+    category: security
+    severity: high
+    operator: above
+    metric: kubernetes.privileged_containers_running
+    threshold: 0
+    min_samples: 1
+    description: Detect Pods running with privileged securityContext or host root escalation.
+  - recipe_id: security.keyvault-access-denied-surge
+    title: Key Vault unauthorized access surge
+    category: security
+    severity: high
+    operator: delta_above
+    metric: keyvault.unauthorized_requests
+    threshold: 10
+    description: Detect a burst of HTTP 403 denials against Key Vault secrets or keys.
+  - recipe_id: backup.restore-drill-stale
+    title: Disaster recovery restore drill staleness
+    category: reliability
+    severity: medium
+    operator: stale
+    metric: backup.last_restore_drill_success
+    threshold: 604800
+    description: Detect a critical service whose backup restore drill has not run within 7 days.
+  - recipe_id: backup.geo-replication-lag-seconds
+    title: Storage geo-replication RPO lag
+    category: reliability
+    severity: high
+    operator: above
+    metric: storage.geo_replication_lag_seconds
+    threshold: 900
+    min_samples: 5
+    description: Detect cross-region storage replication lag exceeding the 15-minute RPO bound.
+  - recipe_id: slo.availability-target-breach
+    title: Rolling service availability SLO breach
+    category: reliability
+    severity: critical
+    operator: below
+    metric: slo.rolling_availability_ratio
+    threshold: 0.999
+    min_samples: 10
+    description: Detect rolling service availability falling below the declared SLO target.
+  - recipe_id: slo.latency-objective-burn-rate
+    title: Latency SLO error-budget burn rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: slo.latency_error_budget_burn_rate
+    threshold: 4
+    min_samples: 5
+    description: Detect rapid consumption of the tail-latency SLO error budget.
+  - recipe_id: synthetic.dns-resolution-latency
+    title: Synthetic DNS lookup latency spike
+    category: reliability
+    severity: medium
+    operator: above
+    metric: synthetic.dns_lookup_latency_ms
+    threshold: 150
+    min_samples: 5
+    description: Detect elevated external or private DNS resolution latency from synthetic probes.
+  - recipe_id: apm.upstream-timeout-cascading-rate
+    title: Upstream synchronous timeout cascade rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: service.upstream_timeout_rate
+    threshold: 0.03
+    min_samples: 10
+    description: Detect synchronous upstream call timeouts cascading across dependent services.
+  - recipe_id: apm.circuit-breaker-open-transitions
+    title: Service circuit-breaker open transitions
+    category: reliability
+    severity: high
+    operator: delta_above
+    metric: service.circuit_breaker_open_events
+    threshold: 2
+    description: Detect upstream resilience circuit breakers tripping open to shed failing load.
+  - recipe_id: telemetry.log-agent-drop-rate
+    title: Log shipping agent buffer drop rate
+    category: reliability
+    severity: high
+    operator: above
+    metric: telemetry.log_forwarder_dropped_events_rate
+    threshold: 0.01
+    min_samples: 5
+    description: Detect Fluent Bit or AMA log forwarders dropping events under backpressure.
+  - recipe_id: telemetry.trace-sampling-drop-surge
+    title: Distributed trace span drop surge
+    category: reliability
+    severity: medium
+    operator: percent_change_above
+    metric: telemetry.trace_spans_dropped
+    threshold: 50
+    min_samples: 5
+    description: Detect collector queue overflow dropping distributed trace spans.
+  - recipe_id: infrastructure.regional-vcpu-quota-saturation
+    title: Regional compute vCPU quota saturation
+    category: reliability
+    severity: high
+    operator: ratio_above
+    metric: cloud.regional_vcpu_used
+    comparison_metric: cloud.regional_vcpu_quota
+    threshold: 0.85
+    min_samples: 3
+    description: Detect subscription vCPU family quota usage approaching regional limits.

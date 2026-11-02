@@ -228,16 +228,16 @@ def build_bilingual_variations(
     _ = (domain, temporal_scope)
     en_core = _strip_terminal(en_base)
     ko_core = _strip_terminal(ko_base)
-    en_clause = _clamp(en_core.split(".")[0], 38)
-    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 26)
+    en_clause = _clamp(en_core.split(".")[0], 30)
+    ko_clause = _clamp(ko_core.split(".")[0].split("?")[0], 20)
     if en_base.endswith("?"):
-        en_para = _clamp(f"Verify from ontology: {_lower_first(en_clause)}.", 60)
+        en_para = _clamp(f"Verify in ontology: {_lower_first(en_clause)}.", 48)
     else:
-        en_para = _clamp(f"Check from ontology: {_lower_first(en_clause)}?", 60)
+        en_para = _clamp(f"Check in ontology: {_lower_first(en_clause)}?", 48)
     if ko_base.endswith("?"):
-        ko_para = _clamp(f"온톨로지 확인: {ko_clause}.", 46)
+        ko_para = _clamp(f"온톨로지 확인: {ko_clause}.", 34)
     else:
-        ko_para = _clamp(f"온톨로지 확인: {ko_clause}?", 46)
+        ko_para = _clamp(f"온톨로지 확인: {ko_clause}?", 34)
     return {
         "en": [
             {

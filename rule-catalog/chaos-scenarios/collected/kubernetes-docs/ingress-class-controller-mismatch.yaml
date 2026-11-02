@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.ingress-class-controller-mismatch
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/services-networking/ingress/
+  source_ref: section=ingress-class;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: network
+target_type: ingress
+fault_family: misroute
+intensity: high
+duration_seconds: 360
+expected_signal: backend_health
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Set ingressClassName to the active Ingress controller class.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Unmatched ingressClassName leaves Ingress rules unreconciled with no
+  address.
+tags:
+- kubernetes
+- vendor-doc

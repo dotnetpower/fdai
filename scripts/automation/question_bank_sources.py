@@ -296,29 +296,46 @@ def _candidate_questions(
         raise ValueError("candidate groups MUST define each operator domain exactly once")
 
     result: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    seen_intents: set[str] = set()
     for group in groups:
         domain = _string(group["domain"], "candidate domain")
         for item in _object_array(group["questions"], "candidate questions"):
             question_id = _string(item["id"], "candidate id")
+            intent = _string(item["intent"], "candidate intent")
+            if question_id in seen_ids:
+                raise ValueError(f"candidate_groups has duplicate question id: {question_id}")
+            if intent in seen_intents:
+                raise ValueError(f"candidate_groups has duplicate intent: {intent}")
+            seen_ids.add(question_id)
+            seen_intents.add(intent)
             wording = _mapping(item["wording"], "candidate wording")
+            target_kinds = [
+                _string(target_kind, "target_kind") for target_kind in item["target_kinds"]
+            ]
+            if not target_kinds:
+                raise ValueError(f"candidate {question_id} MUST declare at least one target_kind")
             result.append(
                 {
                     "question_id": question_id,
                     "source_kind": "candidate",
                     "domain": domain,
-                    "intent": item["intent"],
+                    "intent": intent,
                     "title": question_id.split(".", 1)[-1].replace("-", " ").title(),
-                    "wording": {"en": wording["en"], "ko": wording["ko"]},
+                    "wording": {
+                        "en": _string(wording["en"], f"{question_id}.en"),
+                        "ko": _string(wording["ko"], f"{question_id}.ko"),
+                    },
                     "variations": {"en": [], "ko": []},
                     "readiness": deepcopy(item.get("readiness", defaults["readiness"])),
                     "safety": deepcopy(item.get("safety", defaults["safety"])),
                     "surfaces": deepcopy(item.get("surfaces", defaults["surfaces"])),
                     "source_refs": [source_path.relative_to(repo_root).as_posix()],
                     "legacy_ids": [],
-                    "temporal_scope": item["temporal_scope"],
-                    "result_shape": item["result_shape"],
-                    "required_context": item["required_context"],
-                    "target_kinds": item["target_kinds"],
+                    "temporal_scope": _string(item["temporal_scope"], "temporal_scope"),
+                    "result_shape": _string(item["result_shape"], "result_shape"),
+                    "required_context": _string(item["required_context"], "required_context"),
+                    "target_kinds": target_kinds,
                 }
             )
     if len(result) < _MIN_CANDIDATES:

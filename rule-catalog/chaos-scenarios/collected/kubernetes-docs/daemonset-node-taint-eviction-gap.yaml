@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.daemonset-node-taint-eviction-gap
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+  source_ref: section=how-daemon-pods-are-scheduled;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: node
+fault_family: deny
+intensity: high
+duration_seconds: 360
+expected_signal: pod_unready
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Add the required NoSchedule and NoExecute tolerations to the DaemonSet
+  spec.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Missing taint toleration on a critical DaemonSet leaves tainted nodes
+  unmonitored.
+tags:
+- kubernetes
+- vendor-doc

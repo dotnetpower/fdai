@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.job-backoff-limit-exceeded-failure
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/workloads/controllers/job/
+  source_ref: section=pod-backoff-failure-policy;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360
+expected_signal: pod_failed
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Fix the batch input or transient dependency and re-create the Job.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Repeated batch container failures exhaust Job backoffLimit and mark Job
+  Failed.
+tags:
+- kubernetes
+- vendor-doc

@@ -1,0 +1,26 @@
+id: chaos.aws-fis.ecs-task-kill-process
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ecs:task-kill-process
+  synthesis_method: collected
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360.0
+expected_signal: pod_restart
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: ECS task supervisor or service scheduler restarts the container.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Kill the target application process inside an ECS task container.
+params:
+  action_id: aws:ecs:task-kill-process
+  process_name: app
+tags:
+- aws-fis

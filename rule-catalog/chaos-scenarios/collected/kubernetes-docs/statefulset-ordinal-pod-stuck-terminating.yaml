@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/run-application/force-delete-stateful-set-pod/
+  source_ref: section=statefulset-considerations;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: state
+target_type: pod
+fault_family: hang
+intensity: high
+duration_seconds: 360
+expected_signal: rollout_stall
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Recover the worker node kubelet or safely fence and delete the stuck
+  Pod.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Unresponsive node leaves a StatefulSet Pod stuck Terminating and blocks
+  rollout.
+tags:
+- kubernetes
+- vendor-doc
