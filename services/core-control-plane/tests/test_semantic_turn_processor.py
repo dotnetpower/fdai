@@ -4945,6 +4945,28 @@ async def test_runtime_settings_lookup_is_bounded_by_the_turn_deadline() -> None
     assert settings.cancelled is True
 
 
+def test_user_bounded_query_table_marks_answer_output_source_complete() -> None:
+    from fdai_core_service.semantic_turn_processor import _answer_output
+
+    table = QueryTable(
+        rows=tuple(QueryRow.from_values(f"r-{i}", {"id": f"r-{i}"}) for i in range(5)),
+        complete=False,
+        truncation_reason="result_limit",
+        total_rows=15,
+    )
+    output = _answer_output(
+        node_id="q0",
+        table=table,
+        rows=[],
+        evidence_refs=["ev-1"],
+        evidence_requirements=("server_recent_default", "result_limit.5"),
+    )
+
+    assert output["source_complete"] is True
+    assert output["source_truncation_reason"] is None
+    assert output["source_total_rows"] == 15
+
+
 async def test_golden_campaign_profile_overrides_aggressive_t2_setting() -> None:
     runtime = _Runtime()
     settings = _RuntimeSettings(True)

@@ -1319,3 +1319,4 @@ def test_resource_changes_compiles_table_with_evidence_requirements_and_subject_
             "c5": "tombstone",
         }
     ]
+    assert len(cast(list[dict[str, object]], artifact["blocks"])) == 1

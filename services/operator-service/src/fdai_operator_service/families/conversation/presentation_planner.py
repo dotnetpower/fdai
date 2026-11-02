@@ -205,7 +205,12 @@ def analyze_evidence_shape(
     units = _string_values(records, unit_field)
     limitations = _limitations(output)
     missing_values = any(
-        field not in record or record[field] is None for record in records for field in columns
+        (field not in record or record[field] is None)
+        and not (
+            field in ("operation", "operation_status") and record.get("mutation_kind") is not None
+        )
+        for record in records
+        for field in columns
     )
     timestamps_ordered = _timestamps_are_ordered(records, timestamp_field)
     key_sets = {tuple(sorted(record)) for record in records}
