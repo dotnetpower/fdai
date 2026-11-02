@@ -126,6 +126,16 @@ def normalize_redundant_property_filter_labels_with_receipt(
                     detached_by_role[role] = candidates[0]
         filters = []
         for item in goal.filters:
+            if (
+                item.role is FilterRole.TYPE
+                and goal.subject is not None
+                and item.mention == goal.subject
+                and len(goal.filters) > 1
+            ):
+                if item.cue is not None:
+                    removable.setdefault(f"_self_cue_{goal.id}", []).append(item.cue)
+                    syntactic_labels.setdefault((item.cue.start, item.cue.end), item.cue)
+                continue
             mention = mentions[item.mention]
             if mention.domain is MentionDomain.PROPERTY and not _mention_referenced_elsewhere(
                 form, mention.id, excluding=item
@@ -392,6 +402,17 @@ def retype_unfound_subject_to_prior_result(
     )
 
 
+_INVERTED_TYPE_ROLE_OPERATIONS = frozenset(
+    {
+        GoalOperation.SELECT,
+        GoalOperation.COUNT,
+        GoalOperation.AGGREGATE,
+        GoalOperation.HISTORY,
+        GoalOperation.RANK,
+    }
+)
+
+
 def _canonicalize_inverted_type_roles(form: SemanticQuestionForm) -> SemanticQuestionForm:
     """Put the broader ObjectType subject before one narrower ResourceType filter."""
 
@@ -400,7 +421,7 @@ def _canonicalize_inverted_type_roles(form: SemanticQuestionForm) -> SemanticQue
     goal = form.goals[0]
     if (
         goal.level is not GoalLevel.INSTANCE
-        or goal.operation is not GoalOperation.SELECT
+        or goal.operation not in _INVERTED_TYPE_ROLE_OPERATIONS
         or goal.subject_scope is not SubjectScope.COLLECTION
         or goal.subject is None
     ):
