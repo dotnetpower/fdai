@@ -86,9 +86,7 @@ const inboxHref = () => `${routeHref("detection-readiness", { params: { data: "l
 
 export function ConsoleInboxAttention({ client }: { readonly client: OperatorApiClient }) {
   const { items, error, loading } = useConsoleInbox(client);
-  const ko = getLocale() === "ko";
-  const title = ko ? "알림" : "Alerts";
-  const unavailable = ko ? "알림함을 가져올 수 없습니다" : "Alert inbox unavailable";
+  const { title, unavailable } = copy[getLocale() === "ko" ? "ko" : "en"];
   const unseen = error ? 0 : unseenInboxItems(items).length;
   return (
     <Tooltip content={error ? unavailable : title}>
@@ -224,7 +222,7 @@ export function ConsoleInbox({ client, enabled = true }: {
             <div class="console-inbox-item-head">
               <div class="console-inbox-item-title">
                 <StatusPill kind={SEVERITY_PILL[item.severity]} label={words.severity[item.severity]} />
-                <strong>{words.severity[item.severity]} - {item.title}</strong>
+                <strong>{item.title}</strong>
                 <span class="finding-kind-chip">
                   {words.categories[item.category] ?? item.category}
                 </span>

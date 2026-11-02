@@ -697,7 +697,9 @@ function ApprovalCard({
               label={expired ? t("approvals.expiredApproval") : t("approvals.pendingApproval")}
             />
             {expiryBadge ? (
-              <StatusPill kind={expiryBadge.kind} label={expiryBadge.label} />
+              expired
+                ? <span class="approval-expiry-age">{expiryBadge.label}</span>
+                : <StatusPill kind={expiryBadge.kind} label={expiryBadge.label} />
             ) : null}
             {item.mode ? (
               <StatusPill
@@ -728,11 +730,21 @@ function ApprovalCard({
         <div class="approval-safeguards-bar" aria-label={t("approvals.safeguardsTitle")}>
           <span class="approval-safeguards-label">{t("approvals.safeguardsTitle")}</span>
           <div class="approval-safeguards-pills">
-            <StatusPill kind={item.stop_condition ? "success" : "neutral"} label={t("approvals.safeguardStop")} />
-            <StatusPill kind={rollback ? "success" : "neutral"} label={t("approvals.safeguardRollback")} />
-            <StatusPill kind={blastRadius ? "success" : "neutral"} label={t("approvals.safeguardBlast")} />
-            <StatusPill kind={item.idempotency_key ? "success" : "neutral"} label={t("approvals.safeguardIdempotency")} />
-            <StatusPill kind={item.correlation_id ? "success" : "neutral"} label={t("approvals.safeguardAudit")} />
+            {[
+              [Boolean(item.stop_condition), t("approvals.safeguardStop")],
+              [Boolean(rollback), t("approvals.safeguardRollback")],
+              [Boolean(blastRadius), t("approvals.safeguardBlast")],
+              [Boolean(item.idempotency_key), t("approvals.safeguardIdempotency")],
+              [Boolean(item.correlation_id), t("approvals.safeguardAudit")],
+            ].map(([verified, label]) => (
+              <span
+                key={String(label)}
+                class={`approval-safeguard-chip ${verified ? "is-verified" : "is-missing"}`}
+              >
+                <span class="approval-safeguard-dot" aria-hidden="true" />
+                <span>{label}</span>
+              </span>
+            ))}
           </div>
         </div>
         <dl class="approval-facts">
