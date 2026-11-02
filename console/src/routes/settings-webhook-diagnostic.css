@@ -134,7 +134,7 @@
   gap: 8px;
 }
 
-.settings-teams-workflow-checkbox-card {
+.settings-teams-workflow-checkbox-option {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
@@ -146,11 +146,11 @@
   cursor: pointer;
 }
 
-.settings-teams-workflow-checkbox-card.is-checked {
+.settings-teams-workflow-checkbox-option.is-checked {
   border-color: var(--accent);
 }
 
-.settings-teams-workflow-checkbox-card input[type="checkbox"] {
+.settings-teams-workflow-checkbox-option input[type="checkbox"] {
   width: 16px;
   height: 16px;
   margin: 2px 0 0;

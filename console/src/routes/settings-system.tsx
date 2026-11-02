@@ -1407,7 +1407,7 @@ function TeamsWorkflowTestPanel({
                     return (
                       <label
                         key={targetKey}
-                        class={`settings-teams-workflow-checkbox-card${
+                        class={`settings-teams-workflow-checkbox-option${
                           checked ? " is-checked" : ""
                         }`}
                       >
