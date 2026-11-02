@@ -7,7 +7,7 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 ## Catalog summary
 
 - Catalog version: `1.4.0`
-- Source digest: `sha256:6cef5595fb843dd663a4415715f5bb2490ee1d9a6fdf3b7a9226067ccae311f0`
+- Source digest: `sha256:21aee4a0b68f2dca9c1d6a5d4da7d17464d3dc92d83f44fe51dfbdc55730726a`
 - Logical questions: 600
 - Source counts: `candidate` 500, `console` 5, `golden` 35, `manual` 60
 
@@ -676,7 +676,7 @@ This generated catalog brings FDAI's Golden questions, manual browser prompts, C
 | `eval/golden-dataset/coverage.json` | `sha256:daaf037ba6f489612e3488030a9764d576f43d4c67e178640ba5e3a10c8fcd77` |
 | `eval/golden-dataset/expectations.json` | `sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c` |
 | `eval/golden-dataset/question-bank/current-resource-sre-questions.source.yaml` | `sha256:77492a7bdb21d2526cdecc9ae4184d40d706d62875725b0a5c1cb854aa709011` |
-| `eval/golden-dataset/question-bank/devops-exercises-sre-scenarios.source.yaml` | `sha256:220ad983c126db4a1ce7cc47a2de9713d808b55e21fc3251b5881db1e537fda8` |
+| `eval/golden-dataset/question-bank/devops-exercises-sre-scenarios.source.yaml` | `sha256:9d3cbf81f7155ac155bc2879bd6ce447af0cf1a21338defc576a4c905618f31f` |
 | `eval/golden-dataset/question-bank/operator-question-expansion.source.yaml` | `sha256:86a17b6905aa73c169e068560e25367fd4af98f63ccaa0064220ede32770cf64` |
 | `eval/golden-dataset/question-bank/question-bank.source.yaml` | `sha256:f8fb64c18c2599565e5f874225a3cd638a52d9a2cc4e6e44686510b06b645c9a` |
 | `eval/golden-dataset/questions.en.json` | `sha256:efbc1d9718d9541be530fb258933d6fc05ffe3b805e9c0454ce9ddb2f5dfb44b` |

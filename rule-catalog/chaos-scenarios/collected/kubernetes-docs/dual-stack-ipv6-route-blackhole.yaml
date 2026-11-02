@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/services-networking/dual-stack/
+  source_ref: section=configure-ipv4-ipv6-dual-stack;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: network
+target_type: egress
+fault_family: drop
+intensity: high
+duration_seconds: 360
+expected_signal: request_failure
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore IPv6 subnet routing or set PreferDualStack to single-stack
+  IPv4.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Misconfigured IPv6 egress route in a dual-stack cluster blackholes AAAA
+  traffic.
+tags:
+- kubernetes
+- vendor-doc

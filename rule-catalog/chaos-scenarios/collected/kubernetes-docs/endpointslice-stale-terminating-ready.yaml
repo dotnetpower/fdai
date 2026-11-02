@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.endpointslice-stale-terminating-ready
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/
+  source_ref: section=terminating;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: traffic
+target_type: lb
+fault_family: misroute
+intensity: high
+duration_seconds: 360
+expected_signal: request_failure
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Reconcile EndpointSlice controller state and drain terminating Pods.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Stale terminating EndpointSlice entries continue receiving new Service
+  requests.
+tags:
+- kubernetes
+- vendor-doc

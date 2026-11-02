@@ -1,7 +1,47 @@
 {
-  "catalog_entry_count": 157,
-  "catalog_fingerprint": "12fe0219759bdd5fcacd45834ddf3edd5fbf10a75af8b2139fb64e13b06aa7ea",
+  "catalog_entry_count": 207,
+  "catalog_fingerprint": "fb8a55c0b472c2bd2e20fba7b2c87ad931ac0f059f283ab605e5e949e777e9a2",
   "entries": [
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.bedrock-model-invocation-throttle",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.dynamodb-global-table-pause-replication",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ebs-volume-io-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ebs-volume-io-pause",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ec2-asg-insufficient-instance-capacity",
+      "scenario_version": 1
+    },
     {
       "detected": null,
       "detection_latency_ms": null,
@@ -47,7 +87,79 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-task-cpu-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-task-io-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-task-kill-process",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-task-network-latency",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.ecs-task-network-packet-loss",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.aws-fis.eks-pod-cpu-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-delete",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-io-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-memory-stress",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-network-blackhole",
       "scenario_version": 1
     },
     {
@@ -63,7 +175,87 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-pod-network-packet-loss",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.eks-terminate-nodegroup-instances",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.elasticache-failover-shard",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.elasticache-interrupt-cluster-power",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.iam-role-access-denied",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.lambda-invocation-delay",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.lambda-invocation-http-error",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.lambda-tmp-disk-fill",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.aws-fis.network-disrupt-connectivity",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.network-route-table-disrupt",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.network-transit-gateway-disrupt",
       "scenario_version": 1
     },
     {
@@ -88,6 +280,14 @@
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
       "scenario_id": "chaos.aws-fis.s3-bucket-pause-replication",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.aws-fis.sqs-queue-pause-delivery",
       "scenario_version": 1
     },
     {
@@ -935,6 +1135,14 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.apiserver-admission-webhook-timeout",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.configmap-drift-rollout-regression",
       "scenario_version": 1
     },
@@ -959,6 +1167,22 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.container-runtime-image-gc-stall",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.coredns-upstream-forward-timeout",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.cpu-cfs-quota-throttling-latency",
       "scenario_version": 1
     },
@@ -975,6 +1199,38 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.cronjob-concurrency-forbid-stall",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.csi-volume-multi-attach-conflict",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.daemonset-node-taint-eviction-gap",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.dns-ndots-search-path-amplification",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.dns-resolution-failure",
       "scenario_version": 1
     },
@@ -983,7 +1239,39 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.dual-stack-ipv6-route-blackhole",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.emptydir-memory-tmpfs-limit-oom",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.endpointslice-stale-terminating-ready",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.ephemeral-storage-eviction",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.etcd-quorum-leader-election-stall",
       "scenario_version": 1
     },
     {
@@ -1023,7 +1311,31 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.ingress-class-controller-mismatch",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.init-container-startup-failure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.job-backoff-limit-exceeded-failure",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.kube-proxy-iptables-sync-lag",
       "scenario_version": 1
     },
     {
@@ -1039,7 +1351,55 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.kubelet-pleg-unhealthy-node-not-ready",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.limitrange-default-request-admission-reject",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.network-policy-egress-deny-drop",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.network-policy-ingress-isolated-drop",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.node-disk-pressure-taint-eviction",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.node-memory-pressure-qos-eviction",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.node-pid-pressure-fork-denial",
       "scenario_version": 1
     },
     {
@@ -1095,6 +1455,14 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.replicaset-selector-adoption-conflict",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.resource-quota-admission-denial",
       "scenario_version": 1
     },
@@ -1119,6 +1487,14 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.service-session-affinity-clientip-skew",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.startup-probe-premature-restart",
       "scenario_version": 1
     },
@@ -1127,7 +1503,31 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.statefulset-ordinal-pod-stuck-terminating",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.topology-spread-skew-hotspot",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.volume-fsgroup-permission-denied",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.volume-subpath-configmap-stale-mount",
       "scenario_version": 1
     },
     {
@@ -1265,7 +1665,7 @@
     "sha256": null,
     "storage": "ci_or_release_artifact"
   },
-  "generated_at": "2026-11-02T20:17:38.292677+00:00",
+  "generated_at": "2026-11-02T20:56:43.515331+00:00",
   "runner_version": "run-catalog-scenario/1",
   "schema_version": 1
 }

@@ -246,6 +246,7 @@ questions:
   - VirtualMachine
   - NetworkSecurityGroup
   - ApplicationGateway
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -262,6 +263,7 @@ questions:
   - ApplicationGateway
   - LoadBalancer
   - Workload
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -277,6 +279,7 @@ questions:
   - KubernetesPod
   - ContainerApp
   - PostgreSQLFlexibleServer
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -292,6 +295,7 @@ questions:
   - PostgreSQLFlexibleServer
   - SqlDatabase
   - Workload
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -307,6 +311,7 @@ questions:
   - LoadBalancer
   - ApplicationGateway
   - VirtualMachineScaleSet
+  - CausalHypothesis
   temporal_scope: current
   result_shape: comparison
   required_context: incident_binding
@@ -321,6 +326,7 @@ questions:
   target_kinds:
   - VirtualMachine
   - ManagedDisk
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -336,6 +342,7 @@ questions:
   - StorageAccount
   - VirtualNetwork
   - NetworkSecurityGroup
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -352,6 +359,7 @@ questions:
   - VirtualMachine
   - KubernetesNode
   - ManagedDisk
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -367,6 +375,7 @@ questions:
   - VirtualMachineScaleSet
   - KubernetesCluster
   - Workload
+  - CausalHypothesis
   temporal_scope: historical
   result_shape: timeline
   required_context: incident_binding
@@ -383,6 +392,7 @@ questions:
   - LoadBalancer
   - NetworkSecurityGroup
   - VirtualMachine
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -398,6 +408,7 @@ questions:
   - PrivateDnsZone
   - PublicIPAddress
   - Workload
+  - CausalHypothesis
   temporal_scope: historical
   result_shape: timeline
   required_context: incident_binding
@@ -412,6 +423,7 @@ questions:
   target_kinds:
   - VirtualMachine
   - KubernetesNode
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1032,6 +1044,7 @@ questions:
   - ManagedDisk
   - PublicIPAddress
   - NetworkInterface
+  - SizingRecommendation
   temporal_scope: current
   result_shape: ranked_list
   required_context: server_scope
@@ -1039,6 +1052,9 @@ questions:
     en: List all unattached Managed Disks, stale snapshots, and unassociated Public IP addresses incurring
       recurring storage or reservation charges.
     ko: 연결되지 않은 Managed Disk, 오래된 스냅샷, 연결되지 않은 공인 IP 주소 중 반복적인 스토리지나 예약 비용을 발생시키는 리소스를 모두 나열해 주세요.
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.finops-spot-vs-ondemand-workload-eligibility
   category: cost_finops
   domain: cost_finops
@@ -1063,6 +1079,7 @@ questions:
   intent: devops_sre.finops_storage_class_lifecycle_tiering_waste
   target_kinds:
   - StorageAccount
+  - SizingRecommendation
   temporal_scope: current
   result_shape: ranked_list
   required_context: server_scope
@@ -1070,6 +1087,9 @@ questions:
     en: Which Storage Accounts hold cold blobs in the Hot tier without lifecycle management policies to
       transition aged data to Cool or Archive tiers?
     ko: 오래된 데이터를 Cool이나 Archive 티어로 전환하는 수명 주기 관리 정책 없이 비활성 데이터를 Hot 티어에 보관 중인 Storage Account는 무엇인가요?
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.finops-aks-container-request-vs-actual-waste
   category: cost_finops
   domain: cost_finops
@@ -1165,6 +1185,7 @@ questions:
   - PostgreSQLFlexibleServer
   - SqlDatabase
   - VirtualMachine
+  - SizingRecommendation
   temporal_scope: current
   result_shape: list
   required_context: server_scope
@@ -1172,6 +1193,9 @@ questions:
     en: Which stateful single-instance resources are approaching vertical SKU ceiling limits and require
       read replicas or horizontal partitioning?
     ko: 단일 인스턴스 상태 저장(stateful) 리소스 중 수직 SKU 상한선에 근접하여 읽기 복제본이나 수평 파티셔닝 도입이 필요한 대상은 무엇인가요?
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.scaling-termination-policy-and-az-rebalance
   category: capacity_scaling
   domain: reliability_policy_automation
@@ -1731,6 +1755,7 @@ questions:
   target_kinds:
   - KubernetesPod
   - ContainerApp
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1747,6 +1772,7 @@ questions:
   - KubernetesCluster
   - KubernetesPod
   - PrivateDnsZone
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1762,6 +1788,7 @@ questions:
   - KubernetesNode
   - VirtualMachine
   - NetworkInterface
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1777,6 +1804,7 @@ questions:
   - VirtualNetwork
   - Subnet
   - NetworkSecurityGroup
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1792,6 +1820,7 @@ questions:
   - VirtualNetwork
   - KubernetesNode
   - NetworkInterface
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1806,6 +1835,7 @@ questions:
   target_kinds:
   - KubernetesPod
   - ManagedDisk
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1821,6 +1851,7 @@ questions:
   target_kinds:
   - KubernetesPod
   - Workload
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1837,6 +1868,7 @@ questions:
   - RedisCache
   - PostgreSQLFlexibleServer
   - Workload
+  - CausalHypothesis
   temporal_scope: historical
   result_shape: timeline
   required_context: incident_binding
@@ -1852,6 +1884,7 @@ questions:
   - VirtualMachine
   - KubernetesPod
   - NetworkInterface
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1865,6 +1898,7 @@ questions:
   intent: devops_sre.postgres_autovacuum_lag_dead_tuple_bloat_rca
   target_kinds:
   - PostgreSQLFlexibleServer
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1880,6 +1914,7 @@ questions:
   target_kinds:
   - KubernetesPod
   - Workload
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -1894,6 +1929,7 @@ questions:
   target_kinds:
   - KubernetesPod
   - KubernetesNode
+  - CausalHypothesis
   temporal_scope: current
   result_shape: assessment
   required_context: incident_binding
@@ -2440,6 +2476,7 @@ questions:
   - ApplicationGateway
   - LoadBalancer
   - PublicIPAddress
+  - SizingRecommendation
   temporal_scope: current
   result_shape: ranked_list
   required_context: server_scope
@@ -2447,6 +2484,9 @@ questions:
     en: Which Application Gateways or Standard Load Balancers have zero active backend targets or near-zero
       request volume while incurring hourly fixed charges?
     ko: 활성 백엔드 대상이 없거나 처리 트래픽이 거의 없음에도 시간당 고정 비용을 발생시키고 있는 유휴 Application Gateway 또는 Load Balancer는 무엇인가요?
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.finops-nonprod-compute-offhours-scheduling-waste
   category: cost_finops
   domain: cost_finops
@@ -2609,6 +2649,7 @@ questions:
   - KubernetesCluster
   - VirtualMachineScaleSet
   - Workload
+  - ServiceObjective
   temporal_scope: current
   result_shape: assessment
   required_context: server_scope
@@ -2616,6 +2657,9 @@ questions:
     en: Do latency-critical services maintain enough warm standby replica headroom to absorb a 2x traffic
       surge while new nodes provision?
     ko: 지연 시간에 민감한 핵심 서비스들이 신규 노드 프로비저닝이 완료되는 동안 2배의 트래픽 급증을 흡수할 수 있는 예열(warm) 예비 레플리카 여유분을 확보하고 있나요?
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.scaling-multimetric-hpa-stabilization-posture
   category: capacity_scaling
   domain: reliability_policy_automation
@@ -2913,6 +2957,7 @@ questions:
   target_kinds:
   - ConfigurationBaseline
   - Deployment
+  - ConfigurationDriftFinding
   temporal_scope: current
   result_shape: list
   required_context: server_scope
@@ -2920,6 +2965,9 @@ questions:
     en: Which Terraform configurations or environment baselines lack exact provider lockfiles or pinned
       module versions across development, staging, and production?
     ko: 개발·스테이징·운영 환경 전반에서 정확한 프로바이더 잠금 파일이나 고정된 모듈 버전이 누락된 Terraform 구성 또는 환경 베이스라인은 무엇인가요?
+  safety:
+    action_posture: advise_only
+    execution_authority: false
 - id: devops-sre.feature-flag-config-change-error-correlation
   category: change_deployment_release
   domain: change_deployment_impact

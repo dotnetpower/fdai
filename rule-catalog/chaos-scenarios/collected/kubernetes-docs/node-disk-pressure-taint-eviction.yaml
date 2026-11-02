@@ -1,0 +1,24 @@
+id: chaos.kubernetes-docs.node-disk-pressure-taint-eviction
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
+  source_ref: section=disk-pressure;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: storage
+target_type: node
+fault_family: saturate
+intensity: high
+duration_seconds: 360
+expected_signal: pod_restart
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Prune unused container images and logs or expand the node OS/data volume.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Node DiskPressure condition taints the node and evicts running Pods.
+tags:
+- kubernetes
+- vendor-doc

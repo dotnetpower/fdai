@@ -1,0 +1,25 @@
+id: chaos.aws-fis.elasticache-interrupt-cluster-power
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:elasticache:interrupt-cluster-power
+  synthesis_method: collected
+category: dependency
+target_type: cache
+fault_family: stop
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: backend_health
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS restores cache node power at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Interrupt node power on a distributed cache cluster.
+params:
+  action_id: aws:elasticache:interrupt-cluster-power
+tags:
+- aws-fis

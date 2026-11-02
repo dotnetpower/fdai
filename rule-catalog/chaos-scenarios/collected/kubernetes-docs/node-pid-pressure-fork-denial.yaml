@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.node-pid-pressure-fork-denial
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
+  source_ref: section=pid-pressure;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: resource_saturation
+target_type: node
+fault_family: saturate
+intensity: high
+duration_seconds: 360
+expected_signal: pod_abnormal_termination
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Enforce Pod pidsLimit and terminate leaking or zombie-spawning containers.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Node PIDPressure exhausts process IDs and prevents new process forks
+  in Pods.
+tags:
+- kubernetes
+- vendor-doc

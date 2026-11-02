@@ -23,14 +23,73 @@ operator can cross-reference.
 from __future__ import annotations
 
 import pathlib
+import re
 from dataclasses import dataclass
 
 import yaml
+from fdai.core.detection.signals import SignalRole, known_signals
 
 _HERE = pathlib.Path(__file__).resolve()
 _REPO_ROOT = next(parent for parent in _HERE.parents if (parent / "pyproject.toml").is_file())
 _OUT_DIR = _REPO_ROOT / "rule-catalog" / "chaos-scenarios" / "collected" / "aws-fis"
 _ALERT_WINDOW_S = 360.0
+_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
+_ALLOWED_CATEGORIES = frozenset(
+    {
+        "compute",
+        "network",
+        "storage",
+        "state",
+        "dependency",
+        "traffic",
+        "time",
+        "resource_saturation",
+        "identity",
+        "quota",
+        "cost_governance",
+    }
+)
+_ALLOWED_TARGET_TYPES = frozenset(
+    {
+        "pod",
+        "node",
+        "vm",
+        "vmss",
+        "db",
+        "lb",
+        "dns",
+        "disk",
+        "cache",
+        "secret_store",
+        "identity",
+        "ingress",
+        "egress",
+        "quota",
+        "llm_endpoint",
+        "control_plane",
+    }
+)
+_ALLOWED_FAULT_FAMILIES = frozenset(
+    {
+        "stop",
+        "delay",
+        "drop",
+        "corrupt",
+        "saturate",
+        "throttle",
+        "deny",
+        "misroute",
+        "expire",
+        "quota_shrink",
+        "oom",
+        "hang",
+        "preempt",
+        "checkpoint_fail",
+        "cache_overflow",
+        "ramp",
+    }
+)
+_ALLOWED_INTENSITIES = frozenset({"mild", "high", "extreme"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,10 +352,336 @@ _ENTRIES: tuple[Entry, ...] = (
         params={"action_id": "aws:s3:bucket-pause-replication"},
         rollback_note="FIS resumes replication at duration end.",
     ),
+    # -- Additional EC2 / ASG / ECS / EKS / Network / Data / Serverless --
+    Entry(
+        slug="ec2-asg-insufficient-instance-capacity",
+        action_id="aws:ec2:asg-insufficient-instance-capacity-error",
+        description="Inject InsufficientInstanceCapacity errors on Auto Scaling Group launches.",
+        category="quota",
+        target_type="vmss",
+        fault_family="quota_shrink",
+        intensity="high",
+        expected_signal="rollout_stall",
+        params={"action_id": "aws:ec2:asg-insufficient-instance-capacity-error"},
+        rollback_note="FIS clears the capacity block at duration end.",
+    ),
+    Entry(
+        slug="ecs-task-cpu-stress",
+        action_id="aws:ecs:task-cpu-stress",
+        description="Inject CPU saturation into running ECS tasks via SSM agent.",
+        category="compute",
+        target_type="pod",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="node_cpu",
+        params={"action_id": "aws:ecs:task-cpu-stress", "cpu_percent": "90"},
+        rollback_note="FIS stops the task CPU stressor at duration end.",
+    ),
+    Entry(
+        slug="ecs-task-io-stress",
+        action_id="aws:ecs:task-io-stress",
+        description="Sustain storage I/O pressure inside ECS container tasks.",
+        category="storage",
+        target_type="disk",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="host_cpu",
+        params={"action_id": "aws:ecs:task-io-stress", "workers": "4"},
+        rollback_note="FIS stops the task I/O stressor at duration end.",
+    ),
+    Entry(
+        slug="ecs-task-kill-process",
+        action_id="aws:ecs:task-kill-process",
+        description="Kill the target application process inside an ECS task container.",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="pod_restart",
+        params={"action_id": "aws:ecs:task-kill-process", "process_name": "app"},
+        rollback_note="ECS task supervisor or service scheduler restarts the container.",
+    ),
+    Entry(
+        slug="ecs-task-network-latency",
+        action_id="aws:ecs:task-network-latency",
+        description="Add outbound network latency to ECS task network interfaces.",
+        category="network",
+        target_type="pod",
+        fault_family="delay",
+        intensity="high",
+        expected_signal="gateway_latency",
+        params={"action_id": "aws:ecs:task-network-latency", "latency_ms": "250"},
+        rollback_note="FIS removes the task netem rule at duration end.",
+    ),
+    Entry(
+        slug="ecs-task-network-packet-loss",
+        action_id="aws:ecs:task-network-packet-loss",
+        description="Drop outbound packets on ECS task network interfaces.",
+        category="network",
+        target_type="pod",
+        fault_family="drop",
+        intensity="high",
+        expected_signal="request_failure",
+        params={"action_id": "aws:ecs:task-network-packet-loss", "loss_percent": "20"},
+        rollback_note="FIS removes the task packet-loss rule at duration end.",
+    ),
+    Entry(
+        slug="eks-terminate-nodegroup-instances",
+        action_id="aws:eks:terminate-nodegroup-instances",
+        description="Terminate a percentage of managed EKS nodegroup instances.",
+        category="compute",
+        target_type="node",
+        fault_family="stop",
+        intensity="extreme",
+        expected_signal="pod_restart",
+        params={"action_id": "aws:eks:terminate-nodegroup-instances", "percent": "50"},
+        rollback_note="Managed nodegroup provisions replacement worker nodes.",
+    ),
+    Entry(
+        slug="eks-pod-delete",
+        action_id="aws:eks:pod-delete",
+        description="Delete targeted EKS Pods to validate ReplicaSet and PDB recovery.",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="pod_restart",
+        params={"action_id": "aws:eks:pod-delete", "grace_period_seconds": "0"},
+        rollback_note="ReplicaSet controller recreates the deleted Pods.",
+    ),
+    Entry(
+        slug="eks-pod-memory-stress",
+        action_id="aws:eks:pod-memory-stress",
+        description="Inject memory saturation into EKS Pods via AWS FIS.",
+        category="resource_saturation",
+        target_type="pod",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="host_memory",
+        params={"action_id": "aws:eks:pod-memory-stress", "percent": "85"},
+        rollback_note="FIS releases allocated Pod memory at duration end.",
+    ),
+    Entry(
+        slug="eks-pod-io-stress",
+        action_id="aws:eks:pod-io-stress",
+        description="Inject filesystem I/O saturation into EKS Pods via AWS FIS.",
+        category="storage",
+        target_type="disk",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="host_cpu",
+        params={"action_id": "aws:eks:pod-io-stress", "percent": "80"},
+        rollback_note="FIS stops the Pod I/O workers at duration end.",
+    ),
+    Entry(
+        slug="eks-pod-network-packet-loss",
+        action_id="aws:eks:pod-network-packet-loss",
+        description="Drop outbound packets from targeted EKS Pods via AWS FIS.",
+        category="network",
+        target_type="pod",
+        fault_family="drop",
+        intensity="high",
+        expected_signal="request_failure",
+        params={"action_id": "aws:eks:pod-network-packet-loss", "loss_percent": "25"},
+        rollback_note="FIS removes the Pod netem loss rule at duration end.",
+    ),
+    Entry(
+        slug="eks-pod-network-blackhole",
+        action_id="aws:eks:pod-network-blackhole-port",
+        description="Drop traffic on a specific port for targeted EKS Pods.",
+        category="network",
+        target_type="pod",
+        fault_family="deny",
+        intensity="extreme",
+        expected_signal="backend_health",
+        params={"action_id": "aws:eks:pod-network-blackhole-port", "port": "8080"},
+        rollback_note="FIS removes the port blackhole rule at duration end.",
+    ),
+    Entry(
+        slug="network-route-table-disrupt",
+        action_id="aws:network:route-table-disrupt-cross-region-connectivity",
+        description="Disrupt cross-region or peered subnet route-table entries.",
+        category="network",
+        target_type="egress",
+        fault_family="misroute",
+        intensity="extreme",
+        expected_signal="request_failure",
+        params={"action_id": "aws:network:route-table-disrupt-cross-region-connectivity"},
+        rollback_note="FIS restores the original route-table entries at duration end.",
+    ),
+    Entry(
+        slug="network-transit-gateway-disrupt",
+        action_id="aws:network:transit-gateway-disrupt-cross-region-connectivity",
+        description="Blackhole Transit Gateway attachments across peered networks.",
+        category="network",
+        target_type="ingress",
+        fault_family="deny",
+        intensity="extreme",
+        expected_signal="backend_health",
+        params={"action_id": "aws:network:transit-gateway-disrupt-cross-region-connectivity"},
+        rollback_note="FIS restores Transit Gateway route propagation at duration end.",
+    ),
+    Entry(
+        slug="ebs-volume-io-latency",
+        action_id="aws:ebs:volume-io-latency",
+        description="Inject read and write I/O latency onto attached block storage volumes.",
+        category="storage",
+        target_type="disk",
+        fault_family="delay",
+        intensity="high",
+        expected_signal="gateway_latency",
+        params={"action_id": "aws:ebs:volume-io-latency", "latency_ms": "150"},
+        rollback_note="FIS clears the volume I/O latency injection at duration end.",
+    ),
+    Entry(
+        slug="ebs-volume-io-pause",
+        action_id="aws:ebs:pause-volume-io",
+        description="Pause all block I/O operations on an attached EBS volume.",
+        category="storage",
+        target_type="disk",
+        fault_family="hang",
+        intensity="extreme",
+        expected_signal="resource_availability",
+        params={"action_id": "aws:ebs:pause-volume-io"},
+        rollback_note="FIS resumes volume I/O at duration end.",
+    ),
+    Entry(
+        slug="dynamodb-global-table-pause-replication",
+        action_id="aws:dynamodb:global-table-pause-replication",
+        description="Pause cross-region replication on a global NoSQL table.",
+        category="dependency",
+        target_type="db",
+        fault_family="throttle",
+        intensity="high",
+        expected_signal="request_failure",
+        params={"action_id": "aws:dynamodb:global-table-pause-replication"},
+        rollback_note="FIS resumes global table replication at duration end.",
+    ),
+    Entry(
+        slug="elasticache-failover-shard",
+        action_id="aws:elasticache:failover-shard",
+        description="Force a primary-to-replica shard failover on a Redis cluster.",
+        category="dependency",
+        target_type="cache",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="request_failure",
+        params={"action_id": "aws:elasticache:failover-shard"},
+        rollback_note="Cluster promotes replica and reconnects clients.",
+    ),
+    Entry(
+        slug="elasticache-interrupt-cluster-power",
+        action_id="aws:elasticache:interrupt-cluster-power",
+        description="Interrupt node power on a distributed cache cluster.",
+        category="dependency",
+        target_type="cache",
+        fault_family="stop",
+        intensity="extreme",
+        expected_signal="backend_health",
+        params={"action_id": "aws:elasticache:interrupt-cluster-power"},
+        rollback_note="FIS restores cache node power at duration end.",
+    ),
+    Entry(
+        slug="lambda-invocation-delay",
+        action_id="aws:lambda:invocation-add-delay",
+        description="Inject startup and execution latency into serverless function invocations.",
+        category="traffic",
+        target_type="pod",
+        fault_family="delay",
+        intensity="high",
+        expected_signal="gateway_latency",
+        params={"action_id": "aws:lambda:invocation-add-delay", "delay_ms": "2000"},
+        rollback_note="FIS removes the invocation fault extension override.",
+    ),
+    Entry(
+        slug="lambda-invocation-http-error",
+        action_id="aws:lambda:invocation-error",
+        description="Force serverless function invocations to fail with unhandled errors.",
+        category="compute",
+        target_type="pod",
+        fault_family="stop",
+        intensity="high",
+        expected_signal="request_failure",
+        params={"action_id": "aws:lambda:invocation-error", "percentage": "100"},
+        rollback_note="FIS disables the invocation fault injection at duration end.",
+    ),
+    Entry(
+        slug="lambda-tmp-disk-fill",
+        action_id="aws:lambda:invocation-write-ephemeral-storage",
+        description="Exhaust serverless ephemeral /tmp disk capacity during invocation.",
+        category="storage",
+        target_type="disk",
+        fault_family="saturate",
+        intensity="high",
+        expected_signal="pod_failed",
+        params={"action_id": "aws:lambda:invocation-write-ephemeral-storage", "percent": "95"},
+        rollback_note="FIS clears the ephemeral storage fill at duration end.",
+    ),
+    Entry(
+        slug="iam-role-access-denied",
+        action_id="aws:iam:deny-role-access",
+        description="Attach a temporary explicit Deny policy to a workload IAM role.",
+        category="identity",
+        target_type="identity",
+        fault_family="deny",
+        intensity="extreme",
+        expected_signal="request_failure",
+        params={"action_id": "aws:iam:deny-role-access"},
+        rollback_note="FIS detaches the temporary Deny policy at duration end.",
+    ),
+    Entry(
+        slug="sqs-queue-pause-delivery",
+        action_id="aws:sqs:pause-message-delivery",
+        description="Pause message delivery from a queue to downstream consumers.",
+        category="dependency",
+        target_type="ingress",
+        fault_family="throttle",
+        intensity="high",
+        expected_signal="gateway_latency",
+        params={"action_id": "aws:sqs:pause-message-delivery"},
+        rollback_note="FIS restores queue message delivery at duration end.",
+    ),
+    Entry(
+        slug="bedrock-model-invocation-throttle",
+        action_id="aws:bedrock:model-invocation-throttle",
+        description="Return HTTP 429 throttling exceptions on managed LLM endpoint calls.",
+        category="quota",
+        target_type="llm_endpoint",
+        fault_family="throttle",
+        intensity="high",
+        expected_signal="rate_limit",
+        params={"action_id": "aws:bedrock:model-invocation-throttle"},
+        rollback_note="FIS removes the model throttling rule at duration end.",
+    ),
 )
 
 
-def _to_body(e: Entry) -> dict:
+def _validate_entry(e: Entry) -> None:
+    if not _SLUG_PATTERN.fullmatch(e.slug):
+        raise ValueError("invalid_slug")
+    if not e.action_id.startswith("aws:"):
+        raise ValueError("unsupported_action_id")
+    if e.category not in _ALLOWED_CATEGORIES:
+        raise ValueError("unsupported_category")
+    if e.target_type not in _ALLOWED_TARGET_TYPES:
+        raise ValueError("unsupported_target_type")
+    if e.fault_family not in _ALLOWED_FAULT_FAMILIES:
+        raise ValueError("unsupported_fault_family")
+    if e.intensity not in _ALLOWED_INTENSITIES:
+        raise ValueError("unsupported_intensity")
+    if e.blast_radius_cap < 1:
+        raise ValueError("invalid_blast_radius_cap")
+    if not e.description.strip() or not e.rollback_note.strip():
+        raise ValueError("missing_description_or_rollback_note")
+    signal = known_signals().get(e.expected_signal)
+    if signal is None:
+        raise ValueError("unknown_expected_signal")
+    if signal.role is SignalRole.RCA_ONLY:
+        raise ValueError("rca_only_signal_not_scenario_eligible")
+
+
+def _to_body(e: Entry) -> dict[str, object]:
+    _validate_entry(e)
     return {
         "id": f"chaos.aws-fis.{e.slug}",
         "version": 1,
@@ -324,7 +709,14 @@ def _to_body(e: Entry) -> dict:
 
 
 def main() -> int:
+    slugs = [e.slug for e in _ENTRIES]
+    if len(slugs) != len(set(slugs)):
+        raise ValueError("duplicate_slug")
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
+    valid_names = {f"{e.slug}.yaml" for e in _ENTRIES}
+    for existing in _OUT_DIR.glob("*.yaml"):
+        if existing.name not in valid_names:
+            existing.unlink()
     written = 0
     for e in _ENTRIES:
         path = _OUT_DIR / f"{e.slug}.yaml"

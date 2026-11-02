@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.service-session-affinity-clientip-skew
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/reference/networking/virtual-ips/
+  source_ref: section=session-affinity;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: traffic
+target_type: lb
+fault_family: saturate
+intensity: mild
+duration_seconds: 360
+expected_signal: node_cpu
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Switch session affinity to application-layer cookies or disable ClientIP.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: ClientIP sessionAffinity behind a NAT proxy routes all traffic to one
+  Pod.
+tags:
+- kubernetes
+- vendor-doc

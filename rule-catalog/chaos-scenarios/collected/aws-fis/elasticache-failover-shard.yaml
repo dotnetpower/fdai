@@ -1,0 +1,25 @@
+id: chaos.aws-fis.elasticache-failover-shard
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:elasticache:failover-shard
+  synthesis_method: collected
+category: dependency
+target_type: cache
+fault_family: stop
+intensity: high
+duration_seconds: 360.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: Cluster promotes replica and reconnects clients.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Force a primary-to-replica shard failover on a Redis cluster.
+params:
+  action_id: aws:elasticache:failover-shard
+tags:
+- aws-fis

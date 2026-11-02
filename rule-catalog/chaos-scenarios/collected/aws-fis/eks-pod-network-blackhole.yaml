@@ -1,0 +1,26 @@
+id: chaos.aws-fis.eks-pod-network-blackhole
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:eks:pod-network-blackhole-port
+  synthesis_method: collected
+category: network
+target_type: pod
+fault_family: deny
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: backend_health
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS removes the port blackhole rule at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Drop traffic on a specific port for targeted EKS Pods.
+params:
+  action_id: aws:eks:pod-network-blackhole-port
+  port: '8080'
+tags:
+- aws-fis

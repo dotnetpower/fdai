@@ -1,0 +1,25 @@
+id: chaos.aws-fis.network-route-table-disrupt
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:network:route-table-disrupt-cross-region-connectivity
+  synthesis_method: collected
+category: network
+target_type: egress
+fault_family: misroute
+intensity: extreme
+duration_seconds: 720.0
+expected_signal: request_failure
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS restores the original route-table entries at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Disrupt cross-region or peered subnet route-table entries.
+params:
+  action_id: aws:network:route-table-disrupt-cross-region-connectivity
+tags:
+- aws-fis

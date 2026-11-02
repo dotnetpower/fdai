@@ -1,0 +1,26 @@
+id: chaos.aws-fis.ecs-task-io-stress
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:ecs:task-io-stress
+  synthesis_method: collected
+category: storage
+target_type: disk
+fault_family: saturate
+intensity: high
+duration_seconds: 360.0
+expected_signal: host_cpu
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS stops the task I/O stressor at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Sustain storage I/O pressure inside ECS container tasks.
+params:
+  action_id: aws:ecs:task-io-stress
+  workers: '4'
+tags:
+- aws-fis

@@ -1,0 +1,26 @@
+id: chaos.aws-fis.eks-pod-delete
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:eks:pod-delete
+  synthesis_method: collected
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360.0
+expected_signal: pod_restart
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: ReplicaSet controller recreates the deleted Pods.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Delete targeted EKS Pods to validate ReplicaSet and PDB recovery.
+params:
+  action_id: aws:eks:pod-delete
+  grace_period_seconds: '0'
+tags:
+- aws-fis

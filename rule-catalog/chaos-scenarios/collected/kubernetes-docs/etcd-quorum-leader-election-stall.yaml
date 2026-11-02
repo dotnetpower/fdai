@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.etcd-quorum-leader-election-stall
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/
+  source_ref: section=backing-up-an-etcd-cluster;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: state
+target_type: control_plane
+fault_family: hang
+intensity: extreme
+duration_seconds: 360
+expected_signal: resource_availability
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore etcd quorum membership and dedicated low-latency storage IOPS.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Etcd disk latency or member loss triggers leader re-election and API
+  stalls.
+tags:
+- kubernetes
+- vendor-doc

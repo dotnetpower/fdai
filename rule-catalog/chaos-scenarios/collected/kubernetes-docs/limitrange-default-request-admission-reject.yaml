@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.limitrange-default-request-admission-reject
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/policy/limit-range/
+  source_ref: section=constraints-on-resource-limits-and-requests;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: quota
+target_type: quota
+fault_family: quota_shrink
+intensity: mild
+duration_seconds: 360
+expected_signal: rollout_stall
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Align workload resource requests with the namespace LimitRange bounds.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Namespace LimitRange max constraint rejects Pods requesting higher CPU
+  or RAM.
+tags:
+- kubernetes
+- vendor-doc

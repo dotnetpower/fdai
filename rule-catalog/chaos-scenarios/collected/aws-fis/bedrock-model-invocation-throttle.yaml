@@ -1,0 +1,25 @@
+id: chaos.aws-fis.bedrock-model-invocation-throttle
+version: 1
+provenance:
+  source: aws-fis
+  source_url: https://docs.aws.amazon.com/fis/latest/userguide/fis-actions-reference.html
+  source_ref: aws:bedrock:model-invocation-throttle
+  synthesis_method: collected
+category: quota
+target_type: llm_endpoint
+fault_family: throttle
+intensity: high
+duration_seconds: 360.0
+expected_signal: rate_limit
+injector: cross-csp-reference
+blast_radius_cap: 1
+rollback_note: FIS removes the model throttling rule at duration end.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Return HTTP 429 throttling exceptions on managed LLM endpoint calls.
+params:
+  action_id: aws:bedrock:model-invocation-throttle
+tags:
+- aws-fis
