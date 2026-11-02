@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: c10966d72c02ee1e7ebbe94cbad38aa2333ce4ee
-translation_revised: 2026-10-22
+translation_source_sha: 28c5c70fd3b9571c1a362c3316037e0c10b5649e
+translation_revised: 2026-11-03
 ---
 # 관측성 및 탐지(Observability and Detection)
 
@@ -602,6 +602,13 @@ telemetry / metrics
 근거가 충돌하지 않도록 별도의 내용 기반 시도로 보존하고, 이후의 동일한 tick도 첫 tick
 증적으로 축약하지 않습니다. 각 증적은 항상 `execution_authority: false`를 포함합니다. 안정적인
 실행 신원이 없는 로컬 실행은 운영 증적을 만들지 않습니다.
+`runtime:analyzer-finding-receipt:`에 저장하는 분석기 Finding 게시 증적은 변경할 수 없는
+평가와 게시 상태의 각 조합에 대해 최초 관찰을 보존합니다. 기본 저장 정책은 더 이상 500건을
+넘었다는 이유로 증적을 삭제하지 않습니다. 보존된 전체 이력은 읽기 전용 Console에서 범위가
+제한된 페이지로 조회할 수 있습니다. 개수 기준 보존 정책을 명시적으로 지정하면 이 변환 결과를
+정리할 수 있으며, 전체 실행 보고서의 보존은 이와 별개로 기본 500건 제한을 유지합니다.
+페이지 조회는 이전 정책에 따라 이미 삭제된 레코드를 복원하지 않으며 감사, 승인 또는 실행
+권한을 부여하지 않습니다.
 보호된 분리 서비스 배포는 다이제스트로 고정된 GHCR OCI 대상을 통해 provenance, SBOM, Core
 모델 자료 증명을 검증합니다. 따라서 비공개 배포 runner가 관련 없는 공개 Blob DNS에 의존하지
 않습니다.

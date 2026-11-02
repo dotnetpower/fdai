@@ -1,4 +1,4 @@
-"""Retention-bounded analyzer finding receipt persistence."""
+"""Idempotent analyzer receipt persistence with separately bounded tick reports."""
 
 from __future__ import annotations
 
@@ -36,10 +36,12 @@ class StateStoreAnalyzerReceiptStore:
     """Persist idempotent, presentation-safe receipts in tracked state."""
 
     state_store: StateStore
-    retain_newest: int = DEFAULT_ANALYZER_RECEIPT_RETENTION
+    retain_newest: int | None = None
 
     def __post_init__(self) -> None:
-        if type(self.retain_newest) is not int or not 1 <= self.retain_newest <= 10_000:
+        if self.retain_newest is not None and (
+            type(self.retain_newest) is not int or not 1 <= self.retain_newest <= 10_000
+        ):
             raise ValueError("analyzer receipt retention MUST be in [1, 10000]")
 
     async def aclose(self) -> None:
@@ -50,7 +52,7 @@ class StateStoreAnalyzerReceiptStore:
             await close()
 
     async def record(self, receipt: AnalyzerFindingReceipt) -> None:
-        """Record one outcome once and trim only older receipt projections.
+        """Record one outcome once; prune only under an explicit retention policy.
 
         A repeat tick that restates the same outcome is an idempotent no-op and
         keeps the first observation, so ``detection_latency_seconds`` stays a
@@ -65,10 +67,11 @@ class StateStoreAnalyzerReceiptStore:
             existing = await self.state_store.read_state(key)
             if existing is None or _immutable_content(existing) != _immutable_content(value):
                 raise ValueError("analyzer receipt identity collision")
-        await self.state_store.delete_states_beyond(
-            ANALYZER_RECEIPT_STATE_PREFIX,
-            retain_newest=self.retain_newest,
-        )
+        if self.retain_newest is not None:
+            await self.state_store.delete_states_beyond(
+                ANALYZER_RECEIPT_STATE_PREFIX,
+                retain_newest=self.retain_newest,
+            )
         await AnalyzerFindingStateStore(self.state_store).record(receipt)
 
 

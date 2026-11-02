@@ -83,6 +83,32 @@ therefore appears as its operational value, while a missing reviewed value remai
 Provisioning success and a successful provider request never become operational success. Configuration baselines likewise read only completed Core-owned checks, preserving pinned metadata, verdicts, and measured latency. Unconfigured or blocked Knowledge remains unavailable, not a measured citation count; viewing evidence never activates a baseline or review campaign. Forecast Learning preserves the server's due-cohort closure ratio and scored miss origin; a cohort with no due episodes shows Not measured rather than a blank value or zero.
 Detection coverage (`/detection-coverage`) keeps its primary `Coverage`, `Resources`, and `Findings` workspace on the first screen ahead of retained Finding and Alert feeds unless `?finding=`, `#current-findings`, or `#console-inbox` is explicitly targeted, formats structured Azure and scope resource references into readable short names while retaining canonical identities and Architecture/Rule links, surfaces each selected resource's latest retained finding assessment and six-axis readiness directly in `#detection-resource-detail`, styles `CurrentFindings` (`#current-findings`) as a structured Calm Slate feed with status/severity filter chips, `StatusPill` badges, observation callouts, 4-column lifecycle facts, and expandable evidence chips, bounds `ConsoleInbox` alerts with severity filters, pagination, correlation links, and collapsible disclosure, and restricts derived Pod lifecycle projections to `kubernetes_pod` resources. The Rules catalog (`/rules`) keeps its detail drawer opaque across animation states, normalizes parameter-derived resource types in display, and links active rules to their resource-type detection coverage without changing catalog or activation authority. The Approvals workspace (`/approvals`) exposes a queue refresh control, status and sort filters, localized ActionType/rollback/blast-radius labels, live TTL countdown badges, a 7-safeguard verification strip, Calm Slate shaded fact tiles with copy actions, step-chip report-line consent routes, and a structured Slack handoff form while preserving request-only boundaries.
 
+Resource and Finding inspectors use shared filter, reset, and copy controls with 34 px desktop
+and 44 px narrow-screen targets. Filters wrap within the available width, expose their selected
+state programmatically, and announce updated result counts. A resource type restored from a URL
+stays visible even when the current snapshot has no matching resource. The readable resource name
+owns the detail heading; its canonical reference remains available for inspection and copying.
+
+Detection coverage presents its three views through a compact rounded selector. Coverage and
+retained-Finding totals use flat metric bands rather than elevated cards. Filters and detail
+metadata use spacing and hairlines instead of nested boxes; status colors stay local to the
+relevant values and labels. On narrow screens, retained-Finding totals become a single-column
+label/value list while keeping their detail links. The view selector stays in normal document flow;
+it never follows scrolling or covers the retained-history controls.
+
+`GET /detection-coverage?view=history` reads all retained analyzer Finding history through keyset
+pages of at most 100 assessments, with at most seven publication receipts per assessment. One
+assessment never splits across pages. The cursor binds the authenticated principal and roles,
+filters, page size, a 15-minute cutoff and retained-set content revision. A changed or expired
+snapshot requires an explicit refresh rather than mixing pages. Query, evidence, delivery and UTC
+date filters apply before pagination; full filtered totals remain separate from page counts.
+The Console offers 25, 50 and 100 assessments per page, previous/next controls and refresh. Its
+client-instance-scoped memory cache retains at most 40 visited pages for up to five minutes;
+refresh clears it, and failed reads are not cached or replaced with the 500-receipt preview.
+The default coverage response retains a bounded preview for resource detail, advertises
+`history_available`, and does not claim that preview is complete history. Previously deleted
+receipts cannot be reconstructed by pagination.
+
 ## Product vocabulary
 
 Use one product name and plain operational labels:

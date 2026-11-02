@@ -655,6 +655,13 @@ serial pass has a stable tick ordinal, and the report digest is the attempt iden
 is a no-op, a changed retry becomes a separate content-addressed attempt, and identical later ticks
 do not collapse into the first tick's receipt. Every receipt carries `execution_authority: false`.
 Local runs without a stable execution identity do not create an operational receipt.
+Analyzer Finding publication receipts under `runtime:analyzer-finding-receipt:` preserve the first
+observation of each immutable assessment/publication identity. Their default persistence no longer
+prunes after 500 records: complete retained history remains available to the bounded, read-only
+Console history pager. An explicitly supplied count-retention policy may still prune this
+projection; complete tick-report retention remains independently bounded at 500 by default.
+Pagination cannot recover records already deleted under an earlier policy and grants no audit,
+approval, or execution authority.
 Protected split-service deployment verifies provenance, SBOM, and Core model-material attestations
 from the digest-pinned GHCR OCI subject, avoiding unrelated public Blob DNS dependencies on the
 private deployment runner.

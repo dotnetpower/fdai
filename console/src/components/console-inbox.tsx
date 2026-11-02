@@ -158,6 +158,7 @@ export function ConsoleInbox({ client, enabled = true }: {
             <button
               type="button"
               class={severityFilter === "all" ? "is-active" : undefined}
+              aria-pressed={severityFilter === "all"}
               onClick={() => { setSeverityFilter("all"); setPage(0); }}
             >
               {words.filterAll} ({items.length})
@@ -166,6 +167,7 @@ export function ConsoleInbox({ client, enabled = true }: {
               <button
                 type="button"
                 class={severityFilter === "error" ? "is-active" : undefined}
+                aria-pressed={severityFilter === "error"}
                 onClick={() => { setSeverityFilter("error"); setPage(0); }}
               >
                 {words.severity.error}+ ({errorOrCriticalCount})
@@ -175,6 +177,7 @@ export function ConsoleInbox({ client, enabled = true }: {
               <button
                 type="button"
                 class={severityFilter === "warn" ? "is-active" : undefined}
+                aria-pressed={severityFilter === "warn"}
                 onClick={() => { setSeverityFilter("warn"); setPage(0); }}
               >
                 {words.severity.warn} ({warnCount})
@@ -184,6 +187,7 @@ export function ConsoleInbox({ client, enabled = true }: {
               <button
                 type="button"
                 class={severityFilter === "info" ? "is-active" : undefined}
+                aria-pressed={severityFilter === "info"}
                 onClick={() => { setSeverityFilter("info"); setPage(0); }}
               >
                 {words.severity.info} ({infoCount})

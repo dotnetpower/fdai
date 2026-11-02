@@ -39,7 +39,7 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function installFixture(page: Page): Promise<void> {
+async function installFixture(page: Page, historyAvailable = false): Promise<void> {
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
       await route.continue();
@@ -67,6 +67,7 @@ async function installFixture(page: Page): Promise<void> {
     if (path === "/detection-coverage" || path === "/detection-readiness") {
       await json(route, {
         source: "postgresql:state_kv:detection-readiness",
+        history_available: historyAvailable,
         observed_at: "2026-08-31T07:00:00Z",
         target_count: 0,
         counts: { ready: 0, partial: 0, blocked: 0, stale: 0, unauthorized: 0, unknown: 0 },
@@ -313,6 +314,157 @@ async function openFindings(page: Page): Promise<ReturnType<Page["getByRole"]>> 
 
 test.describe.configure({ mode: "serial" });
 
+for (const locale of ["en", "ko"] as const) {
+  test(`pages beyond 500 assessments and reuses visited history pages (${locale})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await installFixture(page, true);
+    let reads = 0;
+    let unavailable = false;
+    await page.route(url => url.searchParams.get("view") === "history", async route => {
+      reads++;
+      if (unavailable) {
+        await json(route, { error: { message: "history source unavailable" } }, 503);
+        return;
+      }
+      const params = new URL(route.request().url()).searchParams;
+      const q = params.get("q") ?? "";
+      const size = Number(params.get("limit"));
+      const offset = Number(params.get("cursor") ?? 0);
+      const total = q ? 1 : 603;
+      const count = Math.min(size, total - offset);
+      const targets = Array.from({ length: count }, (_, index) => {
+        const id = q ? 602 : offset + index;
+        const resource = `history-resource-${id}`;
+        return { resource_ref: resource,
+          current: { ...lifecycleAssessment, idempotency_key: `history-${id}`, resource_ref: resource },
+          history: [] };
+      });
+      await json(route, {
+        execution_authority: false,
+        lifecycle: { source: "postgresql:state_kv:analyzer-finding-receipt",
+          observed_at: lifecycleAssessment.recorded_at, retained_from: lifecycleAssessment.recorded_at,
+          receipt_count: count, receipt_limit: size * 7, target_count: count, assessment_count: count,
+          evidence_counts: { complete: count, incomplete: 0, conflicting: 0, missed: 0 }, targets },
+        pagination: { total_receipts: total, total_assessments: total, total_targets: total,
+          observed_at: lifecycleAssessment.recorded_at, retained_from: lifecycleAssessment.recorded_at,
+          evidence_counts: { complete: total, incomplete: 0, conflicting: 0, missed: 0 },
+          snapshot_at: "2026-11-03T00:00:00Z", offset, page_size: size,
+          next_cursor: offset + count < total ? String(offset + count) : null },
+      });
+    });
+    await page.goto(`/detection-coverage?data=live&locale=${locale}#detection-findings`);
+    const region = page.locator("#detection-readiness-panel-findings");
+    const pager = region.locator(".detection-history-pager");
+    const next = pager.getByRole("button", { name: locale === "ko" ? "다음" : "Next", exact: true });
+    const previous = pager.getByRole("button", { name: locale === "ko" ? "이전" : "Previous", exact: true });
+    await expect(pager).toContainText("603");
+    await expect(region).not.toContainText("limit 500");
+    await next.click();
+    await expect(pager).toContainText("51-100");
+    expect(reads).toBe(2);
+    await previous.click();
+    await expect(pager).toContainText("1-50");
+    expect(reads).toBe(2);
+    await next.click();
+    await expect(pager).toContainText("51-100");
+    expect(reads).toBe(2);
+    for (let offset = 100; offset <= 600; offset += 50) {
+      await next.click();
+      await expect(pager).toContainText(`${offset + 1}-${Math.min(offset + 50, 603)}`);
+    }
+    await expect(next).toBeDisabled();
+    await expect(region).toContainText("history-resource-602");
+    const search = region.getByRole("searchbox");
+    await search.fill("history-resource-602");
+    await expect(pager).toContainText("1-1");
+    await expect(region.locator(".detection-record-list button")).toHaveCount(1);
+    const beforeRefresh = reads;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect.poll(() => reads).toBe(beforeRefresh + 1);
+    await expect(pager).toContainText("1-1");
+    unavailable = true;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect(region.getByRole("alert")).toBeVisible();
+    await expect(region.locator(".detection-record-list")).toHaveCount(0);
+    unavailable = false;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect(pager).toContainText("1-1");
+    for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await expectNoHorizontalOverflow(page, ["html", "main", ".detection-history-pager"]);
+    }
+  });
+}
+
+for (const locale of ["en", "ko"] as const) {
+  test(`keeps inspection controls readable and accessible (${locale})`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const absentType = "compute.vm-scale-set";
+    await page.goto(`/detection-coverage?data=sample&locale=${locale}&type=${absentType}#detection-resources`);
+    const panel = page.locator("#detection-resources");
+    const type = panel.locator("select").first();
+    await expect(type).toHaveValue(absentType);
+    await expect(type.locator("option:checked")).toContainText("VMSS");
+    const clear = panel.getByRole("button", { name: locale === "ko" ? "필터 지우기" : "Clear filters" });
+    await expect(clear).toHaveClass(/btn/);
+    await clear.click();
+    await expect(type).toHaveValue("all");
+    const error = panel.locator(".detection-record-list .status-pill-danger").first();
+    await expect(error).toHaveCSS("color", "rgb(141, 73, 73)");
+    const detail = panel.locator("#detection-resource-detail");
+    await expect(detail.getByRole("heading", { name: "example-mysql-server", exact: true })).toBeVisible();
+    await expect(detail.locator("h4 a")).toHaveCSS("font-size", "18px");
+    const copy = detail.getByRole("button", { name: locale === "ko" ? "리소스 ID 복사" : "Copy resource ID" });
+    for (const viewport of [
+      { width: 1440, height: 900 }, { width: 993, height: 641 },
+      { width: 390, height: 844 }, { width: 320, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      const navigation = page.getByRole("button", { name: locale === "ko" ? "운영" : "Operations", exact: true }).first();
+      if (viewport.width === 993) {
+        await navigation.click();
+        await expect(page.locator("#navigation-explorer")).toBeVisible();
+      }
+      for (const control of [copy, clear, ...await panel.locator(".detection-resource-toolbar .form-input").all()]) {
+        const bounds = await control.boundingBox();
+        expect(bounds!.height).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 34);
+      }
+      await expectNoHorizontalOverflow(page, ["html", "main", ".detection-resource-toolbar", "#detection-resource-detail"]);
+      await clear.focus();
+      await expect(clear).toBeFocused();
+      expect(await clear.evaluate(e => parseFloat(getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
+      await page.locator("main").evaluate(e => { e.scrollTop = 0; });
+      await page.screenshot({ path: testInfo.outputPath(`resource-controls-${locale}-${viewport.width}.png`) });
+      if (viewport.width === 993) await navigation.click();
+    }
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.getByRole("tab", { name: locale === "ko" ? "발견 사항" : "Findings", exact: false }).click();
+    const findingPanel = page.locator("#detection-readiness-panel-findings");
+    await expect(findingPanel.locator(".detection-finding-toolbar button")).toHaveClass(/btn/);
+    const status = findingPanel.locator(".detection-lifecycle-status").first();
+    const facts = findingPanel.locator(".detection-lifecycle-facts").first();
+    expect(await facts.evaluate(e => e.getBoundingClientRect().top)
+      - await status.evaluate(e => e.getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(12);
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    await expect(findingPanel.locator(".detection-finding-toolbar button")).toBeVisible();
+    await expectNoHorizontalOverflow(page, ["html", "main", ".detection-finding-toolbar"]);
+    await page.emulateMedia({ forcedColors: "none", reducedMotion: "no-preference" });
+    await findingPanel.evaluate(element => {
+      const text = [...element.querySelectorAll<HTMLElement>("h3,h4,h5,p,span,dt,dd,label,input,select,button,a,summary,strong,code")];
+      const sizes = text.map(e => parseFloat(getComputedStyle(e).fontSize));
+      text.forEach((e, index) => {
+        e.style.fontSize = `${sizes[index]! * 2}px`;
+        e.style.lineHeight = "1.5";
+        e.style.letterSpacing = ".12em";
+        e.style.wordSpacing = ".16em";
+        if (e.tagName === "P") e.style.marginBlockEnd = "2em";
+      });
+    });
+    await expectNoHorizontalOverflow(page, ["html", "main", ".detection-finding-toolbar", "#detection-lifecycle-detail"]);
+    await page.screenshot({ path: testInfo.outputPath(`enlarged-findings-${locale}.png`) });
+  });
+}
+
 test("renders the coverage funnel, comparison, and drill-down at desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installFixture(page);
@@ -459,7 +611,7 @@ test("filters retained findings and uses generic semantics for non-Pod resources
   await expectNoHorizontalOverflow(page, ["html", "main", ".detection-lifecycle"]);
 });
 
-test("keeps core coverage visible, sticky, and card-based on mobile", async ({ page }) => {
+test("keeps core coverage visible and tabs in normal flow on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installFixture(page);
   await page.goto("/detection-coverage");
@@ -483,7 +635,8 @@ test("keeps core coverage visible, sticky, and card-based on mobile", async ({ p
   ]);
   expect(mainBox).not.toBeNull();
   expect(tabBox).not.toBeNull();
-  expect(Math.abs(tabBox!.y - mainBox!.y)).toBeLessThanOrEqual(25);
+  expect(tabBox!.y + tabBox!.height).toBeLessThan(mainBox!.y);
+  await expect(page.locator(".detection-readiness-tabs")).toHaveCSS("position", "static");
   await expect(page.getByRole("tab", { name: "Coverage" })).toHaveCSS("min-height", "44px");
   await expectNoHorizontalOverflow(page, [
     "html",

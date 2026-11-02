@@ -143,6 +143,16 @@
 .current-findings-search {
   flex: 1 1 220px;
   min-width: 0;
+  min-height: var(--cs-control-height);
+}
+.current-findings-filterbar .governance-chipset button {
+  min-height: var(--cs-control-height);
+  min-width: 44px;
+  font-size: var(--cs-type-compact-size);
+}
+.current-findings-filterbar :is(button, input):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .console-inbox-item-foot {
   display: flex;
@@ -381,8 +391,8 @@
   flex-wrap: wrap;
   gap: 8px;
 }
-.finding-detail-actions .copy-button {
-  min-height: 30px;
+.finding-detail-actions .copy-btn {
+  min-height: var(--cs-control-height);
   padding: 4px 10px;
   border-radius: var(--cs-radius-sm);
   font-size: var(--cs-type-caption-size);
@@ -458,6 +468,15 @@
   }
   .finding-facts-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .current-findings-filterbar :is(button, input),
+  .current-findings-filterbar .governance-chipset button,
+  .current-findings-search,
+  .finding-detail-actions .btn,
+  .current-findings-selected-banner .btn,
+  .console-inbox-item-links .btn,
+  .current-findings-footer .btn {
+    min-height: var(--cs-control-height-touch);
   }
   .finding-card-cta {
     display: none;

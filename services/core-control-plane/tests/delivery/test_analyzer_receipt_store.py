@@ -71,6 +71,17 @@ async def test_store_closes_owned_async_state_store() -> None:
     state.aclose.assert_awaited_once_with()  # type: ignore[attr-defined]
 
 
+async def test_default_finding_history_retains_more_than_500_receipts() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    for index in range(603):
+        await store.record(_receipt(f"history-{index}", AnalyzerPublicationStatus.PUBLISHED))
+    records = await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=1000)
+    assert len(records) == 603
+    await store.record(_receipt("history-0", AnalyzerPublicationStatus.PUBLISHED))
+    assert len(await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=1000)) == 603
+
+
 async def test_store_rejects_rewriting_an_immutable_receipt_identity() -> None:
     state = InMemoryStateStore()
     store = StateStoreAnalyzerReceiptStore(state)

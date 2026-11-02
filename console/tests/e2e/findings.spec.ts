@@ -33,6 +33,62 @@ async function installFindingFeed(page: Page, items: () => readonly unknown[]) {
 }
 
 for (const locale of ["en", "ko"] as const) {
+  test(`exposes selected Finding and Alert filters with usable targets (${locale})`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop-chromium", "Desktop is validated before narrow layouts.");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await installFindingFeed(page, () => [
+      fixtureFinding(),
+      { ...fixtureFinding(), finding_id: "b".repeat(64), severity: "medium" },
+      { ...fixtureFinding(), finding_id: "c".repeat(64), severity: "low", status: "resolved" },
+    ]);
+    await page.route(/\/notifications\/inbox(?:\?|$)/, route => route.fulfill({ json: {
+      source: "runtime-observed", total_count: 6, execution_authority: false,
+      items: Array.from({ length: 6 }, (_, index) => ({
+        inbox_id: String(index + 1).padStart(32, "0"), category: "operational_alert",
+        severity: index === 0 ? "error" : index === 1 ? "warn" : "info",
+        title: `Fixture alert ${index}`, body: "Fixture-only recorded evidence.",
+        correlation_id: `fixture-correlation-${index}`,
+        recorded_at: "2026-09-01T00:00:00Z", execution_authority: false,
+      })),
+    } }));
+    await page.goto(`/detection-coverage?data=live&locale=${locale}#console-inbox`);
+    const current = page.locator("#current-findings");
+    const filters = current.locator(".governance-chipset button");
+    await expect(filters).toHaveCount(4);
+    await expect(filters.first()).toHaveAttribute("aria-pressed", "true");
+    await filters.nth(1).focus();
+    await page.keyboard.press("Space");
+    await expect(filters.nth(1)).toHaveAttribute("aria-pressed", "true");
+    await expect(filters.first()).toHaveAttribute("aria-pressed", "false");
+    await expect(current.locator(".finding-card-item")).toHaveCount(2);
+    await filters.nth(3).click();
+    await expect(current.locator(".finding-card-item")).toHaveCount(1);
+    await expect(current.locator(".current-findings-subtitle")).toHaveAttribute("role", "status");
+    const inbox = page.locator("#console-inbox");
+    const severities = inbox.locator(".governance-chipset button");
+    await expect(severities.first()).toHaveAttribute("aria-pressed", "true");
+    await severities.nth(1).focus();
+    await page.keyboard.press("Enter");
+    await expect(severities.nth(1)).toHaveAttribute("aria-pressed", "true");
+    await expect(inbox.locator(".console-inbox-item")).toHaveCount(1);
+    await expect(inbox.locator(".console-inbox-item strong")).toHaveText("Fixture alert 0");
+    for (const viewport of [
+      { width: 1440, height: 900 }, { width: 993, height: 641 },
+      { width: 390, height: 844 }, { width: 320, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      for (const filter of [filters.nth(1), severities.nth(1)]) {
+        await filter.focus();
+        expect(await filter.evaluate(e => parseFloat(getComputedStyle(e).outlineWidth))).toBeGreaterThanOrEqual(2);
+        expect((await filter.boundingBox())!.height).toBeGreaterThanOrEqual(viewport.width <= 640 ? 44 : 34);
+      }
+      expect(await page.locator("main").evaluate(e => e.scrollWidth <= e.clientWidth)).toBe(true);
+      await inbox.screenshot({ path: testInfo.outputPath(`alert-filters-${locale}-${viewport.width}.png`) });
+    }
+  });
+}
+
+for (const locale of ["en", "ko"] as const) {
   test(`shows Findings independently from Incidents (${locale})`, async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop-chromium", "Desktop is validated before narrow layouts.");
     await page.setViewportSize({ width: 1440, height: 900 });
