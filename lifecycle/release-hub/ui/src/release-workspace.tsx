@@ -19,11 +19,17 @@ export function nextReleaseStep(release: Release, catalog: Catalog): "recall" | 
   return "review";
 }
 
-export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: {
-  release: Release; catalog: Catalog; act: (action: Action, release: Release) => void;
+export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onLocaleChange, act, disabled, activity }: {
+  release: Release; catalog: Catalog; locale?: "en" | "ko"; onLocaleChange?: (next: "en" | "ko") => void;
+  act: (action: Action, release: Release) => void;
   disabled: boolean; activity: ComponentChildren;
 }) {
-  const [locale, setLocale] = useState(navigator.language.startsWith("ko") ? "ko" : "en");
+  const [internalLocale, setInternalLocale] = useState<"en" | "ko">(navigator.language.startsWith("ko") ? "ko" : "en");
+  const locale = externalLocale ?? internalLocale;
+  const setLocale = (next: "en" | "ko") => {
+    setInternalLocale(next);
+    onLocaleChange?.(next);
+  };
   const t = (en: string, ko: string) => locale === "ko" ? ko : en;
   const evidence = useRef<HTMLDetailsElement>(null);
   const history = useRef<HTMLElement>(null);
@@ -63,8 +69,8 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
   }
   return <div class="release-workspace" lang={locale}>
     <div class="workspace-bar">
-      <a href="#/releases" class="back">{t("All releases", "모든 릴리스")}</a>
-      <label>{t("Workspace language", "작업 영역 언어")} <select value={locale} onChange={(event) => setLocale(event.currentTarget.value)}>
+      <a href="#/releases" class="back">{t("All releases", "← 모든 릴리스 목록으로")}</a>
+      <label>{t("Workspace language", "작업 영역 언어")} <select value={locale} onChange={(event) => setLocale(event.currentTarget.value as "en" | "ko")}>
         <option value="en">English</option><option value="ko">한국어</option>
       </select></label>
     </div>
@@ -87,13 +93,20 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
         ? t("Review the exact manifest, then confirm development signing and DEV membership. This does not build images or publish them to a registry.", "정확한 매니페스트를 검토한 후 개발용 서명과 DEV 채널 추가를 확인하세요. 이미지를 빌드하거나 레지스트리에 발행하는 작업은 아닙니다.")
         : t("Review promotion evidence before advancing. Channel membership alone does not prove that promotion gates passed.", "다음 단계로 이동하기 전에 승격 근거를 검토하세요. 채널 소속만으로 승격 검사를 통과했다고 판단할 수 없습니다.")}</p>
       {step === "renew" ? <a class="next-link" href="#/trust">{t("Review catalog freshness", "카탈로그 유효 기간 검토")}</a>
-        : <button class="primary" disabled={disabled} onClick={() => {
-          if (step === "publish") act("publish", release);
-          else if (step === "review") reviewEvidence();
-          else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
-        }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
-          : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
-          : t("Review recall activity", "회수 활동 검토")}</button>}
+        : <div class="actions">
+          <button class={transition && blockedCaps.length === 0 ? "" : "primary"} disabled={disabled} onClick={() => {
+            if (step === "publish") act("publish", release);
+            else if (step === "review") reviewEvidence();
+            else { history.current?.focus(); history.current?.scrollIntoView({ block: "start" }); }
+          }}>{step === "publish" ? t("Review DEV publication", "DEV 발행 검토")
+            : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
+            : t("Review recall activity", "회수 활동 검토")}</button>
+          {step === "review" && transition && blockedCaps.length === 0 && !catalog.expired && (
+            <button type="button" class="primary" disabled={disabled} onClick={() => act("promote", release)}>
+              {t(`Quick advance to ${transition.targetChannel}`, `${transition.sourceChannel} -> ${transition.targetChannel} 바로 승격하기`)}
+            </button>
+          )}
+        </div>}
     </section>
     {stencil && (
       <section aria-labelledby="release-stencil-title">

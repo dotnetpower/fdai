@@ -212,13 +212,24 @@ export function computeLiveApolloBlueprint(
 }
 
 export function StencilBuilder({
+  locale: externalLocale,
+  onLocaleChange,
   existingReleases = [],
   onPrepareRelease,
 }: {
+  locale?: "en" | "ko";
+  onLocaleChange?: (next: "en" | "ko") => void;
   existingReleases?: readonly Release[];
   onPrepareRelease: (draft: { id: string; label: string; manifest: string }) => void;
 }) {
-  const [locale, setLocale] = useState(navigator.language.startsWith("ko") ? "ko" : "en");
+  const [internalLocale, setInternalLocale] = useState<"en" | "ko">(
+    navigator.language.startsWith("ko") ? "ko" : "en",
+  );
+  const locale = externalLocale ?? internalLocale;
+  const setLocale = (next: "en" | "ko") => {
+    setInternalLocale(next);
+    onLocaleChange?.(next);
+  };
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
 
   const [catalog, setCatalog] = useState<StencilCatalogResponse | null>(null);
@@ -435,7 +446,7 @@ export function StencilBuilder({
     sourceCommit,
   });
 
-  async function runCompose(event?: SubmitEvent) {
+  async function runCompose(event?: SubmitEvent, openRegisterAfter = false) {
     event?.preventDefault();
     if (composing || !validInputs) return;
     setComposing(true);
@@ -459,6 +470,13 @@ export function StencilBuilder({
       });
       setComposed(result);
       applyPreset(result.stencil);
+      if (openRegisterAfter) {
+        onPrepareRelease({
+          id: releaseVersion.trim(),
+          label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
+          manifest: JSON.stringify(result.release_manifest, null, 2),
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stencil composition failed.");
     } finally {
@@ -472,7 +490,7 @@ export function StencilBuilder({
         <span>{t("Custom Stencil & Menu Builder", "맞춤형 Stencil 및 메뉴 빌더")}</span>
         <label>
           {t("Builder language", "빌더 언어")}{" "}
-          <select value={locale} onChange={(e) => setLocale(e.currentTarget.value)}>
+          <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
             <option value="en">English</option>
             <option value="ko">한국어</option>
           </select>
@@ -1071,11 +1089,21 @@ export function StencilBuilder({
                     type="button"
                     class="primary"
                     disabled={composing || !validInputs}
-                    onClick={() => void runCompose()}
+                    onClick={() => void runCompose(undefined, true)}
                   >
                     {composing
-                      ? t("Validating...", "검증 중...")
-                      : t("Validate & generate manifest", "구성 검증 및 매니페스트 생성")}
+                      ? t("Preparing...", "생성 중...")
+                      : t(
+                          `1-Click Compose & Register Release ${releaseVersion.trim()}`,
+                          `원클릭으로 릴리스 ${releaseVersion.trim()} 등록 모달 열기`,
+                        )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={composing || !validInputs}
+                    onClick={() => void runCompose(undefined, false)}
+                  >
+                    {t("Preview manifest only", "매니페스트만 미리보기")}
                   </button>
                 </div>
               </div>

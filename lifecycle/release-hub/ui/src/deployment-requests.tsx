@@ -13,7 +13,8 @@ export function nextRequestOffset(page: DeploymentRequestPage): number | null {
   return page.has_more ? page.offset + page.limit : null;
 }
 
-export function DeploymentRequests({ catalog }: { catalog?: Catalog | null }) {
+export function DeploymentRequests({ catalog, locale = "en" }: { catalog?: Catalog | null; locale?: "en" | "ko" }) {
+  const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stencilByRelease = useMemo(
     () => new Map((catalog?.releases ?? []).map((r) => [r.id, extractReleaseStencil(r)] as const)),
     [catalog],
@@ -43,31 +44,31 @@ export function DeploymentRequests({ catalog }: { catalog?: Catalog | null }) {
     return () => { generation.current++; };
   }, [filter, offset, refresh]);
   return <>
-    <div class="page-head"><div><p class="eyebrow">Clone deployment intake</p><h1>Deployment requests</h1>
-      <p>Subscriptions that self-reported a deployment request, newest first.</p></div>
-      <button disabled={loading} onClick={() => { setOffset(0); setRefresh((value) => value + 1); }}>Refresh requests</button>
+    <div class="page-head"><div><p class="eyebrow">{t("Clone deployment intake", "구독별 설치 요청 관제")}</p><h1>{t("Deployment requests", "구독 배포 요청 현황")}</h1>
+      <p>{t("Subscriptions that self-reported a deployment request, newest first.", "각 Azure 구독에서 보고된 배포 요청 내역과 요청된 릴리스의 Stencil 에디션·최신 정합성을 확인합니다.")}</p></div>
+      <button disabled={loading} onClick={() => { setOffset(0); setRefresh((value) => value + 1); }}>{t("Refresh requests", "요청 새로고침")}</button>
     </div>
-    <p class="warning">Self-reported / ownership unverified. A request is not verified subscription ownership, approval, or a successful deployment.</p>
+    <p class="warning">{t("Self-reported / ownership unverified. A request is not verified subscription ownership, approval, or a successful deployment.", "자체 보고된 요청 기록입니다. 요청 기록만으로 구독 소유권이나 실제 클러스터 배포 완료를 보장하지 않습니다.")}</p>
     <form class="request-filter" onSubmit={(event) => {
       event.preventDefault(); setFilter(draft); setOffset(0); setRefresh((value) => value + 1);
     }}>
-      <label>Subscription ID<input value={draft} maxLength={36} pattern={SUBSCRIPTION}
-        placeholder="Canonical lowercase UUID" autoComplete="off"
+      <label>{t("Subscription ID", "Azure 구독 ID 필터")}<input value={draft} maxLength={36} pattern={SUBSCRIPTION}
+        placeholder={t("Canonical lowercase UUID", "구독 UUID 입력 (예: 00000000-0000-0000-0000-000000000000)")} autoComplete="off"
         onInput={(event) => setDraft(event.currentTarget.value)} /></label>
-      <button disabled={loading}>Filter requests</button>
+      <button disabled={loading}>{t("Filter requests", "필터 적용")}</button>
       <button type="button" disabled={loading || (!draft && !filter)}
-        onClick={() => { setDraft(""); setFilter(""); setOffset(0); }}>Clear filter</button>
+        onClick={() => { setDraft(""); setFilter(""); setOffset(0); }}>{t("Clear filter", "필터 초기화")}</button>
     </form>
-    {filter && <p>Filtered subscription: <code class="request-subscription">{filter}</code></p>}
-    {loading && <p role="status" class="empty">Loading deployment requests...</p>}
+    {filter && <p>{t("Filtered subscription:", "적용된 구독 필터:")} <code class="request-subscription">{filter}</code></p>}
+    {loading && <p role="status" class="empty">{t("Loading deployment requests...", "배포 요청 내역을 불러오는 중...")}</p>}
     {error && <p role="alert" class="error">{error}</p>}
     {page && <>
-      {!page.requests.length ? <p class="empty">No deployment requests match this view.</p>
+      {!page.requests.length ? <p class="empty">{t("No deployment requests match this view.", "아직 접수된 배포 요청이 없습니다.")}</p>
         : <div class="request-table" role="region" aria-label="Deployment request records" tabIndex={0}>
           <table>
-            <caption>Self-reported requests / requested only / ownership unverified</caption>
-            <thead><tr><th scope="col">Recorded (UTC)</th><th scope="col">Subscription</th>
-              <th scope="col">Release / channel</th><th scope="col">Region</th><th scope="col">Request evidence</th></tr></thead>
+            <caption>{t("Self-reported requests / requested only / ownership unverified", "구독별 배포 요청 목록 (최신순)")}</caption>
+            <thead><tr><th scope="col">{t("Recorded (UTC)", "기록 시각 (UTC)")}</th><th scope="col">{t("Subscription", "구독 ID")}</th>
+              <th scope="col">{t("Release / channel", "요청 릴리스 / 채널 / 에디션")}</th><th scope="col">{t("Region", "리전")}</th><th scope="col">{t("Request evidence", "상세 증적")}</th></tr></thead>
             <tbody>{page.requests.map((record) => {
               const st = stencilByRelease.get(record.release_id);
               const rel = releaseById.get(record.release_id);
