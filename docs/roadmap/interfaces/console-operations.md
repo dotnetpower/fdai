@@ -112,6 +112,9 @@ refresh clears it, and failed reads are not cached or replaced with the 500-rece
 The default coverage response retains a bounded preview for resource detail, advertises
 `history_available`, and does not claim that preview is complete history. Previously deleted
 receipts cannot be reconstructed by pagination.
+Each retained assessment has its own `assessment_id`: repeated publication-window keys with
+different observation times remain distinct. The list preserves both original observation
+evidence and publication keys; only attempts for the exact same observation are combined.
 
 ## Product vocabulary
 

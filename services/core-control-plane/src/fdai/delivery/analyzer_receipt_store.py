@@ -59,10 +59,24 @@ class StateStoreAnalyzerReceiptStore:
         detection measurement rather than the finding's age. Restating an
         identity with different immutable content is still a collision.
         """
-        identity = f"{receipt.idempotency_key}\n{receipt.publication.value}"
+        identity = (
+            f"{receipt.idempotency_key}\n{receipt.occurred_at.isoformat()}\n"
+            f"{receipt.publication.value}"
+        )
         digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         key = f"{ANALYZER_RECEIPT_STATE_PREFIX}{digest}"
         value = receipt.to_dict()
+        legacy_identity = f"{receipt.idempotency_key}\n{receipt.publication.value}"
+        legacy_key = (
+            ANALYZER_RECEIPT_STATE_PREFIX
+            + hashlib.sha256(legacy_identity.encode("utf-8")).hexdigest()
+        )
+        legacy = await self.state_store.read_state(legacy_key)
+        if legacy is not None and legacy.get("occurred_at") == value["occurred_at"]:
+            if _immutable_content(legacy) != _immutable_content(value):
+                raise ValueError("analyzer receipt identity collision")
+            await AnalyzerFindingStateStore(self.state_store).record(receipt)
+            return
         if not await self.state_store.write_state_if_absent(key, value):
             existing = await self.state_store.read_state(key)
             if existing is None or _immutable_content(existing) != _immutable_content(value):

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: f53ba0b8dab19f901962be9cec3d9e2001cc9ec5
+translation_source_sha: e62a1acbee5040f81a72e883e903e47357b50aaa
 translation_revised: 2026-11-03
 ---
 
@@ -110,6 +110,9 @@ API 클라이언트별 메모리 캐시는 조회한 페이지 최대 40개를 �
 기본 커버리지 응답은 리소스 상세용으로 범위가 제한된 미리보기를 유지하고 `history_available`을
 알리지만, 이를 전체 이력이라고 표시하지 않습니다. 이전에 삭제된 증적은 페이지 조회로 복원할
 수 없습니다.
+보존된 평가는 각각 자체 `assessment_id`를 갖습니다. 게시 구간 키가 같아도 관찰 시각이 다르면
+별도의 평가로 유지합니다. 목록은 원래 관찰 근거와 게시 키를 모두 보존하며, 정확히 같은
+관찰의 게시 시도만 하나로 묶습니다.
 
 ## 제품 용어
 

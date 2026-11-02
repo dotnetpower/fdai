@@ -59,6 +59,15 @@ async def test_repeated_observations_do_not_repeat_alert_but_escalation_does() -
     assert escalated.notification_reason == "escalated"
 
 
+async def test_same_publication_window_accepts_a_new_observation_without_realerting() -> None:
+    state = InMemoryStateStore()
+    store = AnalyzerFindingStateStore(state)
+    await store.record(receipt())
+    await store.record(receipt(1, idempotency_key="observation:0"))
+    assert (await current(state)).revision == 2
+    assert (await current(state)).notification_version == 1
+
+
 async def test_verified_recovery_then_reopening_is_a_new_notification() -> None:
     state = InMemoryStateStore()
     store = AnalyzerFindingStateStore(state)

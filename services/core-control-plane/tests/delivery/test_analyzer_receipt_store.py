@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
@@ -111,6 +112,33 @@ async def test_store_keeps_the_first_observation_of_a_repeated_outcome() -> None
     assert len(records) == 1
     assert records[0]["recorded_at"] == NOW.isoformat()
     assert records[0]["detection_latency_seconds"] == 4.0
+
+
+async def test_distinct_observations_in_one_publication_window_are_retained() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    first = _receipt("shared-window", AnalyzerPublicationStatus.PUBLISHED)
+    later = replace(
+        first,
+        occurred_at=NOW + timedelta(seconds=20),
+        recorded_at=NOW + timedelta(seconds=24),
+        publication=AnalyzerPublicationStatus.DUPLICATE_SUPPRESSED,
+        evidence_refs=("metric:later-observation",),
+    )
+    await store.record(first)
+    await store.record(later)
+    assert len(await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)) == 2
+
+
+async def test_exact_legacy_receipt_retry_does_not_duplicate_history() -> None:
+    state = InMemoryStateStore()
+    store = StateStoreAnalyzerReceiptStore(state)
+    receipt = _receipt("legacy-window", AnalyzerPublicationStatus.PUBLISHED)
+    identity = f"{receipt.idempotency_key}\n{receipt.publication.value}"
+    legacy_key = ANALYZER_RECEIPT_STATE_PREFIX + hashlib.sha256(identity.encode()).hexdigest()
+    await state.write_state(legacy_key, receipt.to_dict())
+    await store.record(receipt)
+    assert len(await state.read_states(ANALYZER_RECEIPT_STATE_PREFIX, limit=10)) == 1
 
 
 async def test_store_still_rejects_a_conflicting_repeat_with_later_timing() -> None:

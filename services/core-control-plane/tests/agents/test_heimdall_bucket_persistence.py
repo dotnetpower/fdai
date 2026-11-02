@@ -2,19 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping
 from copy import deepcopy
+from datetime import timedelta
 from typing import Any
 
 import pytest
 from fdai.agents import Heimdall
 from fdai.agents._framework import heimdall_sensing_persistence as persistence
+from fdai.agents._framework.heimdall_checkpoint_repair import plan_interrupted_checkpoint
 from fdai.agents._framework.heimdall_sensing_persistence import (
     BUCKET_COUNT,
     BUCKET_PREFIX,
+    MANIFEST_PREFIX,
     MAX_NODE_BYTES,
     SUBJECT_LAYOUT,
+    VERSION_PREFIX,
     _bucket_commitment,
     _bucket_slot,
     _subject_digest,
@@ -32,6 +37,73 @@ from tests.agents.test_heimdall_sensing_persistence import (
     _snapshot,
     _subject,
 )
+
+
+async def test_explicit_legacy_repair_preserves_rows_and_verifies_all_subjects() -> None:
+    class TimedStore(CountingStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.written_at: dict[str, Any] = {}
+
+        async def write_state(self, key: str, value: Any) -> None:
+            await super().write_state(key, value)
+            self.written_at[key] = NOW + timedelta(microseconds=self.writes)
+
+    store = TimedStore()
+    agent = _agent(store)
+    seed_subjects(agent, 8)
+    await agent._persist_state()
+    root = dict(await store.read_state(STATE))
+    root.pop("immutable_records")
+    await store.write_state(STATE, root)
+    store.fail_key = STATE
+    with pytest.raises(OSError):
+        await agent.on_typed_message("object.event", _event(100, seconds=1))
+    store.fail_key = None
+    rows = {
+        key: (deepcopy(body), store.written_at[key])
+        for key, body in store._state.items()
+        if not key.startswith((VERSION_PREFIX, MANIFEST_PREFIX))
+    }
+    original = deepcopy(rows)
+    plan = await plan_interrupted_checkpoint(rows)
+    assert rows == original
+    assert plan.subject_count == 8
+    for key, body in plan.immutable_records.items():
+        await store.write_state(key, body)
+    await store.write_state(STATE, plan.root)
+    recovered = _agent(store)
+    assert await recovered.rehydrate() == 8
+    assert _snapshot(recovered) == _snapshot(agent)
+    missing = deepcopy(rows)
+    missing.pop(next(key for key in missing if "/episodes/" in key))
+    with pytest.raises(ValueError, match="missing subject"):
+        await plan_interrupted_checkpoint(missing)
+    unchanged_times = {key: (body, NOW) for key, (body, _at) in rows.items()}
+    with pytest.raises(ValueError, match="no interrupted writes"):
+        await plan_interrupted_checkpoint(unchanged_times)
+
+
+async def test_checkpoint_recovery_reads_are_bounded_and_concurrent() -> None:
+    class ConcurrentReadStore(CountingStore):
+        active = 0
+        peak = 0
+
+        async def read_state(self, key: str) -> Any:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                await asyncio.sleep(0)
+                return await super().read_state(key)
+            finally:
+                self.active -= 1
+
+    store = ConcurrentReadStore()
+    agent = _agent(store)
+    seed_subjects(agent, 100)
+    await agent._persist_state()
+    assert await _agent(store).rehydrate() == 100
+    assert 1 < store.peak <= 8
 
 
 def flat_manifest(agent: Heimdall) -> dict[str, Any]:
@@ -135,7 +207,7 @@ async def test_fixed_root_and_only_touched_hash_buckets(count: int) -> None:
     longest = max(paths, key=len)
     assert paths == {longest[:index] for index in range(len(longest) + 1)}
     assert len({key.removeprefix(BUCKET_PREFIX).split("/")[0] for key in changed}) == 1
-    assert store.writes == writes + len(changed) + 2
+    assert store.writes == writes + 2 * len(changed) + 4
     assert list(agent._recent_events) == first_order
     previous = buckets(store)
     writes = store.writes
@@ -182,18 +254,20 @@ async def test_existing_flat_checkpoint_migrates_without_losing_state_or_order()
 
 
 @pytest.mark.parametrize("stage", ["bucket", "root"])
-async def test_partial_bucket_checkpoint_fails_closed_then_retries(stage: str) -> None:
+async def test_partial_bucket_checkpoint_restores_last_commit_then_retries(stage: str) -> None:
     store = CountingStore()
     agent = _agent(store)
     seed_subjects(agent, 8)
     await agent._persist_state()
+    committed = _snapshot(agent)
     key = _subject("episodes", _encoded(next(iter(agent._recent_events))))
     slot_key = next(name for name, body in buckets(store).items() if key in body["entries"])
     store.fail_key = STATE if stage == "root" else slot_key
     with pytest.raises(OSError, match="injected"):
         await agent.on_typed_message("object.event", _event(100, seconds=1))
-    with pytest.raises(ValueError, match="digest mismatch; repair required"):
-        await _agent(store).rehydrate()
+    prior = _agent(store)
+    assert await prior.rehydrate() == 8
+    assert _snapshot(prior) == committed
     store.fail_key = None
     await agent._persist_state()
     restarted = _agent(store)
@@ -393,6 +467,7 @@ async def test_existing_v2_flat_buckets_remain_readable_and_migrate_to_bounded_n
         digests.append(_subject_digest(body))
     root = dict(await store.read_state(STATE))
     root.pop("bucket_node_format")
+    root.pop("immutable_records")
     root["bucket_digest"] = _bucket_commitment(digests)
     await store.write_state(STATE, root)
     migrated = _agent(store)
@@ -413,14 +488,16 @@ async def test_partial_trie_checkpoint_refuses_mixed_state(stage: str) -> None:
     agent = _agent(store)
     seed_subjects(agent, 2_048)
     await agent._persist_state()
+    committed = _snapshot(agent)
     target = _subject("episodes", _encoded(list(agent._recent_events)[1_024]))
     leaf = next(name for name, body in buckets(store).items() if target in body.get("entries", {}))
     top = BUCKET_PREFIX + leaf.removeprefix(BUCKET_PREFIX).split("/")[0]
     store.fail_key = {"leaf": leaf, "branch": top, "root": STATE}[stage]
     with pytest.raises(OSError, match="injected"):
         await agent.on_typed_message("object.event", _event(9_000, subject=1_024, seconds=1))
-    with pytest.raises(ValueError, match="digest mismatch; repair required"):
-        await _agent(store).rehydrate()
+    prior = _agent(store)
+    assert await prior.rehydrate() == 2_048
+    assert _snapshot(prior) == committed
     store.fail_key = None
     await agent._persist_state()
     restarted = _agent(store)
@@ -449,14 +526,14 @@ async def test_invalid_root_checks_only_64_top_nodes_before_following_children()
     root_key = f"{BUCKET_PREFIX}00"
     body = dict(await store.read_state(root_key))
     body["path"] = "tampered"
-    await store.write_state(root_key, body)
+    digest = _subject_digest(await store.read_state(root_key))
+    await store.write_state(VERSION_PREFIX + digest, body)
     store.read_keys.clear()
     with pytest.raises(ValueError, match="bucket digest mismatch; repair required"):
         await _agent(store).rehydrate()
-    assert store.read_keys == [
-        STATE,
-        *(f"{BUCKET_PREFIX}{slot:02d}" for slot in range(BUCKET_COUNT)),
-    ]
+    assert store.read_keys[0] == STATE
+    assert store.read_keys[1].startswith(MANIFEST_PREFIX)
+    assert len(store.read_keys) == 3
 
 
 async def test_large_jsonb_numeric_expansion_uses_bounded_data_nodes() -> None:
@@ -477,6 +554,7 @@ async def test_partial_large_value_checkpoint_fails_closed_and_retries(stage: st
     agent = _agent(store)
     agent._security_recent.append({"body": "before-" * 8_000})
     await agent._persist_state()
+    committed = deepcopy(_snapshot(agent))
     fragment = next(
         key for key, body in buckets(store).items() if body.get("node_type") == "fragment"
     )
@@ -484,8 +562,9 @@ async def test_partial_large_value_checkpoint_fails_closed_and_retries(stage: st
     store.fail_key = {"data": fragment + "/value/0", "fragment": fragment, "root": STATE}[stage]
     with pytest.raises(OSError, match="injected"):
         await agent._persist_state()
-    with pytest.raises(ValueError, match="digest mismatch; repair required"):
-        await _agent(store).rehydrate()
+    prior = _agent(store)
+    await prior.rehydrate()
+    assert _snapshot(prior) == committed
     store.fail_key = None
     await agent._persist_state()
     restarted = _agent(store)
