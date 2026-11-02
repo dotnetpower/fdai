@@ -24,9 +24,11 @@ _PUBLICATION_STATES = frozenset(
 _MAX_RECEIPTS = 500
 
 
-def project_analyzer_lifecycle(rows: Sequence[Mapping[str, object]]) -> dict[str, object]:
+def project_analyzer_lifecycle(
+    rows: Sequence[Mapping[str, object]], *, receipt_limit: int = _MAX_RECEIPTS
+) -> dict[str, object]:
     """Separate each target's newest assessment from its retained history."""
-    if len(rows) > _MAX_RECEIPTS:
+    if len(rows) > receipt_limit:
         raise ProjectionUnavailableError("analyzer lifecycle receipt bound was exceeded")
     receipts = [
         _decode_receipt(row.get("value"), newest_rank=index) for index, row in enumerate(rows)
@@ -69,7 +71,7 @@ def project_analyzer_lifecycle(rows: Sequence[Mapping[str, object]]) -> dict[str
         "observed_at": observed_at,
         "retained_from": retained_from,
         "receipt_count": len(receipts),
-        "receipt_limit": _MAX_RECEIPTS,
+        "receipt_limit": receipt_limit,
         "target_count": len(targets),
         "assessment_count": len(assessments),
         "evidence_counts": {

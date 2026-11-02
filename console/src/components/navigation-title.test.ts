@@ -6,7 +6,7 @@ const livePanels = readFileSync(
   new URL("../routes/live.panels.tsx", import.meta.url),
   "utf8",
 );
-const pageHeader = readFileSync(new URL("./ui.tsx", import.meta.url), "utf8");
+const pageHeader = readFileSync(new URL("./ui-shell.tsx", import.meta.url), "utf8");
 
 describe("navigation title", () => {
   test("omits roots that duplicate their domain and standalone utilities", () => {

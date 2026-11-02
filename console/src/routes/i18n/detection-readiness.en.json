@@ -226,6 +226,20 @@
     "attention": "partial, blocked, stale, or unknown",
     "shadowLimited": "disabled, fallback, or shadow"
   },
+  "history": {
+    "navigation": "Retained Finding history pages",
+    "pageSize": "Assessments per page",
+    "previous": "Previous",
+    "next": "Next",
+    "refresh": "Refresh history",
+    "loading": "Loading retained history...",
+    "range": "Assessments {from}-{to} of {total}",
+    "pageTargets": "Resources on this page: {count} of {total} matching resources",
+    "retained": "{count} retained receipts across all matching history",
+    "snapshot": "History snapshot: {at}",
+    "current": "Newest assessment on this page",
+    "cacheNote": "Filters apply to all retained history. Visited pages are cached for up to 5 minutes; refresh starts a new snapshot. Previously deleted receipts cannot be recovered."
+  },
   "provenance": "Evidence provenance",
   "source": "Source",
   "observedAt": "Last agent snapshot",

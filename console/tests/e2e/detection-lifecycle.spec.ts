@@ -39,7 +39,7 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function installFixture(page: Page): Promise<void> {
+async function installFixture(page: Page, historyAvailable = false): Promise<void> {
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
       await route.continue();
@@ -67,6 +67,7 @@ async function installFixture(page: Page): Promise<void> {
     if (path === "/detection-coverage" || path === "/detection-readiness") {
       await json(route, {
         source: "postgresql:state_kv:detection-readiness",
+        history_available: historyAvailable,
         observed_at: "2026-08-31T07:00:00Z",
         target_count: 0,
         counts: { ready: 0, partial: 0, blocked: 0, stale: 0, unauthorized: 0, unknown: 0 },
@@ -314,6 +315,88 @@ async function openFindings(page: Page): Promise<ReturnType<Page["getByRole"]>> 
 test.describe.configure({ mode: "serial" });
 
 for (const locale of ["en", "ko"] as const) {
+  test(`pages beyond 500 assessments and reuses visited history pages (${locale})`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await installFixture(page, true);
+    let reads = 0;
+    let unavailable = false;
+    await page.route(url => url.searchParams.get("view") === "history", async route => {
+      reads++;
+      if (unavailable) {
+        await json(route, { error: { message: "history source unavailable" } }, 503);
+        return;
+      }
+      const params = new URL(route.request().url()).searchParams;
+      const q = params.get("q") ?? "";
+      const size = Number(params.get("limit"));
+      const offset = Number(params.get("cursor") ?? 0);
+      const total = q ? 1 : 603;
+      const count = Math.min(size, total - offset);
+      const targets = Array.from({ length: count }, (_, index) => {
+        const id = q ? 602 : offset + index;
+        const resource = `history-resource-${id}`;
+        return { resource_ref: resource,
+          current: { ...lifecycleAssessment, idempotency_key: `history-${id}`, resource_ref: resource },
+          history: [] };
+      });
+      await json(route, {
+        execution_authority: false,
+        lifecycle: { source: "postgresql:state_kv:analyzer-finding-receipt",
+          observed_at: lifecycleAssessment.recorded_at, retained_from: lifecycleAssessment.recorded_at,
+          receipt_count: count, receipt_limit: size * 7, target_count: count, assessment_count: count,
+          evidence_counts: { complete: count, incomplete: 0, conflicting: 0, missed: 0 }, targets },
+        pagination: { total_receipts: total, total_assessments: total, total_targets: total,
+          observed_at: lifecycleAssessment.recorded_at, retained_from: lifecycleAssessment.recorded_at,
+          evidence_counts: { complete: total, incomplete: 0, conflicting: 0, missed: 0 },
+          snapshot_at: "2026-11-03T00:00:00Z", offset, page_size: size,
+          next_cursor: offset + count < total ? String(offset + count) : null },
+      });
+    });
+    await page.goto(`/detection-coverage?data=live&locale=${locale}#detection-findings`);
+    const region = page.locator("#detection-readiness-panel-findings");
+    const pager = region.locator(".detection-history-pager");
+    const next = pager.getByRole("button", { name: locale === "ko" ? "다음" : "Next", exact: true });
+    const previous = pager.getByRole("button", { name: locale === "ko" ? "이전" : "Previous", exact: true });
+    await expect(pager).toContainText("603");
+    await expect(region).not.toContainText("limit 500");
+    await next.click();
+    await expect(pager).toContainText("51-100");
+    expect(reads).toBe(2);
+    await previous.click();
+    await expect(pager).toContainText("1-50");
+    expect(reads).toBe(2);
+    await next.click();
+    await expect(pager).toContainText("51-100");
+    expect(reads).toBe(2);
+    for (let offset = 100; offset <= 600; offset += 50) {
+      await next.click();
+      await expect(pager).toContainText(`${offset + 1}-${Math.min(offset + 50, 603)}`);
+    }
+    await expect(next).toBeDisabled();
+    await expect(region).toContainText("history-resource-602");
+    const search = region.getByRole("searchbox");
+    await search.fill("history-resource-602");
+    await expect(pager).toContainText("1-1");
+    await expect(region.locator(".detection-record-list button")).toHaveCount(1);
+    const beforeRefresh = reads;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect.poll(() => reads).toBe(beforeRefresh + 1);
+    await expect(pager).toContainText("1-1");
+    unavailable = true;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect(region.getByRole("alert")).toBeVisible();
+    await expect(region.locator(".detection-record-list")).toHaveCount(0);
+    unavailable = false;
+    await pager.getByRole("button", { name: locale === "ko" ? "이력 새로 고침" : "Refresh history" }).click();
+    await expect(pager).toContainText("1-1");
+    for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+      await page.setViewportSize(viewport);
+      await expectNoHorizontalOverflow(page, ["html", "main", ".detection-history-pager"]);
+    }
+  });
+}
+
+for (const locale of ["en", "ko"] as const) {
   test(`keeps inspection controls readable and accessible (${locale})`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const absentType = "compute.vm-scale-set";
@@ -528,7 +611,7 @@ test("filters retained findings and uses generic semantics for non-Pod resources
   await expectNoHorizontalOverflow(page, ["html", "main", ".detection-lifecycle"]);
 });
 
-test("keeps core coverage visible, sticky, and card-based on mobile", async ({ page }) => {
+test("keeps core coverage visible and tabs in normal flow on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installFixture(page);
   await page.goto("/detection-coverage");
@@ -552,7 +635,8 @@ test("keeps core coverage visible, sticky, and card-based on mobile", async ({ p
   ]);
   expect(mainBox).not.toBeNull();
   expect(tabBox).not.toBeNull();
-  expect(Math.abs(tabBox!.y - mainBox!.y)).toBeLessThanOrEqual(25);
+  expect(tabBox!.y + tabBox!.height).toBeLessThan(mainBox!.y);
+  await expect(page.locator(".detection-readiness-tabs")).toHaveCSS("position", "static");
   await expect(page.getByRole("tab", { name: "Coverage" })).toHaveCSS("min-height", "44px");
   await expectNoHorizontalOverflow(page, [
     "html",

@@ -18,7 +18,7 @@ import {
 } from "./local-auth-session";
 import { Shell } from "./components/shell";
 import { PanelErrorBoundary } from "./components/panel-error-boundary";
-import { ErrorState, PageHeader } from "./components/ui";
+import { ErrorState, PageHeader } from "./components/ui-shell";
 import { setChatAuth } from "./deck/auth";
 import { buildFallbackViewSnapshot, ViewContextProvider } from "./deck/context";
 import { deckUserFromAuth, setDeckUser } from "./deck/deck-user";

@@ -8,6 +8,8 @@ import {
   CopyButton,
   DataTable,
   EmptyState,
+  ErrorState,
+  LoadingState,
   KpiCard,
   KpiGrid,
   PageHeader,
@@ -47,6 +49,7 @@ import {
   type AnalyzerRunView,
 } from "./detection-readiness.analyzer-run";
 import { t } from "./i18n/detection-readiness";
+import { useDetectionHistory } from "./use-detection-history";
 import {
   useChaosResultSummary,
   type ChaosResultSummary,
@@ -190,6 +193,7 @@ interface DetectionReadinessView {
   readonly analyzer_coverage: AnalyzerCoverageView;
   readonly analyzer_run: AnalyzerRunView | null;
   readonly lifecycle: DetectionLifecycleView;
+  readonly history_available: boolean;
   readonly pod_lifecycle: LifecycleView;
 }
 
@@ -221,7 +225,7 @@ interface DetectionLifecycleTarget {
   readonly history: readonly DetectionLifecycleAssessment[];
 }
 
-interface DetectionLifecycleView {
+export interface DetectionLifecycleView {
   readonly source: string;
   readonly observed_at: string | null;
   readonly retained_from: string | null;
@@ -297,6 +301,7 @@ export function DetectionReadinessRoute({
           <DetectionReadinessBody
             chaosResults={dataMode === "live" ? chaosResults : null}
             data={data}
+            client={client}
           />
         )}
       </AsyncBoundary>
@@ -348,11 +353,12 @@ export function decodeDetectionReadiness(value: unknown): DetectionReadinessView
     analyzer_coverage: decodeAnalyzerCoverage(root["analyzer_coverage"]),
     analyzer_run: decodeAnalyzerRun(root["analyzer_run"]),
     lifecycle: decodeAnalyzerLifecycle(root["lifecycle"]),
+    history_available: root["history_available"] === true,
     pod_lifecycle: decodeLifecycle(root["pod_lifecycle"]),
   };
 }
 
-function decodeAnalyzerLifecycle(value: unknown): DetectionLifecycleView {
+export function decodeAnalyzerLifecycle(value: unknown): DetectionLifecycleView {
   const root = panelRecord(value, "detection lifecycle");
   const countsRoot = panelRecord(root["evidence_counts"], "detection lifecycle evidence counts");
   const evidenceCounts = Object.fromEntries(
@@ -696,9 +702,11 @@ export function adjacentDetectionCoverageView(
 function DetectionReadinessBody({
   chaosResults,
   data,
+  client,
 }: {
   readonly chaosResults: AsyncState<ChaosResultSummary> | null;
   readonly data: DetectionReadinessView;
+  readonly client: OperatorApiClient;
 }) {
   const [activeView, setActiveView] = useState<DetectionCoverageViewId>(() =>
     detectionCoverageViewFromHash(
@@ -993,6 +1001,8 @@ function DetectionReadinessBody({
       >
         <DetectionLifecycle
           lifecycle={data.lifecycle}
+          historyClient={data.history_available ? client : undefined}
+          historyEnabled={activeView === "findings"}
           preferredResourceRef={resourceControls.selectedRef}
           onOpenInResources={(resourceRef) => {
             updateResourceControls(
@@ -1187,14 +1197,32 @@ function KubernetesPodScopeDetail({ lifecycle }: { readonly lifecycle: Lifecycle
 const HISTORY_PAGE_SIZE = 10;
 
 function DetectionLifecycle({
-  lifecycle,
+  lifecycle: initialLifecycle,
   preferredResourceRef,
   onOpenInResources,
+  historyClient,
+  historyEnabled = false,
 }: {
   readonly lifecycle: DetectionLifecycleView;
   readonly preferredResourceRef?: string | null;
   readonly onOpenInResources?: (resourceRef: string) => void;
+  readonly historyClient?: OperatorApiClient | undefined;
+  readonly historyEnabled?: boolean;
 }) {
+  const [query, setQuery] = useState("");
+  const [evidence, setEvidence] = useState<"all" | EvidenceState>("all");
+  const [delivery, setDelivery] = useState<"all" | PublicationState>("all");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const history = useDetectionHistory(historyClient, historyEnabled, {
+    q: query, evidence, delivery, from: fromDate, to: toDate,
+  });
+  const paged = history.state.status === "ready" ? history.state.page : null;
+  const lifecycle = historyClient ? paged?.lifecycle ?? initialLifecycle : initialLifecycle;
+  const pending = Boolean(historyClient) && history.state.status !== "ready";
+  const evidenceCounts = paged?.evidenceCounts ?? lifecycle.evidence_counts;
+  const observedAt = paged ? paged.observedAt : lifecycle.observed_at;
+  const retainedFrom = paged ? paged.retainedFrom : lifecycle.retained_from;
   const [selectedRef, setSelectedRef] = useState<string | null>(
     () => (preferredResourceRef && lifecycle.targets.some((item) => item.resource_ref === preferredResourceRef))
       ? preferredResourceRef
@@ -1207,13 +1235,8 @@ function DetectionLifecycle({
       setHistoryLimit(HISTORY_PAGE_SIZE);
     }
   }, [preferredResourceRef, lifecycle.targets]);
-  const [query, setQuery] = useState("");
-  const [evidence, setEvidence] = useState<"all" | EvidenceState>("all");
-  const [delivery, setDelivery] = useState<"all" | PublicationState>("all");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
   const filteredTargets = lifecycle.targets.filter((target) =>
-    [target.current, ...target.history].some((assessment) =>
+    historyClient || [target.current, ...target.history].some((assessment) =>
       findingMatches(assessment, { query, evidence, delivery, fromDate, toDate })
     )
   );
@@ -1228,37 +1251,38 @@ function DetectionLifecycle({
           <p class="section-description">{t("analyzerLifecycle.description")}</p>
         </div>
         <span class="muted small">
-          {lifecycle.observed_at
-            ? t("analyzerLifecycle.observedAt", { at: formatConsoleTimestamp(lifecycle.observed_at) })
+          {!pending && observedAt
+            ? t("analyzerLifecycle.observedAt", { at: formatConsoleTimestamp(observedAt) })
             : t("notObserved")}
         </span>
       </div>
-      <div class="detection-retention-summary">
-        <span>{t("analyzerLifecycle.retainedReceipts", {
+      {!pending ? <div class="detection-retention-summary">
+        <span>{paged ? t("history.retained", { count: paged.totalReceipts }) : t("analyzerLifecycle.retainedReceipts", {
           count: lifecycle.receipt_count,
           limit: lifecycle.receipt_limit,
         })}</span>
-        <span>{lifecycle.retained_from
+        <span>{retainedFrom
           ? t("analyzerLifecycle.retainedFrom", {
-              at: formatConsoleTimestamp(lifecycle.retained_from),
+              at: formatConsoleTimestamp(retainedFrom),
             })
           : t("analyzerLifecycle.noRetainedFrom")}</span>
-      </div>
-      <KpiGrid>
-        <KpiCard href="#detection-lifecycle-records" label={t("analyzerLifecycle.assessments")} value={lifecycle.assessment_count} />
+        {paged ? <span>{t("history.snapshot", { at: formatConsoleTimestamp(paged.snapshotAt) })}</span> : null}
+      </div> : null}
+      {!pending ? <KpiGrid>
+        <KpiCard href="#detection-lifecycle-records" label={t("analyzerLifecycle.assessments")} value={paged?.totalAssessments ?? lifecycle.assessment_count} />
         <KpiCard
           href="#detection-lifecycle-records"
           label={t("analyzerLifecycle.incomplete")}
-          value={lifecycle.evidence_counts.incomplete + lifecycle.evidence_counts.missed}
-          tone={lifecycle.evidence_counts.incomplete + lifecycle.evidence_counts.missed > 0 ? "warning" : "positive"}
+          value={evidenceCounts.incomplete + evidenceCounts.missed}
+          tone={evidenceCounts.incomplete + evidenceCounts.missed > 0 ? "warning" : "positive"}
         />
         <KpiCard
           href="#detection-lifecycle-records"
           label={t("analyzerLifecycle.conflicting")}
-          value={lifecycle.evidence_counts.conflicting}
-          tone={lifecycle.evidence_counts.conflicting > 0 ? "danger" : "positive"}
+          value={evidenceCounts.conflicting}
+          tone={evidenceCounts.conflicting > 0 ? "danger" : "positive"}
         />
-      </KpiGrid>
+      </KpiGrid> : null}
       <div class="detection-finding-toolbar" role="group" aria-label={t("analyzerLifecycle.filters")}>
         <label>
           <span>{t("analyzerLifecycle.search")}</span>
@@ -1333,15 +1357,36 @@ function DetectionLifecycle({
           {t("analyzerLifecycle.clearFilters")}
         </button>
       </div>
-      <p class="filter-summary" role="status">
+      {historyClient ? <nav class="detection-history-pager" aria-label={t("history.navigation")}>
+        <label>
+          {t("history.pageSize")}
+          <select class="form-input" value={history.pageSize}
+            onChange={event => history.setPageSize(Number(event.currentTarget.value))}>
+            {[25, 50, 100].map(size => <option key={size} value={size}>{size}</option>)}
+          </select>
+        </label>
+        <button type="button" class="btn secondary" disabled={pending || history.index === 0} onClick={history.previous}>{t("history.previous")}</button>
+        <span role="status">{paged && !pending ? t("history.range", {
+          from: paged.totalAssessments === 0 ? 0 : paged.offset + 1,
+          to: paged.offset + lifecycle.assessment_count, total: paged.totalAssessments,
+        }) : history.state.status === "error" ? t("unavailable") : t("history.loading")}</span>
+        <button type="button" class="btn secondary" disabled={pending || !paged?.nextCursor} onClick={history.next}>{t("history.next")}</button>
+        <button type="button" class="btn secondary" disabled={history.state.status === "loading"} onClick={history.refresh}>{t("history.refresh")}</button>
+        <p class="muted small">{t("history.cacheNote")}</p>
+      </nav> : null}
+      {!pending ? <p class="filter-summary" role="status">
         <span>
-          {t("analyzerLifecycle.resultCount", {
+          {paged ? t("history.pageTargets", {
+            count: lifecycle.target_count, total: paged.totalTargets,
+          }) : t("analyzerLifecycle.resultCount", {
             filtered: filteredTargets.length,
             total: lifecycle.target_count,
           })}
         </span>
-      </p>
-      {selected === null ? (
+      </p> : null}
+      {historyClient && history.state.status === "loading" ? <LoadingState label={t("history.loading")} />
+        : historyClient && history.state.status === "error" ? <ErrorState message={history.state.message} />
+        : selected === null ? (
         <EmptyState
           title={lifecycle.targets.length === 0
             ? t("analyzerLifecycle.emptyTitle")
@@ -1456,7 +1501,7 @@ function DetectionLifecycle({
               class="detection-lifecycle-current"
               aria-label={t("analyzerLifecycle.currentRegion", { target: selected.resource_ref })}
             >
-              <h5>{t("analyzerLifecycle.current")}</h5>
+              <h5>{t(historyClient ? "history.current" : "analyzerLifecycle.current")}</h5>
               <LifecycleAssessment assessment={selected.current} />
             </section>
             <details class="detection-lifecycle-history">

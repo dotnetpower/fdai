@@ -12944,9 +12944,7 @@ main { padding-bottom: 60px !important; }
   color: var(--fg-muted);
 }
 .detection-readiness-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 8;
+  position: static;
   display: flex;
   align-self: flex-start;
   width: max-content;
@@ -13618,6 +13616,25 @@ main { padding-bottom: 60px !important; }
   color: var(--fg-muted);
   font-size: var(--cs-type-compact-size);
 }
+.detection-history-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.detection-history-pager label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.detection-history-pager select {
+  width: auto;
+  min-height: var(--cs-control-height);
+}
+.detection-history-pager p {
+  flex-basis: 100%;
+  margin: 0;
+}
 .detection-lifecycle > .kpi-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0;
@@ -13792,6 +13809,9 @@ main { padding-bottom: 60px !important; }
   }
 }
 @media (max-width: 640px) {
+  .detection-history-pager :is(button, select) {
+    min-height: var(--cs-control-height-touch);
+  }
   .detection-resource-toolbar .form-input,
   .detection-finding-toolbar .form-input,
   .detection-resource-toolbar button,

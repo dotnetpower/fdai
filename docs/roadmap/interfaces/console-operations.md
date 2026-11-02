@@ -93,7 +93,21 @@ Detection coverage presents its three views through a compact rounded selector. 
 retained-Finding totals use flat metric bands rather than elevated cards. Filters and detail
 metadata use spacing and hairlines instead of nested boxes; status colors stay local to the
 relevant values and labels. On narrow screens, retained-Finding totals become a single-column
-label/value list while keeping their detail links.
+label/value list while keeping their detail links. The view selector stays in normal document flow;
+it never follows scrolling or covers the retained-history controls.
+
+`GET /detection-coverage?view=history` reads all retained analyzer Finding history through keyset
+pages of at most 100 assessments, with at most seven publication receipts per assessment. One
+assessment never splits across pages. The cursor binds the authenticated principal and roles,
+filters, page size, a 15-minute cutoff and retained-set content revision. A changed or expired
+snapshot requires an explicit refresh rather than mixing pages. Query, evidence, delivery and UTC
+date filters apply before pagination; full filtered totals remain separate from page counts.
+The Console offers 25, 50 and 100 assessments per page, previous/next controls and refresh. Its
+client-instance-scoped memory cache retains at most 40 visited pages for up to five minutes;
+refresh clears it, and failed reads are not cached or replaced with the 500-receipt preview.
+The default coverage response retains a bounded preview for resource detail, advertises
+`history_available`, and does not claim that preview is complete history. Previously deleted
+receipts cannot be reconstructed by pagination.
 
 ## Product vocabulary
 

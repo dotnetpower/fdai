@@ -17,6 +17,7 @@ from typing import Any, cast
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai_operator_service.analyzer_history_projection import read_analyzer_history
 from fdai_operator_service.analyzer_lifecycle_projection import project_analyzer_lifecycle
 from fdai_operator_service.analyzer_run_projection import (
     project_analyzer_run,
@@ -122,6 +123,8 @@ class RuntimeProjectionReader:
         if query.operation == "skills":
             return await self._skills()
         if query.operation == "detection.readiness":
+            if query.params.get("view", ("",))[-1] == "history":
+                return await read_analyzer_history(self._fetch_all, query)
             return await self._detection_readiness()
         if query.operation == "finding.list":
             return await read_findings(self._fetch_all, query)
@@ -787,6 +790,7 @@ class RuntimeProjectionReader:
             "counts": counts,
             "targets": targets,
             "lifecycle": lifecycle,
+            "history_available": True,
             "analyzer_coverage": analyzer_coverage,
             "analyzer_run": project_analyzer_run(run_rows),
             "pod_lifecycle": pod_lifecycle,
