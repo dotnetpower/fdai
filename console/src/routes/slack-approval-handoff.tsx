@@ -68,45 +68,69 @@ export function SlackApprovalHandoff({
   };
 
   return (
-    <section class="settings-iam-panel" aria-labelledby="slack-handoff-title">
-      <h2 id="slack-handoff-title">{t("approvals.slackTitle")}</h2>
+    <section class="settings-iam-panel slack-approval-handoff" aria-labelledby="slack-handoff-title">
+      <div class="slack-handoff-head">
+        <h2 id="slack-handoff-title">{t("approvals.slackTitle")}</h2>
+        <button type="button" class="btn secondary btn-sm" onClick={clear}>
+          {t("approvals.slackDismiss")}
+        </button>
+      </div>
       {status === "loading" ? (
         <div role="status" aria-busy="true" aria-label={t("approvals.slackLoading")} class="loading-skeleton">
           <span aria-hidden="true" class="skeleton-shimmer loading-skeleton-line" />
         </div>
       ) : null}
       {status === "unavailable" ? (
-        <div class="state-block" role="alert">
+        <div class="state-block state-unavailable" role="alert">
           {t("approvals.slackUnavailable")} {error}
         </div>
       ) : null}
       {status === "done" ? <div class="state-block state-success" role="status">{t("approvals.slackRecorded")}</div> : null}
       {preview && (status === "ready" || status === "recording") ? (
-        <>
-          <p>{t("approvals.slackContext", {
+        <div class="approval-decision-form">
+          <p><strong>{t("approvals.slackContext", {
             approval: preview.approval_id,
             decision: preview.decision === "approve" ? t("approvals.approve") : t("approvals.reject"),
-          })}</p>
-          <p>{t("approvals.slackFreshness")}</p>
-          <button type="button" class="btn" disabled={!auth.interactiveSignIn || status === "recording"}
-            onClick={() => {
-              markSlackReauthentication(token);
-              setReauthRequested(true);
-              void auth.signIn({ reauthenticate: true });
-            }}>
-            {t("approvals.slackReauthenticate")}
-          </button>
-          <label class="form-label" for="slack-handoff-justification">{t("approvals.justification")}</label>
-          <textarea id="slack-handoff-justification" class="form-input" value={justification}
-            onInput={(event) => setJustification(event.currentTarget.value)} maxLength={2000} />
-          <button type="button" class="btn btn-primary"
-            disabled={status === "recording" || !reauthRequested}
-            onClick={() => void record()}>
-            {status === "recording" ? t("approvals.recordingDecision") : t("approvals.slackRecord")}
-          </button>
-        </>
+          })}</strong></p>
+          <p class="muted">{t("approvals.slackFreshness")}</p>
+          <label class="form-label" for="slack-handoff-justification">
+            <span class="approval-justification-head">
+              <span>{t("approvals.justification")}</span>
+              <small class="muted mono">{justification.trim().length}/2000</small>
+            </span>
+          </label>
+          <textarea
+            id="slack-handoff-justification"
+            class="form-input"
+            value={justification}
+            placeholder={t("approvals.justificationPlaceholder")}
+            onInput={(event) => setJustification(event.currentTarget.value)}
+            maxLength={2000}
+          />
+          <div class="approval-decision-actions">
+            <button
+              type="button"
+              class="btn"
+              disabled={!auth.interactiveSignIn || status === "recording"}
+              onClick={() => {
+                markSlackReauthentication(token);
+                setReauthRequested(true);
+                void auth.signIn({ reauthenticate: true });
+              }}
+            >
+              {t("approvals.slackReauthenticate")}
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              disabled={status === "recording" || !reauthRequested}
+              onClick={() => void record()}
+            >
+              {status === "recording" ? t("approvals.recordingDecision") : t("approvals.slackRecord")}
+            </button>
+          </div>
+        </div>
       ) : null}
-      <button type="button" class="btn" onClick={clear}>{t("approvals.slackDismiss")}</button>
     </section>
   );
 }

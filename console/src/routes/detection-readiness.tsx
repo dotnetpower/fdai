@@ -1403,6 +1403,9 @@ function DetectionLifecycle({
                         {target.current.resource_kind === "kubernetes_pod"
                           ? ` / ${t(`analyzerLifecycle.recovery.${target.current.recovery_state}`)}`
                           : ""}
+                        {target.history.length > 0
+                          ? ` (${1 + target.history.length})`
+                          : ""}
                       </span>
                       {parsed.hasStructuredScope ? (
                         <small class="detection-resource-row-scope mono">

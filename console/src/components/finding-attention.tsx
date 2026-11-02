@@ -1,17 +1,20 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
-import { architectureHref } from "./architecture-map.model";
 import {
   findingHref, findingNeedsAttention, rememberFinding, type CurrentFinding,
 } from "../findings";
 import { useCurrentFindings } from "../hooks/use-current-findings";
 import { getLocale } from "../i18n";
-import { parseResourceRefDisplay } from "../routes/detection-coverage-view";
 import { formatConsoleTimestamp } from "../time-format";
 import { currentRoute, routeHref, ROUTE_STATE_EVENT } from "../router";
 import { Tooltip } from "./tooltip";
 import { CopyButton, LoadingState, StatusPill, type PillKind } from "./ui";
 import "./finding-attention.css";
+
+function shortResourceName(resourceRef: string): string {
+  const idx = resourceRef.lastIndexOf("/");
+  return idx >= 0 && idx < resourceRef.length - 1 ? resourceRef.slice(idx + 1) : resourceRef;
+}
 
 const copy = {
   en: {
@@ -46,6 +49,11 @@ const copy = {
     assessedByLabel: "Assessed by",
     publicationLabel: "Delivery state",
     findingIdLabel: "Finding ID",
+    revisionLabel: "Revision",
+    recordedAtLabel: "Recorded at",
+    recoveryClosureLabel: "Recovery closure",
+    recoveryClosedYes: "Verified closed",
+    recoveryClosedNo: "Open",
     observationKeyLabel: "Observation key",
     observationDigestLabel: "Observation digest",
     evidenceRefsLabel: "Attached evidence references",
@@ -55,6 +63,16 @@ const copy = {
     openResourcesTab: "Inspect in Resources tab",
     openFindingsTab: "Open Retained Findings tab",
     openArchitecture: "Open in Architecture map",
+    filterAll: "All",
+    filterHighPlus: "High / Critical",
+    searchPlaceholder: "Filter by resource, signal, or observation",
+    clearFilter: "Clear filter",
+    evidenceStates: {
+      complete: "Evidence complete",
+      incomplete: "Evidence incomplete",
+      conflicting: "Evidence conflicting",
+      missed: "Evidence missed",
+    } as Readonly<Record<string, string>>,
     severity: { critical: "Critical", high: "High", medium: "Medium", low: "Low" },
     reason: { opened: "Opened", escalated: "Escalated", recovered: "Recovered" },
     signals: {
@@ -134,6 +152,11 @@ const copy = {
     assessedByLabel: "판정 에이전트",
     publicationLabel: "전달 상태",
     findingIdLabel: "Finding 식별자",
+    revisionLabel: "개정 번호",
+    recordedAtLabel: "기록 시각",
+    recoveryClosureLabel: "복구 종결 여부",
+    recoveryClosedYes: "복구 종결 검증됨",
+    recoveryClosedNo: "미종결 (진행 중)",
     observationKeyLabel: "관측 키",
     observationDigestLabel: "관측 다이제스트",
     evidenceRefsLabel: "첨부된 근거 참조",
@@ -143,6 +166,16 @@ const copy = {
     openResourcesTab: "리소스 탭에서 확인",
     openFindingsTab: "보존된 발견 사항 탭 열기",
     openArchitecture: "아키텍처 맵에서 열기",
+    filterAll: "전체",
+    filterHighPlus: "높음 / 긴급",
+    searchPlaceholder: "리소스, 신호 또는 관측 요약으로 필터",
+    clearFilter: "필터 지우기",
+    evidenceStates: {
+      complete: "근거 완전",
+      incomplete: "근거 불완전",
+      conflicting: "근거 충돌",
+      missed: "근거 누락",
+    } as Readonly<Record<string, string>>,
     severity: { critical: "긴급", high: "높음", medium: "보통", low: "낮음" },
     reason: { opened: "신규 감지", escalated: "심각도 격상", recovered: "복구 감지" },
     signals: {
@@ -192,6 +225,25 @@ const copy = {
   },
 };
 
+const attentionCopy = {
+  en: {
+    title: "Findings",
+    unavailable: "Finding feed unavailable",
+    new: "New or updated Findings",
+    all: "Review all Findings",
+    close: "Dismiss",
+    severity: { critical: "Critical", high: "High", medium: "Medium", low: "Low" },
+  },
+  ko: {
+    title: "Findings",
+    unavailable: "Finding 알림을 가져올 수 없습니다",
+    new: "새로 생성되거나 갱신된 Finding",
+    all: "모든 Finding 검토",
+    close: "닫기",
+    severity: { critical: "긴급", high: "높음", medium: "보통", low: "낮음" },
+  },
+};
+
 const SEVERITY_PILL: Readonly<Record<CurrentFinding["severity"], PillKind>> = {
   critical: "danger",
   high: "warning",
@@ -199,7 +251,7 @@ const SEVERITY_PILL: Readonly<Record<CurrentFinding["severity"], PillKind>> = {
   low: "neutral",
 };
 
-function text() { return copy[getLocale() === "ko" ? "ko" : "en"]; }
+function attentionText() { return attentionCopy[getLocale() === "ko" ? "ko" : "en"]; }
 const allFindingsHref = () => `${routeHref("detection-readiness", { params: { data: "live" } })}#current-findings`;
 
 export function FindingAttention({
@@ -228,7 +280,7 @@ export function FindingAttention({
     document.addEventListener("visibilitychange", show);
     return () => document.removeEventListener("visibilitychange", show);
   }, [findings, error, principalId]);
-  const words = text();
+  const words = attentionText();
   const activeCount = findings.filter((row) => row.status === "active").length;
   return (
     <div class="finding-attention">
@@ -245,16 +297,12 @@ export function FindingAttention({
       {error || storageError ? <span class="sr-only" role="status">{words.unavailable}</span> : null}
       {notice ? (
         <div class="finding-toast" role="status" aria-live="polite">
-          <StatusPill kind={SEVERITY_PILL[notice.severity]} label={words.severity[notice.severity]} />
           <a
             class="finding-toast-link"
             href={noticeCount > 1 ? allFindingsHref() : findingHref(notice)}
             onClick={() => setNotice(null)}
           >
-            <strong>{words.new} ({noticeCount}): {words.severity[notice.severity]}</strong>
-            <span class="finding-toast-meta mono">
-              {parseResourceRefDisplay(notice.resource_ref).shortName} · {words.signals[notice.signal] ?? notice.signal}
-            </span>
+            {words.new} ({noticeCount}): {words.severity[notice.severity]}
           </a>
           <button
             type="button"
@@ -276,7 +324,9 @@ export function CurrentFindings({ client, enabled = true }: {
 }) {
   const { findings, error, loading } = useCurrentFindings(client, enabled);
   const [page, setPage] = useState(0);
-  const words = text();
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "resolved" | "high">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const words = copy[getLocale() === "ko" ? "ko" : "en"];
   const [selected, setSelected] = useState(() => currentRoute().search.get("finding"));
   useEffect(() => {
     const sync = () => {
@@ -292,12 +342,27 @@ export function CurrentFindings({ client, enabled = true }: {
       window.removeEventListener("popstate", sync);
     };
   }, []);
-  const rows = selected ? findings.filter((row) => row.finding_id === selected) : findings;
+  const baseRows = selected ? findings.filter((row) => row.finding_id === selected) : findings;
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const rows = selected ? baseRows : baseRows.filter((row) => {
+    if (statusFilter === "active" && row.status !== "active") return false;
+    if (statusFilter === "resolved" && row.status !== "resolved") return false;
+    if (statusFilter === "high" && row.severity !== "critical" && row.severity !== "high") return false;
+    if (!normalizedSearch) return true;
+    return [
+      row.resource_ref,
+      row.resource_kind,
+      row.signal,
+      row.observation,
+      words.signals[row.signal] ?? "",
+      words.kinds[row.resource_kind] ?? "",
+    ].some((value) => value.toLocaleLowerCase().includes(normalizedSearch));
+  });
   const offset = Math.min(page * 20, Math.max(Math.ceil(rows.length / 20) - 1, 0) * 20);
   if (!enabled) return null;
-  const activeCount = rows.filter((row) => row.status === "active").length;
-  const resolvedCount = rows.filter((row) => row.status === "resolved").length;
-  const highOrCriticalCount = rows.filter(
+  const activeCount = baseRows.filter((row) => row.status === "active").length;
+  const resolvedCount = baseRows.filter((row) => row.status === "resolved").length;
+  const highOrCriticalCount = baseRows.filter(
     (row) => row.severity === "critical" || row.severity === "high",
   ).length;
   return (
@@ -315,7 +380,7 @@ export function CurrentFindings({ client, enabled = true }: {
             </p>
           ) : null}
         </div>
-        {!loading && !error && rows.length > 0 ? (
+        {!loading && !error && baseRows.length > 0 ? (
           <div class="current-findings-summary-pills" aria-hidden="true">
             <StatusPill
               kind={activeCount > 0 ? "warning" : "success"}
@@ -330,10 +395,62 @@ export function CurrentFindings({ client, enabled = true }: {
           </div>
         ) : null}
       </div>
+      {!selected && !loading && !error && baseRows.length > 1 ? (
+        <div class="current-findings-filterbar" role="group" aria-label={words.title}>
+          <div class="governance-chipset">
+            {(["all", "active", "resolved", "high"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                class={statusFilter === mode ? "is-active" : undefined}
+                onClick={() => {
+                  setStatusFilter(mode);
+                  setPage(0);
+                }}
+              >
+                {mode === "all"
+                  ? `${words.filterAll} (${baseRows.length})`
+                  : mode === "active"
+                    ? `${words.active} (${activeCount})`
+                    : mode === "resolved"
+                      ? `${words.resolved} (${resolvedCount})`
+                      : `${words.filterHighPlus} (${highOrCriticalCount})`}
+              </button>
+            ))}
+          </div>
+          <input
+            type="search"
+            class="form-input current-findings-search"
+            value={searchQuery}
+            placeholder={words.searchPlaceholder}
+            aria-label={words.searchPlaceholder}
+            onInput={(event) => {
+              setSearchQuery(event.currentTarget.value);
+              setPage(0);
+            }}
+          />
+          {statusFilter !== "all" || searchQuery ? (
+            <button
+              type="button"
+              class="btn secondary btn-sm"
+              onClick={() => {
+                setStatusFilter("all");
+                setSearchQuery("");
+                setPage(0);
+              }}
+            >
+              {words.clearFilter}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {selected ? (
         <div class="current-findings-selected-banner">
-          <span class="muted small">{words.selectedNotice}</span>
-          <code class="mono small">{selected.slice(0, 16)}...</code>
+          <div class="current-findings-selected-info">
+            <span class="muted small">{words.selectedNotice}</span>
+            <code class="mono small">{selected.slice(0, 16)}...</code>
+          </div>
+          <a class="btn secondary btn-sm" href={allFindingsHref()}>{words.all}</a>
         </div>
       ) : null}
       {error ? <p role="alert" class="state-block state-error">{words.unavailable}</p> : null}
@@ -343,7 +460,7 @@ export function CurrentFindings({ client, enabled = true }: {
       ) : null}
       <ul class="finding-list current-findings-list">
         {rows.slice(offset, offset + 20).map((finding) => {
-          const parsedRef = parseResourceRefDisplay(finding.resource_ref);
+          const shortName = shortResourceName(finding.resource_ref);
           const signalName = words.signals[finding.signal] ?? finding.signal;
           const kindName = words.kinds[finding.resource_kind] ?? finding.resource_kind;
           const stateName = finding.current_state
@@ -360,7 +477,7 @@ export function CurrentFindings({ client, enabled = true }: {
               <a class="finding-card-link" href={findingHref(finding)}>
                 <span class="finding-card-link-main">
                   <span class="finding-card-short-title">
-                    {parsedRef.shortName} · {signalName}
+                    {shortName} · {signalName}
                   </span>
                   <span class="finding-card-raw-id mono">
                     {finding.resource_ref} / {finding.signal}
@@ -431,7 +548,9 @@ export function CurrentFindings({ client, enabled = true }: {
                 </div>
               ) : null}
               <details class="finding-details-disclosure">
-                <summary>{words.detail}</summary>
+                <summary>
+                  {words.detail} ({finding.evidence_refs.length})
+                </summary>
                 <div class="finding-details-body">
                   <div class="finding-details-meta-grid">
                     <div>
@@ -444,10 +563,36 @@ export function CurrentFindings({ client, enabled = true }: {
                         {kindName} <code class="mono finding-inline-code">{finding.resource_kind}</code>
                       </span>
                     </div>
+                    <div>
+                      <span class="finding-fact-label">{words.evidenceStatusLabel}</span>
+                      <span class="finding-fact-value">
+                        {words.evidenceStates[finding.evidence_state] ?? finding.evidence_state}
+                      </span>
+                    </div>
+                    {finding.revision !== undefined ? (
+                      <div>
+                        <span class="finding-fact-label">{words.revisionLabel}</span>
+                        <span class="finding-fact-value mono">#{finding.revision}</span>
+                      </div>
+                    ) : null}
                     {finding.first_seen_at ? (
                       <div>
                         <span class="finding-fact-label">{words.firstSeenLabel}</span>
                         <span class="finding-fact-value">{formatConsoleTimestamp(finding.first_seen_at)}</span>
+                      </div>
+                    ) : null}
+                    {finding.recorded_at ? (
+                      <div>
+                        <span class="finding-fact-label">{words.recordedAtLabel}</span>
+                        <span class="finding-fact-value">{formatConsoleTimestamp(finding.recorded_at)}</span>
+                      </div>
+                    ) : null}
+                    {typeof finding.recovery_closed === "boolean" ? (
+                      <div>
+                        <span class="finding-fact-label">{words.recoveryClosureLabel}</span>
+                        <span class="finding-fact-value">
+                          {finding.recovery_closed ? words.recoveryClosedYes : words.recoveryClosedNo}
+                        </span>
                       </div>
                     ) : null}
                     {finding.observation_key ? (
@@ -482,7 +627,7 @@ export function CurrentFindings({ client, enabled = true }: {
                     </a>
                     <a
                       class="btn secondary btn-sm"
-                      href={architectureHref(finding.resource_ref)}
+                      href={routeHref("architecture", { params: { resource: finding.resource_ref } })}
                     >
                       {words.openArchitecture}
                     </a>

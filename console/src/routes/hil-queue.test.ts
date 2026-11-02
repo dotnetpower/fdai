@@ -3,12 +3,16 @@ import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import type { HilQueueItem } from "../types";
 import {
+  actionKindTitle,
   approvalCanApprove,
   approvalCanReject,
   approvalCanDecide,
+  approvalExpiryBadge,
   approvalSearchText,
+  blastScopeLabel,
   loadHilQueueState,
   nextApprovalExpiryDelay,
+  rollbackKindLabel,
 } from "./hil-queue";
 
 function item(expiresAt: string | null): HilQueueItem {
@@ -168,6 +172,22 @@ describe("approval decision availability", () => {
       expect(source).toContain('architectureHref(item.target_resource_ref)');
       expect(source).toContain('routeHref("rules"');
       expect(source).toContain("item.incident_available");
+    });
+
+    test("formats localized action titles, rollback contracts, blast scopes, and TTL countdown badges", () => {
+      const now = Date.parse("2026-07-17T09:00:00Z");
+      expect(actionKindTitle("ops.start-vm")).toBe("Start virtual machine");
+      expect(actionKindTitle("custom.unknown")).toBe("custom.unknown");
+      expect(rollbackKindLabel("pr_revert")).toBe("PR revert");
+      expect(blastScopeLabel("single_resource")).toBe("Single resource");
+      expect(approvalExpiryBadge("2026-07-17T09:10:00Z", now)).toEqual({
+        kind: "warning",
+        label: "Expires in 10m",
+      });
+      expect(approvalExpiryBadge("2026-07-17T08:50:00Z", now)).toEqual({
+        kind: "danger",
+        label: "Expired 10m ago",
+      });
     });
   });
 });
