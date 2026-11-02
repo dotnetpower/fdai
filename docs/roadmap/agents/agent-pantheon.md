@@ -25,7 +25,7 @@ Every referenced version passes hash, membership, rank, identity and byte-bound 
 Legacy checkpoints keep strict verification. An explicit offline planner accepts only complete known leaf/branch graphs with interruption write-order evidence, validates every subject reference, and produces immutable index records without altering input.
 Applying a plan requires a stopped writer, preserved originals, exact-source fencing and two-phase audit; ordinary rehydration never repairs or ignores corruption automatically.
 Independent immutable node/subject reads allow at most eight in-flight storage calls; every integrity check completes before event consumption.
-Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
+Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL characters. This is not a multi-key transaction or an automatic orphan-record deletion policy. Retained immutable versions and manifests can increase allocated storage even when serialized root/bucket write bytes fall; cleanup remains separately qualified.
 
 Active references use 64 fixed hash buckets with durable insertion ranks. Oversized leaves use radix-16 subpages (`bucket_node_format=radix16-v1`); leaf, branch and large-value fragment writes stay below 5,000 JSON bytes while unpaged v2 buckets remain readable. Stop older writers before paged-node cutover; code rollback alone is insufficient. Updating or evicting a subject changes its bucket path rather than shifting every subsequent page.
 The root contains a bucket commitment and next ordinal, not every subject digest. Recovery checks the subject,

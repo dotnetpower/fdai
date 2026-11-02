@@ -6,11 +6,17 @@ import json
 import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from copy import deepcopy
 from typing import Any
 
 import psycopg
 import pytest
 from fdai.agents import Heimdall
+from fdai.agents._framework.heimdall_sensing_persistence import (
+    MANIFEST_PREFIX,
+    VERSION_PREFIX,
+    _subject_digest,
+)
 from fdai.core.readiness import DetectionReadinessDimension
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from psycopg import sql
@@ -158,9 +164,12 @@ async def _allocated_bytes(store: ServiceRoleStore) -> dict[str, int]:
                    CASE WHEN reltoastrelid = 0 THEN 0
                         ELSE pg_total_relation_size(reltoastrelid) END AS toast_bytes,
                    pg_total_relation_size(oid) AS total_bytes,
-                   (SELECT count(*) FROM state_kv) AS rows
+                   (SELECT count(*) FROM state_kv) AS rows,
+                   (SELECT count(*) FROM state_kv WHERE key LIKE %s) AS version_rows,
+                   (SELECT count(*) FROM state_kv WHERE key LIKE %s) AS manifest_rows
               FROM pg_class WHERE oid = 'state_kv'::regclass
-            """
+            """,
+            (VERSION_PREFIX + "%", MANIFEST_PREFIX + "%"),
         )
         row = await cursor.fetchone()
         assert row is not None
@@ -230,13 +239,18 @@ async def test_service_role_equal_episode_workload_physical_bytes_and_restart() 
             finally:
                 await restarted_store.aclose()
     assert expected_snapshots["before"] == expected_snapshots["after"]
-    assert results["after"]["allocated"]["rows"] == results["before"]["allocated"]["rows"] + 64
+    before = results["before"]["allocated"]
+    after = results["after"]["allocated"]
+    assert before["version_rows"] == before["manifest_rows"] == 0
+    assert after["version_rows"] > 0
+    assert after["manifest_rows"] > 0
+    assert after["rows"] - after["version_rows"] - after["manifest_rows"] == before["rows"] + 64
     assert results["after"]["writes"] < results["before"]["writes"]
     results["scope"] = "isolated state_kv allocation, autovacuum disabled, no WAL attribution"
     print(json.dumps(results, sort_keys=True))
 
 
-async def test_service_role_failed_manifest_restart_rejects_mixed_checkpoint() -> None:
+async def test_service_role_failed_manifest_restores_checkpoint_and_rejects_corruption() -> None:
     async with _measurement_database() as database:
         store = ServiceRoleStore(config=PostgresStateStoreConfig(dsn=database))
         try:
@@ -244,21 +258,29 @@ async def test_service_role_failed_manifest_restart_rejects_mixed_checkpoint() -
             for index in range(3):
                 await agent.on_typed_message("object.event", _event(index))
             committed = await store.read_state(STATE)
+            committed_snapshot = deepcopy(_snapshot(agent))
             store.fail_manifest = True
             with pytest.raises(OSError, match="injected sensing manifest"):
                 await agent.on_typed_message("object.event", _event(3))
             assert await store.read_state(STATE) == committed
             restarted_store = ServiceRoleStore(config=PostgresStateStoreConfig(dsn=database))
             try:
-                with pytest.raises(
-                    ValueError, match="checkpoint .* digest mismatch; repair required"
-                ):
-                    await _agent(restarted_store).rehydrate()
+                restarted = _agent(restarted_store)
+                assert await restarted.rehydrate() == 1
+                assert _snapshot(restarted) == committed_snapshot
+                assert restarted_store.writes == 0
                 store.fail_manifest = False
                 await agent._persist_state()
                 repaired = _agent(restarted_store)
                 assert await repaired.rehydrate() == 1
                 assert _snapshot(repaired) == _snapshot(agent)
+                node = await restarted_store.read_state(f"{BUCKET_PREFIX}00")
+                assert node is not None
+                await restarted_store.write_state(
+                    VERSION_PREFIX + _subject_digest(node), {**node, "path": "tampered"}
+                )
+                with pytest.raises(ValueError, match="bucket digest mismatch; repair required"):
+                    await _agent(restarted_store).rehydrate()
             finally:
                 await restarted_store.aclose()
         finally:

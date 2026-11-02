@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ed9c596007d23170e93c57f5afaf9da0e8ee885b
+translation_source_sha: e71e0bc6055b64fb9fd8d98e21108ad46aefe855
 translation_revised: 2026-11-03
 ---
 # 에이전트 판테온
@@ -39,6 +39,7 @@ Heimdall의 관측 복구는 변경되지 않은 모든 대상을 전역 스냅�
 대기 중인 리소스/수집 회차 식별자는 PostgreSQL이 허용하지 않는
 NUL 문자 대신 JSON으로 안전하게 표현한 쌍을 사용합니다. 이 방식은 여러 키를
 하나의 트랜잭션으로 쓰거나 미참조 주체 기록을 자동 삭제하는 정책은 아닙니다.
+루트와 버킷의 직렬화된 쓰기 바이트가 줄어도, 보존하는 불변 버전과 매니페스트 때문에 할당된 저장 공간은 늘어날 수 있습니다. 정리 절차는 별도로 검증해야 합니다.
 
 활성 참조는 64개의 고정 해시 버킷과 영속적인 삽입 순번을 사용합니다.
 큰 리프는 16진 분기 하위 페이지(`bucket_node_format=radix16-v1`)로 나누며,
