@@ -788,10 +788,13 @@ def _anchor_end(
 def _expected_lookback(goal: FormGoal, default_seconds: int) -> int | None:
     if goal.time.kind in {TimeKind.CURRENT, TimeKind.UNSPECIFIED}:
         return default_seconds
-    value = goal.time.value
-    if goal.time.kind is not TimeKind.WINDOW or value is None or value.duration is None:
+    val = goal.time.value
+    if goal.time.kind is not TimeKind.WINDOW or val is None:
         return None
-    return value.duration.amount * _SECONDS[value.duration.unit]
+    if val.duration is not None:
+        return val.duration.amount * _SECONDS[val.duration.unit]
+    off = val.calendar_offset_days
+    return None if off is None else max(1, abs(off) + int(off < 0)) * _SECONDS[DurationUnit.DAY]
 
 
 __all__ = ["verify_goal_semantics"]

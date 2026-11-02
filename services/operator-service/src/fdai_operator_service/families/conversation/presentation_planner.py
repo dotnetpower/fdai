@@ -156,7 +156,7 @@ _THRESHOLD_FIELDS = ("threshold", "threshold_value")
 _STATUS_FIELDS = ("status", "state", "outcome")
 _NUMERATOR_FIELDS = ("numerator", "covered", "observed_count")
 _DENOMINATOR_FIELDS = ("denominator", "total", "total_count")
-_MAX_ANALYZED_ROWS = 40
+_MAX_ANALYZED_ROWS = 1000
 _RFC3339 = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
 
 
@@ -171,8 +171,8 @@ def analyze_evidence_shape(
     raw_rows = output.get("rows")
     records: list[Mapping[str, object]] = []
     columns: list[str] = []
-    if isinstance(raw_rows, list) and len(raw_rows) <= _MAX_ANALYZED_ROWS:
-        for raw_row in raw_rows:
+    if isinstance(raw_rows, list):
+        for raw_row in raw_rows[:_MAX_ANALYZED_ROWS]:
             values = raw_row.get("values") if isinstance(raw_row, Mapping) else None
             if not isinstance(values, Mapping):
                 records = []

@@ -256,6 +256,15 @@ def compile_presentation_artifact_v2(
         shape=shape,
     )
     decision = plan_presentation(intent=intent, shape=shape)
+    if (
+        _semantic_is_verified(semantic)
+        and decision.kind.value == "callout"
+        and decision.reason_code == "evidence_unavailable"
+        and not shape.unavailable
+        and isinstance(output.get("rows"), list)
+        and len(cast(list[object], output["rows"])) > 0
+    ):
+        return None
     block = _compile_block(
         decision.kind,
         reason_code=decision.reason_code,

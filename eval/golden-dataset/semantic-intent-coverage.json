@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:185680136d4f9f9a8c755887e5f756007fb27e23b38a8498ab9827e77f307a50",
+  "inventory_digest": "sha256:e08627d62e7e3778f3eb4ae1bfd155c57601f9850425eeaee7b60c122eaa0a30",
   "metric_contract": {
     "ambiguity": [
       {
@@ -938,7 +938,7 @@
   },
   "source_digests": {
     "console/src/deck/backend-types.ts": "sha256:3073f95ebe3b7b5057fa22a50dd9c552d1beae59e1a1a32be76a32abf1d679a4",
-    "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
+    "console/src/deck/presentation-artifact.ts": "sha256:32034501b02af5fa6af57e7d3c76f19558c25de26942b65549372f95dfb7729a",
     "console/src/deck/presentation-modules/charts.tsx": "sha256:3b0da88ee3469adce74c965bcaeba86b42149b6d9d4158faf2c9b3704c3220f6",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:27c87816f3c0b81aaea57206a2dba342b6f5a40b95ef6751f54ff43735e0ad6d",
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
@@ -956,7 +956,7 @@
     "services/core-control-plane/src/fdai/core/conversation_assurance/models.py": "sha256:4c191e51be8e6515a3508b97ae9e157c3761430cd29f63b78722f09ad9240020",
     "services/core-control-plane/src/fdai/core/ontology_platform/*.py": "sha256:52a4738688c64fc5e31e50d2fc28c6bc11eda5afbb211eaef3278410d2022f51",
     "services/operator-service/src/fdai_operator_service/families/conversation/presentation_artifact_v3.py": "sha256:fdc9b71697c801f8815836b60aeb7ddc18fb0cfa2c2f673896e275a02fae011f",
-    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:570e579674063677128837df8826d42e5a92a11d7ee3062a8337ca1d0d5280bf"
+    "services/operator-service/src/fdai_operator_service/families/conversation/presentation_planner.py": "sha256:3ecda3c4fd67950be18f1785956e246bb2dd5d2d9c9b0df17a26d34292c8c1f2"
   },
   "topic_inventory": {
     "golden_categories": [

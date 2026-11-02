@@ -517,3 +517,18 @@ def test_non_rfc3339_timestamps_fall_back_to_an_exact_table() -> None:
 
     assert decision.kind is PresentationKind.TABLE
     assert decision.visualization is VisualizationKind.NONE
+
+
+def test_verified_41_row_resource_list_selects_table_instead_of_unavailable_callout() -> None:
+    rows = [
+        {"name": f"rg-{index:02d}", "type": "resource-group", "location": "eastus"}
+        for index in range(41)
+    ]
+    shape = analyze_evidence_shape(_output(rows), verified=True)
+    decision = plan_presentation(intent=PresentationIntent.RECORDS, shape=shape)
+
+    assert len(shape.records) == 41
+    assert shape.complete is True
+    assert shape.unavailable is False
+    assert decision.kind is PresentationKind.TABLE
+    assert decision.reason_code != "evidence_unavailable"
