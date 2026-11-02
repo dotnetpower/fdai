@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Mapping
@@ -246,12 +247,17 @@ async def _read_node(
             or any(digit not in _RADIX or len(digit) != 1 for digit in children)
         ):
             raise ValueError("Heimdall sensing checkpoint branch invalid; repair required")
-        for digit, digest in children.items():
+        for digest in children.values():
             if not isinstance(digest, str):
                 raise ValueError(
                     "Heimdall sensing checkpoint child digest invalid; repair required"
                 )
-            await _read_node(agent, slot, path + digit, digest, entries)
+        await asyncio.gather(
+            *(
+                _read_node(agent, slot, path + digit, digest, entries)
+                for digit, digest in children.items()
+            )
+        )
     elif node_type in (None, "leaf", "fragment"):
         raw_entries = (
             await _read_fragment(agent, slot, path, body)
@@ -445,6 +451,7 @@ async def read_bucket_records(
     list[Mapping[str, Any]], list[Mapping[str, Any]], list[Mapping[str, Any]], dict[str, Any]
 ]:
     """Verify root, buckets and subject bodies before restoring any sensing projection."""
+    agent._sensing_read_semaphore = asyncio.Semaphore(8)
     digests = record.get("bucket_digests")
     expected_commitment = record.get("bucket_digest")
     node_format = record.get("bucket_node_format")
@@ -495,16 +502,25 @@ async def read_bucket_records(
         and _bucket_commitment(observed_digests) != expected_commitment
     ):
         raise ValueError("Heimdall sensing checkpoint bucket digest mismatch; repair required")
-    for slot, body in enumerate(roots):
-        await _read_node(
-            agent,
-            slot,
-            "",
-            observed_digests[slot],
-            entries,
-            prefetched=body,
-            allow_legacy=node_format is None,
+    await asyncio.gather(
+        *(
+            _read_node(
+                agent,
+                slot,
+                "",
+                observed_digests[slot],
+                entries,
+                prefetched=body,
+                allow_legacy=node_format is None,
+            )
+            for slot, body in enumerate(roots)
         )
+    )
+    subject_keys = [key for key, entry in entries.items() if entry.get("family") != "metadata"]
+    subject_values = await asyncio.gather(
+        *(_read_version(agent, key, entries[key].get("digest")) for key in subject_keys)
+    )
+    subjects = dict(zip(subject_keys, subject_values, strict=True))
     grouped: dict[str, list[tuple[int, Mapping[str, Any]]]] = {
         "episode": [],
         "readiness": [],
@@ -550,7 +566,7 @@ async def read_bucket_records(
                 "Heimdall sensing checkpoint subject reference invalid; repair required"
             )
         ranks.add(rank)
-        row = await _read_version(agent, key, entry.get("digest"))
+        row = subjects[key]
         if row is None:
             raise ValueError("Heimdall sensing manifest references missing subject state")
         if _subject_digest(row) != entry.get("digest"):
@@ -614,7 +630,8 @@ async def _read_version(agent: Any, key: str, expected: str | None) -> Mapping[s
         if not isinstance(expected, str):
             raise ValueError("Heimdall sensing checkpoint version missing; repair required")
         key = VERSION_PREFIX + expected
-    body: Mapping[str, Any] | None = await agent._state_store.read_state(key)
+    async with agent._sensing_read_semaphore:
+        body: Mapping[str, Any] | None = await agent._state_store.read_state(key)
     return body
 
 

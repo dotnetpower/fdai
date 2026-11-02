@@ -29,6 +29,8 @@ complete known leaf/branch graph with write-order evidence of interruption, vali
 references, and produces immutable index records without altering the input. Applying a plan
 requires a stopped writer, preserved originals, exact-source fencing and two-phase audit; ordinary
 rehydration never repairs or ignores corruption automatically.
+Independent immutable node and subject reads run with at most eight in-flight storage calls;
+every integrity check still completes before the recovered agent starts consuming events.
 Pending resource/pass identities use JSON-safe pairs rather than PostgreSQL-incompatible NUL
 characters. This is not a multi-key transaction or an automatic orphan-record deletion policy.
 

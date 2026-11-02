@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping
 from copy import deepcopy
@@ -81,6 +82,28 @@ async def test_explicit_legacy_repair_preserves_rows_and_verifies_all_subjects()
     unchanged_times = {key: (body, NOW) for key, (body, _at) in rows.items()}
     with pytest.raises(ValueError, match="no interrupted writes"):
         await plan_interrupted_checkpoint(unchanged_times)
+
+
+async def test_checkpoint_recovery_reads_are_bounded_and_concurrent() -> None:
+    class ConcurrentReadStore(CountingStore):
+        active = 0
+        peak = 0
+
+        async def read_state(self, key: str) -> Any:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                await asyncio.sleep(0)
+                return await super().read_state(key)
+            finally:
+                self.active -= 1
+
+    store = ConcurrentReadStore()
+    agent = _agent(store)
+    seed_subjects(agent, 100)
+    await agent._persist_state()
+    assert await _agent(store).rehydrate() == 100
+    assert 1 < store.peak <= 8
 
 
 def flat_manifest(agent: Heimdall) -> dict[str, Any]:
