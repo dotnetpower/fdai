@@ -277,15 +277,55 @@ describe("presentation artifact boundary", () => {
     expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
   });
 
-  it("supersedes the answer text only when it carries content beyond the overview", () => {
+  it("supersedes the answer text only when it carries content beyond the overview or limitations", () => {
     const withCoverage = parsePresentationArtifact(artifact(), verification);
     const overviewOnly = artifact();
     overviewOnly.blocks = (overviewOnly.blocks as unknown[]).slice(0, 1);
     const parsedOverviewOnly = parsePresentationArtifact(overviewOnly, verification);
+    const limitationsOnly = adaptiveArtifact("operational_brief");
+    limitationsOnly.blocks = (limitationsOnly.blocks as unknown[]).slice(1, 2);
+    (limitationsOnly.assembly as Record<string, unknown>).section_count = 1;
+    delete limitationsOnly.assembly;
+    limitationsOnly.schema_version = 2;
+    limitationsOnly.layout = "stack";
+    const parsedLimitationsOnly = parsePresentationArtifact(limitationsOnly, verification);
 
     expect(withCoverage && presentationArtifactSupersedesText(withCoverage)).toBe(true);
     expect(parsedOverviewOnly && presentationArtifactSupersedesText(parsedOverviewOnly))
       .toBe(false);
+    expect(parsedLimitationsOnly && presentationArtifactSupersedesText(parsedLimitationsOnly))
+      .toBe(false);
+  });
+
+  it("accepts verified tables with more than 40 rows", () => {
+    const raw = {
+      schema_version: 2,
+      layout: "stack",
+      evidence_refs: [ref],
+      blocks: [
+        {
+          slot_id: "records",
+          kind: "table",
+          title: "Verified rows",
+          emphasis: "primary",
+          collapsed: false,
+          evidence_refs: [ref],
+          data: {
+            columns: [
+              { key: "c0", label: "name" },
+              { key: "c1", label: "type" },
+            ],
+            rows: Array.from({ length: 41 }, (_, index) => ({
+              c0: `rg-${index}`,
+              c1: "resource-group",
+            })),
+            status_key: null,
+          },
+        },
+      ],
+    };
+    const parsed = parsePresentationArtifact(raw, verification);
+    expect(parsed?.blocks[0]?.kind).toBe("table");
   });
 
   it("accepts an accessible v2 time series and preserves its wire round trip", () => {

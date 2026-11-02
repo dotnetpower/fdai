@@ -51,8 +51,13 @@ def history_lookback_seconds(
         return f"time_unsupported:{kind.value}"
     duration = goal.time.value.duration
     if duration is None:
-        return "time_calendar_window_unsupported"
-    seconds = duration.amount * _UNIT_SECONDS[duration.unit]
+        offset = goal.time.value.calendar_offset_days
+        if offset is None:
+            return "time_calendar_window_unsupported"
+        days = max(1, abs(offset) + (1 if offset < 0 else 0))
+        seconds = days * _UNIT_SECONDS[DurationUnit.DAY]
+    else:
+        seconds = duration.amount * _UNIT_SECONDS[duration.unit]
     if not MIN_LOOKBACK_SECONDS <= seconds <= MAX_LOOKBACK_SECONDS:
         return "time_window_out_of_bounds"
     return seconds, False

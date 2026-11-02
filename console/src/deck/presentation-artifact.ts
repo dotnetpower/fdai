@@ -18,7 +18,7 @@ const MAX_REFS = 8;
 const MAX_REF_CHARS = 1024;
 const MAX_TEXT_CHARS = 512;
 const MAX_COLUMNS = 6;
-const MAX_ROWS = 40;
+const MAX_ROWS = 1000;
 const MAX_ITEMS = 16;
 const SLOT_ID = /^[a-z][a-z0-9_]{0,63}$/;
 const COLUMN_KEY = /^[a-z][a-z0-9_]{0,63}$/;
@@ -110,7 +110,9 @@ export function parsePresentationArtifact(
  * would replace, so the reply keeps the markdown instead.
  */
 export function presentationArtifactSupersedesText(artifact: PresentationArtifact): boolean {
-  return artifact.blocks.some((block) => block.slotId !== "overview");
+  return artifact.blocks.some(
+    (block) => block.slotId !== "overview" && block.slotId !== "limitations",
+  );
 }
 
 export function presentationArtifactToWire(artifact: PresentationArtifact): Record<string, unknown> {  return {

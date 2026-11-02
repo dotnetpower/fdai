@@ -617,8 +617,11 @@ async def _run_form_path(
             context_confused = (
                 has_context
                 and isinstance(single_compiled_batch(first), str)
-                and any(item.disposition in {"review", "clarify"} for item in first.passes)
-                and not any(":prior_result" in s for item in first.passes for s in item.shape)
+                and (
+                    any(item.disposition in {"review", "clarify"} for item in first.passes)
+                    or any(goal.status == "clarify" for item in first.passes for goal in item.goals)
+                )
+                and not any(item.reference_digest is not None for item in first.passes)
             )
             if (allow_resample is not None and not allow_resample[0]) or (
                 not resample_worthy(first) and not context_confused
@@ -632,7 +635,7 @@ async def _run_form_path(
                 retry_args = (
                     {**arguments, "context": ()}
                     if has_context
-                    and not any(":prior_result" in s for item in latest.passes for s in item.shape)
+                    and not any(item.reference_digest is not None for item in latest.passes)
                     else arguments
                 )
                 sample = await run_reasoning_shadow(

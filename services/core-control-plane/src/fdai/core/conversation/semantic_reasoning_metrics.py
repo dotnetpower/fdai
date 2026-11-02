@@ -70,8 +70,13 @@ def metric_window(goal: FormGoal, *, maximum: int) -> tuple[int, str] | str:
         return f"time_unsupported:{kind.value}"
     duration = goal.time.value.duration
     if duration is None:
-        return "time_calendar_window_unsupported"
-    seconds = duration.amount * _UNIT_SECONDS[duration.unit]
+        offset = goal.time.value.calendar_offset_days
+        if offset is None:
+            return "time_calendar_window_unsupported"
+        days = max(1, abs(offset) + (1 if offset < 0 else 0))
+        seconds = days * _UNIT_SECONDS[DurationUnit.DAY]
+    else:
+        seconds = duration.amount * _UNIT_SECONDS[duration.unit]
     if not MIN_METRIC_WINDOW_SECONDS <= seconds <= maximum:
         return "metric_window_out_of_bounds"
     return seconds, "applied"

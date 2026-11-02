@@ -198,6 +198,9 @@ def _canonicalize_prior_result_roles(form: SemanticQuestionForm) -> SemanticQues
     """Align subject_scope and mention form when either side explicitly declares prior_result."""
 
     mentions = {mention.id: mention for mention in form.mentions}
+    has_reference_mention = any(
+        item.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL} for item in form.mentions
+    )
     updated_mentions = dict(mentions)
     updated_goals: list[FormGoal] = []
     changed = False
@@ -214,10 +217,17 @@ def _canonicalize_prior_result_roles(form: SemanticQuestionForm) -> SemanticQues
             elif (
                 goal.subject_scope is SubjectScope.PRIOR_RESULT and subj.form is MentionForm.CONCEPT
             ):
-                updated_mentions[subject_id] = subj.model_copy(
-                    update={"form": MentionForm.ANAPHOR, "domain": MentionDomain.INSTANCE}
-                )
-                changed = True
+                if subj.domain is MentionDomain.OBJECT_TYPE and not goal.filters:
+                    updated_mentions[subject_id] = subj.model_copy(
+                        update={"form": MentionForm.ANAPHOR, "domain": MentionDomain.INSTANCE}
+                    )
+                    changed = True
+                elif not has_reference_mention and (
+                    subj.domain in {MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}
+                    or bool(goal.filters)
+                ):
+                    goal = goal.model_copy(update={"subject_scope": SubjectScope.COLLECTION})
+                    changed = True
         updated_goals.append(goal)
     if not changed:
         return form
@@ -240,6 +250,37 @@ def promote_contextual_admission(
 ) -> tuple[SemanticQuestionForm, FormAdmission]:
     """Promote bare prior-result follow-ups and relax single-reading confidence under context."""
 
+    if (
+        has_context
+        and len(form.goals) == 1
+        and form.alternatives
+        and all(atom.field == "subject_scope" for item in form.alternatives for atom in item.atoms)
+        and not any(
+            item.form in {MentionForm.ANAPHOR, MentionForm.ORDINAL} for item in form.mentions
+        )
+        and (
+            bool(form.goals[0].filters)
+            or (
+                form.goals[0].subject is not None
+                and form.mention(form.goals[0].subject).domain
+                in {MentionDomain.RESOURCE_TYPE, MentionDomain.RESOURCE_CLASS}
+            )
+        )
+    ):
+        form = form.model_copy(
+            update={
+                "goals": (
+                    form.goals[0].model_copy(update={"subject_scope": SubjectScope.COLLECTION}),
+                ),
+                "alternatives": (),
+            }
+        )
+        admission = admit_question_form(
+            form,
+            utterance=utterance,
+            confidence_floor=0.55,
+            accounting=accounting,
+        )
     if (
         has_prior_handles
         and len(form.goals) == 1
