@@ -146,6 +146,9 @@ async def call_scoped_provider[Result](
         progress = model_call_started(stage, model)
         try:
             result = await operation()
+        except asyncio.CancelledError:
+            fail_call(turn)
+            raise
         except BaseException:
             model_call_ended(progress, failed=True)
             fail_call(turn)
@@ -159,13 +162,18 @@ async def call_scoped_provider[Result](
         raise
     reservation = ModelCallReservation(budget, amount, turn)
     completed = False
+    cancelled = False
     progress = model_call_started(stage, model)
     try:
         result = await operation()
         completed = True
         return result, reservation
+    except asyncio.CancelledError:
+        cancelled = True
+        raise
     finally:
-        model_call_ended(progress, failed=not completed)
+        if not cancelled:
+            model_call_ended(progress, failed=not completed)
         if not completed:
             fail_call(turn)
             scope.closed = True

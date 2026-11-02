@@ -241,7 +241,7 @@ def _is_temporal_comparison(frame: SemanticProblemFrame | None) -> bool:
     )
 
 
-_CAPABILITY_PROJECTION_CACHE: dict[int, tuple[tuple[dict[str, Any], ...], int]] = {}
+_CAPABILITY_PROJECTION_CACHE: dict[tuple[object, ...], tuple[dict[str, Any], ...]] = {}
 
 
 def _semantic_judgment_capabilities(
@@ -257,10 +257,24 @@ def _semantic_judgment_capabilities(
     never displace declared identities.
     """
 
-    cache_key = id(descriptors) if isinstance(descriptors, tuple) else None
+    cache_key = (
+        tuple(
+            item.get("declaration_digest")
+            or (
+                item.get("kind"),
+                item.get("name"),
+                len(item.get("properties") or ())
+                if isinstance(item.get("properties"), Mapping)
+                else 0,
+            )
+            for item in descriptors
+        )
+        if isinstance(descriptors, tuple)
+        else None
+    )
     cached = _CAPABILITY_PROJECTION_CACHE.get(cache_key) if cache_key is not None else None
-    if cached is not None and cached[1] == len(descriptors):
-        base_capabilities = cached[0]
+    if cached is not None:
+        base_capabilities = cached
         if utterance is not None:
             return _with_stated_values(
                 tuple(dict(item) for item in base_capabilities),
@@ -325,7 +339,7 @@ def _semantic_judgment_capabilities(
     if cache_key is not None:
         if len(_CAPABILITY_PROJECTION_CACHE) >= 16:
             _CAPABILITY_PROJECTION_CACHE.clear()
-        _CAPABILITY_PROJECTION_CACHE[cache_key] = (base_tuple, len(descriptors))
+        _CAPABILITY_PROJECTION_CACHE[cache_key] = base_tuple
     if utterance is not None:
         capabilities = list(
             _with_stated_values(tuple(capabilities), utterance=utterance, descriptors=descriptors)

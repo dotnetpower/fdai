@@ -241,7 +241,7 @@ def _evaluation(
             resource_count=resource_count,
             covered_resource_count=covered_resource_count,
         ),
-        tuple(sorted({item.source_revision for item in metadata})),
+        tuple(sorted({item.source_revision for item in metadata})[:64]),
     )
 
 
