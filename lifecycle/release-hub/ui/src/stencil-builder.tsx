@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
+  extractReleaseStencil,
   parseReleaseManifest,
   requestStencilCatalog,
   requestStencilCompose,
@@ -540,6 +541,42 @@ export function StencilBuilder({
                 );
               })}
             </div>
+            {existingReleases.some((r) => extractReleaseStencil(r) !== null) && (
+              <div class="stencil-provenance-preview" style="margin-top: 16px;">
+                <strong>
+                  {t(
+                    "Registered Stencil releases in catalog:",
+                    "카탈로그에 등록된 Stencil 릴리스 불러오기:",
+                  )}
+                </strong>
+                {existingReleases.map((r) => {
+                  const st = extractReleaseStencil(r);
+                  if (!st) return null;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setStencilId(st.stencil_id);
+                        if (st.title) setTitle(st.title);
+                        if (st.title_ko) setTitleKo(st.title_ko);
+                        setTopologyProfile(st.topology_profile);
+                        setSelectedWorkloads([...st.enabled_workloads]);
+                        setSelectedPanels([...st.enabled_panel_ids]);
+                        if (st.enabled_loops) setSelectedLoops([...st.enabled_loops]);
+                        if (st.enabled_scheduled_jobs) setSelectedJobs([...st.enabled_scheduled_jobs]);
+                        setComposed(null);
+                      }}
+                    >
+                      {t(
+                        `Load ${st.stencil_id} (Release ${r.id})`,
+                        `${st.stencil_id} 불러오기 (릴리스 ${r.id})`,
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <div class="stencil-workspace">

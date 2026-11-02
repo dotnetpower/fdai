@@ -106,13 +106,56 @@ export async function requestDeploymentRequests(
   return page;
 }
 
+export type ReleaseStencilMetadata = {
+  stencil_id: string;
+  stencil_digest: string;
+  topology_profile: "lite-observe-alert" | "standard-sre" | "full-enterprise";
+  title?: string;
+  title_ko?: string;
+  azure_rbac_posture: string;
+  required_azure_roles?: string[];
+  enabled_workloads: string[];
+  omitted_workloads?: string[];
+  enabled_loops?: string[];
+  enabled_scheduled_jobs?: string[];
+  enabled_panel_ids: string[];
+  release_labels?: string[];
+};
+
 export type ReleaseManifest = Record<string, unknown> & {
   product?: string;
   source_commit?: string;
   platform_tag?: string;
   capability_maximums?: Record<string, unknown>;
   schema?: { target: number; tolerates: { minimum: number; maximum: number } };
+  stencil?: ReleaseStencilMetadata;
 };
+
+export function extractReleaseStencil(
+  source: Release | ReleaseManifest | null | undefined,
+): ReleaseStencilMetadata | null {
+  if (!source) return null;
+  try {
+    const manifest: ReleaseManifest =
+      typeof (source as Release).manifest === "string"
+        ? parseReleaseManifest((source as Release).manifest)
+        : (source as ReleaseManifest);
+    const raw = manifest.stencil;
+    if (
+      typeof raw === "object" &&
+      raw !== null &&
+      typeof raw.stencil_id === "string" &&
+      typeof raw.stencil_digest === "string" &&
+      Array.isArray(raw.enabled_workloads) &&
+      Array.isArray(raw.enabled_panel_ids)
+    ) {
+      return raw;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export function nextPromotionTransition(
   release: Release,
@@ -375,7 +418,7 @@ export function isCustomChannel(value: string): boolean {
 
 export function artifacts(root: ReleaseManifest): { component: string; digest: string; sbom: string }[] {
   const result: { component: string; digest: string; sbom: string }[] = [];
-  for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
+  for (const section of ["services", "sidecars", "installation_agents", "workloads", "components", "console", "deployment_support"]) {
     const group = root[section];
     if (typeof group !== "object" || group === null) continue;
     const entries = section === "console" || section === "deployment_support"

@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from "preact/hooks";
-import { requestDeploymentRequests, type DeploymentRequestPage } from "./api";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import {
+  extractReleaseStencil,
+  requestDeploymentRequests,
+  type Catalog,
+  type DeploymentRequestPage,
+} from "./api";
 
 const SUBSCRIPTION = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const LIMIT = 25;
@@ -8,7 +13,11 @@ export function nextRequestOffset(page: DeploymentRequestPage): number | null {
   return page.has_more ? page.offset + page.limit : null;
 }
 
-export function DeploymentRequests() {
+export function DeploymentRequests({ catalog }: { catalog?: Catalog | null }) {
+  const stencilByRelease = useMemo(
+    () => new Map((catalog?.releases ?? []).map((r) => [r.id, extractReleaseStencil(r)] as const)),
+    [catalog],
+  );
   const [draft, setDraft] = useState("");
   const [filter, setFilter] = useState("");
   const [offset, setOffset] = useState(0);
@@ -55,18 +64,22 @@ export function DeploymentRequests() {
             <caption>Self-reported requests / requested only / ownership unverified</caption>
             <thead><tr><th scope="col">Recorded (UTC)</th><th scope="col">Subscription</th>
               <th scope="col">Release / channel</th><th scope="col">Region</th><th scope="col">Request evidence</th></tr></thead>
-            <tbody>{page.requests.map((record) => <tr key={record.request_id}>
+            <tbody>{page.requests.map((record) => {
+              const st = stencilByRelease.get(record.release_id);
+              return <tr key={record.request_id}>
               <td><time dateTime={record.recorded_at}>{new Date(record.recorded_at).toISOString().replace("T", " ").replace("Z", "")}</time>
                 <small>Requested / self-reported</small></td>
               <td><code>{record.subscription_id}</code><small>Ownership unverified</small></td>
-              <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small></td>
+              <td><a href={`#/releases/${encodeURIComponent(record.release_id)}`}>{record.release_id}</a><small>{record.channel}</small>{st && <span class="stencil-chip">stencil:{st.stencil_id} · {st.azure_rbac_posture}</span>}</td>
               <td>{record.region}</td>
               <td><details><summary>Metadata</summary><dl>
                 <dt>Request id</dt><dd><code class="digest">{record.request_id}</code></dd>
                 <dt>Source commit</dt><dd><code class="digest">{record.source_commit}</code></dd>
                 <dt>Catalog digest</dt><dd><code class="digest">{record.catalog_digest}</code></dd>
+                {st && <><dt>Stencil</dt><dd><code>{st.stencil_id}</code> (<code class="digest">{st.stencil_digest}</code>)</dd></>}
               </dl></details></td>
-            </tr>)}</tbody>
+            </tr>;
+            })}</tbody>
           </table>
         </div>}
       <div class="request-pagination" aria-label="Deployment request pagination">

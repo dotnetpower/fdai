@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useMemo, useRef, useState } from "preact/hooks";
 import {
   actionsFor, activeCapabilityRecalls, artifacts, blockedReleaseCapabilities,
-  nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
+  extractReleaseStencil, nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
   type Action, type Catalog, type Release,
 } from "./api";
 
@@ -28,6 +28,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
   const evidence = useRef<HTMLDetailsElement>(null);
   const history = useRef<HTMLElement>(null);
   const manifest = useMemo(() => parseReleaseManifest(release.manifest), [release.manifest]);
+  const stencil = useMemo(() => extractReleaseStencil(manifest), [manifest]);
   const declaredArtifacts = useMemo(() => artifacts(manifest), [manifest]);
   const step = nextReleaseStep(release, catalog);
   const stage = recordedStage(release);
@@ -61,7 +62,7 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
       <div><span>{t("Recorded stage", "기록된 단계")}</span><strong>{stage ?? t("No built-in channel", "기본 채널 소속 없음")}</strong></div>
       <div><span>{t("Manifest signature", "매니페스트 서명")}</span><strong>{release.signature ? t("Development key verified", "개발용 키 검증됨") : t("Unsigned", "서명 없음")}</strong></div>
       <div><span>{t("Catalog revision", "카탈로그 개정 번호")}</span><strong>{catalog.revision}</strong></div>
-      <div><span>{t("Artifact availability", "아티팩트 가용성")}</span><strong>{t("Unverified", "검증되지 않음")}</strong></div>
+      <div><span>{t("Stencil edition", "Stencil 에디션")}</span><strong>{stencil ? `${stencil.stencil_id} (${stencil.enabled_workloads.length} workloads / ${stencil.enabled_panel_ids.length} menus)` : t("Standard / Unscoped", "표준 전체 패키지")}</strong></div>
     </div>
     <section class="release-next" aria-labelledby="release-next-title">
       <h2 id="release-next-title">{t("Next step", "다음 단계")}</h2>
@@ -81,6 +82,70 @@ export function ReleaseWorkspace({ release, catalog, act, disabled, activity }: 
           : step === "review" ? t("Review promotion evidence", "승격 근거 검토")
           : t("Review recall activity", "회수 활동 검토")}</button>}
     </section>
+    {stencil && (
+      <section aria-labelledby="release-stencil-title">
+        <h2 id="release-stencil-title">{t("Apollo Stencil & Topology Blueprint", "Apollo Stencil 및 토폴로지 블루프린트")}</h2>
+        <p>
+          {locale === "ko"
+            ? (stencil.title_ko || stencil.title || "서명된 릴리스 매니페스트에 내장된 Stencil 구성입니다.")
+            : (stencil.title || "Signed build-time Stencil composition embedded in this Release manifest.")}
+        </p>
+        <div class="preset-metrics">
+          <span class="stencil-pill locked">{stencil.stencil_id}</span>
+          <span class="stencil-chip">{t("Profile:", "프로파일:")} {stencil.topology_profile}</span>
+          <span class="stencil-chip">{t("RBAC:", "권한:")} {stencil.azure_rbac_posture}</span>
+          <span class="stencil-chip">
+            {t("Workloads:", "워크로드:")} {stencil.enabled_workloads.length}
+          </span>
+          <span class="stencil-chip">
+            {t("Console menus:", "메뉴:")} {stencil.enabled_panel_ids.length}
+          </span>
+        </div>
+        <dl>
+          <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
+          <dd><code class="digest">{stencil.stencil_digest}</code></dd>
+          <dt>{t("Included workloads (+)", "포함된 컨테이너 (+)")}</dt>
+          <dd>{stencil.enabled_workloads.join(", ")}</dd>
+          {stencil.omitted_workloads && stencil.omitted_workloads.length > 0 && (
+            <>
+              <dt>{t("Omitted workloads (-)", "제외된 컨테이너 (-)")}</dt>
+              <dd>{stencil.omitted_workloads.join(", ")}</dd>
+            </>
+          )}
+          {stencil.required_azure_roles && stencil.required_azure_roles.length > 0 && (
+            <>
+              <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>
+              <dd>{stencil.required_azure_roles.join(" · ")}</dd>
+            </>
+          )}
+          {stencil.release_labels && stencil.release_labels.length > 0 && (
+            <>
+              <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
+              <dd>
+                <div class="preset-metrics">
+                  {stencil.release_labels.map((lbl) => (
+                    <code key={lbl} class="stencil-chip">{lbl}</code>
+                  ))}
+                </div>
+              </dd>
+            </>
+          )}
+        </dl>
+        <details class="release-disclosure">
+          <summary>
+            {t(
+              `Enabled Console menus (${stencil.enabled_panel_ids.length})`,
+              `이 릴리스에 포함된 Console 메뉴 목록 (${stencil.enabled_panel_ids.length}개)`,
+            )}
+          </summary>
+          <div class="preset-metrics">
+            {stencil.enabled_panel_ids.map((panelId) => (
+              <code key={panelId} class="stencil-chip">{panelId}</code>
+            ))}
+          </div>
+        </details>
+      </section>
+    )}
     <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership", "채널 소속")}</h2>
       <p>{t("Recorded membership, not a verified promotion history. Custom channels remain in technical details.", "기록된 소속이며 검증된 승격 이력은 아닙니다. 사용자 지정 채널은 기술 세부 정보에서 확인할 수 있습니다.")}</p>
       <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{

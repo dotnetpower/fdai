@@ -252,6 +252,30 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     assert pub_resp.status_code == 200
     assert "1.7.0" in pub_resp.json()["channels"]["DEV"]
 
+    # Verify signed catalog export with Stencil Release passes hub_image_trust.verify_export
+    from cryptography.hazmat.primitives import serialization
+    from fdai_deployment_cli.hub_image_trust import verify_export
+
+    signed = store.signed_export()
+    pem = store.key.public_key.public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    verified_selection = verify_export(
+        signed.raw,
+        signature=signed.signature,
+        export_key_id=signed.key_id,
+        trusted_pem=pem,
+        channel="DEV",
+        release_id="1.7.0",
+    )
+    assert verified_selection["release_id"] == "1.7.0"
+    assert set(verified_selection["image_sources"]) == {
+        "core-control-plane",
+        "operator-service",
+        "pgvector",
+    }
+
 
 def test_stencil_api_rejects_duplicate_json_keys_cross_origin_and_invalid_inputs(
     client: TestClient,

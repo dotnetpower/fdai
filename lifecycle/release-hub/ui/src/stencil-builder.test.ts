@@ -5,7 +5,12 @@ import {
   isValidStencilBuilderInput,
   normalizeShortCommitSeed,
 } from "./stencil-builder";
-import type { StencilCatalogResponse, StencilPanelDescriptor } from "./api";
+import {
+  artifacts,
+  extractReleaseStencil,
+  type StencilCatalogResponse,
+  type StencilPanelDescriptor,
+} from "./api";
 
 const samplePanels: StencilPanelDescriptor[] = [
   {
@@ -138,5 +143,39 @@ describe("stencil-builder helpers", () => {
     expect(docBp.includesClamav).toBe(true);
     expect(docBp.workloadReasons["document-ingestion-api"]).toContain("menu:documents");
     expect(docBp.releaseLabels).toContain("clamav:included");
+  });
+
+  it("extracts Stencil metadata and component artifacts from application-release.v2 manifests", () => {
+    const manifestObj = {
+      schema_version: "fdai.application-release.v2",
+      product: "fdai",
+      release_version: "1.7.0",
+      source_commit: "a".repeat(40),
+      platform_tag: "linux-x86_64",
+      components: {
+        "core-control-plane": { image_digest: "sha256:" + "1".repeat(64) },
+        "operator-service": { image_digest: "sha256:" + "2".repeat(64) },
+        pgvector: { image_digest: "sha256:" + "3".repeat(64) },
+      },
+      stencil: {
+        stencil_id: "lite-observe-alert",
+        stencil_digest: "sha256:" + "9".repeat(64),
+        topology_profile: "lite-observe-alert" as const,
+        azure_rbac_posture: "read-only-observation",
+        enabled_workloads: ["core-control-plane", "operator-service"],
+        enabled_panel_ids: ["audit", "dashboard", "live", "settings-general"],
+        release_labels: ["stencil:lite-observe-alert", "rbac:read-only-observation"],
+      },
+    };
+    const extracted = extractReleaseStencil(manifestObj);
+    expect(extracted?.stencil_id).toBe("lite-observe-alert");
+    expect(extracted?.enabled_workloads).toEqual(["core-control-plane", "operator-service"]);
+
+    const artList = artifacts(manifestObj);
+    expect(artList.map((a) => a.component)).toEqual([
+      "core-control-plane",
+      "operator-service",
+      "pgvector",
+    ]);
   });
 });

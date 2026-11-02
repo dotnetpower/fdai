@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  catalogChangeObserved, catalogRecovery, isCustomChannel, nextPromotionTransition,
+  catalogChangeObserved, catalogRecovery, extractReleaseStencil, isCustomChannel, nextPromotionTransition,
   releaseStateIndex, releaseTitle, requestCatalog,
   type Action, type Catalog, type Change, type Release,
 } from "./api";
@@ -53,13 +53,18 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
   const [reason, setReason] = useState("");
   const { manifest, label } = registration;
   const transition = pending.release ? nextPromotionTransition(pending.release) : null;
+  const pendingStencil = pending.release ? extractReleaseStencil(pending.release) : null;
   const [channel, setChannel] = useState(
     pending.action === "promote" && transition
       ? transition.targetChannel
       : Object.keys(catalog.channels).find((name) => !pending.release?.channels.includes(name)) ?? "",
   );
   const [channelConfirmation, setChannelConfirmation] = useState("");
-  const [labelsInput, setLabelsInput] = useState("security-reviewed, qa-passed");
+  const [labelsInput, setLabelsInput] = useState(
+    pendingStencil?.release_labels?.length
+      ? [...pendingStencil.release_labels, "security-reviewed", "qa-passed"].join(", ")
+      : "security-reviewed, qa-passed",
+  );
   const [soakSeconds, setSoakSeconds] = useState("0");
   const customChannel = isCustomChannel(channel);
   const action = pending.action;
@@ -113,6 +118,13 @@ function Confirm({ pending, catalog, registration, setRegistration, close, done,
         <p>Metadata validation only. Artifact files and registry availability are not checked.</p>
       </>}
       {pending.release && <p><strong>{releaseTitle(pending.release)}</strong><code class="digest">{pending.release.digest}</code></p>}
+      {pendingStencil && (
+        <div class="preset-metrics">
+          <span class="stencil-pill locked">stencil:{pendingStencil.stencil_id}</span>
+          <span class="stencil-chip">{pendingStencil.topology_profile}</span>
+          <span class="stencil-chip">{pendingStencil.azure_rbac_posture}</span>
+        </div>
+      )}
       {action === "publish" && <p>Sign the exact manifest with the development key and add it to DEV. This does not establish production trust.</p>}
       {action === "promote" && transition && <>
         <p>Run the server-side promotion pipeline from <strong>{transition.sourceChannel}</strong> to <strong>{transition.targetChannel}</strong>. Source membership, active recalls, labels, soak time, and timeouts are verified atomically.</p>
@@ -157,20 +169,34 @@ function Status({ release }: { release: Release }) {
 
 function Activity({ catalog, releaseId }: { catalog: Catalog; releaseId?: string }) {
   const events = catalog.events.filter((event) => !releaseId || event.release_id === releaseId);
-  return events.length ? <ol class="activity">{events.map((event) => <li key={event.revision}>
-    <div><strong>{event.action}{event.channel ? ` / ${event.channel}` : ""}</strong>{event.action === "renew"
-      ? <a href="#/trust">Catalog freshness</a>
-      : <a href={`#/releases/${event.release_id}`}>Release {event.release_id}</a>}</div>
-    <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / {event.actor === "local-operator" ? "local operator (unauthenticated)" : event.actor ? `operator: ${event.actor}` : "Operator attribution unavailable"}</small>
-  </li>)}</ol> : <p class="empty">No recorded activity.</p>;
+  const stencilByRelease = new Map(
+    catalog.releases.map((r) => [r.id, extractReleaseStencil(r)] as const),
+  );
+  return events.length ? <ol class="activity">{events.map((event) => {
+    const st = stencilByRelease.get(event.release_id);
+    return <li key={event.revision}>
+      <div><strong>{event.action}{event.channel ? ` / ${event.channel}` : ""}</strong>{event.action === "renew"
+        ? <a href="#/trust">Catalog freshness</a>
+        : <a href={`#/releases/${event.release_id}`}>Release {event.release_id}</a>}
+        {st && <span class="stencil-chip">stencil:{st.stencil_id} ({st.azure_rbac_posture})</span>}
+      </div>
+      <p>{event.reason}</p><small>Revision {event.revision} / {time(event.occurred_at)} / {event.actor === "local-operator" ? "local operator (unauthenticated)" : event.actor ? `operator: ${event.actor}` : "Operator attribution unavailable"}</small>
+    </li>;
+  })}</ol> : <p class="empty">No recorded activity.</p>;
 }
 
 function Channels({ catalog }: { catalog: Catalog }) {
   const states = releaseStateIndex(catalog.releases);
+  const stencilByRelease = new Map(
+    catalog.releases.map((r) => [r.id, extractReleaseStencil(r)] as const),
+  );
   return <>
     <div class="page-head"><div><p class="eyebrow">Eligibility curation</p><h1>Channels</h1><p>Manual contributions only. Promotion gate results are not exposed in this workspace.</p></div></div>
     <div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) => <section class="channel" key={channel}><h2>{channel}</h2><p>{members.length} memberships (including recalled releases)</p>
-      {members.map((id) => <p key={id}><a href={`#/releases/${id}`}>Release {id}</a> {states.get(id) === "recalled" ? " / Recalled" : ""}</p>)}
+      {members.map((id) => {
+        const st = stencilByRelease.get(id);
+        return <p key={id}><a href={`#/releases/${id}`}>Release {id}</a> {states.get(id) === "recalled" ? " / Recalled" : ""} {st ? <span class="stencil-chip">{st.stencil_id} · {st.enabled_workloads.length}w/{st.enabled_panel_ids.length}m</span> : null}</p>;
+      })}
       {!members.length && <p>No releases added.</p>}
     </section>)}</div><p>Channel membership is eligibility, not permission to deploy. Installation constraints remain authoritative.</p>
   </>;
@@ -215,7 +241,7 @@ export function App() {
       <p class="boundary">Development signatures only. Images remain external; nothing is deployed.</p>
       {error && <p class="error" role="alert">Catalog unavailable: {error} {catalog ? "Previously loaded data is shown; mutations are disabled." : "Use Refresh catalog to retry."}</p>}
       {notice && <p role={uncertain ? "alert" : "status"} class={error || uncertain ? "warning" : "success"}>{notice}</p>}
-      {route === "/deployment-requests" && <DeploymentRequests />}
+      {route === "/deployment-requests" && <DeploymentRequests catalog={catalog} />}
       {!catalog && !error && <p role="status" class="empty">Loading release catalog...</p>}
       {catalog && <>
         {catalog.expired && <p class="warning">Catalog export expired at {time(catalog.expires_at)}. Consumers will reject it. Review the releases, channels and recalls, then use <a href="#/trust">Catalog trust</a> to explicitly renew freshness. Refresh catalog is read-only.</p>}
@@ -225,7 +251,10 @@ export function App() {
             <div class="page-head"><div><p class="eyebrow">Release catalog</p><h1>Releases</h1><p>Publish once. Curate eligibility. Keep the evidence in view.</p></div><button class="primary" disabled={disabled} onClick={() => setPending({ action: "register", release: null })}>Register release</button></div>
             <div class="summary"><strong>{catalog.releases.length} releases</strong><span>Revision {catalog.revision}</span><span>Updated {time(catalog.updated_at)}</span></div>
             {catalog.releases.length === 0 ? <section class="empty"><h2>No releases yet</h2><p>Register a signed application package or a legacy runtime manifest to begin. No sample releases are seeded.</p></section>
-              : <div class="release-list">{catalog.releases.map((r) => <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p></div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>)}</div>}
+              : <div class="release-list">{catalog.releases.map((r) => {
+                const st = extractReleaseStencil(r);
+                return <a key={r.id} href={`#/releases/${r.id}`} class="release-row"><div><strong>{releaseTitle(r)}</strong><p>{r.label || "No label"}</p>{st && <div class="preset-metrics"><span class="stencil-pill locked">{st.stencil_id}</span><span class="stencil-chip">{st.enabled_workloads.length} workloads · {st.enabled_panel_ids.length} menus</span><span class="stencil-chip">{st.azure_rbac_posture}</span></div>}</div><Status release={r} /><span>{r.channels.join(" / ") || "No channel"}</span><span class="row-next" aria-hidden="true">View details</span></a>;
+              })}</div>}
           </>           : route === "/deployment-requests" ? null
           : route === "/stencils" ? <StencilBuilder
             existingReleases={catalog.releases}
@@ -242,7 +271,24 @@ export function App() {
               <dl><dt>Key id</dt><dd><code>{catalog.key_id}</code></dd><dt>Revision</dt><dd>{catalog.revision}</dd><dt>Export expiry</dt><dd>{time(catalog.expires_at)}</dd><dt>Export SHA-256 pin</dt><dd><code class="digest">{catalog.export_sha256 || "Refresh to obtain the current pin."}</code></dd></dl>
               <a href="/v1/catalog/export" target="_blank" rel="noreferrer">Open local JSON export (new tab)</a>
               <p>Obtain the pin and public key independently. Retain the accepted revision floor. Every new export revision, including freshness renewal, needs a separately approved pin and explicit customer import.</p>
-            </section><section><h2>Renew development freshness</h2>
+            </section>
+            {catalog.releases.some((r) => extractReleaseStencil(r) !== null) && (
+              <section>
+                <h2>Signed Stencil blueprints in catalog</h2>
+                <p>Each Stencil blueprint below is embedded inside its canonical Release manifest and covered by the Release signature.</p>
+                <dl>
+                  {catalog.releases.map((r) => {
+                    const st = extractReleaseStencil(r);
+                    if (!st) return null;
+                    return <>
+                      <dt key={`dt-${r.id}`}><a href={`#/releases/${r.id}`}>Release {r.id}</a> ({st.stencil_id})</dt>
+                      <dd key={`dd-${r.id}`}><code class="digest">{st.stencil_digest}</code> · {st.azure_rbac_posture} · {st.enabled_workloads.length} workloads / {st.enabled_panel_ids.length} menus</dd>
+                    </>;
+                  })}
+                </dl>
+              </section>
+            )}
+            <section><h2>Renew development freshness</h2>
               <p>After reviewing the releases, channels and recalls, extend freshness by 24 hours from publication without changing their content. This creates an attributed catalog event and a new export pin; it does not update customer Hubs or deploy anything.</p>
               <button disabled={disabled} onClick={() => setPending({ action: "renew", release: null })}>Renew catalog freshness</button>
             </section><section><h2>Not available in this build</h2><p>Production signing, key rotation, production contributor governance, TUF freshness, automatic sync, registry mirroring and upgrade bundle import.</p></section>

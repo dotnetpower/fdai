@@ -205,12 +205,22 @@ def verify_export(
     release = parsed[selected]
     manifest_doc = release.to_mapping()
     components = manifest_doc.get("components")
+    stencil_meta = manifest_doc.get("stencil")
+    valid_inventory = isinstance(components, dict) and (
+        (stencil_meta is None and set(components) == INVENTORY)
+        or (
+            isinstance(stencil_meta, dict)
+            and {"core-control-plane", "operator-service", "pgvector"}
+            <= set(components)
+            <= INVENTORY
+        )
+    )
     if (
         release.schema_version != APPLICATION_COMPONENT_RELEASE_SCHEMA
         or release.product != "fdai"
         or release.platform_tag != "linux-x86_64"
         or not isinstance(components, dict)
-        or set(components) != INVENTORY
+        or not valid_inventory
         or any(not isinstance(value.get("image_ref"), str) for value in components.values())
     ):
         raise ValueError(

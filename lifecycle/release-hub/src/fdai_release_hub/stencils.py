@@ -1346,8 +1346,12 @@ def build_stencil_release_manifest(
         else:
             seed = f"{stencil.digest}:{release_version}:{source_commit}:{name}:{index}".encode()
             digest = "sha256:" + hashlib.sha256(seed).hexdigest()
-        components[name] = {"image_digest": digest}
+        components[name] = {
+            "image_digest": digest,
+            "image_ref": f"hub.msfdai.com/fdai/{name}@{digest}",
+        }
 
+    footprint = evaluate_stencil_footprint(stencil)
     manifest: dict[str, Any] = {
         "schema_version": "fdai.application-release.v2",
         "product": "fdai",
@@ -1355,6 +1359,21 @@ def build_stencil_release_manifest(
         "source_commit": source_commit,
         "platform_tag": platform_tag,
         "components": components,
+        "stencil": {
+            "stencil_id": stencil.stencil_id,
+            "stencil_digest": stencil.digest,
+            "topology_profile": stencil.topology_profile,
+            "title": stencil.title,
+            "title_ko": stencil.title_ko,
+            "azure_rbac_posture": footprint["azure_rbac_posture"],
+            "required_azure_roles": footprint["required_azure_roles"],
+            "enabled_workloads": list(stencil.enabled_workloads),
+            "omitted_workloads": footprint["omitted_workloads"],
+            "enabled_loops": list(stencil.enabled_loops),
+            "enabled_scheduled_jobs": list(stencil.enabled_scheduled_jobs),
+            "enabled_panel_ids": list(stencil.enabled_panel_ids),
+            "release_labels": footprint["release_labels"],
+        },
     }
     # Round C05 hardening: verify generated manifest with the canonical lifecycle release parser.
     parse_lifecycle_release_manifest(canonical_bytes(manifest))
