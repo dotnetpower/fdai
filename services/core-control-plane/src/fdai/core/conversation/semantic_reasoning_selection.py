@@ -26,14 +26,54 @@ from .semantic_reasoning_concepts import (
 
 _MAX_SHARED_CONCEPT_CACHE = 512
 _SHARED_CONCEPT_CACHE: OrderedDict[tuple[str, bool, str], tuple[str, ...]] = OrderedDict()
+_TRAILING_PARTICLES = (
+    "목록을",
+    "목록이",
+    "목록은",
+    "목록",
+    "리스트",
+    "들을",
+    "들이",
+    "들은",
+    "들",
+    "이란",
+    "란",
+    "이나",
+    "나",
+    "에서",
+    "에게",
+    "으로",
+    "로",
+    "이",
+    "가",
+    "을",
+    "를",
+    "은",
+    "는",
+    "의",
+    "에",
+    "도",
+    "만",
+)
 
 
 def _mention_cache_key(item: Mapping[str, Any]) -> str:
-    return " ".join(str(item.get("text", "")).strip().casefold().split())
+    raw = "".join(str(item.get("text", "")).strip().casefold().split())
+    for suffix in _TRAILING_PARTICLES:
+        if len(raw) > len(suffix) and raw.endswith(suffix):
+            raw = raw[: -len(suffix)]
+            break
+    return raw
+
+
+def _shard_cache_key(shard: ConceptShard | str) -> str:
+    if isinstance(shard, str):
+        return shard
+    return f"{shard.catalog_digest}:{shard.index}:{shard.total}"
 
 
 def lookup_cached_concept_choices(
-    shard_digest: str,
+    shard: ConceptShard | str,
     second: bool,
     mentions: Sequence[Mapping[str, Any]],
     *,
@@ -41,9 +81,11 @@ def lookup_cached_concept_choices(
 ) -> dict[str, Any] | None:
     if not live or not mentions:
         return None
+    shard_key = _shard_cache_key(shard)
+    shard_digest = shard if isinstance(shard, str) else shard.digest
     choices: list[dict[str, Any]] = []
     for item in mentions:
-        key = (shard_digest, second, _mention_cache_key(item))
+        key = (shard_key, second, _mention_cache_key(item))
         cached = _SHARED_CONCEPT_CACHE.get(key)
         if cached is None:
             return None
@@ -53,7 +95,7 @@ def lookup_cached_concept_choices(
 
 
 def store_cached_concept_choices(
-    shard_digest: str,
+    shard: ConceptShard | str,
     second: bool,
     mentions: Sequence[Mapping[str, Any]],
     decoded: Sequence[Mapping[str, Any]],
@@ -62,13 +104,14 @@ def store_cached_concept_choices(
 ) -> None:
     if not live or len(decoded) != len(mentions):
         return
+    shard_key = _shard_cache_key(shard)
     by_id = {str(item.get("mention")): _mention_cache_key(item) for item in mentions}
     for choice in decoded:
         mention_id = str(choice.get("mention"))
         text_key = by_id.get(mention_id)
         ids = choice.get("candidate_ids")
         if text_key and isinstance(ids, list):
-            key = (shard_digest, second, text_key)
+            key = (shard_key, second, text_key)
             _SHARED_CONCEPT_CACHE[key] = tuple(str(v) for v in ids)
             _SHARED_CONCEPT_CACHE.move_to_end(key)
             while len(_SHARED_CONCEPT_CACHE) > _MAX_SHARED_CONCEPT_CACHE:
