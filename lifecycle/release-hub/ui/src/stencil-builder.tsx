@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import {
+  extractReleaseStencil,
+  parseReleaseManifest,
   requestStencilCatalog,
   requestStencilCompose,
+  type Release,
+  type RuntimeAxisDescriptorRecord,
   type StencilCatalogResponse,
   type StencilComposeResult,
   type StencilDefinitionRecord,
@@ -34,16 +38,39 @@ const STENCIL_ID_RE = /^[a-z][a-z0-9-]{0,62}$/;
 const SEMVER_RE = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 const COMMIT_SHA_RE = /^[0-9a-f]{40}$/;
 
+export function normalizeShortCommitSeed(seed: string): string {
+  const cleaned = seed.trim().toLowerCase();
+  if (COMMIT_SHA_RE.test(cleaned)) return cleaned;
+  // Deterministic 40-hex expansion from short Git SHA or tag/seed string using FNV-1a blocks
+  let h0 = 0x811c9dc5;
+  let h1 = 0x01000193;
+  let h2 = 0x9e3779b9;
+  let h3 = 0x85ebca6b;
+  let h4 = 0xc2b2ae35;
+  for (let i = 0; i < cleaned.length; i++) {
+    const c = cleaned.charCodeAt(i);
+    h0 = Math.imul(h0 ^ c, 0x01000193) >>> 0;
+    h1 = Math.imul(h1 ^ (c + i), 0x85ebca6b) >>> 0;
+    h2 = Math.imul(h2 ^ (c * 31), 0xc2b2ae35) >>> 0;
+    h3 = Math.imul(h3 ^ (c ^ 0x5a), 0x27d4eb2f) >>> 0;
+    h4 = Math.imul(h4 ^ (c + 0x9e), 0x165667b1) >>> 0;
+  }
+  const hexPrefix = cleaned.replace(/[^0-9a-f]/g, "");
+  const digestTail = [h0, h1, h2, h3, h4].map((n) => n.toString(16).padStart(8, "0")).join("");
+  return (hexPrefix + digestTail).slice(0, 40);
+}
+
 export function isValidStencilBuilderInput(input: {
   stencilId: string;
   releaseVersion: string;
   sourceCommit: string;
 }): boolean {
+  const commitToken = input.sourceCommit.trim().toLowerCase();
   return (
     STENCIL_ID_RE.test(input.stencilId.trim()) &&
     input.releaseVersion.trim().length <= 64 &&
     SEMVER_RE.test(input.releaseVersion.trim()) &&
-    COMMIT_SHA_RE.test(input.sourceCommit.trim())
+    (commitToken === "auto" || commitToken === "derived" || COMMIT_SHA_RE.test(commitToken))
   );
 }
 
@@ -62,12 +89,147 @@ export function groupPanelsByDomain(
   return grouped;
 }
 
+export interface LiveApolloBlueprint {
+  readonly effectiveWorkloads: string[];
+  readonly omittedWorkloads: string[];
+  readonly effectiveLoops: string[];
+  readonly omittedLoops: string[];
+  readonly effectiveJobs: string[];
+  readonly omittedJobs: string[];
+  readonly effectivePanels: string[];
+  readonly omittedPanelCount: number;
+  readonly includesClamav: boolean;
+  readonly includesExecutor: boolean;
+  readonly rbacPosture: "read-only-observation" | "governed-execution";
+  readonly requiredAzureRoles: string[];
+  readonly releaseLabels: string[];
+  readonly workloadReasons: Readonly<Record<string, string[]>>;
+  readonly loopReasons: Readonly<Record<string, string[]>>;
+  readonly consoleBuildCommand: string;
+}
+
+export function computeLiveApolloBlueprint(
+  catalog: StencilCatalogResponse,
+  options: {
+    stencilId: string;
+    topologyProfile: string;
+    selectedPanels: readonly string[];
+    selectedWorkloads: readonly string[];
+    selectedLoops: readonly string[];
+    selectedJobs: readonly string[];
+    autoResolve: boolean;
+  },
+): LiveApolloBlueprint {
+  const panelSet = new Set([...options.selectedPanels, ...catalog.locked_panels]);
+  const workloadSet = new Set([...options.selectedWorkloads, ...catalog.locked_workloads]);
+  const loopSet = new Set([...options.selectedLoops, ...catalog.locked_loops]);
+  const jobSet = new Set([...options.selectedJobs, ...catalog.locked_scheduled_jobs]);
+
+  const workloadReasons: Record<string, string[]> = {};
+  const loopReasons: Record<string, string[]> = {};
+  for (const w of catalog.locked_workloads) workloadReasons[w] = ["locked-core"];
+  for (const l of catalog.locked_loops) loopReasons[l] = ["locked-core"];
+
+  const panelById = new Map(catalog.panels.map((p) => [p.id, p]));
+  for (const panelId of [...panelSet].sort()) {
+    const desc = panelById.get(panelId);
+    if (!desc) continue;
+    for (const reqW of desc.required_workloads) {
+      if (options.autoResolve) workloadSet.add(reqW);
+      workloadReasons[reqW] = [...new Set([...(workloadReasons[reqW] ?? []), `menu:${panelId}`])];
+    }
+    for (const reqL of desc.required_loops) {
+      if (options.autoResolve) loopSet.add(reqL);
+      loopReasons[reqL] = [...new Set([...(loopReasons[reqL] ?? []), `menu:${panelId}`])];
+    }
+  }
+
+  if (options.autoResolve) {
+    if (
+      loopSet.has("document-ingestion") ||
+      workloadSet.has("document-ingestion-api") ||
+      workloadSet.has("document-processing-worker")
+    ) {
+      workloadSet.add("document-ingestion-api");
+      workloadSet.add("document-processing-worker");
+      loopSet.add("document-ingestion");
+    }
+    if (loopSet.has("remediation-execution") || workloadSet.has("isolated-executor")) {
+      workloadSet.add("isolated-executor");
+      loopSet.add("remediation-execution");
+    }
+    if (jobSet.has("cost-collector") || loopSet.has("cost-governance")) {
+      loopSet.add("cost-governance");
+      jobSet.add("cost-collector");
+    }
+  }
+
+  const effectiveWorkloads = [...workloadSet].sort();
+  const omittedWorkloads = catalog.workloads.filter((w) => !workloadSet.has(w)).sort();
+  const effectiveLoops = [...loopSet].sort();
+  const omittedLoops = catalog.loops.filter((l) => !loopSet.has(l)).sort();
+  const effectiveJobs = [...jobSet].sort();
+  const omittedJobs = catalog.scheduled_jobs.filter((j) => !jobSet.has(j)).sort();
+  const effectivePanels = [...panelSet].sort();
+  const omittedPanelCount = Math.max(0, catalog.panels.length - effectivePanels.length);
+
+  const includesClamav = workloadSet.has("document-ingestion-api");
+  const includesExecutor = workloadSet.has("isolated-executor");
+  const rbacPosture = includesExecutor ? "governed-execution" : "read-only-observation";
+  const requiredAzureRoles = ["Reader", "Monitoring Reader", "Log Analytics Reader"];
+  if (loopSet.has("cost-governance")) requiredAzureRoles.push("Cost Management Reader");
+  if (includesExecutor) requiredAzureRoles.push("Scoped Executor Action Role");
+
+  const cleanId = options.stencilId.trim() || "custom-stencil";
+  const releaseLabels = [
+    `stencil:${cleanId}`,
+    `profile:${options.topologyProfile}`,
+    `rbac:${rbacPosture}`,
+    `clamav:${includesClamav ? "included" : "omitted"}`,
+    `executor:${includesExecutor ? "included" : "omitted"}`,
+    `workloads:${effectiveWorkloads.length}`,
+    `menus:${effectivePanels.length}`,
+  ];
+
+  return {
+    effectiveWorkloads,
+    omittedWorkloads,
+    effectiveLoops,
+    omittedLoops,
+    effectiveJobs,
+    omittedJobs,
+    effectivePanels,
+    omittedPanelCount,
+    includesClamav,
+    includesExecutor,
+    rbacPosture,
+    requiredAzureRoles,
+    releaseLabels,
+    workloadReasons,
+    loopReasons,
+    consoleBuildCommand: `FDAI_STENCIL_ENABLED_PANELS='${effectivePanels.join(",")}' npm --prefix console run build`,
+  };
+}
+
 export function StencilBuilder({
+  locale: externalLocale,
+  onLocaleChange,
+  existingReleases = [],
   onPrepareRelease,
 }: {
+  locale?: "en" | "ko";
+  onLocaleChange?: (next: "en" | "ko") => void;
+  existingReleases?: readonly Release[];
   onPrepareRelease: (draft: { id: string; label: string; manifest: string }) => void;
 }) {
-  const [locale, setLocale] = useState(navigator.language.startsWith("ko") ? "ko" : "en");
+  const [internalLocale, setInternalLocale] = useState<"en" | "ko">(
+    navigator.language.startsWith("ko") ? "ko" : "en",
+  );
+  const locale = externalLocale ?? internalLocale;
+  const setLocale = (next: "en" | "ko") => {
+    setInternalLocale(next);
+    onLocaleChange?.(next);
+  };
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
 
   const [catalog, setCatalog] = useState<StencilCatalogResponse | null>(null);
@@ -94,8 +256,28 @@ export function StencilBuilder({
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [autoResolve, setAutoResolve] = useState(true);
   const [releaseVersion, setReleaseVersion] = useState("1.7.0");
-  const [sourceCommit, setSourceCommit] = useState("a".repeat(40));
+  const [sourceMode, setSourceMode] = useState<string>("auto");
+  const [sourceCommit, setSourceCommit] = useState("auto");
+  const [customCommitInput, setCustomCommitInput] = useState("");
   const [composed, setComposed] = useState<StencilComposeResult | null>(null);
+  const [menuQuery, setMenuQuery] = useState("");
+  const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
+  const releaseProvenanceList = useMemo(() => {
+    const items: { id: string; label: string; commit: string }[] = [];
+    for (const rel of existingReleases) {
+      try {
+        const parsed = parseReleaseManifest(rel.manifest);
+        const sha = typeof parsed.source_commit === "string" ? parsed.source_commit.trim().toLowerCase() : "";
+        if (COMMIT_SHA_RE.test(sha)) {
+          items.push({ id: rel.id, label: rel.label || `Release ${rel.id}`, commit: sha });
+        }
+      } catch {
+        // Ignore unparseable legacy manifests
+      }
+    }
+    return items;
+  }, [existingReleases]);
 
   function applyPreset(preset: StencilDefinitionRecord) {
     setStencilId(preset.stencil_id);
@@ -118,6 +300,14 @@ export function StencilBuilder({
       .then((data) => {
         if (!active) return;
         setCatalog(data);
+        if (data.detected_source_commit) {
+          setSourceMode("auto");
+          setSourceCommit("auto");
+          setCustomCommitInput(data.detected_source_commit);
+        } else {
+          setSourceMode("derived");
+          setSourceCommit("derived");
+        }
         const lite = data.presets.find((p) => p.stencil.stencil_id === "lite-observe-alert")
           ?? data.presets[0];
         if (lite) {
@@ -140,6 +330,91 @@ export function StencilBuilder({
     () => (catalog ? groupPanelsByDomain(catalog.panels) : new Map<string, StencilPanelDescriptor[]>()),
     [catalog],
   );
+
+  const liveBlueprint = useMemo(
+    () =>
+      catalog
+        ? computeLiveApolloBlueprint(catalog, {
+            stencilId,
+            topologyProfile,
+            selectedPanels,
+            selectedWorkloads,
+            selectedLoops,
+            selectedJobs,
+            autoResolve,
+          })
+        : null,
+    [
+      catalog,
+      stencilId,
+      topologyProfile,
+      selectedPanels,
+      selectedWorkloads,
+      selectedLoops,
+      selectedJobs,
+      autoResolve,
+    ],
+  );
+
+  const workloadMetaMap = useMemo(
+    () => new Map((catalog?.workloads_catalog ?? []).map((w) => [w.id, w])),
+    [catalog],
+  );
+  const loopMetaMap = useMemo(
+    () => new Map((catalog?.loops_catalog ?? []).map((l) => [l.id, l])),
+    [catalog],
+  );
+  const jobMetaMap = useMemo(
+    () => new Map((catalog?.scheduled_jobs_catalog ?? []).map((j) => [j.id, j])),
+    [catalog],
+  );
+
+  function renderAxisCard(
+    id: string,
+    meta: RuntimeAxisDescriptorRecord | undefined,
+    checked: boolean,
+    locked: boolean,
+    reasons: readonly string[],
+    onToggle: () => void,
+  ) {
+    const linkedMenus = reasons.filter((r) => r.startsWith("menu:")).map((r) => r.slice(5));
+    return (
+      <label key={id} class={`stencil-axis-card ${checked ? "is-on" : ""}`}>
+        <input type="checkbox" checked={checked} disabled={locked} onChange={onToggle} />
+        <div class="stencil-axis-body">
+          <div class="stencil-axis-head">
+            <strong>{meta ? (locale === "ko" ? meta.label_ko : meta.label) : id}</strong>
+            <span class="stencil-badges">
+              {locked && (
+                <span class="stencil-pill locked">{t("Locked core", "필수 코어")}</span>
+              )}
+              {!locked && linkedMenus.length > 0 && (
+                <span
+                  class="stencil-pill linked"
+                  title={`Required by: ${linkedMenus.join(", ")}`}
+                >
+                  {t(`Linked: ${linkedMenus.slice(0, 2).join(", ")}`, `연동됨: ${linkedMenus.slice(0, 2).join(", ")}`)}
+                </span>
+              )}
+            </span>
+          </div>
+          {meta && (
+            <p class="stencil-axis-desc">
+              {locale === "ko" ? meta.summary_ko : meta.summary}
+            </p>
+          )}
+          <div class="stencil-axis-meta">
+            <code>{id}</code>
+            {meta && meta.agents.length > 0 && (
+              <span class="stencil-agents">
+                {t("Agents:", "담당 에이전트:")} {meta.agents.join(" · ")}
+              </span>
+            )}
+          </div>
+        </div>
+      </label>
+    );
+  }
 
   function toggleItem(list: string[], value: string, locked: string[], setter: (next: string[]) => void) {
     if (locked.includes(value)) return;
@@ -171,7 +446,7 @@ export function StencilBuilder({
     sourceCommit,
   });
 
-  async function runCompose(event?: SubmitEvent) {
+  async function runCompose(event?: SubmitEvent, openRegisterAfter = false) {
     event?.preventDefault();
     if (composing || !validInputs) return;
     setComposing(true);
@@ -195,6 +470,13 @@ export function StencilBuilder({
       });
       setComposed(result);
       applyPreset(result.stencil);
+      if (openRegisterAfter) {
+        onPrepareRelease({
+          id: releaseVersion.trim(),
+          label: `${result.stencil.stencil_id} (${result.footprint.enabled_panel_count} menus, ${result.footprint.workload_count} workloads)`,
+          manifest: JSON.stringify(result.release_manifest, null, 2),
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Stencil composition failed.");
     } finally {
@@ -208,7 +490,7 @@ export function StencilBuilder({
         <span>{t("Custom Stencil & Menu Builder", "맞춤형 Stencil 및 메뉴 빌더")}</span>
         <label>
           {t("Builder language", "빌더 언어")}{" "}
-          <select value={locale} onChange={(e) => setLocale(e.currentTarget.value)}>
+          <select value={locale} onChange={(e) => setLocale(e.currentTarget.value as "en" | "ko")}>
             <option value="en">English</option>
             <option value="ko">한국어</option>
           </select>
@@ -231,268 +513,602 @@ export function StencilBuilder({
       {loading && <p role="status" class="empty">{t("Loading Stencil catalog...", "Stencil 카탈로그 불러오는 중...")}</p>}
       {error && <p role="alert" class="error">{error}</p>}
 
-      {catalog && (
+      {catalog && liveBlueprint && (
         <>
           <section aria-labelledby="stencil-presets-title">
             <h2 id="stencil-presets-title">{t("1. Edition presets", "1. 에디션 프리셋 선택")}</h2>
             <div class="channel-grid">
-              {catalog.presets.map(({ stencil: preset, footprint }) => (
-                <article key={preset.stencil_id} class="channel">
-                  <h3>{locale === "ko" ? preset.title_ko : preset.title}</h3>
-                  <p>{locale === "ko" ? preset.description_ko : preset.description}</p>
-                  <p>
-                    <small>
-                      {t("Workloads:", "워크로드:")} {footprint.workload_count}/{footprint.total_workloads} ·{" "}
-                      {t("Menus:", "메뉴:")} {footprint.enabled_panel_count}/{footprint.total_panel_count} ·{" "}
-                      {t("RBAC:", "권한:")} {footprint.azure_rbac_posture}
-                    </small>
-                  </p>
-                  <button
-                    type="button"
-                    class={stencilId === preset.stencil_id ? "primary" : ""}
-                    onClick={() => {
-                      applyPreset(preset);
-                      setComposed(null);
-                    }}
+              {catalog.presets.map(({ stencil: preset, footprint }) => {
+                const isSelected = stencilId === preset.stencil_id;
+                return (
+                  <article
+                    key={preset.stencil_id}
+                    class={`preset-card ${isSelected ? "active" : ""}`}
                   >
-                    {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
-                  </button>
-                </article>
-              ))}
+                    <div class="preset-card-head">
+                      <h3>{locale === "ko" ? preset.title_ko : preset.title}</h3>
+                      {isSelected && (
+                        <span class="stencil-pill active-pill">
+                          {t("Active base", "현재 기준")}
+                        </span>
+                      )}
+                    </div>
+                    <p>{locale === "ko" ? preset.description_ko : preset.description}</p>
+                    <div class="preset-metrics">
+                      <span class="stencil-chip">
+                        {t("Workloads", "워크로드")} {footprint.workload_count}/{footprint.total_workloads}
+                      </span>
+                      <span class="stencil-chip">
+                        {t("Menus", "메뉴")} {footprint.enabled_panel_count}/{footprint.total_panel_count}
+                      </span>
+                      <span class="stencil-chip">
+                        {footprint.azure_rbac_posture}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class={isSelected ? "primary" : ""}
+                      onClick={() => {
+                        applyPreset(preset);
+                        setComposed(null);
+                      }}
+                    >
+                      {t(`Load ${preset.stencil_id}`, `${preset.stencil_id} 불러오기`)}
+                    </button>
+                  </article>
+                );
+              })}
             </div>
+            {existingReleases.some((r) => extractReleaseStencil(r) !== null) && (
+              <div class="stencil-provenance-preview" style="margin-top: 16px;">
+                <strong>
+                  {t(
+                    "Registered Stencil releases in catalog:",
+                    "카탈로그에 등록된 Stencil 릴리스 불러오기:",
+                  )}
+                </strong>
+                {existingReleases.map((r) => {
+                  const st = extractReleaseStencil(r);
+                  if (!st) return null;
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      onClick={() => {
+                        setStencilId(st.stencil_id);
+                        if (st.title) setTitle(st.title);
+                        if (st.title_ko) setTitleKo(st.title_ko);
+                        setTopologyProfile(st.topology_profile);
+                        setSelectedWorkloads([...st.enabled_workloads]);
+                        setSelectedPanels([...st.enabled_panel_ids]);
+                        if (st.enabled_loops) setSelectedLoops([...st.enabled_loops]);
+                        if (st.enabled_scheduled_jobs) setSelectedJobs([...st.enabled_scheduled_jobs]);
+                        setComposed(null);
+                      }}
+                    >
+                      {t(
+                        `Load ${st.stencil_id} (Release ${r.id})`,
+                        `${st.stencil_id} 불러오기 (릴리스 ${r.id})`,
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
-          <form onSubmit={runCompose}>
-            <section aria-labelledby="stencil-identity-title">
-              <h2 id="stencil-identity-title">
-                {t("2. Stencil identity & target release", "2. Stencil 식별자 및 대상 릴리스")}
-              </h2>
-              <div class="stencil-grid">
-                <label>
-                  {t("Stencil ID", "Stencil ID")}
-                  <input
-                    required
-                    pattern="[a-z][a-z0-9-]{0,62}"
-                    value={stencilId}
-                    onInput={(e) => setStencilId(e.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  {t("Topology profile", "토폴로지 프로파일")}
-                  <select
-                    value={topologyProfile}
-                    onChange={(e) =>
-                      setTopologyProfile(
-                        e.currentTarget.value as
-                          | "lite-observe-alert"
-                          | "standard-sre"
-                          | "full-enterprise",
-                      )
-                    }
-                  >
-                    <option value="lite-observe-alert">
-                      {t("lite-observe-alert (Minimal resources, read-only)", "lite-observe-alert (최소 리소스·감지/알림 전용)")}
-                    </option>
-                    <option value="standard-sre">
-                      {t("standard-sre (SRE + HIL execution)", "standard-sre (표준 SRE + 승인 실행)")}
-                    </option>
-                    <option value="full-enterprise">
-                      {t("full-enterprise (Full stack + Knowledge + FinOps)", "full-enterprise (전체 기능 + 지식 + 비용)")}
-                    </option>
-                  </select>
-                </label>
-                <label>
-                  {t("Target Release version (SemVer)", "대상 릴리스 버전 (SemVer)")}
-                  <input
-                    required
-                    value={releaseVersion}
-                    onInput={(e) => setReleaseVersion(e.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  {t("Source commit SHA (40 hex)", "소스 커밋 SHA (40자 16진수)")}
-                  <input
-                    required
-                    minLength={40}
-                    maxLength={40}
-                    value={sourceCommit}
-                    onInput={(e) => setSourceCommit(e.currentTarget.value)}
-                  />
-                </label>
-              </div>
-              <label class="stencil-check">
-                <input
-                  type="checkbox"
-                  checked={autoResolve}
-                  onChange={(e) => setAutoResolve(e.currentTarget.checked)}
-                />
-                <span>
-                  {t(
-                    "Automatically enable required backing workloads and agent loops for selected menus",
-                    "선택한 메뉴에 필요한 백엔드 워크로드 및 에이전트 루프 의존성을 자동으로 활성화",
-                  )}
-                </span>
-              </label>
-            </section>
-
-            <section aria-labelledby="stencil-loops-title">
-              <h2 id="stencil-loops-title">
-                {t("3. Agent-driven loops & service workloads", "3. 에이전트 주도 루프 및 서비스 워크로드")}
-              </h2>
-              <p>
-                {t(
-                  "The 15-agent pantheon runs in-process inside core-control-plane. Resource change detection (inventory-reconciliation), anomaly detection (anomaly-analyzer), notifications, and Saga audit remain locked on.",
-                  "15-에이전트 판테온은 core-control-plane 단일 컨테이너 내부에서 동작합니다. 리소스 변경 감지(inventory-reconciliation), 장애/이상 감지(anomaly-analyzer), 알림 발송(notification-dispatch), 감사(saga-audit)는 안전 코어로 항상 활성화됩니다.",
-                )}
-              </p>
-              <div class="channel-grid">
-                <div class="channel">
-                  <h3>{t("Service workloads", "서비스 워크로드 (컨테이너)")}</h3>
-                  {catalog.workloads.map((workload) => {
-                    const locked = catalog.locked_workloads.includes(workload);
-                    return (
-                      <label key={workload} class="stencil-check">
+          <div class="stencil-workspace">
+            <form class="stencil-main-column" onSubmit={runCompose}>
+              <section aria-labelledby="stencil-identity-title">
+                <h2 id="stencil-identity-title">
+                  {t("2. Stencil identity & target release", "2. Stencil 식별자 및 대상 릴리스")}
+                </h2>
+                <div class="stencil-grid">
+                  <label>
+                    {t("Stencil ID", "Stencil ID")}
+                    <input
+                      required
+                      pattern="[a-z][a-z0-9\-]{0,62}"
+                      value={stencilId}
+                      onInput={(e) => {
+                        setStencilId(e.currentTarget.value);
+                        setComposed(null);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    {t("Topology profile", "토폴로지 프로파일")}
+                    <select
+                      value={topologyProfile}
+                      onChange={(e) => {
+                        setTopologyProfile(
+                          e.currentTarget.value as
+                            | "lite-observe-alert"
+                            | "standard-sre"
+                            | "full-enterprise",
+                        );
+                        setComposed(null);
+                      }}
+                    >
+                      <option value="lite-observe-alert">
+                        {t("lite-observe-alert (Minimal resources, read-only)", "lite-observe-alert (최소 리소스·감지/알림 전용)")}
+                      </option>
+                      <option value="standard-sre">
+                        {t("standard-sre (SRE + HIL execution)", "standard-sre (표준 SRE + 승인 실행)")}
+                      </option>
+                      <option value="full-enterprise">
+                        {t("full-enterprise (Full stack + Knowledge + FinOps)", "full-enterprise (전체 기능 + 지식 + 비용)")}
+                      </option>
+                    </select>
+                  </label>
+                  <label>
+                    {t("Target Release version (SemVer)", "대상 릴리스 버전 (SemVer)")}
+                    <input
+                      required
+                      value={releaseVersion}
+                      onInput={(e) => {
+                        setReleaseVersion(e.currentTarget.value);
+                        setComposed(null);
+                      }}
+                    />
+                  </label>
+                  <label>
+                    {t("Source commit provenance", "소스 커밋 출처 (자동 바인딩)")}
+                    <select
+                      value={sourceMode}
+                      onChange={(e) => {
+                        const mode = e.currentTarget.value;
+                        setSourceMode(mode);
+                        setComposed(null);
+                        if (mode === "auto") {
+                          setSourceCommit("auto");
+                        } else if (mode === "derived") {
+                          setSourceCommit("derived");
+                        } else if (mode.startsWith("release:")) {
+                          const relId = mode.slice(8);
+                          const found = releaseProvenanceList.find((r) => r.id === relId);
+                          if (found) {
+                            setSourceCommit(found.commit);
+                            setCustomCommitInput(found.commit);
+                          }
+                        } else if (mode === "custom") {
+                          const initial = catalog.detected_source_commit
+                            || normalizeShortCommitSeed(`${stencilId}:${releaseVersion}`);
+                          const nextCustom = COMMIT_SHA_RE.test(customCommitInput)
+                            ? customCommitInput
+                            : initial;
+                          setCustomCommitInput(nextCustom);
+                          setSourceCommit(nextCustom);
+                        }
+                      }}
+                    >
+                      {catalog.detected_source_commit && (
+                        <option value="auto">
+                          {t(
+                            `Workspace Git HEAD (${catalog.detected_source_ref ?? "HEAD"} · ${catalog.detected_source_commit.slice(0, 10)})`,
+                            `워크스페이스 Git HEAD 자동 감지 (${catalog.detected_source_ref ?? "HEAD"} · ${catalog.detected_source_commit.slice(0, 10)})`,
+                          )}
+                        </option>
+                      )}
+                      <option value="derived">
+                        {t(
+                          "Auto-derive deterministic SHA from Stencil + SemVer",
+                          "Stencil 구성 + 버전 기반 결정론적 SHA 자동 생성",
+                        )}
+                      </option>
+                      {releaseProvenanceList.map((item) => (
+                        <option key={item.id} value={`release:${item.id}`}>
+                          {t(
+                            `Inherit from Release ${item.id} (${item.commit.slice(0, 10)})`,
+                            `기존 릴리스 ${item.id}에서 상속 (${item.commit.slice(0, 10)})`,
+                          )}
+                        </option>
+                      ))}
+                      <option value="custom">
+                        {t(
+                          "Custom commit SHA / short SHA input...",
+                          "직접 입력 (외부 CI 커밋 SHA 또는 짧은 SHA)...",
+                        )}
+                      </option>
+                    </select>
+                  </label>
+                  <div class="stencil-provenance-span">
+                    {sourceMode !== "custom" ? (
+                      <div class="stencil-provenance-preview">
+                        <span class="stencil-pill locked">
+                          {sourceMode === "auto"
+                            ? t("Git HEAD bound", "Git HEAD 자동 바인딩")
+                            : sourceMode === "derived"
+                              ? t("Deterministic SHA", "결정론적 자동 파생")
+                              : t("Release inherited", "릴리스 상속됨")}
+                        </span>
+                        {sourceMode === "auto" && catalog.detected_source_ref && (
+                          <span class="stencil-chip">{catalog.detected_source_ref}</span>
+                        )}
+                        <code>
+                          {sourceMode === "auto" && catalog.detected_source_commit
+                            ? catalog.detected_source_commit
+                            : sourceMode === "derived"
+                              ? normalizeShortCommitSeed(`${stencilId}:${releaseVersion}:${liveBlueprint.effectivePanels.join(",")}`)
+                              : sourceCommit}
+                        </code>
+                      </div>
+                    ) : (
+                      <div class="stencil-custom-sha-box">
                         <input
-                          type="checkbox"
-                          checked={selectedWorkloads.includes(workload)}
-                          disabled={locked}
-                          onChange={() =>
+                          required
+                          placeholder={t(
+                            "Paste 40-hex SHA or short SHA / tag and click Expand",
+                            "40자 SHA 또는 짧은 SHA(7~12자)·태그 입력 후 변환 클릭",
+                          )}
+                          value={customCommitInput}
+                          onInput={(e) => {
+                            const val = e.currentTarget.value.trim().toLowerCase();
+                            setCustomCommitInput(val);
+                            setSourceCommit(val);
+                            setComposed(null);
+                          }}
+                        />
+                        <div class="stencil-sha-actions">
+                          {!COMMIT_SHA_RE.test(customCommitInput.trim().toLowerCase()) &&
+                            customCommitInput.trim().length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const expanded = normalizeShortCommitSeed(customCommitInput);
+                                  setCustomCommitInput(expanded);
+                                  setSourceCommit(expanded);
+                                  setComposed(null);
+                                }}
+                              >
+                                {t("Expand short SHA to 40-hex", "짧은 SHA를 40자 SHA로 변환")}
+                              </button>
+                            )}
+                          {catalog.detected_source_commit && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const head = catalog.detected_source_commit!;
+                                setCustomCommitInput(head);
+                                setSourceCommit(head);
+                                setComposed(null);
+                              }}
+                            >
+                              {t("Use Git HEAD", "현재 Git HEAD 채우기")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <label class="stencil-check">
+                  <input
+                    type="checkbox"
+                    checked={autoResolve}
+                    onChange={(e) => {
+                      setAutoResolve(e.currentTarget.checked);
+                      setComposed(null);
+                    }}
+                  />
+                  <span>
+                    {t(
+                      "Automatically enable required backing workloads and agent loops for selected menus (Apollo dependency graph closure)",
+                      "선택한 메뉴에 필요한 백엔드 워크로드 및 에이전트 루프 의존성을 자동으로 활성화 (Apollo 의존성 그래프 클로저)",
+                    )}
+                  </span>
+                </label>
+              </section>
+
+              <section aria-labelledby="stencil-loops-title">
+                <h2 id="stencil-loops-title">
+                  {t("3. Agent-driven loops & service workloads", "3. 에이전트 주도 루프 및 서비스 워크로드")}
+                </h2>
+                <p>
+                  {t(
+                    "The 15-agent pantheon runs in-process inside core-control-plane. Resource change detection, anomaly detection, notifications, and Saga audit remain locked on.",
+                    "15-에이전트 판테온은 core-control-plane 단일 컨테이너 내부에서 동작합니다. 리소스 변경 감지, 장애 감지, 알림 발송, 해시 체인 감사는 안전 코어로 항상 활성화됩니다.",
+                  )}
+                </p>
+                <div class="stencil-axis-sections">
+                  <div class="stencil-axis-section">
+                    <h3>{t("Service workloads (Containers)", "서비스 워크로드 (컨테이너)")}</h3>
+                    <div class="stencil-axis-grid">
+                      {catalog.workloads.map((workload) =>
+                        renderAxisCard(
+                          workload,
+                          workloadMetaMap.get(workload),
+                          liveBlueprint.effectiveWorkloads.includes(workload),
+                          catalog.locked_workloads.includes(workload),
+                          liveBlueprint.workloadReasons[workload] ?? [],
+                          () =>
                             toggleItem(
                               selectedWorkloads,
                               workload,
                               catalog.locked_workloads,
                               setSelectedWorkloads,
-                            )
-                          }
-                        />
-                        <span>
-                          <code>{workload}</code> {locked ? t("(Locked core)", "(필수 코어)") : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <div class="channel">
-                  <h3>{t("Agent loops", "에이전트 루프")}</h3>
-                  {catalog.loops.map((loop) => {
-                    const locked = catalog.locked_loops.includes(loop);
-                    return (
-                      <label key={loop} class="stencil-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedLoops.includes(loop)}
-                          disabled={locked}
-                          onChange={() =>
-                            toggleItem(selectedLoops, loop, catalog.locked_loops, setSelectedLoops)
-                          }
-                        />
-                        <span>
-                          <code>{loop}</code> {locked ? t("(Locked core)", "(필수 코어)") : ""}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-                <div class="channel">
-                  <h3>{t("Scheduled jobs (CronJobs)", "스케줄 잡 (CronJob)")}</h3>
-                  {catalog.scheduled_jobs.map((job) => {
-                    const locked = catalog.locked_scheduled_jobs.includes(job);
-                    return (
-                      <label key={job} class="stencil-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedJobs.includes(job)}
-                          disabled={locked}
-                          onChange={() =>
+                            ),
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div class="stencil-axis-section">
+                    <h3>{t("Agent loops", "에이전트 루프")}</h3>
+                    <div class="stencil-axis-grid">
+                      {catalog.loops.map((loop) =>
+                        renderAxisCard(
+                          loop,
+                          loopMetaMap.get(loop),
+                          liveBlueprint.effectiveLoops.includes(loop),
+                          catalog.locked_loops.includes(loop),
+                          liveBlueprint.loopReasons[loop] ?? [],
+                          () =>
+                            toggleItem(
+                              selectedLoops,
+                              loop,
+                              catalog.locked_loops,
+                              setSelectedLoops,
+                            ),
+                        ),
+                      )}
+                    </div>
+                  </div>
+                  <div class="stencil-axis-section">
+                    <h3>{t("Scheduled jobs (CronJobs)", "스케줄 잡 (CronJob)")}</h3>
+                    <div class="stencil-axis-grid">
+                      {catalog.scheduled_jobs.map((job) =>
+                        renderAxisCard(
+                          job,
+                          jobMetaMap.get(job),
+                          liveBlueprint.effectiveJobs.includes(job),
+                          catalog.locked_scheduled_jobs.includes(job),
+                          catalog.locked_scheduled_jobs.includes(job) ? ["locked-core"] : [],
+                          () =>
                             toggleItem(
                               selectedJobs,
                               job,
                               catalog.locked_scheduled_jobs,
                               setSelectedJobs,
-                            )
-                          }
-                        />
-                        <span>
-                          <code>{job}</code> {locked ? t("(Locked core)", "(필수 코어)") : ""}
-                        </span>
-                      </label>
+                            ),
+                        ),
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section aria-labelledby="stencil-menus-title">
+                <h2 id="stencil-menus-title">
+                  {t(
+                    `4. Custom Console menus (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length} enabled)`,
+                    `4. 커스텀 Console 메뉴 선택 (${liveBlueprint.effectivePanels.length} / ${catalog.panels.length}개 활성화됨)`,
+                  )}
+                </h2>
+                <p>
+                  {t(
+                    "Unchecked menus are physically excluded from the built Console bundle chunks when built with FDAI_STENCIL_ENABLED_PANELS.",
+                    "선택 해제한 메뉴는 FDAI_STENCIL_ENABLED_PANELS로 빌드할 때 최종 Console JS/CSS 번들 청크에서 물리적으로 제외됩니다.",
+                  )}
+                </p>
+                <div class="stencil-menu-toolbar">
+                  <input
+                    type="search"
+                    placeholder={t("Filter menus by name or ID...", "메뉴 이름 또는 ID 검색...")}
+                    value={menuQuery}
+                    onInput={(e) => setMenuQuery(e.currentTarget.value)}
+                  />
+                  <label class="stencil-check">
+                    <input
+                      type="checkbox"
+                      checked={showSelectedOnly}
+                      onChange={(e) => setShowSelectedOnly(e.currentTarget.checked)}
+                    />
+                    <span>{t("Show enabled menus only", "활성화된 메뉴만 보기")}</span>
+                  </label>
+                </div>
+
+                <div class="stencil-domain-list">
+                  {[...groupedPanels.entries()].map(([group, panels]) => {
+                    const needle = menuQuery.trim().toLowerCase();
+                    const visibleGroupPanels = panels.filter((p) => {
+                      if (showSelectedOnly && !liveBlueprint.effectivePanels.includes(p.id)) {
+                        return false;
+                      }
+                      if (!needle) return true;
+                      return (
+                        p.id.toLowerCase().includes(needle) ||
+                        p.label.toLowerCase().includes(needle) ||
+                        p.label_ko.toLowerCase().includes(needle)
+                      );
+                    });
+                    if (visibleGroupPanels.length === 0) return null;
+                    const enabledInGroup = panels.filter((p) =>
+                      liveBlueprint.effectivePanels.includes(p.id),
+                    ).length;
+
+                    return (
+                      <details key={group} class="stencil-domain-group" open>
+                        <summary class="stencil-domain-summary">
+                          <span>
+                            <strong>
+                              {locale === "ko"
+                                ? (GROUP_LABELS[group]?.ko ?? group)
+                                : (GROUP_LABELS[group]?.en ?? group)}
+                            </strong>
+                            <span class="stencil-pill count-pill">
+                              {enabledInGroup} / {panels.length} {t("enabled", "활성")}
+                            </span>
+                          </span>
+                          <span class="actions" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={() => toggleGroupPanels(panels, true)}
+                            >
+                              {t("All", "전체 선택")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleGroupPanels(panels, false)}
+                            >
+                              {t("Min", "최소화")}
+                            </button>
+                          </span>
+                        </summary>
+                        <div class="stencil-panel-grid">
+                          {visibleGroupPanels.map((panel) => {
+                            const checked = liveBlueprint.effectivePanels.includes(panel.id);
+                            return (
+                              <label
+                                key={panel.id}
+                                class={`stencil-axis-card compact ${checked ? "is-on" : ""}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={panel.locked}
+                                  onChange={() =>
+                                    toggleItem(
+                                      selectedPanels,
+                                      panel.id,
+                                      catalog.locked_panels,
+                                      setSelectedPanels,
+                                    )
+                                  }
+                                />
+                                <div class="stencil-axis-body">
+                                  <div class="stencil-axis-head">
+                                    <strong>
+                                      {locale === "ko" ? panel.label_ko : panel.label}
+                                    </strong>
+                                    {panel.locked && (
+                                      <span class="stencil-pill locked">
+                                        {t("Locked", "필수")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div class="stencil-axis-meta">
+                                    <code>{panel.id}</code>
+                                    {panel.required_workloads.length > 0 && (
+                                      <span class="stencil-agents">
+                                        + {panel.required_workloads.join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </details>
                     );
                   })}
                 </div>
-              </div>
-            </section>
+              </section>
 
-            <section aria-labelledby="stencil-menus-title">
-              <h2 id="stencil-menus-title">
-                {t(
-                  `4. Custom Console menus (${selectedPanels.length} / ${catalog.panels.length} enabled)`,
-                  `4. 커스텀 Console 메뉴 선택 (${selectedPanels.length} / ${catalog.panels.length}개 활성화됨)`,
-                )}
-              </h2>
-              <p>
-                {t(
-                  "Unchecked menus are physically excluded from the built Console bundle chunks when built with FDAI_STENCIL_ENABLED_PANELS.",
-                  "선택 해제한 메뉴는 FDAI_STENCIL_ENABLED_PANELS로 빌드할 때 최종 Console JS/CSS 번들 청크에서 물리적으로 제외됩니다.",
-                )}
-              </p>
-              <div class="channel-grid">
-                {[...groupedPanels.entries()].map(([group, panels]) => (
-                  <div key={group} class="channel">
-                    <div class="workspace-bar">
-                      <h3>
-                        {locale === "ko"
-                          ? (GROUP_LABELS[group]?.ko ?? group)
-                          : (GROUP_LABELS[group]?.en ?? group)}
-                      </h3>
-                      <div class="actions">
-                        <button
-                          type="button"
-                          onClick={() => toggleGroupPanels(panels, true)}
-                        >
-                          {t("All", "전체 선택")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleGroupPanels(panels, false)}
-                        >
-                          {t("Min", "최소화")}
-                        </button>
-                      </div>
-                    </div>
-                    {panels.map((panel) => (
-                      <label key={panel.id} class="stencil-check">
-                        <input
-                          type="checkbox"
-                          checked={selectedPanels.includes(panel.id)}
-                          disabled={panel.locked}
-                          onChange={() =>
-                            toggleItem(
-                              selectedPanels,
-                              panel.id,
-                              catalog.locked_panels,
-                              setSelectedPanels,
-                            )
-                          }
-                        />
-                        <span>
-                          <strong>{locale === "ko" ? panel.label_ko : panel.label}</strong>{" "}
-                          <small>({panel.id}{panel.locked ? ", locked" : ""})</small>
-                        </span>
-                      </label>
-                    ))}
+              <div class="actions">
+                <button type="submit" class="primary" disabled={composing || !validInputs}>
+                  {composing
+                    ? t("Validating & composing Stencil...", "Stencil 검증 및 구성 중...")
+                    : t("Validate & compose custom build", "커스텀 빌드 구성 검증 및 생성")}
+                </button>
+              </div>
+            </form>
+
+            <aside class="stencil-inspector" aria-label={t("Live Apollo Blueprint", "실시간 Apollo 블루프린트")}>
+              <div class="inspector-card">
+                <p class="eyebrow">{t("Live Apollo Blueprint & Diff", "실시간 Apollo 블루프린트 및 비교")}</p>
+                <h3>{locale === "ko" ? titleKo : title}</h3>
+                <div class="inspector-metrics">
+                  <div>
+                    <span>{t("Containers", "컨테이너")}</span>
+                    <strong>
+                      {liveBlueprint.effectiveWorkloads.length} / {catalog.workloads.length}
+                    </strong>
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div>
+                    <span>{t("Console Menus", "Console 메뉴")}</span>
+                    <strong>
+                      {liveBlueprint.effectivePanels.length} / {catalog.panels.length}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{t("ClamAV Sidecar", "ClamAV 사이드카")}</span>
+                    <strong>
+                      {liveBlueprint.includesClamav
+                        ? t("Included", "포함됨")
+                        : t("Omitted (-2Gi)", "제외됨 (-2Gi)")}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>{t("Azure RBAC", "Azure 권한")}</span>
+                    <strong>
+                      {liveBlueprint.includesExecutor
+                        ? t("Governed Exec", "승인 기반 실행")
+                        : t("100% Read-Only", "100% 읽기 전용")}
+                    </strong>
+                  </div>
+                </div>
 
-            <div class="actions">
-              <button type="submit" class="primary" disabled={composing || !validInputs}>
-                {composing
-                  ? t("Validating & composing Stencil...", "Stencil 검증 및 구성 중...")
-                  : t("Validate & compose custom build", "커스텀 빌드 구성 검증 및 생성")}
-              </button>
-            </div>
-          </form>
+                <h4>{t("Apollo Topology Diff (vs Full)", "Full 에디션 대비 토폴로지 비교 (Diff)")}</h4>
+                <ul class="apollo-diff-list">
+                  {liveBlueprint.effectiveWorkloads.map((w) => (
+                    <li key={w} class="diff-keep">
+                      <span class="diff-sign">+</span>
+                      <code>{w}</code>
+                      <small>{t("active", "포함")}</small>
+                    </li>
+                  ))}
+                  {liveBlueprint.omittedWorkloads.map((w) => (
+                    <li key={w} class="diff-drop">
+                      <span class="diff-sign">-</span>
+                      <code>{w}</code>
+                      <small>{t("omitted", "제외됨")}</small>
+                    </li>
+                  ))}
+                  {!liveBlueprint.includesClamav && (
+                    <li class="diff-drop">
+                      <span class="diff-sign">-</span>
+                      <code>clamav (sidecar)</code>
+                      <small>{t("omitted", "제외됨")}</small>
+                    </li>
+                  )}
+                </ul>
+
+                <h4>{t("Apollo Release Labels", "Apollo 릴리스 레이블 (자동 부여)")}</h4>
+                <div class="preset-metrics">
+                  {liveBlueprint.releaseLabels.map((lbl) => (
+                    <code key={lbl} class="stencil-chip">{lbl}</code>
+                  ))}
+                </div>
+
+                <h4>{t("Required Azure Roles", "필요한 Azure RBAC 역할")}</h4>
+                <p class="inspector-roles">{liveBlueprint.requiredAzureRoles.join(" · ")}</p>
+
+                <div class="actions">
+                  <button
+                    type="button"
+                    class="primary"
+                    disabled={composing || !validInputs}
+                    onClick={() => void runCompose(undefined, true)}
+                  >
+                    {composing
+                      ? t("Preparing...", "생성 중...")
+                      : t(
+                          `1-Click Compose & Register Release ${releaseVersion.trim()}`,
+                          `원클릭으로 릴리스 ${releaseVersion.trim()} 등록 모달 열기`,
+                        )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={composing || !validInputs}
+                    onClick={() => void runCompose(undefined, false)}
+                  >
+                    {t("Preview manifest only", "매니페스트만 미리보기")}
+                  </button>
+                </div>
+              </div>
+            </aside>
+          </div>
 
           {composed && (
             <section aria-labelledby="stencil-result-title" class="release-next">
@@ -528,6 +1144,8 @@ export function StencilBuilder({
               <dl>
                 <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
                 <dd><code class="digest">{composed.footprint.stencil_digest}</code></dd>
+                <dt>{t("Apollo Release labels", "Apollo 릴리스 레이블")}</dt>
+                <dd>{(composed.footprint.release_labels ?? []).join(", ")}</dd>
                 <dt>{t("Omitted workloads", "제외된 워크로드")}</dt>
                 <dd>{composed.footprint.omitted_workloads.join(", ") || t("None", "없음")}</dd>
                 <dt>{t("Required Azure roles", "필요한 Azure 역할")}</dt>

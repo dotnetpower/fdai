@@ -54,6 +54,10 @@ def test_stencil_presets_and_footprint_calculations() -> None:
     assert lite_fp["includes_clamav_sidecar"] is False
     assert lite_fp["includes_privileged_executor"] is False
     assert lite_fp["azure_rbac_posture"] == "read-only-observation"
+    assert "stencil:lite-observe-alert" in lite_fp["release_labels"]
+    assert "clamav:omitted" in lite_fp["release_labels"]
+    assert lite_fp["apollo_diff_vs_full"]["removed_sidecars"] == ["clamav"]
+    assert "isolated-executor" in lite_fp["apollo_diff_vs_full"]["removed_workloads"]
     assert set(lite.enabled_workloads) == {"core-control-plane", "operator-service"}
     assert set(lite.enabled_loops) == set(LOCKED_CORE_LOOPS)
     assert set(LOCKED_CORE_PANELS).issubset(lite.enabled_panel_ids)
@@ -167,6 +171,33 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     cat_body = cat_resp.json()
     assert len(cat_body["presets"]) == 3
     assert len(cat_body["panels"]) == len(ALL_PANEL_IDS)
+    assert cat_body["detected_source_commit"] is not None
+    assert len(cat_body["detected_source_commit"]) == 40
+
+    # Also verify "auto" and "derived" source_commit modes work without manual 40-hex entry
+    auto_resp = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "lite-auto-sha",
+            "source_commit": "auto",
+        },
+    )
+    assert auto_resp.status_code == 200
+    assert len(auto_resp.json()["release_manifest"]["source_commit"]) == 40
+    assert auto_resp.json()["footprint"]["source_provenance_mode"].startswith("workspace-git-head")
+
+    derived_resp = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "lite-derived-sha",
+            "source_commit": "derived",
+        },
+    )
+    assert derived_resp.status_code == 200
+    assert len(derived_resp.json()["release_manifest"]["source_commit"]) == 40
+    assert (
+        derived_resp.json()["footprint"]["source_provenance_mode"] == "derived-from-stencil-digest"
+    )
 
     compose_resp = client.post(
         "/v1/stencils/compose",
@@ -220,6 +251,140 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
     )
     assert pub_resp.status_code == 200
     assert "1.7.0" in pub_resp.json()["channels"]["DEV"]
+
+    # Verify signed catalog export with Stencil Release passes hub_image_trust.verify_export
+    from cryptography.hazmat.primitives import serialization
+    from fdai_deployment_cli.hub_image_trust import verify_export
+
+    signed = store.signed_export()
+    pem = store.key.public_key.public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    verified_selection = verify_export(
+        signed.raw,
+        signature=signed.signature,
+        export_key_id=signed.key_id,
+        trusted_pem=pem,
+        channel="DEV",
+        release_id="1.7.0",
+    )
+    assert verified_selection["release_id"] == "1.7.0"
+    assert set(verified_selection["image_sources"]) == {
+        "core-control-plane",
+        "operator-service",
+        "pgvector",
+    }
+
+    # Apollo surgical capability recall: recalling 'isolated-executor' blocks standard-sre (1.7.1)
+    # while allowing lite-observe-alert (1.7.0) to promote to RELEASE_CANDIDATE!
+    std_compose = client.post(
+        "/v1/stencils/compose",
+        json={
+            "stencil_id": "standard-sre",
+            "topology_profile": "standard-sre",
+            "requested_workloads": ["core-control-plane", "operator-service", "isolated-executor"],
+            "requested_loops": [
+                "anomaly-analyzer",
+                "inventory-reconciliation",
+                "notification-dispatch",
+                "remediation-execution",
+                "saga-audit",
+            ],
+            "release_version": "1.7.1",
+            "source_commit": "auto",
+        },
+    ).json()
+    client.post(
+        "/v1/releases/1.7.1/register",
+        json={
+            "revision": 2,
+            "confirmation": "1.7.1",
+            "reason": "Register Standard SRE Release",
+            "label": "standard-sre",
+            "manifest": json.dumps(std_compose["release_manifest"]),
+        },
+    )
+    client.post(
+        "/v1/releases/1.7.1/publish",
+        json={
+            "revision": 3,
+            "confirmation": "1.7.1",
+            "reason": "Publish Standard SRE Release to DEV",
+        },
+    )
+
+    recall_cap = client.post(
+        "/v1/capabilities/isolated-executor/recall",
+        json={
+            "revision": 4,
+            "confirmation": "isolated-executor",
+            "reason": "Surgical recall of isolated-executor capability",
+        },
+    )
+    assert recall_cap.status_code == 200
+
+    # Lite Release 1.7.0 does NOT include isolated-executor -> promotes to RELEASE_CANDIDATE!
+    lite_promote = client.post(
+        "/v1/releases/1.7.0/promote",
+        json={
+            "revision": 5,
+            "confirmation": "1.7.0",
+            "reason": "Promote unaffected Lite Release to RC",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+        },
+    )
+    assert lite_promote.status_code == 200
+    assert "1.7.0" in lite_promote.json()["channels"]["RELEASE_CANDIDATE"]
+
+    # Standard SRE Release 1.7.1 DOES include isolated-executor -> blocked by capability recall!
+    std_promote_blocked = client.post(
+        "/v1/releases/1.7.1/promote",
+        json={
+            "revision": 6,
+            "confirmation": "1.7.1",
+            "reason": "Attempt to promote affected Standard Release",
+            "source_channel": "DEV",
+            "target_channel": "RELEASE_CANDIDATE",
+        },
+    )
+    assert std_promote_blocked.status_code == 409
+    assert "capability_recalled" in std_promote_blocked.json()["error"]
+
+    # Verify Microsoft Entra ID sign-in attributes subsequent catalog actions to entra:<principal>
+    session_before = client.get("/v1/auth/session")
+    assert session_before.status_code == 200
+    assert session_before.json()["authenticated"] is False
+
+    login_resp = client.post(
+        "/v1/auth/entra/login",
+        json={
+            "mode": "workstation",
+            "principal": "operator@contoso.com",
+            "tenant_id": "00000000-0000-0000-0000-000000000000",
+            "display_name": "Contoso SRE Operator",
+        },
+    )
+    assert login_resp.status_code == 200
+    assert login_resp.json()["authenticated"] is True
+    assert login_resp.json()["actor"] == "entra:operator@contoso.com"
+
+    lift_cap = client.post(
+        "/v1/capabilities/isolated-executor/lift",
+        json={
+            "revision": 6,
+            "confirmation": "isolated-executor",
+            "lifting_release_id": "1.7.1",
+            "reason": "Lift capability recall under Entra ID operator session",
+        },
+    )
+    assert lift_cap.status_code == 200
+    assert lift_cap.json()["events"][0]["actor"] == "entra:operator@contoso.com"
+
+    logout_resp = client.post("/v1/auth/entra/logout")
+    assert logout_resp.status_code == 200
+    assert logout_resp.json()["authenticated"] is False
 
 
 def test_stencil_api_rejects_duplicate_json_keys_cross_origin_and_invalid_inputs(

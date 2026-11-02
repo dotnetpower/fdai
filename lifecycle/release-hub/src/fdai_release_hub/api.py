@@ -34,6 +34,7 @@ from fdai_release_hub.deployment_requests import (
     parse_request,
     record_request,
 )
+from fdai_release_hub.entra_session import EntraLoginRequest, EntraSessionManager
 from fdai_release_hub.stencils import (
     StencilComposeRequest,
     compose_stencil_response,
@@ -64,6 +65,7 @@ def create_app(
     remote_origin: str | None = None,
 ) -> Starlette:
     intake_slots = BoundedSemaphore(MAX_INTAKE_CONCURRENCY)
+    entra_sessions = EntraSessionManager()
 
     async def catalog(request: Request) -> Response:
         try:
@@ -137,7 +139,7 @@ def create_app(
                 return JSONResponse({"error": "Request body is too large."}, status_code=413)
             body.extend(chunk)
         try:
-            actor = request.state.operator if remote_auth else "local-operator"
+            actor = request.state.operator if remote_auth else entra_sessions.current_actor
             if action == "renew":
                 renewal = CatalogConfirmation.model_validate_json(bytes(body))
                 result = await run_in_threadpool(store.renew, renewal, actor=actor)
@@ -332,8 +334,42 @@ def create_app(
             return JSONResponse({"error": str(error)}, status_code=422)
         return JSONResponse(result)
 
+    async def auth_session(request: Request) -> Response:
+        remote_principal = (
+            getattr(request.state, "operator", None) if remote_auth is not None else None
+        )
+        return JSONResponse(
+            await run_in_threadpool(
+                partial(entra_sessions.status_payload, remote_principal=remote_principal)
+            )
+        )
+
+    async def entra_login(request: Request) -> Response:
+        media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+        if media_type != "application/json":
+            return JSONResponse({"error": "Use application/json."}, status_code=415)
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(chunk) > 8192 - len(body):
+                return JSONResponse({"error": "Request body is too large."}, status_code=413)
+            body.extend(chunk)
+        try:
+            raw_bytes = bytes(body)
+            load_json_object(raw_bytes, label="entra login", max_bytes=8192, strict=True)
+            login_req = EntraLoginRequest.model_validate_json(raw_bytes)
+            payload = await run_in_threadpool(entra_sessions.sign_in, login_req)
+        except (ValidationError, ValueError) as error:
+            return JSONResponse({"error": str(error)}, status_code=422)
+        return JSONResponse(payload)
+
+    async def entra_logout(request: Request) -> Response:
+        return JSONResponse(await run_in_threadpool(entra_sessions.sign_out))
+
     routes = [
         Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
+        Route("/v1/auth/session", auth_session),
+        Route("/v1/auth/entra/login", entra_login, methods=["POST"]),
+        Route("/v1/auth/entra/logout", entra_logout, methods=["POST"]),
         Route(
             "/healthz",
             lambda request: JSONResponse(

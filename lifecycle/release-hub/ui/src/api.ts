@@ -22,6 +22,7 @@ export type CanaryObservationInput = {
 export type Change = {
   revision: number; confirmation: string; reason: string; channel?: string; channel_confirmation?: string;
   label?: string; manifest?: string;
+  lifting_release_id?: string;
   source_channel?: string; target_channel?: string;
   required_labels?: string[]; labels?: string[];
   min_soak_seconds?: number; min_healthy_canaries?: number;
@@ -106,13 +107,56 @@ export async function requestDeploymentRequests(
   return page;
 }
 
+export type ReleaseStencilMetadata = {
+  stencil_id: string;
+  stencil_digest: string;
+  topology_profile: "lite-observe-alert" | "standard-sre" | "full-enterprise";
+  title?: string;
+  title_ko?: string;
+  azure_rbac_posture: string;
+  required_azure_roles?: string[];
+  enabled_workloads: string[];
+  omitted_workloads?: string[];
+  enabled_loops?: string[];
+  enabled_scheduled_jobs?: string[];
+  enabled_panel_ids: string[];
+  release_labels?: string[];
+};
+
 export type ReleaseManifest = Record<string, unknown> & {
   product?: string;
   source_commit?: string;
   platform_tag?: string;
   capability_maximums?: Record<string, unknown>;
   schema?: { target: number; tolerates: { minimum: number; maximum: number } };
+  stencil?: ReleaseStencilMetadata;
 };
+
+export function extractReleaseStencil(
+  source: Release | ReleaseManifest | null | undefined,
+): ReleaseStencilMetadata | null {
+  if (!source) return null;
+  try {
+    const manifest: ReleaseManifest =
+      typeof (source as Release).manifest === "string"
+        ? parseReleaseManifest((source as Release).manifest)
+        : (source as ReleaseManifest);
+    const raw = manifest.stencil;
+    if (
+      typeof raw === "object" &&
+      raw !== null &&
+      typeof raw.stencil_id === "string" &&
+      typeof raw.stencil_digest === "string" &&
+      Array.isArray(raw.enabled_workloads) &&
+      Array.isArray(raw.enabled_panel_ids)
+    ) {
+      return raw;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
 
 export function nextPromotionTransition(
   release: Release,
@@ -142,12 +186,166 @@ export function blockedReleaseCapabilities(
   manifest: ReleaseManifest,
   events: readonly Event[],
 ): string[] {
-  const declared = manifest.capability_maximums && typeof manifest.capability_maximums === "object"
-    ? Object.keys(manifest.capability_maximums)
-    : [];
-  if (declared.length === 0) return [];
+  const declared = new Set<string>(
+    manifest.capability_maximums && typeof manifest.capability_maximums === "object"
+      ? Object.keys(manifest.capability_maximums)
+      : [],
+  );
+  if (manifest.stencil) {
+    declared.add(`stencil:${manifest.stencil.stencil_id}`);
+    for (const w of manifest.stencil.enabled_workloads ?? []) declared.add(w);
+    for (const l of manifest.stencil.enabled_loops ?? []) declared.add(l);
+  }
+  if (declared.size === 0) return [];
   const recalled = new Set(activeCapabilityRecalls(events));
-  return declared.filter((cap) => recalled.has(cap)).sort();
+  return [...declared].filter((cap) => recalled.has(cap)).sort();
+}
+
+export type ApolloGateCheck = {
+  id: string;
+  label: string;
+  label_ko: string;
+  passed: boolean;
+  detail: string;
+  detail_ko: string;
+};
+
+export function evaluateApolloPromotionReadiness(input: {
+  release: Release;
+  manifest: ReleaseManifest;
+  events: readonly Event[];
+  sourceChannel: string;
+  targetChannel: string;
+  requiredLabels?: readonly string[];
+  providedLabels?: readonly string[];
+  minSoakSeconds?: number;
+  elapsedStageSeconds?: number;
+}): { allowed: boolean; gates: ApolloGateCheck[] } {
+  const inSource = input.release.channels.includes(input.sourceChannel);
+  const blockedCaps = blockedReleaseCapabilities(input.manifest, input.events);
+  const notRecalled = input.release.state !== "recalled" && blockedCaps.length === 0;
+  const reqLabels = new Set((input.requiredLabels ?? []).map((l) => l.trim()).filter(Boolean));
+  const provLabels = new Set(
+    (input.providedLabels ?? input.manifest.stencil?.release_labels ?? [])
+      .map((l) => l.trim())
+      .filter(Boolean),
+  );
+  const missingLabels = [...reqLabels].filter((l) => !provLabels.has(l));
+  const labelsOk = missingLabels.length === 0;
+  const minSoak = input.minSoakSeconds ?? 0;
+  const elapsed = input.elapsedStageSeconds ?? minSoak;
+  const soakOk = elapsed >= minSoak;
+
+  const gates: ApolloGateCheck[] = [
+    {
+      id: "source-channel",
+      label: `Source channel membership (${input.sourceChannel})`,
+      label_ko: `원본 채널 소속 (${input.sourceChannel})`,
+      passed: inSource,
+      detail: inSource ? `Member of ${input.sourceChannel}` : `Missing from ${input.sourceChannel}`,
+      detail_ko: inSource ? `${input.sourceChannel} 채널 소속 확인됨` : `${input.sourceChannel} 채널 소속 아님`,
+    },
+    {
+      id: "recall-safety",
+      label: "Release & capability recall gate",
+      label_ko: "릴리스 및 기능(Capability) 리콜 무결성",
+      passed: notRecalled,
+      detail: notRecalled
+        ? "Zero active release or capability recalls"
+        : input.release.state === "recalled"
+          ? "Release is recalled"
+          : `Blocked by recalled capability: ${blockedCaps.join(", ")}`,
+      detail_ko: notRecalled
+        ? "활성 릴리스/기능 리콜 없음"
+        : input.release.state === "recalled"
+          ? "회수된 릴리스"
+          : `회수된 기능 포함됨: ${blockedCaps.join(", ")}`,
+    },
+    {
+      id: "stencil-labels",
+      label: "Apollo Release & Stencil labels",
+      label_ko: "Apollo 릴리스 및 Stencil 검증 레이블",
+      passed: labelsOk,
+      detail: labelsOk
+        ? `${provLabels.size} label(s) satisfied`
+        : `Missing required label(s): ${missingLabels.join(", ")}`,
+      detail_ko: labelsOk
+        ? `검증 레이블 ${provLabels.size}개 충족`
+        : `누락된 필수 레이블: ${missingLabels.join(", ")}`,
+    },
+    {
+      id: "soak-window",
+      label: "Stage soak & observation window",
+      label_ko: "단계 관찰 시간 (Soak Window)",
+      passed: soakOk,
+      detail: `Observed ${elapsed}s / required ${minSoak}s`,
+      detail_ko: `관찰 ${elapsed}초 / 최소 요구 ${minSoak}초`,
+    },
+  ];
+  return {
+    allowed: gates.every((g) => g.passed),
+    gates,
+  };
+}
+
+export type ApolloReleaseDiff = {
+  baseId: string;
+  targetId: string;
+  baseProfile: string;
+  targetProfile: string;
+  addedWorkloads: string[];
+  removedWorkloads: string[];
+  changedComponents: string[];
+  addedPanelCount: number;
+  removedPanelCount: number;
+  rbacChanged: boolean;
+  baseRbac: string;
+  targetRbac: string;
+};
+
+export function computeApolloReleaseDiff(base: Release, target: Release): ApolloReleaseDiff {
+  const baseManifest = parseReleaseManifest(base.manifest);
+  const targetManifest = parseReleaseManifest(target.manifest);
+  const baseSt = extractReleaseStencil(baseManifest);
+  const targetSt = extractReleaseStencil(targetManifest);
+
+  const baseArts = new Map(artifacts(baseManifest).map((a) => [a.component, a.digest]));
+  const targetArts = new Map(artifacts(targetManifest).map((a) => [a.component, a.digest]));
+
+  const baseWorkloads = new Set(baseSt?.enabled_workloads ?? [...baseArts.keys()]);
+  const targetWorkloads = new Set(targetSt?.enabled_workloads ?? [...targetArts.keys()]);
+  const addedWorkloads = [...targetWorkloads].filter((w) => !baseWorkloads.has(w)).sort();
+  const removedWorkloads = [...baseWorkloads].filter((w) => !targetWorkloads.has(w)).sort();
+
+  const changedComponents: string[] = [];
+  for (const [comp, digest] of targetArts.entries()) {
+    if (baseArts.has(comp) && baseArts.get(comp) !== digest) {
+      changedComponents.push(comp);
+    }
+  }
+
+  const basePanels = new Set(baseSt?.enabled_panel_ids ?? []);
+  const targetPanels = new Set(targetSt?.enabled_panel_ids ?? []);
+  const addedPanelCount = [...targetPanels].filter((p) => !basePanels.has(p)).length;
+  const removedPanelCount = [...basePanels].filter((p) => !targetPanels.has(p)).length;
+
+  const baseRbac = baseSt?.azure_rbac_posture ?? "standard";
+  const targetRbac = targetSt?.azure_rbac_posture ?? "standard";
+
+  return {
+    baseId: base.id,
+    targetId: target.id,
+    baseProfile: baseSt?.stencil_id ?? "standard",
+    targetProfile: targetSt?.stencil_id ?? "standard",
+    addedWorkloads,
+    removedWorkloads,
+    changedComponents: changedComponents.sort(),
+    addedPanelCount,
+    removedPanelCount,
+    rbacChanged: baseRbac !== targetRbac,
+    baseRbac,
+    targetRbac,
+  };
 }
 
 export type StencilPanelDescriptor = {
@@ -178,6 +376,16 @@ export type StencilDefinitionRecord = {
   authority_granted: false;
 };
 
+export type RuntimeAxisDescriptorRecord = {
+  id: string;
+  label: string;
+  label_ko: string;
+  summary: string;
+  summary_ko: string;
+  agents: string[];
+  locked: boolean;
+};
+
 export type StencilFootprint = {
   stencil_id: string;
   stencil_digest: string;
@@ -187,6 +395,7 @@ export type StencilFootprint = {
   omitted_workloads: string[];
   scheduled_job_count: number;
   omitted_scheduled_jobs: string[];
+  omitted_loops?: string[];
   includes_clamav_sidecar: boolean;
   includes_privileged_executor: boolean;
   enabled_panel_count: number;
@@ -196,6 +405,22 @@ export type StencilFootprint = {
   enabled_feature_ids: string[];
   azure_rbac_posture: string;
   required_azure_roles: string[];
+  release_labels?: string[];
+  dependency_reasons?: {
+    workloads: Record<string, string[]>;
+    loops: Record<string, string[]>;
+  };
+  apollo_diff_vs_full?: {
+    retained_workloads: string[];
+    removed_workloads: string[];
+    removed_sidecars: string[];
+    retained_scheduled_jobs: string[];
+    removed_scheduled_jobs: string[];
+    retained_loops: string[];
+    removed_loops: string[];
+    retained_panel_count: number;
+    removed_panel_count: number;
+  };
   terraform_flags: {
     enable_document_ingestion_workloads: boolean;
     enable_isolated_executor: boolean;
@@ -205,14 +430,19 @@ export type StencilFootprint = {
 };
 
 export type StencilCatalogResponse = {
+  detected_source_commit?: string | null;
+  detected_source_ref?: string | null;
   presets: { stencil: StencilDefinitionRecord; footprint: StencilFootprint }[];
   panels: StencilPanelDescriptor[];
   workloads: string[];
   locked_workloads: string[];
+  workloads_catalog?: RuntimeAxisDescriptorRecord[];
   scheduled_jobs: string[];
   locked_scheduled_jobs: string[];
+  scheduled_jobs_catalog?: RuntimeAxisDescriptorRecord[];
   loops: string[];
   locked_loops: string[];
+  loops_catalog?: RuntimeAxisDescriptorRecord[];
   addons: string[];
   locked_addons: string[];
   locked_panels: string[];
@@ -270,6 +500,74 @@ export async function requestStencilCompose(
     throw new Error(message);
   }
   return body as StencilComposeResult;
+}
+
+export type EntraDetectedAccount = {
+  principal: string;
+  tenant_id: string;
+  tenant_label: string;
+  is_default: boolean;
+};
+
+export type EntraActiveSession = {
+  principal: string;
+  display_name: string;
+  tenant_id: string;
+  auth_method: "entra-workstation" | "entra-msal-pkce" | "entra-remote-jwt";
+  signed_in_at: string;
+};
+
+export type EntraSessionStatus = {
+  authenticated: boolean;
+  actor: string;
+  session: EntraActiveSession | null;
+  detected_accounts: EntraDetectedAccount[];
+};
+
+export async function requestEntraSession(): Promise<EntraSessionStatus | null> {
+  try {
+    const response = await authenticatedFetch("/v1/auth/session", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as EntraSessionStatus;
+  } catch {
+    return null;
+  }
+}
+
+export async function requestEntraLogin(payload: {
+  mode: "workstation" | "msal_account";
+  principal?: string;
+  display_name?: string;
+  tenant_id?: string;
+  client_id?: string;
+}): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/v1/auth/entra/login", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof body.error === "string" && body.error.trim()
+      ? body.error
+      : `Entra ID sign-in failed (${response.status}).`;
+    throw new Error(message);
+  }
+  return body as EntraSessionStatus;
+}
+
+export async function requestEntraLogout(): Promise<EntraSessionStatus> {
+  const response = await authenticatedFetch("/v1/auth/entra/logout", {
+    method: "POST",
+    cache: "no-store",
+    signal: AbortSignal.timeout(5_000),
+  });
+  return (await response.json()) as EntraSessionStatus;
 }
 
 export function parseReleaseManifest(manifest: string): ReleaseManifest {
@@ -343,7 +641,7 @@ export function isCustomChannel(value: string): boolean {
 
 export function artifacts(root: ReleaseManifest): { component: string; digest: string; sbom: string }[] {
   const result: { component: string; digest: string; sbom: string }[] = [];
-  for (const section of ["services", "sidecars", "installation_agents", "workloads", "console", "deployment_support"]) {
+  for (const section of ["services", "sidecars", "installation_agents", "workloads", "components", "console", "deployment_support"]) {
     const group = root[section];
     if (typeof group !== "object" || group === null) continue;
     const entries = section === "console" || section === "deployment_support"

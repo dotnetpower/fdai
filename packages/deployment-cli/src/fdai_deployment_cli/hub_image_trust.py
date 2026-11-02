@@ -186,12 +186,18 @@ def verify_export(
     except (TypeError, ValueError) as error:
         raise ValueError("Hub recall history is invalid") from error
     members = channels.get(channel, [])
-    capabilities = tuple(record.target for record in records if record.scope == "capability")
+    all_recalled_caps = tuple(record.target for record in records if record.scope == "capability")
     eligible = [
         version
         for version in members
         if evaluate_recall_candidate(
-            release_id=version, capability_ids=capabilities, recall_records=tuple(records)
+            release_id=version,
+            capability_ids=(
+                tuple(sorted(parsed[version].capability_maximums))
+                if parsed[version].capability_maximums
+                else all_recalled_caps
+            ),
+            recall_records=tuple(records),
         ).allowed
     ]
     if release_id is not None:
@@ -205,12 +211,22 @@ def verify_export(
     release = parsed[selected]
     manifest_doc = release.to_mapping()
     components = manifest_doc.get("components")
+    stencil_meta = manifest_doc.get("stencil")
+    valid_inventory = isinstance(components, dict) and (
+        (stencil_meta is None and set(components) == INVENTORY)
+        or (
+            isinstance(stencil_meta, dict)
+            and {"core-control-plane", "operator-service", "pgvector"}
+            <= set(components)
+            <= INVENTORY
+        )
+    )
     if (
         release.schema_version != APPLICATION_COMPONENT_RELEASE_SCHEMA
         or release.product != "fdai"
         or release.platform_tag != "linux-x86_64"
         or not isinstance(components, dict)
-        or set(components) != INVENTORY
+        or not valid_inventory
         or any(not isinstance(value.get("image_ref"), str) for value in components.values())
     ):
         raise ValueError(

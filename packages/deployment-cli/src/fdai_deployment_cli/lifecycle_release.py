@@ -104,11 +104,24 @@ class ApplicationRelease:
     schema_expand: SchemaExpandMigration | None = None
     schema_version: str = APPLICATION_RELEASE_SCHEMA
     components: Mapping[str, str] = field(default_factory=dict)
+    stencil: Mapping[str, object] | None = None
     downtime_entities: tuple[str, ...] = field(default=(), init=False)
 
     @property
     def capability_maximums(self) -> Mapping[str, str]:
-        return {}
+        if self.stencil is None:
+            return {}
+        caps: dict[str, str] = {}
+        stencil_id = self.stencil.get("stencil_id")
+        if isinstance(stencil_id, str):
+            caps[f"stencil:{stencil_id}"] = "enabled"
+        for key in ("enabled_workloads", "enabled_loops"):
+            items = self.stencil.get(key)
+            if isinstance(items, list):
+                for item in items:
+                    if isinstance(item, str):
+                        caps[item] = "enabled"
+        return caps
 
     def to_mapping(self) -> dict[str, object]:
         return load_json_object(self._catalog, label="application release", strict=True)
@@ -133,6 +146,7 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
                 "configuration_schema",
                 "schema",
                 "schema_expand",
+                "stencil",
             }
         ):
             raise ValueError("application fields are invalid")
@@ -182,6 +196,15 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
             not component_only or target == 0 or not schema_expand.classification
         ):
             raise ValueError("schema expand Job requires a component Release schema transition")
+        stencil_meta = (
+            _validate_release_stencil(
+                document["stencil"],
+                parsed_components=parsed_components,
+                component_only=component_only,
+            )
+            if "stencil" in document
+            else None
+        )
         catalog = canonical_bytes(document)
         load_json_object(catalog, label="canonical application release", strict=True)
         return ApplicationRelease(
@@ -198,6 +221,7 @@ def parse_lifecycle_release_manifest(raw: bytes) -> LifecycleRelease:
             schema_expand=schema_expand,
             schema_version=str(schema_version),
             components=MappingProxyType(parsed_components),
+            stencil=stencil_meta,
         )
     except RuntimeReleaseError:
         raise
@@ -291,6 +315,67 @@ def _schema_expand(value: object) -> SchemaExpandMigration:
         ),
         deadline,
     )
+
+
+def _validate_release_stencil(
+    value: object,
+    *,
+    parsed_components: Mapping[str, str],
+    component_only: bool,
+) -> Mapping[str, object]:
+    if not component_only or not isinstance(value, dict):
+        raise ValueError("stencil metadata requires an application-release.v2 object")
+    required_keys = {
+        "stencil_id",
+        "stencil_digest",
+        "topology_profile",
+        "azure_rbac_posture",
+        "enabled_workloads",
+        "enabled_panel_ids",
+    }
+    optional_keys = {
+        "title",
+        "title_ko",
+        "omitted_workloads",
+        "enabled_loops",
+        "enabled_scheduled_jobs",
+        "required_azure_roles",
+        "release_labels",
+    }
+    if not required_keys <= value.keys() <= (required_keys | optional_keys):
+        raise ValueError("stencil metadata fields are invalid")
+    stencil_id = value["stencil_id"]
+    stencil_digest = value["stencil_digest"]
+    profile = value["topology_profile"]
+    rbac_posture = value["azure_rbac_posture"]
+    workloads = value["enabled_workloads"]
+    panels = value["enabled_panel_ids"]
+    if not isinstance(stencil_id, str) or _IDENTIFIER.fullmatch(stencil_id) is None:
+        raise ValueError("stencil_id is invalid")
+    if not isinstance(stencil_digest, str) or _DIGEST.fullmatch(stencil_digest) is None:
+        raise ValueError("stencil_digest is invalid")
+    if profile not in {"lite-observe-alert", "standard-sre", "full-enterprise"}:
+        raise ValueError("stencil topology_profile is invalid")
+    if rbac_posture not in {"read-only-observation", "governed-execution"}:
+        raise ValueError("stencil azure_rbac_posture is invalid")
+    if (
+        not isinstance(workloads, list)
+        or not all(isinstance(w, str) and _COMPONENT.fullmatch(w) for w in workloads)
+        or not {"core-control-plane", "operator-service"}.issubset(workloads)
+    ):
+        raise ValueError("stencil enabled_workloads must include locked safety-core workloads")
+    if (
+        not isinstance(panels, list)
+        or not all(isinstance(p, str) and _IDENTIFIER.fullmatch(p) for p in panels)
+        or not {"audit", "dashboard", "settings-general"}.issubset(panels)
+    ):
+        raise ValueError("stencil enabled_panel_ids must include locked safety-core panels")
+    expected_components = set(workloads) | {"pgvector"}
+    if "document-ingestion-api" in workloads:
+        expected_components.add("clamav")
+    if set(parsed_components) != expected_components:
+        raise ValueError("stencil enabled_workloads do not match manifest components")
+    return MappingProxyType(dict(value))
 
 
 def _schema(value: object) -> tuple[int, SchemaRange]:
