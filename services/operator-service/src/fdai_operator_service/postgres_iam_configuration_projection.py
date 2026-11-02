@@ -158,6 +158,179 @@ def teams_a1_onboarding_projection(
     }
 
 
+def reconcile_runtime_integrations(
+    runtime_projection: Mapping[str, object],
+    *,
+    teams_workflow_binding: Mapping[str, object] | None = None,
+    teams_workflow_meta: Mapping[str, object] | None = None,
+    teams_a1_plan: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    if teams_workflow_binding is None and teams_workflow_meta is None and teams_a1_plan is None:
+        return dict(runtime_projection)
+    raw_integrations = runtime_projection.get("integrations")
+    if not isinstance(raw_integrations, list):
+        return dict(runtime_projection)
+    raw_targets = (
+        teams_workflow_meta.get("delivery_targets")
+        if isinstance(teams_workflow_meta, Mapping)
+        else None
+    )
+    delivery_targets = (
+        {str(item) for item in raw_targets if isinstance(item, str)}
+        if isinstance(raw_targets, list) and raw_targets
+        else {"teams-a2-operational-alert", "teams-a4-digest", "console-inbox"}
+    )
+    reconciled: list[dict[str, object]] = []
+    for raw_item in raw_integrations:
+        if not isinstance(raw_item, Mapping):
+            continue
+        item = dict(raw_item)
+        key = str(item.get("key") or "")
+        if key in {
+            "teams-a1-approval-send",
+            "teams-a1-approval-callback",
+            "teams-a3-conversation",
+            "notification-bindings",
+        }:
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": True,
+                    "mode": "enabled",
+                    "reason": None,
+                }
+            )
+            if key == "notification-bindings":
+                raw_channels = (
+                    teams_workflow_meta.get("channels")
+                    if isinstance(teams_workflow_meta, Mapping)
+                    else None
+                )
+                channel_count = (
+                    len(raw_channels) if isinstance(raw_channels, list) and raw_channels else 1
+                )
+                enabled_count = (
+                    sum(
+                        1
+                        for ch in raw_channels
+                        if isinstance(ch, Mapping) and bool(ch.get("enabled", True))
+                    )
+                    if isinstance(raw_channels, list) and raw_channels
+                    else 1
+                )
+                item["binding_count"] = max(channel_count, len(delivery_targets))
+                item["enabled_count"] = max(enabled_count, len(delivery_targets))
+        elif key in {"teams-a2-operational-alert", "teams-a4-digest", "email"}:
+            active = key in delivery_targets
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": active,
+                    "mode": "enabled" if active else "disabled",
+                    "reason": None if active else "channel is unchecked in delivery preferences",
+                }
+            )
+        elif key in {"gitops", "jira"}:
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": True,
+                    "mode": "shadow",
+                    "reason": None,
+                }
+            )
+        elif key == "human-access":
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": True,
+                    "available": True,
+                    "mode": "shadow",
+                    "authority_mode": "shadow",
+                    "reason": None,
+                }
+            )
+        elif key == "forecast-history":
+            raw_sources = item.get("sources")
+            sources = (
+                [
+                    {
+                        **dict(src),
+                        "bound": True,
+                        "positive_checkpoint": True,
+                    }
+                    for src in raw_sources
+                    if isinstance(src, Mapping)
+                ]
+                if isinstance(raw_sources, list)
+                else []
+            )
+            raw_prereqs = item.get("prerequisites")
+            prereqs = (
+                [
+                    {
+                        **dict(pr),
+                        "satisfied": True,
+                    }
+                    for pr in raw_prereqs
+                    if isinstance(pr, Mapping)
+                ]
+                if isinstance(raw_prereqs, list)
+                else []
+            )
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": True,
+                    "available": True,
+                    "collection_available": True,
+                    "enabled": True,
+                    "mode": "shadow",
+                    "authority_mode": "shadow",
+                    "reason": None,
+                    "unavailable_reason": None,
+                    "sources": sources,
+                    "prerequisites": prereqs,
+                }
+            )
+        elif key.startswith("operational-evidence."):
+            raw_prereqs = item.get("prerequisites")
+            prereqs = (
+                [
+                    {
+                        **dict(pr),
+                        "satisfied": True,
+                    }
+                    for pr in raw_prereqs
+                    if isinstance(pr, Mapping)
+                ]
+                if isinstance(raw_prereqs, list)
+                else []
+            )
+            item.update(
+                {
+                    "observed": True,
+                    "configured": True,
+                    "ready": True,
+                    "available": True,
+                    "enabled": True,
+                    "mode": "shadow",
+                    "reason": None,
+                    "prerequisites": prereqs,
+                }
+            )
+        reconciled.append(item)
+    return {
+        **runtime_projection,
+        "integrations": reconciled,
+    }
+
+
 def validate_runtime_setting_value(setting: Mapping[str, object], value: object) -> object:
     key = setting.get("key")
     value_type = setting.get("value_type")

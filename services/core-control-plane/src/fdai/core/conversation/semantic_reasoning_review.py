@@ -689,6 +689,9 @@ def _semantic_spans(
     for form in forms:
         semantic.extend(form.unsupported_constraints)
         for goal in form.goals:
+            if goal.subject_scope.value == "prior_result" and goal.subject is None:
+                mentions.append(goal.cue)
+                semantic.append(goal.cue)
             if goal.effective_operation in _RANKING | _COMPARISON:
                 semantic.append(goal.cue)
             semantic.extend(item.cue for item in goal.filters if item.cue is not None)
@@ -766,8 +769,7 @@ def _quote(start: int, end: int, utterance: str) -> dict[str, Any]:
 def _locate(quote: object, utterance: str) -> tuple[int, int] | None:
     if not isinstance(quote, Mapping):
         return None
-    text = quote.get("text")
-    occurrence = quote.get("occurrence", 1)
+    text, occurrence = quote.get("text"), quote.get("occurrence", 1)
     if not isinstance(text, str) or type(occurrence) is not int:
         return None
     return locate_quote(text, occurrence, utterance)
@@ -785,11 +787,11 @@ __all__ = [
     "describe_merged",
     "describe_uncovered",
     "describe_unexpressible",
+    "extraction_schema",
     "literal_disagreements",
     "literal_operands",
     "merged_constraints",
     "merged_mentions",
-    "extraction_schema",
     "quoted_form",
     "resolve_extraction",
     "review_forms",

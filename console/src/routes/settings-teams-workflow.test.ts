@@ -2,8 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test, vi } from "vitest";
 import {
   canSubmitTeamsWorkflow,
+  decodeTeamsWorkflowBindingReveal,
   decodeTeamsWorkflowBindingView,
   decodeTeamsWorkflowTestResult,
+  maskSavedTeamsWorkflowUrl,
   newTeamsWorkflowTestRequestId,
 } from "./settings-teams-workflow.model";
 
@@ -32,6 +34,32 @@ describe("Teams Workflow binding view", () => {
     expect(canSubmitTeamsWorkflow("", true)).toBe(true);
     expect(canSubmitTeamsWorkflow("", false)).toBe(false);
     expect(canSubmitTeamsWorkflow("https://example.invalid", false)).toBe(true);
+  });
+
+  test("formats a masked Teams Workflows URL from the endpoint identifier", () => {
+    expect(
+      maskSavedTeamsWorkflowUrl("workflow ...da483a70 / sha256:123456789abc"),
+    ).toBe(
+      "https://••••••••/workflows/...da483a70/triggers/manual/paths/invoke?sig=••••••••••••",
+    );
+  });
+
+  test("decodes an audited binding reveal for Contributor, Approver, and Owner roles", () => {
+    expect(
+      decodeTeamsWorkflowBindingReveal({
+        visible: true,
+        configured: true,
+        binding_version: "version-1",
+        endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+        webhook_url: "https://example.environment.api.powerplatform.com/workflows/id",
+        revealed_at: "2026-09-01T04:00:00Z",
+      }),
+    ).toEqual({
+      bindingVersion: "version-1",
+      endpointIdentifier: "workflow ...da483a70 / sha256:123456789abc",
+      webhookUrl: "https://example.environment.api.powerplatform.com/workflows/id",
+      revealedAt: "2026-09-01T04:00:00Z",
+    });
   });
 
   test("keeps Reader state secret-free", () => {
@@ -82,6 +110,33 @@ describe("Teams Workflow binding view", () => {
       observed_at: "2026-09-01T04:00:00Z",
       webhook_url: "https://example.environment.api.powerplatform.com/signed",
     })).toThrow("MUST NOT return the saved endpoint value");
+
+    expect(() => decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+      observed_at: "2026-09-01T04:00:00Z",
+      channels: [
+        {
+          channel_id: "ch-1",
+          label: "Ch 1",
+          binding_version: "v1",
+          endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+          enabled: true,
+          webhook_url: "https://example.environment.api.powerplatform.com/signed",
+        },
+      ],
+    })).toThrow("MUST NOT return the saved endpoint value");
+
+    expect(() => decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "version-1",
+      endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+      observed_at: "2026-09-01T04:00:00Z",
+      delivery_targets: ["invalid-target"],
+    })).toThrow("invalid target");
   });
 
   test("reports an unconfigured binding without metadata", () => {

@@ -27,7 +27,8 @@ describe("Dashboard v2 refresh presentation", () => {
   test("keeps each state count inside its wrapping legend chip", () => {
     expect(source).toContain('text={`${stateText(key)} ${number(count)}`}');
     expect(styles).toMatch(/\.dv2-legend button \{[^}]*max-width: 100%/s);
-    expect(styles).toMatch(/\.dv2-legend \.dv2-state \{[^}]*white-space: normal/s);
+    expect(styles).toMatch(/\.dv2-legend button:has\(\.dv2-state\) \{[^}]*padding: 0/s);
+    expect(styles).toMatch(/\.dv2-legend \.dv2-state \{[^}]*padding: 4px 12px[^}]*white-space: normal/s);
   });
 
   test("presents scope provenance and summary counts as a compact desktop strip", () => {

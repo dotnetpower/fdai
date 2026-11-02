@@ -525,10 +525,14 @@ class AzureOpenAISemanticJudgmentModel:
                         ),
                     }
                     if (
-                        call_kind == "conversation-preflight"
+                        call_kind in {"conversation-preflight", "conversation-social-narrator"}
                         and "gpt-5" in target.deployment.casefold()
                     ):
                         body["reasoning_effort"] = "minimal"
+                    elif (
+                        call_kind == "semantic-judgment" and "gpt-5" in target.deployment.casefold()
+                    ):
+                        body["reasoning_effort"] = "low"
                     if request.model_body_field is not None:
                         body["model"] = request.model_body_field
                     trace_start = start_model_trace(messages)

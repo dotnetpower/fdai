@@ -266,6 +266,7 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
                 preflight_operational_judgment(
                     preflight_router.effective_result,
                     utterance=utterance,
+                    allow_resource_collection=typed_only,
                 )
                 if self._semantic_judgment is not None
                 and preflight_router.effective_result is not None

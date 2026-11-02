@@ -4,6 +4,7 @@ import { recordedStateValueText } from "../components/recorded-state-text";
 import { DashboardResourcePreview } from "./dashboard-v2-preview";
 import { date } from "./i18n/dashboard-v2";
 import {
+  dashboardFallbackPresentation,
   dashboardResourceState,
   dashboardStateAxis,
   dashboardStateFact,
@@ -179,15 +180,27 @@ export function DashboardResourceMap({
         const state = dashboardResourceState(resource, snapshot, lens);
         const fact = dashboardStateFact(resource, lens);
         const axis = dashboardStateAxis(resource, lens);
+        const fallback = dashboardFallbackPresentation(resource, snapshot, lens);
+        const fallbackFact = fallback ? dashboardStateFact(resource, "resource") : null;
         const accessibleState = lens === "observation"
           ? labels.state(state)
           : fact === null
           ? labels.state(state)
           : recordedStateValueText(fact);
+        const fallbackDetail = fallback
+          ? `${labels.resource}: ${fallback.axis !== null ? `${axisLabel(fallback.axis, labels)}: ` : ""}${fallbackFact ? recordedStateValueText(fallbackFact) : labels.state(fallback.state)}`
+          : null;
         const accessibleDetail = lens === "resource" && axis !== null
           ? `${axisLabel(axis, labels)}: ${accessibleState}`
+          : fallbackDetail
+          ? `${accessibleState} (${fallbackDetail})`
           : accessibleState;
         const style = STATE_STYLE[state];
+        const cellAxisSymbol = lens === "resource"
+          ? axisSymbol(axis)
+          : fallback !== null
+          ? (axisSymbol(fallback.axis) ?? "+")
+          : null;
         const row = Math.floor(index / columnCount);
         const pattern = style.tone === "unknown" ? `${id}-unknown`
           : style.tone === "na" ? `${id}-na` : null;
@@ -203,6 +216,8 @@ export function DashboardResourceMap({
               data-resource-id={resource.id}
               data-tone={style.tone}
               data-state={state}
+              data-fallback-tone={fallback?.tone}
+              data-fallback-state={fallback?.state}
               aria-label={`${resource.name}, ${resource.type}, ${labels[lens]}: ${accessibleDetail}`}
               aria-pressed={resource.id === selectedId}
               aria-describedby={preview?.id === resource.id ? `${id}-preview` : undefined}
@@ -224,9 +239,9 @@ export function DashboardResourceMap({
                   ? <polygon class="dashboard-v2-map-pattern" points={HEXAGON} fill={`url(#${pattern})`} />
                   : null}
                 <polygon class="dashboard-v2-map-outline" points={HEXAGON} fill="none" />
-                {lens === "resource" && axisSymbol(axis)
+                {cellAxisSymbol
                   ? <text class="dashboard-v2-map-axis" x="5" y="7" text-anchor="middle" dominant-baseline="central">
-                    {axisSymbol(axis)}
+                    {cellAxisSymbol}
                   </text>
                   : null}
                 <text class="dashboard-v2-map-symbol" x="12" y="14" text-anchor="middle" dominant-baseline="central">

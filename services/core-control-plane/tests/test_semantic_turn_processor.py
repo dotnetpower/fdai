@@ -272,6 +272,23 @@ def test_incomplete_output_table_downgrades_answer_verification() -> None:
     )
 
     assert _execution_output_incomplete(execution) is True
+    bounded_row = QueryRow.from_values("r1", {"subject_name": "vm-1"})
+    bounded_exec = QueryPlanExecution(
+        plan_digest="sha256:" + "a" * 64,
+        status="completed",
+        results={
+            "output": QueryNodeResult(
+                QueryTable(rows=(bounded_row,), complete=False, truncation_reason="result_limit")
+            )
+        },
+        receipts=(),
+        output_node_ids=("output",),
+    )
+    assert (
+        _execution_output_incomplete(bounded_exec, evidence_requirements=("result_limit.1",))
+        is False
+    )
+    assert _execution_output_incomplete(bounded_exec, evidence_requirements=()) is True
 
 
 def test_resource_state_answer_lists_verified_names_and_observed_states() -> None:
@@ -4926,6 +4943,112 @@ async def test_runtime_settings_lookup_is_bounded_by_the_turn_deadline() -> None
     assert projection["semantic_result"]["reason_code"] == "semantic_deadline_exceeded"
     assert runtime.calls == 0
     assert settings.cancelled is True
+
+
+def test_user_bounded_query_table_marks_answer_output_source_complete() -> None:
+    from fdai_core_service.semantic_turn_processor import _answer_output
+
+    table = QueryTable(
+        rows=tuple(QueryRow.from_values(f"r-{i}", {"id": f"r-{i}"}) for i in range(5)),
+        complete=False,
+        truncation_reason="result_limit",
+        total_rows=15,
+    )
+    output = _answer_output(
+        node_id="q0",
+        table=table,
+        rows=[],
+        evidence_refs=["ev-1"],
+        evidence_requirements=("server_recent_default", "result_limit.5"),
+    )
+
+    assert output["source_complete"] is True
+    assert output["source_truncation_reason"] is None
+    assert output["source_total_rows"] == 15
+
+
+def test_result_handle_from_count_output_falls_back_to_upstream_execution_rows() -> None:
+    from fdai_core_service.semantic_result_handle_projection import (
+        result_handle_from_technical_details,
+    )
+    from fdai_service_contracts import SemanticTurnDisposition, SemanticTurnRequest
+    from fdai_service_contracts.semantic_turn import SemanticTurnResult as ContractResult
+
+    req = SemanticTurnRequest.model_validate(_request()["semantic_turn"])
+    res = ContractResult(
+        disposition=SemanticTurnDisposition.ANSWERED,
+        reason_code="semantic_answer_verified",
+        semantic_route="verified_query_plan",
+        session_id="sess-1",
+        turn_id="turn-1",
+        turn_sequence=0,
+        ontology_release_digest="sha256:" + "a" * 64,
+        principal_manifest_digest="sha256:" + "b" * 64,
+        plan_digest="sha256:" + "c" * 64,
+        execution_receipt_digest="sha256:" + "d" * 64,
+        evidence_refs=("ev-1",),
+        checks_completed=2,
+        checks_total=2,
+        answer="Count is 2.",
+        execution_authority=False,
+    )
+    execution = QueryPlanExecution(
+        plan_digest="sha256:" + "c" * 64,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "goal-1": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                "rg-1", {"id": "rg-1", "name": "rg-1", "type": "resource-group"}
+                            ),
+                            QueryRow.from_values(
+                                "rg-2", {"id": "rg-2", "name": "rg-2", "type": "resource-group"}
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("ev-1",),
+                ),
+                "goal-2": QueryNodeResult(
+                    value=QueryTable(
+                        rows=(
+                            QueryRow.from_values(
+                                f"aggregate:{'a' * 64}",
+                                {"operation": "count", "value": 2},
+                            ),
+                        ),
+                        complete=True,
+                    ),
+                    evidence_refs=("ev-1",),
+                ),
+            }
+        ),
+        receipts=(),
+        output_node_ids=("goal-2",),
+    )
+    details = {
+        "outputs": [
+            {
+                "node_id": "goal-2",
+                "rows": [
+                    {
+                        "row_id": f"aggregate:{'a' * 64}",
+                        "values": {"operation": "count", "value": 2},
+                    }
+                ],
+            }
+        ]
+    }
+    handle = result_handle_from_technical_details(
+        req,
+        res,
+        technical_details=details,
+        execution=execution,
+    )
+    assert handle is not None
+    assert handle.row_identities == ("rg-1", "rg-2")
 
 
 async def test_golden_campaign_profile_overrides_aggressive_t2_setting() -> None:

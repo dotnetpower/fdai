@@ -361,7 +361,7 @@ def test_kubernetes_unknown_readiness_remains_a_recorded_state() -> None:
     assert states["operational"]["source_path"] == "ready_status"
 
 
-def test_private_endpoint_approval_does_not_become_operational_health() -> None:
+def test_private_endpoint_connection_status_and_empty_connections_are_retained() -> None:
     properties = {
         "properties": {
             "provisioningState": "Succeeded",
@@ -392,10 +392,71 @@ def test_private_endpoint_approval_does_not_become_operational_health() -> None:
         now=NOW,
     )
 
-    assert states["operational"]["value"] is None
-    assert states["operational"]["reason"] == "provider_operational_state_not_exposed"
+    assert states["operational"]["value"] == "Approved"
+    assert (
+        states["operational"]["source_path"]
+        == "properties.privateLinkServiceConnections.privateLinkServiceConnectionState.status"
+    )
     assert states["provisioning"]["value"] == "Succeeded"
-    assert projected["status"] is None
+    assert projected["status"] == "Approved"
+
+    failed_empty = recorded_resource_states(
+        {
+            "properties": {
+                "provisioningState": "Failed",
+                "privateLinkServiceConnections": [],
+            }
+        },
+        resource_type="network.private-endpoint",
+        now=NOW,
+    )
+    assert failed_empty["operational"]["value"] is None
+    assert failed_empty["operational"]["reason"] == "provider_operational_state_not_exposed"
+    assert failed_empty["provisioning"]["value"] == "Failed"
+
+
+def test_action_group_anomaly_alert_email_domain_and_sre_agent_states_are_retained() -> None:
+    observation = RecordedStateObservation(
+        generation="generation-1",
+        observed_at=datetime(2026, 9, 5, 0, 0, tzinfo=UTC),
+        recorded_at=datetime(2026, 9, 5, 0, 1, tzinfo=UTC),
+    )
+    action_group = recorded_resource_states(
+        {"properties": {"enabled": True}},
+        resource_type="action-group",
+        observation=observation,
+        now=NOW,
+    )["operational"]
+    assert action_group["value"] == "Enabled"
+    assert action_group["source_path"] == "properties.enabled"
+    assert action_group["freshness"] == "fresh"
+
+    anomaly = recorded_resource_states(
+        {"properties": {"state": "Enabled"}},
+        resource_type="anomaly-alert-rule",
+        observation=observation,
+        now=NOW,
+    )["operational"]
+    assert anomaly["value"] == "Enabled"
+    assert anomaly["source_path"] == "properties.state"
+
+    email_domain = recorded_resource_states(
+        {"properties": {"verificationStates": {"Domain": {"status": "Verified"}}}},
+        resource_type="email-domain",
+        observation=observation,
+        now=NOW,
+    )["operational"]
+    assert email_domain["value"] == "Verified"
+    assert email_domain["source_path"] == "properties.verificationStates.Domain.status"
+
+    sre_agent = recorded_resource_states(
+        {"properties": {"powerState": "Running"}},
+        resource_type="managed-sre-agent",
+        observation=observation,
+        now=NOW,
+    )["operational"]
+    assert sre_agent["value"] == "Running"
+    assert sre_agent["source_path"] == "properties.powerState"
 
 
 def test_every_canonical_resource_type_has_a_reviewed_operational_state_outcome() -> None:

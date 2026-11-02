@@ -155,8 +155,13 @@ def reference_mention(admission: FormAdmission, goal_id: str) -> str | None:
     if goal.subject is not None:
         return goal.subject
     references = [mention.id for mention in form.mentions if mention.form in _REFERENCE_FORMS]
-    # Admission lets a subject-less prior-result goal stand only with one reference mention.
-    return references[0] if len(references) == 1 else None
+    # Admission lets a subject-less prior-result goal stand only with one reference mention,
+    # or an implicit pro-drop anaphor when no mention is declared.
+    if len(references) == 1:
+        return references[0]
+    if not references and not form.mentions:
+        return f"implicit:{goal.id}"
+    return None
 
 
 def starts_from_reference(goal: FormGoal, reference: str | None) -> bool:
@@ -221,8 +226,12 @@ def bind_references(
         mention_id = reference_mention(admission, goal.id)
         if mention_id is None or mention_id in bindings:
             continue
-        mention = admission.form.mention(mention_id)
-        bindings[mention_id] = _bind(mention_id, mention.form, mention.position, handle, scope)
+        if mention_id.startswith("implicit:"):
+            m_form, m_pos = MentionForm.ANAPHOR, None
+        else:
+            mention = admission.form.mention(mention_id)
+            m_form, m_pos = mention.form, mention.position
+        bindings[mention_id] = _bind(mention_id, m_form, m_pos, handle, scope)
     return ReferenceReceipt(tuple(bindings.values()))
 
 

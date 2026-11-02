@@ -190,6 +190,8 @@ class CompiledAnswerTicket:
         selected = self._select(observations)
         if selected is None:
             return None
+        if any(item.reference_digest is not None for item in selected[2].passes):
+            return self._answer(*selected, manifest_digest=manifest_digest)
         verdict = "unavailable"
         if self._ambiguity is not None:
             recorded = len(self._collector.observations)
@@ -323,10 +325,14 @@ class CompiledAnswerTicket:
         )
 
     def disable_resample(self) -> None:
-        """Stop after the first form sample when a verified deterministic frame is already ready."""
+        """Stop after the first form sample, and skip waiting on an unfinished speculative
+        form call when a verified deterministic frame is already ready."""
 
         if self._allow_resample is not None:
             self._allow_resample[0] = False
+        if not self._future.done():
+            self._deadline = min(self._deadline, self._clock())
+            self._future.cancel()
 
     def cancel(self) -> None:
         """Cancel an unconsumed path; the owner loop drains its provider calls."""
@@ -607,15 +613,30 @@ async def _run_form_path(
     with bind_turn_extraction_cache():
         async with bind_adaptive_model_budget(collector):
             first = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
-            if (allow_resample is not None and not allow_resample[0]) or not resample_worthy(first):
+            has_context = bool(arguments.get("context"))
+            context_confused = (
+                has_context
+                and isinstance(single_compiled_batch(first), str)
+                and any(item.disposition in {"review", "clarify"} for item in first.passes)
+                and not any(":prior_result" in s for item in first.passes for s in item.shape)
+            )
+            if (allow_resample is not None and not allow_resample[0]) or (
+                not resample_worthy(first) and not context_confused
+            ):
                 return first
             latest = first
             total_calls, total_ms = first.model_calls, first.elapsed_ms
             for _attempt in range(_MAX_REPLACEMENT_SAMPLES):
                 if allow_resample is not None and not allow_resample[0]:
                     break
+                retry_args = (
+                    {**arguments, "context": ()}
+                    if has_context
+                    and not any(":prior_result" in s for item in latest.passes for s in item.shape)
+                    else arguments
+                )
                 sample = await run_reasoning_shadow(
-                    model=escalation_model or model, retain_compilations=True, **arguments
+                    model=escalation_model or model, retain_compilations=True, **retry_args
                 )
                 total_calls += sample.model_calls
                 total_ms += sample.elapsed_ms

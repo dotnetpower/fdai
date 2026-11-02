@@ -548,11 +548,18 @@ class RuntimeSettingsOutbox(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class TeamsWorkflowTestCommand:
-    """One Owner-scoped synthetic notification test with a transient URL."""
+    """One Owner-scoped synthetic notification test or channel selection update."""
 
     actor_id: str
     request_id: str
     webhook_url: str
+    channel_label: str | None = None
+    selected_channel_ids: tuple[str, ...] | None = None
+    delivery_targets: tuple[str, ...] | None = None
+    remove_channel_id: str | None = None
+    email_recipient_mode: str | None = None
+    custom_email: str | None = None
+    selection_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -573,14 +580,10 @@ class TeamsWorkflowTester(Protocol):
     """Persist one endpoint, then send and audit one synthetic notification."""
 
     async def save_and_test(self, command: TeamsWorkflowTestCommand) -> TeamsWorkflowTestResult: ...
-
-    async def describe_binding(
-        self,
-        *,
-        actor_id: str,
-    ) -> JsonMapping | None:
-        """Return secret-free saved-binding metadata; never the endpoint value."""
-        ...
+    async def describe_binding(self, *, actor_id: str) -> JsonMapping | None: ...
+    async def reveal_binding(
+        self, *, actor_id: str, channel_id: str | None = None
+    ) -> JsonMapping | None: ...
 
 
 @dataclass(frozen=True, slots=True)

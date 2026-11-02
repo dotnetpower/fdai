@@ -44,6 +44,10 @@ from .semantic_reasoning_handles import (
     reference_anchors,
 )
 from .semantic_reasoning_kinds import ground_kinds
+from .semantic_reasoning_normalization import (
+    promote_contextual_admission,
+    retype_unfound_subject_to_prior_result,
+)
 from .semantic_reasoning_proposal import FormInputHeldError
 from .semantic_reasoning_repair import FormRepair, propose_with_repair
 from .semantic_reasoning_review import FormReview, resolve_extraction, review_forms
@@ -181,15 +185,10 @@ class ShadowPass:
     repair: str | None = None
     repaired_reasons: tuple[str, ...] = ()
     reference_digest: str | None = None
-    # Mentions grounded in the sibling kind lane, whose domain the form now carries.
     regrounded: tuple[str, ...] = ()
     shape: tuple[str, ...] = ()
-    # Goals whose relation roles follow two blind readers that outvoted the proposer.
     direction_swaps: tuple[str, ...] = ()
-    # Distinct snapshot generations this pass's own anchor reads saw; a result handle's
-    # generation is the earlier answer's and is never compared.
     source_generations: tuple[str, ...] = ()
-    # One entry per accepted catalog value, such as m2:state:resource_state.running.
     concept_values: tuple[str, ...] = ()
 
 
@@ -207,10 +206,8 @@ class ReasoningShadowObservation:
     execution_authority: Literal[False] = False
     notes: tuple[str, ...] = field(default=())
     compilations: tuple[ReasoningCompilation, ...] = field(default=(), repr=False)
-    # Content-free cost of the turn's direction readers, split by reader count.
     direction_cost: DirectionCostReceipt | None = None
     primary_read: bool = False
-    # The form sample a resample replaced, kept only so its decline stays diagnosable.
     discarded_sample: ReasoningShadowObservation | None = field(default=None, repr=False)
 
     def summary(self) -> dict[str, Any]:
@@ -654,25 +651,34 @@ async def _run_pass(
         return ShadowPass(index, "model_unavailable"), *empty
     resolution, admission = proposal.resolution, proposal.admission
     if resolution.form is None or admission is None:
-        failed = ShadowPass(
+        return ShadowPass(
             index,
             "invalid",
             resolution.reasons,
             repair=proposal.repair,
             repaired_reasons=proposal.repaired_reasons,
-        )
-        return failed, *empty
+        ), *empty
+    has_prior_handles = compile_args.get("stored_reference_binder") is not None or bool(
+        compile_args.get("handles")
+    )
+    promoted_form, admission = promote_contextual_admission(
+        resolution.form,
+        admission,
+        utterance=utterance,
+        has_context=bool(context),
+        has_prior_handles=has_prior_handles,
+        accounting=accounting,
+    )
     if admission.disposition is not AdmissionDisposition.ADMITTED:
-        held_pass = ShadowPass(
+        return ShadowPass(
             index,
             admission.disposition.value,
             admission.reasons,
-            resolution.form.digest,
+            promoted_form.digest,
             repair=proposal.repair,
             repaired_reasons=proposal.repaired_reasons,
-            shape=form_shape(resolution.form),
-        )
-        return held_pass, *empty
+            shape=form_shape(promoted_form),
+        ), *empty
 
     def select(lane: Any, calls: int) -> Any:
         return select_concepts(
@@ -698,6 +704,13 @@ async def _run_pass(
     )
     # One grounded form replaces the proposal everywhere after this point.
     admission, receipt = grounding.admission, grounding.receipt
+    admission = retype_unfound_subject_to_prior_result(
+        admission,
+        receipt,
+        utterance=utterance,
+        has_context=bool(context),
+        has_prior_handles=has_prior_handles,
+    )
     settled = await settle_directions(
         admission.form,
         utterance=utterance,
@@ -717,29 +730,19 @@ async def _run_pass(
             reasons = admission.reasons
     form = admission.form
     if reasons:
-        return (
-            ShadowPass(index, "direction_held", reasons, shape=form_shape(form)),
-            (),
-            None,
-            None,
-            (),
-        )
+        return ShadowPass(index, "direction_held", reasons, shape=form_shape(form)), *empty
     anchors = await bind_anchors(admission, resolver, utterance=utterance)
     generations = tuple(
         sorted({item.source_generation for item in anchors.bindings if item.source_generation})
     )
     arguments = dict(compile_args)
     stored_reference_binder = arguments.pop("stored_reference_binder", None)
+    handles, handle_scope = arguments.pop("handles", ()), arguments.pop("handle_scope", None)
     references = (
         await stored_reference_binder(admission) if stored_reference_binder is not None else None
     )
     if references is None:
-        references = bind_references(
-            admission, arguments.pop("handles", ()), arguments.pop("handle_scope", None)
-        )
-    else:
-        arguments.pop("handles", ())
-        arguments.pop("handle_scope", None)
+        references = bind_references(admission, handles, handle_scope)
     anchors = reference_anchors(anchors, references)
     compilation = compile_question_form(
         admission,

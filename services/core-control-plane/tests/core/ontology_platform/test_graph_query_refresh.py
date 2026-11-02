@@ -423,3 +423,61 @@ async def test_conflicting_graph_stays_held_after_one_refresh() -> None:
         )
     assert live.calls == 1
     assert gateway.calls == 1
+
+
+async def test_graph_refresh_bounds_source_revisions_for_audit_when_over_64() -> None:
+    base = _secured(age_seconds=5)
+    objects = []
+    for idx in range(72):
+        meta = StateFactMetadata(
+            lane=StateFactLane.OBSERVED,
+            authority=StateFactAuthority.PROVIDER,
+            source_identity="azure-resource-health",
+            source_revision=f"azure-resource-health:sha256:{idx:064x}",
+            effective_at=NOW - timedelta(seconds=5),
+            recorded_at=NOW - timedelta(seconds=5),
+            evidence_cutoff=NOW - timedelta(seconds=5),
+            freshness_ceiling_seconds=300,
+            completeness=1.0,
+            synthetic=False,
+            conflicts=(),
+            evidence_refs=(f"azure-resource-health:sha256:{idx:064x}",),
+        )
+        objects.append(
+            OntologyObjectRecord(
+                id=f"resource-{idx}",
+                object_type="Resource",
+                properties={
+                    "properties": {
+                        STATE_FACT_METADATA_PROPERTY: {
+                            "availabilityState": meta.to_mapping(),
+                        }
+                    }
+                },
+            )
+        )
+    materialization = base.materialization.model_copy(
+        update={"graph": OntologyGraphSnapshot(objects=tuple(objects), links=())}
+    )
+    secured = base.model_copy(
+        update={
+            "materialization": materialization,
+            "receipt": base.receipt.model_copy(
+                update={"projected_result_digest": _projected_result_digest(materialization)}
+            ),
+        }
+    )
+    auditor = _Auditor()
+    refresher = SecuredGraphEvidenceQueryRefresher(
+        gateway=_Gateway(secured),
+        auditor=auditor,
+    )
+    result = await refresher.refresh(
+        definition=secured.materialization.definition,
+        projection_request=_request(),
+        secured=secured,
+        freshness_state_keys=("availabilityState", "state"),
+    )
+    assert result == secured
+    assert len(auditor.records) == 1
+    assert len(auditor.records[0].source_revisions) == 64

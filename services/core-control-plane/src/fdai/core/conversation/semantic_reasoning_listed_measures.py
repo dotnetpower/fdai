@@ -31,7 +31,7 @@ def allow_listed_measure(
     if (
         measure is None
         or goal.effective_operation is not GoalOperation.SELECT
-        or goal.subject_scope is not SubjectScope.COLLECTION
+        or goal.subject_scope not in {SubjectScope.COLLECTION, SubjectScope.PRIOR_RESULT}
     ):
         return
     if measure.kind is MeasureKind.STATE and not allowed.state_concepts:

@@ -139,7 +139,7 @@ def _stated_concepts(
         if item.role is reader.role
         and not (reader.role is FilterRole.STATE and _names_lifecycle(item.mention, ctx))
     ]
-    if stated and goal.subject is not None:
+    if stated and goal.subject is not None and goal.subject_scope is not SubjectScope.PRIOR_RESULT:
         # Reviewed states and health describe Resources; another ObjectType has no reader here.
         subject = ctx.mention(goal.subject)
         values, _failure = concept_values(goal.subject, ctx)
@@ -171,7 +171,7 @@ def listed_measure(
     if (
         measure is None
         or goal.effective_operation is not GoalOperation.SELECT
-        or goal.subject_scope is not SubjectScope.COLLECTION
+        or goal.subject_scope not in {SubjectScope.COLLECTION, SubjectScope.PRIOR_RESULT}
         or measure.kind not in {MeasureKind.STATE, MeasureKind.HEALTH}
     ):
         return None

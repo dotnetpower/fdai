@@ -59,6 +59,12 @@ def render_resource_change_answer(
             if isinstance(raw_name, str) and raw_name.strip()
             else str(row.get("subject_ref") or "").rstrip("/").rsplit("/", 1)[-1].strip()
         )
+        raw_type = row.get("subject_type")
+        type_suffix = (
+            f" · `{inline_code(raw_type.strip())}`"
+            if isinstance(raw_type, str) and raw_type.strip()
+            else ""
+        )
         operation = row.get("operation") or row.get("mutation_kind") or "change"
         status = row.get("operation_status")
         occurred_at = row.get("occurred_at")
@@ -67,6 +73,7 @@ def render_resource_change_answer(
             prefix
             + f"`{inline_code(str(operation))}`"
             + (f" / `{inline_code(str(status))}`" if status else "")
+            + type_suffix
             + f" ({readable_timestamp(str(occurred_at)) if occurred_at else 'time unavailable'})"
         )
     if not verified_rows:

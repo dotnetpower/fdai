@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 MAX_RECORDED_STATE_VALUE_CHARS = 256
 STATE_FACT_UNAVAILABLE_REASONS_PROPERTY = "state_fact_unavailable_reasons"
@@ -27,10 +27,12 @@ RECORDED_STATE_UNAVAILABLE_REASONS = frozenset(
 OPERATIONAL_STATE_PATHS = (
     "status",
     "state",
+    "enabled",
     "phase",
     "ready_status",
     "readiness",
     "runningStatus",
+    "runningState",
     "operationalState",
     "dnsResolverState",
     "diskState",
@@ -39,6 +41,9 @@ OPERATIONAL_STATE_PATHS = (
     "staticSiteEnvironmentStatus",
     "userVisibleState",
     "virtualNetworkLinkState",
+    "verificationStates.Domain.status",
+    "privateLinkServiceConnections.privateLinkServiceConnectionState.status",
+    "manualPrivateLinkServiceConnections.privateLinkServiceConnectionState.status",
     "powerState.code",
     "powerState",
     "instanceView.powerState.code",
@@ -50,6 +55,8 @@ AVAILABILITY_STATE_PATHS = ("availabilityState",)
 SERVING_STATE_PATHS = ("servingState",)
 
 OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
+    "action-group": ("enabled", "status"),
+    "anomaly-alert-rule": ("state", "status"),
     "app-service-plan": ("powerState", "status"),
     "compute.container-app": ("runningStatus",),
     "compute.container-app-job": ("runningStatus",),
@@ -65,6 +72,7 @@ OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] =
     "compute.web-app": ("state",),
     "disk": ("diskState",),
     "disk-snapshot": ("snapshotAccessState", "diskState"),
+    "email-domain": ("verificationStates.Domain.status", "status"),
     "event-hub": ("status",),
     "kubernetes-cluster": ("powerState.code", "powerState"),
     "kubernetes.daemon-set": ("ready_status",),
@@ -77,10 +85,16 @@ OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] =
     "kubernetes.pod": ("phase",),
     "kubernetes.replica-set": ("ready_status",),
     "kubernetes.stateful-set": ("ready_status",),
+    "managed-sre-agent": ("powerState.code", "powerState", "runningState", "status"),
     "mysql-server": ("state",),
     "network.application-gateway": ("operationalState",),
     "network.dns-resolver": ("dnsResolverState",),
     "network.private-dns-zone-link": ("virtualNetworkLinkState",),
+    "network.private-endpoint": (
+        "privateLinkServiceConnections.privateLinkServiceConnectionState.status",
+        "manualPrivateLinkServiceConnections.privateLinkServiceConnectionState.status",
+        "status",
+    ),
     "network.registered-domain": ("registrationStatus",),
     "postgresql-server": ("state",),
     "redis-enterprise": ("resourceState",),
@@ -94,10 +108,8 @@ OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] =
 }
 OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
     {
-        "action-group",
         "ai-project",
         "alert-rule",
-        "anomaly-alert-rule",
         "application-insights",
         "authorization.role-assignment",
         "certificate",
@@ -106,7 +118,6 @@ OPERATIONAL_STATE_NOT_APPLICABLE_RESOURCE_TYPES = frozenset(
         "compute.image",
         "data-collection-rule",
         "diagnostic-settings",
-        "email-domain",
         "managed-certificate",
         "metric-alert-rule",
         "network.private-access-scope",
@@ -201,7 +212,6 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = (
             "file-share",
             "llm-endpoint",
             "llm-model-deployment",
-            "managed-sre-agent",
             "metrics-workspace",
             "network.bastion-host",
             "network.dns-resolver-inbound-endpoint",
@@ -212,7 +222,6 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = (
             "network.nat-gateway",
             "network.nsg",
             "network.private-dns-zone",
-            "network.private-endpoint",
             "network.public-ip",
             "network.route-table",
             "network.subnet",
@@ -416,6 +425,89 @@ def is_recorded_state_value_valid(value: object, *, allow_unknown: bool = False)
     )
 
 
+_PRIVATE_LINK_CONNECTIONS_KEYS = frozenset(
+    {
+        "privateLinkServiceConnections",
+        "manualPrivateLinkServiceConnections",
+    }
+)
+
+
+def _resolve_mapping_tail(root: Mapping[str, object], tail: tuple[str, ...]) -> object:
+    current: object = root
+    for part in tail:
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+    return current
+
+
+def extract_recorded_state_value(
+    properties: Mapping[str, object],
+    source_path: str,
+    *,
+    path: str | None = None,
+) -> object:
+    """Resolve one reviewed state path, coercing boolean enabled flags and unanimous link states."""
+
+    parts = tuple(source_path.split("."))
+    current: object = properties
+    for index, part in enumerate(parts):
+        if not isinstance(current, Mapping):
+            return None
+        current = current.get(part)
+        if (
+            part in _PRIVATE_LINK_CONNECTIONS_KEYS
+            and isinstance(current, Sequence)
+            and not isinstance(current, (str, bytes))
+        ):
+            tail = parts[index + 1 :]
+            if not tail:
+                return current
+            if not current:
+                return None
+            statuses: list[str] = []
+            for entry in current:
+                if not isinstance(entry, Mapping):
+                    return None
+                candidate = _resolve_mapping_tail(entry, tail)
+                if candidate is None:
+                    nested_entry = entry.get("properties")
+                    if isinstance(nested_entry, Mapping):
+                        candidate = _resolve_mapping_tail(nested_entry, tail)
+                if not isinstance(candidate, str) or not candidate.strip():
+                    return None
+                statuses.append(candidate)
+            if len({item.strip().casefold() for item in statuses}) == 1:
+                return statuses[0]
+            return None
+    leaf_path = path if path is not None else source_path
+    if (leaf_path == "enabled" or source_path.endswith(".enabled")) and isinstance(current, bool):
+        return "Enabled" if current else "Disabled"
+    return current
+
+
+def has_empty_private_link_connections(properties: Mapping[str, object]) -> bool:
+    """Return whether a private endpoint explicitly recorded only empty connection arrays."""
+
+    found_sequence = False
+    for prefix in ("", "properties.", "properties.properties."):
+        owner = (
+            _resolve_mapping_tail(properties, tuple(prefix[:-1].split(".")))
+            if prefix
+            else properties
+        )
+        if not isinstance(owner, Mapping):
+            continue
+        for key in _PRIVATE_LINK_CONNECTIONS_KEYS:
+            value = owner.get(key)
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                found_sequence = True
+                if len(value) > 0:
+                    return False
+    return found_sequence
+
+
 __all__ = [
     "AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES",
     "AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES",
@@ -434,6 +526,8 @@ __all__ = [
     "STATE_FACT_UNAVAILABLE_REASONS_PROPERTY",
     "UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE",
     "availability_state_paths",
+    "extract_recorded_state_value",
+    "has_empty_private_link_connections",
     "is_recorded_state_value_valid",
     "operational_state_paths",
     "serving_state_paths",

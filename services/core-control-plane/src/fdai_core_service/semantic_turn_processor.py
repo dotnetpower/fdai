@@ -114,7 +114,7 @@ from .semantic_answer_presentation import (
 )
 from .semantic_answer_presentation import condition_rows as _condition_rows
 from .semantic_answer_presentation import inline_code as _inline_code
-from .semantic_assurance_projection import project_semantic_assurance
+from .semantic_assurance_projection import project_semantic_assurance, user_bounded_query_table
 from .semantic_context_shadow import SemanticContextShadow
 from .semantic_incident_answer import render_incident_answer
 from .semantic_instance_candidates import project_instance_candidates, render_instance_candidates
@@ -357,7 +357,7 @@ class SemanticTurnProcessor:
         dialogue_state_shadow: DialogueStateShadow | None = None,
         result_handle_store: ResultHandleStore | None = None,
         result_handles_enabled: bool = False,
-        result_handle_ttl_seconds: int = 900,
+        result_handle_ttl_seconds: int = 14_400,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         if not purpose:
@@ -854,7 +854,9 @@ class SemanticTurnProcessor:
                 result=result,
                 extensions=extensions,
             )
-            result = await self._with_result_handle_ref(request, result, extensions)
+            result = await self._with_result_handle_ref(
+                request, result, extensions, runtime_result.execution
+            )
             return self._with_answer_continuity(request, result), _with_work_progress(
                 extensions,
                 recorder,
@@ -1032,6 +1034,7 @@ class SemanticTurnProcessor:
         request: SemanticTurnRequest,
         result: ContractSemanticTurnResult,
         extensions: _SemanticProjectionExtensions | None,
+        execution: QueryPlanExecution | None = None,
     ) -> ContractSemanticTurnResult:
         store = self._result_handle_store
         if (
@@ -1045,9 +1048,7 @@ class SemanticTurnProcessor:
             return result
         try:
             handle = result_handle_from_technical_details(
-                request,
-                result,
-                technical_details=extensions.technical_details,
+                request, result, technical_details=extensions.technical_details, execution=execution
             )
             if handle is None:
                 return result
@@ -1586,9 +1587,7 @@ def _project_runtime_result(
     )
     if answer is None or technical_details is None:
         return _evidence_incomplete(
-            request,
-            "answer_rendering_rejected",
-            result=result,
+            request, "answer_rendering_rejected", result=result
         ), model_extensions
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
@@ -1596,7 +1595,7 @@ def _project_runtime_result(
             "semantic_answer_partial"
             if candidates_found
             or optional_document_evidence_degraded(planning, execution)
-            or _execution_output_incomplete(execution)
+            or _execution_output_incomplete(execution, evidence_requirements=evidence_requirements)
             or "anchor.uniqueness_unproven" in evidence_requirements
             else "semantic_answer_verified"
         ),
@@ -1614,10 +1613,7 @@ def _project_runtime_result(
         checks_completed=checks_completed,
         checks_total=checks_total,
         answer=answer,
-        assurance_observation=project_semantic_assurance(
-            result,
-            disposition="answered",
-        ),
+        assurance_observation=project_semantic_assurance(result, disposition="answered"),
     ), _merge_projection_extensions(
         model_extensions,
         _SemanticProjectionExtensions(
@@ -1628,11 +1624,17 @@ def _project_runtime_result(
     )
 
 
-def _execution_output_incomplete(execution: QueryPlanExecution) -> bool:
+def _execution_output_incomplete(
+    execution: QueryPlanExecution,
+    *,
+    evidence_requirements: Sequence[str] = (),
+) -> bool:
     """Return whether a terminal output table explicitly reports incomplete source coverage."""
 
     return any(
-        isinstance(result.value, QueryTable) and not result.value.complete
+        isinstance(result.value, QueryTable)
+        and not result.value.complete
+        and not user_bounded_query_table(result.value, evidence_requirements)
         for node_id in execution.output_node_ids
         if (result := execution.results.get(node_id)) is not None
     )
@@ -3069,14 +3071,17 @@ def _render_query_answer(
         source_rows = (
             order_health_rows(table.rows) if output_shape == "resource_health_list" else table.rows
         )
-        if inventory_document:
-            projected_rows = source_rows[:1000]
-        elif len(source_rows) <= 40:
-            projected_rows = source_rows
-        else:
-            projected_rows = (
+        full_list = inventory_document or (
+            output_shape == "resource_list"
+            and bool(request.prior_turns or request.recent_result_handles)
+        )
+        projected_rows = (
+            source_rows[:1000]
+            if full_list or len(source_rows) <= 40
+            else (
                 source_rows[-20:] if output_shape == "resource_event_history" else source_rows[:20]
             )
+        )
         for row_index, row in enumerate(projected_rows, start=1):
             candidate_rows: list[dict[str, object]] = [
                 *rows,
@@ -3096,6 +3101,7 @@ def _render_query_answer(
                     table=table,
                     rows=candidate_rows,
                     evidence_refs=result.evidence_refs,
+                    evidence_requirements=evidence_requirements,
                 ),
             ]
             answer_output_limit = 220_000 if inventory_document else 48_000
@@ -3108,17 +3114,18 @@ def _render_query_answer(
             table=table,
             rows=rows,
             evidence_refs=result.evidence_refs,
+            evidence_requirements=evidence_requirements,
         )
         if output_shape == "resource_health_list":
             health_summary = summarize_health_rows(table.rows)
             if health_summary is not None:
                 shown_output["health_summary"] = health_summary
         outputs.append(shown_output)
-    if rule_search is not None and not projected_rule_search:
-        return None, None
-    if incident_evidence is not None and not projected_incident:
-        return None, None
-    if ontology_relationships is not None and not projected_relationships:
+    if (
+        (rule_search is not None and not projected_rule_search)
+        or (incident_evidence is not None and not projected_incident)
+        or (ontology_relationships is not None and not projected_relationships)
+    ):
         return None, None
     _resource_health_answer.attach_resource_health_narration_claims(outputs)
     technical_details = {
@@ -5642,18 +5649,19 @@ def _answer_output(
     table: QueryTable,
     rows: list[dict[str, object]],
     evidence_refs: Sequence[str],
+    evidence_requirements: Sequence[str] = (),
 ) -> dict[str, object]:
     continuation_ref = _recent_change_continuation_ref(table)
+    user_bounded = user_bounded_query_table(table, evidence_requirements)
     return {
         "node_id": node_id,
         "evidence_refs": list(evidence_refs),
         "rows": rows,
         "returned_rows": len(rows),
         "total_rows": len(table.rows),
-        "source_complete": table.complete,
-        "source_truncation_reason": table.truncation_reason,
+        "source_complete": True if user_bounded else table.complete,
+        "source_truncation_reason": None if user_bounded else table.truncation_reason,
         "display_truncated": len(rows) < len(table.rows),
-        # The exact count a source holds beyond its read bound, when the reader counted it.
         **({"source_total_rows": table.total_rows} if table.total_rows is not None else {}),
         **({"continuation_ref": continuation_ref} if continuation_ref is not None else {}),
     }
@@ -5841,10 +5849,7 @@ def _request_digest(
 
 
 def _semantic_projection_id(projection: Mapping[str, object]) -> str:
-    """Bind projection identity to the complete immutable event content.
-
-    The shared contract function is the one the Operator recomputes before durable projection.
-    """
+    """Bind projection identity to the complete immutable event content."""
     return semantic_projection_id(projection)
 
 
@@ -5863,29 +5868,25 @@ async def _release_claim(
 
 def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:
     loaded = json.loads(encoded)
-    if not isinstance(loaded, dict):
-        raise ValueError("stored semantic projection MUST be an object")
-    projection_payload = loaded.get("payload")
-    if not isinstance(projection_payload, dict):
-        raise ValueError("stored semantic projection payload MUST be an object")
+    if not isinstance(loaded, dict) or not isinstance(
+        projection_payload := loaded.get("payload"), dict
+    ):
+        raise ValueError("stored semantic projection and payload MUST be objects")
     if projection_payload.get("request_digest") != request_digest:
         raise SemanticTurnRejectedError("semantic_idempotency_conflict")
-    if loaded.get("schema_version") == "1.3.0":
-        return OPERATOR_PROJECTION_PRODUCER_V13.encode(loaded)
-    if loaded.get("schema_version") == "1.6.0":
-        return OPERATOR_PROJECTION_PRODUCER_V16.encode(loaded)
-    if loaded.get("schema_version") == "1.7.0":
-        return OPERATOR_PROJECTION_PRODUCER_V17.encode(loaded)
-    if loaded.get("schema_version") == "1.8.0":
-        return OPERATOR_PROJECTION_PRODUCER_V18.encode(loaded)
-    return OPERATOR_PROJECTION_PRODUCER_V14.encode(loaded)
+    producer = {
+        "1.3.0": OPERATOR_PROJECTION_PRODUCER_V13,
+        "1.6.0": OPERATOR_PROJECTION_PRODUCER_V16,
+        "1.7.0": OPERATOR_PROJECTION_PRODUCER_V17,
+        "1.8.0": OPERATOR_PROJECTION_PRODUCER_V18,
+    }.get(str(loaded.get("schema_version")), OPERATOR_PROJECTION_PRODUCER_V14)
+    return producer.encode(loaded)
 
 
 def _pantheon_assurance_case_id(purpose: str) -> str | None:
-    prefix = "conversation-assurance:"
-    if not purpose.startswith(prefix):
+    if not purpose.startswith("conversation-assurance:"):
         return None
-    case_id = purpose.removeprefix(prefix)
+    case_id = purpose.removeprefix("conversation-assurance:")
     if not case_id or len(case_id) > 192:
         raise SemanticTurnRejectedError("conversation_assurance_case_invalid")
     return case_id

@@ -1161,3 +1161,53 @@ async def test_disable_resample_stops_after_first_sample(
 
     assert calls == [1]
     assert result is invalid
+
+
+def test_disable_resample_clamps_deadline_when_future_is_unfinished() -> None:
+    pending_future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+    ticket = CompiledAnswerTicket(
+        pending_future,
+        semantic_compiled_answers._ObservationCollector(),
+        deadline_seconds=30.0,
+        manifest=production_manifest(),
+        verifier=plan_verifier(),
+        cutoff=lambda: _LATER,
+    )
+    ticket.disable_resample()
+    outcome = ticket.outcome(manifest_digest="d", observations=[])
+
+    assert outcome is None
+    assert pending_future.cancelled()
+    assert ticket.decision == "unavailable"
+
+
+async def test_context_confused_review_pass_retries_without_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    low_conf = _observation(
+        released=False,
+        review=None,
+        passes=(
+            ShadowPass(
+                0, "review", ("low_confidence:g1",), shape=("g1:instance:select:collection",)
+            ),
+        ),
+        compilations=(),
+    )
+    samples = [low_conf, _observation()]
+    seen_contexts: list[tuple[str, ...]] = []
+
+    async def shadow(**arguments: Any) -> ReasoningShadowObservation:
+        seen_contexts.append(arguments.get("context", ()))
+        return samples.pop(0)
+
+    monkeypatch.setattr(semantic_compiled_answers, "run_reasoning_shadow", shadow)
+    collector = semantic_compiled_answers._ObservationCollector()
+    result = await semantic_compiled_answers._run_form_path(
+        object(),  # type: ignore[arg-type]
+        collector,
+        context=("inbound:earlier question", "outbound:earlier answer"),
+    )
+
+    assert seen_contexts == [("inbound:earlier question", "outbound:earlier answer"), ()]
+    assert result.released

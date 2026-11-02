@@ -34,6 +34,7 @@ from fdai_service_contracts import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 from fdai_service_contracts.recorded_resource_state import (
+    extract_recorded_state_value,
     is_recorded_state_value_valid,
     operational_state_paths,
 )
@@ -905,12 +906,7 @@ def _model_deployment_projection(
 def _resource_status(properties: Mapping[str, object], resource_type: str) -> str | None:
     for prefix in ("", "properties.", "properties.properties."):
         for path in operational_state_paths(resource_type):
-            current: object = properties
-            for part in (prefix + path).split("."):
-                if not isinstance(current, Mapping):
-                    current = None
-                    break
-                current = current.get(part)
+            current = extract_recorded_state_value(properties, prefix + path, path=path)
             if is_recorded_state_value_valid(
                 current,
                 allow_unknown=path == "ready_status",

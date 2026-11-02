@@ -121,3 +121,29 @@ async def test_pending_observation_keeps_scope_generation_and_cutoff(
         assert coverage.complete is complete
         assert coverage.generation == "snapshot-example"
         assert coverage.reason == (None if complete else OBSERVATION_PENDING)
+
+
+async def test_pending_correction_for_unrelated_type_does_not_mark_typed_read_incomplete() -> None:
+    async with _isolated_committed_resource_store() as (store, _):
+        async with await store._connect() as connection:
+            await connection.execute(
+                "INSERT INTO inventory_observation_journal "
+                "(scope_ref,watermark,source_revision,effective_at,"
+                "subject_kind,subject_ref,subject_type) "
+                "SELECT 'scope-example',5,'next',started_at+INTERVAL '1 second',"
+                "'object','vm-ephemeral','virtual-machine' FROM inventory_snapshot"
+            )
+            await connection.execute(
+                "INSERT INTO inventory_observation_partition "
+                "(scope_ref,state,last_watermark) VALUES ('scope-example','correction_pending',5)"
+            )
+            coverage = await resource_graph_source_coverage_detail(
+                connection,
+                (),
+                requires_resource_coverage=True,
+                expresses_relationships=False,
+                subject_types=("postgresql-server",),
+            )
+
+        assert coverage.complete is True
+        assert coverage.reason is None

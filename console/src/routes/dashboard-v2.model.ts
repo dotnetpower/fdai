@@ -11,7 +11,7 @@ import {
 
 export type DashboardLens = "resource" | "operation" | "provisioning" | "serving" | "availability" | "observation";
 export type DashboardView = "honeycomb" | "list" | "groups";
-export type DashboardState = "running" | "stopped" | "deallocated" | "transitioning" | "unknown" | "not-applicable" | "not-provided" | "fresh" | "stale" | "enabled" | "disabled" | "active" | "online" | "offline" | "ready" | "paused" | "succeeded" | "failed" | "available" | "degraded" | "unavailable" | "serving" | "observed" | "recorded";
+export type DashboardState = "running" | "stopped" | "deallocated" | "transitioning" | "unknown" | "not-applicable" | "not-provided" | "fresh" | "stale" | "enabled" | "disabled" | "active" | "online" | "offline" | "ready" | "paused" | "succeeded" | "failed" | "available" | "degraded" | "unavailable" | "serving" | "observed" | "completed" | "attached" | "reserved" | "unattached" | "approved" | "rejected" | "connected" | "disconnected" | "verified" | "normal" | "limited" | "recorded";
 export type DashboardTone = "active" | "neutral" | "attention" | "unknown" | "na" | "negative";
 
 export interface DashboardResource {
@@ -66,6 +66,17 @@ export const STATE_STYLE: Readonly<Record<DashboardState, { readonly tone: Dashb
   degraded: { tone: "attention", symbol: "!" }, unavailable: { tone: "negative", symbol: "X" },
   serving: { tone: "active", symbol: ">" },
   observed: { tone: "active", symbol: "+" },
+  completed: { tone: "active", symbol: "C" },
+  attached: { tone: "active", symbol: "A" },
+  reserved: { tone: "active", symbol: "R" },
+  unattached: { tone: "attention", symbol: "!" },
+  approved: { tone: "active", symbol: "+" },
+  rejected: { tone: "negative", symbol: "X" },
+  connected: { tone: "active", symbol: "+" },
+  disconnected: { tone: "negative", symbol: "X" },
+  verified: { tone: "active", symbol: "+" },
+  normal: { tone: "active", symbol: "+" },
+  limited: { tone: "attention", symbol: "!" },
   recorded: { tone: "neutral", symbol: "=" },
 };
 
@@ -155,9 +166,15 @@ export function decodeDashboardSnapshot(value: unknown): DashboardSnapshot {
   };
 }
 
+const PRESENCE_ONLY_RESOURCE_TYPES = new Set([
+  "managed-identity",
+  "action-group",
+  "anomaly-alert-rule",
+]);
+
 function isManagedIdentityPresenceOnly(resource: DashboardResource): boolean {
   const states = resource.states;
-  return resource.type === "managed-identity"
+  return PRESENCE_ONLY_RESOURCE_TYPES.has(resource.type)
     && states !== undefined
     && states.operational.value === null
     && states.operational.reason === "state_not_applicable"
@@ -180,8 +197,9 @@ function hasQualifiedGenerationPresence(snapshot: DashboardSnapshot): boolean {
 /** Never equates provisioning success or generic health labels with running or availability. */
 export function dashboardResourceState(resource: DashboardResource, snapshot: DashboardSnapshot, lens: DashboardLens): DashboardState {
   if (resource.states) {
-    if (lens === "resource" && isManagedIdentityPresenceOnly(resource)) {
-      return hasQualifiedGenerationPresence(snapshot) ? "observed" : "unknown";
+    if ((lens === "resource" || lens === "observation") && isManagedIdentityPresenceOnly(resource)) {
+      if (!hasQualifiedGenerationPresence(snapshot)) return "unknown";
+      return lens === "observation" ? "fresh" : "observed";
     }
     const fact = dashboardStateFact(resource, lens);
     if (fact === null) return lens === "serving" ? "not-applicable" : "unknown";
@@ -203,7 +221,8 @@ export function dashboardResourceState(resource: DashboardResource, snapshot: Da
     ) return "unknown";
     const raw = fact.value.trim().toLowerCase().replace(/^powerstate\//, "");
     if (lens === "resource" && raw === "unknown") return "recorded";
-    if (["starting", "stopping", "deallocating", "updating", "creating", "deleting"].includes(raw)) return "transitioning";
+    if (["starting", "stopping", "deallocating", "updating", "creating", "deleting", "pending", "inprogress"].includes(raw)) return "transitioning";
+    if (["canceled", "cancelled", "timedout"].includes(raw)) return "failed";
     return Object.hasOwn(STATE_STYLE, raw) ? raw as DashboardState : "recorded";
   }
   if (lens === "provisioning") return "unknown";
@@ -232,9 +251,42 @@ function dashboardRepresentativeStateFact(
   }
   for (const axis of ["serving", "availability", "provisioning"] as const) {
     const fact = states[axis];
-    if (fact?.value !== null && fact?.value !== undefined) return { axis, fact };
+    if (
+      fact?.value !== null
+      && fact?.value !== undefined
+      && !(
+        axis === "availability"
+        && fact.value.trim().toLowerCase() === "unknown"
+        && states.provisioning.value !== null
+      )
+    ) return { axis, fact };
   }
   return selectRecordedStateFact(states);
+}
+
+export interface DashboardFallbackPresentation {
+  readonly state: DashboardState;
+  readonly tone: "active" | "negative" | "attention";
+  readonly axis: RecordedStateAxis | null;
+}
+
+/** Surfaces the verified representative state tone when a single-axis lens is N or -. */
+export function dashboardFallbackPresentation(
+  resource: DashboardResource,
+  snapshot: DashboardSnapshot,
+  lens: DashboardLens,
+): DashboardFallbackPresentation | null {
+  if (lens === "resource" || lens === "observation") return null;
+  const current = dashboardResourceState(resource, snapshot, lens);
+  if (current !== "not-provided" && current !== "not-applicable") return null;
+  const representative = dashboardResourceState(resource, snapshot, "resource");
+  const tone = STATE_STYLE[representative].tone;
+  if (tone !== "active" && tone !== "negative" && tone !== "attention") return null;
+  return {
+    state: representative,
+    tone,
+    axis: dashboardStateAxis(resource, "resource"),
+  };
 }
 
 export function dashboardStateFact(resource: DashboardResource, lens: DashboardLens): RecordedStateFact | null {

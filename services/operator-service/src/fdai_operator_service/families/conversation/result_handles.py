@@ -95,12 +95,25 @@ async def build_envelope_with_result_handles(
     """Rebuild the semantic envelope with continuation and recent handle references."""
 
     session_id = str(semantic.session_id)
-    continuation = await store.latest_semantic_investigation_continuation(
-        principal_id=proposal.scope.subject_id,
-        session_id=session_id,
+    fresh_cleared_turn = (
+        "history" in proposal.body
+        and proposal.body.get("history") == []
+        and not proposal.body.get("turn_sequence")
     )
-    recent_handles = await latest_result_handle_refs(
-        store, principal_id=proposal.scope.subject_id, session_id=session_id, limit=4
+    continuation = (
+        None
+        if fresh_cleared_turn
+        else await store.latest_semantic_investigation_continuation(
+            principal_id=proposal.scope.subject_id,
+            session_id=session_id,
+        )
+    )
+    recent_handles = (
+        ()
+        if fresh_cleared_turn
+        else await latest_result_handle_refs(
+            store, principal_id=proposal.scope.subject_id, session_id=session_id, limit=4
+        )
     )
     if continuation is not None:
         proposal = replace(

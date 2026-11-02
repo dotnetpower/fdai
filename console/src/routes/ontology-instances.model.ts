@@ -132,6 +132,9 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
     "not ready",
     "canceled",
     "cancelled",
+    "timedout",
+    "rejected",
+    "disconnected",
   ].some((value) => normalized.includes(value))) return "danger";
   if ([
     "stopped",
@@ -141,6 +144,9 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
     "inactive",
     "paused",
     "unavailable",
+    "unattached",
+    "degraded",
+    "pending",
   ].some((value) => normalized.includes(value))) return "warning";
   if ([
     "running",
@@ -149,6 +155,15 @@ export function ontologyInstanceStatusTone(status: string | null): OntologyInsta
     "active",
     "healthy",
     "available",
+    "completed",
+    "attached",
+    "reserved",
+    "enabled",
+    "online",
+    "serving",
+    "approved",
+    "connected",
+    "verified",
   ].some((value) => normalized.includes(value))) return "success";
   return "neutral";
 }
