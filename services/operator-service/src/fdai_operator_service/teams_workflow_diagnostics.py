@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import re
@@ -9,6 +10,8 @@ import secrets
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from functools import lru_cache
+from importlib.resources import files
 from typing import Protocol
 from urllib.parse import parse_qs, urlsplit
 
@@ -35,6 +38,7 @@ _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _SIGNATURE = re.compile(r"^[A-Za-z0-9_-]{20,256}$")
 _MAX_URL_LENGTH = 4096
 _ACTIVE_BINDING_METADATA_KEY = "operator-teams-workflow-binding-metadata:active"
+_DIAGNOSTIC_BANNER_TEMPLATE = "templates/teams-workflow-diagnostic-banner.png"
 _TIMEOUT_SECONDS = 10.0
 
 
@@ -371,7 +375,11 @@ class TeamsWorkflowDiagnosticTester:
                 endpoint_digest=endpoint_digest,
             )
 
-        payload = _synthetic_card(command.request_id)
+        payload = _synthetic_card(
+            command.request_id,
+            endpoint_identifier=_endpoint_identifier(command.webhook_url),
+            tested_at=now,
+        )
         try:
             response = await self.post(command.webhook_url, payload)
         except httpx.HTTPError as exc:
@@ -494,7 +502,30 @@ async def _post_workflow(
             )
 
 
-def _synthetic_card(request_id: str) -> dict[str, object]:
+@lru_cache(maxsize=1)
+def _diagnostic_banner_data_uri() -> str:
+    encoded = base64.b64encode(
+        files("fdai_operator_service").joinpath(_DIAGNOSTIC_BANNER_TEMPLATE).read_bytes()
+    ).decode("ascii")
+    return f"data:image/png;base64,{encoded}"
+
+
+def _synthetic_card(
+    request_id: str,
+    *,
+    endpoint_identifier: str | None = None,
+    tested_at: datetime | None = None,
+) -> dict[str, object]:
+    facts: list[dict[str, str]] = [
+        {"title": "channel_scope", "value": "A2 operational alerts / A4 scheduled digests"},
+        {"title": "binding_state", "value": "Saved & verified (outbound diagnostic only)"},
+    ]
+    if endpoint_identifier:
+        facts.append({"title": "endpoint", "value": endpoint_identifier})
+    if tested_at is not None:
+        facts.append({"title": "tested_at", "value": tested_at.astimezone(UTC).isoformat()})
+    facts.append({"title": "request_id", "value": request_id})
+
     return {
         "type": "message",
         "attachments": [
@@ -505,24 +536,97 @@ def _synthetic_card(request_id: str) -> dict[str, object]:
                     "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
                     "type": "AdaptiveCard",
                     "version": "1.4",
+                    "fallbackText": (
+                        "FDAI Teams notification test - "
+                        "The one-time Teams Workflows notification diagnostic reached this channel."
+                    ),
+                    "msteams": {"width": "Full"},
                     "body": [
                         {
-                            "type": "TextBlock",
-                            "size": "Medium",
-                            "weight": "Bolder",
-                            "text": "FDAI Teams notification test",
+                            "type": "Image",
+                            "url": _diagnostic_banner_data_uri(),
+                            "altText": (
+                                "FDAI Autonomous Control Plane - Teams Workflows Delivery Ready "
+                                "(1. Secret Binding -> 2. Power Automate -> 3. Teams Channel)"
+                            ),
+                            "size": "Stretch",
+                        },
+                        {
+                            "type": "ColumnSet",
+                            "spacing": "Medium",
+                            "columns": [
+                                {
+                                    "type": "Column",
+                                    "width": "stretch",
+                                    "verticalContentAlignment": "Center",
+                                    "items": [
+                                        {
+                                            "type": "TextBlock",
+                                            "size": "Small",
+                                            "weight": "Bolder",
+                                            "color": "Accent",
+                                            "spacing": "None",
+                                            "text": "OUTBOUND NOTIFICATION DIAGNOSTIC | A2 / A4",
+                                        },
+                                        {
+                                            "type": "TextBlock",
+                                            "size": "Large",
+                                            "weight": "Bolder",
+                                            "wrap": True,
+                                            "spacing": "ExtraSmall",
+                                            "text": "FDAI Teams notification test",
+                                        },
+                                    ],
+                                },
+                                {
+                                    "type": "Column",
+                                    "width": "auto",
+                                    "verticalContentAlignment": "Center",
+                                    "items": [
+                                        {
+                                            "type": "TextBlock",
+                                            "size": "Small",
+                                            "weight": "Bolder",
+                                            "color": "Good",
+                                            "text": "[VERIFIED]",
+                                        }
+                                    ],
+                                },
+                            ],
                         },
                         {
                             "type": "TextBlock",
                             "wrap": True,
+                            "spacing": "Small",
                             "text": (
                                 "The one-time Teams Workflows notification diagnostic "
                                 "reached this channel."
                             ),
                         },
                         {
-                            "type": "FactSet",
-                            "facts": [{"title": "request_id", "value": request_id}],
+                            "type": "TextBlock",
+                            "wrap": True,
+                            "isSubtle": True,
+                            "size": "Small",
+                            "spacing": "ExtraSmall",
+                            "text": (
+                                "Teams Workflows 일회성 알림 진단 메시지가 이 채널에 "
+                                "정상 도달했습니다. 바인딩이 안전하게 저장 및 검증되었으며, "
+                                "배포에서 활성화하면 A2 운영 알림과 A4 예약 다이제스트 "
+                                "전달에 사용됩니다."
+                            ),
+                        },
+                        {
+                            "type": "Container",
+                            "style": "emphasis",
+                            "spacing": "Medium",
+                            "separator": True,
+                            "items": [
+                                {
+                                    "type": "FactSet",
+                                    "facts": facts,
+                                }
+                            ],
                         },
                     ],
                 },

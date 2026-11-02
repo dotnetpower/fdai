@@ -122,6 +122,12 @@ async def test_accepts_fixed_card_and_never_persists_url() -> None:
     assert URL not in repr(stored)
     attachment = calls[0][1]["attachments"][0]  # type: ignore[index]
     assert attachment["contentUrl"] is None
+    card_content = attachment["content"]
+    assert card_content["msteams"] == {"width": "Full"}
+    hero_image = card_content["body"][0]
+    assert hero_image["type"] == "Image"
+    assert hero_image["url"].startswith("data:image/png;base64,")
+    assert URL not in repr(calls[0][1])
 
 
 async def test_saves_and_verifies_before_sending_the_test_card() -> None:
