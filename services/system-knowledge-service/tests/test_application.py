@@ -208,6 +208,8 @@ async def test_real_outgoing_webhook_chain_returns_cited_replay_safe_answer(
             )
 
     assert first.status_code == replay.status_code == 200
+    assert first.headers["x-fdai-claim-state"] == "responded"
+    assert replay.headers["x-fdai-claim-state"] == "duplicate"
     assert replay.json() == first.json()
     assert first.json()["type"] == "message"
     assert "`execution_authority=false`" in first.json()["text"]

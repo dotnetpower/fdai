@@ -55,6 +55,7 @@ def test_workflow_verifies_health_blob_and_disabled_rollback() -> None:
     assert 'properties.healthState == "Healthy"' in text
     assert "az storage container show" in text
     assert "fdai-system-knowledge-teams.zip" in text
+    assert "(( ${{ steps.apply.outputs.elapsed_seconds }} <= 900 ))" in text
     assert "disabled System Knowledge Service state is not empty" in text
     assert "SYSTEM_KNOWLEDGE_INSTALLER_CLIENT_ID" in text
     assert "install_teams_app.py" in text

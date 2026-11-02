@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: a88ea37dbd2de4bd432eb2120b8254dff29b40dd
-translation_revised: 2026-11-01
+translation_source_sha: 9e907302010da1cd536d4b560a912a776726f3c4
+translation_revised: 2026-11-03
 ---
 # 시스템 지식 서비스
 
@@ -244,7 +244,10 @@ Framework 배포는 `bootstrap` transition을 사용하지 않습니다.
 로컬 구현은 서비스 소유 SQLite claim store를 사용합니다. 배포 구현은 기존 비공개 storage
 account의 Managed Identity Blob CAS(compare-and-swap) 원장을 사용합니다. Storage key,
 connection string 또는 file share를 만들지 않습니다. 시작할 때 container를 탐색하고 중단된
-`processing` claim을 제거하며 중단된 `sending` claim을 terminal `ambiguous`로 전환합니다. 첫
+`processing` claim을 제거하며 중단된 `sending` claim을 terminal `ambiguous`로 전환합니다.
+`SystemKnowledgeRuntime`과 `OutgoingWebhookKnowledgeRuntime` 모두 정확한 개정 재시작 이후에도
+`delivered`(`duplicate`)와 `ambiguous` terminal 상태를 보존하고 Outgoing Webhook HTTP 응답 헤더
+(`X-FDAI-Claim-State`)로 claim 상태를 노출합니다. 첫
 배포는 replica 하나를 유지합니다. 더 많은 replica는 동시성, 비용 및 롤백 근거로 서비스 분리
 scorecard를 닫을 때까지 차단됩니다.
 
@@ -252,9 +255,9 @@ scorecard를 닫을 때까지 차단됩니다.
 container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User` 및 replica
 하나의 Container App을 소유합니다. `bot_framework` 배포는 F0 Azure Bot 하나와 Teams channel도
 소유합니다. `outgoing_webhook` 배포는 Bot 또는 Graph resource를 소유하지 않고 bootstrap 후 Key
-Vault HMAC secret 하나를 선택적으로 결속합니다. 보호된 workflow는 기본적으로 plan-only 출력을
-만들고 apply 전에 정확한 CI, image attestation, plan 및 context digest와 명시적인 `bootstrap`,
-`enable` 또는 `disable` transition을 요구합니다.
+Vault HMAC secret 하나를 선택적으로 결속합니다. 배포 준비 단계는 digest로 고정된 GHCR 또는 플랫폼과
+일치하는 ACR 이미지를 허용하고 승인된 개발 예산 및 부모 서비스 20% 상한 안에서 월간 증분 비용
+추정치를 기록하며 명시적인 `bootstrap`, `enable` 및 15분 이내 `disable` transition을 보호합니다.
 
 ### 카탈로그 출처 갱신
 

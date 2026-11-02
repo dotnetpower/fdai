@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 Teams 봇 온보딩
 translation_of: system-knowledge-teams-onboarding.md
-translation_source_sha: 369c14ad44a68ae23131fe4de412e3cd8577ad11
-translation_revised: 2026-09-16
+translation_source_sha: 371a73a626620443865c311c7a7ec0b6efefc6d7
+translation_revised: 2026-11-03
 ---
 # 시스템 지식 Teams 봇 온보딩
 
@@ -134,7 +134,7 @@ Key를 chat, 명령 인자, file 또는 workflow input에 붙여 넣지 않습�
 
 ## 배포 plan
 
-정확한 필수 CI 개정의 attested image digest를 확인한 뒤 plan-only를 실행합니다.
+정확한 개정에 대해 digest로 고정된 GHCR 또는 플랫폼 ACR 이미지를 확인한 뒤 plan-only를 실행합니다.
 
 ```bash
 gh workflow run system-knowledge-deploy.yml \
@@ -145,8 +145,9 @@ gh workflow run system-knowledge-deploy.yml \
 ```
 
 모든 plan에는 전용 UAMI, 비공개 claim container, 최소 role assignment 세 개, replica 하나의
-Container App 및 `execution_authority=false` 계약이 있어야 합니다. Bot Framework plan에는 F0
-Azure Bot과 Teams channel도 있습니다. Outgoing Webhook plan에는 두 resource가 없어야 합니다.
+Container App, 승인된 개발 예산 안의 증분 비용 증적 및 `execution_authority=false` 계약이 있어야
+합니다. Bot Framework plan에는 F0 Azure Bot과 Teams channel도 있습니다. Outgoing Webhook plan에는
+두 resource가 없어야 합니다.
 
 Workflow summary에서 plan run id, attempt, plan digest 및 context digest를 기록합니다.
 

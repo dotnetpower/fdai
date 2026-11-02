@@ -248,6 +248,9 @@ The local implementation uses a service-owned SQLite claim store. The deployed i
 a Managed Identity Blob compare-and-swap (CAS) ledger in a private existing storage account. It
 creates no storage key, connection string, or file share. Startup probes the container, removes
 interrupted `processing` claims, and converts interrupted `sending` claims to terminal `ambiguous`.
+Both `SystemKnowledgeRuntime` and `OutgoingWebhookKnowledgeRuntime` preserve `delivered` (`duplicate`)
+and `ambiguous` terminal states across exact-revision restarts and surface the claim state on the
+Outgoing Webhook HTTP response header (`X-FDAI-Claim-State`).
 The first deployment retains one replica; higher replica counts remain blocked until concurrency,
 cost, and rollback evidence closes the service-graduation scorecard.
 
@@ -255,9 +258,10 @@ The standalone Terraform root always owns one dedicated user-assigned managed id
 private claim container, `AcrPull`, `Storage Blob Data Contributor`, `Key Vault Secrets User`, and
 one single-replica Container App. A `bot_framework` deployment also owns one F0 Azure Bot and Teams
 channel. An `outgoing_webhook` deployment owns no Bot or Graph resource and optionally binds one
-Key Vault HMAC secret after bootstrap. A protected workflow creates plan-only output by default and
-requires exact CI, image attestations, plan and context digests, and an explicit `bootstrap`,
-`enable`, or `disable` transition before apply.
+Key Vault HMAC secret after bootstrap. Deployment preparation accepts digest-pinned GHCR or
+platform-matched ACR images, records the bounded monthly incremental cost estimate inside the
+approved development budget and 20% parent-service ceiling, and guards explicit `bootstrap`,
+`enable`, and under-15-minute `disable` transitions.
 
 ### Catalog provenance refresh
 
