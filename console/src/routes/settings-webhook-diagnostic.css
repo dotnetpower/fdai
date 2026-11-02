@@ -37,10 +37,231 @@
   min-width: 0;
 }
 
-.settings-webhook-diagnostic-field span {
+.settings-webhook-diagnostic-field span,
+.settings-webhook-diagnostic-field > label {
   color: var(--fg-muted);
   font-size: 0.78rem;
   font-weight: 650;
+}
+
+.settings-teams-workflow-url-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.settings-teams-workflow-url-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-teams-workflow-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.settings-teams-workflow-icon-btn:hover:not(:disabled) {
+  border-color: var(--fg-muted);
+  color: var(--fg);
+}
+
+.settings-teams-workflow-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-teams-workflow-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.settings-teams-workflow-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-teams-workflow-channel-selector {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.settings-teams-workflow-channel-selector-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.settings-teams-workflow-channel-selector-head strong {
+  font-size: 0.82rem;
+}
+
+.settings-teams-workflow-channel-selector-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-teams-workflow-channel-selector > p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.settings-teams-workflow-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.settings-teams-workflow-checkbox-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.settings-teams-workflow-checkbox-option.is-checked {
+  border-color: var(--accent);
+}
+
+.settings-teams-workflow-checkbox-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.settings-teams-workflow-checkbox-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-teams-workflow-checkbox-copy strong {
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.settings-teams-workflow-checkbox-copy small {
+  color: var(--fg-muted);
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.settings-teams-workflow-saved-channels {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-teams-workflow-saved-channel-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.settings-teams-workflow-saved-channel-row.is-checked {
+  border-color: var(--accent);
+}
+
+.settings-teams-workflow-saved-channel-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-teams-workflow-saved-channel-info strong {
+  font-size: 0.8rem;
+}
+
+.settings-teams-workflow-saved-channel-info code {
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-size: 0.74rem;
+}
+
+.settings-teams-workflow-label-input {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.settings-teams-workflow-label-input > label {
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.settings-teams-workflow-email-recipient {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.settings-teams-workflow-email-recipient > p {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.settings-teams-workflow-email-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.settings-teams-workflow-email-modes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-teams-workflow-email-modes input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.settings-teams-workflow-email-custom-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .settings-teams-workflow-setup .settings-webhook-diagnostic-field {
@@ -329,6 +550,11 @@
   .settings-webhook-diagnostic-form .btn {
     width: 100%;
     min-height: 44px;
+  }
+
+  .settings-teams-workflow-icon-btn {
+    width: 44px;
+    height: 44px;
   }
 
   .settings-teams-workflow-setup .settings-webhook-diagnostic-form > .btn {

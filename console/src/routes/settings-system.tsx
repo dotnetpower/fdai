@@ -37,11 +37,19 @@ import {
 } from "./settings-slack-webhook.model";
 import {
   loadTeamsWorkflowBinding,
+  revealTeamsWorkflowBinding,
   testTeamsWorkflowWebhook,
 } from "./settings-teams-workflow.command";
 import {
+  ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
   canSubmitTeamsWorkflow,
+  DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
+  maskSavedTeamsWorkflowUrl,
   newTeamsWorkflowTestRequestId,
+  resolveTeamsDeliveryTargets,
+  resolveTeamsWorkflowChannels,
+  type TeamsEmailRecipientMode,
+  type TeamsNotificationDeliveryTargetKey,
   type TeamsWorkflowSavedBinding,
   type TeamsWorkflowTestResult,
 } from "./settings-teams-workflow.model";
@@ -132,7 +140,8 @@ export function personalNotificationPrincipalLabel(auth: AuthContext): string | 
 
 export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
-  const runtimeSettings = useRuntimeSettings(client);
+  const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const runtimeSettings = useRuntimeSettings(client, refreshEpoch);
   const incidentEmailTemplate = useIncidentEmailTemplate(client);
 
   usePublishViewContext(
@@ -225,6 +234,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                   auth={auth}
                   operatorApiBaseUrl={client.operatorApiBaseUrl}
                   canManage={runtime.canManage}
+                  onBindingChanged={() => setRefreshEpoch((value) => value + 1)}
                 />
                 <SlackWebhookTestPanel
                   auth={auth}
@@ -391,17 +401,22 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
   );
 }
 
-function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettingsView> {
+function useRuntimeSettings(
+  client: OperatorApiClient,
+  refreshEpoch = 0,
+): AsyncState<RuntimeSettingsView> {
   const [state, setState] = useState<AsyncState<RuntimeSettingsView>>({ status: "loading" });
   useEffect(() => {
     let active = true;
-    setState({ status: "loading" });
+    if (refreshEpoch === 0) {
+      setState({ status: "loading" });
+    }
     void (async () => {
       try {
         const data = decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings"));
         if (active) setState({ status: "ready", data });
       } catch (reason) {
-        if (active) {
+        if (active && refreshEpoch === 0) {
           setState({
             status: "error",
             message: reason instanceof Error ? reason.message : String(reason),
@@ -412,7 +427,7 @@ function useRuntimeSettings(client: OperatorApiClient): AsyncState<RuntimeSettin
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, refreshEpoch]);
   return state;
 }
 
@@ -447,22 +462,57 @@ function TeamsWorkflowTestPanel({
   auth,
   operatorApiBaseUrl,
   canManage,
+  onBindingChanged,
 }: {
   readonly auth: AuthContext;
   readonly operatorApiBaseUrl: string;
   readonly canManage: boolean;
+  readonly onBindingChanged?: () => void;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [channelLabel, setChannelLabel] = useState("");
+  const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+  const [isUrlRevealed, setIsUrlRevealed] = useState(false);
+  const [revealedBinding, setRevealedBinding] = useState<{
+    readonly bindingVersion: string;
+    readonly webhookUrl: string;
+  } | null>(null);
+  const [revealedChannelUrls, setRevealedChannelUrls] = useState<Readonly<Record<string, string>>>({});
+  const [urlCopied, setUrlCopied] = useState(false);
+  const copyTimerRef = useRef<number | null>(null);
+  const preferenceGenerationRef = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [bindingError, setBindingError] = useState<string | null>(null);
   const [bindingVisibility, setBindingVisibility] = useState<
     "loading" | "hidden" | "visible" | "missing"
   >("loading");
   const [bindingSaved, setBindingSaved] = useState<TeamsWorkflowSavedBinding | null>(null);
+  const [selectedTargets, setSelectedTargets] = useState<
+    readonly TeamsNotificationDeliveryTargetKey[]
+  >(DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS);
+  const [emailRecipientMode, setEmailRecipientMode] =
+    useState<TeamsEmailRecipientMode>("login");
+  const [customEmail, setCustomEmail] = useState("");
   const [result, setResult] = useState<TeamsWorkflowTestResult | null>(null);
   const accountIsValid = !accountHint.trim() || isEmailStyleUserPrincipalName(accountHint.trim());
+  const customEmailIsValid =
+    emailRecipientMode !== "custom"
+    || (Boolean(customEmail.trim()) && isEmailStyleUserPrincipalName(customEmail.trim()));
+  const loginEmail =
+    auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable");
+  const effectiveRecipientEmail =
+    emailRecipientMode === "custom" && customEmail.trim()
+      ? customEmail.trim()
+      : loginEmail;
+
+  useEffect(() => () => {
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -478,14 +528,21 @@ function TeamsWorkflowTestPanel({
           setBindingVisibility("missing");
           return;
         }
-        // The saved URL is password-equivalent and is never returned, so the
-        // field stays empty and an Owner replaces the binding by submitting a
-        // new URL.
+        const resolvedTargets = resolveTeamsDeliveryTargets(binding);
+        const resolvedEmailMode = binding.emailRecipientMode ?? "login";
+        const resolvedCustomEmail = binding.customEmail ?? "";
+        setSelectedTargets(resolvedTargets);
+        setEmailRecipientMode(resolvedEmailMode);
+        setCustomEmail(resolvedCustomEmail);
         setBindingSaved({
           bindingVersion: binding.bindingVersion,
           endpointIdentifier: binding.endpointIdentifier,
           savedAt: binding.savedAt,
           observedAt: binding.observedAt,
+          channels: resolveTeamsWorkflowChannels(binding),
+          deliveryTargets: resolvedTargets,
+          emailRecipientMode: resolvedEmailMode,
+          customEmail: resolvedCustomEmail,
         });
         setBindingVisibility("visible");
       } catch (reason) {
@@ -499,6 +556,294 @@ function TeamsWorkflowTestPanel({
     };
   }, [auth, operatorApiBaseUrl]);
 
+  const markUrlCopied = () => {
+    setUrlCopied(true);
+    if (copyTimerRef.current !== null) {
+      window.clearTimeout(copyTimerRef.current);
+    }
+    copyTimerRef.current = window.setTimeout(() => {
+      setUrlCopied(false);
+      copyTimerRef.current = null;
+    }, 1500);
+  };
+
+  const toggleRevealSavedUrl = async () => {
+    if (testing || revealing || !bindingSaved) return;
+    if (isUrlRevealed) {
+      setIsUrlRevealed(false);
+      setIsEditingUrl(false);
+      return;
+    }
+    if (revealedBinding && revealedBinding.bindingVersion === bindingSaved.bindingVersion) {
+      setWebhookUrl("");
+      setIsEditingUrl(false);
+      setIsUrlRevealed(true);
+      return;
+    }
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      const revealed = await revealTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      setRevealedBinding({
+        bindingVersion: revealed.bindingVersion,
+        webhookUrl: revealed.webhookUrl,
+      });
+      setWebhookUrl("");
+      setIsEditingUrl(false);
+      setIsUrlRevealed(true);
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const copySavedOrDraftUrl = async () => {
+    if (testing || revealing) return;
+    const draft = webhookUrl.trim();
+    if (draft) {
+      try {
+        await navigator.clipboard.writeText(draft);
+        markUrlCopied();
+      } catch {
+        /* clipboard unavailable in non-secure context */
+      }
+      return;
+    }
+    if (!bindingSaved) return;
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      let fullUrl =
+        revealedBinding && revealedBinding.bindingVersion === bindingSaved.bindingVersion
+          ? revealedBinding.webhookUrl
+          : null;
+      if (!fullUrl) {
+        const revealed = await revealTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+        setRevealedBinding({
+          bindingVersion: revealed.bindingVersion,
+          webhookUrl: revealed.webhookUrl,
+        });
+        fullUrl = revealed.webhookUrl;
+      }
+      await navigator.clipboard.writeText(fullUrl);
+      markUrlCopied();
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const persistChannelPreferences = async (options: {
+    readonly selectedChannelIds?: readonly string[];
+    readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
+    readonly removeChannelId?: string;
+    readonly emailRecipientMode?: TeamsEmailRecipientMode;
+    readonly customEmail?: string;
+  }) => {
+    if (!canManage || !bindingSaved) return;
+    const generation = ++preferenceGenerationRef.current;
+    setBindingError(null);
+    try {
+      await testTeamsWorkflowWebhook(
+        auth,
+        operatorApiBaseUrl,
+        "",
+        newTeamsWorkflowTestRequestId(),
+        {
+          ...(options.selectedChannelIds !== undefined
+            ? { selectedChannelIds: options.selectedChannelIds }
+            : {}),
+          ...(options.deliveryTargets !== undefined
+            ? { deliveryTargets: options.deliveryTargets }
+            : {}),
+          ...(options.removeChannelId !== undefined
+            ? { removeChannelId: options.removeChannelId }
+            : {}),
+          ...(options.emailRecipientMode !== undefined
+            ? { emailRecipientMode: options.emailRecipientMode }
+            : {}),
+          ...(options.customEmail !== undefined
+            ? { customEmail: options.customEmail }
+            : {}),
+          selectionOnly: true,
+        },
+      );
+      const refreshed = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      if (preferenceGenerationRef.current !== generation) return;
+      if (refreshed.visible && refreshed.configured) {
+        const nextTargets =
+          refreshed.deliveryTargets !== undefined
+            ? resolveTeamsDeliveryTargets(refreshed)
+            : options.deliveryTargets ?? selectedTargets;
+        const nextEmailMode =
+          refreshed.emailRecipientMode
+          ?? options.emailRecipientMode
+          ?? emailRecipientMode;
+        const nextCustomEmail =
+          refreshed.customEmail !== undefined
+            ? refreshed.customEmail
+            : options.customEmail ?? customEmail;
+        setSelectedTargets(nextTargets);
+        setEmailRecipientMode(nextEmailMode);
+        setCustomEmail(nextCustomEmail);
+        setBindingSaved((current) => ({
+          bindingVersion: refreshed.bindingVersion,
+          endpointIdentifier: refreshed.endpointIdentifier,
+          savedAt: refreshed.savedAt,
+          observedAt: refreshed.observedAt,
+          channels:
+            refreshed.channels !== undefined
+              ? resolveTeamsWorkflowChannels(refreshed)
+              : current?.channels ?? resolveTeamsWorkflowChannels(refreshed),
+          deliveryTargets: nextTargets,
+          emailRecipientMode: nextEmailMode,
+          customEmail: nextCustomEmail,
+        }));
+        onBindingChanged?.();
+      }
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const selectEmailRecipientMode = (nextMode: TeamsEmailRecipientMode) => {
+    if (!canManage || testing) return;
+    setEmailRecipientMode(nextMode);
+    if (nextMode === "login" && bindingSaved) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode: "login",
+        customEmail: customEmail.trim(),
+      });
+    } else if (
+      nextMode === "custom"
+      && bindingSaved
+      && customEmail.trim()
+      && isEmailStyleUserPrincipalName(customEmail.trim())
+    ) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode: "custom",
+        customEmail: customEmail.trim(),
+      });
+    }
+  };
+
+  const saveCustomRecipientEmail = () => {
+    if (!canManage || testing || !customEmailIsValid) return;
+    if (bindingSaved) {
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: selectedTargets,
+        emailRecipientMode,
+        customEmail: customEmail.trim(),
+      });
+    }
+  };
+
+  const toggleDeliveryTarget = (target: TeamsNotificationDeliveryTargetKey) => {
+    if (!canManage || testing) return;
+    const exists = selectedTargets.includes(target);
+    if (exists && selectedTargets.length <= 1) return;
+    const next = exists
+      ? selectedTargets.filter((item) => item !== target)
+      : [...selectedTargets, target];
+    setSelectedTargets(next);
+    if (bindingSaved) {
+      setBindingSaved({ ...bindingSaved, deliveryTargets: next });
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: next,
+      });
+    }
+  };
+
+  const applyDeliveryTargetsPreset = (
+    next: readonly TeamsNotificationDeliveryTargetKey[],
+  ) => {
+    if (!canManage || testing) return;
+    setSelectedTargets(next);
+    if (bindingSaved) {
+      setBindingSaved({ ...bindingSaved, deliveryTargets: next });
+      void persistChannelPreferences({
+        selectedChannelIds: bindingSaved.channels
+          .filter((ch) => ch.enabled)
+          .map((ch) => ch.channelId),
+        deliveryTargets: next,
+      });
+    }
+  };
+
+  const toggleSavedChannel = (channelId: string) => {
+    if (!canManage || testing || !bindingSaved) return;
+    const enabledCount = bindingSaved.channels.filter((ch) => ch.enabled).length;
+    const targetChannel = bindingSaved.channels.find((ch) => ch.channelId === channelId);
+    if (!targetChannel) return;
+    if (targetChannel.enabled && enabledCount <= 1) return;
+    const nextChannels = bindingSaved.channels.map((ch) =>
+      ch.channelId === channelId ? { ...ch, enabled: !ch.enabled } : ch,
+    );
+    setBindingSaved({ ...bindingSaved, channels: nextChannels });
+    void persistChannelPreferences({
+      selectedChannelIds: nextChannels.filter((ch) => ch.enabled).map((ch) => ch.channelId),
+      deliveryTargets: selectedTargets,
+    });
+  };
+
+  const removeSavedChannel = (channelId: string) => {
+    if (!canManage || testing || !bindingSaved || bindingSaved.channels.length <= 1) return;
+    if (channelId in revealedChannelUrls) {
+      const nextRevealed = { ...revealedChannelUrls };
+      delete nextRevealed[channelId];
+      setRevealedChannelUrls(nextRevealed);
+    }
+    const remaining = bindingSaved.channels.filter((ch) => ch.channelId !== channelId);
+    const normalized = remaining.some((ch) => ch.enabled)
+      ? remaining
+      : remaining.map((ch, index) => (index === 0 ? { ...ch, enabled: true } : ch));
+    setBindingSaved({ ...bindingSaved, channels: normalized });
+    void persistChannelPreferences({
+      selectedChannelIds: normalized.filter((ch) => ch.enabled).map((ch) => ch.channelId),
+      deliveryTargets: selectedTargets,
+      removeChannelId: channelId,
+    });
+  };
+
+  const toggleRevealChannelRow = async (channelId: string) => {
+    if (testing || revealing) return;
+    if (channelId in revealedChannelUrls) {
+      const next = { ...revealedChannelUrls };
+      delete next[channelId];
+      setRevealedChannelUrls(next);
+      return;
+    }
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      const revealed = await revealTeamsWorkflowBinding(auth, operatorApiBaseUrl, channelId);
+      setRevealedChannelUrls({
+        ...revealedChannelUrls,
+        [channelId]: revealed.webhookUrl,
+      });
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     if (
@@ -507,7 +852,15 @@ function TeamsWorkflowTestPanel({
       || !canSubmitTeamsWorkflow(webhookUrl, bindingSaved !== null)
     ) return;
     const submittedUrl = webhookUrl.trim();
+    const submittedLabel = channelLabel.trim();
     setWebhookUrl("");
+    setChannelLabel("");
+    setIsEditingUrl(false);
+    setIsUrlRevealed(false);
+    if (submittedUrl) {
+      setRevealedBinding(null);
+      setRevealedChannelUrls({});
+    }
     setTesting(true);
     setError(null);
     setResult(null);
@@ -517,18 +870,44 @@ function TeamsWorkflowTestPanel({
         operatorApiBaseUrl,
         submittedUrl,
         newTeamsWorkflowTestRequestId(),
+        {
+          ...(submittedLabel ? { channelLabel: submittedLabel } : {}),
+          ...(bindingSaved
+            ? {
+                selectedChannelIds: bindingSaved.channels
+                  .filter((ch) => ch.enabled)
+                  .map((ch) => ch.channelId),
+              }
+            : {}),
+          deliveryTargets: selectedTargets,
+        },
       );
       const refreshedBinding = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
       if (!refreshedBinding.visible || !refreshedBinding.configured) {
         throw new Error("Saved Teams Workflow binding metadata is unavailable");
       }
+      const nextTargets = resolveTeamsDeliveryTargets(refreshedBinding);
+      const nextEmailMode =
+        refreshedBinding.emailRecipientMode ?? emailRecipientMode;
+      const nextCustomEmail =
+        refreshedBinding.customEmail !== undefined
+          ? refreshedBinding.customEmail
+          : customEmail;
+      setSelectedTargets(nextTargets);
+      setEmailRecipientMode(nextEmailMode);
+      setCustomEmail(nextCustomEmail);
       setBindingSaved({
         bindingVersion: saved.bindingVersion,
         endpointIdentifier: refreshedBinding.endpointIdentifier,
         savedAt: saved.savedAt,
         observedAt: saved.testedAt,
+        channels: resolveTeamsWorkflowChannels(refreshedBinding),
+        deliveryTargets: nextTargets,
+        emailRecipientMode: nextEmailMode,
+        customEmail: nextCustomEmail,
       });
       setBindingVisibility("visible");
+      onBindingChanged?.();
       if (!saved.accepted) {
         setError(
           saved.providerStatus > 0
@@ -544,6 +923,19 @@ function TeamsWorkflowTestPanel({
       setTesting(false);
     }
   };
+
+  const displayedWebhookUrl =
+    webhookUrl !== "" || (canManage && isEditingUrl && !isUrlRevealed)
+      ? webhookUrl
+      : isUrlRevealed
+          && revealedBinding
+          && bindingSaved
+          && revealedBinding.bindingVersion === bindingSaved.bindingVersion
+        ? revealedBinding.webhookUrl
+        : bindingSaved
+          ? maskSavedTeamsWorkflowUrl(bindingSaved.endpointIdentifier)
+          : "";
+  const canInspectSavedUrl = bindingSaved !== null;
 
   return (
     <div class="settings-webhook-diagnostic settings-teams-workflow-setup">
@@ -796,33 +1188,134 @@ function TeamsWorkflowTestPanel({
                 class="settings-webhook-diagnostic-form"
                 onSubmit={(event) => { void submit(event); }}
               >
-                <label class="settings-webhook-diagnostic-field">
-                <span>{settingsIntegrationsText("saveUrlLabel")}</span>
-                <input
-                  class="form-input"
-                  type="text"
-                  inputMode="url"
-                  autocomplete="off"
-                  data-1p-ignore
-                  data-bwignore
-                  data-lpignore="true"
-                  spellcheck={false}
-                  maxlength={4096}
-                  value={webhookUrl}
-                  readOnly={!canManage}
-                  disabled={testing}
-                  placeholder={
-                    bindingSaved?.endpointIdentifier
-                    ?? t("settings.teamsWorkflowTest.urlPlaceholder")
-                  }
-                  onInput={(event) => setWebhookUrl(event.currentTarget.value)}
-                />
-                {!canManage ? (
-                  <small class="settings-webhook-diagnostic-help">
-                    {settingsIntegrationsText("contributorReadOnly")}
-                  </small>
-                ) : null}
-                </label>
+                <div class="settings-webhook-diagnostic-field">
+                  <label for="teams-workflow-webhook-url">
+                    {settingsIntegrationsText("saveUrlLabel")}
+                  </label>
+                  <div class="settings-teams-workflow-url-control">
+                    <input
+                      id="teams-workflow-webhook-url"
+                      class="form-input"
+                      type="text"
+                      inputMode="url"
+                      autocomplete="off"
+                      data-1p-ignore
+                      data-bwignore
+                      data-lpignore="true"
+                      spellcheck={false}
+                      maxlength={4096}
+                      value={displayedWebhookUrl}
+                      readOnly={!canManage}
+                      disabled={testing}
+                      placeholder={
+                        bindingSaved?.endpointIdentifier
+                        ?? t("settings.teamsWorkflowTest.urlPlaceholder")
+                      }
+                      onFocus={() => {
+                        if (canManage && !isUrlRevealed && !webhookUrl) {
+                          setIsEditingUrl(true);
+                        }
+                      }}
+                      onBlur={() => {
+                        if (!webhookUrl.trim()) {
+                          setIsEditingUrl(false);
+                        }
+                      }}
+                      onInput={(event) => {
+                        setIsUrlRevealed(false);
+                        setIsEditingUrl(true);
+                        setWebhookUrl(event.currentTarget.value);
+                      }}
+                    />
+                    {canInspectSavedUrl ? (
+                      <div class="settings-teams-workflow-url-actions">
+                        <button
+                          type="button"
+                          class="settings-teams-workflow-icon-btn"
+                          disabled={testing || revealing}
+                          aria-pressed={isUrlRevealed}
+                          aria-label={
+                            isUrlRevealed
+                              ? settingsIntegrationsText("hideSavedUrl")
+                              : settingsIntegrationsText("revealSavedUrl")
+                          }
+                          onClick={() => {
+                            void toggleRevealSavedUrl();
+                          }}
+                        >
+                          {isUrlRevealed ? (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                              <line x1="1" y1="1" x2="23" y2="23" />
+                            </svg>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          class="settings-teams-workflow-icon-btn"
+                          disabled={testing || revealing}
+                          aria-label={
+                            urlCopied
+                              ? t("shared.copied")
+                              : settingsIntegrationsText("copySavedUrl")
+                          }
+                          onClick={() => {
+                            void copySavedOrDraftUrl();
+                          }}
+                        >
+                          {urlCopied ? (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="2"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              aria-hidden="true"
+                            >
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
                 {canManage ? (
                 <button
                   type="submit"
@@ -840,7 +1333,9 @@ function TeamsWorkflowTestPanel({
                 </button>
                 ) : null}
                 <small class="settings-webhook-diagnostic-help">
-                  {settingsIntegrationsText("bindingNeverReturned")}
+                  {canManage
+                    ? settingsIntegrationsText("bindingNeverReturned")
+                    : settingsIntegrationsText("contributorReadOnly")}
                 </small>
               </form>
             ) : bindingVisibility === "loading" ? (
@@ -856,6 +1351,295 @@ function TeamsWorkflowTestPanel({
                 {settingsIntegrationsText("bindingMissing")}
               </div>
             )}
+            {canManage || bindingVisibility === "visible" ? (
+              <div class="settings-teams-workflow-channel-selector">
+                <div class="settings-teams-workflow-channel-selector-head">
+                  <strong>{settingsIntegrationsText("channelSelectionTitle")}</strong>
+                  <div class="settings-teams-workflow-channel-selector-actions">
+                    <StatusPill
+                      kind={selectedTargets.length > 1 ? "success" : "neutral"}
+                      label={
+                        selectedTargets.length > 1
+                          ? settingsIntegrationsText("channelModeMultiple", {
+                              count: selectedTargets.length,
+                            })
+                          : settingsIntegrationsText("channelModeSingle")
+                      }
+                    />
+                    {canManage ? (
+                      <>
+                        <button
+                          type="button"
+                          class="btn btn-small"
+                          disabled={
+                            testing
+                            || selectedTargets.length
+                              === ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS.length
+                          }
+                          onClick={() =>
+                            applyDeliveryTargetsPreset(ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS)
+                          }
+                        >
+                          {settingsIntegrationsText("selectAllChannels")}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-small"
+                          disabled={
+                            testing
+                            || (selectedTargets.length === 1
+                              && selectedTargets[0] === "teams-a2-operational-alert")
+                          }
+                          onClick={() =>
+                            applyDeliveryTargetsPreset(["teams-a2-operational-alert"])
+                          }
+                        >
+                          {settingsIntegrationsText("selectSingleChannel")}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                <p>{settingsIntegrationsText("channelSelectionHint")}</p>
+                <div class="settings-teams-workflow-checkbox-grid">
+                  {ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS.map((targetKey) => {
+                    const checked = selectedTargets.includes(targetKey);
+                    return (
+                      <label
+                        key={targetKey}
+                        class={`settings-teams-workflow-checkbox-option${
+                          checked ? " is-checked" : ""
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!canManage || testing}
+                          onChange={() => toggleDeliveryTarget(targetKey)}
+                        />
+                        <span class="settings-teams-workflow-checkbox-copy">
+                          <strong>
+                            {settingsIntegrationsText(`target.${targetKey}.label`)}
+                          </strong>
+                          <small>
+                            {settingsIntegrationsText(`target.${targetKey}.hint`)}
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div class="settings-teams-workflow-email-recipient">
+                  <div class="settings-teams-workflow-channel-selector-head">
+                    <strong>{settingsIntegrationsText("emailRecipientTitle")}</strong>
+                    <StatusPill
+                      kind="neutral"
+                      label={settingsIntegrationsText("emailRecipientActivePill", {
+                        email: effectiveRecipientEmail,
+                      })}
+                    />
+                  </div>
+                  <p>{settingsIntegrationsText("emailRecipientHint")}</p>
+                  <div class="settings-teams-workflow-email-modes">
+                    <label>
+                      <input
+                        type="radio"
+                        name="teams-workflow-email-recipient-mode"
+                        checked={emailRecipientMode === "login"}
+                        disabled={!canManage || testing}
+                        onChange={() => selectEmailRecipientMode("login")}
+                      />
+                      <span>
+                        {settingsIntegrationsText("emailRecipientModeLogin", {
+                          email: loginEmail,
+                        })}
+                      </span>
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="teams-workflow-email-recipient-mode"
+                        checked={emailRecipientMode === "custom"}
+                        disabled={!canManage || testing}
+                        onChange={() => selectEmailRecipientMode("custom")}
+                      />
+                      <span>{settingsIntegrationsText("emailRecipientModeCustom")}</span>
+                    </label>
+                  </div>
+                  {emailRecipientMode === "custom" ? (
+                    <div class="settings-teams-workflow-email-custom-row">
+                      <input
+                        class="form-input"
+                        type="email"
+                        maxlength={254}
+                        aria-label={settingsIntegrationsText("emailRecipientCustomLabel")}
+                        aria-invalid={!customEmailIsValid ? "true" : undefined}
+                        value={customEmail}
+                        disabled={!canManage || testing}
+                        placeholder={settingsIntegrationsText(
+                          "emailRecipientCustomPlaceholder",
+                        )}
+                        onInput={(event) => setCustomEmail(event.currentTarget.value)}
+                      />
+                      {canManage ? (
+                        <button
+                          type="button"
+                          class="btn btn-small primary"
+                          disabled={
+                            testing
+                            || !customEmail.trim()
+                            || !customEmailIsValid
+                          }
+                          onClick={() => saveCustomRecipientEmail()}
+                        >
+                          {settingsIntegrationsText("emailRecipientSave")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+                {bindingSaved && bindingSaved.channels.length > 0 ? (
+                  <div class="settings-teams-workflow-saved-channels">
+                    <div class="settings-teams-workflow-channel-selector-head">
+                      <strong>{settingsIntegrationsText("savedTeamsChannelsTitle")}</strong>
+                      <StatusPill
+                        kind={
+                          bindingSaved.channels.filter((ch) => ch.enabled).length > 1
+                            ? "success"
+                            : "neutral"
+                        }
+                        label={
+                          bindingSaved.channels.filter((ch) => ch.enabled).length > 1
+                            ? settingsIntegrationsText("channelModeMultiple", {
+                                count: bindingSaved.channels.filter((ch) => ch.enabled).length,
+                              })
+                            : settingsIntegrationsText("channelModeSingle")
+                        }
+                      />
+                    </div>
+                    <p>{settingsIntegrationsText("savedTeamsChannelsHint")}</p>
+                    {canManage ? (
+                      <div class="settings-teams-workflow-label-input">
+                        <label for="teams-workflow-channel-label">
+                          {settingsIntegrationsText("channelLabelInput")}
+                        </label>
+                        <input
+                          id="teams-workflow-channel-label"
+                          class="form-input"
+                          type="text"
+                          maxlength={80}
+                          disabled={testing}
+                          value={channelLabel}
+                          placeholder={settingsIntegrationsText("channelLabelPlaceholder")}
+                          onInput={(event) => setChannelLabel(event.currentTarget.value)}
+                        />
+                      </div>
+                    ) : null}
+                    {bindingSaved.channels.map((channel) => {
+                      const rowRevealedUrl = revealedChannelUrls[channel.channelId];
+                      return (
+                        <div
+                          key={channel.channelId}
+                          class={`settings-teams-workflow-saved-channel-row${
+                            channel.enabled ? " is-checked" : ""
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={channel.enabled}
+                            disabled={!canManage || testing}
+                            aria-label={channel.label}
+                            onChange={() => toggleSavedChannel(channel.channelId)}
+                          />
+                          <div class="settings-teams-workflow-saved-channel-info">
+                            <strong>{channel.label}</strong>
+                            <code>
+                              {rowRevealedUrl
+                                ?? maskSavedTeamsWorkflowUrl(channel.endpointIdentifier)}
+                            </code>
+                          </div>
+                          <div class="settings-teams-workflow-url-actions">
+                            <button
+                              type="button"
+                              class="settings-teams-workflow-icon-btn"
+                              disabled={testing || revealing}
+                              aria-pressed={Boolean(rowRevealedUrl)}
+                              aria-label={
+                                rowRevealedUrl
+                                  ? settingsIntegrationsText("hideChannelUrl", {
+                                      label: channel.label,
+                                    })
+                                  : settingsIntegrationsText("revealChannelUrl", {
+                                      label: channel.label,
+                                    })
+                              }
+                              onClick={() => {
+                                void toggleRevealChannelRow(channel.channelId);
+                              }}
+                            >
+                              {rowRevealedUrl ? (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                  <line x1="1" y1="1" x2="23" y2="23" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                  <circle cx="12" cy="12" r="3" />
+                                </svg>
+                              )}
+                            </button>
+                            {canManage && bindingSaved.channels.length > 1 ? (
+                              <button
+                                type="button"
+                                class="settings-teams-workflow-icon-btn"
+                                disabled={testing || revealing}
+                                aria-label={settingsIntegrationsText("removeChannel", {
+                                  label: channel.label,
+                                })}
+                                onClick={() => removeSavedChannel(channel.channelId)}
+                              >
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <polyline points="3 6 5 6 21 6" />
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                  <path d="M10 11v6" />
+                                  <path d="M14 11v6" />
+                                </svg>
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {bindingSaved ? (
               <>
                 <p class="settings-teams-workflow-binding-state">
@@ -1089,6 +1873,30 @@ function integrationLabel(key: string): string {
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Label");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Label");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Label");
+    case "operational-evidence.agent-discussion-read":
+      return settingsIntegrationsText("opEvidence.agent-discussion-read.label");
+    case "operational-evidence.case-history-read":
+      return settingsIntegrationsText("opEvidence.case-history-read.label");
+    case "operational-evidence.current-case-reuse":
+      return settingsIntegrationsText("opEvidence.current-case-reuse.label");
+    case "operational-evidence.forecast-context":
+      return settingsIntegrationsText("opEvidence.forecast-context.label");
+    case "operational-evidence.forecast-history-actions":
+      return settingsIntegrationsText("opEvidence.forecast-history-actions.label");
+    case "operational-evidence.forecast-history-changes":
+      return settingsIntegrationsText("opEvidence.forecast-history-changes.label");
+    case "operational-evidence.forecast-history-excluded_windows":
+      return settingsIntegrationsText("opEvidence.forecast-history-excluded_windows.label");
+    case "operational-evidence.forecast-history-resource_lifecycle":
+      return settingsIntegrationsText("opEvidence.forecast-history-resource_lifecycle.label");
+    case "operational-evidence.operational-test-context":
+      return settingsIntegrationsText("opEvidence.operational-test-context.label");
+    case "operational-evidence.operational-test-observation":
+      return settingsIntegrationsText("opEvidence.operational-test-observation.label");
+    case "operational-evidence.operator-test-context-command":
+      return settingsIntegrationsText("opEvidence.operator-test-context-command.label");
+    case "operational-evidence.test-context-transition":
+      return settingsIntegrationsText("opEvidence.test-context-transition.label");
     default: return t(`settings.integrations.${key}.label`);
   }
 }
@@ -1100,6 +1908,30 @@ function integrationHint(key: string): string {
     case "teams-a2-operational-alert": return settingsIntegrationsText("teamsA2Hint");
     case "teams-a4-digest": return settingsIntegrationsText("teamsA4Hint");
     case "teams-a3-conversation": return settingsIntegrationsText("teamsA3Hint");
+    case "operational-evidence.agent-discussion-read":
+      return settingsIntegrationsText("opEvidence.agent-discussion-read.hint");
+    case "operational-evidence.case-history-read":
+      return settingsIntegrationsText("opEvidence.case-history-read.hint");
+    case "operational-evidence.current-case-reuse":
+      return settingsIntegrationsText("opEvidence.current-case-reuse.hint");
+    case "operational-evidence.forecast-context":
+      return settingsIntegrationsText("opEvidence.forecast-context.hint");
+    case "operational-evidence.forecast-history-actions":
+      return settingsIntegrationsText("opEvidence.forecast-history-actions.hint");
+    case "operational-evidence.forecast-history-changes":
+      return settingsIntegrationsText("opEvidence.forecast-history-changes.hint");
+    case "operational-evidence.forecast-history-excluded_windows":
+      return settingsIntegrationsText("opEvidence.forecast-history-excluded_windows.hint");
+    case "operational-evidence.forecast-history-resource_lifecycle":
+      return settingsIntegrationsText("opEvidence.forecast-history-resource_lifecycle.hint");
+    case "operational-evidence.operational-test-context":
+      return settingsIntegrationsText("opEvidence.operational-test-context.hint");
+    case "operational-evidence.operational-test-observation":
+      return settingsIntegrationsText("opEvidence.operational-test-observation.hint");
+    case "operational-evidence.operator-test-context-command":
+      return settingsIntegrationsText("opEvidence.operator-test-context-command.hint");
+    case "operational-evidence.test-context-transition":
+      return settingsIntegrationsText("opEvidence.test-context-transition.hint");
     default: return t(`settings.integrations.${key}.hint`);
   }
 }

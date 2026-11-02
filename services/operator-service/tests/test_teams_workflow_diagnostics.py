@@ -122,6 +122,12 @@ async def test_accepts_fixed_card_and_never_persists_url() -> None:
     assert URL not in repr(stored)
     attachment = calls[0][1]["attachments"][0]  # type: ignore[index]
     assert attachment["contentUrl"] is None
+    card_content = attachment["content"]
+    assert card_content["msteams"] == {"width": "Full"}
+    hero_image = card_content["body"][0]
+    assert hero_image["type"] == "Image"
+    assert hero_image["url"].startswith("data:image/png;base64,")
+    assert URL not in repr(calls[0][1])
 
 
 async def test_saves_and_verifies_before_sending_the_test_card() -> None:
@@ -311,6 +317,140 @@ async def test_describe_returns_metadata_only_and_never_the_saved_url() -> None:
     assert "sig=" not in repr(described)
     assert "environment.api.powerplatform.com" not in repr(described)
     assert URL not in repr(described)
+
+
+async def test_reveal_binding_audits_secret_free_record_and_returns_url() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    bindings.values.append(URL)
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        clock=lambda: NOW,
+    )
+
+    revealed = await tester.reveal_binding(actor_id="contributor-1")
+
+    assert revealed is not None
+    assert revealed["webhook_url"] == URL
+    assert revealed["binding_version"] == "version-1"
+    assert revealed["revealed_at"] == NOW.isoformat()
+    audit_record = next(
+        value
+        for value in store.values.values()
+        if value["kind"] == "operator.teams-workflow-binding-reveal"
+    )
+    assert audit_record["actor_id"] == "contributor-1"
+    assert audit_record["outcome"] == "revealed"
+    assert URL not in repr(store.values)
+
+
+async def test_multi_channel_selection_and_simultaneous_fanout() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    called_urls: list[str] = []
+
+    async def post(url: str, _: object) -> TeamsWorkflowProviderResponse:
+        called_urls.append(url)
+        return TeamsWorkflowProviderResponse(202, "run-multi")
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=post,
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="save-ch-1",
+            webhook_url=URL,
+            channel_label="Ops Alerts",
+        )
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="save-ch-2",
+            webhook_url=REGIONAL_URL,
+            channel_label="Daily Digest",
+        )
+    )
+
+    described = await tester.describe_binding(actor_id="owner-1")
+    assert described is not None
+    channels = described["channels"]
+    assert isinstance(channels, list) and len(channels) == 2
+    assert [ch["label"] for ch in channels] == ["Ops Alerts", "Daily Digest"]
+    assert all(ch["enabled"] is True for ch in channels)
+
+    # Select only the first channel and delivery targets without firing a provider call.
+    called_urls.clear()
+    first_id = str(channels[0]["channel_id"])
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="select-single-1",
+            webhook_url="",
+            selected_channel_ids=(first_id,),
+            delivery_targets=("teams-a2-operational-alert",),
+            selection_only=True,
+        )
+    )
+    assert called_urls == []
+    after_single = await tester.describe_binding(actor_id="owner-1")
+    assert after_single is not None
+    single_channels = after_single["channels"]
+    assert isinstance(single_channels, list)
+    assert [ch["enabled"] for ch in single_channels] == [True, False]
+    assert after_single["delivery_targets"] == ["teams-a2-operational-alert"]
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"channel_label": "Bad\nLabel"},
+        {"selected_channel_ids": ("../bad",), "webhook_url": "", "selection_only": True},
+        {"delivery_targets": ("unknown-target",), "webhook_url": "", "selection_only": True},
+        {
+            "email_recipient_mode": "custom",
+            "custom_email": "",
+            "webhook_url": "",
+            "selection_only": True,
+        },
+        {
+            "email_recipient_mode": "custom",
+            "custom_email": "bad\r\n@example.com",
+            "webhook_url": "",
+            "selection_only": True,
+        },
+        {"remove_channel_id": "ch-nonexistent12", "webhook_url": "", "selection_only": True},
+    ],
+)
+async def test_hardened_channel_and_email_boundaries_reject_invalid_inputs(
+    kwargs: dict[str, object],
+) -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=_accepting_post(),
+        clock=lambda: NOW,
+    )
+    await tester.save_and_test(_command("teams-save-initial"))
+
+    base: dict[str, object] = {
+        "actor_id": "owner-1",
+        "request_id": "teams-invalid-1",
+        "webhook_url": URL,
+    }
+    base.update(kwargs)
+    with pytest.raises(ValueError):
+        await tester.save_and_test(TeamsWorkflowTestCommand(**base))  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="channel_id is invalid"):
+        await tester.reveal_binding(actor_id="owner-1", channel_id="../bad")
 
 
 async def test_describe_reports_saved_at_only_for_the_recorded_version() -> None:

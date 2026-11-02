@@ -3196,7 +3196,8 @@
         "docs/roadmap/interfaces/user-rbac-and-identity.md"
       ],
       "docs_update": [
-        "docs/roadmap/interfaces/narrator-routing-and-latency.md"
+        "docs/roadmap/interfaces/narrator-routing-and-latency.md",
+        "docs/roadmap/interfaces/operator-console.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/operator-service/tests/test_operator_service_composition.py services/operator-service/tests/test_narrator_preference_persistence.py services/operator-service/tests/test_narrator_preferences.py services/operator-service/tests/test_operator_service_postgres.py services/operator-service/tests/test_operator_iam_family.py tests/integration/services/test_narrator_preference_postgres.py",
@@ -3466,7 +3467,8 @@
       ],
       "docs_update": [
         "docs/roadmap/decisioning/operator-governance-profiles.md",
-        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md"
+        "docs/roadmap-implementation/decisioning/operator-governance-profiles.md",
+        "docs/roadmap/interfaces/operator-console.md"
       ],
       "validate": [
         "python3 scripts/quality/architecture/check-constitution.py",

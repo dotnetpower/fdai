@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
+import os
 import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote, urlsplit
 
@@ -24,6 +27,7 @@ KEY_VAULT_SCOPE = "https://vault.azure.net/.default"
 _API_VERSION = "7.4"
 _SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}$")
 _SECRET_VERSION = re.compile(r"^[A-Za-z0-9]{1,64}$")
+_CHANNEL_ID = re.compile(r"^ch-[a-z0-9]{1,32}$")
 
 TokenProvider = Callable[[str], Awaitable[str]]
 
@@ -118,12 +122,69 @@ class LocalBindingStateStore(Protocol):
     async def write_state(self, key: str, value: Mapping[str, object]) -> None: ...
 
 
+_MAX_LOCAL_BACKUP_BYTES = 16_384
+
+
+def _default_local_backup_path() -> Path | None:
+    if "PYTEST_CURRENT_TEST" in os.environ:
+        return None
+    fdai_dir = Path(__file__).resolve().parents[4] / ".fdai"
+    if (fdai_dir / "local-runtime.env").is_file():
+        return fdai_dir / "local-teams-workflow-binding.json"
+    return None
+
+
+def _write_private_backup(path: Path, record: Mapping[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    encoded = (json.dumps(dict(record), sort_keys=True, separators=(",", ":")) + "\n").encode(
+        "utf-8"
+    )
+    if len(encoded) > _MAX_LOCAL_BACKUP_BYTES:
+        raise TeamsWorkflowBindingError("Local Teams Workflow binding backup exceeds its bound")
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        path.chmod(0o600)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _read_private_backup(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return None
+    if path.is_symlink():
+        raise TeamsWorkflowBindingError("Local Teams Workflow binding backup MUST NOT be a symlink")
+    stat = path.stat()
+    if stat.st_mode & 0o077:
+        raise TeamsWorkflowBindingError(
+            "Local Teams Workflow binding backup MUST NOT be group- or world-readable"
+        )
+    if stat.st_size > _MAX_LOCAL_BACKUP_BYTES:
+        raise TeamsWorkflowBindingError("Local Teams Workflow binding backup exceeds its bound")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise TeamsWorkflowBindingError(
+            "Local Teams Workflow binding backup could not be decoded"
+        ) from exc
+    if not isinstance(payload, dict):
+        raise TeamsWorkflowBindingError("Local Teams Workflow binding backup is malformed")
+    return payload
+
+
 @dataclass(frozen=True, slots=True)
 class LocalEncryptedTeamsWorkflowBindingStore:
     """Persist only ciphertext in the loopback development database."""
 
     store: LocalBindingStateStore
     key_material: str = field(repr=False)
+    backup_path: Path | None = None
 
     async def save_and_verify(
         self,
@@ -135,13 +196,14 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         version = hashlib.sha256(request_id.encode("utf-8")).hexdigest()[:32]
         digest = hashlib.sha256(webhook_url.encode("utf-8")).hexdigest()
         ciphertext = cipher.encrypt(webhook_url.encode("utf-8")).decode("ascii")
+        record = encode_local_binding_record(
+            version=version,
+            endpoint_digest=digest,
+            ciphertext=ciphertext,
+        )
         await self.store.write_state(
             LOCAL_TEAMS_BINDING_STATE_KEY,
-            encode_local_binding_record(
-                version=version,
-                endpoint_digest=digest,
-                ciphertext=ciphertext,
-            ),
+            record,
         )
         saved = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
         saved_ciphertext = saved.get("ciphertext") if saved is not None else None
@@ -164,6 +226,9 @@ class LocalEncryptedTeamsWorkflowBindingStore:
             raise TeamsWorkflowBindingError(
                 "Local Teams Workflow binding verification did not match the saved value"
             )
+        target_backup = self.backup_path or _default_local_backup_path()
+        if target_backup is not None:
+            _write_private_backup(target_backup, record)
         return LoadedTeamsWorkflowBinding(
             webhook_url=verified,
             version=version,
@@ -171,13 +236,69 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         )
 
     async def load(self) -> LoadedTeamsWorkflowBinding | None:
-        saved = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
+        return await self._load_key(LOCAL_TEAMS_BINDING_STATE_KEY, self._resolved_backup_path())
+
+    async def save_channel_and_verify(
+        self,
+        *,
+        channel_id: str,
+        webhook_url: str,
+        request_id: str,
+    ) -> LoadedTeamsWorkflowBinding:
+        if _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
+        saved = await self.save_and_verify(webhook_url=webhook_url, request_id=request_id)
+        channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        primary_record = await self.store.read_state(LOCAL_TEAMS_BINDING_STATE_KEY)
+        if primary_record is not None:
+            await self.store.write_state(channel_key, primary_record)
+            target_backup = self._resolved_backup_path()
+            if target_backup is not None:
+                _write_private_backup(
+                    target_backup.with_name(f"local-teams-workflow-binding-{channel_id}.json"),
+                    primary_record,
+                )
+        return saved
+
+    async def load_channel(self, channel_id: str) -> LoadedTeamsWorkflowBinding | None:
+        if _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
+        channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        target_backup = self._resolved_backup_path()
+        channel_backup = (
+            target_backup.with_name(f"local-teams-workflow-binding-{channel_id}.json")
+            if target_backup is not None
+            else None
+        )
+        loaded = await self._load_key(channel_key, channel_backup)
+        if loaded is not None:
+            return loaded
+        return await self.load()
+
+    def _resolved_backup_path(self) -> Path | None:
+        return self.backup_path or _default_local_backup_path()
+
+    async def _load_key(
+        self,
+        state_key: str,
+        target_backup: Path | None,
+    ) -> LoadedTeamsWorkflowBinding | None:
+        saved = await self.store.read_state(state_key)
+        restored_from_backup = False
+        if saved is None and target_backup is not None:
+            saved = _read_private_backup(target_backup)
+            restored_from_backup = saved is not None
         try:
             decoded = decode_local_binding_record(saved, key_material=self.key_material)
         except LocalTeamsBindingRecordError as exc:
             raise TeamsWorkflowBindingError(str(exc)) from exc
         if decoded is None:
             return None
+        if saved is not None:
+            if restored_from_backup:
+                await self.store.write_state(state_key, saved)
+            elif target_backup is not None and not target_backup.exists():
+                _write_private_backup(target_backup, saved)
         webhook_url, version = decoded
         return LoadedTeamsWorkflowBinding(
             webhook_url=webhook_url,

@@ -97,17 +97,29 @@ async function installFixture(page: Page): Promise<{
       return;
     }
     if (path === "/runtime/integrations/teams-workflow/binding") {
+      const reveal = new URL(route.request().url()).searchParams.get("reveal") === "1";
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({
-          visible: true,
-          configured: true,
-          binding_version: "version-1",
-          endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
-          observed_at: "2026-09-04T07:00:00Z",
-          saved_at: "2026-09-04T06:00:00Z",
-        }),
+        body: JSON.stringify(
+          reveal
+            ? {
+                visible: true,
+                configured: true,
+                binding_version: "version-1",
+                endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+                webhook_url: webhookUrl,
+                revealed_at: "2026-09-04T07:00:00Z",
+              }
+            : {
+                visible: true,
+                configured: true,
+                binding_version: "version-1",
+                endpoint_identifier: "workflow ...da483a70 / sha256:123456789abc",
+                observed_at: "2026-09-04T07:00:00Z",
+                saved_at: "2026-09-04T06:00:00Z",
+              },
+        ),
       });
       return;
     }
@@ -187,11 +199,15 @@ test("separates approval, notification, and conversation readiness without leaki
 
   const teamsInput = page.getByLabel("Teams Workflows HTTP URL");
   const teamsButton = page.getByRole("button", { name: "Test saved binding" });
-  await expect(teamsInput).toHaveValue("");
+  const maskedUrl =
+    "https://••••••••/workflows/...da483a70/triggers/manual/paths/invoke?sig=••••••••••••";
+  await expect(teamsInput).toHaveValue(maskedUrl);
   await expect(teamsInput).toHaveAttribute(
     "placeholder",
     "workflow ...da483a70 / sha256:123456789abc",
   );
+  await expect(page.getByRole("button", { name: "Show saved URL" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy saved URL" })).toBeVisible();
   const inputBox = await teamsInput.boundingBox();
   const buttonBox = await teamsButton.boundingBox();
   expect(inputBox).not.toBeNull();
@@ -210,11 +226,23 @@ test("separates approval, notification, and conversation readiness without leaki
     );
   }
   await expect(teamsInput).toHaveAttribute("autocomplete", "off");
-  await expect(page.getByText(/FDAI never returns the saved URL/)).toBeVisible();
+  await expect(page.getByText(/The saved URL stays masked until revealed/)).toBeVisible();
+  await page.getByRole("button", { name: "Show saved URL" }).click();
+  await expect(teamsInput).toHaveValue(webhookUrl);
+  await page.getByRole("button", { name: "Hide saved URL" }).click();
+  await expect(teamsInput).toHaveValue(maskedUrl);
+  await expect(
+    page.getByRole("checkbox", { name: /A2 operational alert channel/ }),
+  ).toBeChecked();
+  await page.getByRole("button", { name: "Teams A2 only" }).click();
+  await expect(page.getByText("Single channel (1 selected)").first()).toBeVisible();
+  await page.getByRole("button", { name: "Select all" }).click();
+  await expect(page.getByText("Multi-channel simultaneous (5 selected)")).toBeVisible();
   await teamsInput.fill(webhookUrl);
   await page.getByRole("button", { name: "Save and send test" }).click();
 
   await expect(page.getByText("Saved and test accepted")).toBeVisible();
+  await expect(teamsInput).toHaveValue(maskedUrl);
   expect(fixture.teamsBody()).toMatchObject({ webhook_url: webhookUrl });
   expect(await page.content()).not.toContain("sig=abcdefghijklmnopqrstuvwxyz012345");
 
@@ -247,4 +275,36 @@ test("separates approval, notification, and conversation readiness without leaki
       fullPage: true,
     });
   }
+});
+
+test("exposes masked URL with reveal and copy controls for Contributor role while keeping replacement Owner-only", async ({ page }) => {
+  await installFixture(page);
+  await page.route("**/runtime/settings", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...runtimeSettings,
+        can_manage: false,
+      }),
+    });
+  });
+  await page.goto("/settings/integrations");
+
+  const maskedUrl =
+    "https://••••••••/workflows/...da483a70/triggers/manual/paths/invoke?sig=••••••••••••";
+  const teamsInput = page.getByLabel("Teams Workflows HTTP URL");
+  await expect(teamsInput).toHaveValue(maskedUrl);
+  await expect(teamsInput).toHaveAttribute("readonly", "");
+  await expect(page.getByRole("button", { name: "Test saved binding" })).toHaveCount(0);
+
+  const revealButton = page.getByRole("button", { name: "Show saved URL" });
+  const copyButton = page.getByRole("button", { name: "Copy saved URL" });
+  await expect(revealButton).toBeVisible();
+  await expect(copyButton).toBeVisible();
+
+  await revealButton.click();
+  await expect(teamsInput).toHaveValue(webhookUrl);
+  await page.getByRole("button", { name: "Hide saved URL" }).click();
+  await expect(teamsInput).toHaveValue(maskedUrl);
 });
