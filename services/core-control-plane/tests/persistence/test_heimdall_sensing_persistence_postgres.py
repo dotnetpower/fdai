@@ -12,11 +12,6 @@ from typing import Any
 import psycopg
 import pytest
 from fdai.agents import Heimdall
-from fdai.agents._framework.heimdall_sensing_persistence import (
-    MANIFEST_PREFIX,
-    VERSION_PREFIX,
-    _subject_digest,
-)
 from fdai.core.readiness import DetectionReadinessDimension
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from psycopg import sql
@@ -24,7 +19,10 @@ from psycopg.conninfo import conninfo_to_dict
 
 from tests.agents.test_heimdall_bucket_persistence import (
     BUCKET_PREFIX,
+    MANIFEST_PREFIX,
+    VERSION_PREFIX,
     FlatManifestHeimdall,
+    _subject_digest,
     seed_subjects,
 )
 from tests.agents.test_heimdall_sensing_persistence import (
