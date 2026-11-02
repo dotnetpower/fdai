@@ -34,14 +34,14 @@ def test_question_bank_generated_artifacts_match_all_sources() -> None:
     assert render_review_catalog(payload) == (_BANK_ROOT / "review-catalog.md").read_text(
         encoding="utf-8"
     )
-    assert payload["summary"]["question_count"] == 400
+    assert payload["summary"]["question_count"] == 500
     assert payload["summary"]["source_counts"] == {
-        "candidate": 300,
+        "candidate": 400,
         "console": 5,
         "golden": 35,
         "manual": 60,
     }
-    assert len(payload["source_files"]) == 11
+    assert len(payload["source_files"]) == 12
 
 
 def test_question_bank_check_is_non_mutating_and_detects_catalog_source_drift(
@@ -283,6 +283,82 @@ def test_current_resource_questions_cover_observed_generic_resource_types() -> N
     assert all(question["safety"]["execution_authority"] is False for question in questions)
 
 
+def test_devops_exercises_sre_scenarios_cover_all_domains_and_categories() -> None:
+    source_ref = "eval/golden-dataset/question-bank/devops-exercises-sre-scenarios.source.yaml"
+    questions = [
+        question for question in _artifact()["questions"] if question["source_refs"] == [source_ref]
+    ]
+
+    assert len(questions) == 100
+    assert Counter(question["category"] for question in questions) == {
+        "current_health": 8,
+        "incident": 8,
+        "root_cause": 12,
+        "metrics_observability": 8,
+        "aks_kubernetes": 14,
+        "azure_infrastructure_network": 10,
+        "database_storage": 8,
+        "cost_finops": 8,
+        "capacity_scaling": 6,
+        "prediction": 4,
+        "dependency_impact": 6,
+        "change_deployment_release": 8,
+    }
+    assert Counter(question["domain"] for question in questions) == {
+        "capacity_performance_forecast": 20,
+        "state_incident_detection": 19,
+        "reliability_policy_automation": 18,
+        "root_cause_analysis": 15,
+        "dependency_impact": 12,
+        "change_deployment_impact": 8,
+        "cost_finops": 8,
+    }
+    assert all(question["readiness"]["content_review"] == "reviewed" for question in questions)
+    assert all(question["readiness"]["validation"] == "contract_passed" for question in questions)
+    assert all(question["safety"]["execution_authority"] is False for question in questions)
+
+
+def test_question_bank_compiler_rejects_invalid_duplicate_refs_and_hygiene_violations() -> None:
+    from scripts.automation.question_bank import (
+        _validate_duplicate_references,
+        _validate_wording_hygiene,
+    )
+
+    with pytest.raises(ValueError, match="self-reference"):
+        _validate_duplicate_references([{"question_id": "q.1", "duplicate_of": "q.1"}])
+
+    with pytest.raises(ValueError, match="unknown question id"):
+        _validate_duplicate_references([{"question_id": "q.1", "duplicate_of": "q.missing"}])
+
+    with pytest.raises(ValueError, match="canonical non-duplicate id"):
+        _validate_duplicate_references(
+            [
+                {"question_id": "q.1"},
+                {"question_id": "q.2", "duplicate_of": "q.1"},
+                {"question_id": "q.3", "duplicate_of": "q.2"},
+            ]
+        )
+
+    em_dash = chr(0x2014)
+    escaped_hangul = "\\" + "u" + "ac00"
+    for bad_en, match in (
+        ("Check /subscriptions/1234/resourceGroups/rg", "customer-specific token"),
+        ("Check tenant 00000000-0000-0000-0000-000000000000", "UUID literal"),
+        ("Check host 10.240.0.4 connectivity", "IPv4 literal"),
+        (f"Check latency {em_dash} p99 spike", "non-ASCII smart punctuation"),
+        (f"Check {escaped_hangul} escaped Hangul", "escaped Hangul literals"),
+    ):
+        with pytest.raises(ValueError, match=match):
+            _validate_wording_hygiene(
+                [
+                    {
+                        "question_id": "q.hygiene",
+                        "wording": {"en": bad_en, "ko": "정상 한국어 질문입니다."},
+                    }
+                ]
+            )
+
+
 def test_operator_candidates_remain_customer_agnostic() -> None:
     candidates = [
         question for question in _artifact()["questions"] if question["source_kind"] == "candidate"
@@ -304,11 +380,11 @@ def test_operator_candidates_remain_customer_agnostic() -> None:
     assert re.search(r"\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b", wording) is None
 
 
-def test_question_bank_40_rounds_of_10_questions_satisfy_bilingual_and_safety_invariants() -> None:
+def test_question_bank_50_rounds_of_10_questions_satisfy_bilingual_and_safety_invariants() -> None:
     questions = _artifact()["questions"]
-    assert len(questions) == 400
-    rounds = [questions[index : index + 10] for index in range(0, 400, 10)]
-    assert len(rounds) == 40
+    assert len(questions) == 500
+    rounds = [questions[index : index + 10] for index in range(0, 500, 10)]
+    assert len(rounds) == 50
     for round_index, batch in enumerate(rounds, start=1):
         assert len(batch) == 10, f"round {round_index} must contain 10 questions"
         for item in batch:
@@ -376,8 +452,8 @@ def test_question_bank_100_rounds_achieve_100_percent_bilingual_and_oracle_cover
             }
 
     questions = _artifact()["questions"]
-    assert len(questions) == 400
-    rounds = [questions[index : index + 4] for index in range(0, 400, 4)]
+    assert len(questions) == 500
+    rounds = [questions[index : index + 5] for index in range(0, 500, 5)]
     assert len(rounds) == 100
 
     covered_functions: set[str] = set()
@@ -414,7 +490,7 @@ def test_question_bank_100_rounds_achieve_100_percent_bilingual_and_oracle_cover
     )
 
     for round_number, batch in enumerate(rounds, start=1):
-        assert len(batch) == 4, f"round {round_number} must contain 4 questions"
+        assert len(batch) == 5, f"round {round_number} must contain 5 questions"
         for item in batch:
             assert item["readiness"]["content_review"] == "reviewed"
             assert item["readiness"]["validation"] == "contract_passed"

@@ -191,7 +191,15 @@ def _clamp(text: str, limit: int = 490) -> str:
     cleaned = " ".join(text.split())
     if len(cleaned) <= limit:
         return cleaned
-    return cleaned[: limit - 3].rstrip() + "..."
+    cutoff = max(0, limit - 3)
+    prefix = cleaned[:cutoff].rstrip()
+    if " " in prefix and len(prefix) == cutoff and cleaned[cutoff : cutoff + 1] not in {"", " "}:
+        word_prefix = prefix.rsplit(" ", 1)[0].rstrip(" ,;:-")
+        if word_prefix:
+            prefix = word_prefix
+    else:
+        prefix = prefix.rstrip(" ,;:-")
+    return prefix + "..."
 
 
 def _strip_terminal(text: str) -> str:
@@ -256,35 +264,86 @@ def _semantic_query_function(item: dict[str, Any], allowed: tuple[str, ...]) -> 
     text = str(item.get("wording", {}).get("en", "")).casefold()
 
     candidates: list[str] = []
-    if "mysql" in text or "database" in category or "database" in targets:
-        if "saturation" in text or "connection" in text:
+    if (
+        "mysql" in text
+        or "postgres" in text
+        or "sql" in text
+        or "replica" in text
+        or "database" in category
+        or "database" in targets
+        or "postgresqlflexibleserver" in targets
+        or "sqldatabase" in targets
+    ):
+        if "saturation" in text or "connection" in text or "lock" in text:
             candidates.append("query.mysql_saturation_metric_bundle")
         elif "demand" in text or "throughput" in text or "query" in text:
             candidates.append("query.mysql_demand_metric_bundle")
         else:
             candidates.append("query.mysql_pressure_evidence")
-    if "pod" in text or "kubernetespod" in targets or "aks" in category:
-        if "rollout" in text or "deploy" in text:
+    if (
+        "pod" in text
+        or "kubelet" in text
+        or "daemonset" in text
+        or "statefulset" in text
+        or "kubernetespod" in targets
+        or "aks" in category
+    ):
+        if (
+            "rollout" in text
+            or "deploy" in text
+            or "canary" in text
+            or "blue/green" in text
+            or "imagepullbackoff" in text
+        ):
             candidates.append("query.kubernetes_rollout_evidence")
-        elif "restart" in text or "recovery" in text:
+        elif "restart" in text or "recovery" in text or "crashloopbackoff" in text or "oom" in text:
             candidates.append("query.kubernetes_pod_recovery_evidence")
-        elif "telemetry" in text or "metric" in text:
+        elif "telemetry" in text or "metric" in text or "scrape" in text:
             candidates.append("query.pod_telemetry_path")
         else:
             candidates.append("query.kubernetes_pod_diagnosis")
-    if "gateway" in text or "ingress" in text:
+    if (
+        "gateway" in text
+        or "ingress" in text
+        or "load balancer" in text
+        or "sticky session" in text
+        or "cookie affinity" in text
+    ):
         candidates.extend(
             ("query.gateway_diagnostic_evidence", "query.resource_ingress_configuration")
         )
-    if "network" in text or "dns" in text or "subnet" in text or "nsg" in text:
+    if (
+        "network" in text
+        or "dns" in text
+        or "subnet" in text
+        or "nsg" in text
+        or "peering" in text
+        or "timeout" in text
+        or "connection refused" in text
+        or "microsegmentation" in text
+    ):
         candidates.append("query.network_path_segments")
     if "document" in text or "runbook" in text or "manual" in text:
         candidates.append("query.governed_documents")
-    if "vm" in text or "virtualmachine" in targets or "cpu" in text:
+    if (
+        "vm" in text
+        or "virtualmachine" in targets
+        or "cpu" in text
+        or "load average" in text
+        or "zombie" in text
+        or "systemd" in text
+    ):
         candidates.append("query.vm_process_cpu_evidence")
     if "latency" in text:
         candidates.append("query.latency_recovery_evidence")
-    if "drift" in text or "configuration" in text or "config" in intent:
+    if (
+        "drift" in text
+        or "outofsync" in text
+        or "terraform" in text
+        or "state lock" in text
+        or "configuration" in text
+        or "config" in intent
+    ):
         if temporal in {"historical", "comparison"}:
             candidates.append("query.resource_configuration_changes")
         else:
@@ -476,8 +535,16 @@ def build_presentation_oracle(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def enrich_question_bank_items(questions: list[dict[str, Any]]) -> None:
-    """Enrich question-bank items in round order (Rounds 001..100, 4 questions per round)."""
-    active_rounds = int(os.environ.get("FDAI_CQAS_ACTIVE_ROUNDS", "100"))
+    """Enrich question-bank items in round order (Rounds 001..100)."""
+    raw_rounds = os.environ.get("FDAI_CQAS_ACTIVE_ROUNDS", "100").strip()
+    try:
+        active_rounds = int(raw_rounds)
+    except ValueError as exc:
+        raise ValueError(
+            f"FDAI_CQAS_ACTIVE_ROUNDS MUST be an integer in 0..100, got {raw_rounds!r}"
+        ) from exc
+    if not 0 <= active_rounds <= 100:
+        raise ValueError(f"FDAI_CQAS_ACTIVE_ROUNDS MUST be between 0 and 100, got {active_rounds}")
     if active_rounds <= 0:
         return
     ordered = sorted(questions, key=lambda item: str(item["question_id"]))

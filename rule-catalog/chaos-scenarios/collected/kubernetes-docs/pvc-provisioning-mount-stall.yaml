@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.pvc-provisioning-mount-stall
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/storage/persistent-volumes/
+  source_ref: section=lifecycle-of-a-volume-and-claim;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: storage
+target_type: disk
+fault_family: hang
+intensity: high
+duration_seconds: 360
+expected_signal: pod_unready
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore StorageClass availability or attach a zone-aligned PersistentVolume.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Unbound PersistentVolumeClaim or cross-zone volume attach failure stalls
+  Pod startup.
+tags:
+- kubernetes
+- vendor-doc

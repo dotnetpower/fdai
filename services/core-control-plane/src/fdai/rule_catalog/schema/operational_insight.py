@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -11,6 +13,8 @@ import yaml
 from fdai.core.detection.insights import InsightOperator, InsightRecipe
 from fdai.shared.contracts.models import Category, Severity
 
+_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+_RATIO_OPERATORS = frozenset({InsightOperator.RATIO_ABOVE, InsightOperator.RATIO_BELOW})
 _RECIPE_KEYS = frozenset(
     {
         "recipe_id",
@@ -65,21 +69,39 @@ def _parse_recipe(raw: object, *, index: int) -> InsightRecipe:
     min_samples = item.get("min_samples", 1)
     if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
         raise ValueError(f"recipes[{index}].threshold MUST be numeric")
-    if isinstance(min_samples, bool) or not isinstance(min_samples, int):
-        raise ValueError(f"recipes[{index}].min_samples MUST be an integer")
+    threshold_value = float(threshold)
+    if not math.isfinite(threshold_value):
+        raise ValueError(f"recipes[{index}].threshold MUST be finite")
+    if isinstance(min_samples, bool) or not isinstance(min_samples, int) or min_samples < 1:
+        raise ValueError(f"recipes[{index}].min_samples MUST be an integer >= 1")
     try:
+        operator = InsightOperator(_string(item["operator"], field=f"recipes[{index}].operator"))
+        metric = _identifier(item["metric"], field=f"recipes[{index}].metric")
+        comparison_metric = _optional_identifier(
+            item.get("comparison_metric"),
+            field=f"recipes[{index}].comparison_metric",
+        )
+        if operator in _RATIO_OPERATORS:
+            if comparison_metric is None:
+                raise ValueError("comparison_metric MUST be set for ratio operators")
+            if comparison_metric == metric:
+                raise ValueError("comparison_metric MUST differ from metric")
+            if threshold_value < 0.0:
+                raise ValueError("threshold MUST be >= 0 for ratio operators")
+        elif comparison_metric is not None:
+            raise ValueError("comparison_metric is only allowed for ratio operators")
+        if operator is InsightOperator.STALE and threshold_value <= 0.0:
+            raise ValueError("threshold MUST be > 0 for stale operator")
+
         return InsightRecipe(
-            recipe_id=_string(item["recipe_id"], field=f"recipes[{index}].recipe_id"),
+            recipe_id=_identifier(item["recipe_id"], field=f"recipes[{index}].recipe_id"),
             title=_string(item["title"], field=f"recipes[{index}].title"),
             category=Category(_string(item["category"], field=f"recipes[{index}].category")),
             severity=Severity(_string(item["severity"], field=f"recipes[{index}].severity")),
-            operator=InsightOperator(_string(item["operator"], field=f"recipes[{index}].operator")),
-            metric=_string(item["metric"], field=f"recipes[{index}].metric"),
-            threshold=float(threshold),
-            comparison_metric=_optional_string(
-                item.get("comparison_metric"),
-                field=f"recipes[{index}].comparison_metric",
-            ),
+            operator=operator,
+            metric=metric,
+            threshold=threshold_value,
+            comparison_metric=comparison_metric,
             min_samples=min_samples,
             description=_string(item["description"], field=f"recipes[{index}].description"),
         )
@@ -94,15 +116,24 @@ def _mapping(raw: object, *, field: str) -> Mapping[str, object]:
 
 
 def _string(raw: object, *, field: str) -> str:
-    if not isinstance(raw, str) or not raw:
+    if not isinstance(raw, str) or not raw.strip():
         raise ValueError(f"{field} MUST be a non-empty string")
-    return raw
+    return raw.strip()
 
 
-def _optional_string(raw: object, *, field: str) -> str | None:
+def _identifier(raw: object, *, field: str) -> str:
+    value = _string(raw, field=field)
+    if not _ID_PATTERN.fullmatch(value):
+        raise ValueError(
+            f"{field} MUST use lowercase ASCII letters, digits, dot, dash, or underscore"
+        )
+    return value
+
+
+def _optional_identifier(raw: object, *, field: str) -> str | None:
     if raw is None:
         return None
-    return _string(raw, field=field)
+    return _identifier(raw, field=field)
 
 
 __all__ = ["load_operational_insight_recipes"]

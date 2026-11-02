@@ -339,29 +339,47 @@ def _external_candidate_questions(
         payload = _yaml_object(path)
         source_id = _string(payload["source_id"], "candidate source id")
         source_ref = path.relative_to(repo_root).as_posix()
+        seen_ids: set[str] = set()
+        seen_intents: set[str] = set()
         for item in _object_array(payload["questions"], f"{source_id} questions"):
             question_id = _string(item["id"], "candidate id")
+            intent = _string(item["intent"], "candidate intent")
+            if question_id in seen_ids:
+                raise ValueError(f"{source_id} has duplicate question id: {question_id}")
+            if intent in seen_intents:
+                raise ValueError(f"{source_id} has duplicate intent: {intent}")
+            seen_ids.add(question_id)
+            seen_intents.add(intent)
             wording = _mapping(item["wording"], "candidate wording")
             result.append(
                 {
                     "question_id": question_id,
                     "source_kind": "candidate",
-                    "domain": item["domain"],
-                    "intent": item["intent"],
+                    "domain": _string(item["domain"], "candidate domain"),
+                    "intent": intent,
                     "title": question_id.split(".", 1)[-1].replace("-", " ").title(),
-                    "wording": {"en": wording["en"], "ko": wording["ko"]},
+                    "wording": {
+                        "en": _string(wording["en"], f"{question_id}.en"),
+                        "ko": _string(wording["ko"], f"{question_id}.ko"),
+                    },
                     "variations": {"en": [], "ko": []},
-                    "readiness": deepcopy(defaults["readiness"]),
+                    "readiness": deepcopy(item.get("readiness", defaults["readiness"])),
                     "safety": deepcopy(item.get("safety", defaults["safety"])),
-                    "surfaces": deepcopy(defaults["surfaces"]),
+                    "surfaces": deepcopy(item.get("surfaces", defaults["surfaces"])),
                     "source_refs": [source_ref],
                     "legacy_ids": [],
-                    "temporal_scope": item["temporal_scope"],
-                    "result_shape": item["result_shape"],
-                    "required_context": item["required_context"],
-                    "target_kinds": item["target_kinds"],
-                    "category": item["category"],
-                    **({"duplicate_of": item["duplicate_of"]} if "duplicate_of" in item else {}),
+                    "temporal_scope": _string(item["temporal_scope"], "temporal_scope"),
+                    "result_shape": _string(item["result_shape"], "result_shape"),
+                    "required_context": _string(item["required_context"], "required_context"),
+                    "target_kinds": [
+                        _string(target_kind, "target_kind") for target_kind in item["target_kinds"]
+                    ],
+                    "category": _string(item["category"], "category"),
+                    **(
+                        {"duplicate_of": _string(item["duplicate_of"], "duplicate_of")}
+                        if "duplicate_of" in item
+                        else {}
+                    ),
                 }
             )
     return result
@@ -388,7 +406,7 @@ def _object_array(value: object, name: str) -> list[dict[str, Any]]:
 
 
 def _string(value: object, name: str) -> str:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} MUST be a non-empty string")
     return value
 

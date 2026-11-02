@@ -7,11 +7,22 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from scripts.automation.question_bank import build_question_bank, render_review_catalog
+
+
+def _render_question_bank_json(payload: dict[str, Any]) -> str:
+    head = {key: value for key, value in payload.items() if key != "questions"}
+    head_json = json.dumps(head, ensure_ascii=False, indent=2)
+    rows = [
+        "    " + json.dumps(question, ensure_ascii=False, separators=(", ", ": "))
+        for question in payload["questions"]
+    ]
+    return head_json[:-2] + ',\n  "questions": [\n' + ",\n".join(rows) + "\n  ]\n}\n"
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -38,8 +49,7 @@ def main() -> int:
     payload = build_question_bank(repo_root=repo_root, source_path=source_path)
     output_root = source_path.parent
     artifacts = {
-        output_root / "question-bank.json": json.dumps(payload, ensure_ascii=False, indent=2)
-        + "\n",
+        output_root / "question-bank.json": _render_question_bank_json(payload),
         output_root / "review-catalog.md": render_review_catalog(payload),
     }
     if args.check:

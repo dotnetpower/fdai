@@ -1,6 +1,6 @@
 {
-  "catalog_entry_count": 135,
-  "catalog_fingerprint": "9f254132bd579c3ec0cccbf0a108fb6ecddeb4acb7c0c2b8812b998a6f01cdd9",
+  "catalog_entry_count": 147,
+  "catalog_fingerprint": "b8f3601da35467807b08912930cee07ac143ed272c7a81a681a6b2a5dc597b20",
   "entries": [
     {
       "detected": null,
@@ -935,6 +935,38 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.configmap-drift-rollout-regression",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.container-abnormal-exit-entrypoint",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.container-oom-killed-memory-limit",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.crash-loop-backoff-liveness-probe",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.dns-resolution-failure",
       "scenario_version": 1
     },
@@ -951,7 +983,71 @@
       "detection_latency_ms": null,
       "outcome": "skipped_non_executable",
       "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.ingress-backend-gateway-timeout",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.kubelet-node-not-ready-stop",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.network-policy-egress-deny-drop",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.node-taint-untolerated-pending",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
       "scenario_id": "chaos.kubernetes-docs.pod-disruption-budget-gap",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.pvc-provisioning-mount-stall",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.readiness-probe-endpoint-removal",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.resource-quota-admission-denial",
+      "scenario_version": 1
+    },
+    {
+      "detected": null,
+      "detection_latency_ms": null,
+      "outcome": "skipped_non_executable",
+      "rollback_succeeded": null,
+      "scenario_id": "chaos.kubernetes-docs.service-selector-label-mismatch",
       "scenario_version": 1
     },
     {
@@ -1089,7 +1185,7 @@
     "sha256": null,
     "storage": "ci_or_release_artifact"
   },
-  "generated_at": "2026-07-17T10:53:24.959258+00:00",
+  "generated_at": "2026-11-02T19:28:49.940798+00:00",
   "runner_version": "run-catalog-scenario/1",
   "schema_version": 1
 }

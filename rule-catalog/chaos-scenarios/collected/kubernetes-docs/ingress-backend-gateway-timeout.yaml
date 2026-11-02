@@ -1,0 +1,26 @@
+id: chaos.kubernetes-docs.ingress-backend-gateway-timeout
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/concepts/services-networking/ingress/
+  source_ref: section=the-ingress-resource;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: traffic
+target_type: ingress
+fault_family: delay
+intensity: high
+duration_seconds: 360
+expected_signal: gateway_latency
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore upstream service response latency or roll back the Ingress
+  backend route.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Slow upstream Pod response across Ingress routing rules elevates gateway
+  first-byte latency.
+tags:
+- kubernetes
+- vendor-doc

@@ -1,0 +1,25 @@
+id: chaos.kubernetes-docs.container-abnormal-exit-entrypoint
+version: 1
+provenance:
+  source: vendor-doc
+  source_url: https://kubernetes.io/docs/tasks/debug/debug-application/determine-reason-pod-failure/
+  source_ref: section=writing-and-reading-a-termination-message;license=CC-BY-4.0;reviewed=2026-07-17
+  synthesis_method: manual
+category: compute
+target_type: pod
+fault_family: stop
+intensity: high
+duration_seconds: 360
+expected_signal: pod_abnormal_termination
+injector: needs-injector
+blast_radius_cap: 1
+rollback_note: Restore the verified container command and arguments in the Pod template.
+gates:
+  shadow_status: pending
+  enforce_status: null
+requires_hardware: false
+description: Invalid container entrypoint or command causes immediate non-zero exit
+  upon container start.
+tags:
+- kubernetes
+- vendor-doc
