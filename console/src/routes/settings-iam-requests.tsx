@@ -23,6 +23,7 @@ export function canReviewAccessRequest(
 export function AccessRequestsView({
   requests,
   total,
+  stale = false,
   hasMore,
   loadMore,
   roster,
@@ -34,6 +35,7 @@ export function AccessRequestsView({
 }: {
   readonly requests: readonly IamAccessRequest[];
   readonly total: number;
+  readonly stale?: boolean;
   readonly hasMore: boolean;
   readonly loadMore: () => Promise<void>;
   readonly roster: readonly IdentityRosterItem[];
@@ -45,6 +47,9 @@ export function AccessRequestsView({
 }) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [query, setQuery] = useState("");
+  const [receipt, setReceipt] = useState<string | null>(null);
   const loadMoreGeneration = useRef(0);
 
   useEffect(() => {
@@ -67,6 +72,7 @@ export function AccessRequestsView({
   }
 
   const pending = requests.filter((item) => item.status === "pending").length;
+  const visible = filterIamRequests(requests, statusFilter, query, roster);
   return (
     <section class="settings-iam-panel settings-requests-panel" aria-labelledby="settings-iam-requests">
       <header class="settings-iam-panel-head">
@@ -74,18 +80,37 @@ export function AccessRequestsView({
           <h3 id="settings-iam-requests">{t("settings.iam.requests")}</h3>
           <p>{t("settings.iam.requestsAdminHint")}</p>
         </div>
-        <div class="settings-roster-counts">
+        {!stale ? <div class="settings-roster-counts">
           <StatusPill
             kind="warning"
             label={t(pendingAccessRequestCountKey(hasMore), { count: pending })}
           />
           <StatusPill kind="neutral" label={t("settings.iam.totalCount", { count: total })} />
-        </div>
+        </div> : null}
       </header>
       <div class="settings-access-lifecycle settings-access-lifecycle-compact" role="status">
         <strong>{settingsIamText("requestLifecycleTitle")}</strong>
         <span>{settingsIamText("requestLifecycleHint")}</span>
       </div>
+      {receipt ? <p role="status">{receipt}</p> : null}
+      <div class="settings-actions">
+        <label>{settingsIamText("requestStatusFilter")}
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.currentTarget.value)}>
+            <option value="all">{settingsIamText("allRequests")}</option>
+            {(["pending", "approved", "rejected"] as const).map((value) =>
+              <option key={value} value={value}>{t(`settings.iam.statusValue.${value}`)}</option>)}
+          </select>
+        </label>
+        <label>{settingsIamText("requestSearch")}
+          <input type="search" value={query} onInput={(event) => setQuery(event.currentTarget.value)} />
+        </label>
+        {query || statusFilter !== "all" ? <button type="button" class="secondary" onClick={() => {
+          setQuery(""); setStatusFilter("all");
+        }}>{settingsIamText("clearFilters")}</button> : null}
+      </div>
+      <p role="status">{stale
+        ? settingsIamText("loadedStaleCount", { loaded: requests.length })
+        : settingsIamText("loadedMatches", { count: visible.length, loaded: requests.length, total })}</p>
       <DataTable
         columns={[
           {
@@ -102,6 +127,7 @@ export function AccessRequestsView({
             render: (item: IamAccessRequest) => {
               const identity = rosterIdentity(roster, item.targetSubjectId);
               return (
+                <div>
                 <span class="settings-request-principal">
                   <PersonIcon />
                   <span>
@@ -109,6 +135,18 @@ export function AccessRequestsView({
                     <small>{identity?.username ?? item.targetSubjectId}</small>
                   </span>
                 </span>
+                  <details>
+                    <summary id={`iam-request-${item.requestId}`}>{settingsIamText("requestDetails")}</summary>
+                    <dl class="settings-request-details">
+                      <dt>{settingsIamText("requestIdentifier")}</dt><dd><code>{item.requestId}</code></dd>
+                      <dt>{settingsIamText("requestReason")}</dt><dd>{item.justification}</dd>
+                      <dt>{settingsIamText("targetIdentity")}</dt><dd><code>{item.identityProvider}: {item.targetSubjectId}</code></dd>
+                      <dt>{settingsIamText("reviewedTime")}</dt><dd>{item.reviewedAt ? formatConsoleTimestamp(item.reviewedAt) : t("settings.unavailable")}</dd>
+                      <dt>{settingsIamText("reviewNote")}</dt><dd>{item.reviewJustification ?? t("settings.unavailable")}</dd>
+                    </dl>
+                    <p class="muted">{settingsIamText("proposalOnlyHint")}</p>
+                  </details>
+                </div>
               );
             },
           },
@@ -126,13 +164,10 @@ export function AccessRequestsView({
             key: "status",
             header: t("settings.iam.status"),
             render: (item: IamAccessRequest) => {
-              const statusKey = isRoleAssigned(item, roster)
-                ? "approvedAssigned"
-                : item.status;
               return (
                 <StatusPill
                   kind={statusKind(item.status)}
-                  label={t(`settings.iam.statusValue.${statusKey}`)}
+                  label={item.status === "approved" ? settingsIamText("approvedPending") : t(`settings.iam.statusValue.${item.status}`)}
                 />
               );
             },
@@ -150,23 +185,25 @@ export function AccessRequestsView({
                 <RequestReviewActions
                   item={item}
                   reviewerOid={reviewerOid}
+                  stale={stale}
                   auth={auth}
                   client={client}
                   reload={reload}
+                  onReviewed={() => setReceipt(settingsIamText("reviewRecorded", { id: item.requestId }))}
                 />
               )
               : reviewedByLabel(item, roster),
           },
         ]}
-        rows={requests}
+        rows={visible}
         keyOf={(item) => item.requestId}
-        empty={t("settings.iam.noRequests")}
+        empty={settingsIamText("noMatchingRequests")}
       />
       {hasMore ? (
         <button
           type="button"
           class="secondary"
-          disabled={loadingMore}
+          disabled={loadingMore || stale}
           onClick={() => {
             const generation = ++loadMoreGeneration.current;
             setLoadingMore(true);
@@ -203,8 +240,10 @@ export function isRoleAssigned(
   request: IamAccessRequest,
   roster: readonly IdentityRosterItem[],
 ): boolean {
+  // This is a membership snapshot, never proof that this request caused a provider effect.
   const identity = rosterIdentity(roster, request.targetSubjectId);
-  return request.status === "approved" && identity?.roles.includes(request.role) === true;
+  return request.status === "approved" && request.operation !== "revoke"
+    && identity?.roles.includes(request.role) === true;
 }
 
 function reviewedByLabel(
@@ -216,12 +255,14 @@ function reviewedByLabel(
   return identity?.username ?? identity?.displayName ?? request.reviewedBy;
 }
 
-function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
+function RequestReviewActions({ item, reviewerOid, auth, client, reload, onReviewed, stale }: {
   readonly item: IamAccessRequest;
   readonly reviewerOid: string;
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly reload: () => Promise<void>;
+  readonly onReviewed: () => void;
+  readonly stale: boolean;
 }) {
   const [justification, setJustification] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -229,12 +270,15 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
   const justificationLength = justification.trim().length;
   const helpId = `review-justification-${item.requestId}`;
   const selfReview = !canReviewAccessRequest(item, reviewerOid);
+  const pending = useRef(false);
 
   const review = async (decision: "approve" | "reject") => {
     if (selfReview) {
       setError(t("settings.iam.selfReviewNotAllowed"));
       return;
     }
+    if (pending.current || stale) return;
+    pending.current = true;
     setSubmitting(true);
     setError(null);
     try {
@@ -242,11 +286,14 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
         decision,
         ...(justification.trim() ? { justification: justification.trim() } : {}),
       });
+      onReviewed();
       await reload();
+      requestAnimationFrame(() => document.getElementById(`iam-request-${item.requestId}`)?.focus());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setSubmitting(false);
+      pending.current = false;
     }
   };
 
@@ -256,7 +303,7 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
         aria-label={t("settings.iam.reviewJustification")}
         aria-describedby={helpId}
         maxLength={2000}
-        disabled={submitting || selfReview}
+        disabled={submitting || selfReview || stale}
         value={justification}
         placeholder={t("settings.iam.reviewJustification")}
         onInput={(event) => setJustification(event.currentTarget.value)}
@@ -268,7 +315,7 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
         <button
           type="button"
           class="btn primary"
-          disabled={submitting || selfReview}
+          disabled={submitting || selfReview || stale}
           onClick={() => { void review("approve"); }}
         >
           {t("settings.iam.approve")}
@@ -276,7 +323,7 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
         <button
           type="button"
           class="secondary"
-          disabled={submitting || selfReview}
+          disabled={submitting || selfReview || stale}
           onClick={() => { void review("reject"); }}
         >
           {t("settings.iam.reject")}
@@ -290,6 +337,24 @@ function RequestReviewActions({ item, reviewerOid, auth, client, reload }: {
       {error ? <small class="error" role="alert">{error}</small> : null}
     </div>
   );
+}
+
+export function filterIamRequests(
+  requests: readonly IamAccessRequest[],
+  status: string,
+  query: string,
+  roster: readonly IdentityRosterItem[],
+): readonly IamAccessRequest[] {
+  const term = query.trim().toLocaleLowerCase();
+  return requests.filter((request) => {
+    if (status !== "all" && request.status !== status) return false;
+    const requester = rosterIdentity(roster, request.requesterOid);
+    const target = rosterIdentity(roster, request.targetSubjectId);
+    return [
+      request.requesterOid, request.targetUsername, request.targetSubjectId, request.requestId,
+      requester?.displayName, requester?.username, target?.displayName, target?.username,
+    ].some((value) => (value ?? "").toLocaleLowerCase().includes(term));
+  });
 }
 
 function statusKind(status: IamAccessRequest["status"]): PillKind {

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: e62a1acbee5040f81a72e883e903e47357b50aaa
+translation_source_sha: 72ee768f55ea65cbc4c69bfd4690c752999d2a33
 translation_revised: 2026-11-03
 ---
 
@@ -697,6 +697,7 @@ unavailable-source 비율이 악화되지 않을 때만 진행합니다.
 
 [Console 설정 및 컴포넌트 표현 참조](../../reference/console-settings-presentation-ko.md)에서 공유 컨트롤, IAM 단계, 컴포넌트 문서화 및 권한 경계를 정의합니다.
 운영 Settings는 공통 서체, 데스크톱 34px 및 터치 44px 대상, 동작 강조, 가시적 포커스, 현재 모바일 탐색을 사용하며 영속성, RBAC, 근거, 승인 또는 실행 권한을 변경하지 않습니다.
+모델 설정은 공급자 카탈로그 검색을 생략하는 명시적 요약 조회를 지원합니다. 카탈로그를 선택하면 관측 시각과 범위가 제한된 복구 상태를 포함해 별도로 조회합니다. 저장 후 재조회도 인증된 관리 기능을 보존하며 같은 요약을 사용할 수 있습니다. 다른 설정은 편집 중인 초안, 부분 저장, 적용된 필터, 만료된 근거, 요청과 검증된 역할 상태, 개별 진단 결과를 구분합니다. [설정 개선 목록](../../reference/console-settings-review-ko.md)에 검토 및 검증 범위를 기록하며, 로컬 요청 시간은 운영 모델의 지연 시간이 아닙니다.
 
 ## 채택하지 않은 대안
 

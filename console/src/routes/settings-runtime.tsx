@@ -15,12 +15,18 @@ import {
   decodeRuntimeSettings,
   initialRuntimeDraft,
   normalizeRuntimeSettingChanges,
+  runtimeDraftError,
+  runtimeNetChange,
+  filterRuntimePolicies,
   type RuntimeSettingsView,
   type RuntimeSettingValue,
   type RuntimeSettingView,
 } from "./settings-runtime.model";
 import { CostGovernanceSettingsSection } from "./cost-governance-settings";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
+import { runtimeUxText } from "./settings-runtime.i18n";
+
+export { parseRuntimeNumericInput } from "./settings-runtime.model";
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -37,6 +43,10 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [changedOnly, setChangedOnly] = useState(false);
+  const [conflictView, setConflictView] = useState<RuntimeSettingsView | null>(null);
+  const [needsConflictReview, setNeedsConflictReview] = useState(false);
   const generation = useRef(0);
   useSettingsDirtyState("settings-runtime", Object.keys(changes).length > 0);
 
@@ -44,19 +54,26 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
     setView(next);
     setDraft(initialRuntimeDraft(next));
     setChanges({});
+    setConflictView(null);
+    setNeedsConflictReview(false);
   };
 
   const fetchView = async (): Promise<RuntimeSettingsView> => {
     return decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings"));
   };
 
-  const load = async () => {
+  const load = async (preserveDraft = false) => {
     const current = ++generation.current;
     setLoading(true);
     setError(null);
     try {
       const next = await fetchView();
-      if (generation.current === current) applyView(next);
+      if (generation.current === current) {
+        if (preserveDraft) {
+          setConflictView(next);
+          setNeedsConflictReview(true);
+        } else applyView(next);
+      }
     } catch (reason) {
       if (generation.current === current) {
         setError(reason instanceof Error ? reason.message : String(reason));
@@ -81,17 +98,31 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
   const updateDraft = (setting: RuntimeSettingView, value: RuntimeSettingValue) => {
     setNotice(null);
     setDraft((current) => ({ ...current, [setting.key]: value }));
-    setChanges((current) => ({ ...current, [setting.key]: value }));
+    setChanges((current) => {
+      const next = { ...current };
+      const change = runtimeNetChange(setting, value);
+      if (change === undefined) delete next[setting.key];
+      else next[setting.key] = change;
+      return next;
+    });
   };
 
   const resetOverride = (setting: RuntimeSettingView) => {
     setNotice(null);
     setDraft((current) => ({ ...current, [setting.key]: setting.environmentValue }));
-    setChanges((current) => ({ ...current, [setting.key]: null }));
+    setChanges((current) => {
+      const next = { ...current };
+      const change = runtimeNetChange(setting, null);
+      if (change === undefined) delete next[setting.key];
+      else next[setting.key] = change;
+      return next;
+    });
   };
 
   const save = async () => {
-    if (view === null || !view.canManage || saving || Object.keys(changes).length === 0) return;
+    if (view === null || !view.canManage || saving || needsConflictReview
+      || Object.keys(changes).length === 0
+      || view.settings.some((setting) => runtimeDraftError(setting, draft[setting.key] ?? setting.effectiveValue))) return;
     const current = ++generation.current;
     setSaving(true);
     setError(null);
@@ -109,10 +140,12 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
       }
     } catch (reason) {
       if (reason instanceof RuntimeSettingsCommandError && reason.status === 409) {
+        if (generation.current !== current) return;
+        setNeedsConflictReview(true);
         try {
           const latest = await fetchView();
           if (generation.current === current) {
-            applyView(latest);
+            setConflictView(latest);
             setError(t("settings.runtimePolicies.conflict"));
           }
         } catch {
@@ -150,10 +183,34 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
     [view],
   );
 
+  const visibleSettings = filterRuntimePolicies(
+    view?.settings ?? [], search, changedOnly, changes, (key) => runtimeSettingText(key, "label"),
+  );
   const groups = view === null
     ? []
-    : [...new Set(view.settings.map((setting) => setting.group))];
+    : [...new Set(visibleSettings.map((setting) => setting.group))];
   const dirty = Object.keys(changes).length > 0;
+  const invalid = view?.settings.some((setting) => runtimeDraftError(setting, draft[setting.key] ?? setting.effectiveValue)) ?? false;
+  const canReapply = conflictView?.canManage && Object.keys(changes).every((key) =>
+    conflictView.settings.some((setting) => setting.key === key && setting.available));
+  const reapplyDraft = () => {
+    if (!conflictView || !canReapply) return;
+    const nextDraft = { ...initialRuntimeDraft(conflictView) };
+    const nextChanges: Record<string, RuntimeSettingValue | null> = {};
+    for (const setting of conflictView.settings) {
+      if (!Object.hasOwn(changes, setting.key)) continue;
+      const value = changes[setting.key] === null ? null : draft[setting.key]!;
+      nextDraft[setting.key] = value === null ? setting.environmentValue : value;
+      const change = runtimeNetChange(setting, value);
+      if (change !== undefined) nextChanges[setting.key] = change;
+    }
+    setView(conflictView);
+    setDraft(nextDraft);
+    setChanges(nextChanges);
+    setConflictView(null);
+    setNeedsConflictReview(false);
+    setError(null);
+  };
 
   return (
     <div class="stack settings-route settings-runtime-route">
@@ -171,8 +228,8 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
       {error ? (
         <ErrorState
           message={error}
-          onRetry={() => { void load(); }}
-          retryLabel={t("settings.retry")}
+          onRetry={() => { void (needsConflictReview ? load(true) : view ? save() : load()); }}
+          retryLabel={view && !needsConflictReview ? runtimeUxText("retrySave") : t("settings.retry")}
         />
       ) : null}
       {notice ? <div class="state-block state-success" role="status">{notice}</div> : null}
@@ -193,13 +250,40 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
             <div class="state-block" role="note">{t("settings.runtimePolicies.readOnly")}</div>
           ) : null}
           <CostGovernanceSettingsSection client={client} auth={auth} />
+          {conflictView ? <section class="state-block" aria-label={t("settings.runtimePolicies.conflict")}>
+            <p>{runtimeUxText("conflictReview", { revision: conflictView.revision })}</p>
+            <dl>{Object.keys(changes).map((key) => <div key={key}>
+              <dt>{runtimeSettingText(key, "label")}</dt>
+              <dd>{runtimeUxText("latest")}: {formatValue(conflictView.settings.find((setting) => setting.key === key)?.effectiveValue ?? "-")}</dd>
+              <dd>{runtimeUxText("proposed")}: {changes[key] === null
+                ? runtimeUxText("pendingReset", { value: formatValue(conflictView.settings.find((setting) => setting.key === key)?.environmentValue ?? "-") })
+                : formatValue(draft[key]!)}</dd>
+            </div>)}</dl>
+            {!canReapply ? <p>{runtimeUxText("cannotReapply")}</p> : null}
+            <button type="button" class="btn secondary" disabled={!canReapply || saving} onClick={reapplyDraft}>
+              {runtimeUxText("reapply")}
+            </button>
+          </section> : null}
+          <div class="settings-filter-bar">
+            <label><span>{runtimeUxText("search")}</span><input type="search" class="form-input" value={search}
+              onInput={(event) => setSearch(event.currentTarget.value)} /></label>
+            <label><input type="checkbox" checked={changedOnly}
+              onChange={(event) => setChangedOnly(event.currentTarget.checked)} /> {runtimeUxText("changedOnly")}</label>
+            <button type="button" class="btn secondary" disabled={!search && !changedOnly}
+              onClick={() => { setSearch(""); setChangedOnly(false); }}>{runtimeUxText("clearFilters")}</button>
+          </div>
+          <p role="status">{runtimeUxText("count", { shown: visibleSettings.length, total: view.settings.length })}</p>
+          {invalid ? <p class="error-text" role="alert">{runtimeUxText("invalidBatch")}</p> : null}
+          {visibleSettings.length === 0 ? <p class="state-block">
+            {runtimeUxText(view.settings.length === 0 ? "empty" : "noMatches")}
+          </p> : null}
           {groups.map((group) => (
             <section class="settings-section settings-runtime-section" key={group}>
               <h3>{group === "forecast"
                 ? settingsIntegrationsText("forecastHistory.group")
                 : t(`settings.runtimePolicies.groups.${group}`)}</h3>
               <div class="settings-list">
-                {view.settings
+                {visibleSettings
                   .filter((setting) => setting.group === group)
                   .map((setting) => (
                     <RuntimeSettingRow
@@ -207,6 +291,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
                       setting={setting}
                       value={draft[setting.key] ?? setting.effectiveValue}
                       changed={Object.hasOwn(changes, setting.key)}
+                      resetPending={Object.hasOwn(changes, setting.key) && changes[setting.key] === null}
                       canManage={view.canManage}
                       saving={saving}
                       onChange={(value) => updateDraft(setting, value)}
@@ -217,10 +302,22 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
             </section>
           ))}
           <div class="settings-actions settings-runtime-actions">
+            <button type="button" class="btn secondary" disabled={saving || (!dirty && !needsConflictReview)}
+              onClick={() => {
+                if (needsConflictReview && conflictView === null) {
+                  setDraft(initialRuntimeDraft(view));
+                  setChanges({});
+                  void load();
+                } else applyView(conflictView ?? view);
+                setError(null);
+                setNotice(null);
+              }}>
+              {runtimeUxText("discard")}
+            </button>
             <button
               type="button"
               class="btn primary"
-              disabled={!view.canManage || !dirty || saving}
+              disabled={!view.canManage || !dirty || saving || invalid || needsConflictReview}
               onClick={() => { void save(); }}
             >
               {saving ? t("settings.runtimePolicies.saving") : t("settings.runtimePolicies.save")}
@@ -261,6 +358,7 @@ function RuntimeSettingRow({
   setting,
   value,
   changed,
+  resetPending,
   canManage,
   saving,
   onChange,
@@ -269,6 +367,7 @@ function RuntimeSettingRow({
   readonly setting: RuntimeSettingView;
   readonly value: RuntimeSettingValue;
   readonly changed: boolean;
+  readonly resetPending: boolean;
   readonly canManage: boolean;
   readonly saving: boolean;
   readonly onChange: (value: RuntimeSettingValue) => void;
@@ -276,6 +375,9 @@ function RuntimeSettingRow({
 }) {
   const disabled = !canManage || !setting.available || saving;
   const hasOverride = setting.overrideValue !== null || changed;
+  const fieldError = runtimeDraftError(setting, value);
+  const errorId = `runtime-error-${encodeURIComponent(setting.key)}`;
+  const reasonId = `${errorId}-reason`;
   return (
     <div class="settings-row settings-runtime-row" data-value-type={setting.valueType}>
       <div class="settings-runtime-copy">
@@ -285,6 +387,10 @@ function RuntimeSettingRow({
           <span>
             {t("settings.runtimePolicies.environment")}: {formatValue(setting.environmentValue)}
           </span>
+          {changed ? <p class="settings-runtime-pending">{runtimeUxText(resetPending ? "pendingReset" : "pending", {
+            value: formatValue(resetPending ? setting.environmentValue : value),
+          })}</p> : null}
+          {!setting.available ? <p id={reasonId}>{setting.unavailableReason ?? runtimeUxText("unavailableReason")}</p> : null}
           <span>
             {t("settings.runtimePolicies.effective")}: {formatValue(setting.effectiveValue)}
           </span>
@@ -308,8 +414,16 @@ function RuntimeSettingRow({
           setting={setting}
           value={value}
           disabled={disabled}
+          invalid={fieldError !== null}
+          describedBy={fieldError ? errorId : !setting.available ? reasonId : undefined}
           onChange={onChange}
         />
+        {fieldError ? <p class="error-text" id={errorId} role="alert">
+          {fieldError === "object" ? runtimeUxText("objectError") : runtimeUxText("numericError", {
+            type: runtimeUxText(setting.valueType === "integer" ? "integer" : "number"),
+            min: setting.minimum ?? runtimeUxText("unbounded"), max: setting.maximum ?? runtimeUxText("unbounded"),
+          })}
+        </p> : null}
         <button
           type="button"
           class="btn subtle settings-runtime-reset"
@@ -323,36 +437,28 @@ function RuntimeSettingRow({
   );
 }
 
-export function parseRuntimeNumericInput(
-  raw: string,
-  setting: Pick<RuntimeSettingView, "valueType" | "minimum" | "maximum">,
-): number | null {
-  const trimmed = raw.trim();
-  if (trimmed === "") return null;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return null;
-  if (setting.valueType === "integer" && !Number.isSafeInteger(parsed)) return null;
-  if (setting.minimum !== null && parsed < setting.minimum) return null;
-  if (setting.maximum !== null && parsed > setting.maximum) return null;
-  return parsed;
-}
-
 function SettingControl({
   setting,
   value,
   disabled,
   onChange,
+  invalid,
+  describedBy,
 }: {
   readonly setting: RuntimeSettingView;
   readonly value: RuntimeSettingValue;
   readonly disabled: boolean;
   readonly onChange: (value: RuntimeSettingValue) => void;
+  readonly invalid: boolean;
+  readonly describedBy: string | undefined;
 }) {
   const label = runtimeSettingText(setting.key, "label");
   if (setting.valueType === "object") {
     return (
       <textarea
         aria-label={label}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
         rows={10}
         value={typeof value === "string" ? value : JSON.stringify(value, null, 2)}
         disabled={disabled}
@@ -366,6 +472,8 @@ function SettingControl({
       <label class="settings-toggle-control" aria-label={label}>
         <input
           type="checkbox"
+          aria-label={label}
+          aria-describedby={describedBy}
           checked={value === true}
           disabled={disabled}
           onChange={(event) => onChange(event.currentTarget.checked)}
@@ -378,6 +486,7 @@ function SettingControl({
     return (
       <select
         aria-label={label}
+        aria-describedby={describedBy}
         value={String(value)}
         disabled={disabled}
         onChange={(event) => onChange(event.currentTarget.value)}
@@ -390,15 +499,14 @@ function SettingControl({
     <input
       type="number"
       aria-label={label}
+      aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       value={String(value)}
       min={setting.minimum ?? undefined}
       max={setting.maximum ?? undefined}
       step={setting.valueType === "integer" ? 1 : "any"}
       disabled={disabled}
-      onInput={(event) => {
-        const parsed = parseRuntimeNumericInput(event.currentTarget.value, setting);
-        if (parsed !== null) onChange(parsed);
-      }}
+      onInput={(event) => onChange(event.currentTarget.value)}
     />
   );
 }

@@ -35,6 +35,24 @@ import {
   });
 
 
+it("keeps a deferred catalog distinct from observed unavailability or an empty catalog", () => {
+  const modelCatalog = {
+    available: false, source: "azure-management-catalog", region: null,
+    models: [], load_state: "deferred", as_of: null,
+  };
+  expect(decodeModelSettings({ ...payload, model_catalog: modelCatalog }).modelCatalog)
+    .toMatchObject({ loadState: "deferred", available: false, asOf: null, models: [] });
+  expect(() => decodeModelSettings({
+    ...payload, model_catalog: { ...modelCatalog, available: true },
+  })).toThrow("deferred model catalog MUST NOT claim");
+  expect(() => decodeModelSettings({
+    ...payload, model_catalog: { ...modelCatalog, load_state: "success" },
+  })).toThrow("load_state MUST be deferred");
+  expect(() => decodeModelSettings({
+    ...payload, model_catalog: { ...modelCatalog, as_of: "not-a-timestamp" },
+  })).toThrow("as_of MUST be a valid timestamp");
+});
+
 const payload = {
   region: "example-region",
   mixed_model_mode: "hil-only",
@@ -391,7 +409,7 @@ describe("Settings Models contracts", () => {
 
   it("saves deployment-global web-search settings with revision", async () => {
     const fetchMock = vi.fn(async (url: string | URL, init?: RequestInit) => {
-      expect(String(url)).toBe("http://127.0.0.1:8030/models/web-search-settings");
+      expect(String(url)).toBe("http://127.0.0.1:8030/models/web-search-settings?view=summary");
       expect(JSON.parse(String(init?.body))).toEqual({
         enabled: true,
         allowed_domains: ["learn.microsoft.com"],

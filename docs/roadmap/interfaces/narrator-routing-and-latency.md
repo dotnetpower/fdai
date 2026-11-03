@@ -341,7 +341,7 @@ runtime latency evidence without endpoints or credentials. Each authenticated pr
 `Auto` routing or pin one deployment from the current narrator allowlist. Removed or unavailable
 preferences fall back to `Auto`; the server rejects arbitrary model ids.
 
-The Settings navigation prefetches this projection when the Models link receives pointer or keyboard focus. One authenticated API client coalesces overlapping reads and keeps only a successful projection in memory for 60 seconds. Explicit catalog refresh, conflict recovery, and reads after a settings mutation bypass or invalidate that cache. Browser storage and shared HTTP caches remain unused, and every server request still authenticates and authorizes the current principal.
+The Settings navigation prefetches the summary projection when the Models link receives pointer or keyboard focus. `view=summary` reads configuration and save readback without waiting for optional Azure catalog discovery. The catalog loads on workspace selection with its own loading, unavailable, retry and observation-time presentation. One authenticated API client coalesces matching reads and caches successful summary/full representations separately for 60 seconds. Explicit catalog refresh, conflict recovery and settings mutation invalidate the affected client views. Browser storage and shared HTTP caches remain unused; each server request still authenticates and authorizes the current principal. Faster Settings reads are not inference-latency evidence.
 
 Target preferences use explicit revisions. Creation sends revision `0`; later writes match the current
 revision. State and audit commit in one transaction, so concurrent sessions receive `409` instead
@@ -374,7 +374,7 @@ for a governance PR. The browser does not write the selection to runtime state. 
 changes only after catalog review, resolver regeneration, and deployment reload.
 
 Local operator mode can combine the regional GPT catalog, subscription quota, and existing
-deployments from the Azure CLI session. The asynchronous reader caches for five minutes and exposes
+deployments from the Azure CLI session. The asynchronous reader caches for 60 seconds and exposes
 an explicit read-only refresh. It returns family, version, lifecycle, supported SKU, available
 quota, and deployment names only. Deprecated chat, codex, and realtime families are not offered as
 new T2 role choices. Selecting a model creates a governance draft; it does not mutate Azure.

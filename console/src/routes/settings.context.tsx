@@ -1,5 +1,7 @@
+import { useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import { t } from "../i18n";
+import { formatConsoleTimestamp } from "../time-format";
 import type { UserPreferencePayload } from "../user-context-client";
 import type { SettingsController } from "./settings.controller";
 import {
@@ -8,6 +10,7 @@ import {
   SettingsSectionHeader,
 } from "./settings.controls";
 import { settingsGeneralText } from "./settings-general.i18n";
+import { dailyBriefingTime, parseBriefingHour } from "./settings.model";
 
 export function SettingsContextSections({
   controller,
@@ -19,6 +22,9 @@ export function SettingsContextSections({
     serverContext,
     contextLoading,
     contextError,
+    contextNotice,
+    timezoneError,
+    briefingHourError,
     answerDetail,
     setAnswerDetail,
     answerFormat,
@@ -33,6 +39,11 @@ export function SettingsContextSections({
     setBriefingHour,
     savingContext,
     contextDirty,
+    preferenceDirty,
+    pendingResponsePolicy,
+    refreshContext,
+    discardContextChanges,
+    retryResponsePolicy,
     pendingDeletes,
     openingPolicy,
     latestSourceTurnId,
@@ -43,6 +54,13 @@ export function SettingsContextSections({
     removeSubscription,
     removeMemory,
   } = controller;
+  const [historyLimit, setHistoryLimit] = useState(10);
+  const contextReady = serverContext !== null;
+  const fieldsDisabled = savingContext || contextLoading || !contextReady;
+  const history = serverContext?.briefing_runs ?? [];
+  const previewHour = parseBriefingHour(briefingHour);
+  const formatTimestamp = (value: string): string => Number.isFinite(Date.parse(value))
+    ? formatConsoleTimestamp(value) : settingsGeneralText("notAvailable");
   return (
     <>
       <section class="settings-section" aria-labelledby="settings-user-context">
@@ -52,8 +70,15 @@ export function SettingsContextSections({
           description={settingsGeneralText("contextDescription")}
           scope={settingsGeneralText("accountScope")}
         />
-        {contextError ? <p class="error-text">{contextError}</p> : null}
+        {contextError ? <div class="state-block state-error" role="alert">
+          <p>{contextError}</p>
+          {!contextReady ? <p>{settingsGeneralText("contextUnavailable")}</p> : null}
+          <button type="button" class="btn secondary" disabled={savingContext || contextLoading}
+            onClick={() => void refreshContext()}>{settingsGeneralText("retryContext")}</button>
+        </div> : null}
+        {contextNotice ? <p role="status">{contextNotice}</p> : null}
         {contextLoading ? <p class="muted small" role="status">{t("settings.contextLoading")}</p> : null}
+        <fieldset class="settings-context-fields" disabled={fieldsDisabled}>
         <div class="settings-list">
           <SettingRow label={t("settings.answerDetail")} hint={t("settings.answerDetailHint")}>
             <SegmentedControl
@@ -77,6 +102,8 @@ export function SettingsContextSections({
                 { value: "numbered_steps", label: t("settings.formatSteps") },
                 { value: "table", label: t("settings.formatTable") },
                 { value: "chart", label: t("settings.formatChart") },
+                { value: "checklist", label: settingsGeneralText("formatChecklist") },
+                { value: "mixed", label: settingsGeneralText("formatMixed") },
               ]}
               onChange={(value) => setAnswerFormat(value as UserPreferencePayload["answer_format"])}
             />
@@ -99,12 +126,18 @@ export function SettingsContextSections({
           </SettingRow>
           <SettingRow label={t("settings.timezone")} hint={t("settings.timezoneHint")}>
             <input
+              id="settings-timezone"
               class="form-input settings-context-input"
               aria-label={t("settings.timezone")}
               value={timezone}
               placeholder="Asia/Seoul"
               onInput={(event) => setTimezone(event.currentTarget.value)}
+              aria-invalid={timezoneError || undefined}
+              aria-describedby={timezoneError ? "settings-timezone-error" : undefined}
             />
+            {timezoneError ? <span id="settings-timezone-error" class="error-text" role="alert">
+              {t("settings.contextTimezoneInvalid")}
+            </span> : null}
           </SettingRow>
           <SettingRow
             label={t("settings.learnerAccess")}
@@ -121,10 +154,18 @@ export function SettingsContextSections({
             </label>
           </SettingRow>
         </div>
+        </fieldset>
+        {pendingResponsePolicy ? <div class="state-block" role="status">
+          <p>{settingsGeneralText("policyPending")}</p>
+          <button type="button" class="btn secondary" disabled={savingContext || contextLoading}
+            onClick={() => void retryResponsePolicy()}>{settingsGeneralText("retryPolicy")}</button>
+        </div> : null}
         <div class="settings-save-bar">
           <div aria-live="polite">
             <strong>
-              {savingContext
+              {!contextReady
+                ? (contextLoading ? settingsGeneralText("contextPending") : settingsGeneralText("contextUnavailable"))
+                : savingContext
                 ? settingsGeneralText("contextSaving")
                 : contextDirty
                   ? settingsGeneralText("contextUnsaved")
@@ -132,10 +173,13 @@ export function SettingsContextSections({
             </strong>
             <small>{settingsGeneralText("accountScopeHint")}</small>
           </div>
+          <button type="button" class="btn secondary"
+            disabled={fieldsDisabled || !preferenceDirty}
+            onClick={discardContextChanges}>{settingsGeneralText("discard")}</button>
           <button
             type="button"
             class="btn primary"
-            disabled={savingContext || contextLoading || !contextDirty}
+            disabled={fieldsDisabled || !preferenceDirty}
             onClick={() => void saveContextPreferences()}
           >
             {savingContext ? settingsGeneralText("contextSaving") : settingsGeneralText("saveContext")}
@@ -162,7 +206,7 @@ export function SettingsContextSections({
               <button
                 type="button"
                 class="secondary"
-                disabled={savingContext}
+                disabled={fieldsDisabled}
                 onClick={() => void removeOpeningBriefing()}
               >
                 {t("settings.disable")}
@@ -172,7 +216,7 @@ export function SettingsContextSections({
                 <button
                   type="button"
                   class="btn"
-                  disabled={savingContext || latestSourceTurnId === null}
+                  disabled={fieldsDisabled || latestSourceTurnId === null}
                   onClick={() => void enableOpeningBriefing()}
                 >
                   {t("settings.enable")}
@@ -190,16 +234,24 @@ export function SettingsContextSections({
           <label>
             <span>{t("settings.dailyHour")}</span>
             <input
+              id="settings-briefing-hour"
               class="form-input"
               type="number"
               min="0"
               max="23"
               value={briefingHour}
               onInput={(event) => setBriefingHour(event.currentTarget.value)}
+              disabled={fieldsDisabled}
+              aria-invalid={briefingHourError || undefined}
+              aria-describedby={briefingHourError ? "settings-briefing-hour-error" : undefined}
             />
+            {briefingHourError ? <span id="settings-briefing-hour-error" class="error-text" role="alert">
+              {t("settings.briefingHourInvalid")}
+            </span> : null}
           </label>
-          <span class="muted small">{timezone}</span>
-          <button type="button" class="btn" disabled={savingContext} onClick={() => void addDailyBriefing()}>
+          <span class="muted small">{previewHour === null ? timezone.trim() :
+            settingsGeneralText("dailyPreview", { time: `${String(previewHour).padStart(2, "0")}:00`, timezone: timezone.trim() })}</span>
+          <button type="button" class="btn" disabled={fieldsDisabled} onClick={() => void addDailyBriefing()}>
             {t("settings.addDailyBriefing")}
           </button>
         </div>
@@ -208,25 +260,29 @@ export function SettingsContextSections({
             <article key={subscription.subscription_id}>
               <div>
                 <strong>{subscription.name}</strong>
-                <small class="muted">
-                  {t("settings.subscriptionSummary", {
-                    cron: subscription.cron_expression,
+                {dailyBriefingTime(subscription.cron_expression) ? <span>
+                  {settingsGeneralText("dailyPreview", {
+                    time: dailyBriefingTime(subscription.cron_expression)!,
                     timezone: subscription.timezone,
-                    next: subscription.next_run_at,
                   })}
-                </small>
+                </span> : null}
+                <small class="muted">{settingsGeneralText("nextRun", { time: formatTimestamp(subscription.next_run_at) })}</small>
+                <details><summary>{settingsGeneralText("technicalSchedule")}</summary>
+                  <code>{subscription.cron_expression}</code><span> {subscription.timezone}</span>
+                </details>
               </div>
               <button
                 type="button"
                 class="secondary"
                 disabled={pendingDeletes.has(`subscription:${subscription.subscription_id}`)}
+                aria-label={settingsGeneralText("removeSubscription", { name: subscription.name })}
                 onClick={() => void removeSubscription(subscription.subscription_id, subscription.revision)}
               >
                 {t("settings.remove")}
               </button>
             </article>
           ))}
-          {!contextLoading && (serverContext?.subscriptions.length ?? 0) === 0 ? (
+          {contextReady && !contextLoading && serverContext.subscriptions.length === 0 ? (
             <p class="muted small">{t("settings.noSubscriptions")}</p>
           ) : null}
         </div>
@@ -255,13 +311,14 @@ export function SettingsContextSections({
                 type="button"
                 class="secondary"
                 disabled={pendingDeletes.has(`memory:${memory.memory_id}`)}
+                aria-label={settingsGeneralText("removeMemory", { name: `${memory.category}: ${memory.body.slice(0, 80)}` })}
                 onClick={() => void removeMemory(memory.memory_id)}
               >
                 {t("settings.remove")}
               </button>
             </article>
           ))}
-          {!contextLoading && (serverContext?.memories.length ?? 0) === 0 ? (
+          {contextReady && !contextLoading && serverContext.memories.length === 0 ? (
             <p class="muted small">{t("settings.noMemories")}</p>
           ) : null}
         </div>
@@ -275,7 +332,7 @@ export function SettingsContextSections({
           scope={settingsGeneralText("accountScope")}
         />
         <div class="settings-context-list">
-          {(serverContext?.briefing_runs ?? []).slice(0, 10).map((run) => (
+          {history.slice(0, historyLimit).map((run) => (
             <article key={run.run_id}>
               <div>
                 <strong>{run.title}</strong>
@@ -290,10 +347,15 @@ export function SettingsContextSections({
               </div>
             </article>
           ))}
-          {!contextLoading && (serverContext?.briefing_runs.length ?? 0) === 0 ? (
+          {contextReady && !contextLoading && history.length === 0 ? (
             <p class="muted small">{t("settings.noBriefingRuns")}</p>
           ) : null}
         </div>
+        {history.length > 0 ? <div class="settings-actions">
+          <span role="status">{settingsGeneralText("loadedHistory", { shown: Math.min(historyLimit, history.length), total: history.length })}</span>
+          {historyLimit < history.length ? <button type="button" class="btn secondary"
+            onClick={() => setHistoryLimit((limit) => limit + 10)}>{settingsGeneralText("showMore")}</button> : null}
+        </div> : null}
       </section>
     </>
   );

@@ -98,6 +98,25 @@ export interface TeamsWorkflowSubmitOptions {
   readonly selectionOnly?: boolean;
 }
 
+export function confirmsTeamsWorkflowPreferences(
+  binding: TeamsWorkflowBindingView,
+  desired: TeamsWorkflowSubmitOptions,
+): boolean {
+  if (!binding.visible || !binding.configured) return false;
+  const sameSet = (actual: readonly string[] | undefined, expected: readonly string[]) =>
+    actual !== undefined && [...new Set(actual)].sort().join("\n") === [...new Set(expected)].sort().join("\n");
+  if (desired.deliveryTargets && !sameSet(binding.deliveryTargets, desired.deliveryTargets)) return false;
+  if (desired.selectedChannelIds && !sameSet(
+    binding.channels?.filter((channel) => channel.enabled).map((channel) => channel.channelId),
+    desired.selectedChannelIds,
+  )) return false;
+  if (desired.removeChannelId && (!binding.channels
+    || binding.channels.some((channel) => channel.channelId === desired.removeChannelId))) return false;
+  if (desired.emailRecipientMode !== undefined && binding.emailRecipientMode !== desired.emailRecipientMode) return false;
+  if (desired.customEmail !== undefined && binding.customEmail !== desired.customEmail) return false;
+  return true;
+}
+
 export function maskSavedTeamsWorkflowUrl(endpointIdentifier: string): string {
   const match = /workflow\s+(\.\.\.[A-Za-z0-9]+)/.exec(endpointIdentifier);
   const workflowSuffix = match?.[1] ?? "...••••••••";

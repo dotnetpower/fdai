@@ -42,6 +42,40 @@ export interface OperatorMemoryReviewView {
   readonly compactions: readonly MemoryCompactionReviewItem[];
 }
 
+export interface OperatorMemoryFilters {
+  readonly scopeKind: "" | "resource-group" | "resource";
+  readonly scopeRef: string;
+}
+
+export function parseOperatorMemoryFilters(params: URLSearchParams): OperatorMemoryFilters & { readonly invalid: boolean } {
+  const kind = params.get("scope_kind") ?? "";
+  const ref = (params.get("scope_ref") ?? "").trim();
+  const validKind = kind === "" || kind === "resource-group" || kind === "resource";
+  return {
+    scopeKind: validKind ? kind : "",
+    scopeRef: ref.length <= 256 ? ref : "",
+    invalid: !validKind || ref.length > 256,
+  };
+}
+
+export function operatorMemoryQuery(filters: OperatorMemoryFilters): Readonly<Record<string, string>> {
+  return { limit: "100", ...(filters.scopeKind ? { scope_kind: filters.scopeKind } : {}),
+    ...(filters.scopeRef.trim() ? { scope_ref: filters.scopeRef.trim() } : {}) };
+}
+
+export function operatorMemoryFilterHref(href: string, filters: OperatorMemoryFilters): string {
+  const url = new URL(href);
+  if (filters.scopeKind) url.searchParams.set("scope_kind", filters.scopeKind);
+  else url.searchParams.delete("scope_kind");
+  if (filters.scopeRef.trim()) url.searchParams.set("scope_ref", filters.scopeRef.trim());
+  else url.searchParams.delete("scope_ref");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function operatorMemoryFiltersEqual(left: OperatorMemoryFilters, right: OperatorMemoryFilters): boolean {
+  return left.scopeKind === right.scopeKind && left.scopeRef.trim() === right.scopeRef.trim();
+}
+
 export type OperatorMemoryDisplayState = "active" | "expired" | "superseded";
 
 export function operatorMemoryDisplayState(

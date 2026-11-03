@@ -20844,6 +20844,49 @@ body.agent-organization-dialog-open {
   font-size: var(--cs-type-compact-size);
   line-height: var(--cs-type-compact-line-height);
 }
+.settings-context-fields { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+.settings-filter-summary { min-width: 0; overflow-wrap: anywhere; }
+.settings-filter-summary p { margin: 0 0 8px; }
+.settings-memory-details { margin-top: 8px; min-width: 0; }
+.settings-route details > summary { cursor: pointer; min-block-size: 34px; padding-block: 8px; }
+.settings-memory-details dl { margin: 12px 0 0; }
+.settings-memory-details dt { font-weight: 600; margin-top: 12px; }
+.settings-memory-details dd { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.settings-memory-reference { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.settings-memory-reference code { overflow-wrap: anywhere; white-space: normal; max-inline-size: 100%; }
+.settings-runtime-pending { overflow-wrap: anywhere; }
+.settings-runtime-control > .error-text { max-width: 48ch; }
+.settings-runtime-row [aria-invalid=true] { border-color: var(--danger, var(--fg)); }
+.settings-read-feedback { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-block: 16px; }
+.settings-diagnostic-result { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+.settings-diagnostic-result small { overflow-wrap: anywhere; }
+.settings-email-template-plain { white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; font: inherit; margin-block: 16px; }
+.settings-request-details { display: grid; gap: 8px; margin-block: 16px; }
+.settings-request-details dd { margin: 0 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.settings-iam-route .settings-capability-chips { margin-block: 8px; }
+.settings-iam-route .settings-capability-chips code { overflow-wrap: anywhere; white-space: normal; max-inline-size: 100%; }
+.settings-list-pager { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 16px; }
+.settings-list-pager > span { min-width: 0; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 720px), (pointer: coarse) {
+  .settings-route details > summary { min-block-size: 44px; }
+}
+@media (max-width: 720px) {
+  .settings-requests-panel > .settings-actions { flex-direction: column; align-items: stretch; }
+  .settings-requests-panel > .settings-actions > label { display: grid; min-width: 0; }
+  .settings-requests-panel > .settings-actions input,
+  .settings-requests-panel > .settings-actions select { width: 100%; min-width: 0; max-width: 100%; }
+  .settings-runtime-route .settings-filter-bar label:has(input[type="checkbox"]) {
+    display: flex; align-items: center; gap: 8px; min-height: 44px;
+  }
+  .settings-runtime-route .settings-filter-bar input[type="checkbox"] {
+    width: 18px; min-width: 18px; height: 18px; min-height: 18px; margin: 0; flex: 0 0 18px;
+  }
+  .settings-memory-details a {
+    display: inline-flex; align-items: center; min-height: 44px; min-width: 44px;
+    max-width: 100%; white-space: normal; overflow-wrap: anywhere;
+  }
+}
+
 .settings-models-route .settings-access-strip span,
 .settings-models-route .settings-t2-current dt,
 .settings-models-route .settings-model-catalog-controls label,
@@ -20910,7 +20953,7 @@ body.agent-organization-dialog-open {
 .settings-model-catalog-entry button:disabled { cursor: not-allowed; opacity: 0.58; }
 .settings-model-catalog-controls {
   display: grid;
-  grid-template-columns: minmax(130px, auto) minmax(220px, 420px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px 12px;
   padding: 12px 16px;
@@ -20918,6 +20961,7 @@ body.agent-organization-dialog-open {
   background: var(--cs-shade);
 }
 .settings-model-catalog-controls label { color: var(--fg-muted); font-size: 0.72rem; font-weight: 700; }
+.settings-model-catalog-controls > span { grid-column: 1 / -1; }
 .settings-model-catalog-controls input {
   width: 100%;
   min-width: 0;

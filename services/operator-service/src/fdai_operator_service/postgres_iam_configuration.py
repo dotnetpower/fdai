@@ -98,6 +98,7 @@ class PostgresIamConfigurationMixin:
         can_manage_web_search: bool = False,
         can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
+        include_model_catalog: bool = True,
         can_manage: bool = False,
     ) -> JsonMapping:
         """Read model or runtime settings without mutating their policy source."""
@@ -107,7 +108,18 @@ class PostgresIamConfigurationMixin:
             if self.model_catalog is not None:
                 payload = {
                     **payload,
-                    "model_catalog": await self.model_catalog.read(refresh=refresh_model_catalog),
+                    "model_catalog": (
+                        await self.model_catalog.read(refresh=refresh_model_catalog)
+                        if include_model_catalog
+                        else {
+                            "available": False,
+                            "source": "azure-management-catalog",
+                            "region": None,
+                            "models": [],
+                            "load_state": "deferred",
+                            "as_of": None,
+                        }
+                    ),
                 }
             web_search = payload.get("web_search")
             if not isinstance(web_search, Mapping):

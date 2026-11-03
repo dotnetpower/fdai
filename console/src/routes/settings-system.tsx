@@ -8,7 +8,7 @@ import {
   AsyncBoundary,
   CopyButton,
   ExternalLink,
-  type AsyncState,
+  LoadingState,
   PageHeader,
   StatusPill,
 } from "../components/ui";
@@ -28,7 +28,6 @@ import {
 import {
   decodeRuntimeSettings,
   type RuntimeIntegrationView,
-  type RuntimeSettingsView,
 } from "./settings-runtime.model";
 import { testSlackWebhook } from "./settings-slack-webhook.command";
 import {
@@ -43,6 +42,7 @@ import {
 import {
   ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
   canSubmitTeamsWorkflow,
+  confirmsTeamsWorkflowPreferences,
   DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS,
   maskSavedTeamsWorkflowUrl,
   newTeamsWorkflowTestRequestId,
@@ -55,6 +55,11 @@ import {
 } from "./settings-teams-workflow.model";
 import { TeamsA1OnboardingGuide } from "./settings-teams-a1-onboarding";
 import { DocumentOcrSettingsPanel } from "./document-ocr-settings";
+import { useAdministrationRead } from "./settings-administration-read";
+import { authenticationMode } from "./settings-diagnostics";
+export {
+  SettingsDiagnosticsRoute, authenticationMode, isCurrentDiagnosticCheck, isHealthy,
+} from "./settings-diagnostics";
 import {
   decodeLicensingWarningProjection as decodeLicensingWarningProjectionModel,
   formatLicensingStatusBadge as formatLicensingStatusBadgeModel,
@@ -129,10 +134,6 @@ export function normalizeTeamsWorkflowAccountHint(value: unknown): string {
   return normalized;
 }
 
-export function isCurrentDiagnosticCheck(current: number, candidate: number): boolean {
-  return current === candidate;
-}
-
 export function personalNotificationPrincipalLabel(auth: AuthContext): string | null {
   const displayName = auth.account?.name?.trim();
   return displayName || auth.account?.username || null;
@@ -157,8 +158,8 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
         { key: "github_app_status", value: "not-probed", group: "delivery" },
         { key: "teams_status", value: "not-probed", group: "delivery" },
       ],
-      records: runtimeSettings.status === "ready"
-        ? { integrations: runtimeSettings.data.integrations.map((item) => ({ ...item })) }
+      records: runtimeSettings.state.status === "ready"
+       ? { integrations: runtimeSettings.state.data.integrations.map((item) => ({ ...item })) }
         : {},
     }),
     [authMode, runtimeSettings],
@@ -201,8 +202,9 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
       </section>
       <section class="settings-section" aria-labelledby="settings-delivery-integrations">
         <h3 id="settings-delivery-integrations">{t("settings.delivery")}</h3>
-        <AsyncBoundary
-          state={runtimeSettings}
+        <IntegrationReadFeedback read={runtimeSettings} />
+        {runtimeSettings.state.status !== "unavailable" ? <AsyncBoundary
+          state={runtimeSettings.state}
           resourceLabel={t("settings.integrationStatusResource")}
         >
           {(runtime) => (
@@ -263,7 +265,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
               />
             </div>
           )}
-        </AsyncBoundary>
+        </AsyncBoundary> : null}
         <nav class="settings-integration-links" aria-label={t("settings.integrationEvidence")}>
           <a href={routeHref("settings-diagnostics")}>{t("route.settingsDiagnostics")}</a>
           <a href={routeHref("settings-environment")}>{t("route.settingsEnvironment")}</a>
@@ -272,131 +274,14 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
       <DocumentOcrSettingsPanel client={client} auth={auth} />
       <section class="settings-section" aria-labelledby="settings-incident-email-template">
         <h3 id="settings-incident-email-template">{t("settings.emailTemplateHeading")}</h3>
-        <AsyncBoundary
-          state={incidentEmailTemplate}
+        <IntegrationReadFeedback read={incidentEmailTemplate} />
+        {incidentEmailTemplate.state.status !== "unavailable" ? <AsyncBoundary
+          state={incidentEmailTemplate.state}
           resourceLabel={t("settings.emailTemplateResource")}
         >
           {(template) => <EmailTemplatePreviewPanel template={template} />}
-        </AsyncBoundary>
+        </AsyncBoundary> : null}
       </section>
-    </div>
-  );
-}
-
-export function SettingsDiagnosticsRoute({ client, auth }: Props) {
-  const authMode = authenticationMode(auth);
-  const [health, setHealth] = useState<"checking" | "available" | "unavailable">("checking");
-  const [readPath, setReadPath] = useState<"checking" | "available" | "unavailable">("checking");
-  const [healthError, setHealthError] = useState<string | null>(null);
-  const checkGeneration = useRef(0);
-  const runtimeSettings = useRuntimeSettings(client);
-
-  const checkHealth = async () => {
-    const generation = ++checkGeneration.current;
-    setHealth("checking");
-    setReadPath("checking");
-    setHealthError(null);
-    const [liveness, kpiRead] = await Promise.allSettled([
-      client.panel<unknown>("/healthz"),
-      client.dashboardMetrics(),
-    ]);
-    if (!isCurrentDiagnosticCheck(checkGeneration.current, generation)) return;
-    const errors: string[] = [];
-    if (liveness.status === "fulfilled" && isHealthy(liveness.value)) {
-      setHealth("available");
-    } else {
-      setHealth("unavailable");
-      errors.push(liveness.status === "rejected"
-        ? liveness.reason instanceof Error ? liveness.reason.message : String(liveness.reason)
-        : t("settings.invalidLivenessResponse"));
-    }
-    if (kpiRead.status === "fulfilled") {
-      setReadPath("available");
-    } else {
-      setReadPath("unavailable");
-      errors.push(kpiRead.reason instanceof Error ? kpiRead.reason.message : String(kpiRead.reason));
-    }
-    setHealthError(errors.length > 0 ? errors.join("; ") : null);
-  };
-
-  useEffect(() => {
-    void checkHealth();
-    return () => {
-      checkGeneration.current += 1;
-    };
-  }, [client]);
-
-  usePublishViewContext(
-    () => ({
-      routeId: "settings-diagnostics",
-      routeLabel: t("route.settingsDiagnostics"),
-      purpose: t("settings.diagnosticsPurpose"),
-      glossary: composeGlossary([TERMS.humanRbac]),
-      headline: t("settings.diagnosticsHeadline", {
-        health,
-        readPath,
-        mode: authMode,
-      }),
-      capturedAt: new Date().toISOString(),
-      facts: [
-        { key: "operator_api_liveness", value: health, group: "runtime" },
-        { key: "kpi_read_path", value: readPath, group: "runtime" },
-        { key: "authentication_mode", value: authMode, group: "identity" },
-      ],
-      records: {},
-    }),
-    [authMode, health, readPath],
-  );
-
-  return (
-    <div class="stack settings-route">
-      <PageHeader
-        title={t("route.settingsDiagnostics")}
-        subtitle={t("settings.diagnosticsSubtitle")}
-      />
-      <section class="settings-section" aria-labelledby="settings-runtime">
-        <h3 id="settings-runtime">{t("settings.runtime")}</h3>
-        <div class="settings-list">
-          <SettingRow label={t("settings.operatorApiLiveness")} hint={t("settings.operatorApiLivenessHint")}>
-            <span class="settings-diagnostic-action">
-              <StatusPill
-                kind={health === "available" ? "success" : health === "unavailable" ? "danger" : "neutral"}
-                label={t(`settings.health.${health}`)}
-              />
-              <button
-                type="button"
-                class="secondary"
-                disabled={health === "checking"}
-                onClick={() => { void checkHealth(); }}
-              >
-                {t("settings.retry")}
-              </button>
-            </span>
-          </SettingRow>
-          <SettingRow label={t("settings.readPath")} hint={t("settings.readPathHint")}>
-            <StatusPill
-              kind={readPath === "available" ? "success" : readPath === "unavailable" ? "danger" : "neutral"}
-              label={t(`settings.health.${readPath}`)}
-            />
-          </SettingRow>
-          <SettingRow label={t("settings.authentication")} hint={t("settings.authenticationHint")}>
-            <code class="settings-runtime-value">{authMode}</code>
-          </SettingRow>
-          <SettingRow label={t("settings.principal")} hint={t("settings.principalHint")}>
-            <code class="settings-runtime-value">{auth.account?.username ?? t("settings.unavailable")}</code>
-          </SettingRow>
-        </div>
-      </section>
-      <section class="settings-section" aria-labelledby="settings-runtime-policy-status">
-        <h3 id="settings-runtime-policy-status">{t("settings.runtimePolicyStatus")}</h3>
-        <AsyncBoundary
-          state={runtimeSettings}
-          resourceLabel={t("settings.runtimeStatusResource")}
-        >
-          {(view) => <RuntimeDiagnosticRows view={view} />}
-        </AsyncBoundary>
-      </section>
-      {healthError ? <div class="error" role="alert">{healthError}</div> : null}
     </div>
   );
 }
@@ -404,61 +289,30 @@ export function SettingsDiagnosticsRoute({ client, auth }: Props) {
 function useRuntimeSettings(
   client: OperatorApiClient,
   refreshEpoch = 0,
-): AsyncState<RuntimeSettingsView> {
-  const [state, setState] = useState<AsyncState<RuntimeSettingsView>>({ status: "loading" });
-  useEffect(() => {
-    let active = true;
-    if (refreshEpoch === 0) {
-      setState({ status: "loading" });
-    }
-    void (async () => {
-      try {
-        const data = decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings"));
-        if (active) setState({ status: "ready", data });
-      } catch (reason) {
-        if (active && refreshEpoch === 0) {
-          setState({
-            status: "error",
-            message: reason instanceof Error ? reason.message : String(reason),
-          });
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [client, refreshEpoch]);
-  return state;
+) {
+  return useAdministrationRead(client, async () =>
+    decodeRuntimeSettings(await client.panel<unknown>("/runtime/settings")), refreshEpoch);
 }
 
-function useIncidentEmailTemplate(client: OperatorApiClient): AsyncState<EmailTemplatePreview> {
-  const [state, setState] = useState<AsyncState<EmailTemplatePreview>>({ status: "loading" });
-  useEffect(() => {
-    let active = true;
-    setState({ status: "loading" });
-    void (async () => {
-      try {
-        const data = decodeEmailTemplatePreview(
-          await client.panel<unknown>("/notification-templates/incident-opened"),
-        );
-        if (active) setState({ status: "ready", data });
-      } catch (reason) {
-        if (active) {
-          setState({
-            status: "error",
-            message: reason instanceof Error ? reason.message : String(reason),
-          });
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [client]);
-  return state;
+function useIncidentEmailTemplate(client: OperatorApiClient) {
+  return useAdministrationRead(client, async () => decodeEmailTemplatePreview(
+    await client.panel<unknown>("/notification-templates/incident-opened")));
 }
 
-function TeamsWorkflowTestPanel({
+function IntegrationReadFeedback({ read }: {
+  readonly read: ReturnType<typeof useAdministrationRead<unknown>>;
+}) {
+  return <div class="settings-read-feedback">
+    <button type="button" class="secondary" disabled={read.refreshing} onClick={read.refresh}>
+      {read.state.status === "ready" ? settingsIntegrationsText("readRefresh") : t("settings.retry")}
+    </button>
+    {read.observedAt ? <small>{settingsIntegrationsText("readObservedAt", { time: formatConsoleTimestamp(read.observedAt) })}</small> : null}
+    {read.refreshing && read.state.status === "ready" ? <span role="status">{settingsIntegrationsText("readRefreshing")}</span> : null}
+    {read.error ? <p role="alert">{settingsIntegrationsText(read.state.status === "ready" ? "readStale" : "readUnavailable")}</p> : null}
+  </div>;
+}
+
+export function TeamsWorkflowTestPanel({
   auth,
   operatorApiBaseUrl,
   canManage,
@@ -474,6 +328,10 @@ function TeamsWorkflowTestPanel({
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+  const preferencePending = useRef(false);
+  const [preferenceNotice, setPreferenceNotice] = useState(false);
+  const [bindingRevision, setBindingRevision] = useState(0);
   const [revealing, setRevealing] = useState(false);
   const [isUrlRevealed, setIsUrlRevealed] = useState(false);
   const [revealedBinding, setRevealedBinding] = useState<{
@@ -487,7 +345,7 @@ function TeamsWorkflowTestPanel({
   const [error, setError] = useState<string | null>(null);
   const [bindingError, setBindingError] = useState<string | null>(null);
   const [bindingVisibility, setBindingVisibility] = useState<
-    "loading" | "hidden" | "visible" | "missing"
+    "loading" | "hidden" | "visible" | "missing" | "unavailable"
   >("loading");
   const [bindingSaved, setBindingSaved] = useState<TeamsWorkflowSavedBinding | null>(null);
   const [selectedTargets, setSelectedTargets] = useState<
@@ -504,8 +362,8 @@ function TeamsWorkflowTestPanel({
   const loginEmail =
     auth.account?.username ?? t("settings.teamsWorkflowTest.accountUnavailable");
   const effectiveRecipientEmail =
-    emailRecipientMode === "custom" && customEmail.trim()
-      ? customEmail.trim()
+    bindingSaved?.emailRecipientMode === "custom" && bindingSaved.customEmail.trim()
+      ? bindingSaved.customEmail.trim()
       : loginEmail;
 
   useEffect(() => () => {
@@ -516,6 +374,18 @@ function TeamsWorkflowTestPanel({
 
   useEffect(() => {
     let active = true;
+    setBindingVisibility("loading");
+    setBindingError(null);
+    setBindingSaved(null);
+    setRevealedBinding(null);
+    setRevealedChannelUrls({});
+    setIsUrlRevealed(false);
+    setWebhookUrl("");
+    setChannelLabel("");
+    setSelectedTargets(DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS);
+    setEmailRecipientMode("login");
+    setCustomEmail("");
+    setSavingPreferences(false);
     void (async () => {
       try {
         const binding = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
@@ -547,14 +417,16 @@ function TeamsWorkflowTestPanel({
         setBindingVisibility("visible");
       } catch (reason) {
         if (!active) return;
-        setBindingError(reason instanceof Error ? reason.message : String(reason));
-        setBindingVisibility("missing");
+        setBindingError(settingsIntegrationsText("bindingUnavailable"));
+        setBindingVisibility("unavailable");
       }
     })();
     return () => {
       active = false;
+      preferenceGenerationRef.current += 1;
+      preferencePending.current = false;
     };
-  }, [auth, operatorApiBaseUrl]);
+  }, [auth, operatorApiBaseUrl, bindingRevision]);
 
   const markUrlCopied = () => {
     setUrlCopied(true);
@@ -591,8 +463,8 @@ function TeamsWorkflowTestPanel({
       setWebhookUrl("");
       setIsEditingUrl(false);
       setIsUrlRevealed(true);
-    } catch (reason) {
-      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } catch {
+      setBindingError(settingsIntegrationsText("bindingUnavailable"));
     } finally {
       setRevealing(false);
     }
@@ -606,7 +478,7 @@ function TeamsWorkflowTestPanel({
         await navigator.clipboard.writeText(draft);
         markUrlCopied();
       } catch {
-        /* clipboard unavailable in non-secure context */
+        setBindingError(settingsIntegrationsText("clipboardFailed"));
       }
       return;
     }
@@ -628,8 +500,8 @@ function TeamsWorkflowTestPanel({
       }
       await navigator.clipboard.writeText(fullUrl);
       markUrlCopied();
-    } catch (reason) {
-      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } catch {
+      setBindingError(settingsIntegrationsText("clipboardFailed"));
     } finally {
       setRevealing(false);
     }
@@ -642,11 +514,15 @@ function TeamsWorkflowTestPanel({
     readonly emailRecipientMode?: TeamsEmailRecipientMode;
     readonly customEmail?: string;
   }) => {
-    if (!canManage || !bindingSaved) return;
+    if (!canManage || !bindingSaved || preferencePending.current || testing) return;
+    preferencePending.current = true;
+    setSavingPreferences(true);
+    setPreferenceNotice(false);
+    const confirmedBinding = bindingSaved;
     const generation = ++preferenceGenerationRef.current;
     setBindingError(null);
     try {
-      await testTeamsWorkflowWebhook(
+      const receipt = await testTeamsWorkflowWebhook(
         auth,
         operatorApiBaseUrl,
         "",
@@ -672,7 +548,9 @@ function TeamsWorkflowTestPanel({
       );
       const refreshed = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
       if (preferenceGenerationRef.current !== generation) return;
-      if (refreshed.visible && refreshed.configured) {
+      if (refreshed.visible && refreshed.configured
+        && refreshed.bindingVersion === receipt.bindingVersion
+        && confirmsTeamsWorkflowPreferences(refreshed, options)) {
         const nextTargets =
           refreshed.deliveryTargets !== undefined
             ? resolveTeamsDeliveryTargets(refreshed)
@@ -702,14 +580,27 @@ function TeamsWorkflowTestPanel({
           customEmail: nextCustomEmail,
         }));
         onBindingChanged?.();
+        setPreferenceNotice(true);
+      } else {
+        throw new Error("Binding confirmation unavailable");
       }
-    } catch (reason) {
-      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } catch {
+      if (preferenceGenerationRef.current !== generation) return;
+      setBindingSaved(confirmedBinding);
+      setSelectedTargets(confirmedBinding.deliveryTargets ?? DEFAULT_TEAMS_NOTIFICATION_DELIVERY_TARGETS);
+      setEmailRecipientMode(confirmedBinding.emailRecipientMode ?? "login");
+      setCustomEmail(confirmedBinding.customEmail ?? "");
+      setBindingError(settingsIntegrationsText("preferenceFailed"));
+    } finally {
+      if (preferenceGenerationRef.current === generation) {
+        preferencePending.current = false;
+        setSavingPreferences(false);
+      }
     }
   };
 
   const selectEmailRecipientMode = (nextMode: TeamsEmailRecipientMode) => {
-    if (!canManage || testing) return;
+    if (!canManage || testing || preferencePending.current) return;
     setEmailRecipientMode(nextMode);
     if (nextMode === "login" && bindingSaved) {
       void persistChannelPreferences({
@@ -738,7 +629,7 @@ function TeamsWorkflowTestPanel({
   };
 
   const saveCustomRecipientEmail = () => {
-    if (!canManage || testing || !customEmailIsValid) return;
+    if (!canManage || testing || preferencePending.current || !customEmailIsValid) return;
     if (bindingSaved) {
       void persistChannelPreferences({
         selectedChannelIds: bindingSaved.channels
@@ -752,7 +643,7 @@ function TeamsWorkflowTestPanel({
   };
 
   const toggleDeliveryTarget = (target: TeamsNotificationDeliveryTargetKey) => {
-    if (!canManage || testing) return;
+    if (!canManage || testing || preferencePending.current) return;
     const exists = selectedTargets.includes(target);
     if (exists && selectedTargets.length <= 1) return;
     const next = exists
@@ -773,7 +664,7 @@ function TeamsWorkflowTestPanel({
   const applyDeliveryTargetsPreset = (
     next: readonly TeamsNotificationDeliveryTargetKey[],
   ) => {
-    if (!canManage || testing) return;
+    if (!canManage || testing || preferencePending.current) return;
     setSelectedTargets(next);
     if (bindingSaved) {
       setBindingSaved({ ...bindingSaved, deliveryTargets: next });
@@ -787,7 +678,7 @@ function TeamsWorkflowTestPanel({
   };
 
   const toggleSavedChannel = (channelId: string) => {
-    if (!canManage || testing || !bindingSaved) return;
+    if (!canManage || testing || preferencePending.current || !bindingSaved) return;
     const enabledCount = bindingSaved.channels.filter((ch) => ch.enabled).length;
     const targetChannel = bindingSaved.channels.find((ch) => ch.channelId === channelId);
     if (!targetChannel) return;
@@ -803,7 +694,7 @@ function TeamsWorkflowTestPanel({
   };
 
   const removeSavedChannel = (channelId: string) => {
-    if (!canManage || testing || !bindingSaved || bindingSaved.channels.length <= 1) return;
+    if (!canManage || testing || preferencePending.current || !bindingSaved || bindingSaved.channels.length <= 1) return;
     if (channelId in revealedChannelUrls) {
       const nextRevealed = { ...revealedChannelUrls };
       delete nextRevealed[channelId];
@@ -849,6 +740,8 @@ function TeamsWorkflowTestPanel({
     if (
       !canManage
       || testing
+      || preferencePending.current
+      || !customEmailIsValid
       || !canSubmitTeamsWorkflow(webhookUrl, bindingSaved !== null)
     ) return;
     const submittedUrl = webhookUrl.trim();
@@ -880,11 +773,18 @@ function TeamsWorkflowTestPanel({
               }
             : {}),
           deliveryTargets: selectedTargets,
+          emailRecipientMode,
+          customEmail: customEmail.trim(),
         },
       );
       const refreshedBinding = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
       if (!refreshedBinding.visible || !refreshedBinding.configured) {
         throw new Error("Saved Teams Workflow binding metadata is unavailable");
+      }
+      if (refreshedBinding.bindingVersion !== saved.bindingVersion || !confirmsTeamsWorkflowPreferences(refreshedBinding, {
+        deliveryTargets: selectedTargets, emailRecipientMode, customEmail: customEmail.trim(),
+      })) {
+        throw new Error(settingsIntegrationsText("bindingConfirmationUnavailable"));
       }
       const nextTargets = resolveTeamsDeliveryTargets(refreshedBinding);
       const nextEmailMode =
@@ -944,6 +844,15 @@ function TeamsWorkflowTestPanel({
         <p>{t("settings.teamsWorkflowTest.description")}</p>
         <p>{settingsIntegrationsText("saveBoundary")}</p>
       </div>
+      <div class="settings-read-feedback">
+        <button type="button" class="secondary"
+          disabled={testing || savingPreferences || revealing || bindingVisibility === "loading"}
+          onClick={() => setBindingRevision((value) => value + 1)}>
+          {settingsIntegrationsText("bindingRefresh")}
+        </button>
+        <small>{settingsIntegrationsText("bindingRefreshHint")}</small>
+      </div>
+      <span class="sr-only" role="status">{urlCopied ? t("shared.copied") : ""}</span>
       <ol class="settings-teams-workflow-steps">
         <li>
           <span class="settings-teams-workflow-step-index" aria-hidden="true">1</span>
@@ -1183,7 +1092,7 @@ function TeamsWorkflowTestPanel({
           <div class="settings-teams-workflow-step">
             <strong>{settingsIntegrationsText("saveTestStep")}</strong>
             <p>{settingsIntegrationsText("saveTestStepHint")}</p>
-            {canManage || bindingVisibility === "visible" ? (
+            {(canManage && bindingVisibility === "missing") || bindingVisibility === "visible" ? (
               <form
                 class="settings-webhook-diagnostic-form"
                 onSubmit={(event) => { void submit(event); }}
@@ -1321,7 +1230,7 @@ function TeamsWorkflowTestPanel({
                   type="submit"
                   class="btn primary"
                   disabled={
-                    testing
+                    testing || savingPreferences || !customEmailIsValid
                     || !canSubmitTeamsWorkflow(webhookUrl, bindingSaved !== null)
                   }
                 >
@@ -1339,8 +1248,13 @@ function TeamsWorkflowTestPanel({
                 </small>
               </form>
             ) : bindingVisibility === "loading" ? (
-              <div class="state-block" role="status">
-                {settingsIntegrationsText("bindingLoading")}
+              <LoadingState label={settingsIntegrationsText("bindingLoading")} />
+            ) : bindingVisibility === "unavailable" ? (
+              <div class="state-block">
+                <p>{settingsIntegrationsText("bindingUnavailable")}</p>
+                <button type="button" class="secondary" onClick={() => setBindingRevision((value) => value + 1)}>
+                  {t("settings.retry")}
+                </button>
               </div>
             ) : bindingVisibility === "hidden" ? (
               <div class="state-block" role="note">
@@ -1351,7 +1265,7 @@ function TeamsWorkflowTestPanel({
                 {settingsIntegrationsText("bindingMissing")}
               </div>
             )}
-            {canManage || bindingVisibility === "visible" ? (
+            {(canManage && bindingVisibility === "missing") || bindingVisibility === "visible" ? (
               <div class="settings-teams-workflow-channel-selector">
                 <div class="settings-teams-workflow-channel-selector-head">
                   <strong>{settingsIntegrationsText("channelSelectionTitle")}</strong>
@@ -1373,6 +1287,7 @@ function TeamsWorkflowTestPanel({
                           class="btn btn-small"
                           disabled={
                             testing
+                            || savingPreferences
                             || selectedTargets.length
                               === ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS.length
                           }
@@ -1387,6 +1302,7 @@ function TeamsWorkflowTestPanel({
                           class="btn btn-small"
                           disabled={
                             testing
+                            || savingPreferences
                             || (selectedTargets.length === 1
                               && selectedTargets[0] === "teams-a2-operational-alert")
                           }
@@ -1401,6 +1317,9 @@ function TeamsWorkflowTestPanel({
                   </div>
                 </div>
                 <p>{settingsIntegrationsText("channelSelectionHint")}</p>
+                <p id="teams-minimum-selection" class="muted">{settingsIntegrationsText("minimumSelection")}</p>
+                {savingPreferences ? <p role="status">{settingsIntegrationsText("preferenceSaving")}</p> : null}
+                {preferenceNotice ? <p role="status">{settingsIntegrationsText("preferenceSaved")}</p> : null}
                 <div class="settings-teams-workflow-checkbox-grid">
                   {ALL_TEAMS_NOTIFICATION_DELIVERY_TARGETS.map((targetKey) => {
                     const checked = selectedTargets.includes(targetKey);
@@ -1414,7 +1333,8 @@ function TeamsWorkflowTestPanel({
                         <input
                           type="checkbox"
                           checked={checked}
-                          disabled={!canManage || testing}
+                          disabled={!canManage || testing || savingPreferences || (checked && selectedTargets.length === 1)}
+                          aria-describedby="teams-minimum-selection"
                           onChange={() => toggleDeliveryTarget(targetKey)}
                         />
                         <span class="settings-teams-workflow-checkbox-copy">
@@ -1434,19 +1354,23 @@ function TeamsWorkflowTestPanel({
                     <strong>{settingsIntegrationsText("emailRecipientTitle")}</strong>
                     <StatusPill
                       kind="neutral"
-                      label={settingsIntegrationsText("emailRecipientActivePill", {
+                      label={bindingSaved ? settingsIntegrationsText("emailRecipientActivePill", {
                         email: effectiveRecipientEmail,
-                      })}
+                      }) : settingsIntegrationsText("recipientDraftPill")}
                     />
                   </div>
                   <p>{settingsIntegrationsText("emailRecipientHint")}</p>
+                  {(!bindingSaved || emailRecipientMode !== bindingSaved.emailRecipientMode
+                    || customEmail.trim() !== bindingSaved.customEmail) ? (
+                    <p class="muted">{settingsIntegrationsText("recipientDraft")}</p>
+                  ) : null}
                   <div class="settings-teams-workflow-email-modes">
                     <label>
                       <input
                         type="radio"
                         name="teams-workflow-email-recipient-mode"
                         checked={emailRecipientMode === "login"}
-                        disabled={!canManage || testing}
+                        disabled={!canManage || testing || savingPreferences}
                         onChange={() => selectEmailRecipientMode("login")}
                       />
                       <span>
@@ -1460,13 +1384,14 @@ function TeamsWorkflowTestPanel({
                         type="radio"
                         name="teams-workflow-email-recipient-mode"
                         checked={emailRecipientMode === "custom"}
-                        disabled={!canManage || testing}
+                        disabled={!canManage || testing || savingPreferences}
                         onChange={() => selectEmailRecipientMode("custom")}
                       />
                       <span>{settingsIntegrationsText("emailRecipientModeCustom")}</span>
                     </label>
                   </div>
                   {emailRecipientMode === "custom" ? (
+                    <>
                     <div class="settings-teams-workflow-email-custom-row">
                       <input
                         class="form-input"
@@ -1474,8 +1399,9 @@ function TeamsWorkflowTestPanel({
                         maxlength={254}
                         aria-label={settingsIntegrationsText("emailRecipientCustomLabel")}
                         aria-invalid={!customEmailIsValid ? "true" : undefined}
+                        aria-describedby="teams-recipient-help"
                         value={customEmail}
-                        disabled={!canManage || testing}
+                        disabled={!canManage || testing || savingPreferences}
                         placeholder={settingsIntegrationsText(
                           "emailRecipientCustomPlaceholder",
                         )}
@@ -1487,6 +1413,7 @@ function TeamsWorkflowTestPanel({
                           class="btn btn-small primary"
                           disabled={
                             testing
+                            || savingPreferences || !bindingSaved
                             || !customEmail.trim()
                             || !customEmailIsValid
                           }
@@ -1496,6 +1423,10 @@ function TeamsWorkflowTestPanel({
                         </button>
                       ) : null}
                     </div>
+                    <small id="teams-recipient-help">
+                      {settingsIntegrationsText(customEmailIsValid ? "recipientDraft" : "recipientInvalid")}
+                    </small>
+                    </>
                   ) : null}
                 </div>
                 {bindingSaved && bindingSaved.channels.length > 0 ? (
@@ -1547,7 +1478,8 @@ function TeamsWorkflowTestPanel({
                           <input
                             type="checkbox"
                             checked={channel.enabled}
-                            disabled={!canManage || testing}
+                            disabled={!canManage || testing || savingPreferences || (channel.enabled && bindingSaved.channels.filter((item) => item.enabled).length === 1)}
+                            aria-describedby="teams-minimum-selection"
                             aria-label={channel.label}
                             onChange={() => toggleSavedChannel(channel.channelId)}
                           />
@@ -1562,7 +1494,7 @@ function TeamsWorkflowTestPanel({
                             <button
                               type="button"
                               class="settings-teams-workflow-icon-btn"
-                              disabled={testing || revealing}
+                              disabled={testing || revealing || savingPreferences}
                               aria-pressed={Boolean(rowRevealedUrl)}
                               aria-label={
                                 rowRevealedUrl
@@ -1610,7 +1542,7 @@ function TeamsWorkflowTestPanel({
                               <button
                                 type="button"
                                 class="settings-teams-workflow-icon-btn"
-                                disabled={testing || revealing}
+                                disabled={testing || revealing || savingPreferences}
                                 aria-label={settingsIntegrationsText("removeChannel", {
                                   label: channel.label,
                                 })}
@@ -1775,7 +1707,8 @@ function SlackWebhookTestPanel({
   );
 }
 
-function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTemplatePreview }) {
+export function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTemplatePreview }) {
+  const [plainText, setPlainText] = useState(false);
   return (
     <div class="settings-email-template">
       <div class="settings-email-template-head">
@@ -1785,13 +1718,21 @@ function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTempl
         </span>
         <StatusPill kind="neutral" label={t("settings.emailTemplateSynthetic")} />
       </div>
-      <iframe
+      <div class="settings-actions" role="group" aria-label={t("settings.emailTemplatePreviewTitle")}>
+        <button type="button" class="secondary" aria-pressed={!plainText} onClick={() => setPlainText(false)}>
+          {settingsIntegrationsText("emailHtml")}
+        </button>
+        <button type="button" class="secondary" aria-pressed={plainText} onClick={() => setPlainText(true)}>
+          {settingsIntegrationsText("emailPlain")}
+        </button>
+      </div>
+      {plainText ? <pre class="settings-email-template-plain">{template.plainText}</pre> : <iframe
         class="settings-email-template-frame"
         title={t("settings.emailTemplatePreviewTitle")}
         srcDoc={template.html}
         sandbox=""
         referrerPolicy="no-referrer"
-      />
+      />}
     </div>
   );
 }
@@ -1940,52 +1881,4 @@ function integrationSource(source: RuntimeIntegrationView["source"]): string {
   if (source === "core-control-plane") return settingsIntegrationsText("sourceCore");
   if (source === "operator-service") return settingsIntegrationsText("sourceOperator");
   return settingsIntegrationsText("sourceUnspecified");
-}
-
-function RuntimeDiagnosticRows({ view }: { readonly view: RuntimeSettingsView }) {
-  const runtime = view.runtime;
-  const rows = [
-    ["environment", runtime.environment],
-    ["stateStore", runtime.stateStoreDurable],
-    ["autonomyDefault", runtime.autonomyDefault],
-    ["pantheon", runtime.pantheonEnabled],
-    ["workflowObservation", runtime.workflowObservationEnabled],
-    ["primaryTransport", runtime.primaryTransportConfigured],
-    ["auxiliaryTransport", runtime.auxiliaryTransportConfigured],
-    ["caseHistory", runtime.caseHistoryConfigured],
-  ] as const;
-  return (
-    <div class="settings-list">
-      {rows.map(([key, value]) => (
-        <SettingRow
-          key={key}
-          label={t(`settings.runtimeDiagnostics.${key}.label`)}
-          hint={t(`settings.runtimeDiagnostics.${key}.hint`)}
-        >
-          {typeof value === "boolean" ? (
-            <StatusPill
-              kind={value ? "success" : "neutral"}
-              label={value ? t("settings.enabled") : t("settings.disabled")}
-            />
-          ) : (
-            <code class="settings-runtime-value">{value}</code>
-          )}
-        </SettingRow>
-      ))}
-    </div>
-  );
-}
-
-export function isHealthy(value: unknown): boolean {
-  return typeof value === "object"
-    && value !== null
-    && !Array.isArray(value)
-    && (value as Record<string, unknown>)["status"] === "ok";
-}
-
-export function authenticationMode(auth: AuthContext): string {
-  if (auth.localAzureCli) return "Azure CLI";
-  if (auth.devMode && auth.account) return "Local Entra";
-  if (auth.devMode) return "Development";
-  return "Microsoft Entra ID";
 }

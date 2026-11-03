@@ -338,10 +338,68 @@ export function normalizeRuntimeSettingChanges(
 ): Readonly<Record<string, RuntimeSettingValue | null>> {
   return Object.fromEntries(Object.entries(changes).map(([key, value]) => {
     const setting = view.settings.find((entry) => entry.key === key);
+    if (setting && (setting.valueType === "integer" || setting.valueType === "number") && value !== null) {
+      const parsed = parseRuntimeNumericInput(String(value), setting);
+      if (parsed === null) throw new Error(`${key} MUST be a valid bounded number`);
+      return [key, parsed];
+    }
     if (setting?.valueType !== "object" || value === null) return [key, value];
     const parsed: unknown = typeof value === "string" ? JSON.parse(value) : value;
     return [key, record(parsed, key)];
   }));
+}
+
+export function parseRuntimeNumericInput(
+  raw: string,
+  setting: Pick<RuntimeSettingView, "valueType" | "minimum" | "maximum">,
+): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) return null;
+  if (setting.valueType === "integer" && !Number.isSafeInteger(parsed)) return null;
+  if (setting.minimum !== null && parsed < setting.minimum) return null;
+  if (setting.maximum !== null && parsed > setting.maximum) return null;
+  return parsed;
+}
+
+export function runtimeDraftError(setting: RuntimeSettingView, value: RuntimeSettingValue): "numeric" | "object" | null {
+  if (setting.valueType === "integer" || setting.valueType === "number") {
+    return parseRuntimeNumericInput(String(value), setting) === null ? "numeric" : null;
+  }
+  if (setting.valueType === "object") {
+    try {
+      const parsed: unknown = typeof value === "string" ? JSON.parse(value) : value;
+      record(parsed, setting.key);
+    } catch { return "object"; }
+  }
+  return null;
+}
+
+export function runtimeNetChange(
+  setting: RuntimeSettingView,
+  value: RuntimeSettingValue | null,
+): RuntimeSettingValue | null | undefined {
+  if (value === null) return setting.overrideValue === null ? undefined : null;
+  if (runtimeDraftError(setting, value)) return value;
+  const normalized = normalizeRuntimeSettingChanges({ settings: [setting] }, { [setting.key]: value })[setting.key];
+  const canonical = (candidate: unknown): string => JSON.stringify(candidate, (_key, item: unknown) =>
+    item !== null && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
+  return canonical(normalized) === canonical(setting.overrideValue ?? setting.effectiveValue)
+    ? undefined : value;
+}
+
+export function filterRuntimePolicies(
+  settings: readonly RuntimeSettingView[],
+  search: string,
+  changedOnly: boolean,
+  changes: Readonly<Record<string, RuntimeSettingValue | null>>,
+  label: (key: string) => string,
+): readonly RuntimeSettingView[] {
+  const query = search.trim().toLocaleLowerCase();
+  return settings.filter((setting) => (!changedOnly || Object.hasOwn(changes, setting.key))
+    && (!query || `${setting.key} ${setting.group} ${label(setting.key)}`.toLocaleLowerCase().includes(query)));
 }
 
 function record(value: unknown, path: string): Record<string, unknown> {

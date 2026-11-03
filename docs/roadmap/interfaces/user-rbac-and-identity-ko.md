@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 987a6fade6dc1e4d9755ca0457f3a198c7a9c36e
-translation_revised: 2026-11-02
+translation_source_sha: da028bd894fbaaf52a85d4a2f143938401946a7e
+translation_revised: 2026-11-03
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -99,6 +99,12 @@ Operator Service는 token 검증과 server-owned App Role 해석 후에만 role�
 
 정확한 HIL 결정 재생은 결정과 정규화된 승인자 신원을 모두 보존해야 합니다. 다른 승인자가 같은
 멱등성 키를 재사용하면 결정이 같아도 충돌로 처리합니다.
+
+설정의 추가 조회와 컨트롤은 인증된 서버 변환 결과의 관리 기능을 사용합니다.
+요청 참조는 디렉터리 관측이 아닙니다. 요청한 역할과 검증된 멤버십을 구분하며,
+요청 승인만으로 역할 부여나 회수의 효과를 확인했다고 표시하지 않습니다.
+사용자 목록이나 요청을 조회할 수 없으면 빈 목록으로 확정하지 않고 상태를 명시합니다.
+모델 설정 저장 후 재조회도 GET과 같은 승인된 기능을 보존할 뿐 새 역할을 부여하지 않습니다.
 
 ## 2. 롤 모델 (4티어 + Break-Glass)
 

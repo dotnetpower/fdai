@@ -536,7 +536,7 @@ export function App() {
             onClose={closeSettings}
             onPrefetchPanel={(panelId) => {
               if (panelId === "settings-models") {
-                void client.modelSettings().catch(() => undefined);
+                void client.modelSettings({ includeCatalog: false }).catch(() => undefined);
               }
             }}
           >

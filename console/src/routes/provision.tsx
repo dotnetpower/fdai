@@ -25,13 +25,15 @@ import type {
 import { useProvisionStream } from "../hooks/use-provision-stream";
 import { t } from "./i18n/provision";
 import { OPERATIONS_SAMPLE_PROVISION_EVENTS } from "./operations.sample-events";
-import { ProvisionView } from "./provision-view";
+import { ProvisionView, type ProvisionViewId } from "./provision-view";
 import "./provision.css";
 
 interface Props {
   readonly client: OperatorApiClient;
   readonly dataMode: ConsoleDataMode;
   readonly embedded?: boolean;
+  readonly evidenceView?: ProvisionViewId | undefined;
+  readonly onEvidenceViewChange?: ((view: ProvisionViewId) => void) | undefined;
 }
 
 /** Source-manifest state that gates the authenticated provisioning replay. */
@@ -285,7 +287,9 @@ export function ProvisionRoute(props: Props) {
   return <ProvisionRouteSession key={props.dataMode} {...props} />;
 }
 
-function ProvisionRouteSession({ client, dataMode, embedded = false }: Props) {
+function ProvisionRouteSession({
+  client, dataMode, embedded = false, evidenceView, onEvidenceViewChange,
+}: Props) {
   const [state, dispatch] = useReducer(reducer, INITIAL);
   const [source, setSource] = useState<ProvisionSourceState>({
     status: "loading",
@@ -393,6 +397,8 @@ function ProvisionRouteSession({ client, dataMode, embedded = false }: Props) {
       source={source}
       state={state}
       status={status}
+      evidenceView={evidenceView}
+      onEvidenceViewChange={onEvidenceViewChange}
     />
   );
 }

@@ -699,6 +699,7 @@ regressing denial escapes, duplicate application, rollback, or unavailable-sourc
 
 The [Console settings and component presentation reference](../../reference/console-settings-presentation.md) defines shared controls, IAM stages, component documentation, and authority boundaries.
 Production Settings uses the shared typography, 34 px desktop and 44 px touch targets, action emphasis, visible focus, and active mobile navigation without changing persistence, RBAC, evidence, approval, or execution authority.
+Models supports an explicit summary projection that omits provider catalog discovery; selecting the catalog loads that evidence separately with observation time and bounded recovery. Save readback preserves the authenticated management capabilities and can use the same summary. Other Settings distinguish pending drafts, partial saves, applied filters, expired evidence, request versus verified role state, and independent diagnostic outcomes. The [Settings improvement inventory](../../reference/console-settings-review.md) records the bounded review and verification scope; local request duration is not operational model latency.
 
 ## Rejected alternatives
 

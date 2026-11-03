@@ -70,6 +70,11 @@ import type {
   BackgroundTaskCreateRequest,
 } from "./routes/background-tasks.model";
 
+interface ModelSettingsCacheEntry {
+  readonly promise: Promise<unknown>;
+  expiresAt: number;
+}
+
 export class OperatorApiClient {
   readonly #transport: OperatorApiTransport;
   readonly #operations: OperationsApiClient;
@@ -78,9 +83,7 @@ export class OperatorApiClient {
   readonly #reporting: ReportingApiClient;
   #dataSourcesPromise: Promise<ReadDataSourcesPayload> | null = null;
   #dataSourcesCacheExpiresAt = 0;
-  #modelSettingsPromise: Promise<unknown> | null = null;
-  #modelSettingsCacheExpiresAt = 0;
-  #modelSettingsGeneration = 0;
+  readonly #modelSettingsCache = new Map<"summary" | "full", ModelSettingsCacheEntry>();
 
   constructor(
     config: ConsoleConfig,
@@ -355,44 +358,39 @@ export class OperatorApiClient {
   modelSettings(options: {
     readonly force?: boolean;
     readonly refreshCatalog?: boolean;
+    readonly includeCatalog?: boolean;
   } = {}): Promise<unknown> {
-    if (
-      options.force === true
-      || options.refreshCatalog === true
-      || this.#modelSettingsPromise === null
-      || (
-        this.#modelSettingsCacheExpiresAt !== 0
-        && Date.now() >= this.#modelSettingsCacheExpiresAt
-      )
-    ) {
-      const generation = ++this.#modelSettingsGeneration;
-      this.#modelSettingsCacheExpiresAt = 0;
-      const path = options.refreshCatalog === true
-        ? "/models/settings?refresh_catalog=1"
-        : "/models/settings";
-      this.#modelSettingsPromise = this.panel<unknown>(path).then(
+    if (options.force === true || options.refreshCatalog === true) this.invalidateModelSettings();
+    const key = options.includeCatalog === false && options.refreshCatalog !== true
+      ? "summary"
+      : "full";
+    const cached = this.#modelSettingsCache.get(key);
+    if (cached && (cached.expiresAt === 0 || Date.now() < cached.expiresAt)) {
+      return cached.promise;
+    }
+    const path = options.refreshCatalog === true
+      ? "/models/settings?refresh_catalog=1"
+      : key === "summary" ? "/models/settings?view=summary" : "/models/settings";
+    const entry: ModelSettingsCacheEntry = {
+      expiresAt: 0,
+      promise: this.panel<unknown>(path).then(
         (payload) => {
-          if (generation === this.#modelSettingsGeneration) {
-            this.#modelSettingsCacheExpiresAt = Date.now() + 60_000;
-          }
+          if (this.#modelSettingsCache.get(key) === entry) entry.expiresAt = Date.now() + 60_000;
           return payload;
         },
         (error: unknown) => {
-          if (generation === this.#modelSettingsGeneration) {
-            this.#modelSettingsPromise = null;
-          }
+          if (this.#modelSettingsCache.get(key) === entry) this.#modelSettingsCache.delete(key);
           throw error;
         },
-      );
-    }
-    return this.#modelSettingsPromise;
+      ),
+    };
+    this.#modelSettingsCache.set(key, entry);
+    return entry.promise;
   }
 
   /** Drop the browser-memory Models projection after a successful settings mutation. */
   invalidateModelSettings(): void {
-    this.#modelSettingsGeneration += 1;
-    this.#modelSettingsPromise = null;
-    this.#modelSettingsCacheExpiresAt = 0;
+    this.#modelSettingsCache.clear();
   }
 
   async iamOverview(): Promise<IamOverview> {

@@ -142,6 +142,9 @@ export interface GptModelCatalogEntryView {
 
 export interface GptModelCatalogView {
   readonly available: boolean;
+  readonly loadState: "deferred" | "ready" | "unavailable";
+  readonly asOf: string | null;
+  readonly unavailableReason: string | null;
   readonly source: string;
   readonly region: string | null;
   readonly models: readonly GptModelCatalogEntryView[];
@@ -340,6 +343,19 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
     },
     "model settings.model_catalog",
   );
+  const catalogAvailable = boolean(modelCatalog["available"], "model_catalog.available");
+  const catalogModels = array(modelCatalog["models"], "model_catalog.models").map(decodeCatalogModel);
+  const catalogDeferred = modelCatalog["load_state"] === "deferred";
+  if (modelCatalog["load_state"] !== undefined && !catalogDeferred) {
+    throw new Error("model_catalog.load_state MUST be deferred when supplied");
+  }
+  if (catalogDeferred && (catalogAvailable || catalogModels.length !== 0)) {
+    throw new Error("deferred model catalog MUST NOT claim observed models or availability");
+  }
+  const catalogAsOf = nullableString(modelCatalog["as_of"] ?? null, "model_catalog.as_of");
+  if (catalogAsOf !== null && !Number.isFinite(Date.parse(catalogAsOf))) {
+    throw new Error("model_catalog.as_of MUST be a valid timestamp");
+  }
   const modelRouting = array(root["model_routing"], "model settings.model_routing").map(
     (entry) => decodeModelRouting(entry),
   );
@@ -510,10 +526,15 @@ export function decodeModelSettings(value: unknown): ModelSettingsView {
       quorumReady: boolean(t2ModelPolicy["quorum_ready"], "t2_model_policy.quorum_ready"),
     },
     modelCatalog: {
-      available: boolean(modelCatalog["available"], "model_catalog.available"),
+      available: catalogAvailable,
+      loadState: catalogDeferred
+        ? "deferred"
+        : catalogAvailable ? "ready" : "unavailable",
+      asOf: catalogAsOf,
+      unavailableReason: nullableString(modelCatalog["unavailable_reason"] ?? null, "model_catalog.unavailable_reason"),
       source: string(modelCatalog["source"], "model_catalog.source"),
       region: nullableString(modelCatalog["region"], "model_catalog.region"),
-      models: array(modelCatalog["models"], "model_catalog.models").map(decodeCatalogModel),
+      models: catalogModels,
     },
     bindingPolicy: decodeBindingPolicy(bindingPolicy),
   };

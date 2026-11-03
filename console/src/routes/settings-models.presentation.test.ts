@@ -8,6 +8,8 @@ import {
   independentSecondaryCandidates,
   matchesModelQuery,
   modelReadinessState,
+  modelWorkspaceSearch,
+  modelWorkspaceViewFromSearch,
   nextModelWorkspaceView,
   presentModelStatus,
 } from "./settings-models.presentation";
@@ -60,6 +62,14 @@ function choice(publisher: string, family: string): T2ModelChoiceView {
 }
 
 describe("settings models presentation", () => {
+  it("restores only known model workspaces while preserving locale and unrelated query state", () => {
+    expect(modelWorkspaceViewFromSearch("?locale=ko&model-view=catalog")).toBe("catalog");
+    expect(modelWorkspaceViewFromSearch("?model-view=unknown")).toBe("overview");
+    expect(modelWorkspaceSearch("?locale=ko&filter=active", "routing"))
+      .toBe("?locale=ko&filter=active&model-view=routing");
+    expect(modelWorkspaceSearch("?locale=ko&model-view=routing", "overview")).toBe("?locale=ko");
+    expect(modelWorkspaceSearch("", "overview")).toBe("");
+  });
   it("keeps non-selectable catalog evidence visible and searchable", () => {
     expect(filterCatalogModels(catalogModels, "")).toHaveLength(2);
     expect(filterCatalogModels(catalogModels, "Preview")).toEqual([catalogModels[1]]);

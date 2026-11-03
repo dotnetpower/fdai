@@ -84,6 +84,19 @@ test.describe("Incident email template preview", () => {
     await installFixtures(page);
   });
 
+  test("switches between synthetic HTML and plain text without dropping the sandbox", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/settings/integrations");
+    const preview = page.locator(".settings-email-template");
+    await preview.getByRole("button", { name: "Plain-text preview", exact: true }).click();
+    await expect(preview.locator("pre")).toBeVisible();
+    await expect(preview.locator("pre")).not.toBeEmpty();
+    await expect(preview.locator("iframe")).toHaveCount(0);
+    await preview.getByRole("button", { name: "HTML preview", exact: true }).click();
+    await expect(preview.locator("iframe")).toHaveAttribute("sandbox", "");
+    await expect(preview.locator("iframe")).toHaveAttribute("referrerpolicy", "no-referrer");
+  });
+
   for (const viewport of [
     { label: "desktop", width: 1440, height: 900 },
     { label: "constrained", width: 993, height: 641 },
@@ -112,7 +125,8 @@ test.describe("Incident email template preview", () => {
 
       const geometry = await frame.evaluate((element) => {
         const frameBox = element.getBoundingClientRect();
-        const headerBox = element.previousElementSibling?.getBoundingClientRect();
+        const headerBox = element.closest(".settings-email-template")
+          ?.querySelector(".settings-email-template-head")?.getBoundingClientRect();
         const route = element.closest(".settings-route");
         return {
           frameWidth: frameBox.width,

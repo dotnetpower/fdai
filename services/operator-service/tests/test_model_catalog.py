@@ -199,7 +199,10 @@ async def test_refresh_failure_clears_availability_and_cancellation_propagates()
         await reader.read()
 
 
-async def test_settings_projection_forwards_refresh_without_changing_policy() -> None:
+@pytest.mark.parametrize("include_catalog", [False, True])
+async def test_settings_projection_forwards_refresh_without_changing_policy(
+    include_catalog: bool,
+) -> None:
     class Store:
         async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
             assert family == "iam" and operation == "model-settings"
@@ -221,10 +224,68 @@ async def test_settings_projection_forwards_refresh_without_changing_policy() ->
 
     catalog = Catalog()
     adapter = PostgresIamAdapters(cast(PostgresFamilyStore, Store()), model_catalog=catalog)
-    result = await adapter.projection("example-principal", refresh_model_catalog=True)
-    assert result["model_catalog"] == {"available": True, "models": []}
-    assert catalog.refreshes == [True]
+    result = await adapter.projection(
+        "example-principal",
+        refresh_model_catalog=include_catalog,
+        include_model_catalog=include_catalog,
+    )
+    if include_catalog:
+        assert result["model_catalog"] == {"available": True, "models": []}
+        assert catalog.refreshes == [True]
+    else:
+        assert result["model_catalog"]["load_state"] == "deferred"
+        assert result["model_catalog"]["available"] is False
+        assert result["model_catalog"]["models"] == []
+        assert catalog.refreshes == []
     assert result["binding_policy"]["execution_authority"] is False
+
+
+async def test_independent_catalog_metadata_reads_start_together() -> None:
+    arrived: set[str] = set()
+    ready = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if not path.endswith("/accounts"):
+            arrived.add(path.rsplit("/", 1)[-1])
+            if len(arrived) == 3:
+                ready.set()
+            await ready.wait()
+        return httpx.Response(200, json=_response(path))
+
+    result = await asyncio.wait_for(_reader(handler).read(), timeout=2)
+    assert result["available"] is True
+    assert arrived == {"models", "deployments", "usages"}
+
+
+async def test_failed_catalog_metadata_read_cancels_pending_siblings() -> None:
+    arrived: set[str] = set()
+    cancelled: set[str] = set()
+    ready = asyncio.Event()
+    blocked = asyncio.Event()
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        suffix = path.rsplit("/", 1)[-1]
+        if suffix == "accounts":
+            return httpx.Response(200, json=_response(path))
+        arrived.add(suffix)
+        if len(arrived) == 3:
+            ready.set()
+        try:
+            await ready.wait()
+            if suffix == "models":
+                return httpx.Response(503)
+            await blocked.wait()
+        except asyncio.CancelledError:
+            cancelled.add(suffix)
+            raise
+        raise AssertionError("Blocked discovery unexpectedly resumed")
+
+    result = await asyncio.wait_for(_reader(handler).read(), timeout=2)
+    assert result["available"] is False
+    assert result["unavailable_reason"] == "catalog_http_503"
+    assert cancelled == {"deployments", "usages"}
 
 
 @pytest.mark.parametrize("variant", ["bytes", "rows", "shape", "row", "pages"])

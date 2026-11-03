@@ -131,11 +131,21 @@ class AzureModelCatalogReader:
             region = str(account.get("location", ""))
             if not re.fullmatch(r"[a-z0-9]+", region):
                 raise ModelCatalogUnavailableError("account_region_invalid")
-            models = await self._rows(client, f"{account_id}/models")
-            deployments = await self._rows(client, f"{account_id}/deployments")
-            usages = await self._rows(
-                client, f"{root}/providers/Microsoft.CognitiveServices/locations/{region}/usages"
-            )
+            reads = [
+                asyncio.create_task(self._rows(client, path))
+                for path in (
+                    f"{account_id}/models",
+                    f"{account_id}/deployments",
+                    f"{root}/providers/Microsoft.CognitiveServices/locations/{region}/usages",
+                )
+            ]
+            try:
+                models, deployments, usages = await asyncio.gather(*reads)
+            finally:
+                for read in reads:
+                    if not read.done():
+                        read.cancel()
+                await asyncio.gather(*reads, return_exceptions=True)
         return {
             "available": True,
             "source": "azure-management-catalog",

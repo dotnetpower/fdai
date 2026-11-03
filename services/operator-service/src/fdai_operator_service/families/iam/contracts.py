@@ -499,6 +499,7 @@ class ModelSettingsOutbox(Protocol):
         can_manage_web_search: bool = False,
         can_manage_model_bindings: bool = False,
         refresh_model_catalog: bool = False,
+        include_model_catalog: bool = True,
     ) -> JsonMapping: ...
 
     async def set_preference(self, command: ModelPreferenceCommand) -> None: ...

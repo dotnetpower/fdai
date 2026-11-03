@@ -3,7 +3,7 @@ import { ExternalLink } from "../components/ui";
 import { settingsIntegrationsText } from "./settings-integrations.i18n";
 import { requestTeamsA1Plan } from "./settings-runtime.command";
 import type { TeamsA1OnboardingView } from "./settings-runtime.model";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 const AZURE_PORTAL_URL = "https://portal.azure.com/";
 const TEAMS_ADMIN_URL = "https://admin.teams.microsoft.com/policies/manage-apps";
@@ -25,21 +25,34 @@ export function TeamsA1OnboardingGuide({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestKey = useRef(`teams-a1-plan-${globalThis.crypto.randomUUID()}`);
+  const generation = useRef(0);
   const environment = onboarding.environment;
+  useEffect(() => {
+    generation.current += 1;
+    setState(onboarding.state);
+    setSubmitting(false);
+    setError(null);
+    requestKey.current = `teams-a1-plan-${globalThis.crypto.randomUUID()}`;
+    return () => { generation.current += 1; };
+  }, [onboarding.state, onboarding.environment, onboarding.revision, auth, operatorApiBaseUrl]);
   const canRequest = onboarding.canManage
     && state !== "plan-requested"
+    && isDeployEnvironment(environment)
     && !submitting;
   const requestPlan = async () => {
     if (!canRequest || !isDeployEnvironment(environment)) return;
+    const candidate = generation.current;
     setSubmitting(true);
     setError(null);
     try {
       await requestTeamsA1Plan(auth, operatorApiBaseUrl, environment, requestKey.current);
+      if (generation.current !== candidate) return;
       setState("plan-requested");
     } catch (reason) {
+      if (generation.current !== candidate) return;
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
-      setSubmitting(false);
+      if (generation.current === candidate) setSubmitting(false);
     }
   };
   return (

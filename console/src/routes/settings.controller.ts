@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
+import { settingsGeneralText } from "./settings-general.i18n";
 import { identityForMutationIntent, type MutationIntentIdentity } from "../mutation-intent";
 import {
   PREFERENCES_CHANGED_EVENT,
@@ -29,12 +30,15 @@ import {
   claimSettingsMutation,
   contextPreferencesAreDirty,
   contextWithSavedPreference,
+  contextDraftFromPreference,
   defaultTimezone,
   isValidTimezone,
+  normalizeSettingsTimezone,
   parseBriefingHour,
   releaseSettingsMutation,
   responseDefaultsPolicyForSave,
-  settingsDraftIsCurrent,
+  shouldHydrateSettingsDraft,
+  settingsResetIsReady,
   setLocaleOverride,
 } from "./settings.model";
 
@@ -43,6 +47,12 @@ export function useSettingsController(client: OperatorApiClient) {
   const [serverContext, setServerContext] = useState<UserContextPayload | null>(null);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
+  const [contextNotice, setContextNotice] = useState<string | null>(null);
+  const [timezoneError, setTimezoneError] = useState(false);
+  const [briefingHourError, setBriefingHourError] = useState(false);
+  const [pendingResponsePolicy, setPendingResponsePolicy] = useState<
+    ReturnType<typeof buildResponseDefaultsPolicy> | null
+  >(null);
   const [answerDetail, setAnswerDetail] = useState<UserPreferencePayload["answer_detail"]>("standard");
   const [answerFormat, setAnswerFormat] = useState<UserPreferencePayload["answer_format"]>("prose");
   const [answerPreferencesEnabled, setAnswerPreferencesEnabled] = useState(true);
@@ -74,56 +84,79 @@ export function useSettingsController(client: OperatorApiClient) {
     return () => window.removeEventListener(PREFERENCES_CHANGED_EVENT, syncPreferences);
   }, []);
 
-  const refreshContext = async (): Promise<void> => {
+  const hydrateDraft = (preference: UserPreferencePayload | null | undefined): void => {
+    const draft = contextDraftFromPreference(preference);
+    setAnswerDetail(draft.answerDetail);
+    setAnswerFormat(draft.answerFormat);
+    setAnswerPreferencesEnabled(draft.answerPreferencesEnabled);
+    setTimezone(draft.timezone);
+    setShareWithLearner(draft.shareWithLearner);
+  };
+
+  const refreshContext = async (savedDraftRevision?: number): Promise<boolean> => {
     const generation = ++refreshGeneration.current;
-    const startedDraftRevision = draftRevision.current;
+    const startedDraftRevision = savedDraftRevision ?? draftRevision.current;
+    const dirtyAtStart = serverContext !== null && contextPreferencesAreDirty({
+      preference: serverContext.preference, answerDetail, answerFormat, answerPreferencesEnabled,
+      timezone: normalizeSettingsTimezone(timezone), shareWithLearner,
+    });
     setContextLoading(true);
     try {
       const context = await fetchUserContext();
-      if (generation !== refreshGeneration.current) return;
+      if (generation !== refreshGeneration.current) return false;
       setServerContext(context);
-      if (settingsDraftIsCurrent(draftRevision.current, startedDraftRevision)) {
-        setAnswerDetail(context.preference?.answer_detail ?? "standard");
-        setAnswerFormat(context.preference?.answer_format ?? "prose");
-        setAnswerPreferencesEnabled(context.preference?.answer_preferences_enabled ?? true);
-        setTimezone(context.preference?.timezone ?? defaultTimezone());
-        setShareWithLearner(context.preference?.share_with_learner ?? false);
+      if (shouldHydrateSettingsDraft({
+        currentRevision: draftRevision.current, startedRevision: startedDraftRevision,
+        dirtyAtStart, saveReadback: savedDraftRevision !== undefined,
+      })) {
+        hydrateDraft(context.preference);
       }
       setContextError(null);
+      return true;
     } catch (error) {
-      if (generation !== refreshGeneration.current) return;
+      if (generation !== refreshGeneration.current) return false;
       setContextError(error instanceof Error ? error.message : String(error));
+      return false;
     } finally {
       if (generation === refreshGeneration.current) setContextLoading(false);
     }
   };
 
   useEffect(() => {
+    setServerContext(null);
+    setPendingResponsePolicy(null);
+    setContextNotice(null);
     void refreshContext();
     return () => { refreshGeneration.current += 1; };
   }, [client]);
 
   const updateAnswerDetail = (value: UserPreferencePayload["answer_detail"]): void => {
+    setContextNotice(null);
     draftRevision.current += 1;
     setAnswerDetail(value);
   };
 
   const updateAnswerFormat = (value: UserPreferencePayload["answer_format"]): void => {
+    setContextNotice(null);
     draftRevision.current += 1;
     setAnswerFormat(value);
   };
 
   const updateAnswerPreferencesEnabled = (value: boolean): void => {
+    setContextNotice(null);
     draftRevision.current += 1;
     setAnswerPreferencesEnabled(value);
   };
 
   const updateTimezone = (value: string): void => {
+    setContextNotice(null);
     draftRevision.current += 1;
     setTimezone(value);
+    if (isValidTimezone(value)) setTimezoneError(false);
   };
 
   const updateShareWithLearner = (value: boolean): void => {
+    setContextNotice(null);
     draftRevision.current += 1;
     setShareWithLearner(value);
   };
@@ -162,6 +195,8 @@ export function useSettingsController(client: OperatorApiClient) {
   };
 
   const reset = async (): Promise<void> => {
+    if (!settingsResetIsReady({ context: serverContext, loading: contextLoading, saving: savingContext })) return;
+    if (!window.confirm(settingsGeneralText("confirmReset"))) return;
     if (!beginMutation()) return;
     try {
       if (serverContext?.preference !== null && serverContext?.preference !== undefined) {
@@ -183,21 +218,48 @@ export function useSettingsController(client: OperatorApiClient) {
   const latestSourceTurnId = serverContext?.conversations.find(
     (conversation) => conversation.latest_operator_turn_id !== null,
   )?.latest_operator_turn_id ?? null;
-  const contextDirty = !contextLoading && contextPreferencesAreDirty({
+  const preferenceDirty = serverContext !== null && contextPreferencesAreDirty({
     preference: serverContext?.preference,
     answerDetail,
     answerFormat,
     answerPreferencesEnabled,
-    timezone,
+    timezone: normalizeSettingsTimezone(timezone),
     shareWithLearner,
   });
+  const contextDirty = preferenceDirty || pendingResponsePolicy !== null;
+
+  const discardContextChanges = (): void => {
+    if (serverContext === null || savingContext) return;
+    draftRevision.current += 1;
+    hydrateDraft(serverContext.preference);
+    setTimezoneError(false);
+    setBriefingHourError(false);
+    setContextNotice(null);
+  };
+
+  const retryResponsePolicy = async (): Promise<void> => {
+    if (pendingResponsePolicy === null || !beginMutation()) return;
+    try {
+      await putConversationPolicy(pendingResponsePolicy);
+      setPendingResponsePolicy(null);
+      if (await refreshContext()) setContextNotice(settingsGeneralText("contextSaved"));
+    } catch (error) {
+      setContextError(error instanceof Error ? error.message : String(error));
+    } finally {
+      finishMutation();
+    }
+  };
 
   const saveContextPreferences = async (): Promise<void> => {
+    if (serverContext === null || contextLoading || !preferenceDirty) return;
     if (!isValidTimezone(timezone)) {
-      setContextError(t("settings.contextTimezoneInvalid"));
+      setTimezoneError(true);
+      document.getElementById("settings-timezone")?.focus();
       return;
     }
     if (!beginMutation()) return;
+    const startedDraftRevision = draftRevision.current;
+    setContextNotice(null);
     let preferenceSaved = false;
     try {
       const savedPreference = await putUserPreference({
@@ -208,23 +270,25 @@ export function useSettingsController(client: OperatorApiClient) {
         answer_preferences_enabled: answerPreferencesEnabled,
         answer_intent_detail: serverContext?.preference?.answer_intent_detail ?? {},
         answer_intent_format: serverContext?.preference?.answer_intent_format ?? {},
-        timezone,
+        timezone: normalizeSettingsTimezone(timezone),
         share_with_learner: shareWithLearner,
         expected_revision: serverContext?.preference?.revision ?? 0,
       });
       preferenceSaved = true;
       setServerContext((current) => contextWithSavedPreference(current, savedPreference));
       if (latestSourceTurnId !== null) {
-        await putConversationPolicy(buildResponseDefaultsPolicy({
+        const policy = buildResponseDefaultsPolicy({
           sourceTurnId: latestSourceTurnId,
           enabled: answerPreferencesEnabled,
           expectedRevision: responsePolicy?.revision ?? 0,
           answerDetail,
           locale: preferences.locale,
-        }));
+        });
+        setPendingResponsePolicy(policy);
+        await putConversationPolicy(policy);
+        setPendingResponsePolicy(null);
       }
-      await refreshContext();
-      setContextError(null);
+      if (await refreshContext(startedDraftRevision)) setContextNotice(settingsGeneralText("contextSaved"));
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       setContextError(preferenceSaved ? t("settings.contextPartialSave", { error: detail }) : detail);
@@ -234,26 +298,29 @@ export function useSettingsController(client: OperatorApiClient) {
   };
 
   const addDailyBriefing = async (): Promise<void> => {
+    if (serverContext === null || contextLoading) return;
     const hour = parseBriefingHour(briefingHour);
     if (hour === null) {
-      setContextError(t("settings.briefingHourInvalid"));
+      setBriefingHourError(true);
+      document.getElementById("settings-briefing-hour")?.focus();
       return;
     }
     if (!isValidTimezone(timezone)) {
-      setContextError(t("settings.contextTimezoneInvalid"));
+      setTimezoneError(true);
+      document.getElementById("settings-timezone")?.focus();
       return;
     }
     if (!beginMutation()) return;
     try {
       const identity = identityForMutationIntent(
         briefingIntent.current,
-        JSON.stringify({ hour, timezone }),
+        JSON.stringify({ hour, timezone: normalizeSettingsTimezone(timezone) }),
       );
       briefingIntent.current = identity;
       await createBriefingSubscription({
         name: "Daily major issues",
         cron_expression: `0 ${hour} * * *`,
-        timezone,
+        timezone: normalizeSettingsTimezone(timezone),
         delivery_modes: ["in_app"],
         spec: {
           kind: "major_issues",
@@ -263,7 +330,6 @@ export function useSettingsController(client: OperatorApiClient) {
         },
       }, identity.idempotencyKey);
       await refreshContext();
-      setContextError(null);
     } catch (error) {
       setContextError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -291,7 +357,6 @@ export function useSettingsController(client: OperatorApiClient) {
         },
       });
       await refreshContext();
-      setContextError(null);
     } catch (error) {
       setContextError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -305,7 +370,6 @@ export function useSettingsController(client: OperatorApiClient) {
     try {
       await deleteConversationPolicy(openingPolicy.policy_id, openingPolicy.revision);
       await refreshContext();
-      setContextError(null);
     } catch (error) {
       setContextError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -352,6 +416,9 @@ export function useSettingsController(client: OperatorApiClient) {
     serverContext,
     contextLoading,
     contextError,
+    contextNotice,
+    timezoneError,
+    briefingHourError,
     answerDetail,
     setAnswerDetail: updateAnswerDetail,
     answerFormat,
@@ -363,9 +430,17 @@ export function useSettingsController(client: OperatorApiClient) {
     shareWithLearner,
     setShareWithLearner: updateShareWithLearner,
     briefingHour,
-    setBriefingHour,
+    setBriefingHour: (value: string) => {
+      setBriefingHour(value);
+      if (parseBriefingHour(value) !== null) setBriefingHourError(false);
+    },
     savingContext,
     contextDirty,
+    preferenceDirty,
+    pendingResponsePolicy,
+    refreshContext,
+    discardContextChanges,
+    retryResponsePolicy,
     pendingDeletes,
     openingPolicy,
     latestSourceTurnId,

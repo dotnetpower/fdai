@@ -34,6 +34,8 @@ interface Props {
   readonly roster: readonly IdentityRosterItem[];
   readonly rosterAvailable: boolean;
   readonly rosterError: string | null;
+  readonly retryRoster: () => void;
+  readonly rosterLoading: boolean;
   readonly referencedUsers: readonly IdentityRosterItem[];
   readonly onAssign: (
     identity: IdentityRosterItem | HumanIdentityResult,
@@ -49,10 +51,13 @@ export function DirectoryUserSearch({
   roster,
   rosterAvailable,
   rosterError,
+  retryRoster,
+  rosterLoading,
   referencedUsers,
   onAssign,
 }: Props) {
   const [query, setQuery] = useState("");
+  const [rosterQuery, setRosterQuery] = useState("");
   const [results, setResults] = useState<readonly HumanIdentityResult[]>([]);
   const [filter, setFilter] = useState<RosterFilter>("all");
   const [searching, setSearching] = useState(false);
@@ -66,6 +71,9 @@ export function DirectoryUserSearch({
   const [error, setError] = useState<string | null>(null);
   const assignmentIntent = useRef<MutationIntentIdentity | null>(null);
   const searchGeneration = useRef(0);
+  const assignmentPending = useRef(false);
+  const rosterSearch = useRef<HTMLInputElement>(null);
+  const draftReason = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => () => {
     searchGeneration.current += 1;
@@ -96,7 +104,8 @@ export function DirectoryUserSearch({
   };
 
   const assign = async () => {
-    if (assignmentDraft === null || justification.trim().length < 20) return;
+    if (assignmentPending.current || assignmentDraft === null || justification.trim().length < 20) return;
+    assignmentPending.current = true;
     const { identity, role } = assignmentDraft;
     const normalizedJustification = justification.trim();
     const intent = identityForMutationIntent(
@@ -117,17 +126,25 @@ export function DirectoryUserSearch({
       if ("userType" in identity) setResults([]);
       setAssignmentDraft(null);
       setJustification("");
+      requestAnimationFrame(() => document.getElementById(`iam-role-${identity.subjectId}`)?.focus());
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
       setPendingSubject(null);
+      assignmentPending.current = false;
     }
   };
 
   const source = rosterAvailable ? roster : referencedUsers;
-  const visibleRoster = source.filter(
-    (item) => filter === "all" || item.principalType === filter,
-  );
+  const visibleRoster = filterIamRoster(source, filter, rosterQuery);
+  const openDraft = (identity: IdentityRosterItem | HumanIdentityResult, role: AssignableRole) => {
+    if (assignmentPending.current) return;
+    setAssignmentDraft({ identity, role });
+    setJustification("");
+    setError(null);
+    assignmentIntent.current = null;
+    requestAnimationFrame(() => draftReason.current?.focus());
+  };
 
   return (
     <div class="settings-iam-panel settings-users-panel">
@@ -195,8 +212,8 @@ export function DirectoryUserSearch({
                 />
                 <RoleDropdown
                   label={settingsIamText("chooseRole")}
-                  disabled={!identity.active || pendingSubject === identity.subjectId}
-                  onSelect={(role) => setAssignmentDraft({ identity, role })}
+                  disabled={!identity.active || pendingSubject !== null}
+                  onSelect={(role) => openDraft(identity, role)}
                 />
               </div>
             ))}
@@ -218,13 +235,20 @@ export function DirectoryUserSearch({
             </strong>
             <small>{settingsIamText("roleRequestHint")}</small>
           </div>
+          <label for="iam-role-justification">{t("settings.iam.roleRequestJustification")}</label>
           <textarea
+            ref={draftReason}
+            id="iam-role-justification"
+            aria-describedby="iam-role-justification-help"
+            aria-invalid={justification.length > 0 && justification.trim().length < 20}
+            disabled={pendingSubject !== null}
             minLength={20}
             maxLength={2000}
             value={justification}
             placeholder={t("settings.iam.roleRequestJustification")}
             onInput={(event) => setJustification(event.currentTarget.value)}
           />
+          <small id="iam-role-justification-help">{settingsIamText("reasonLength", { count: justification.trim().length })}</small>
           <div>
             <button
               type="button"
@@ -248,9 +272,19 @@ export function DirectoryUserSearch({
 
       {!rosterAvailable && rosterError ? (
         <div class="settings-roster-unavailable" role="status">
-          {t("settings.iam.rosterUnavailable", { error: rosterError })}
+          <p>{settingsIamText("rosterReadUnavailable")}</p>
+          <button type="button" class="secondary" disabled={rosterLoading} onClick={retryRoster}>{t("settings.retry")}</button>
         </div>
       ) : null}
+      {!rosterAvailable ? <p class="muted">{settingsIamText("referenceBoundary")}</p> : null}
+
+      <label for="iam-roster-filter">{settingsIamText("filterRoster")}</label>
+      <input ref={rosterSearch} id="iam-roster-filter" type="search" value={rosterQuery}
+        onInput={(event) => setRosterQuery(event.currentTarget.value)} />
+      <p role="status">{settingsIamText("shownCount", { count: visibleRoster.length, total: source.length })}</p>
+      {rosterQuery || filter !== "all" ? <button type="button" class="secondary" onClick={() => {
+        setRosterQuery(""); setFilter("all"); rosterSearch.current?.focus();
+      }}>{settingsIamText("clearFilters")}</button> : null}
 
       <div class="settings-roster-toolbar" role="group" aria-label={t("settings.iam.rosterFilter")}>
         {(["all", "person", "group"] as const).map((value) => (
@@ -302,13 +336,15 @@ export function DirectoryUserSearch({
             header: t("settings.iam.changeRole"),
             render: (item: IdentityRosterItem) => (
               <RoleDropdown
+                id={`iam-role-${item.subjectId}`}
                 label={t("settings.iam.changeRole")}
                 disabled={
                   item.principalType !== "person"
                   || !item.active
-                  || pendingSubject === item.subjectId
+                  || pendingSubject !== null
+                  || !rosterAvailable
                 }
-                onSelect={(role) => setAssignmentDraft({ identity: item, role })}
+                onSelect={(role) => openDraft(item, role)}
               />
             ),
           },
@@ -321,13 +357,15 @@ export function DirectoryUserSearch({
   );
 }
 
-function RoleDropdown({ label, disabled, onSelect }: {
+function RoleDropdown({ id, label, disabled, onSelect }: {
+  readonly id?: string;
   readonly label: string;
   readonly disabled: boolean;
   readonly onSelect: (role: AssignableRole) => void;
 }) {
   return (
     <select
+      id={id}
       class="settings-role-select"
       aria-label={label}
       disabled={disabled}
@@ -341,6 +379,18 @@ function RoleDropdown({ label, disabled, onSelect }: {
       {ASSIGNABLE_ROLES.map((role) => <option key={role} value={role}>{role}</option>)}
     </select>
   );
+}
+
+export function filterIamRoster(
+  roster: readonly IdentityRosterItem[],
+  filter: RosterFilter,
+  query: string,
+): readonly IdentityRosterItem[] {
+  const term = query.trim().toLocaleLowerCase();
+  return roster.filter((item) =>
+    (filter === "all" || item.principalType === filter)
+    && [item.displayName, item.username, item.subjectId].some((value) =>
+      (value ?? "").toLocaleLowerCase().includes(term)));
 }
 
 function PrincipalLabel({ displayName, secondary, type }: {
