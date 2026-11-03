@@ -69,6 +69,37 @@ def _declarations(root: Path) -> set[str]:
     }
 
 
+def _assert_base_has_no_graph(root: Path) -> None:
+    for path in (*root.glob("*.tf"), *root.glob(".terraform.lock.hcl")):
+        assert not re.search(
+            r"\bazuread\b|\bazuread_|terraform_remote_state", path.read_text(encoding="utf-8")
+        ), path
+
+
+@pytest.mark.parametrize(
+    ("filename", "source", "allowed"),
+    (
+        (None, "", True),
+        (".terraform.lock.hcl", 'provider "registry.terraform.io/hashicorp/azurerm" {}\n', True),
+        (".terraform.lock.hcl", 'provider "registry.terraform.io/hashicorp/azuread" {}\n', False),
+        ("directory.tf", 'provider "azuread" {}\n', False),
+        ("directory.tf", 'resource "azuread_application" "example" {}\n', False),
+        ("remote.tf", 'data "terraform_remote_state" "example" {}\n', False),
+    ),
+)
+def test_base_graph_dependency_scan_checks_optional_lock(
+    tmp_path: Path, filename: str | None, source: str, allowed: bool
+) -> None:
+    (tmp_path / "main.tf").write_text("terraform {}\n", encoding="utf-8")
+    if filename is not None:
+        (tmp_path / filename).write_text(source, encoding="utf-8")
+    if allowed:
+        _assert_base_has_no_graph(tmp_path)
+    else:
+        with pytest.raises(AssertionError):
+            _assert_base_has_no_graph(tmp_path)
+
+
 def test_database_owner_is_bound_before_temporary_bootstrap_admin() -> None:
     boundaries = (INFRA / "modules/hub-service/boundaries.tf").read_text(encoding="utf-8")
     bootstrap = (INFRA / "modules/hub-service/bootstrap.tf").read_text(encoding="utf-8")
@@ -292,13 +323,11 @@ def test_each_resource_has_exactly_one_owner_and_base_has_no_graph() -> None:
         assert re.search(r"app_image\s*=\s*var\.app_image", source)
         assert re.search(r"custom_domain\s*=\s*var\.custom_domain", source)
         assert not _declarations(path)
-        assert not re.search(r"\bazuread\b|\bazuread_|terraform_remote_state", source)
+        _assert_base_has_no_graph(path)
         assert not re.search(
             r"foundation_only|manage_directory_grants|browser_login_enabled", source
         )
         assert "local-exec" not in source
-        lock = (path / ".terraform.lock.hcl").read_text(encoding="utf-8")
-        assert "hashicorp/azuread" not in lock
     source = "\n".join(file.read_text() for file in module.glob("*.tf"))
     assert "azuread" not in source and "terraform_remote_state" not in source
     assert "toset([var.kind])" in source

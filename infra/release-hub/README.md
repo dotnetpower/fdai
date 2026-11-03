@@ -26,6 +26,10 @@ path; remote backend selection is a reviewed Terraform override, not an environm
 The `release` internal token is a product, not a release channel or environment.
 An existing registry is an input; this root doesn't adopt or create it.
 
+The checkout can omit `.terraform.lock.hcl`; `terraform init` creates the provider lock file
+before planning. The base stack's no-Azure-AD ownership check always scans Terraform source
+and also checks the provider lock file when it is present.
+
 ## Deployment
 
 Follow the [single-product procedure](../modules/hub-service/README.md) with:
