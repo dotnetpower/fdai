@@ -129,7 +129,14 @@ beforeEach(() => {
   routeState.segments = [];
   vi.clearAllMocks();
   vi.stubGlobal("window", { addEventListener: vi.fn(), removeEventListener: vi.fn(), setTimeout, clearTimeout });
-  vi.stubGlobal("document", { getElementById: () => null });
+  vi.stubGlobal("document", {
+    getElementById: () => null,
+    documentElement: { getAttribute: () => "light" },
+  });
+  vi.stubGlobal("MutationObserver", class {
+    observe = vi.fn();
+    disconnect = vi.fn();
+  });
   vi.stubGlobal("requestAnimationFrame", (callback: () => void) => { callback(); return 1; });
   vi.mocked(loadTeamsWorkflowBinding).mockResolvedValue(binding);
 });
@@ -433,6 +440,7 @@ describe("integration-owned bounded tools", () => {
     const run = () => EmailTemplatePreviewPanel({ template: { key: "incident-opened", subject: "Synthetic subject", plainText: "Synthetic plain text", html: "<p>Example</p>" } });
     let tree = render(run);
     expect(all(tree).find((node) => node.type === "iframe")?.props.sandbox).toBe("");
+    expect(all(tree).find((node) => node.type === "iframe")?.props["data-theme"]).toBe("light");
     click(button(tree, "Plain-text preview"));
     tree = render(run);
     expect(content(tree)).toContain("Synthetic plain text");

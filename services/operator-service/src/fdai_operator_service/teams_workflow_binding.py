@@ -264,6 +264,9 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         if _CHANNEL_ID.fullmatch(channel_id) is None:
             raise ValueError("Teams Workflow channel_id is invalid")
         channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        existing = await self.store.read_state(channel_key)
+        if isinstance(existing, Mapping) and existing.get("purged") is True:
+            return None
         target_backup = self._resolved_backup_path()
         channel_backup = (
             target_backup.with_name(f"local-teams-workflow-binding-{channel_id}.json")
@@ -275,6 +278,40 @@ class LocalEncryptedTeamsWorkflowBindingStore:
             return loaded
         return await self.load()
 
+    async def delete_channel(self, channel_id: str) -> None:
+        if _CHANNEL_ID.fullmatch(channel_id) is None:
+            raise ValueError("Teams Workflow channel_id is invalid")
+        channel_key = f"{LOCAL_TEAMS_BINDING_STATE_KEY}:{channel_id}"
+        await self.store.write_state(
+            channel_key,
+            {
+                "kind": "operator.teams-workflow-binding-purged",
+                "purged": True,
+                "channel_id": channel_id,
+            },
+        )
+        target_backup = self._resolved_backup_path()
+        if target_backup is not None:
+            channel_backup = target_backup.with_name(
+                f"local-teams-workflow-binding-{channel_id}.json"
+            )
+            if channel_backup.exists() and not channel_backup.is_symlink():
+                channel_backup.unlink()
+
+    async def clear_all(self) -> None:
+        await self.store.write_state(
+            LOCAL_TEAMS_BINDING_STATE_KEY,
+            {"kind": "operator.teams-workflow-binding-purged", "purged": True},
+        )
+        target_backup = self._resolved_backup_path()
+        if target_backup is not None:
+            if target_backup.exists() and not target_backup.is_symlink():
+                target_backup.unlink()
+            if target_backup.parent.is_dir():
+                for child in target_backup.parent.glob("local-teams-workflow-binding-ch-*.json"):
+                    if not child.is_symlink():
+                        child.unlink()
+
     def _resolved_backup_path(self) -> Path | None:
         return self.backup_path or _default_local_backup_path()
 
@@ -284,10 +321,14 @@ class LocalEncryptedTeamsWorkflowBindingStore:
         target_backup: Path | None,
     ) -> LoadedTeamsWorkflowBinding | None:
         saved = await self.store.read_state(state_key)
+        if isinstance(saved, Mapping) and saved.get("purged") is True:
+            return None
         restored_from_backup = False
         if saved is None and target_backup is not None:
             saved = _read_private_backup(target_backup)
             restored_from_backup = saved is not None
+        if isinstance(saved, Mapping) and saved.get("purged") is True:
+            return None
         try:
             decoded = decode_local_binding_record(saved, key_material=self.key_material)
         except LocalTeamsBindingRecordError as exc:

@@ -116,7 +116,7 @@ def _incident_open_html(
         "dateline": (
             ""
             if opened_at is None
-            else '<tr><td style="padding:12px 34px;background:#f3f0e9;'
+            else '<tr><td class="dateline" style="padding:12px 34px;background:#f3f0e9;'
             "border-top:1px solid #e1ddd5;border-bottom:1px solid #e1ddd5;"
             "font-size:10px;color:#74716c;text-transform:uppercase;"
             f'letter-spacing:.04em">Opened {escape(opened_at)}</td></tr>'
@@ -127,7 +127,7 @@ def _incident_open_html(
     detail_link = ""
     if incident_url is not None:
         detail_link = (
-            '<a href="'
+            '<a class="cta" href="'
             + escape(incident_url, quote=True)
             + '" style="color:#385d7a;text-decoration:none;border-bottom:1px solid #9eafbc">'
             "Open incident detail &rarr;</a>"
@@ -139,9 +139,10 @@ def _fact_row(label: str, value: str | None) -> str:
     if value is None:
         return ""
     return (
-        '<tr><td style="padding:11px 0;border-top:1px solid #ddd8cf;'
+        '<tr><td class="fact-cell muted-label" style="padding:11px 0;border-top:1px solid #ddd8cf;'
         f'color:#74716c;font-size:12px">{escape(label)}</td>'
-        '<td align="right" style="padding:11px 0;border-top:1px solid #ddd8cf;'
+        '<td align="right" class="fact-cell ink-strong" '
+        'style="padding:11px 0;border-top:1px solid #ddd8cf;'
         f'font-size:13px">{escape(value)}</td></tr>'
     )
 

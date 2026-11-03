@@ -11,6 +11,11 @@ browser-side operational verdict.
 > The inventory job performs the reviewed provider read and single-writer projection. Console and
 > conversational consumers do not perform a provider write, model invocation, or state mutation.
 
+The Resource dashboard orders state filters and group summaries by severity, then count. Its
+bounded attention list preserves the recorded state and links to the selected Resource or exact
+state filter with a cause-specific check guide. Missing evidence remains a review requirement,
+not an inferred failure; these presentation controls never refresh or mutate provider state.
+
 ## Design at a glance
 
 The instance directory and detail merge ordered realtime changes over one active generation.

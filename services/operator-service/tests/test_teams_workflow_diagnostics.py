@@ -406,6 +406,87 @@ async def test_multi_channel_selection_and_simultaneous_fanout() -> None:
     assert after_single["delivery_targets"] == ["teams-a2-operational-alert"]
 
 
+async def test_per_actor_email_rename_single_channel_test_and_clear() -> None:
+    store = MemoryStore()
+    bindings = MemoryBindingStore()
+    called_urls: list[str] = []
+
+    async def recording_post(url: str, _: object) -> TeamsWorkflowProviderResponse:
+        called_urls.append(url)
+        return TeamsWorkflowProviderResponse(status_code=202, workflow_run_id="run-ch")
+
+    tester = TeamsWorkflowDiagnosticTester(
+        store=store,
+        binding_store=bindings,
+        post=recording_post,
+        clock=lambda: NOW,
+    )
+    second_url = URL.replace(
+        "d74f3e0ee1314a4191c650cfda483a70",
+        "aaaa3e0ee1314a4191c650cfda483bbb",
+    )
+    await tester.save_and_test(_command("teams-save-ch1"))
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="teams-save-ch2",
+            webhook_url=second_url,
+        )
+    )
+
+    meta = await tester.describe_binding(actor_id="owner-1")
+    assert meta is not None
+    channels = meta["channels"]
+    assert isinstance(channels, list) and len(channels) == 2
+    second_cid = str(channels[1]["channel_id"])
+
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="teams-rename-1",
+            webhook_url="",
+            rename_channel_id=second_cid,
+            channel_label="Ops Primary #2",
+            email_recipient_mode="custom",
+            custom_email="owner1@example.com",
+            selection_only=True,
+        )
+    )
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-2",
+            request_id="teams-email-2",
+            webhook_url="",
+            email_recipient_mode="custom",
+            custom_email="owner2@example.com",
+            selection_only=True,
+        )
+    )
+
+    meta_owner1 = await tester.describe_binding(actor_id="owner-1")
+    meta_owner2 = await tester.describe_binding(actor_id="owner-2")
+    assert meta_owner1 is not None and meta_owner1["custom_email"] == "owner1@example.com"
+    assert meta_owner2 is not None and meta_owner2["custom_email"] == "owner2@example.com"
+
+    called_urls.clear()
+    await tester.save_and_test(
+        TeamsWorkflowTestCommand(
+            actor_id="owner-1",
+            request_id="teams-test-single-ch2",
+            webhook_url="",
+            test_channel_id=second_cid,
+        )
+    )
+    assert called_urls == [second_url]
+    after_test = await tester.describe_binding(actor_id="owner-1")
+    assert after_test is not None
+    ch_after = after_test["channels"]
+    assert isinstance(ch_after, list)
+    assert ch_after[1]["label"] == "Ops Primary #2"
+    assert ch_after[1]["last_test_status"] == 202
+    assert ch_after[1]["last_test_accepted"] is True
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

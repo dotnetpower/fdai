@@ -31,6 +31,9 @@
   border-radius: 2px;
   background: #eeeae3;
 }
+.settings-email-template-frame[data-theme="dark"] {
+  background: #0d1318;
+}
 @media (max-width: 700px) {
   .settings-email-template-head {
     align-items: flex-start;

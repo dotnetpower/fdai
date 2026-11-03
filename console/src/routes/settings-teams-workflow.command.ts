@@ -65,6 +65,12 @@ export async function testTeamsWorkflowWebhook(
   if (options?.removeChannelId) {
     body["remove_channel_id"] = options.removeChannelId;
   }
+  if (options?.renameChannelId) {
+    body["rename_channel_id"] = options.renameChannelId;
+  }
+  if (options?.testChannelId) {
+    body["test_channel_id"] = options.testChannelId;
+  }
   if (options?.emailRecipientMode) {
     body["email_recipient_mode"] = options.emailRecipientMode;
   }
@@ -73,6 +79,12 @@ export async function testTeamsWorkflowWebhook(
   }
   if (options?.selectionOnly) {
     body["selection_only"] = true;
+  }
+  if (options?.clearBinding) {
+    body["clear_binding"] = true;
+  }
+  if (options?.testEmail) {
+    body["test_email"] = true;
   }
   return decodeTeamsWorkflowTestResult(
     await putGovernedJson(

@@ -221,4 +221,39 @@ describe("Teams Workflow diagnostic model", () => {
       "teams-workflow-test-00000000-0000-0000-0000-000000000000",
     );
   });
+
+  test("decodes per-channel test outcome metadata", () => {
+    const view = decodeTeamsWorkflowBindingView({
+      visible: true,
+      configured: true,
+      binding_version: "v-1",
+      endpoint_identifier: "workflow ...20d157b4 / sha256:ca8f66c6e564",
+      observed_at: "2026-08-27T12:00:00Z",
+      saved_at: "2026-08-27T11:55:00Z",
+      channels: [
+        {
+          channel_id: "ch-ca8f66c6e564",
+          label: "Ops Primary",
+          binding_version: "v-1",
+          endpoint_identifier: "workflow ...20d157b4 / sha256:ca8f66c6e564",
+          enabled: true,
+          saved_at: "2026-08-27T11:55:00Z",
+          last_tested_at: "2026-08-27T12:00:00Z",
+          last_test_status: 202,
+          last_test_accepted: true,
+        },
+      ],
+    });
+    expect(view.visible && view.configured && view.channels?.[0]).toEqual({
+      channelId: "ch-ca8f66c6e564",
+      label: "Ops Primary",
+      bindingVersion: "v-1",
+      endpointIdentifier: "workflow ...20d157b4 / sha256:ca8f66c6e564",
+      enabled: true,
+      savedAt: "2026-08-27T11:55:00Z",
+      lastTestedAt: "2026-08-27T12:00:00Z",
+      lastTestStatus: 202,
+      lastTestAccepted: true,
+    });
+  });
 });

@@ -43,6 +43,9 @@ export interface TeamsWorkflowSavedChannel {
   readonly endpointIdentifier: string;
   readonly enabled: boolean;
   readonly savedAt: string | null;
+  readonly lastTestedAt?: string | null;
+  readonly lastTestStatus?: number | null;
+  readonly lastTestAccepted?: boolean | null;
 }
 
 /**
@@ -93,9 +96,13 @@ export interface TeamsWorkflowSubmitOptions {
   readonly selectedChannelIds?: readonly string[];
   readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
   readonly removeChannelId?: string;
+  readonly renameChannelId?: string;
+  readonly testChannelId?: string;
   readonly emailRecipientMode?: TeamsEmailRecipientMode;
   readonly customEmail?: string;
   readonly selectionOnly?: boolean;
+  readonly clearBinding?: boolean;
+  readonly testEmail?: boolean;
 }
 
 export function confirmsTeamsWorkflowPreferences(
@@ -366,6 +373,22 @@ function decodeOptionalChannels(
               entry["saved_at"],
               `Teams Workflow binding.channels[${index}].saved_at`,
             ),
+      lastTestedAt:
+        entry["last_tested_at"] === undefined || entry["last_tested_at"] === null
+          ? null
+          : isoTimestamp(
+              entry["last_tested_at"],
+              `Teams Workflow binding.channels[${index}].last_tested_at`,
+            ),
+      lastTestStatus:
+        typeof entry["last_test_status"] === "number"
+        && Number.isInteger(entry["last_test_status"])
+          ? entry["last_test_status"]
+          : null,
+      lastTestAccepted:
+        typeof entry["last_test_accepted"] === "boolean"
+          ? entry["last_test_accepted"]
+          : null,
     };
   });
 }

@@ -258,10 +258,39 @@
 }
 
 .settings-teams-workflow-email-custom-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.settings-teams-workflow-email-custom-row > .form-input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.settings-operational-evidence-details {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.settings-operational-evidence-details > p {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.settings-operational-evidence-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-size: 0.84rem;
 }
 
 .settings-teams-workflow-setup .settings-webhook-diagnostic-field {

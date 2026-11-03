@@ -180,6 +180,26 @@ def reconcile_runtime_integrations(
         if isinstance(raw_targets, list) and raw_targets
         else {"teams-a2-operational-alert", "teams-a4-digest", "console-inbox"}
     )
+    raw_channels = (
+        teams_workflow_meta.get("channels") if isinstance(teams_workflow_meta, Mapping) else None
+    )
+    channel_count = len(raw_channels) if isinstance(raw_channels, list) and raw_channels else 1
+    enabled_count = (
+        sum(1 for ch in raw_channels if isinstance(ch, Mapping) and bool(ch.get("enabled", True)))
+        if isinstance(raw_channels, list) and raw_channels
+        else 1
+    )
+    email_mode = (
+        str(teams_workflow_meta.get("email_recipient_mode"))
+        if isinstance(teams_workflow_meta, Mapping)
+        and teams_workflow_meta.get("email_recipient_mode") in {"login", "custom"}
+        else "login"
+    )
+    custom_email = (
+        str(teams_workflow_meta.get("custom_email") or "").strip()
+        if isinstance(teams_workflow_meta, Mapping)
+        else ""
+    )
     reconciled: list[dict[str, object]] = []
     for raw_item in raw_integrations:
         if not isinstance(raw_item, Mapping):
@@ -192,44 +212,45 @@ def reconcile_runtime_integrations(
             "teams-a3-conversation",
             "notification-bindings",
         }:
+            a1_reason = (
+                "로컬 런타임 승인·대화 브리지 준비됨"
+                if key != "notification-bindings"
+                else (
+                    f"활성 Teams 채널 {enabled_count}/{channel_count}개 · "
+                    f"전달 경로 {len(delivery_targets)}개 선택됨"
+                )
+            )
             item.update(
                 {
                     "observed": True,
                     "configured": True,
                     "ready": True,
                     "mode": "enabled",
-                    "reason": None,
+                    "reason": a1_reason,
                 }
             )
             if key == "notification-bindings":
-                raw_channels = (
-                    teams_workflow_meta.get("channels")
-                    if isinstance(teams_workflow_meta, Mapping)
-                    else None
-                )
-                channel_count = (
-                    len(raw_channels) if isinstance(raw_channels, list) and raw_channels else 1
-                )
-                enabled_count = (
-                    sum(
-                        1
-                        for ch in raw_channels
-                        if isinstance(ch, Mapping) and bool(ch.get("enabled", True))
-                    )
-                    if isinstance(raw_channels, list) and raw_channels
-                    else 1
-                )
                 item["binding_count"] = max(channel_count, len(delivery_targets))
                 item["enabled_count"] = max(enabled_count, len(delivery_targets))
         elif key in {"teams-a2-operational-alert", "teams-a4-digest", "email"}:
             active = key in delivery_targets
+            if not active:
+                active_reason: str | None = "전달 채널 체크박스에서 선택 해제됨"
+            elif key == "email":
+                active_reason = (
+                    f"수신 이메일: {custom_email}"
+                    if email_mode == "custom" and custom_email
+                    else "수신 이메일: 로그인 계정 이메일"
+                )
+            else:
+                active_reason = f"활성 Teams 채널 {enabled_count}개 연결됨"
             item.update(
                 {
                     "observed": True,
                     "configured": True,
                     "ready": active,
                     "mode": "enabled" if active else "disabled",
-                    "reason": None if active else "channel is unchecked in delivery preferences",
+                    "reason": active_reason,
                 }
             )
         elif key in {"gitops", "jira"}:

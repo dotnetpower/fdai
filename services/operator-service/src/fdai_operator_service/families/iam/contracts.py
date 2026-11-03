@@ -558,9 +558,13 @@ class TeamsWorkflowTestCommand:
     selected_channel_ids: tuple[str, ...] | None = None
     delivery_targets: tuple[str, ...] | None = None
     remove_channel_id: str | None = None
+    rename_channel_id: str | None = None
+    test_channel_id: str | None = None
     email_recipient_mode: str | None = None
     custom_email: str | None = None
     selection_only: bool = False
+    clear_binding: bool = False
+    test_email: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -625,11 +629,7 @@ class BreakGlassActivationCommand:
 
 @dataclass(frozen=True, slots=True)
 class BreakGlassActivationRecord:
-    """Durable activation record.
-
-    The projection carries no role set, token, grant, or executor identity, so
-    an activation can never be mistaken for an approval or an execution right.
-    """
+    """Durable activation record carrying no role set, token, grant, or executor identity."""
 
     activation_id: str
     actor_oid: str

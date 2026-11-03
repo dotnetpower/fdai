@@ -3,27 +3,79 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="supported-color-schemes" content="light">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>[SEV2] Incident opened - API latency after configuration rollout</title>
   <style>
-    body,body>table{background:#eeeae3!important}.wrap{background:#fffdfa!important;border-color:#d8d3ca!important;border-radius:2px!important;box-shadow:none!important}.pad{padding-left:44px!important;padding-right:44px!important}.metric+.metric{border-left:1px solid #ddd8cf;padding-left:18px}.cta{background:transparent!important;color:#385d7a!important;padding:0 0 4px!important;border-radius:0!important;border-bottom:1px solid #9eafbc!important;font-size:12px!important;letter-spacing:.04em!important}.cta:after{content:'  \2192';font-size:14px}.audit-ref{font-family:Consolas,'Courier New',monospace!important;font-size:12px!important;letter-spacing:.02em!important;color:#655f56!important}.dateline{background:#f3f0e9!important;border-top:1px solid #e1ddd5!important;border-bottom:1px solid #e1ddd5!important;letter-spacing:.04em!important;text-transform:uppercase!important}.metric-value{font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif!important;font-weight:400!important}
+    :root{color-scheme:light dark;supported-color-schemes:light dark}
+    body,body>table,.email-canvas{background:#eeeae3!important;color:#293137!important}
+    .wrap{background:#fffdfa!important;border-color:#d8d3ca!important;border-radius:2px!important;box-shadow:none!important}
+    .masthead{background:#27323a!important}
+    .pad{padding-left:44px!important;padding-right:44px!important}
+    .metric+.metric{border-left:1px solid #ddd8cf;padding-left:18px}
+    .cta{background:transparent!important;color:#385d7a!important;padding:0 0 4px!important;border-radius:0!important;border-bottom:1px solid #9eafbc!important;font-size:12px!important;letter-spacing:.04em!important}
+    .cta:after{content:'  \2192';font-size:14px}
+    .evidence-link{color:#385d7a!important}
+    .audit-ref{font-family:Consolas,'Courier New',monospace!important;font-size:12px!important;letter-spacing:.02em!important;color:#655f56!important}
+    .dateline,.posture-band{background:#f3f0e9!important;border-top:1px solid #e1ddd5!important;border-bottom:1px solid #e1ddd5!important}
+    .dateline{letter-spacing:.04em!important;text-transform:uppercase!important}
+    .metric-value{font-family:'Iowan Old Style','Palatino Linotype',Georgia,serif!important;font-weight:400!important}
     @media(max-width:660px){.wrap{width:100%!important}.pad{padding-left:24px!important;padding-right:24px!important}.split{display:block!important;width:100%!important}.metric{padding:0 0 15px!important;border-left:0!important}.metric+.metric{padding-top:15px!important;border-top:1px solid #ddd8cf!important}.cta{display:inline-block!important;text-align:left!important}h1{font-size:28px!important;line-height:1.28!important}.mobile-left{text-align:left!important}.mobile-block{display:block!important;width:100%!important}.mobile-top{padding-top:12px!important}}
+    @media(prefers-color-scheme:dark){
+      html:not([data-theme="light"]) body,html:not([data-theme="light"]) body>table,html:not([data-theme="light"]) .email-canvas{background:#0d1318!important;color:#e6edf3!important}
+      html:not([data-theme="light"]) .wrap{background:#151e26!important;border-color:#2e3d4b!important}
+      html:not([data-theme="light"]) .masthead{background:#1c2833!important;border-bottom:1px solid #2e3d4b!important}
+      html:not([data-theme="light"]) .masthead-title{color:#f5f8fa!important}
+      html:not([data-theme="light"]) .masthead-sub{color:#a9bac8!important}
+      html:not([data-theme="light"]) .sev-badge{color:#ff9b96!important;border-bottom-color:#d97772!important}
+      html:not([data-theme="light"]) .headline,html:not([data-theme="light"]) .ink-strong,html:not([data-theme="light"]) .metric-value{color:#f2f6fa!important}
+      html:not([data-theme="light"]) .lead-copy{color:#cdd7e1!important}
+      html:not([data-theme="light"]) .muted-label,html:not([data-theme="light"]) .audit-ref,html:not([data-theme="light"]) .footer-copy{color:#a6b7c7!important}
+      html:not([data-theme="light"]) .dateline,html:not([data-theme="light"]) .posture-band{background:#1b2631!important;border-top-color:#2e3d4b!important;border-bottom-color:#2e3d4b!important;color:#b8c7d6!important}
+      html:not([data-theme="light"]) .dateline td{color:#b8c7d6!important}
+      html:not([data-theme="light"]) .kpi-band{border-top-color:#2b3946!important;border-bottom-color:#2b3946!important}
+      html:not([data-theme="light"]) .metric+.metric{border-left-color:#2b3946!important;border-top-color:#2b3946!important}
+      html:not([data-theme="light"]) .fact-cell,html:not([data-theme="light"]) .footer-copy{border-top-color:#2b3946!important}
+      html:not([data-theme="light"]) .status-held{color:#7ee29b!important}
+      html:not([data-theme="light"]) .status-alert{color:#ff9b96!important}
+      html:not([data-theme="light"]) .cta{color:#7cc6fe!important;border-bottom-color:#4d88b5!important}
+      html:not([data-theme="light"]) .evidence-link{color:#7cc6fe!important}
+      html:not([data-theme="light"]) .footer-brand{color:#d8e2ec!important}
+    }
+    html[data-theme="dark"] body,html[data-theme="dark"] body>table,html[data-theme="dark"] .email-canvas,[data-ogsb] .email-canvas{background:#0d1318!important;color:#e6edf3!important}
+    html[data-theme="dark"] .wrap,[data-ogsb] .wrap{background:#151e26!important;border-color:#2e3d4b!important}
+    html[data-theme="dark"] .masthead,[data-ogsb] .masthead{background:#1c2833!important;border-bottom:1px solid #2e3d4b!important}
+    html[data-theme="dark"] .masthead-title,[data-ogsc] .masthead-title{color:#f5f8fa!important}
+    html[data-theme="dark"] .masthead-sub,[data-ogsc] .masthead-sub{color:#a9bac8!important}
+    html[data-theme="dark"] .sev-badge,[data-ogsc] .sev-badge{color:#ff9b96!important;border-bottom-color:#d97772!important}
+    html[data-theme="dark"] .headline,html[data-theme="dark"] .ink-strong,html[data-theme="dark"] .metric-value,[data-ogsc] .headline,[data-ogsc] .ink-strong,[data-ogsc] .metric-value{color:#f2f6fa!important}
+    html[data-theme="dark"] .lead-copy,[data-ogsc] .lead-copy{color:#cdd7e1!important}
+    html[data-theme="dark"] .muted-label,html[data-theme="dark"] .audit-ref,html[data-theme="dark"] .footer-copy,[data-ogsc] .muted-label,[data-ogsc] .audit-ref,[data-ogsc] .footer-copy{color:#a6b7c7!important}
+    html[data-theme="dark"] .dateline,html[data-theme="dark"] .posture-band,[data-ogsb] .dateline,[data-ogsb] .posture-band{background:#1b2631!important;border-top-color:#2e3d4b!important;border-bottom-color:#2e3d4b!important;color:#b8c7d6!important}
+    html[data-theme="dark"] .dateline td,[data-ogsc] .dateline td{color:#b8c7d6!important}
+    html[data-theme="dark"] .kpi-band{border-top-color:#2b3946!important;border-bottom-color:#2b3946!important}
+    html[data-theme="dark"] .metric+.metric,[data-ogsb] .metric+.metric{border-left-color:#2b3946!important;border-top-color:#2b3946!important}
+    html[data-theme="dark"] .fact-cell,html[data-theme="dark"] .footer-copy{border-top-color:#2b3946!important}
+    html[data-theme="dark"] .status-held,[data-ogsc] .status-held{color:#7ee29b!important}
+    html[data-theme="dark"] .status-alert,[data-ogsc] .status-alert{color:#ff9b96!important}
+    html[data-theme="dark"] .cta,[data-ogsc] .cta{color:#7cc6fe!important;border-bottom-color:#4d88b5!important}
+    html[data-theme="dark"] .evidence-link,[data-ogsc] .evidence-link{color:#7cc6fe!important}
+    html[data-theme="dark"] .footer-brand,[data-ogsc] .footer-brand{color:#d8e2ec!important}
   </style>
   <!--[if mso]><style>.wrap{width:640px!important}.pad{padding-left:34px!important;padding-right:34px!important}table{border-collapse:collapse!important}</style><![endif]-->
 </head>
-<body style="margin:0;padding:0;background:#eeeae3;color:#293137;font-family:Aptos,'Segoe UI','Malgun Gothic',Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%">
+<body class="email-canvas" style="margin:0;padding:0;background:#eeeae3;color:#293137;font-family:Aptos,'Segoe UI','Malgun Gothic',Arial,sans-serif;font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">SEV2 incident opened at 06:03 UTC. Eight signals were correlated. No recovery action has run.</div>
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eeeae3">
+<table role="presentation" class="email-canvas" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eeeae3">
   <tr>
     <td align="center" style="padding:30px 12px">
       <table role="presentation" class="wrap" width="640" cellspacing="0" cellpadding="0" border="0" style="width:640px;max-width:640px;background:#fffdfa;border:1px solid #d8d3ca;border-radius:2px">
         <tr>
-          <td class="pad" style="padding:27px 34px 24px;background:#27323a">
+          <td class="pad masthead" style="padding:27px 34px 24px;background:#27323a">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
               <tr>
-                <td><strong style="display:block;color:#fffdfa;font-family:Georgia,'Times New Roman',serif;font-size:18px;font-weight:400;letter-spacing:.18em">FDAI</strong><span style="display:block;margin-top:5px;color:#bcc1bd;font-size:9px;letter-spacing:.14em;text-transform:uppercase">Field dispatch</span></td>
-                <td align="right"><span style="display:block;font-size:12px;color:#fffdfa;letter-spacing:.08em;text-transform:uppercase">Incident lifecycle / A2</span><span style="display:block;margin-top:5px;font-size:9px;color:#bcc1bd;letter-spacing:.1em">NO. 007</span></td>
+                <td><strong class="masthead-title" style="display:block;color:#fffdfa;font-family:Georgia,'Times New Roman',serif;font-size:18px;font-weight:400;letter-spacing:.18em">FDAI</strong><span class="masthead-sub" style="display:block;margin-top:5px;color:#bcc1bd;font-size:9px;letter-spacing:.14em;text-transform:uppercase">Field dispatch</span></td>
+                <td align="right"><span class="masthead-title" style="display:block;font-size:12px;color:#fffdfa;letter-spacing:.08em;text-transform:uppercase">Incident lifecycle / A2</span><span class="masthead-sub" style="display:block;margin-top:5px;font-size:9px;color:#bcc1bd;letter-spacing:.1em">NO. 007</span></td>
               </tr>
             </table>
           </td>
@@ -32,28 +84,28 @@
           <td class="pad" style="padding:36px 34px 14px">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
               <tr>
-                <td><span style="display:inline-block;padding:0 0 7px;border-bottom:1px solid #b98b88;color:#8b4d4d;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">SEV2 / Open</span></td>
-                <td align="right" style="color:#605d57;font-size:12px;line-height:1.5;text-transform:uppercase;letter-spacing:.06em">Acknowledge by 06:18 UTC</td>
+                <td><span class="sev-badge" style="display:inline-block;padding:0 0 7px;border-bottom:1px solid #b98b88;color:#8b4d4d;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase">SEV2 / Open</span></td>
+                <td align="right" class="muted-label" style="color:#605d57;font-size:12px;line-height:1.5;text-transform:uppercase;letter-spacing:.06em">Acknowledge by 06:18 UTC</td>
               </tr>
             </table>
-            <h1 style="margin:18px 0 11px;font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;font-size:34px;line-height:1.2;font-weight:400;color:#27323a;letter-spacing:0">API latency increased after a configuration rollout.</h1>
-            <p style="max-width:500px;margin:0;color:#66645f;font-size:16px;line-height:1.75">FDAI correlated seven latency alerts with one deployment event and opened a single incident. The affected revision is contained while the evidence is reviewed.</p>
+            <h1 class="headline" style="margin:18px 0 11px;font-family:'Iowan Old Style','Palatino Linotype','Book Antiqua',Palatino,Georgia,serif;font-size:34px;line-height:1.2;font-weight:400;color:#27323a;letter-spacing:0">API latency increased after a configuration rollout.</h1>
+            <p class="lead-copy" style="max-width:500px;margin:0;color:#66645f;font-size:16px;line-height:1.75">FDAI correlated seven latency alerts with one deployment event and opened a single incident. The affected revision is contained while the evidence is reviewed.</p>
           </td>
         </tr>
         <tr>
           <td class="pad dateline" style="padding:12px 34px">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="font-size:12px;line-height:1.5;color:#605d57">
-              <tr><td>Opened 06:03 UTC</td><td align="center">Health + change signals</td><td align="right">T0 correlation</td></tr>
+              <tr><td class="muted-label">Opened 06:03 UTC</td><td align="center" class="muted-label">Health + change signals</td><td align="right" class="muted-label">T0 correlation</td></tr>
             </table>
           </td>
         </tr>
         <tr>
           <td class="pad" style="padding:24px 34px 20px">
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #ddd8cf;border-bottom:1px solid #ddd8cf">
+            <table role="presentation" class="kpi-band" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #ddd8cf;border-bottom:1px solid #ddd8cf">
               <tr>
-                <td class="split metric" width="33%" style="padding:19px 0"><div style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Current state</div><div class="metric-value" style="margin-top:6px;font-size:22px;color:#293137">Open</div><div style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">triage pending</div></td>
-                <td class="split metric" width="33%" style="padding:19px 0 19px 18px;border-left:1px solid #ddd8cf"><div style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Impact scope</div><div class="metric-value" style="margin-top:6px;font-size:22px;color:#293137">1 revision</div><div style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">3 of 5 replicas</div></td>
-                <td class="split metric" width="33%" style="padding:19px 0 19px 18px;border-left:1px solid #ddd8cf"><div style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Execution</div><div class="metric-value" style="margin-top:6px;font-size:22px;color:#547459">Held</div><div style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">no action run</div></td>
+                <td class="split metric" width="33%" style="padding:19px 0"><div class="muted-label" style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Current state</div><div class="metric-value ink-strong" style="margin-top:6px;font-size:22px;color:#293137">Open</div><div class="muted-label" style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">triage pending</div></td>
+                <td class="split metric" width="33%" style="padding:19px 0 19px 18px;border-left:1px solid #ddd8cf"><div class="muted-label" style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Impact scope</div><div class="metric-value ink-strong" style="margin-top:6px;font-size:22px;color:#293137">1 revision</div><div class="muted-label" style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">3 of 5 replicas</div></td>
+                <td class="split metric" width="33%" style="padding:19px 0 19px 18px;border-left:1px solid #ddd8cf"><div class="muted-label" style="font-size:12px;line-height:1.5;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Execution</div><div class="metric-value status-held" style="margin-top:6px;font-size:22px;color:#547459">Held</div><div class="muted-label" style="margin-top:4px;font-size:12px;line-height:1.5;color:#605d57">no action run</div></td>
               </tr>
             </table>
           </td>
@@ -61,20 +113,20 @@
         <tr>
           <td class="pad" style="padding:4px 34px 22px">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-              <tr><td colspan="2" style="padding-bottom:11px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Observed impact</td></tr>
-              <tr><td style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">API p95 latency</td><td align="right" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#8b4d4d">2.8s <span style="color:#605d57">from 0.8s</span></td></tr>
-              <tr><td style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">Correlated evidence</td><td align="right" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px">8 signals / 2 sources</td></tr>
-              <tr><td style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">Accountable owner</td><td align="right" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px">On-call platform team</td></tr>
+              <tr><td colspan="2" class="muted-label" style="padding-bottom:11px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Observed impact</td></tr>
+              <tr><td class="fact-cell muted-label" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">API p95 latency</td><td align="right" class="fact-cell status-alert" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#8b4d4d">2.8s <span class="muted-label" style="color:#605d57">from 0.8s</span></td></tr>
+              <tr><td class="fact-cell muted-label" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">Correlated evidence</td><td align="right" class="fact-cell ink-strong" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#293137">8 signals / 2 sources</td></tr>
+              <tr><td class="fact-cell muted-label" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#605d57">Accountable owner</td><td align="right" class="fact-cell ink-strong" style="padding:10px 0;border-top:1px solid #e3e1de;font-size:13px;color:#293137">On-call platform team</td></tr>
             </table>
           </td>
         </tr>
         <tr>
-          <td class="pad" style="padding:20px 34px 22px;background:#f3f0e9;border-top:1px solid #e1ddd5;border-bottom:1px solid #e1ddd5">
-            <div style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Response posture</div>
+          <td class="pad posture-band" style="padding:20px 34px 22px;background:#f3f0e9;border-top:1px solid #e1ddd5;border-bottom:1px solid #e1ddd5">
+            <div class="muted-label" style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#605d57">Response posture</div>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:12px">
               <tr>
-                <td class="mobile-block" width="50%" style="font-size:13px;line-height:1.65"><strong style="display:block;color:#293137;font-weight:600">Evidence review in progress</strong><span style="color:#605d57">Baseline comparison and rollback eligibility are being verified.</span></td>
-                <td class="mobile-block mobile-top mobile-left" width="50%" align="right" style="font-size:13px;line-height:1.65"><strong style="display:block;color:#547459;font-weight:600">Fail-closed</strong><span style="color:#605d57">No recovery action is eligible yet.</span></td>
+                <td class="mobile-block" width="50%" style="font-size:13px;line-height:1.65"><strong class="ink-strong" style="display:block;color:#293137;font-weight:600">Evidence review in progress</strong><span class="muted-label" style="color:#605d57">Baseline comparison and rollback eligibility are being verified.</span></td>
+                <td class="mobile-block mobile-top mobile-left" width="50%" align="right" style="font-size:13px;line-height:1.65"><strong class="status-held" style="display:block;color:#547459;font-weight:600">Fail-closed</strong><span class="muted-label" style="color:#605d57">No recovery action is eligible yet.</span></td>
               </tr>
             </table>
           </td>
@@ -84,15 +136,15 @@
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td class="mobile-block"><a class="cta" aria-label="Open the authenticated read-only incident detail" href="https://example.com/incidents?incident=00000000-0000-0000-0000-000000000000" style="display:inline-block;color:#385d7a;text-decoration:none;border-bottom:1px solid #9eafbc">Open incident detail</a></td>
-                <td class="mobile-block mobile-top mobile-left" align="right" style="font-size:12px;line-height:1.5"><a href="https://example.com/evidence/correlated-signals" style="color:#385d7a;text-decoration:underline">Correlated signals</a>&nbsp;&nbsp;<a href="https://example.com/evidence/decision-trace" style="color:#385d7a;text-decoration:underline">Decision trace</a></td>
+                <td class="mobile-block mobile-top mobile-left" align="right" style="font-size:12px;line-height:1.5"><a class="evidence-link" href="https://example.com/evidence/correlated-signals" style="color:#385d7a;text-decoration:underline">Correlated signals</a>&nbsp;&nbsp;<a class="evidence-link" href="https://example.com/evidence/decision-trace" style="color:#385d7a;text-decoration:underline">Decision trace</a></td>
               </tr>
             </table>
-            <span style="display:block;margin-top:12px;font-size:12px;line-height:1.5;color:#605d57">Authenticated, read-only evidence / approval and execution stay in the console</span>
+            <span class="muted-label" style="display:block;margin-top:12px;font-size:12px;line-height:1.5;color:#605d57">Authenticated, read-only evidence / approval and execution stay in the console</span>
             <span class="audit-ref" style="display:block;margin-top:13px;font-family:Consolas,'Courier New',monospace;font-size:12px;line-height:1.6;color:#655f56;overflow-wrap:anywhere;word-break:break-word">incident / 00000000-0000-0000-0000-000000000000 &nbsp; folio / incident-open-007</span>
           </td>
         </tr>
         <tr>
-          <td class="pad" style="padding:20px 34px 24px;border-top:1px solid #ddd8cf;color:#655f56;font-size:12px;line-height:1.7"><strong style="color:#49535a;font-weight:600;letter-spacing:.06em">FDAI / FIELD DISPATCH</strong><br>A2 incident lifecycle alert / Synthetic preview / Sent because a new SEV2 incident entered the open state</td>
+          <td class="pad footer-copy" style="padding:20px 34px 24px;border-top:1px solid #ddd8cf;color:#655f56;font-size:12px;line-height:1.7"><strong class="footer-brand" style="color:#49535a;font-weight:600;letter-spacing:.06em">FDAI / FIELD DISPATCH</strong><br>A2 incident lifecycle alert / Synthetic preview / Sent because a new SEV2 incident entered the open state</td>
         </tr>
       </table>
     </td>
