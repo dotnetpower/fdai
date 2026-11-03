@@ -42,7 +42,9 @@ test("matches the master mock geometry with the same desktop navigation and samp
   await expect(page.locator(".navigation-shell-pinned")).toBeVisible();
   const consoleWidth = (await page.locator(".process-route").boundingBox())!.width;
   // The shells own different rail/scrollbar widths; compare their real content at equal width.
-  await page.setViewportSize({ width: 1440 - (consoleWidth - reference.width), height: 900 });
+  // The mock page gutter is part of its main; the Console frame owns that gutter outside the route.
+  const referenceContentWidth = reference.summary.width;
+  await page.setViewportSize({ width: 1440 - (consoleWidth - referenceContentWidth), height: 900 });
   const actual = await page.locator(".process-route").evaluate((root) => {
     const measure = (selector: string) => {
       const element = root.querySelector(selector);
@@ -62,7 +64,7 @@ test("matches the master mock geometry with the same desktop navigation and samp
       open: root.querySelectorAll(".process-detail-section[open]").length,
     };
   });
-  expect(actual.width).toBeCloseTo(reference.width, 0);
+  expect(actual.width).toBeCloseTo(referenceContentWidth, 0);
   expect(actual.summary.width).toBeCloseTo(reference.summary.width, 0);
   expect(Math.abs(actual.summary.height - reference.summary.height)).toBeLessThan(2);
   expect(actual.workspace.width).toBeCloseTo(reference.workspace.width, 0);
