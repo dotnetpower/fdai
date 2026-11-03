@@ -106,7 +106,7 @@ export function ScopeRoute({ client }: Props) {
   }, [client]);
 
   return (
-    <div class="stack governance-route scope-route">
+    <div class="stack governance-route scope-route cs-workspace-route">
       <PageHeader title={t("route.scope")} subtitle={t("scope.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("route.scope")}>
         {(data) =>
@@ -155,6 +155,31 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
     [actionCount, data, monitoringCount],
   );
 
+  const [query, setQuery] = useState("");
+  const [stateFilter, setStateFilter] = useState<"all" | ScopeEntryState>("all");
+  const filterEntries = (entries: readonly ScopeEntry[]): readonly ScopeEntry[] => {
+    const needle = query.trim().toLocaleLowerCase();
+    return entries.filter((entry) => {
+      if (stateFilter !== "all" && entry.state !== stateFilter) return false;
+      if (!needle) return true;
+      return [
+        entry.subscription,
+        entry.resource_group ?? "",
+        entry.address,
+        entry.level,
+        entry.state,
+      ].join(" ").toLocaleLowerCase().includes(needle);
+    });
+  };
+  const filteredMonitoring: ScopeAxis = {
+    ...data.monitoring,
+    entries: filterEntries(data.monitoring.entries),
+  };
+  const filteredAction: ScopeAxis = {
+    ...data.action,
+    entries: filterEntries(data.action.entries),
+  };
+
   return (
     <div class="stack governance-scope">
       <div class="governance-readonly-banner">
@@ -173,10 +198,32 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
         />
         <KpiCard href={`${routeHref("scope")}#scope-hierarchy`} label={t("scope.hierarchySubscriptions")} value={hierarchy.length} />
       </KpiGrid>
+      <div class="cs-filter-toolbar" role="search">
+        <label class="is-wide">
+          <span>{t("scope.column.subscription")} / {t("scope.column.resourceGroup")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="subscription, resource group, address..."
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("scope.column.state")}</span>
+          <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value as "all" | ScopeEntryState)}>
+            <option value="all">{t("shared.all")}</option>
+            <option value="included">{t("scope.state.included")}</option>
+            <option value="excluded">{t("scope.state.excluded")}</option>
+          </select>
+        </label>
+        <span class="cs-filter-count" role="status" aria-live="polite">
+          {filteredMonitoring.entries.length + filteredAction.entries.length} / {data.monitoring.entries.length + data.action.entries.length}
+        </span>
+      </div>
       <ScopeHierarchy nodes={hierarchy} />
       <div class="scope-axis-grid">
-        <ScopeAxisTable axis={data.monitoring} />
-        <ScopeAxisTable axis={data.action} />
+        <ScopeAxisTable axis={filteredMonitoring} />
+        <ScopeAxisTable axis={filteredAction} />
       </div>
       <ExecutorBoundaryCard boundary={data.executor_boundary} />
       <ScopeBuilder org={org} />

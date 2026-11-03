@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -21,6 +22,7 @@ import {
   ROUTE_STATE_EVENT,
   routeHref,
 } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { displayValue, t } from "./i18n/governance";
 import {
   panelArray,
@@ -124,6 +126,7 @@ export function filterPromotionRows(
 }
 
 export function PromotionGatesRoute({ client }: Props) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<Response>>({ status: "loading" });
   const initialStatus = currentRoute().search.get("status");
   const [statusFilter, setStatusFilter] = useState<"all" | "ready" | "blocked">(
@@ -173,13 +176,19 @@ export function PromotionGatesRoute({ client }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client]);
+  }, [client, refreshRevision]);
 
   return (
-    <div class="stack governance-route promotion-route">
+    <div class="stack governance-route promotion-route cs-workspace-route">
       <PageHeader
         title={t("route.promotionGates")}
         subtitle={t("governance.promotion.subtitle")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading"}
+            onRefresh={() => setRefreshRevision((revision) => revision + 1)}
+          />
+        }
       />
       <AsyncBoundary state={state} resourceLabel={t("governance.promotion.resourceLabel")}>
         {(data) => <PromotionBody
@@ -539,6 +548,10 @@ function PromotionBody({
       ),
     },
   ];
+  const [selectedActionType, setSelectedActionType] = useState<string | null>(
+    () => data.rows[0]?.action_type_name ?? null,
+  );
+  const selectedRow = rows.find((r) => r.action_type_name === selectedActionType) ?? rows[0] ?? null;
   const candidatesFragment = "#promotion-gate-candidates";
 
   return (
@@ -610,12 +623,61 @@ function PromotionBody({
       ) : null}
       <section id="promotion-gate-candidates" class="stack-section">
         <h3 class="section-title">{t("governance.promotion.section", { count: rows.length })}</h3>
-        <DataTable
-          columns={columns}
-          rows={rows}
-          keyOf={(r) => r.action_type_name}
-          empty={t("governance.promotion.empty")}
-        />
+        <div class={`cs-workspace-split${selectedRow ? " has-selection" : ""}`}>
+          <div class="cs-workspace-main">
+            <DataTable
+              columns={columns}
+              rows={rows}
+              keyOf={(r) => r.action_type_name}
+              onRowClick={(r) => setSelectedActionType(r.action_type_name)}
+              isRowActive={(r) => r.action_type_name === selectedRow?.action_type_name}
+              rowActionLabel={(r) => `${t("governance.promotion.column.actionType")}: ${r.action_type_name}`}
+              rowActionControls="promotion-gate-detail"
+              scrollRegionLabel={t("route.promotionGates")}
+              empty={t("governance.promotion.empty")}
+            />
+          </div>
+          {selectedRow ? (
+            <aside id="promotion-gate-detail" class="cs-inspector-pane" aria-label={selectedRow.action_type_name}>
+              <header class="cs-inspector-head">
+                <div>
+                  <span class="cs-inspector-kicker">{selectedRow.mode_source} / {selectedRow.promotion_kind}</span>
+                  <h3>{selectedRow.action_type_name}</h3>
+                  <p>{selectedRow.ready ? t("governance.promotion.gate.promote") : t("governance.promotion.gate.addressGaps")}</p>
+                </div>
+                <StatusPill
+                  kind={selectedRow.ready ? "success" : "warning"}
+                  label={displayValue("status", selectedRow.ready ? "ready" : "blocked")}
+                />
+              </header>
+              <dl class="cs-facts-grid">
+                <div><dt>{t("governance.promotion.column.mode")}</dt><dd>{displayValue("mode", selectedRow.mode)}</dd></div>
+                <div><dt>{t("governance.promotion.column.shadowDays")}</dt><dd>{selectedRow.shadow_days_elapsed.toFixed(2)}</dd></div>
+                <div><dt>{t("governance.promotion.column.samples")}</dt><dd>{selectedRow.sample_count}</dd></div>
+                <div><dt>{t("governance.promotion.column.reviewedAgreed")}</dt><dd>{selectedRow.reviewed_count} / {selectedRow.agreed_count}</dd></div>
+                <div><dt>{t("governance.promotion.column.accuracy")}</dt><dd>{`${(selectedRow.accuracy * 100).toFixed(1)}%`}</dd></div>
+                <div><dt>{t("governance.promotion.column.policyEscapes")}</dt><dd>{selectedRow.policy_escapes}</dd></div>
+                <div><dt>{t("governance.promotion.column.gaps")}</dt><dd>{selectedRow.gaps.length ? selectedRow.gaps.join(", ") : "-"}</dd></div>
+                {selectedRow.operator_override ? (
+                  <div>
+                    <dt>Operator override</dt>
+                    <dd>
+                      {selectedRow.operator_override.operator_principal} ({formatConsoleTimestamp(selectedRow.operator_override.override_recorded_at)}): {selectedRow.operator_override.override_reason}
+                    </dd>
+                  </div>
+                ) : null}
+                {selectedRow.capability_recall ? (
+                  <div>
+                    <dt>{t("governance.promotion.recall.marker")}</dt>
+                    <dd>
+                      {selectedRow.capability_recall.reason} ({formatConsoleTimestamp(selectedRow.capability_recall.recalled_at)})
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </aside>
+          ) : null}
+        </div>
       </section>
     </div>
   );

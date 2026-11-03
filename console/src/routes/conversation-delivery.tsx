@@ -3,12 +3,15 @@ import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api
 import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
+  DataTable,
+  EmptyState,
   KpiCard,
   KpiGrid,
   PageHeader,
   StatusPill,
   kpiEvidenceLabel,
   type AsyncState,
+  type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
@@ -59,7 +62,7 @@ export function ConversationDeliveryRoute({ client }: { readonly client: Operato
       });
     return () => { cancelled = true; };
   }, [client, refreshRevision]);
-  return <div class="stack"><PageHeader title={t("route.conversationDelivery")} subtitle={t("nav.panelSub.conversationDelivery")} actions={
+  return <div class="stack cs-workspace-route"><PageHeader title={t("route.conversationDelivery")} subtitle={t("nav.panelSub.conversationDelivery")} actions={
     <EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
       setState({ status: "loading" });
       setRefreshRevision((revision) => revision + 1);
@@ -158,7 +161,33 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
   );
   const stateEntries = Object.entries(data.states);
   const breakerEntries = Object.entries(data.breaker_states);
+  const stateTotal = stateEntries.reduce((sum, [, count]) => sum + count, 0);
+  const breakerTotal = breakerEntries.reduce((sum, [, count]) => sum + count, 0);
   const evidenceHref = conversationDeliveryEvidenceHref();
+  const breakerColumns: readonly Column<readonly [string, number]>[] = [
+    {
+      key: "state",
+      header: t("evidence.delivery.breakers"),
+      render: ([name]) => (
+        <StatusPill
+          kind={name === "closed" ? "success" : "warning"}
+          label={presentationLabel("status", name)}
+        />
+      ),
+    },
+    {
+      key: "count",
+      header: t("evidence.delivery.deliveries"),
+      render: ([, count]) => count.toLocaleString(),
+      cellClass: "num",
+    },
+    {
+      key: "share",
+      header: "%",
+      render: ([, count]) => breakerTotal > 0 ? `${Math.round((count / breakerTotal) * 100)}%` : "0%",
+      cellClass: "num",
+    },
+  ];
   return (
     <div class="stack">
       <div class="governance-readonly-banner"><strong>{t("evidence.delivery.bannerTitle")}</strong><span>{t("evidence.delivery.bannerBody")}</span></div>
@@ -170,14 +199,67 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
           label={t("evidence.delivery.p95Latency")}
           value={data.delivery_latency_ms.p95 === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`}
         />
-        <KpiCard href={evidenceHref} label={t("evidence.delivery.duplicateRisk")} value={data.duplicate_risk_count.toLocaleString()} />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.duplicateRisk")} value={data.duplicate_risk_count.toLocaleString()} tone={data.duplicate_risk_count > 0 ? "warning" : "default"} />
         <KpiCard href={evidenceHref} label={t("evidence.delivery.retries")} value={data.retry_count.toLocaleString()} />
-        <KpiCard href={evidenceHref} label={t("evidence.delivery.abandoned")} value={data.abandonment_count.toLocaleString()} />
+        <KpiCard href={evidenceHref} label={t("evidence.delivery.abandoned")} value={data.abandonment_count.toLocaleString()} tone={data.abandonment_count > 0 ? "danger" : "default"} />
         <KpiCard href={evidenceHref} label={t("evidence.delivery.acknowledged")} value={data.acknowledgement_count.toLocaleString()} />
       </KpiGrid>
-      <div id="conversation-delivery-evidence" class="stack">
-        <section class="stack"><h2>{t("evidence.delivery.states")}</h2>{stateEntries.length === 0 ? <p>{t("evidence.common.none")}</p> : <div class="status-list">{stateEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section>
-        <section class="stack"><h2>{t("evidence.delivery.breakers")}</h2>{breakerEntries.length === 0 ? <p>{t("evidence.delivery.noBreakers")}</p> : <div class="status-list">{breakerEntries.map(([name, count]) => <div key={name}><StatusPill kind={name === "closed" ? "success" : "warning"} label={presentationLabel("status", name)} /><strong>{count.toLocaleString()}</strong></div>)}</div>}</section>
+      <div id="conversation-delivery-evidence" class="cs-workspace-split has-selection">
+        <section class="cs-workspace-main">
+          <h2>{t("evidence.delivery.states")}</h2>
+          {stateEntries.length === 0 ? (
+            <EmptyState title={t("evidence.common.none")} />
+          ) : (
+            <div class="cs-ratio-bars">
+              {stateEntries.map(([name, count]) => {
+                const pct = stateTotal > 0 ? Math.round((count / stateTotal) * 100) : 0;
+                const barClass = name === "delivered"
+                  ? "is-success"
+                  : name === "ambiguous" || name === "abandoned"
+                    ? "is-warning"
+                    : "";
+                return (
+                  <div class="cs-ratio-row" key={name}>
+                    <StatusPill
+                      kind={name === "delivered" ? "success" : name === "ambiguous" || name === "abandoned" ? "warning" : "neutral"}
+                      label={presentationLabel("status", name)}
+                    />
+                    <div class="cs-ratio-track" aria-hidden="true">
+                      <span class={barClass} style={`width:${pct}%`} />
+                    </div>
+                    <strong>{count.toLocaleString()} ({pct}%)</strong>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <h2>{t("evidence.delivery.breakers")}</h2>
+          <DataTable
+            rows={breakerEntries}
+            columns={breakerColumns}
+            keyOf={([name]) => name}
+            scrollRegionLabel={t("evidence.delivery.breakers")}
+            empty={<EmptyState title={t("evidence.delivery.noBreakers")} />}
+          />
+        </section>
+        <aside class="cs-inspector-pane" aria-label={t("route.conversationDelivery")}>
+          <header class="cs-inspector-head">
+            <div>
+              <span class="cs-inspector-kicker">{data.source}</span>
+              <h3>{t("route.conversationDelivery")}</h3>
+              <p>{t("evidence.delivery.viewPurpose")}</p>
+            </div>
+            <StatusPill kind="neutral" label={t("evidence.common.readOnly")} />
+          </header>
+          <dl class="cs-facts-grid">
+            <div><dt>{t("evidence.delivery.deliveries")}</dt><dd>{data.delivery_count.toLocaleString()}</dd></div>
+            <div><dt>Attempts / Ack</dt><dd>{data.attempt_count.toLocaleString()} / {data.acknowledgement_count.toLocaleString()}</dd></div>
+            <div><dt>Average latency</dt><dd>{data.delivery_latency_ms.average === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.average.toLocaleString()} ms`}</dd></div>
+            <div><dt>{t("evidence.delivery.p95Latency")}</dt><dd>{data.delivery_latency_ms.p95 === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`}</dd></div>
+            <div><dt>{t("evidence.delivery.duplicateRisk")}</dt><dd>{data.duplicate_risk_count.toLocaleString()}</dd></div>
+            <div><dt>{t("evidence.delivery.retries")}</dt><dd>{data.retry_count.toLocaleString()}</dd></div>
+          </dl>
+        </aside>
       </div>
     </div>
   );

@@ -1,14 +1,18 @@
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
+  DataTable,
+  EmptyState,
   KpiCard,
   KpiGrid,
   PageHeader,
   StatusPill,
   kpiEvidenceLabel,
   type AsyncState,
+  type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
@@ -100,8 +104,20 @@ export function ConversationAssuranceRoute({
     }));
   };
   return (
-    <div class="stack">
-      <PageHeader title={t("assurance.title")} subtitle={t("assurance.subtitle")} />
+    <div class="stack cs-workspace-route">
+      <PageHeader
+        title={t("assurance.title")}
+        subtitle={t("assurance.subtitle")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading"}
+            onRefresh={() => {
+              setState({ status: "loading" });
+              void load();
+            }}
+          />
+        }
+      />
       <AsyncBoundary state={state} resourceLabel={t("assurance.resource")}>
         {(data) => (
           <AssuranceBody
@@ -212,6 +228,24 @@ function AssuranceBody({
     }),
     [data, selectedId],
   );
+  const [query, setQuery] = useState("");
+  const [verdictFilter, setVerdictFilter] = useState<"all" | AssuranceVerdict>("all");
+  const filteredAssessments = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return data.assessments.filter((item) => {
+      if (verdictFilter !== "all" && item.verdict !== verdictFilter) return false;
+      if (!needle) return true;
+      return [
+        item.assessment_id,
+        item.turn_id,
+        item.conversation_id,
+        item.state,
+        item.verdict,
+        ...item.reasons,
+      ].join(" ").toLocaleLowerCase().includes(needle);
+    });
+  }, [data.assessments, query, verdictFilter]);
+
   return (
     <div class="stack">
       <div class="governance-readonly-banner">
@@ -225,29 +259,75 @@ function AssuranceBody({
         <KpiCard evidenceState={evidenceState} href={href} label={t("assurance.average")} value={data.summary.average_content_score === null ? kpiEvidenceLabel("insufficient-sample") : `${data.summary.average_content_score.toFixed(1)}/100`} />
         <KpiCard evidenceState={evidenceState} href={`${baseHref}#disputes`} label={t("assurance.disputes")} value={data.summary.total ? data.summary.disputes : kpiEvidenceLabel("insufficient-sample")} />
       </KpiGrid>
+      <div class="cs-filter-toolbar" role="search">
+        <label class="is-wide">
+          <span>{t("assurance.turn")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="turn_id, assessment_id, conversation_id..."
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("assurance.state")}</span>
+          <select value={verdictFilter} onChange={(event) => setVerdictFilter(event.currentTarget.value as "all" | AssuranceVerdict)}>
+            <option value="all">{t("assurance.total")}</option>
+            <option value="pass">{t("assurance.verdict.pass")}</option>
+            <option value="fail">{t("assurance.verdict.fail")}</option>
+            <option value="inconclusive">{t("assurance.verdict.inconclusive")}</option>
+          </select>
+        </label>
+        <span class="cs-filter-count" role="status" aria-live="polite">
+          {filteredAssessments.length} / {data.assessments.length}
+        </span>
+      </div>
+      <div class="cs-workspace-split has-selection">
+        <div class="cs-workspace-main">
+          <AssessmentTable assessments={filteredAssessments} selectedId={selectedId} onSelect={onSelect} />
+        </div>
+        <AssessmentDetail
+          auth={auth}
+          client={client}
+          assessmentId={selectedId}
+          requestedUnavailable={requestedAssessmentUnavailable(requestedAssessment, selectedId)}
+          onRefresh={onRefresh}
+        />
+      </div>
       <PantheonSummary summary={data.pantheon} />
-      <AssessmentTable assessments={data.assessments} selectedId={selectedId} onSelect={onSelect} />
-      <AssessmentDetail
-        auth={auth}
-        client={client}
-        assessmentId={selectedId}
-        requestedUnavailable={requestedAssessmentUnavailable(requestedAssessment, selectedId)}
-        onRefresh={onRefresh}
-      />
       <section id="disputes" class="stack">
         <h2>{t("assurance.disputes")}</h2>
-        {data.disputes.length === 0 ? <p>{t("shared.noRows")}</p> : data.disputes.map((item) => (
-          <div class="assurance-dispute" key={item.dispute_id}>
-            <strong>{t(`assurance.reasonOptions.${item.reason}`)}</strong>
-            <span>{item.detail}</span><small>{formatConsoleTimestamp(item.reported_at)}</small>
-          </div>
-        ))}
+        {data.disputes.length === 0 ? <EmptyState title={t("shared.noRows")} /> : (
+          <dl class="cs-facts-grid">
+            {data.disputes.map((item) => (
+              <div class="assurance-dispute" key={item.dispute_id}>
+                <dt>{t(`assurance.reasonOptions.${item.reason}`)} ({formatConsoleTimestamp(item.reported_at)})</dt>
+                <dd>{item.detail}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </section>
     </div>
   );
 }
 
 function PantheonSummary({ summary }: { readonly summary: PantheonAssuranceSummary }) {
+  const columns: readonly Column<PantheonAssuranceSummary["agents"][number]>[] = [
+    { key: "agent", header: t("assurance.pantheon.agent"), render: (item) => <strong>{item.agent}</strong> },
+    { key: "turns", header: t("assurance.pantheon.turns"), render: (item) => item.turns, cellClass: "num" },
+    { key: "average", header: t("assurance.pantheon.average"), render: (item) => `${item.average_score.toFixed(1)}/30`, cellClass: "num" },
+    { key: "minimum", header: t("assurance.pantheon.minimum"), render: (item) => `${item.minimum_score}/30`, cellClass: "num" },
+    {
+      key: "results",
+      header: t("assurance.pantheon.results"),
+      render: (item) => t("assurance.pantheon.resultCounts", {
+        pass: item.pass,
+        review: item.review,
+        fail: item.fail + item.hard_zero_fail,
+      }),
+    },
+  ];
   return (
     <section id="pantheon-diagnostics" class="stack">
       <h2>{t("assurance.pantheon.title")}</h2>
@@ -262,17 +342,13 @@ function PantheonSummary({ summary }: { readonly summary: PantheonAssuranceSumma
             <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.unnecessaryT2")} value={formatRate(summary.unnecessary_t2_rate)} tone={summary.unnecessary_t2_rate ? "warning" : "positive"} />
             <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.hardZero")} value={summary.hard_zero_fail} tone={pantheonSafetyTone(summary.hard_zero_fail)} />
           </KpiGrid>
-          <div id="pantheon-agents" class="scroll">
-            <table class="data-table">
-              <thead><tr><th scope="col">{t("assurance.pantheon.agent")}</th><th scope="col">{t("assurance.pantheon.turns")}</th><th scope="col">{t("assurance.pantheon.average")}</th><th scope="col">{t("assurance.pantheon.minimum")}</th><th scope="col">{t("assurance.pantheon.results")}</th></tr></thead>
-              <tbody>{summary.agents.map((item) => (
-                <tr key={item.agent}>
-                  <td>{item.agent}</td><td>{item.turns}</td>
-                  <td>{item.average_score.toFixed(1)}/30</td><td>{item.minimum_score}/30</td>
-                  <td>{t("assurance.pantheon.resultCounts", { pass: item.pass, review: item.review, fail: item.fail + item.hard_zero_fail })}</td>
-                </tr>
-              ))}</tbody>
-            </table>
+          <div id="pantheon-agents">
+            <DataTable
+              columns={columns}
+              rows={summary.agents}
+              keyOf={(item) => item.agent}
+              scrollRegionLabel={t("assurance.pantheon.title")}
+            />
           </div>
         </>
       )}
@@ -301,7 +377,64 @@ function AssessmentTable({
   readonly selectedId: string | null;
   readonly onSelect: (value: string) => void;
 }) {
-  return <section id="assessments" class="stack"><h2>{t("assurance.assessments")}</h2>{assessments.length === 0 ? <p>{t("assurance.empty")}</p> : <div class="scroll"><table class="data-table"><thead><tr><th scope="col">{t("assurance.turn")}</th><th scope="col">{t("assurance.state")}</th><th scope="col">{t("assurance.score")}</th><th scope="col">{t("assurance.models")}</th><th scope="col">{t("assurance.cost")}</th><th scope="col">{t("assurance.assessed")}</th></tr></thead><tbody>{assessments.map((item) => <tr key={item.assessment_id}><td><button type="button" class="btn btn-small" aria-pressed={item.assessment_id === selectedId} onClick={() => onSelect(item.assessment_id)}>{item.turn_id}</button><br /><StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} /></td><td><StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} /></td><td>{item.content_score.toFixed(1)}/100</td><td>{item.model_calls}</td><td>{formatCost(item.cost_microusd)}</td><td>{formatConsoleTimestamp(item.assessed_at)}</td></tr>)}</tbody></table></div>}</section>;
+  const columns: readonly Column<AssuranceAssessment>[] = [
+    {
+      key: "turn",
+      header: t("assurance.turn"),
+      render: (item) => (
+        <div>
+          <strong class="mono">{item.turn_id}</strong>
+          <div>
+            <StatusPill kind={verdictKind(item.verdict)} label={t(`assurance.verdict.${item.verdict}`)} />
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "state",
+      header: t("assurance.state"),
+      render: (item) => <StatusPill kind={assessmentStateKind(item.state)} label={t(`assurance.assessmentState.${item.state}`)} />,
+    },
+    {
+      key: "score",
+      header: t("assurance.score"),
+      render: (item) => `${item.content_score.toFixed(1)}/100`,
+      cellClass: "num",
+    },
+    {
+      key: "models",
+      header: t("assurance.models"),
+      render: (item) => item.model_calls,
+      cellClass: "num",
+    },
+    {
+      key: "cost",
+      header: t("assurance.cost"),
+      render: (item) => formatCost(item.cost_microusd),
+      cellClass: "num",
+    },
+    {
+      key: "assessed",
+      header: t("assurance.assessed"),
+      render: (item) => formatConsoleTimestamp(item.assessed_at),
+    },
+  ];
+  return (
+    <section id="assessments" class="stack">
+      <h2>{t("assurance.assessments")}</h2>
+      <DataTable
+        columns={columns}
+        rows={assessments}
+        keyOf={(item) => item.assessment_id}
+        onRowClick={(item) => onSelect(item.assessment_id)}
+        isRowActive={(item) => item.assessment_id === selectedId}
+        rowActionLabel={(item) => `${t("assurance.turn")}: ${item.turn_id}`}
+        rowActionControls="conversation-assurance-detail"
+        scrollRegionLabel={t("assurance.assessments")}
+        empty={<EmptyState title={t("assurance.empty")} />}
+      />
+    </section>
+  );
 }
 
 function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly assessmentId: string | null; readonly requestedUnavailable: boolean; readonly onRefresh: () => Promise<void> }) {
@@ -332,10 +465,12 @@ function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, on
     void onRefresh();
   };
   if (requestedUnavailable || detailUnavailable) {
-    return <section class="stack"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={retry}>{t("assurance.refreshAssessments")}</button></section>;
+    return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={retry}>{t("assurance.refreshAssessments")}</button></aside>;
   }
-  if (assessmentId === null || detail === null) return <p>{t("assurance.selectAssessment")}</p>;
-  return <section class="stack"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></section>;
+  if (assessmentId === null || detail === null) {
+    return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><p>{t("assurance.selectAssessment")}</p></aside>;
+  }
+  return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></aside>;
 }
 
 function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly detail: AssuranceDetailPayload; readonly onRefresh: () => Promise<void> }) {

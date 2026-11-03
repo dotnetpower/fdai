@@ -158,7 +158,7 @@ export function SchedulerRunsRoute({
   };
 
   return (
-    <div class="stack scheduler-runs-route">
+    <div class="stack scheduler-runs-route cs-workspace-route">
       <PageHeader
         title={schedulerRunsText("title")}
         subtitle={schedulerRunsText("subtitle")}
@@ -225,6 +225,12 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
   readonly onLoadMore: () => void;
 }) {
   const summary = summarizeSchedulerRuns(page.items);
+  const [selectedRunKey, setSelectedRunKey] = useState<string | null>(
+    () => page.items[0] ? `${page.items[0].run_id}:${page.items[0].attempt}` : null,
+  );
+  const selectedRun = page.items.find(
+    (item) => `${item.run_id}:${item.attempt}` === selectedRunKey,
+  ) ?? page.items[0] ?? null;
   usePublishViewContext(
     () => ({
       routeId: "scheduler-runs",
@@ -319,22 +325,51 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />
       </KpiGrid>
-      <DataTable
-        columns={columns}
-        rows={page.items}
-        keyOf={(item) => `${item.run_id}:${item.attempt}`}
-        empty={<EmptyState title={schedulerRunsText("empty")} />}
-      />
-      {page.next_cursor ? (
-        <button type="button" class="btn" disabled={loadingMore} onClick={onLoadMore}>
-          {loadingMore ? schedulerRunsText("loadingMore") : schedulerRunsText("loadMore")}
-        </button>
-      ) : null}
-      {pageError ? (
-        <div class="error" role="alert">
-          {schedulerRunsText("loadMoreError", { message: pageError })}
+      <div class={`cs-workspace-split${selectedRun ? " has-selection" : ""}`}>
+        <div class="cs-workspace-main">
+          <DataTable
+            columns={columns}
+            rows={page.items}
+            keyOf={(item) => `${item.run_id}:${item.attempt}`}
+            onRowClick={(item) => setSelectedRunKey(`${item.run_id}:${item.attempt}`)}
+            isRowActive={(item) => selectedRun !== null && item.run_id === selectedRun.run_id && item.attempt === selectedRun.attempt}
+            rowActionLabel={(item) => `${schedulerRunsText("runId")}: ${item.run_id}`}
+            rowActionControls="scheduler-run-detail"
+            scrollRegionLabel={schedulerRunsText("tableLabel", { taskId: page.task_id })}
+            empty={<EmptyState title={schedulerRunsText("empty")} />}
+          />
+          {page.next_cursor ? (
+            <button type="button" class="btn" disabled={loadingMore} onClick={onLoadMore}>
+              {loadingMore ? schedulerRunsText("loadingMore") : schedulerRunsText("loadMore")}
+            </button>
+          ) : null}
+          {pageError ? (
+            <div class="error" role="alert">
+              {schedulerRunsText("loadMoreError", { message: pageError })}
+            </div>
+          ) : null}
         </div>
-      ) : null}
+        {selectedRun ? (
+          <aside id="scheduler-run-detail" class="cs-inspector-pane" aria-label={selectedRun.run_id}>
+            <header class="cs-inspector-head">
+              <div>
+                <span class="cs-inspector-kicker">{page.task_id}</span>
+                <h3>{selectedRun.run_id}</h3>
+                <p>{schedulerRunsText("attempt")}: {selectedRun.attempt}</p>
+              </div>
+              <StatusPill kind={schedulerRunTone(selectedRun.status)} label={schedulerRunStatusLabel(selectedRun.status)} />
+            </header>
+            <dl class="cs-facts-grid">
+              <div><dt>{schedulerRunsText("scheduledFor")}</dt><dd>{formatSchedulerTimestamp(selectedRun.scheduled_for)}</dd></div>
+              <div><dt>{schedulerRunsText("claimedAt")}</dt><dd>{formatSchedulerTimestamp(selectedRun.claimed_at)}</dd></div>
+              <div><dt>{schedulerRunsText("completedAt")}</dt><dd>{formatSchedulerTimestamp(selectedRun.completed_at)}</dd></div>
+              <div><dt>{schedulerRunsText("errorKind")}</dt><dd><code>{selectedRun.error_kind ?? "-"}</code></dd></div>
+              <div><dt>{schedulerRunsText("source")}</dt><dd><code>{page.source}</code></dd></div>
+              <div><dt>{schedulerRunsText("storage")}</dt><dd>{schedulerRunsText(page.durable ? "durable" : "volatile")}</dd></div>
+            </dl>
+          </aside>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -117,11 +117,15 @@ export function ConversationSearchRoute(_props: PanelProps) {
   );
 
   return (
-    <div class="stack conversation-search-view">
+    <div class="stack conversation-search-view cs-workspace-route">
       <PageHeader
         title={t("conversationSearch.title")}
         subtitle={t("conversationSearch.subtitle")}
       />
+      <div class="governance-readonly-banner">
+        <strong>{t("conversationSearch.title")}</strong>
+        <span>{t("conversationSearch.subtitle")}</span>
+      </div>
       <form class="conversation-search-form" onSubmit={(event) => void submit(event)}>
         <label class="conversation-search-query">
           <span>{t("conversationSearch.query")}</span>
@@ -177,9 +181,19 @@ export function ConversationSearchRoute(_props: PanelProps) {
           <span>{t("conversationSearch.before")}</span>
           <input type="datetime-local" value={form.before} onInput={(event) => setForm({ ...form, before: event.currentTarget.value })} />
         </label>
-        <button type="submit" disabled={loading}>{t("conversationSearch.search")}</button>
+        <button type="submit" class="btn primary conversation-search-submit" disabled={loading}>
+          {t("conversationSearch.search")}
+        </button>
       </form>
 
+      {viewStatus === "idle" ? (
+        <dl class="cs-facts-grid">
+          <div><dt>{t("conversationSearch.mode")}</dt><dd>{t(`conversationSearch.modes.${form.mode}`)}</dd></div>
+          <div><dt>{t("conversationSearch.role")}</dt><dd>{form.role ? t(`conversationSearch.roles.${form.role}`) : t("conversationSearch.any")}</dd></div>
+          <div><dt>Context loading</dt><dd>Operator selected</dd></div>
+          <div><dt>Authority</dt><dd>Read-only</dd></div>
+        </dl>
+      ) : null}
       {viewStatus === "loading" ? <LoadingState label={t("conversationSearch.loading")} /> : null}
       {viewStatus === "unavailable" ? <UnavailableState message={conversationSearchFailureMessage(error)} /> : null}
       {viewStatus === "error" ? <ErrorState message={conversationSearchFailureMessage(error)} /> : null}
@@ -194,7 +208,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
           </header>
           {result.hits.map((hit) => {
             const context = contexts[hit.result_id];
-            return <article class="conversation-search-result" key={hit.result_id}>
+            return <article class="conversation-search-result cs-inspector-pane" key={hit.result_id}>
               <div class="conversation-search-meta">
                 <span>{hit.channel_id}</span>
                 <span>{t(`conversationSearch.roles.${hit.role}`)}</span>
@@ -206,6 +220,7 @@ export function ConversationSearchRoute(_props: PanelProps) {
               <div class="conversation-search-actions">
                 <button
                   type="button"
+                  class="btn secondary"
                   onClick={() => void loadContext(hit)}
                   disabled={contextLoading.has(hit.result_id)}
                   aria-expanded={Boolean(context)}

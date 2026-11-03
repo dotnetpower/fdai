@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { AsyncBoundary, DataTable, PageHeader, StatusPill, type AsyncState, type Column } from "../components/ui";
+import { AsyncBoundary, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
@@ -135,14 +135,18 @@ function OperatorMemoryBody({ view, applied, checkedAt }: {
     return () => window.clearTimeout(timer);
   }, [now, view.items]);
   return <div class="stack">
+    <KpiGrid>
+      <KpiCard href="#memory-compactions" label={t("settings.operatorMemory.compactions")} value={view.compactions.length} />
+      <KpiCard href="#memory-entries" label={t("settings.operatorMemory.entries")} value={view.items.length} />
+    </KpiGrid>
     <p role="status">{memoryUxText("count", { entries: view.items.length, compactions: view.compactions.length })}</p>
     <p class="muted">{memoryUxText("coverage")}</p>
-    <section class="stack-section settings-section">
+    <section id="memory-compactions" class="stack-section settings-section">
       <h3>{t("settings.operatorMemory.compactions")}</h3>
       <DataTable columns={compactionColumns()} rows={view.compactions}
         keyOf={(item) => item.candidateId} empty={t("settings.operatorMemory.noCompactions")} />
     </section>
-    <section class="stack-section settings-section">
+    <section id="memory-entries" class="stack-section settings-section">
       <h3>{t("settings.operatorMemory.entries")}</h3>
       <DataTable columns={columns(now, new Set(view.items.map((item) => item.id)))} rows={view.items}
         keyOf={(item) => item.id} empty={t("settings.operatorMemory.empty")} />

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -8,12 +9,14 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import {
   panelArray,
@@ -48,6 +51,7 @@ interface ComparisonResponse {
 }
 
 export function ContextSelectionComparisonsRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<ComparisonResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
@@ -68,13 +72,22 @@ export function ContextSelectionComparisonsRoute({ client }: { readonly client: 
       }
     })();
     return () => { cancelled = true; };
-  }, [client]);
+  }, [client, refreshRevision]);
 
   return (
-    <div class="stack governance-route">
+    <div class="stack governance-route cs-workspace-route">
       <PageHeader
         title={t("route.contextSelectionComparisons")}
         subtitle={t("evidence.contextSelection.subtitle")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading"}
+            onRefresh={() => {
+              setState({ status: "loading" });
+              setRefreshRevision((revision) => revision + 1);
+            }}
+          />
+        }
       />
       <AsyncBoundary state={state} resourceLabel={t("evidence.contextSelection.resource")}>
         {(data) => <ComparisonBody data={data} />}
@@ -149,6 +162,32 @@ function nullableString(value: unknown, label: string): string | null {
 }
 
 function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
+  const [query, setQuery] = useState("");
+  const [resultFilter, setResultFilter] = useState<"all" | "passed" | "failed">("all");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => data.comparisons[0]?.evaluation_id ?? null,
+  );
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return data.comparisons.filter((row) => {
+      if (resultFilter === "passed" && row.failure_reason !== null) return false;
+      if (resultFilter === "failed" && row.failure_reason === null) return false;
+      if (!needle) return true;
+      return [
+        row.evaluation_id,
+        row.baseline_policy_ref,
+        row.candidate_policy_ref,
+        row.failure_reason ?? "",
+        ...row.omissions,
+      ].join(" ").toLocaleLowerCase().includes(needle);
+    });
+  }, [data.comparisons, query, resultFilter]);
+  const selected = filtered.find((row) => row.evaluation_id === selectedId) ?? filtered[0] ?? null;
+  const pinnedPreservedCount = data.comparisons.filter((row) => row.pinned_preserved).length;
+  const averageLatencyMs = data.comparisons.length > 0
+    ? data.comparisons.reduce((sum, row) => sum + row.latency_ms, 0) / data.comparisons.length
+    : null;
+
   usePublishViewContext(
     () => ({
       routeId: "context-selection-comparisons",
@@ -171,13 +210,14 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
   );
   const comparisonsHref = `${routeHref("context-selection-comparisons")}#context-selection-comparisons`;
   const columns: readonly Column<ComparisonRow>[] = [
-    { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => row.candidate_policy_ref, cellClass: "mono" },
+    { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => <div><strong>{row.candidate_policy_ref}</strong><small class="muted">{row.baseline_policy_ref}</small></div>, cellClass: "mono" },
     { key: "tokens", header: t("evidence.contextSelection.column.tokens"), render: (row) => `${row.baseline_tokens} / ${row.candidate_tokens ?? "-"}` },
     { key: "overlap", header: t("evidence.contextSelection.column.overlap"), render: (row) => row.evidence_overlap === null ? "-" : `${(row.evidence_overlap * 100).toFixed(1)}%` },
     { key: "omissions", header: t("evidence.contextSelection.column.omissions"), render: (row) => row.omissions.length ? row.omissions.join(", ") : "-" },
     { key: "pinned", header: t("evidence.contextSelection.column.pinned"), render: (row) => <StatusPill kind={row.pinned_preserved ? "success" : "danger"} label={t(row.pinned_preserved ? "evidence.status.preserved" : "evidence.status.missing")} /> },
     { key: "latency", header: t("evidence.contextSelection.column.latency"), render: (row) => `${row.latency_ms.toFixed(1)} ms`, cellClass: "num" },
     { key: "failure", header: t("evidence.contextSelection.column.invariantResult"), render: (row) => row.failure_reason ? <StatusPill kind="danger" label={row.failure_reason} /> : <StatusPill kind="success" label={t("evidence.status.passed")} /> },
+    { key: "recorded", header: t("evidence.contextSelection.column.recorded"), render: (row) => formatConsoleTimestamp(row.created_at) },
   ];
   return (
     <div class="stack">
@@ -188,9 +228,74 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
       <KpiGrid>
         <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.comparisons")} value={data.count} />
         <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.invariantFailures")} value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
+        <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.column.pinned")} value={`${pinnedPreservedCount} / ${data.count}`} />
+        <KpiCard
+          evidenceState={averageLatencyMs === null ? "not-measured" : "measured"}
+          href={comparisonsHref}
+          label={t("evidence.contextSelection.column.latency")}
+          value={averageLatencyMs === null ? kpiEvidenceLabel("not-measured") : `${averageLatencyMs.toFixed(1)} ms`}
+        />
       </KpiGrid>
-      <div id="context-selection-comparisons">
-        <DataTable columns={columns} rows={data.comparisons} keyOf={(row) => row.evaluation_id} empty={t("evidence.contextSelection.empty")} />
+      <div class="cs-filter-toolbar" role="search">
+        <label class="is-wide">
+          <span>{t("evidence.contextSelection.column.candidate")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="evaluation, baseline, candidate, omission..."
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("evidence.contextSelection.column.invariantResult")}</span>
+          <select value={resultFilter} onChange={(event) => setResultFilter(event.currentTarget.value as "all" | "passed" | "failed")}>
+            <option value="all">{t("shared.all")}</option>
+            <option value="passed">{t("evidence.status.passed")}</option>
+            <option value="failed">{t("evidence.status.failed")}</option>
+          </select>
+        </label>
+        <span class="cs-filter-count" role="status" aria-live="polite">
+          {filtered.length} / {data.comparisons.length}
+        </span>
+      </div>
+      <div id="context-selection-comparisons" class={`cs-workspace-split${selected ? " has-selection" : ""}`}>
+        <div class="cs-workspace-main">
+          <DataTable
+            columns={columns}
+            rows={filtered}
+            keyOf={(row) => row.evaluation_id}
+            onRowClick={(row) => setSelectedId(row.evaluation_id)}
+            isRowActive={(row) => row.evaluation_id === selected?.evaluation_id}
+            rowActionLabel={(row) => `${t("evidence.contextSelection.column.candidate")}: ${row.evaluation_id}`}
+            rowActionControls="context-comparison-detail"
+            scrollRegionLabel={t("route.contextSelectionComparisons")}
+            empty={t("evidence.contextSelection.empty")}
+          />
+        </div>
+        {selected ? (
+          <aside id="context-comparison-detail" class="cs-inspector-pane" aria-label={selected.evaluation_id}>
+            <header class="cs-inspector-head">
+              <div>
+                <span class="cs-inspector-kicker">{selected.evaluation_id}</span>
+                <h3>{selected.candidate_policy_ref}</h3>
+                <p>Baseline: {selected.baseline_policy_ref}</p>
+              </div>
+              {selected.failure_reason ? (
+                <StatusPill kind="danger" label={selected.failure_reason} />
+              ) : (
+                <StatusPill kind="success" label={t("evidence.status.passed")} />
+              )}
+            </header>
+            <dl class="cs-facts-grid">
+              <div><dt>{t("evidence.contextSelection.column.tokens")}</dt><dd>{selected.baseline_tokens} {"->"} {selected.candidate_tokens ?? "-"}</dd></div>
+              <div><dt>{t("evidence.contextSelection.column.overlap")}</dt><dd>{selected.evidence_overlap === null ? "-" : `${(selected.evidence_overlap * 100).toFixed(1)}%`}</dd></div>
+              <div><dt>{t("evidence.contextSelection.column.pinned")}</dt><dd>{t(selected.pinned_preserved ? "evidence.status.preserved" : "evidence.status.missing")}</dd></div>
+              <div><dt>{t("evidence.contextSelection.column.latency")}</dt><dd>{`${selected.latency_ms.toFixed(1)} ms`}</dd></div>
+              <div><dt>{t("evidence.contextSelection.column.recorded")}</dt><dd>{formatConsoleTimestamp(selected.created_at)}</dd></div>
+              <div><dt>{t("evidence.contextSelection.column.omissions")}</dt><dd>{selected.omissions.length ? selected.omissions.join(", ") : t("evidence.common.none")}</dd></div>
+            </dl>
+          </aside>
+        ) : null}
       </div>
     </div>
   );

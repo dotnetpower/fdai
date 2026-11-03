@@ -35,6 +35,13 @@ export function SettingsGeneralRoute({ client }: Props) {
   return (
     <div class="stack settings-route">
       <PageHeader title={t("route.settingsGeneral")} subtitle={settingsGeneralText("subtitle")} />
+      <nav class="cs-workspace-tabs" aria-label={t("route.settingsGeneral")}>
+        <a class="cs-workspace-tab" href="#settings-appearance">{settingsGeneralText("appearance")}</a>
+        <a class="cs-workspace-tab" href="#settings-user-context">{settingsGeneralText("contextTitle")}</a>
+        <a class="cs-workspace-tab" href="#settings-briefings">{settingsGeneralText("briefingsTitle")}</a>
+        <a class="cs-workspace-tab" href="#settings-saved-memory">{settingsGeneralText("memoryTitle")}</a>
+        <a class="cs-workspace-tab" href="#settings-reset">{settingsGeneralText("resetTitle")}</a>
+      </nav>
       <SettingsDisplaySections controller={controller} />
       <SettingsContextSections controller={controller} />
       <section class="settings-section settings-reset-section" aria-labelledby="settings-reset">

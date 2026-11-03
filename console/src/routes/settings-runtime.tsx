@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { ErrorState, KpiCard, KpiGrid, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -246,6 +246,12 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
                 : t("settings.runtimePolicies.neverUpdated")}
             </small>
           </section>
+          <KpiGrid>
+            <KpiCard evidenceState="measured" href="#settings-runtime-policies-list" label={t("route.settingsRuntime")} value={view.settings.length} />
+            <KpiCard evidenceState="measured" href="#settings-runtime-policies-list" label="Overridden" value={view.settings.filter((item) => Boolean(item.overrideValue)).length} />
+            <KpiCard evidenceState="measured" href="#settings-runtime-policies-list" label="Restart required" value={view.settings.filter((item) => item.restartRequired).length} />
+            <KpiCard evidenceState="measured" href="#settings-runtime-policies-list" label="Unavailable" value={view.settings.filter((item) => !item.available).length} />
+          </KpiGrid>
           {!view.canManage ? (
             <div class="state-block" role="note">{t("settings.runtimePolicies.readOnly")}</div>
           ) : null}
@@ -264,7 +270,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
               {runtimeUxText("reapply")}
             </button>
           </section> : null}
-          <div class="settings-filter-bar">
+          <div id="settings-runtime-policies-list" class="settings-filter-bar">
             <label><span>{runtimeUxText("search")}</span><input type="search" class="form-input" value={search}
               onInput={(event) => setSearch(event.currentTarget.value)} /></label>
             <label><input type="checkbox" checked={changedOnly}

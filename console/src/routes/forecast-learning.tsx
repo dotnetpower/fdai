@@ -16,6 +16,7 @@ import {
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import { panelArray, panelRecord } from "./panel-decode";
 import { ForecastActivity } from "./forecast-activity";
@@ -140,7 +141,7 @@ export function ForecastLearningRoute({ client }: { readonly client: OperatorApi
     };
   }, [client, refreshRevision]);
   return (
-    <div class="stack governance-route">
+    <div class="stack governance-route cs-workspace-route">
       <PageHeader
         title={t("evidence.forecastLearning.title")}
         subtitle={t("evidence.forecastLearning.subtitle")}
@@ -235,11 +236,12 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
     [data],
   );
   const anchor = `${routeHref("forecast-learning")}#forecast-outcomes`;
+  const totalOutcomeCount = data.outcomes.reduce((sum, row) => sum + row.count, 0);
   const columns: readonly Column<OutcomeRow>[] = [
     {
       key: "label",
       header: t("evidence.forecastLearning.column.label"),
-      render: (row) => row.label,
+      render: (row) => <strong>{row.label}</strong>,
     },
     {
       key: "origin",
@@ -250,6 +252,12 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
       key: "count",
       header: t("evidence.forecastLearning.column.count"),
       render: (row) => row.count,
+      cellClass: "num",
+    },
+    {
+      key: "share",
+      header: "%",
+      render: (row) => totalOutcomeCount > 0 ? `${Math.round((row.count / totalOutcomeCount) * 100)}%` : "0%",
       cellClass: "num",
     },
   ];
@@ -295,14 +303,54 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
       <div class="evidence-source-line">
         <StatusPill kind={data.durable ? "success" : "warning"} label={data.source} />
       </div>
-      <div id="forecast-outcomes">
-        <ForecastActivity data={data} />
-        <DataTable
-          columns={columns}
-          rows={data.outcomes}
-          keyOf={(row) => `${row.label}:${row.miss_origin ?? "none"}`}
-          empty={t("evidence.forecastLearning.empty")}
-        />
+      <div id="forecast-outcomes" class="cs-workspace-split has-selection">
+        <div class="cs-workspace-main">
+          <ForecastActivity data={data} />
+          {data.outcomes.length > 0 ? (
+            <div class="cs-ratio-bars">
+              {data.outcomes.map((row) => {
+                const pct = totalOutcomeCount > 0 ? Math.round((row.count / totalOutcomeCount) * 100) : 0;
+                return (
+                  <div class="cs-ratio-row" key={`${row.label}:${row.miss_origin ?? "none"}`}>
+                    <span>{row.label}{row.miss_origin ? ` (${row.miss_origin})` : ""}</span>
+                    <div class="cs-ratio-track" aria-hidden="true">
+                      <span class={row.miss_origin ? "is-warning" : "is-success"} style={`width:${pct}%`} />
+                    </div>
+                    <strong>{row.count} ({pct}%)</strong>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          <DataTable
+            columns={columns}
+            rows={data.outcomes}
+            keyOf={(row) => `${row.label}:${row.miss_origin ?? "none"}`}
+            scrollRegionLabel={t("evidence.forecastLearning.title")}
+            empty={t("evidence.forecastLearning.empty")}
+          />
+        </div>
+        <aside class="cs-inspector-pane" aria-label={t("evidence.forecastLearning.title")}>
+          <header class="cs-inspector-head">
+            <div>
+              <span class="cs-inspector-kicker">{data.source}</span>
+              <h3>{t("evidence.forecastLearning.title")}</h3>
+              <p>{t("evidence.forecastLearning.viewHeadline", {
+                total: data.episodes.total,
+                open: data.episodes.open,
+                overdue: data.episodes.overdue,
+              })}</p>
+            </div>
+            <StatusPill kind={data.durable ? "success" : "warning"} label={data.durable ? "Durable" : "Volatile"} />
+          </header>
+          <dl class="cs-facts-grid">
+            <div><dt>Total / Closed / Open</dt><dd>{data.episodes.total} / {data.episodes.closed} / {data.episodes.open}</dd></div>
+            <div><dt>{t("evidence.forecastLearning.overdue")} / Abstained</dt><dd>{data.episodes.overdue} / {data.episodes.abstained}</dd></div>
+            <div><dt>{t("evidence.forecastLearning.outboxDebt")}</dt><dd>{data.publication.pending} pending / {data.publication.dead_lettered ?? 0} dead-lettered</dd></div>
+            <div><dt>Oldest pending</dt><dd>{data.publication.oldest_pending_at ? formatConsoleTimestamp(data.publication.oldest_pending_at) : t("evidence.common.none")}</dd></div>
+            <div><dt>{t("evidence.forecastLearning.retentionDebt")}</dt><dd>{data.retention.pending} pending / {data.retention.overdue ?? 0} overdue</dd></div>
+          </dl>
+        </aside>
       </div>
     </div>
   );

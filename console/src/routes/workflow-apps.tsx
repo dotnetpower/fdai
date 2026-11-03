@@ -1,19 +1,23 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
+  DataTable,
   EmptyState,
+  KpiCard,
+  KpiGrid,
   PageHeader,
   StatusPill,
   type AsyncState,
-  type PillKind,
+  type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
-import { currentRoute, routeHref } from "../router";
+import { currentRoute, navigate, routeHref } from "../router";
 import { formatDateTimeValue, formatNumber, statusLabel } from "./i18n/workflow";
-import { decodeProcessList, processHref, processTone, type ProcessListResponse } from "./processes.model";
+import { decodeProcessList, processHref, processTone, type ProcessListResponse, type ProcessSummary } from "./processes.model";
 import {
   decodeWorkflowApps,
   workflowAppHref,
@@ -26,6 +30,7 @@ import {
 interface Props { readonly client: OperatorApiClient }
 
 export function WorkflowAppsRoute({ client }: Props) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<WorkflowAppsResponse>>({ status: "loading" });
   const [selectedId, setSelectedId] = useState<string | null>(() => currentRoute().segments[0] ?? null);
 
@@ -46,7 +51,7 @@ export function WorkflowAppsRoute({ client }: Props) {
       },
     );
     return () => { cancelled = true; };
-  }, [client]);
+  }, [client, refreshRevision]);
 
   useEffect(() => {
     const sync = () => setSelectedId(currentRoute().segments[0] ?? null);
@@ -59,8 +64,17 @@ export function WorkflowAppsRoute({ client }: Props) {
   }, []);
 
   return (
-    <div class="stack">
-      <PageHeader title={t("route.workflowApps")} subtitle={t("workflowApps.subtitle")} />
+    <div class="stack cs-workspace-route">
+      <PageHeader
+        title={t("route.workflowApps")}
+        subtitle={t("workflowApps.subtitle")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading"}
+            onRefresh={() => setRefreshRevision((revision) => revision + 1)}
+          />
+        }
+      />
       <AsyncBoundary state={state} resourceLabel={t("workflowApps.resourceLabel")}>
         {(data) => <WorkflowAppsWorkspace client={client} data={data} selectedId={selectedId} />}
       </AsyncBoundary>
@@ -106,23 +120,67 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
   if (data.items.length === 0) {
     return <EmptyState title={t("workflowApps.emptyTitle")} body={t("workflowApps.emptyBody")} />;
   }
+  const appColumns: readonly Column<WorkflowAppEntry>[] = [
+    {
+      key: "app",
+      header: t("workflowApps.app"),
+      render: (app) => (
+        <div>
+          <a href={workflowAppHref(app.id, currentRoute().search)}><strong>{app.label[locale]}</strong></a>
+          <br />
+          <span class="muted small">{app.description[locale]}</span>
+        </div>
+      ),
+    },
+    {
+      key: "workflow",
+      header: t("workflowApps.workflow"),
+      render: (app) => <code>{app.workflow_ref}</code>,
+    },
+    {
+      key: "lifecycle",
+      header: t("workflowApps.lifecycle"),
+      render: (app) => <StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} />,
+    },
+  ];
+  const listHref = `${routeHref("workflow-apps")}#workflow-app-list-title`;
   return (
     <div class="stack">
-      <section class="stack-section" aria-labelledby="workflow-app-list-title">
-        <h3 id="workflow-app-list-title" class="section-title">{t("workflowApps.listLabel")}</h3>
-        <div class="scroll">
-          <table class="data-table">
-            <thead><tr><th>{t("workflowApps.app")}</th><th>{t("workflowApps.workflow")}</th><th>{t("workflowApps.lifecycle")}</th></tr></thead>
-            <tbody>{data.items.map((app) => (
-              <tr key={app.id} class={app.id === selected?.id ? "row-active" : undefined}>
-                <td><a href={workflowAppHref(app.id, currentRoute().search)}><strong>{app.label[locale]}</strong></a><br /><span class="muted small">{app.description[locale]}</span></td>
-                <td><code>{app.workflow_ref}</code></td>
-                <td><StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} /></td>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      </section>
+      <KpiGrid>
+        <KpiCard href={listHref} label={t("workflowApps.listLabel")} value={formatNumber(data.items.length)} />
+        <KpiCard href={listHref} label={t("workflowApps.app")} value={selected?.label[locale] ?? "-"} />
+        <KpiCard href={listHref} label={t("workflowApps.workflow")} value={selected?.workflow_ref ?? "-"} />
+      </KpiGrid>
+      <div class={`cs-workspace-split${selected ? " has-selection" : ""}`}>
+        <section class="stack-section cs-workspace-main" aria-labelledby="workflow-app-list-title">
+          <h3 id="workflow-app-list-title" class="section-title">{t("workflowApps.listLabel")}</h3>
+          <DataTable
+            columns={appColumns}
+            rows={data.items}
+            keyOf={(app) => app.id}
+            onRowClick={(app) => navigate(workflowAppHref(app.id, currentRoute().search))}
+            isRowActive={(app) => app.id === selected?.id}
+            scrollRegionLabel={t("workflowApps.listLabel")}
+          />
+        </section>
+        {selected ? (
+          <aside class="cs-inspector-pane" aria-label={selected.label[locale]}>
+            <header class="cs-inspector-head">
+              <div>
+                <span class="cs-inspector-kicker">{selected.id}</span>
+                <h3>{selected.label[locale]}</h3>
+                <p>{selected.description[locale]}</p>
+              </div>
+              <StatusPill kind={workflowAppLifecycleTone(selected.lifecycle)} label={statusLabel(selected.lifecycle)} />
+            </header>
+            <dl class="cs-facts-grid">
+              <div><dt>{t("workflowApps.workflow")}</dt><dd><code>{selected.workflow_ref}</code></dd></div>
+              <div><dt>View</dt><dd><code>{selected.view_ref}</code></dd></div>
+              <div><dt>Route</dt><dd><code>{selected.route}</code></dd></div>
+            </dl>
+          </aside>
+        ) : null}
+      </div>
       {selectedId !== null && selected === null ? (
         <div class="state-block state-unavailable" role="alert">{t("workflowApps.notFound")}</div>
       ) : null}
@@ -159,6 +217,34 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
     return () => { cancelled = true; };
   }, [client, app.workflow_ref]);
   useEffect(() => setStatusFilter(""), [app.workflow_ref]);
+  const runColumns: readonly Column<ProcessSummary>[] = [
+    {
+      key: "target",
+      header: t("workflowApps.target"),
+      render: (process) => (
+        <div>
+          <a href={processHref(process.id)}>{process.target_resource_id}</a>
+          <br />
+          <code class="small">{process.id}</code>
+        </div>
+      ),
+    },
+    {
+      key: "step",
+      header: t("workflowApps.step"),
+      render: (process) => process.current_step || t("workflowApps.terminal"),
+    },
+    {
+      key: "status",
+      header: t("workflowApps.status"),
+      render: (process) => <StatusPill kind={processTone(process.status)} label={statusLabel(process.status)} />,
+    },
+    {
+      key: "updated",
+      header: t("workflowApps.updated"),
+      render: (process) => <time dateTime={process.updated_at}>{formatDateTimeValue(process.updated_at)}</time>,
+    },
+  ];
   return (
     <section class="stack-section workflow-app-runs" aria-labelledby="workflow-app-runs-title">
       <div class="workflow-app-runs-head">
@@ -199,14 +285,12 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
                   </button>
                 ))}
               </div>
-              <div class="scroll"><table class="data-table"><thead><tr><th>{t("workflowApps.target")}</th><th>{t("workflowApps.step")}</th><th>{t("workflowApps.status")}</th><th>{t("workflowApps.updated")}</th></tr></thead><tbody>
-                {rows.map((process) => <tr key={process.id}>
-                  <td><a href={processHref(process.id)}>{process.target_resource_id}</a><br /><code class="small">{process.id}</code></td>
-                  <td>{process.current_step || t("workflowApps.terminal")}</td>
-                  <td><StatusPill kind={processTone(process.status)} label={statusLabel(process.status)} /></td>
-                  <td><time dateTime={process.updated_at}>{formatDateTimeValue(process.updated_at)}</time></td>
-                </tr>)}
-              </tbody></table></div>
+              <DataTable
+                columns={runColumns}
+                rows={rows}
+                keyOf={(process) => process.id}
+                scrollRegionLabel={t("workflowApps.runs")}
+              />
             </>
           );
         }}

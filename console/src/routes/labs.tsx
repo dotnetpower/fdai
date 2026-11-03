@@ -1,4 +1,4 @@
-import { PageHeader } from "../components/ui";
+import { KpiCard, KpiGrid, PageHeader } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -21,9 +21,18 @@ export function LabsRoute() {
     [logoLabHref],
   );
   return (
-    <div class="stack labs-route">
+    <div class="stack labs-route cs-workspace-route">
       <PageHeader title={t("route.labs")} subtitle={t("labs.subtitle")} />
-      <section class="labs-tool-list" aria-label={t("labs.toolsLabel")}>
+      <div class="governance-readonly-banner">
+        <strong>{t("route.labs")}</strong>
+        <span>{t("labs.subtitle")}</span>
+      </div>
+      <KpiGrid>
+        <KpiCard href="#labs-tools" label={t("labs.toolsLabel")} value="1" />
+        <KpiCard href="#labs-tools" label="Design system" value="Calm Slate" />
+        <KpiCard href="#labs-tools" label="Mutation authority" value="0" />
+      </KpiGrid>
+      <section id="labs-tools" class="labs-tool-list" aria-label={t("labs.toolsLabel")}>
         <a
           class="card labs-tool"
           href={logoLabHref}

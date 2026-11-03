@@ -70,8 +70,12 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
   );
 
   return (
-    <div class="stack knowledge-route">
+    <div class="stack knowledge-route cs-workspace-route">
       <PageHeader title={knowledgeText("overviewTitle")} subtitle={knowledgeText("subtitle")} />
+      <div class="governance-readonly-banner">
+        <strong>{knowledgeText("sourcesTitle")}</strong>
+        <span>{knowledgeText("sourcesHint")}</span>
+      </div>
       <section aria-labelledby="knowledge-sources-title">
         <div class="knowledge-section-heading">
           <div>
@@ -99,6 +103,17 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
         </div>
       </section>
       <CloudKnowledgePanel {...props} />
+      <section class="stack-section" aria-labelledby="knowledge-retrieval-contract-title">
+        <h3 id="knowledge-retrieval-contract-title" class="section-title">Retrieval contract</h3>
+        <dl class="cs-facts-grid">
+          <div><dt>Purpose</dt><dd>Evidence-grounded operator answers</dd></div>
+          <div><dt>Authorization</dt><dd>Source and collection scoped</dd></div>
+          <div><dt>Freshness</dt><dd>Reported per observation</dd></div>
+          <div><dt>Incomplete coverage</dt><dd>Explicitly unavailable</dd></div>
+          <div><dt>Execution authority</dt><dd>None</dd></div>
+          <div><dt>Provenance</dt><dd>Revision and digest retained</dd></div>
+        </dl>
+      </section>
     </div>
   );
 }
@@ -151,7 +166,7 @@ function KnowledgeConnectorRoute({
   );
 
   return (
-    <div class="stack knowledge-route">
+    <div class="stack knowledge-route cs-workspace-route">
       <PageHeader
         title={provider}
         subtitle={knowledgeText("connectorSubtitle", { provider })}
@@ -166,6 +181,29 @@ function KnowledgeConnectorRoute({
           message={knowledgeText("connectorUnavailableBody", { provider })}
         />
         <p>{knowledgeText("connectorBoundary")}</p>
+        <ol class="cs-step-list" aria-label="Connector readiness">
+          <li>
+            <span class="cs-step-number">1</span>
+            <div>
+              <strong>Configure integration</strong>
+              <small>Provider identity and secret custody are not recorded.</small>
+            </div>
+          </li>
+          <li>
+            <span class="cs-step-number">2</span>
+            <div>
+              <strong>Authorize scope</strong>
+              <small>Repository and ref allowlists are not recorded.</small>
+            </div>
+          </li>
+          <li>
+            <span class="cs-step-number">3</span>
+            <div>
+              <strong>Observe synchronization</strong>
+              <small>No freshness or coverage evidence exists.</small>
+            </div>
+          </li>
+        </ol>
         <nav class="knowledge-connector-actions" aria-label={knowledgeText("connectorActions")}>
           <a class="primary" href={routeHref("settings-integrations")}>
             {knowledgeText("openIntegrationSettings")}
