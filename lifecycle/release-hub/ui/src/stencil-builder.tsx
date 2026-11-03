@@ -98,6 +98,7 @@ export interface LiveApolloBlueprint {
   readonly effectiveJobs: string[];
   readonly omittedJobs: string[];
   readonly effectivePanels: string[];
+  readonly disabledPanels: string[];
   readonly omittedPanelCount: number;
   readonly includesClamav: boolean;
   readonly includesExecutor: boolean;
@@ -106,6 +107,9 @@ export interface LiveApolloBlueprint {
   readonly releaseLabels: string[];
   readonly workloadReasons: Readonly<Record<string, string[]>>;
   readonly loopReasons: Readonly<Record<string, string[]>>;
+  readonly panelFeatureFlags: Readonly<Record<string, boolean>>;
+  readonly loopFeatureFlags: Readonly<Record<string, boolean>>;
+  readonly runtimeEnvFlags: Readonly<Record<string, string>>;
   readonly consoleBuildCommand: string;
 }
 
@@ -172,7 +176,20 @@ export function computeLiveApolloBlueprint(
   const effectiveJobs = [...jobSet].sort();
   const omittedJobs = catalog.scheduled_jobs.filter((j) => !jobSet.has(j)).sort();
   const effectivePanels = [...panelSet].sort();
+  const disabledPanels = catalog.panels
+    .map((p) => p.id)
+    .filter((id) => !panelSet.has(id))
+    .sort();
   const omittedPanelCount = Math.max(0, catalog.panels.length - effectivePanels.length);
+
+  const panelFeatureFlags: Record<string, boolean> = {};
+  for (const p of [...catalog.panels.map((item) => item.id)].sort()) {
+    panelFeatureFlags[p] = panelSet.has(p);
+  }
+  const loopFeatureFlags: Record<string, boolean> = {};
+  for (const l of [...catalog.loops].sort()) {
+    loopFeatureFlags[l] = loopSet.has(l);
+  }
 
   const includesClamav = workloadSet.has("document-ingestion-api");
   const includesExecutor = workloadSet.has("isolated-executor");
@@ -192,6 +209,15 @@ export function computeLiveApolloBlueprint(
     `menus:${effectivePanels.length}`,
   ];
 
+  const runtimeEnvFlags: Record<string, string> = {
+    FDAI_STENCIL_ID: cleanId,
+    FDAI_STENCIL_ENABLED_PANELS: effectivePanels.join(","),
+    FDAI_STENCIL_DISABLED_PANELS: disabledPanels.join(","),
+    FDAI_STENCIL_ENABLED_LOOPS: effectiveLoops.join(","),
+    FDAI_STENCIL_DISABLED_LOOPS: omittedLoops.join(","),
+    FDAI_STENCIL_ENFORCE_INACTIVE_MENUS: "1",
+  };
+
   return {
     effectiveWorkloads,
     omittedWorkloads,
@@ -200,6 +226,7 @@ export function computeLiveApolloBlueprint(
     effectiveJobs,
     omittedJobs,
     effectivePanels,
+    disabledPanels,
     omittedPanelCount,
     includesClamav,
     includesExecutor,
@@ -208,6 +235,9 @@ export function computeLiveApolloBlueprint(
     releaseLabels,
     workloadReasons,
     loopReasons,
+    panelFeatureFlags,
+    loopFeatureFlags,
+    runtimeEnvFlags,
     consoleBuildCommand: `FDAI_STENCIL_ENABLED_PANELS='${effectivePanels.join(",")}' npm --prefix console run build`,
   };
 }
@@ -1139,6 +1169,22 @@ export function StencilBuilder({
                 <h4>{t("Required Azure Roles", "필요한 Azure RBAC 역할")}</h4>
                 <p class="inspector-roles">{liveBlueprint.requiredAzureRoles.join(" · ")}</p>
 
+                <h4>{t("Inactive Menu Feature Flag Gate", "비활성 메뉴 Feature Flag 차단 정책")}</h4>
+                <div class="preset-metrics">
+                  <code class="stencil-chip">
+                    {t(
+                      `fail-closed · ${liveBlueprint.disabledPanels.length} menus blocked`,
+                      `fail-closed · 비활성 메뉴 ${liveBlueprint.disabledPanels.length}개 차단`,
+                    )}
+                  </code>
+                  <code class="stencil-chip">
+                    {t(
+                      `${liveBlueprint.omittedLoops.length} backend loops disabled`,
+                      `백엔드 루프 ${liveBlueprint.omittedLoops.length}개 비활성화`,
+                    )}
+                  </code>
+                </div>
+
                 <div class="actions">
                   <button
                     type="button"
@@ -1207,6 +1253,14 @@ export function StencilBuilder({
                 <dd>{composed.footprint.required_azure_roles.join(", ")}</dd>
                 <dt>{t("Console custom build command", "Console 커스텀 빌드 명령")}</dt>
                 <dd><code class="digest">{composed.footprint.console_build_command}</code></dd>
+                <dt>{t("Inactive menu feature flag gate", "비활성 메뉴 Feature Flag 게이트")}</dt>
+                <dd>
+                  <code class="digest">
+                    {composed.footprint.feature_flags
+                      ? `${composed.footprint.feature_flags.enforcement_mode} (FDAI_STENCIL_ENFORCE_INACTIVE_MENUS=1 · ${composed.footprint.feature_flags.disabled_panel_ids.length} menus & ${composed.footprint.feature_flags.disabled_loops.length} loops blocked)`
+                      : "fail-closed"}
+                  </code>
+                </dd>
               </dl>
               <div class="actions">
                 <button

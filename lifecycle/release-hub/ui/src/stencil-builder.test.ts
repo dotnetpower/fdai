@@ -133,6 +133,15 @@ describe("stencil-builder helpers", () => {
     expect(liteBp.includesClamav).toBe(false);
     expect(liteBp.releaseLabels).toContain("clamav:omitted");
     expect(liteBp.releaseLabels).toContain("rbac:read-only-observation");
+    expect(liteBp.disabledPanels).toEqual(["documents"]);
+    expect(liteBp.panelFeatureFlags).toEqual({
+      dashboard: true,
+      documents: false,
+      live: true,
+    });
+    expect(liteBp.loopFeatureFlags["document-ingestion"]).toBe(false);
+    expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_ENFORCE_INACTIVE_MENUS).toBe("1");
+    expect(liteBp.runtimeEnvFlags.FDAI_STENCIL_DISABLED_PANELS).toBe("documents");
 
     const docBp = computeLiveApolloBlueprint(catalog, {
       stencilId: "custom-docs",

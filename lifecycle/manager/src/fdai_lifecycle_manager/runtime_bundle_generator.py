@@ -21,6 +21,17 @@ _CPU_CORES = re.compile(r"^([1-9][0-9]*)\Z", re.ASCII)
 _CPU_MILLIS = re.compile(r"^([1-9][0-9]*)m\Z", re.ASCII)
 _ENV_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}\Z", re.ASCII)
 _KV_SECRET_NAME = re.compile(r"^[A-Za-z0-9-]{1,127}\Z", re.ASCII)
+_KEBAB_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*\Z", re.ASCII)
+_STENCIL_ID = re.compile(r"^[a-z][a-z0-9-]{0,62}\Z", re.ASCII)
+_LOCKED_STENCIL_PANELS = frozenset({"audit", "dashboard", "settings-general"})
+_LOCKED_STENCIL_LOOPS = frozenset(
+    {
+        "anomaly-analyzer",
+        "inventory-reconciliation",
+        "notification-dispatch",
+        "saga-audit",
+    }
+)
 _CANARY_UID_FIELD = "metadata.labels['batch.kubernetes.io/controller-uid']"
 
 
@@ -753,8 +764,31 @@ def generate_fdai_runtime_bundle(
     identity_bridge_size_limit: str = "256Mi",
     enabled_workloads: frozenset[str] | None = None,
     enabled_scheduled_jobs: frozenset[str] | None = None,
+    stencil_id: str | None = None,
+    enabled_panel_ids: frozenset[str] | None = None,
+    enabled_loops: frozenset[str] | None = None,
 ) -> GeneratedRuntimeTopology:
     """Convert AKS workload maps into a verified Hub runtime bundle and native scope."""
+
+    if stencil_id is not None and _STENCIL_ID.fullmatch(stencil_id) is None:
+        raise ValueError("Stencil runtime bundle requires a valid lowercase kebab-case stencil_id.")
+    if enabled_panel_ids is not None:
+        if not _LOCKED_STENCIL_PANELS.issubset(enabled_panel_ids):
+            raise ValueError(
+                "Stencil runtime bundle enabled_panel_ids requires locked safety-core panels "
+                "('audit', 'dashboard', 'settings-general')."
+            )
+        if not all(_KEBAB_ID.fullmatch(panel_id) for panel_id in enabled_panel_ids):
+            raise ValueError("Stencil runtime bundle enabled_panel_ids must be kebab-case IDs.")
+    if enabled_loops is not None:
+        if not _LOCKED_STENCIL_LOOPS.issubset(enabled_loops):
+            raise ValueError(
+                "Stencil runtime bundle enabled_loops requires locked safety-core loops "
+                "('anomaly-analyzer', 'inventory-reconciliation', 'notification-dispatch', "
+                "'saga-audit')."
+            )
+        if not all(_KEBAB_ID.fullmatch(loop_id) for loop_id in enabled_loops):
+            raise ValueError("Stencil runtime bundle enabled_loops must be kebab-case IDs.")
 
     if enabled_workloads is not None:
         if not {"core-control-plane", "operator-service"}.issubset(enabled_workloads):
@@ -810,6 +844,21 @@ def generate_fdai_runtime_bundle(
             identity_bindings=identity_bindings,
         )
         objects.extend((deployment_obj, service_obj, autoscaler_obj))
+
+    if stencil_id is not None or enabled_panel_ids is not None or enabled_loops is not None:
+        stencil_env_overrides: dict[str, str] = {"FDAI_STENCIL_ENFORCE_INACTIVE_MENUS": "1"}
+        if stencil_id is not None:
+            stencil_env_overrides["FDAI_STENCIL_ID"] = stencil_id
+        if enabled_panel_ids is not None:
+            stencil_env_overrides["FDAI_STENCIL_ENABLED_PANELS"] = ",".join(
+                sorted(enabled_panel_ids)
+            )
+        if enabled_loops is not None:
+            stencil_env_overrides["FDAI_STENCIL_ENABLED_LOOPS"] = ",".join(sorted(enabled_loops))
+        for cm_target in ("core-control-plane-env", "operator-service-env"):
+            if cm_target in config_map_data:
+                merged = {**config_map_data[cm_target], **stencil_env_overrides}
+                config_map_data[cm_target] = dict(sorted(merged.items()))
 
     for job_name in sorted(scheduled_jobs):
         cron_obj = _build_cron_job(

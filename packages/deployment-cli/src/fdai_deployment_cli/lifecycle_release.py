@@ -338,9 +338,12 @@ def _validate_release_stencil(
         "title_ko",
         "omitted_workloads",
         "enabled_loops",
+        "disabled_loops",
         "enabled_scheduled_jobs",
+        "disabled_panel_ids",
         "required_azure_roles",
         "release_labels",
+        "feature_flags",
     }
     if not required_keys <= value.keys() <= (required_keys | optional_keys):
         raise ValueError("stencil metadata fields are invalid")
@@ -375,7 +378,60 @@ def _validate_release_stencil(
         expected_components.add("clamav")
     if set(parsed_components) != expected_components:
         raise ValueError("stencil enabled_workloads do not match manifest components")
+    feature_flags = value.get("feature_flags")
+    if feature_flags is not None:
+        _validate_stencil_feature_flags(feature_flags, enabled_panels=set(panels))
     return MappingProxyType(dict(value))
+
+
+def _validate_stencil_feature_flags(
+    value: object,
+    *,
+    enabled_panels: set[str],
+) -> None:
+    if not isinstance(value, dict):
+        raise ValueError("stencil feature_flags must be an object")
+    if value.get("schema_version") != "fdai.stencil-feature-flags.v1":
+        raise ValueError("stencil feature_flags schema_version is invalid")
+    if value.get("enforcement_mode") != "fail-closed":
+        raise ValueError("stencil feature_flags enforcement_mode must be fail-closed")
+    panel_flags = value.get("panel_flags")
+    if not isinstance(panel_flags, dict) or not all(
+        isinstance(k, str) and _IDENTIFIER.fullmatch(k) and type(v) is bool
+        for k, v in panel_flags.items()
+    ):
+        raise ValueError("stencil feature_flags.panel_flags is invalid")
+    for locked_panel in ("audit", "dashboard", "settings-general"):
+        if panel_flags.get(locked_panel) is not True:
+            raise ValueError(
+                "stencil feature_flags.panel_flags must keep locked safety-core panels enabled"
+            )
+    for enabled_panel in enabled_panels:
+        if panel_flags.get(enabled_panel) is not True:
+            raise ValueError("stencil feature_flags.panel_flags must match enabled_panel_ids")
+    loop_flags = value.get("loop_flags")
+    if not isinstance(loop_flags, dict) or not all(
+        isinstance(k, str) and _IDENTIFIER.fullmatch(k) and type(v) is bool
+        for k, v in loop_flags.items()
+    ):
+        raise ValueError("stencil feature_flags.loop_flags is invalid")
+    for locked_loop in (
+        "anomaly-analyzer",
+        "inventory-reconciliation",
+        "notification-dispatch",
+        "saga-audit",
+    ):
+        if loop_flags.get(locked_loop) is not True:
+            raise ValueError(
+                "stencil feature_flags.loop_flags must keep locked safety-core loops enabled"
+            )
+    runtime_env = value.get("runtime_env")
+    if (
+        not isinstance(runtime_env, dict)
+        or not all(isinstance(k, str) and isinstance(v, str) for k, v in runtime_env.items())
+        or runtime_env.get("FDAI_STENCIL_ENFORCE_INACTIVE_MENUS") != "1"
+    ):
+        raise ValueError("stencil feature_flags.runtime_env is invalid")
 
 
 def _schema(value: object) -> tuple[int, SchemaRange]:

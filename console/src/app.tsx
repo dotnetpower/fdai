@@ -27,7 +27,8 @@ import { setWorkflowAuth } from "./workflow/validate";
 import { setUserContextAuth } from "./user-context-client";
 import type { IamSelfStatus } from "./routes/settings-iam.model";
 import { t } from "./i18n";
-import { DEFAULT_PANEL_ID, panelForId, resolvePanels } from "./panels";
+import { DEFAULT_PANEL_ID, panelForId } from "./panels";
+import { isStencilPanelEnabled } from "./stencil-panels";
 import {
   currentRoute,
   closeTransientRoute,
@@ -114,7 +115,8 @@ function PanelLoading({ title, subtitle }: { readonly title: string; readonly su
 
 function currentPanelId(): string {
   if (typeof window === "undefined") return DEFAULT_PANEL_ID;
-  return currentRoute().panelId;
+  const candidate = currentRoute().panelId;
+  return isStencilPanelEnabled(candidate) ? candidate : DEFAULT_PANEL_ID;
 }
 
 function routeKeyFor(route: ReturnType<typeof currentRoute>): string {
@@ -125,7 +127,10 @@ function routeKeyFor(route: ReturnType<typeof currentRoute>): string {
 
 function initialBackgroundRoute(): BackgroundRoute {
   const route = currentRoute();
-  if (panelForId(route.panelId).group !== "settings") {
+  if (
+    isStencilPanelEnabled(route.panelId) &&
+    panelForId(route.panelId).group !== "settings"
+  ) {
     const routeKey = routeKeyFor(route);
     return { panelId: route.panelId, routeKey, href: routeKey, search: route.search };
   }
@@ -161,7 +166,10 @@ export function App() {
   useEffect(() => {
     migrateLegacyHash();
     const route = currentRoute();
-    if (shouldReplaceUnmatchedRoute(route, window.location.hash)) {
+    if (
+      shouldReplaceUnmatchedRoute(route, window.location.hash) ||
+      !isStencilPanelEnabled(route.panelId)
+    ) {
       window.history.replaceState(null, "", panelPath(DEFAULT_PANEL_ID));
     } else if (route.matched && route.pathname !== route.canonicalPathname) {
       const query = route.search.toString();
@@ -173,7 +181,11 @@ export function App() {
     }
     const syncRoute = () => {
       let route = currentRoute();
-      if (!hasTransientRoute() && shouldReplaceUnmatchedRoute(route, window.location.hash)) {
+      if (
+        !hasTransientRoute() &&
+        (shouldReplaceUnmatchedRoute(route, window.location.hash) ||
+          !isStencilPanelEnabled(route.panelId))
+      ) {
         const preservedData = route.search.get("data");
         const fallbackHref = preservedData
           ? `${panelPath(DEFAULT_PANEL_ID)}?data=${encodeURIComponent(preservedData)}`

@@ -61,6 +61,17 @@ def test_stencil_presets_and_footprint_calculations() -> None:
     assert set(lite.enabled_workloads) == {"core-control-plane", "operator-service"}
     assert set(lite.enabled_loops) == set(LOCKED_CORE_LOOPS)
     assert set(LOCKED_CORE_PANELS).issubset(lite.enabled_panel_ids)
+    assert lite_fp["feature_flags"]["schema_version"] == "fdai.stencil-feature-flags.v1"
+    assert lite_fp["feature_flags"]["enforcement_mode"] == "fail-closed"
+    assert lite_fp["feature_flags"]["panel_flags"]["dashboard"] is True
+    assert lite_fp["feature_flags"]["panel_flags"]["audit"] is True
+    assert lite_fp["feature_flags"]["panel_flags"]["live"] is True
+    assert lite_fp["feature_flags"]["panel_flags"]["aks-commerce"] is False
+    assert lite_fp["feature_flags"]["panel_flags"]["cost-governance"] is False
+    assert lite_fp["feature_flags"]["loop_flags"]["cost-governance"] is False
+    assert lite_fp["feature_flags"]["runtime_env"]["FDAI_STENCIL_ENFORCE_INACTIVE_MENUS"] == "1"
+    assert "aks-commerce" in lite_fp["disabled_panel_ids"]
+    assert "cost-governance" in lite_fp["disabled_loops"]
 
     standard = STENCIL_PRESETS["standard-sre"]
     standard_fp = evaluate_stencil_footprint(standard)
