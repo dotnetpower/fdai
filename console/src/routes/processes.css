@@ -1,15 +1,8 @@
-main:has(.process-route) {
-  padding: 0;
-  background: var(--bg-elevated);
-}
-
 .process-route {
   --cs-type-section-title-size: 20px;
   box-sizing: border-box;
   width: 100%;
-  max-width: 1280px;
-  margin-inline: auto;
-  padding: 32px 24px 64px;
+  padding: 0 0 40px;
   container-type: inline-size;
 }
 .process-route.stack { gap: 24px; }

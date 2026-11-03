@@ -187,7 +187,7 @@ test("many records keep a bounded rail and selected detail without truncating lo
     width: node.getBoundingClientRect().width,
     height: node.getBoundingClientRect().height,
   }));
-  expect(geometry).toEqual({ width: 1232, height: 620 });
+  expect(geometry).toEqual({ width: 1336, height: 620 });
   const rail = page.locator(".audit-record-list");
   expect(await rail.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true);
   await page.locator(".audit-record").last().focus();

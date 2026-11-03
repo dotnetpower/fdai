@@ -504,7 +504,7 @@ test("shows the correlated action lifecycle at desktop width", async ({ page }, 
       routeWidth: route?.getBoundingClientRect().width ?? 0,
     };
   });
-  expect(geometry.routeWidth).toBeCloseTo(1320, 0);
+  expect(geometry.routeWidth).toBeCloseTo(1600, 0);
   expect(geometry.railWidth).toBeCloseTo(276, 0);
   expect(geometry.detailWidth).toBeGreaterThan(500);
   expect(Math.abs(

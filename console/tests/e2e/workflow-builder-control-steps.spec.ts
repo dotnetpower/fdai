@@ -262,7 +262,7 @@ test("reviews, authors, and restores governed workflow control steps accessibly"
       columns: getComputedStyle(element).gridTemplateColumns,
       width: element.getBoundingClientRect().width,
     }));
-    expect(desktopGeometry.width).toBeLessThanOrEqual(1074);
+    expect(desktopGeometry.width).toBeLessThanOrEqual(1240);
     expect(desktopGeometry.columns).toMatch(/^220px .* 310px$/);
   }
   for (const selector of ["html", ".workflow-builder-route", ".workflow-catalog-workspace"]) {

@@ -71,4 +71,6 @@
   --cs-control-height-compact: 28px;
   --cs-control-height-touch: 44px;
   --cs-control-padding-inline: 12px;
+  --cs-route-width: 1240px;
+  --cs-route-width-wide: 1600px;
 }

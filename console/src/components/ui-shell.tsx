@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { t } from "../i18n";
 import { useNavigationDomain, useNavigationExplorer } from "./navigation-title";
 
 export interface PageHeaderProps {
@@ -42,22 +43,45 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   );
 }
 
+const TRANSPORT_FAILURE_TAIL =
+  /^(.*?)(?::\s*)?(failed to fetch|networkerror when attempting to fetch resource\.?|load failed|network request failed)\s*$/i;
+
+/** Split a composed "<what failed>: <browser transport error>" message into title and detail. */
+export function describeLoadFailure(message: string): {
+  readonly title: string;
+  readonly detail?: string;
+} {
+  const match = TRANSPORT_FAILURE_TAIL.exec(message.trim());
+  if (!match) return { title: message };
+  const title = (match[1] ?? "").trim();
+  return {
+    title: title === "" ? t("shared.sourceUnreachableTitle") : title,
+    detail: t("shared.sourceUnreachable"),
+  };
+}
+
 export function ErrorState({
   message,
+  detail,
   onRetry,
   retryLabel,
 }: {
   readonly message: string;
+  readonly detail?: string;
   readonly onRetry?: () => void;
   readonly retryLabel?: string;
 }) {
+  const described = detail === undefined ? describeLoadFailure(message) : { title: message, detail };
   return (
     <div class="state-block state-error" role="alert">
       <span class="state-icon" aria-hidden="true">!</span>
-      <span>{message}</span>
+      <div class="state-body">
+        <span class="state-title">{described.title}</span>
+        {described.detail ? <span class="state-detail">{described.detail}</span> : null}
+      </div>
       {onRetry ? (
         <button type="button" class="btn" onClick={onRetry}>
-          {retryLabel}
+          {retryLabel ?? t("shared.retry")}
         </button>
       ) : null}
     </div>
