@@ -8,10 +8,8 @@ its subscribed release channel and on the configuration that its customer approv
 hub-and-spoke model of Palantir Apollo. It owns the lifecycle architecture, the plan and state
 loop, and the customer isolation boundary.
 
-> **Status:** Partially implemented for development. The local Hub, planner, and explicit
-> independent product deployment roots and remote startup without login/catalog bindings exist;
-> the full managed installation path is not
-> delivered. No Azure deployment or production trust-root ceremony is claimed. The
+> **Status:** Validated for connected development installations (#2180, #2458, #2463, #2466, #2468, #2181);
+> offline Target Hub qualification and the production trust-root ceremony remain open. The
 > [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
@@ -483,7 +481,8 @@ returned `waiting` with no Plan, preserving the failure hold. Cross-installation
 403, and Agent and Hub replica replacement retained state without duplicate workload effects. The
 temporary AKS, registry, identities, and node resource group were removed after validation, and
 the Lifecycle Hub trust and network inputs returned to a zero-change plan. This receipt validates
-the nginx gate in #2180; it does not qualify the complete FDAI topology tracked by #2181.
+the nginx gate in #2180; the connected-development full-FDAI 16-object topology, distinct update,
+controlled rollback, and edge/runtime health receipts (#2181, #2466, #2468) are recorded in the ledger.
 
 ## Independent product deployment
 
@@ -1408,7 +1407,7 @@ authoritative catalog materialization, and emits a digest-only receipt. Lease co
 destructive declared revision, Job failure or interruption blocks workload switching. A later
 workload rollback retains the expanded schema and completed Job receipt. The dedicated migration
 ServiceAccount is included in the generated prerequisite inventory; its live managed-identity and
-database-role binding remain part of the authorized installation handoff under #2468.
+database-role binding were verified in the authorized installation handoff under #2468.
 
 The Hub-managed lifecycle owner decided these points on 2026-10-07.
 
