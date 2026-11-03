@@ -129,7 +129,6 @@ function LineageCanvas({
               aria-hidden="true"
             >
               <path d={pathD} class="rh-edge-line" fill="none" />
-              {edge.active && <path d={pathD} class="rh-edge-flow" fill="none" />}
               <circle cx={sx} cy={sy} r="3.5" class="rh-edge-port" />
               <path d={arrowD} class="rh-edge-arrow" fill="none" />
             </g>
@@ -182,55 +181,6 @@ function LineageCanvas({
                     }
                   }}
                 >
-                  {node.status === "running" && (
-                    <svg
-                      class="rh-border-beam-svg"
-                      viewBox={`0 0 ${CARD_WIDTH} ${CARD_HEIGHT}`}
-                      preserveAspectRatio="none"
-                      aria-hidden="true"
-                    >
-                      <rect
-                        x="1"
-                        y="1"
-                        width={CARD_WIDTH - 2}
-                        height={CARD_HEIGHT - 2}
-                        rx="10"
-                        ry="10"
-                        class="rh-beam-base"
-                      />
-                      <rect
-                        x="1"
-                        y="1"
-                        width={CARD_WIDTH - 2}
-                        height={CARD_HEIGHT - 2}
-                        rx="10"
-                        ry="10"
-                        pathLength={100}
-                        class="rh-beam-glow"
-                      />
-                      <rect
-                        x="1"
-                        y="1"
-                        width={CARD_WIDTH - 2}
-                        height={CARD_HEIGHT - 2}
-                        rx="10"
-                        ry="10"
-                        pathLength={100}
-                        class="rh-beam-comet"
-                      />
-                      <rect
-                        x="1"
-                        y="1"
-                        width={CARD_WIDTH - 2}
-                        height={CARD_HEIGHT - 2}
-                        rx="10"
-                        ry="10"
-                        pathLength={100}
-                        class="rh-beam-head"
-                      />
-                    </svg>
-                  )}
-
                   <div class="rh-lineage-card-top">
                     <NodeIcon kind={node.icon} />
                     <strong class="rh-node-title">{node.title}</strong>
