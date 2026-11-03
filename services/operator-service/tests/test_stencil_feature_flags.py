@@ -50,6 +50,8 @@ def test_default_unscoped_environment_leaves_all_routes_enabled() -> None:
     assert config.evaluate_path("/cost-governance/summary").allowed is True
 
     app = wrap_with_stencil_feature_flags(_dummy_operator_app(), {})
+    assert isinstance(app, Starlette)
+    assert hasattr(app, "router")
     client = TestClient(app)
 
     res = client.get("/aks-commerce/overview")

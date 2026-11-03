@@ -24,6 +24,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
+from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -495,6 +496,9 @@ class StencilFeatureFlagsMiddleware:
         self._app = app
         self._config = config
 
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._app, name)
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
@@ -561,6 +565,9 @@ def wrap_with_stencil_feature_flags(
     """Wrap an Operator ASGI application with fail-closed Stencil feature-flag gating."""
 
     config = StencilFeatureFlagConfig.from_environ(environ)
+    if isinstance(app, Starlette):
+        app.add_middleware(StencilFeatureFlagsMiddleware, config=config)
+        return app
     return StencilFeatureFlagsMiddleware(app, config)
 
 
