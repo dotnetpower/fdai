@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { nextPromotionTransition, type Action, type Catalog, type Release } from "./api";
 import {
   BADGE_HEIGHT,
@@ -200,7 +200,6 @@ export function ReleaseLineageSection({
   onAct?: ((action: Action, release: Release) => void) | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
-  const [simulatingId, setSimulatingId] = useState<string | null>(null);
   const defaultSelected = useMemo(() => {
     const runningRel = catalog.releases.find(
       (r) =>
@@ -211,20 +210,13 @@ export function ReleaseLineageSection({
   }, [catalog.releases]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(defaultSelected);
 
-  useEffect(() => {
-    if (!simulatingId) return;
-    const timer = setTimeout(() => setSimulatingId(null), 8000);
-    return () => clearTimeout(timer);
-  }, [simulatingId]);
-
   const graph = useMemo(
     () =>
       buildReleaseLineageGraph(catalog, {
         activeReleaseId,
-        simulatingId,
         buildingDraft,
       }),
-    [catalog, activeReleaseId, simulatingId, buildingDraft],
+    [catalog, activeReleaseId, buildingDraft],
   );
 
   const selectedRelease = useMemo(
@@ -249,25 +241,6 @@ export function ReleaseLineageSection({
             )}
           </p>
         </div>
-        <div class="actions">
-          {selectedRelease && (
-            <button
-              type="button"
-              onClick={() =>
-                setSimulatingId((prev) =>
-                  prev === selectedRelease.id ? null : selectedRelease.id,
-                )
-              }
-            >
-              {simulatingId === selectedRelease.id
-                ? t("Stop build animation preview", "빌드 테두리 애니메이션 중지")
-                : t(
-                    `Preview build animation on v${selectedRelease.id}`,
-                    `v${selectedRelease.id} 빌드 테두리 애니메이션 미리보기`,
-                  )}
-            </button>
-          )}
-        </div>
       </div>
 
       <LineageCanvas
@@ -277,9 +250,6 @@ export function ReleaseLineageSection({
         idPrefix="catalog-lineage"
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
-          if (node.release) {
-            location.hash = `/releases/${node.release.id}`;
-          }
         }}
       />
 
@@ -321,7 +291,13 @@ export function ReleaseLineageSection({
               )}
             </div>
           </div>
-          <ReleaseStageLineage release={selectedRelease} catalog={catalog} locale={locale} />
+          <ReleaseStageLineage
+            release={selectedRelease}
+            catalog={catalog}
+            locale={locale}
+            disabled={disabled}
+            onAct={onAct}
+          />
         </div>
       )}
     </section>
@@ -332,27 +308,20 @@ export function ReleaseStageLineage({
   release,
   catalog,
   locale,
+  disabled,
+  onAct,
 }: {
   release: Release;
   catalog: Catalog;
   locale: "en" | "ko";
+  disabled?: boolean | undefined;
+  onAct?: ((action: Action, release: Release) => void) | undefined;
 }) {
-  const [simStep, setSimStep] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (simStep === null) return;
-    if (simStep >= 4) {
-      const doneTimer = setTimeout(() => setSimStep(null), 2200);
-      return () => clearTimeout(doneTimer);
-    }
-    const timer = setTimeout(() => setSimStep((s) => (s === null ? null : s + 1)), 1800);
-    return () => clearTimeout(timer);
-  }, [simStep]);
-
   const stageGraph = useMemo(
-    () => buildReleaseStagePipeline(release, catalog, simStep),
-    [release, catalog, simStep],
+    () => buildReleaseStagePipeline(release, catalog),
+    [release, catalog],
   );
+  const transition = nextPromotionTransition(release);
 
   return (
     <div class="rh-stage-lineage-box">
@@ -360,27 +329,31 @@ export function ReleaseStageLineage({
         graph={stageGraph}
         locale={locale}
         idPrefix={`stage-${release.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
+        onSelectNode={(node) => {
+          if (disabled) return;
+          if (node.id === "initialize-stencil") {
+            location.hash = "/stencils";
+          } else if (node.id === "clone-codebase") {
+            location.hash = `/releases/${release.id}`;
+          } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
+            onAct("publish", release);
+          } else if (
+            node.id === "promote-rc-canary" &&
+            transition?.targetChannel === "RELEASE_CANDIDATE" &&
+            onAct
+          ) {
+            onAct("promote", release);
+          } else if (
+            node.id === "release-production" &&
+            transition?.targetChannel === "RELEASE" &&
+            onAct
+          ) {
+            onAct("promote", release);
+          } else {
+            location.hash = `/releases/${release.id}`;
+          }
+        }}
       />
-      <div class="rh-stage-sim-controls">
-        <small>
-          {locale === "ko"
-            ? "단계 흐름: initialize-stencil → clone-codebase → build-sign-dev → promote-rc-canary → release-production"
-            : "Stage flow: initialize-stencil → clone-codebase → build-sign-dev → promote-rc-canary → release-production"}
-        </small>
-        <button
-          type="button"
-          class="chip-btn"
-          onClick={() => setSimStep((prev) => (prev === null ? 0 : null))}
-        >
-          {simStep !== null
-            ? locale === "ko"
-              ? "실행 시뮬레이션 중지"
-              : "Stop pipeline simulation"
-            : locale === "ko"
-              ? "▶ 빌드·승격 LR 파이프라인 애니메이션 재생"
-              : "▶ Replay LR build pipeline animation"}
-        </button>
-      </div>
     </div>
   );
 }

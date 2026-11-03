@@ -138,9 +138,7 @@ export function resolveReleaseNodeStatus(
   release: Release,
   catalog: Catalog,
   activeReleaseId?: string | null,
-  simulatingId?: string | null,
 ): LineageNodeStatus {
-  if (simulatingId && release.id === simulatingId) return "running";
   if (activeReleaseId && release.id === activeReleaseId) return "running";
   let blocked = false;
   try {
@@ -197,7 +195,6 @@ export function buildReleaseLineageGraph(
   catalog: Catalog,
   options?: {
     activeReleaseId?: string | null | undefined;
-    simulatingId?: string | null | undefined;
     buildingDraft?: { id: string; stencilId: string; label?: string | undefined } | null | undefined;
   },
 ): LineageGraph {
@@ -242,7 +239,6 @@ export function buildReleaseLineageGraph(
       rel,
       catalog,
       options?.activeReleaseId,
-      options?.simulatingId,
     );
 
     const inProd = rel.channels.includes("RELEASE");
@@ -377,7 +373,6 @@ export function buildReleaseLineageGraph(
 export function buildReleaseStagePipeline(
   release: Release,
   catalog: Catalog,
-  activeStepOverride?: number | null,
 ): LineageGraph {
   let manifest: Record<string, unknown> = {};
   try {
@@ -410,7 +405,7 @@ export function buildReleaseStagePipeline(
       subtitle: `${stencilId} · ${st ? `${st.enabled_workloads.length}w/${st.enabled_panel_ids.length}m` : "full-stack"}`,
       icon: "init",
       done: true,
-      running: activeStepOverride === 0,
+      running: false,
     },
     {
       id: "clone-codebase",
@@ -418,7 +413,7 @@ export function buildReleaseStagePipeline(
       subtitle: `git · ${commitShort}`,
       icon: "branch",
       done: true,
-      running: activeStepOverride === 1,
+      running: false,
     },
     {
       id: "build-sign-dev",
@@ -426,9 +421,7 @@ export function buildReleaseStagePipeline(
       subtitle: `ed25519 · ${inDev ? "DEV ring verified" : "awaiting DEV sign"}`,
       icon: "shield",
       done: inDev && !recalled,
-      running:
-        activeStepOverride === 2 ||
-        (activeStepOverride == null && !recalled && release.state === "draft"),
+      running: !recalled && release.state === "draft",
     },
     {
       id: "promote-rc-canary",
@@ -436,11 +429,7 @@ export function buildReleaseStagePipeline(
       subtitle: `apollo-gate · ${inRc ? "RELEASE_CANDIDATE" : "canary soak"}`,
       icon: "branch",
       done: inRc && !recalled,
-      running:
-        activeStepOverride === 3 ||
-        (activeStepOverride == null &&
-          !recalled &&
-          transition?.targetChannel === "RELEASE_CANDIDATE"),
+      running: !recalled && transition?.targetChannel === "RELEASE_CANDIDATE",
     },
     {
       id: "release-production",
@@ -448,9 +437,7 @@ export function buildReleaseStagePipeline(
       subtitle: `hub-catalog · ${inProd ? `RELEASE v${release.id}` : "production ring"}`,
       icon: "cloud",
       done: inProd && !recalled,
-      running:
-        activeStepOverride === 4 ||
-        (activeStepOverride == null && !recalled && transition?.targetChannel === "RELEASE"),
+      running: !recalled && transition?.targetChannel === "RELEASE",
     },
   ];
 

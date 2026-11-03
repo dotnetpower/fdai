@@ -180,7 +180,7 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
     )}
     <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>
       <p>{t("Recorded membership and stage progression from Stencil composition through production RELEASE.", "스텐실 빌드부터 DEV 서명, RC 카나리 검증, 운영 RELEASE까지의 좌→우(LR) 단계 파이프라인과 기록된 소속입니다.")}</p>
-      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} />
+      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} disabled={disabled} onAct={act} />
       <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{
         release.channels.includes(name)
           ? release.state === "recalled" ? t("Withdrawn by recall", "회수로 사용 중지됨") : t("Member", "소속됨")
