@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { getLocale, t } from "../i18n";
-import { panelPath } from "../router";
+import { isPanelRegistered, panelPath } from "../router";
 import { answerEvidenceText } from "./answer-evidence-i18n";
 import { presentationTimestamp } from "./presentation-value";
 import {
@@ -65,7 +65,15 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
     return (
       <div class="deck-source-readiness cs-deck-readiness is-error" role="status">
         <span>{t("deck.sourceReadiness.unavailable")}</span>
-        <a href={panelPath("settings-diagnostics")}>{t("deck.sourceReadiness.openDiagnostics")}</a>
+        <a
+          href={panelPath(
+            isPanelRegistered("settings-diagnostics")
+              ? "settings-diagnostics"
+              : "settings-general",
+          )}
+        >
+          {t("deck.sourceReadiness.openDiagnostics")}
+        </a>
       </div>
     );
   }

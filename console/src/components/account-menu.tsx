@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { AuthContext } from "../auth";
-import { panelPath } from "../router";
+import { isPanelRegistered, panelPath } from "../router";
 import type { IamRole, IamSelfStatus } from "../routes/settings-iam.model";
 import { accountMenuText } from "./account-menu.i18n";
 import { HelpCenter } from "./help-center";
@@ -172,7 +172,9 @@ function AccountDetailsMenu({ auth, iamSelf }: AccountMenuProps) {
           <div class="account-menu-actions">
             <a
               ref={firstActionRef}
-              href={panelPath("settings-iam")}
+              href={panelPath(
+                isPanelRegistered("settings-iam") ? "settings-iam" : "settings-general",
+              )}
               onClick={() => setOpen(false)}
             >
               {accountMenuText("myAccess")}

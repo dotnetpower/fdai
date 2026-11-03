@@ -172,6 +172,14 @@ export function App() {
     }
     const syncRoute = () => {
       let route = currentRoute();
+      if (!hasTransientRoute() && shouldReplaceUnmatchedRoute(route, window.location.hash)) {
+        const preservedData = route.search.get("data");
+        const fallbackHref = preservedData
+          ? `${panelPath(DEFAULT_PANEL_ID)}?data=${encodeURIComponent(preservedData)}`
+          : panelPath(DEFAULT_PANEL_ID);
+        window.history.replaceState(window.history.state, "", fallbackHref);
+        route = currentRoute();
+      }
       if (supportsSampleData(route.panelId)) {
         const explicitDataMode = explicitConsoleDataMode(route.search);
         if (explicitDataMode === "sample") {

@@ -101,5 +101,83 @@
     if (expanded) expanded.members.forEach(node => resultEdges.push([expanded.id, node.id, "example instance", [], false]));
     return { nodes: projectedNodes, edges: resultEdges, groups: groupNodes, membership };
   }
-  window.fdaiLineageOntology = { nodes, edges, buildResourceTypeGraph };
+  // Relationship classes over the recorded edge labels. Derivation edges carry "which recorded input fed which
+  // record"; membership edges only connect a declaration or aggregate to its instances; topology and cross-cluster
+  // edges are recorded scope, never a derivation step. Labels outside these lists classify as null.
+  const RELATION_CLASSES = Object.freeze({
+    derivation: Object.freeze(["observed", "required", "defines", "cites", "consumed", "qualified", "supplies instances", "supplies catalog projection", "evaluated against", "cited", "produced", "audited"]),
+    membership: Object.freeze(["example instance", "resource type"]),
+    topology: Object.freeze(["contains", "kubernetes_owned_by", "kubernetes_scheduled_on", "kubernetes_selects", "kubernetes_exposes_endpoint_slice"]),
+    crossCluster: Object.freeze(["observation_targets_resource", "observation_targets_resource (schema)"])
+  });
+  const relationClass = relation => Object.keys(RELATION_CLASSES).find(name => RELATION_CLASSES[name].includes(relation)) || null;
+  // Clusters group projected resource-group and ontology nodes by (objectType, scope). The input array and its nodes are
+  // not modified; members are node ids. When a cluster contains ResourceType aggregates they are the authority for
+  // `recorded` and `health` (expanded instances are already counted there); otherwise each instance counts once and
+  // health stays null because Observation and Rule records carry no evidenceState.
+  function buildClusters(projectedNodes) {
+    const clusters = new Map(), positions = new Map();
+    projectedNodes.forEach(node => {
+      if ((node.kind !== "resource-group" && node.kind !== "ontology") || !node.objectType) return;
+      const scope = node.scope ?? "";
+      const key = scope ? `${node.objectType}/${scope}` : node.objectType;
+      if (!clusters.has(key)) { clusters.set(key, { key, objectType: node.objectType, scope: scope || null, members: [], recorded: 0, health: null, groups: 0, instances: 0 }); positions.set(key, [node.x, node.y]); }
+      const cluster = clusters.get(key);
+      cluster.members.push(node.id);
+      positions.set(key, [Math.min(positions.get(key)[0], node.x), Math.min(positions.get(key)[1], node.y)]);
+      if (node.kind === "resource-group") {
+        cluster.groups += 1;
+        cluster.health = cluster.health || { current: 0, stale: 0, conflicting: 0, unknown: 0 };
+        Object.keys(cluster.health).forEach(state => { cluster.health[state] += node.health?.[state] || 0; });
+      } else cluster.instances += 1;
+    });
+    return [...clusters.values()].map(cluster => {
+      const recorded = cluster.groups ? Object.values(cluster.health).reduce((sum, count) => sum + count, 0) : cluster.instances;
+      return { key: cluster.key, objectType: cluster.objectType, scope: cluster.scope, members: cluster.members, recorded, health: cluster.health, groups: cluster.groups, instances: cluster.instances };
+    }).sort((left, right) => positions.get(left.key)[0] - positions.get(right.key)[0] || positions.get(left.key)[1] - positions.get(right.key)[1]);
+  }
+  // Derivation path of one node over a projected graph: upstream closure follows derivation and membership edges
+  // against their stored direction (instance <- aggregate <- declaration <- agent <- input <- source); downstream closure
+  // follows derivation edges only (instance -> judge -> decision -> audit). Topology and cross-cluster edges are never
+  // part of a path. Edges are never rewired or reversed; the result is a subset of recorded relationships, not a causal
+  // or authority claim. Stages are read from the fixed column coordinates.
+  function derivationPath(graph, nodeId) {
+    const byId = new Map(graph.nodes.map(node => [node.id, node]));
+    const stageOf = node => ({ 24: "source", 270: "input", 516: "agent", 762: "type", 1792: "decision" })[node.x] || "instance";
+    const edgeKey = edge => JSON.stringify([edge[0], edge[1], edge[2]]);
+    function closure(classes, backwards) {
+      const seen = new Set(), queue = [nodeId], keys = [];
+      seen.add(nodeId);
+      while (queue.length) {
+        const current = queue.shift();
+        graph.edges.forEach(edge => {
+          const cls = relationClass(edge[2]);
+          const allowed = classes.includes(cls) || (!backwards && current === nodeId && edge[2] === "example instance" && byId.get(nodeId)?.kind === "resource-group");
+          if (!allowed) return;
+          const [near, far] = backwards ? [edge[1], edge[0]] : [edge[0], edge[1]];
+          if (near !== current || !byId.has(far)) return;
+          const key = edgeKey(edge);
+          if (!keys.includes(key)) keys.push(key);
+          if (!seen.has(far)) { seen.add(far); queue.push(far); }
+        });
+      }
+      seen.delete(nodeId);
+      return { keys, nodes: seen };
+    }
+    const empty = { origin: nodeId, upstream: [], downstream: [], stages: new Map(), reachesDecision: false, unavailableInputs: 0 };
+    if (!byId.has(nodeId)) return empty;
+    const upstream = closure(["derivation", "membership"], true), downstream = closure(["derivation"], false);
+    const stages = new Map([[nodeId, stageOf(byId.get(nodeId))]]);
+    [...upstream.nodes, ...downstream.nodes].forEach(id => stages.set(id, stageOf(byId.get(id))));
+    const pathEdges = graph.edges.filter(edge => upstream.keys.includes(edgeKey(edge)) || downstream.keys.includes(edgeKey(edge)));
+    return {
+      origin: nodeId,
+      upstream: upstream.keys,
+      downstream: downstream.keys,
+      stages,
+      reachesDecision: [...downstream.nodes].some(id => byId.get(id).kind === "outcome"),
+      unavailableInputs: pathEdges.filter(edge => edge[2] === "required" && byId.get(edge[0])?.missing === true).length
+    };
+  }
+  window.fdaiLineageOntology = { nodes, edges, RELATION_CLASSES, relationClass, buildResourceTypeGraph, buildClusters, derivationPath };
 }());

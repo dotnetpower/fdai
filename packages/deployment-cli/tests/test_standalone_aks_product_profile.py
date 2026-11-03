@@ -29,7 +29,21 @@ _PROFILE_JSON = json.dumps(
 )
 
 
-def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str, ...]) -> dict:
+def _prepare(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    add_ons: tuple[str, ...],
+    *,
+    artifact_source: str | None = None,
+    image_names: tuple[str, ...] = (
+        "core-control-plane",
+        "operator-service",
+        "isolated-executor",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "clamav",
+    ),
+) -> dict:
     for name in ("runtime-receipt.json", "image-import-receipt.json", "migration-receipt.json"):
         (tmp_path / name).write_text("{}", encoding="utf-8")
     context = {
@@ -50,16 +64,9 @@ def _prepare(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, add_ons: tuple[str
         "subscription_id": "subscription",
         "source_commit": "a" * 40,
         "image_refs": {
-            name: f"example.azurecr.io/{name}@sha256:{'b' * 64}"
-            for name in (
-                "core-control-plane",
-                "operator-service",
-                "isolated-executor",
-                "document-ingestion-api",
-                "document-processing-worker",
-                "clamav",
-            )
+            name: f"example.azurecr.io/{name}@sha256:{'b' * 64}" for name in image_names
         },
+        **({"artifact_source": artifact_source} if artifact_source else {}),
     }
     application = {
         "enable_llm": True,
@@ -331,3 +338,20 @@ def test_notifications_add_on_without_a_recipient_list_fails_closed(
     )
     with pytest.raises(ValueError, match="private recipient list"):
         _prepare(tmp_path, monkeypatch, ("notifications",))
+
+
+def test_hub_signed_lite_stencil_images_prepare_core_and_operator_without_document_or_executor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    values = _prepare(
+        tmp_path,
+        monkeypatch,
+        ("enterprise-identity-governance", "notifications", "read-only-console"),
+        artifact_source="hub-signed-images",
+        image_names=("core-control-plane", "operator-service", "pgvector"),
+    )
+    workloads = values["workloads"]
+    assert isinstance(workloads, dict)
+
+    assert set(workloads) == {"core-control-plane", "operator-service"}
+    assert values["browser_gateway"]["enabled"] is False

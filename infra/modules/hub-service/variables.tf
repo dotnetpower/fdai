@@ -39,10 +39,24 @@ variable "tags" {
   type = map(string)
 }
 variable "network" {
-  type = object({ vnet = string, apps = string, database = string, secrets = string })
+  type = object({
+    vnet     = string
+    apps     = string
+    database = optional(string)
+    secrets  = string
+  })
+  validation {
+    condition     = var.database == null || var.network.database != null
+    error_message = "Provide network.database when provisioning a PostgreSQL database server."
+  }
 }
 variable "database_admin" {
-  type = object({ object_id = string, display_name = string })
+  type    = object({ object_id = string, display_name = string })
+  default = null
+  validation {
+    condition     = var.database == null || var.database_admin != null
+    error_message = "Provide database_admin when provisioning a PostgreSQL database server."
+  }
 }
 variable "database" {
   type = object({
@@ -52,6 +66,14 @@ variable "database" {
     geo_redundant_backup_enabled = bool
     zone_redundant               = bool
   })
+  default     = null
+  description = "Optional PostgreSQL Flexible Server configuration. Null selects serverless embedded SQLite on a mounted Azure Files share (requires replicas.max == 1 and enable_bootstrap_job == false)."
+  validation {
+    condition = var.database != null || (
+      var.replicas.max == 1 && !var.enable_bootstrap_job
+    )
+    error_message = "Serverless embedded database mode (database = null) requires single-replica serving (replicas.max == 1) and does not use the PostgreSQL bootstrap job."
+  }
 }
 variable "log_retention_days" {
   type = number
@@ -407,10 +429,10 @@ variable "secret_versions" {
   default = {}
   validation {
     condition = !(var.enable_apps || var.enable_migration_jobs) || (
-      can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.database)) &&
+      (var.database == null || can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.database))) &&
       (!var.enable_apps || can(regex("^[0-9a-fA-F]{32}$", var.secret_versions.signing_key)))
     )
-    error_message = "Migration requires the DB secret version; serving also requires the signing-key version."
+    error_message = "Migration requires the DB secret version when using PostgreSQL; serving also requires the signing-key version."
   }
   validation {
     condition = var.catalog_roles == null || !(var.enable_apps || var.operation_job != null) || (

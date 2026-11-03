@@ -46,13 +46,70 @@ export type LineageGraph = {
   height: number;
 };
 
-export const CARD_WIDTH = 178;
+export const CARD_WIDTH = 166;
 export const CARD_HEIGHT = 82;
 export const BADGE_HEIGHT = 24;
-export const COL_GAP = 38;
+export const COL_GAP = 46;
 export const ROW_GAP = 24;
-export const PAD_X = 14;
+export const PAD_X = 12;
 export const PAD_Y = 14;
+
+export function buildConnectorGeometry(edge: {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}): {
+  portCx: number;
+  portCy: number;
+  pathD: string;
+  arrowD: string;
+} {
+  const portCx = edge.startX + 3.5;
+  const portCy = edge.startY;
+  const lineStartX = portCx + 3.5;
+  const sy = edge.startY;
+  const arrowTipX = edge.endX - 2.5;
+  const ey = edge.endY;
+  const lineEndX = arrowTipX - 0.5;
+  const arrowD = `M ${arrowTipX - 6.5} ${ey - 4.2} L ${arrowTipX} ${ey} L ${arrowTipX - 6.5} ${ey + 4.2}`;
+
+  if (Math.abs(ey - sy) < 1) {
+    return {
+      portCx,
+      portCy,
+      pathD: `M ${lineStartX} ${sy} L ${lineEndX} ${ey}`,
+      arrowD,
+    };
+  }
+
+  const dir = ey > sy ? 1 : -1;
+  const midX = Math.round(lineStartX + (lineEndX - lineStartX) * 0.44);
+  const r = Math.max(
+    2,
+    Math.min(
+      8,
+      Math.abs(ey - sy) / 2,
+      Math.abs(midX - lineStartX) - 2,
+      Math.abs(lineEndX - 7 - midX) - 2,
+    ),
+  );
+  const pathD = [
+    `M ${lineStartX} ${sy}`,
+    `L ${midX - r} ${sy}`,
+    `Q ${midX} ${sy} ${midX} ${sy + dir * r}`,
+    `L ${midX} ${ey - dir * r}`,
+    `Q ${midX} ${ey} ${midX + r} ${ey}`,
+    `L ${lineEndX} ${ey}`,
+  ].join(" ");
+
+  return {
+    portCx,
+    portCy,
+    pathD,
+    arrowD,
+  };
+}
 
 export function parseSemVerTuple(version: string): [number, number, number, string] {
   const cleaned = version.trim().replace(/^v/i, "");
@@ -77,13 +134,33 @@ export function compareSemVer(a: string, b: string): number {
   return aPre.localeCompare(bPre);
 }
 
+export function nextSuggestedSemVer(
+  releases: readonly Pick<Release, "id">[],
+  bump: "patch" | "minor" | "major" = "patch",
+): string {
+  if (releases.length === 0) {
+    return "0.5.0";
+  }
+  const sorted = [...releases].sort((a, b) => compareSemVer(a.id, b.id));
+  const latest = sorted[sorted.length - 1]!;
+  const [maj, min, pat] = parseSemVerTuple(latest.id);
+  if (bump === "major") {
+    return `${maj + 1}.0.0`;
+  }
+  if (bump === "minor") {
+    return `${maj}.${min + 1}.0`;
+  }
+  if (maj === 0 && min < 5) {
+    return "0.5.0";
+  }
+  return `${maj}.${min}.${pat + 1}`;
+}
+
 export function resolveReleaseNodeStatus(
   release: Release,
   catalog: Catalog,
   activeReleaseId?: string | null,
-  simulatingId?: string | null,
 ): LineageNodeStatus {
-  if (simulatingId && release.id === simulatingId) return "running";
   if (activeReleaseId && release.id === activeReleaseId) return "running";
   let blocked = false;
   try {
@@ -140,7 +217,6 @@ export function buildReleaseLineageGraph(
   catalog: Catalog,
   options?: {
     activeReleaseId?: string | null | undefined;
-    simulatingId?: string | null | undefined;
     buildingDraft?: { id: string; stencilId: string; label?: string | undefined } | null | undefined;
   },
 ): LineageGraph {
@@ -185,7 +261,6 @@ export function buildReleaseLineageGraph(
       rel,
       catalog,
       options?.activeReleaseId,
-      options?.simulatingId,
     );
 
     const inProd = rel.channels.includes("RELEASE");
@@ -320,7 +395,6 @@ export function buildReleaseLineageGraph(
 export function buildReleaseStagePipeline(
   release: Release,
   catalog: Catalog,
-  activeStepOverride?: number | null,
 ): LineageGraph {
   let manifest: Record<string, unknown> = {};
   try {
@@ -353,7 +427,7 @@ export function buildReleaseStagePipeline(
       subtitle: `${stencilId} · ${st ? `${st.enabled_workloads.length}w/${st.enabled_panel_ids.length}m` : "full-stack"}`,
       icon: "init",
       done: true,
-      running: activeStepOverride === 0,
+      running: false,
     },
     {
       id: "clone-codebase",
@@ -361,7 +435,7 @@ export function buildReleaseStagePipeline(
       subtitle: `git · ${commitShort}`,
       icon: "branch",
       done: true,
-      running: activeStepOverride === 1,
+      running: false,
     },
     {
       id: "build-sign-dev",
@@ -369,9 +443,7 @@ export function buildReleaseStagePipeline(
       subtitle: `ed25519 · ${inDev ? "DEV ring verified" : "awaiting DEV sign"}`,
       icon: "shield",
       done: inDev && !recalled,
-      running:
-        activeStepOverride === 2 ||
-        (activeStepOverride == null && !recalled && release.state === "draft"),
+      running: !recalled && release.state === "draft",
     },
     {
       id: "promote-rc-canary",
@@ -379,11 +451,7 @@ export function buildReleaseStagePipeline(
       subtitle: `apollo-gate · ${inRc ? "RELEASE_CANDIDATE" : "canary soak"}`,
       icon: "branch",
       done: inRc && !recalled,
-      running:
-        activeStepOverride === 3 ||
-        (activeStepOverride == null &&
-          !recalled &&
-          transition?.targetChannel === "RELEASE_CANDIDATE"),
+      running: !recalled && transition?.targetChannel === "RELEASE_CANDIDATE",
     },
     {
       id: "release-production",
@@ -391,9 +459,7 @@ export function buildReleaseStagePipeline(
       subtitle: `hub-catalog · ${inProd ? `RELEASE v${release.id}` : "production ring"}`,
       icon: "cloud",
       done: inProd && !recalled,
-      running:
-        activeStepOverride === 4 ||
-        (activeStepOverride == null && !recalled && transition?.targetChannel === "RELEASE"),
+      running: !recalled && transition?.targetChannel === "RELEASE",
     },
   ];
 

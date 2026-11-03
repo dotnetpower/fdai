@@ -999,18 +999,17 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
-    console_selected = _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
-    enterprise_identity_selected = _selects_add_on(
-        context, ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
-    )
-    operator_api_selected = console_selected or enterprise_identity_selected
-    governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
-    notifications_selected = _selects_add_on(context, ProductAddOn.NOTIFICATIONS)
+    selected_workloads = standalone_host_values.aks_workload_selection(context)
+    console_selected = selected_workloads["console"]
+    operator_api_selected = selected_workloads["operator"]
+    notifications_selected = selected_workloads["notification"]
+    executor_workload_selected = selected_workloads["executor"]
+    document_workloads_selected = selected_workloads["documents"]
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
     )
     backend_nsg_id = standalone_host_values.require_browser_gateway_backend_nsg(
-        enabled=console_selected,
+        enabled=document_workloads_selected,
         backend_nsg_id=_subnet_network_security_group(
             str(substrate_outputs["aks_subnet_id"]),
             context=context,
@@ -1030,12 +1029,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     core_identity = _mapping(identities.get("core"), "core runtime identity")
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
-    executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
+    executor_identity = _selected_identity(identities, "executor", executor_workload_selected)
     notification_identity = _selected_identity(identities, "notification", notifications_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
-    ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
-    ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
+    ingestion_identity = _selected_identity(identities, "ingestion", document_workloads_selected)
+    ingestion_worker_identity = _selected_identity(
+        identities, "ingestion_worker", document_workloads_selected
+    )
     core_environment = standalone_host_values.aks_core_environment(
         context=context,
         application_values=application_values,
@@ -1120,7 +1121,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             service_port=80,
             additional_identities={"command": command_identity},
         )
-    if governed_execution_selected:
+    if executor_workload_selected:
         workloads["isolated-executor"] = _aks_workload(
             "executor",
             refs,
@@ -1145,7 +1146,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "/ready",
             "/live",
         )
-    if console_selected:
+    if document_workloads_selected:
         workloads.update(
             _aks_document_workloads(
                 refs=refs,
@@ -1198,7 +1199,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
         "browser_gateway": {
-            "enabled": console_selected,
+            "enabled": document_workloads_selected,
             "resource_group_name": resource_group,
             "location": application_values["region"],
             "workload": application_values["workload"],

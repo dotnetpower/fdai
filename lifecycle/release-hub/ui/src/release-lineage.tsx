@@ -1,24 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useMemo, useState } from "preact/hooks";
 import { nextPromotionTransition, type Action, type Catalog, type Release } from "./api";
 import {
   BADGE_HEIGHT,
+  buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   CARD_HEIGHT,
   CARD_WIDTH,
-  PAD_X,
   type LineageGraph,
   type LineageNode,
 } from "./release-lineage.model";
 
 export {
   BADGE_HEIGHT,
+  buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   CARD_HEIGHT,
   CARD_WIDTH,
   COL_GAP,
   compareSemVer,
+  nextSuggestedSemVer,
   PAD_X,
   PAD_Y,
   parseSemVerTuple,
@@ -97,17 +99,8 @@ function LineageCanvas({
   idPrefix: string;
 }) {
   void idPrefix;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const runningNode = graph.nodes.find((n) => n.status === "running");
-    if (runningNode && runningNode.x + CARD_WIDTH > el.clientWidth) {
-      el.scrollLeft = Math.max(0, runningNode.x + CARD_WIDTH - el.clientWidth + PAD_X);
-    }
-  }, [graph]);
   return (
-    <div ref={scrollRef} class="rh-lineage-scroll" role="region" aria-label="Release lineage graph">
+    <div class="rh-lineage-scroll" role="region" aria-label="Release lineage graph">
       <svg
         class="rh-lineage-canvas-svg"
         width={graph.width}
@@ -115,13 +108,7 @@ function LineageCanvas({
         viewBox={`0 0 ${graph.width} ${graph.height}`}
       >
         {graph.edges.map((edge) => {
-          const sx = edge.startX + 4;
-          const sy = edge.startY;
-          const ex = edge.endX - 3;
-          const ey = edge.endY;
-          const midX = sx + (ex - sx) * 0.5;
-          const pathD = `M ${sx + 3.5} ${sy} C ${midX} ${sy}, ${midX} ${ey}, ${ex} ${ey}`;
-          const arrowD = `M ${ex - 6} ${ey - 4.2} L ${ex} ${ey} L ${ex - 6} ${ey + 4.2}`;
+          const { portCx, portCy, pathD, arrowD } = buildConnectorGeometry(edge);
           return (
             <g
               key={edge.id}
@@ -129,7 +116,7 @@ function LineageCanvas({
               aria-hidden="true"
             >
               <path d={pathD} class="rh-edge-line" fill="none" />
-              <circle cx={sx} cy={sy} r="3.5" class="rh-edge-port" />
+              <circle cx={portCx} cy={portCy} r="3.5" class="rh-edge-port" />
               <path d={arrowD} class="rh-edge-arrow" fill="none" />
             </g>
           );
@@ -214,7 +201,6 @@ export function ReleaseLineageSection({
   onAct?: ((action: Action, release: Release) => void) | undefined;
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
-  const [simulatingId, setSimulatingId] = useState<string | null>(null);
   const defaultSelected = useMemo(() => {
     const runningRel = catalog.releases.find(
       (r) =>
@@ -225,20 +211,13 @@ export function ReleaseLineageSection({
   }, [catalog.releases]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(defaultSelected);
 
-  useEffect(() => {
-    if (!simulatingId) return;
-    const timer = setTimeout(() => setSimulatingId(null), 8000);
-    return () => clearTimeout(timer);
-  }, [simulatingId]);
-
   const graph = useMemo(
     () =>
       buildReleaseLineageGraph(catalog, {
         activeReleaseId,
-        simulatingId,
         buildingDraft,
       }),
-    [catalog, activeReleaseId, simulatingId, buildingDraft],
+    [catalog, activeReleaseId, buildingDraft],
   );
 
   const selectedRelease = useMemo(
@@ -263,25 +242,6 @@ export function ReleaseLineageSection({
             )}
           </p>
         </div>
-        <div class="actions">
-          {selectedRelease && (
-            <button
-              type="button"
-              onClick={() =>
-                setSimulatingId((prev) =>
-                  prev === selectedRelease.id ? null : selectedRelease.id,
-                )
-              }
-            >
-              {simulatingId === selectedRelease.id
-                ? t("Stop build animation preview", "빌드 테두리 애니메이션 중지")
-                : t(
-                    `Preview build animation on v${selectedRelease.id}`,
-                    `v${selectedRelease.id} 빌드 테두리 애니메이션 미리보기`,
-                  )}
-            </button>
-          )}
-        </div>
       </div>
 
       <LineageCanvas
@@ -291,9 +251,6 @@ export function ReleaseLineageSection({
         idPrefix="catalog-lineage"
         onSelectNode={(node) => {
           setSelectedNodeId(node.id);
-          if (node.release) {
-            location.hash = `/releases/${node.release.id}`;
-          }
         }}
       />
 
@@ -335,7 +292,13 @@ export function ReleaseLineageSection({
               )}
             </div>
           </div>
-          <ReleaseStageLineage release={selectedRelease} catalog={catalog} locale={locale} />
+          <ReleaseStageLineage
+            release={selectedRelease}
+            catalog={catalog}
+            locale={locale}
+            disabled={disabled}
+            onAct={onAct}
+          />
         </div>
       )}
     </section>
@@ -346,27 +309,20 @@ export function ReleaseStageLineage({
   release,
   catalog,
   locale,
+  disabled,
+  onAct,
 }: {
   release: Release;
   catalog: Catalog;
   locale: "en" | "ko";
+  disabled?: boolean | undefined;
+  onAct?: ((action: Action, release: Release) => void) | undefined;
 }) {
-  const [simStep, setSimStep] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (simStep === null) return;
-    if (simStep >= 4) {
-      const doneTimer = setTimeout(() => setSimStep(null), 2200);
-      return () => clearTimeout(doneTimer);
-    }
-    const timer = setTimeout(() => setSimStep((s) => (s === null ? null : s + 1)), 1800);
-    return () => clearTimeout(timer);
-  }, [simStep]);
-
   const stageGraph = useMemo(
-    () => buildReleaseStagePipeline(release, catalog, simStep),
-    [release, catalog, simStep],
+    () => buildReleaseStagePipeline(release, catalog),
+    [release, catalog],
   );
+  const transition = nextPromotionTransition(release);
 
   return (
     <div class="rh-stage-lineage-box">
@@ -374,27 +330,31 @@ export function ReleaseStageLineage({
         graph={stageGraph}
         locale={locale}
         idPrefix={`stage-${release.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
+        onSelectNode={(node) => {
+          if (disabled) return;
+          if (node.id === "initialize-stencil") {
+            location.hash = "/stencils";
+          } else if (node.id === "clone-codebase") {
+            location.hash = `/releases/${release.id}`;
+          } else if (node.id === "build-sign-dev" && release.state === "draft" && onAct) {
+            onAct("publish", release);
+          } else if (
+            node.id === "promote-rc-canary" &&
+            transition?.targetChannel === "RELEASE_CANDIDATE" &&
+            onAct
+          ) {
+            onAct("promote", release);
+          } else if (
+            node.id === "release-production" &&
+            transition?.targetChannel === "RELEASE" &&
+            onAct
+          ) {
+            onAct("promote", release);
+          } else {
+            location.hash = `/releases/${release.id}`;
+          }
+        }}
       />
-      <div class="rh-stage-sim-controls">
-        <small>
-          {locale === "ko"
-            ? "단계 흐름: initialize-stencil → clone-codebase → build-sign-dev → promote-rc-canary → release-production"
-            : "Stage flow: initialize-stencil → clone-codebase → build-sign-dev → promote-rc-canary → release-production"}
-        </small>
-        <button
-          type="button"
-          class="chip-btn"
-          onClick={() => setSimStep((prev) => (prev === null ? 0 : null))}
-        >
-          {simStep !== null
-            ? locale === "ko"
-              ? "실행 시뮬레이션 중지"
-              : "Stop pipeline simulation"
-            : locale === "ko"
-              ? "▶ 빌드·승격 LR 파이프라인 애니메이션 재생"
-              : "▶ Replay LR build pipeline animation"}
-        </button>
-      </div>
     </div>
   );
 }

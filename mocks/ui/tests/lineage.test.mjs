@@ -91,6 +91,31 @@ try {
   assert.equal(await frame.locator('[data-kind="resource-group"]').count(), 10);
   assert.equal(await frame.locator('[data-kind="type"]').count(), 3);
   assert.equal(await frame.locator('[data-relation="example instance"]').count(), 8);
+  assert.equal(await frame.locator(".ln-cluster").count(), 3, "Resource, Observation and Rule clusters frame the right band");
+  assert.equal(await frame.locator(".ln-cluster.ln-node, .ln-cluster[data-kind]").count(), 0, "cluster frames are not nodes");
+  assert.ok(await frame.evaluate(() => Boolean(document.querySelector("#lineageClusters").compareDocumentPosition(document.querySelector("svg.ln-edges")) & Node.DOCUMENT_POSITION_FOLLOWING)), "#lineageClusters sits before svg.ln-edges");
+  assert.deepEqual(await frame.locator(".ln-cluster").evaluateAll(elements => elements.map(element => element.dataset.objectType)), ["Resource", "Observation", "Rule"]);
+  assert.match(await frame.locator('.ln-cluster[data-object-type="Resource"] .ln-cluster-caption').innerText(), /Resource \/ 10 ResourceTypes \/ 16 recorded \/ 3 evidence gaps/);
+  assert.ok(await frame.locator(".ln-cluster").evaluateAll(elements => elements.every(element => {
+    const style = getComputedStyle(element);
+    return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth].every(width => width === "1px") && new Set([style.borderTopColor, style.borderRightColor, style.borderBottomColor, style.borderLeftColor]).size === 1 && style.pointerEvents === "none";
+  })), "cluster frames use a uniform neutral 1px border without colored rails");
+  assert.equal(await frame.locator(".ln-mini-cluster").count(), 3);
+  assert.equal(await frame.locator(".ln-mini-cluster[data-palette]").count(), 0);
+  assert.ok(await frame.evaluate(() => {
+    const miniature = document.querySelector("#lineageMiniature");
+    const children = [...miniature.children];
+    const lastCluster = children.map(child => child.classList.contains("ln-mini-cluster")).lastIndexOf(true);
+    const firstNode = children.findIndex(child => child.classList.contains("ln-mini-node"));
+    return lastCluster < firstNode && miniature.lastElementChild.id === "lineageMapWindow";
+  }), "minimap cluster rects precede node rects and the viewport window stays last");
+  assert.equal(await frame.locator("ul.ln-edge-legend li").count(), 5);
+  assert.match(await frame.locator("ul.ln-edge-legend li").last().innerText(), /Derivation path, highlighted/);
+  assert.equal(await frame.locator("ul.ln-edge-legend [data-palette]").count(), 0);
+  assert.equal(await frame.locator(".ln-legend [data-palette]").count(), 8, "node legend keeps its eight swatches");
+  assert.match(await frame.locator("#lineageCount").innerText(), / \/ 3 clusters$/);
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), await frame.evaluate(() => { const zoom = parseFloat(document.querySelector("#lineageZoom").textContent) / 100; return zoom < .6 ? "overview" : zoom < .85 ? "standard" : "detail"; }));
+  assert.equal(await frame.locator("#lineageCanvas.is-overview").count(), await frame.locator('#lineageCanvas[data-zoom-level="overview"]').count(), "is-overview and the overview zoom level share the .6 threshold");
   for (const [selector, filename] of [["[data-node='arg']", "resource-graph"], ["[data-node='aks']", "kubernetes-services"], ["[data-node='logs']", "monitor"], ["[data-resource-type='kubernetes-cluster']", "kubernetes-services"]]) {
     assert.match(await frame.locator(`${selector} img`).getAttribute("src"), new RegExp(`/azure/${filename}\\.svg$`));
   }
@@ -148,6 +173,24 @@ try {
   await frame.locator(".ln-property-details > summary").click();
   assert.equal(await frame.locator(".ln-properties").isVisible(), true);
   await frame.locator("#lineageActual").click();
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "detail");
+  const derivationEdges = await frame.locator(".ln-edge.is-derivation").evaluateAll(elements => elements.map(element => `${element.dataset.from}>${element.dataset.to}`));
+  assert.equal(derivationEdges.length, 11, "Pod ResourceType path: 8 upstream + 3 downstream recorded relationships");
+  for (const edge of ["huginn>resource-type", "resource-type>resource-group-7", "resource-group-7>forseti", "forseti>decision", "decision>saga"]) assert.ok(derivationEdges.includes(edge), `${edge} highlighted`);
+  assert.ok(await frame.locator(".ln-edge.is-derivation").evaluateAll(elements => elements.every(element => {
+    const style = getComputedStyle(element), classes = element.classList;
+    const expectedWidth = classes.contains("is-selected") ? 1.5 : classes.contains("is-aggregate") ? 1.2 : classes.contains("is-membership") ? .75 : 1;
+    return style.opacity === "0.92" && Number.parseFloat(style.strokeWidth) === expectedWidth;
+  })), "derivation highlight changes opacity and color only, never stroke width");
+  assert.equal(await frame.locator(".ln-node[data-derivation]").count(), 12);
+  assert.equal(await frame.locator('.ln-node[data-derivation="self"]').getAttribute("data-resource-type"), "kubernetes.pod");
+  assert.equal(await frame.locator('.ln-node[data-derivation="downstream"]').count(), 3);
+  assert.notEqual(await frame.locator('.ln-node[data-derivation="upstream"]').first().evaluate(element => getComputedStyle(element).boxShadow), "none", "path nodes carry a box-shadow ring");
+  assert.match(await frame.locator("#lineageInspector .ln-derivation").innerText(), /Derivation path/i);
+  assert.match(await frame.locator("#lineageInspector .ln-derivation").innerText(), /reaches Decision & audit/);
+  assert.equal(await frame.locator("#lineageInspector .ln-derivation-stages li").count(), 6);
+  assert.equal(await frame.locator('#lineageInspector .ln-derivation [data-trace="decision"]').count(), 1);
+  assert.match(await frame.locator("#lineageInspector .ln-derivation-note").innerText(), /Recorded relationships only; not causation or execution authority/);
   for (const direction of ["incoming", "outgoing"]) {
     await frame.locator("#lineageDirection").selectOption(direction);
     const selectedId = await frame.locator('.ln-node[aria-pressed="true"]').getAttribute("data-node");
@@ -240,6 +283,12 @@ try {
   await frame.locator('#lineageInspector [data-expand]').click();
   assert.equal(await frame.locator(".ln-node").count(), 41);
   assert.equal(await frame.locator('[data-node="pod-resource"]').count(), 1);
+  assert.equal(await frame.locator(".ln-cluster").count(), 3, "expanded instances join the existing Resource frame instead of adding clusters");
+  assert.ok(await frame.evaluate(() => {
+    const frameBox = document.querySelector('.ln-cluster[data-object-type="Resource"]').getBoundingClientRect();
+    return ["pod-resource", "resource-group-7"].every(id => { const box = document.querySelector(`[data-node="${id}"]`).getBoundingClientRect(); return box.left >= frameBox.left && box.right <= frameBox.right && box.top >= frameBox.top && box.bottom <= frameBox.bottom; });
+  }), "Resource frame follows the expanded Pod instances");
+  assert.equal(await frame.locator('#lineageInspector .ln-derivation [data-trace="pod-resource"]').count(), 1, "expanded example instance enters the Pod ResourceType derivation stages");
   await measure(frame, "Expanded Pod resources, same canvas");
   assert.equal(await frame.locator('[data-node="api-endpoints"]').count(), 0, "only the selected type stays expanded");
   await frame.locator("#lineageFit").click();
@@ -271,6 +320,9 @@ try {
   assert.match(await frame.locator(".ln-properties").innerText(), /kubernetes.pod/);
   await frame.locator("#lineageSearch").fill("sample-observation-m9");
   assert.equal(await frame.locator(".ln-node").count(), 1);
+  assert.equal(await frame.locator(".ln-cluster").count(), 1, "frames follow the searched visible set");
+  assert.equal(await frame.locator(".ln-mini-cluster").count(), 1);
+  assert.match(await frame.locator("#lineageCount").innerText(), / \/ 1 clusters$/);
   await frame.locator("#lineageSearch").fill("");
   evidence.push({ name: "Cubic connections, dot grid and canonical ontology instance drill-down", disposition: "passed", grid, connections: paths.length });
 
@@ -288,6 +340,27 @@ try {
   assert.equal(await frame.locator("#lineageZoom").innerText(), "113%");
   await frame.locator("#lineageZoomOut").click();
   assert.equal(await frame.locator("#lineageZoom").innerText(), "100%");
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "detail");
+  assert.equal(await frame.locator(".ln-edge.is-derivation").count(), 11);
+  await frame.locator("#lineageZoomOut").click();
+  assert.equal(await frame.locator("#lineageZoom").innerText(), "88%");
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "detail");
+  await frame.locator("#lineageZoomOut").click();
+  assert.equal(await frame.locator("#lineageZoom").innerText(), "75%");
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "standard");
+  assert.equal(await frame.locator("#lineageCanvas.is-overview").count(), 0);
+  assert.equal(await frame.locator(".ln-edge.is-derivation").count(), 0, "derivation classes are removed outside detail zoom");
+  assert.equal(await frame.locator(".ln-node[data-derivation]").count(), 0);
+  assert.equal(await frame.locator("#lineageInspector .ln-derivation-stages li").count(), 6, "inspector stages stay available at standard zoom");
+  assert.equal(await frame.locator(".ln-cluster").count(), 3);
+  await frame.locator('[data-resource-type="kubernetes.endpoint-slice"]').click();
+  assert.match(await frame.locator("#lineageInspector .ln-derivation-summary").innerText(), /No recorded path to Decision/);
+  await frame.locator('[data-node="arg"]').click();
+  assert.equal(await frame.locator("#lineageInspector .ln-derivation").count(), 0, "sources expose no derivation section");
+  await frame.locator('[data-resource-type="kubernetes.pod"]').click();
+  await frame.locator("#lineageActual").click();
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "detail");
+  assert.equal(await frame.locator(".ln-edge.is-derivation").count(), 11, "returning to detail restores the highlight");
   await frame.locator("#lineageInspectorToggle").click();
   assert.equal(await frame.locator("#lineageInspector").isVisible(), false);
   await frame.locator("#lineageCanvasMode").click();
@@ -447,6 +520,8 @@ try {
   evidence.push({ name: "Graph and inspector text contrast", disposition: "passed", minimum: Math.min(...textContrast.map(item => item.ratio)) });
   await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
   assert.ok(await frame.locator(".ln-edge").evaluateAll(elements => elements.every(element => getComputedStyle(element).opacity === "1")));
+  assert.ok(await frame.locator(".ln-mini-cluster").evaluateAll(elements => elements.length > 0 && elements.every(element => getComputedStyle(element).fill === "none")), "forced colors keep minimap cluster rects unfilled");
+  assert.ok(await frame.locator(".ln-cluster").evaluateAll(elements => elements.every(element => getComputedStyle(element).borderTopStyle === "solid" && getComputedStyle(element).borderTopWidth === "1px")));
   assert.equal(await frame.locator(".ln-node").first().evaluate(element => getComputedStyle(element).animationName), "none");
   await page.emulateMedia({ forcedColors: "none", reducedMotion: "reduce" });
 
@@ -493,6 +568,8 @@ try {
   await page.waitForFunction(() => document.querySelector("#preview-frame")?.contentDocument?.querySelector('[data-node="pod-resource"][aria-pressed="true"]'));
   frame = await (await page.locator("#preview-frame").elementHandle()).contentFrame();
   assert.equal(await frame.locator(".ln-node").count(), 41);
+  assert.equal(await frame.locator("#lineageCanvas").getAttribute("data-zoom-level"), "detail", "zoom level is re-derived from the restored zoom, not stored");
+  assert.equal(await frame.locator("#lineageInspector .ln-derivation").count(), 0, "instances expose no derivation section");
   assert.equal(await frame.locator("#lineageDirection").inputValue(), "incoming");
   assert.equal(await frame.locator("#lineageZoom").innerText(), "100%");
   evidence.push({ name: "Workspace reload restores selected record, expansion, direction and camera", disposition: "passed" });

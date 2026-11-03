@@ -83,7 +83,14 @@ resource "azurerm_role_assignment" "registry_reader" {
 }
 resource "azurerm_role_assignment" "secret_reader" {
   for_each = {
-    for pair in setproduct(local.kinds, toset(concat(["development-signing-key", "hub-database-url"], keys(local.catalog_role_secrets)))) :
+    for pair in setproduct(
+      local.kinds,
+      toset(concat(
+        ["development-signing-key"],
+        var.database == null ? [] : ["hub-database-url"],
+        keys(local.catalog_role_secrets),
+      ))
+    ) :
     "${pair[0]}-${pair[1]}" => { kind = pair[0], secret = pair[1] }
   }
   scope                = "${local.foundation[each.value.kind].vault_id}/secrets/${each.value.secret}"
@@ -124,10 +131,13 @@ resource "azurerm_container_app" "hub" {
     identity            = local.foundation[each.key].identity_id
     key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/development-signing-key/${var.secret_versions.signing_key}"
   }
-  secret {
-    name                = "database-url"
-    identity            = local.foundation[each.key].identity_id
-    key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions.database}"
+  dynamic "secret" {
+    for_each = var.database == null ? [] : [1]
+    content {
+      name                = "database-url"
+      identity            = local.foundation[each.key].identity_id
+      key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions.database}"
+    }
   }
   dynamic "secret" {
     for_each = local.catalog_role_secrets
@@ -158,18 +168,34 @@ resource "azurerm_container_app" "hub" {
   template {
     min_replicas = var.replicas.min
     max_replicas = var.replicas.max
+    dynamic "volume" {
+      for_each = var.database == null ? [1] : []
+      content {
+        name         = "hub-state"
+        storage_name = azurerm_container_app_environment_storage.state[each.key].name
+        storage_type = "AzureFile"
+      }
+    }
     container {
       name   = "hub"
       image  = var.app_image == null ? var.image : var.app_image
       cpu    = 0.5
       memory = "1Gi"
+      dynamic "volume_mounts" {
+        for_each = var.database == null ? [1] : []
+        content {
+          name = "hub-state"
+          path = "/var/lib/fdai-hub"
+        }
+      }
       env {
         name  = "FDAI_HUB_REMOTE_CONFIG"
         value = jsonencode(local.configs[each.key])
       }
       env {
         name        = each.key == "release" ? "FDAI_RELEASE_HUB_DATABASE_URL" : "FDAI_LIFECYCLE_HUB_DATABASE_URL"
-        secret_name = "database-url"
+        secret_name = var.database == null ? null : "database-url"
+        value       = var.database == null ? "sqlite:////var/lib/fdai-hub/${each.key}-hub.sqlite" : null
       }
       env {
         name        = "FDAI_HUB_DEVELOPMENT_SIGNING_KEY"
@@ -261,8 +287,8 @@ output "deployment" {
   value = merge(local.foundation[var.kind], {
     product        = var.kind
     origin         = local.origins[var.kind]
-    database_host  = azurerm_postgresql_flexible_server.hub[var.kind].fqdn
-    database_name  = azurerm_postgresql_flexible_server_database.hub[var.kind].name
+    database_host  = var.database == null ? null : azurerm_postgresql_flexible_server.hub[var.kind].fqdn
+    database_name  = var.database == null ? "sqlite:////var/lib/fdai-hub/${var.kind}-hub.sqlite" : azurerm_postgresql_flexible_server_database.hub[var.kind].name
     identity_name  = azurerm_user_assigned_identity.hub[var.kind].name
     runtime_config = local.configs[var.kind]
     migration_job  = var.enable_migration_jobs ? azurerm_container_app_job.migrate[var.kind].name : null
