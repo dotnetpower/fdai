@@ -717,6 +717,9 @@ test.describe("Native Dashboard v2", () => {
     await expect(page.locator(".dv2-table-wrap tbody tr").first().locator(".dv2-cell-states .dv2-state")).toHaveCount(2);
 
     await page.getByRole("button", { name: "Groups", exact: true }).click();
-    await expect(page.locator(".dv2-groups .dv2-state").first()).toContainText("2");
+    await expect(page.locator(".dv2-groups .dv2-state")).toHaveText([
+      /\? Needs review 1/,
+      /N Not provided 2/,
+    ]);
   });
 });

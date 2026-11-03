@@ -142,6 +142,9 @@ export function personalNotificationPrincipalLabel(auth: AuthContext): string | 
 export function SettingsIntegrationsRoute({ client, auth }: Props) {
   const authMode = authenticationMode(auth);
   const [refreshEpoch, setRefreshEpoch] = useState(0);
+  const [activeRecipientEmail, setActiveRecipientEmail] = useState<string>(
+    auth.account?.username ?? "",
+  );
   const runtimeSettings = useRuntimeSettings(client, refreshEpoch);
   const incidentEmailTemplate = useIncidentEmailTemplate(client);
 
@@ -175,7 +178,10 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
         <h3 id="settings-identity-integration">{t("settings.identity")}</h3>
         <div class="settings-list">
           <SettingRow label={t("settings.entra")} hint={t("settings.entraHint")}>
-            <StatusPill kind="neutral" label={authMode} />
+            <StatusPill
+              kind="success"
+              label={settingsIntegrationsText("entraConnectedPill", { mode: authMode })}
+            />
           </SettingRow>
         </div>
       </section>
@@ -237,6 +243,7 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                   operatorApiBaseUrl={client.operatorApiBaseUrl}
                   canManage={runtime.canManage}
                   onBindingChanged={() => setRefreshEpoch((value) => value + 1)}
+                  onRecipientEmailChanged={(nextEmail) => setActiveRecipientEmail(nextEmail)}
                 />
                 <SlackWebhookTestPanel
                   auth={auth}
@@ -252,17 +259,60 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
                   CONVERSATION_INTEGRATION_KEYS.has(integration.key)
                 )}
               />
-              <IntegrationGroup
-                headingId="settings-other-integrations"
-                title={settingsIntegrationsText("groupOther")}
-                description={settingsIntegrationsText("groupOtherHint")}
-                integrations={runtime.integrations.filter(
+              {(() => {
+                const otherRows = runtime.integrations.filter(
                   (integration) =>
                     !APPROVAL_INTEGRATION_KEYS.has(integration.key)
                     && !NOTIFICATION_INTEGRATION_KEYS.has(integration.key)
-                    && !CONVERSATION_INTEGRATION_KEYS.has(integration.key)
-                )}
-              />
+                    && !CONVERSATION_INTEGRATION_KEYS.has(integration.key),
+                );
+                const primaryOther = otherRows.filter(
+                  (integration) => !integration.key.startsWith("operational-evidence."),
+                );
+                const opEvidenceRows = otherRows.filter((integration) =>
+                  integration.key.startsWith("operational-evidence."),
+                );
+                const opEvidenceReadyCount = opEvidenceRows.filter(
+                  (integration) => integration.observed && integration.ready,
+                ).length;
+                return (
+                  <IntegrationGroup
+                    headingId="settings-other-integrations"
+                    title={settingsIntegrationsText("groupOther")}
+                    description={settingsIntegrationsText("groupOtherHint")}
+                    integrations={primaryOther}
+                  >
+                    {opEvidenceRows.length > 0 ? (
+                      <details class="settings-operational-evidence-details">
+                        <summary class="settings-operational-evidence-summary">
+                          <strong>
+                            {settingsIntegrationsText("operationalEvidenceGroupSummary", {
+                              ready: opEvidenceReadyCount,
+                              total: opEvidenceRows.length,
+                            })}
+                          </strong>
+                          <StatusPill
+                            kind={
+                              opEvidenceReadyCount === opEvidenceRows.length
+                                ? "success"
+                                : "neutral"
+                            }
+                            label={`${opEvidenceReadyCount}/${opEvidenceRows.length}`}
+                          />
+                        </summary>
+                        <p class="muted">
+                          {settingsIntegrationsText("operationalEvidenceGroupHint")}
+                        </p>
+                        <div class="settings-list">
+                          {opEvidenceRows.map((integration) => (
+                            <IntegrationRow key={integration.key} integration={integration} />
+                          ))}
+                        </div>
+                      </details>
+                    ) : null}
+                  </IntegrationGroup>
+                );
+              })()}
             </div>
           )}
         </AsyncBoundary> : null}
@@ -279,7 +329,12 @@ export function SettingsIntegrationsRoute({ client, auth }: Props) {
           state={incidentEmailTemplate.state}
           resourceLabel={t("settings.emailTemplateResource")}
         >
-          {(template) => <EmailTemplatePreviewPanel template={template} />}
+          {(template) => (
+            <EmailTemplatePreviewPanel
+              template={template}
+              recipientEmail={activeRecipientEmail}
+            />
+          )}
         </AsyncBoundary> : null}
       </section>
     </div>
@@ -317,14 +372,21 @@ export function TeamsWorkflowTestPanel({
   operatorApiBaseUrl,
   canManage,
   onBindingChanged,
+  onRecipientEmailChanged,
 }: {
   readonly auth: AuthContext;
   readonly operatorApiBaseUrl: string;
   readonly canManage: boolean;
   readonly onBindingChanged?: () => void;
+  readonly onRecipientEmailChanged?: (email: string) => void;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
   const [channelLabel, setChannelLabel] = useState("");
+  const [editingChannelId, setEditingChannelId] = useState<string | null>(null);
+  const [editingChannelLabel, setEditingChannelLabel] = useState("");
+  const [copiedChannelId, setCopiedChannelId] = useState<string | null>(null);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [emailTestNotice, setEmailTestNotice] = useState<string | null>(null);
   const [isEditingUrl, setIsEditingUrl] = useState(false);
   const [accountHint, setAccountHint] = useState(TEAMS_WORKFLOW_ACCOUNT_HINT);
   const [testing, setTesting] = useState(false);
@@ -366,11 +428,35 @@ export function TeamsWorkflowTestPanel({
       ? bindingSaved.customEmail.trim()
       : loginEmail;
 
+  useEffect(() => {
+    onRecipientEmailChanged?.(effectiveRecipientEmail);
+  }, [effectiveRecipientEmail]);
+
   useEffect(() => () => {
     if (copyTimerRef.current !== null) {
       window.clearTimeout(copyTimerRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    const anyRevealed = isUrlRevealed || Object.keys(revealedChannelUrls).length > 0;
+    if (!anyRevealed) return;
+    const remask = () => {
+      setIsUrlRevealed(false);
+      setRevealedChannelUrls({});
+    };
+    const timer = window.setTimeout(remask, 30_000);
+    const onVisibility = () => {
+      if (document.hidden) remask();
+    };
+    window.addEventListener("blur", remask);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("blur", remask);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [isUrlRevealed, revealedChannelUrls]);
 
   useEffect(() => {
     let active = true;
@@ -511,6 +597,8 @@ export function TeamsWorkflowTestPanel({
     readonly selectedChannelIds?: readonly string[];
     readonly deliveryTargets?: readonly TeamsNotificationDeliveryTargetKey[];
     readonly removeChannelId?: string;
+    readonly renameChannelId?: string;
+    readonly channelLabel?: string;
     readonly emailRecipientMode?: TeamsEmailRecipientMode;
     readonly customEmail?: string;
   }) => {
@@ -536,6 +624,12 @@ export function TeamsWorkflowTestPanel({
             : {}),
           ...(options.removeChannelId !== undefined
             ? { removeChannelId: options.removeChannelId }
+            : {}),
+          ...(options.renameChannelId !== undefined
+            ? { renameChannelId: options.renameChannelId }
+            : {}),
+          ...(options.channelLabel !== undefined
+            ? { channelLabel: options.channelLabel }
             : {}),
           ...(options.emailRecipientMode !== undefined
             ? { emailRecipientMode: options.emailRecipientMode }
@@ -611,25 +705,12 @@ export function TeamsWorkflowTestPanel({
         emailRecipientMode: "login",
         customEmail: customEmail.trim(),
       });
-    } else if (
-      nextMode === "custom"
-      && bindingSaved
-      && customEmail.trim()
-      && isEmailStyleUserPrincipalName(customEmail.trim())
-    ) {
-      void persistChannelPreferences({
-        selectedChannelIds: bindingSaved.channels
-          .filter((ch) => ch.enabled)
-          .map((ch) => ch.channelId),
-        deliveryTargets: selectedTargets,
-        emailRecipientMode: "custom",
-        customEmail: customEmail.trim(),
-      });
     }
   };
 
   const saveCustomRecipientEmail = () => {
     if (!canManage || testing || preferencePending.current || !customEmailIsValid) return;
+    setEmailTestNotice(null);
     if (bindingSaved) {
       void persistChannelPreferences({
         selectedChannelIds: bindingSaved.channels
@@ -639,6 +720,165 @@ export function TeamsWorkflowTestPanel({
         emailRecipientMode,
         customEmail: customEmail.trim(),
       });
+    }
+  };
+
+  const sendTestRecipientEmail = async () => {
+    if (
+      !canManage
+      || testing
+      || sendingTestEmail
+      || bindingVisibility !== "visible"
+      || !customEmailIsValid
+    ) return;
+    preferenceGenerationRef.current += 1;
+    setSendingTestEmail(true);
+    setEmailTestNotice(null);
+    setBindingError(null);
+    const targetEmail =
+      emailRecipientMode === "custom" && customEmail.trim()
+        ? customEmail.trim()
+        : effectiveRecipientEmail;
+    try {
+      const nextTargets: readonly TeamsNotificationDeliveryTargetKey[] =
+        selectedTargets.includes("email")
+          ? selectedTargets
+          : [...selectedTargets, "email"];
+      setSelectedTargets(nextTargets);
+      const tested = await testTeamsWorkflowWebhook(
+        auth,
+        operatorApiBaseUrl,
+        "",
+        newTeamsWorkflowTestRequestId(),
+        {
+          ...(bindingSaved
+            ? {
+                selectedChannelIds: bindingSaved.channels
+                  .filter((ch) => ch.enabled)
+                  .map((ch) => ch.channelId),
+              }
+            : {}),
+          deliveryTargets: nextTargets,
+          emailRecipientMode,
+          customEmail: targetEmail,
+          testEmail: true,
+        },
+      );
+      onBindingChanged?.();
+      setEmailTestNotice(
+        settingsIntegrationsText("emailRecipientTestSent", {
+          email: targetEmail,
+          status: tested.providerStatus,
+          runId: tested.workflowRunId ?? tested.requestId,
+        }),
+      );
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
+
+  const copyChannelRowUrl = async (channelId: string) => {
+    if (testing || revealing) return;
+    setRevealing(true);
+    setBindingError(null);
+    try {
+      let fullUrl = revealedChannelUrls[channelId];
+      if (!fullUrl) {
+        const revealed = await revealTeamsWorkflowBinding(
+          auth,
+          operatorApiBaseUrl,
+          channelId,
+        );
+        fullUrl = revealed.webhookUrl;
+        setRevealedChannelUrls((prev) => ({ ...prev, [channelId]: fullUrl! }));
+      }
+      await navigator.clipboard.writeText(fullUrl);
+      setCopiedChannelId(channelId);
+      window.setTimeout(() => {
+        setCopiedChannelId((cur) => (cur === channelId ? null : cur));
+      }, 1500);
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setRevealing(false);
+    }
+  };
+
+  const saveRenamedChannelLabel = (channelId: string) => {
+    const trimmed = editingChannelLabel.trim();
+    if (!canManage || testing || !bindingSaved || !trimmed) return;
+    const nextChannels = bindingSaved.channels.map((ch) =>
+      ch.channelId === channelId ? { ...ch, label: trimmed } : ch,
+    );
+    setBindingSaved({ ...bindingSaved, channels: nextChannels });
+    setEditingChannelId(null);
+    setEditingChannelLabel("");
+    void persistChannelPreferences({
+      renameChannelId: channelId,
+      channelLabel: trimmed,
+      selectedChannelIds: nextChannels.filter((ch) => ch.enabled).map((ch) => ch.channelId),
+      deliveryTargets: selectedTargets,
+    });
+  };
+
+  const testSingleSavedChannel = async (channelId: string) => {
+    if (!canManage || testing || !bindingSaved) return;
+    setTesting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const tested = await testTeamsWorkflowWebhook(
+        auth,
+        operatorApiBaseUrl,
+        "",
+        newTeamsWorkflowTestRequestId(),
+        { testChannelId: channelId },
+      );
+      const refreshed = await loadTeamsWorkflowBinding(auth, operatorApiBaseUrl);
+      if (refreshed.visible && refreshed.configured) {
+        setBindingSaved((current) =>
+          current
+            ? {
+                ...current,
+                channels: resolveTeamsWorkflowChannels(refreshed),
+              }
+            : current,
+        );
+      }
+      setResult(tested);
+      onBindingChanged?.();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const clearSavedBindings = async () => {
+    if (!canManage || testing || !bindingSaved) return;
+    setTesting(true);
+    setError(null);
+    setBindingError(null);
+    try {
+      await testTeamsWorkflowWebhook(
+        auth,
+        operatorApiBaseUrl,
+        "",
+        newTeamsWorkflowTestRequestId(),
+        { clearBinding: true },
+      );
+      setRevealedBinding(null);
+      setRevealedChannelUrls({});
+      setIsUrlRevealed(false);
+      setBindingSaved(null);
+      setBindingVisibility("missing");
+      onBindingChanged?.();
+    } catch (reason) {
+      setBindingError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -1242,9 +1482,11 @@ export function TeamsWorkflowTestPanel({
                 </button>
                 ) : null}
                 <small class="settings-webhook-diagnostic-help">
-                  {canManage
-                    ? settingsIntegrationsText("bindingNeverReturned")
-                    : settingsIntegrationsText("contributorReadOnly")}
+                  {isUrlRevealed || Object.keys(revealedChannelUrls).length > 0
+                    ? settingsIntegrationsText("autoHideRevealedHint")
+                    : canManage
+                      ? settingsIntegrationsText("bindingNeverReturned")
+                      : settingsIntegrationsText("contributorReadOnly")}
                 </small>
               </form>
             ) : bindingVisibility === "loading" ? (
@@ -1405,48 +1647,102 @@ export function TeamsWorkflowTestPanel({
                         placeholder={settingsIntegrationsText(
                           "emailRecipientCustomPlaceholder",
                         )}
-                        onInput={(event) => setCustomEmail(event.currentTarget.value)}
+                        onInput={(event) => {
+                          setEmailTestNotice(null);
+                          setCustomEmail(event.currentTarget.value);
+                        }}
                       />
                       {canManage ? (
-                        <button
-                          type="button"
-                          class="btn btn-small primary"
-                          disabled={
-                            testing
-                            || savingPreferences || !bindingSaved
-                            || !customEmail.trim()
-                            || !customEmailIsValid
-                          }
-                          onClick={() => saveCustomRecipientEmail()}
-                        >
-                          {settingsIntegrationsText("emailRecipientSave")}
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            class="btn btn-small primary"
+                            disabled={
+                              testing
+                              || savingPreferences || !bindingSaved
+                              || !customEmail.trim()
+                              || !customEmailIsValid
+                            }
+                            onClick={() => saveCustomRecipientEmail()}
+                          >
+                            {settingsIntegrationsText("emailRecipientSave")}
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-small"
+                            disabled={
+                              testing
+                              || sendingTestEmail
+                              || !customEmail.trim()
+                              || !customEmailIsValid
+                            }
+                            onClick={() => {
+                              void sendTestRecipientEmail();
+                            }}
+                          >
+                            {sendingTestEmail
+                              ? settingsIntegrationsText("emailRecipientTesting")
+                              : settingsIntegrationsText("emailRecipientTest")}
+                          </button>
+                        </>
                       ) : null}
                     </div>
                     <small id="teams-recipient-help">
                       {settingsIntegrationsText(customEmailIsValid ? "recipientDraft" : "recipientInvalid")}
                     </small>
                     </>
+                  ) : canManage ? (
+                    <div class="settings-teams-workflow-channel-selector-actions">
+                      <button
+                        type="button"
+                        class="btn btn-small"
+                        disabled={testing || sendingTestEmail}
+                        onClick={() => {
+                          void sendTestRecipientEmail();
+                        }}
+                      >
+                        {sendingTestEmail
+                          ? settingsIntegrationsText("emailRecipientTesting")
+                          : settingsIntegrationsText("emailRecipientTest")}
+                      </button>
+                    </div>
+                  ) : null}
+                  {emailTestNotice ? (
+                    <small class="muted" role="status">{emailTestNotice}</small>
                   ) : null}
                 </div>
                 {bindingSaved && bindingSaved.channels.length > 0 ? (
                   <div class="settings-teams-workflow-saved-channels">
                     <div class="settings-teams-workflow-channel-selector-head">
                       <strong>{settingsIntegrationsText("savedTeamsChannelsTitle")}</strong>
-                      <StatusPill
-                        kind={
-                          bindingSaved.channels.filter((ch) => ch.enabled).length > 1
-                            ? "success"
-                            : "neutral"
-                        }
-                        label={
-                          bindingSaved.channels.filter((ch) => ch.enabled).length > 1
-                            ? settingsIntegrationsText("channelModeMultiple", {
-                                count: bindingSaved.channels.filter((ch) => ch.enabled).length,
-                              })
-                            : settingsIntegrationsText("channelModeSingle")
-                        }
-                      />
+                      <div class="settings-teams-workflow-channel-selector-actions">
+                        <StatusPill
+                          kind={
+                            bindingSaved.channels.filter((ch) => ch.enabled).length > 1
+                              ? "success"
+                              : "neutral"
+                          }
+                          label={
+                            bindingSaved.channels.filter((ch) => ch.enabled).length > 1
+                              ? settingsIntegrationsText("channelModeMultiple", {
+                                  count: bindingSaved.channels.filter((ch) => ch.enabled).length,
+                                })
+                              : settingsIntegrationsText("channelModeSingle")
+                          }
+                        />
+                        {canManage ? (
+                          <button
+                            type="button"
+                            class="btn btn-small"
+                            disabled={testing || revealing}
+                            onClick={() => {
+                              void clearSavedBindings();
+                            }}
+                          >
+                            {settingsIntegrationsText("clearAllBindings")}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                     <p>{settingsIntegrationsText("savedTeamsChannelsHint")}</p>
                     {canManage ? (
@@ -1468,6 +1764,8 @@ export function TeamsWorkflowTestPanel({
                     ) : null}
                     {bindingSaved.channels.map((channel) => {
                       const rowRevealedUrl = revealedChannelUrls[channel.channelId];
+                      const isRenaming = editingChannelId === channel.channelId;
+                      const isRowCopied = copiedChannelId === channel.channelId;
                       return (
                         <div
                           key={channel.channelId}
@@ -1484,7 +1782,56 @@ export function TeamsWorkflowTestPanel({
                             onChange={() => toggleSavedChannel(channel.channelId)}
                           />
                           <div class="settings-teams-workflow-saved-channel-info">
-                            <strong>{channel.label}</strong>
+                            {isRenaming ? (
+                              <div class="settings-teams-workflow-email-custom-row">
+                                <input
+                                  class="form-input"
+                                  type="text"
+                                  maxlength={80}
+                                  aria-label={settingsIntegrationsText("renameChannel", {
+                                    label: channel.label,
+                                  })}
+                                  value={editingChannelLabel}
+                                  onInput={(event) =>
+                                    setEditingChannelLabel(event.currentTarget.value)
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  class="btn btn-small primary"
+                                  disabled={!editingChannelLabel.trim()}
+                                  onClick={() => saveRenamedChannelLabel(channel.channelId)}
+                                >
+                                  {settingsIntegrationsText("renameChannelSave")}
+                                </button>
+                                <button
+                                  type="button"
+                                  class="btn btn-small"
+                                  onClick={() => {
+                                    setEditingChannelId(null);
+                                    setEditingChannelLabel("");
+                                  }}
+                                >
+                                  {settingsIntegrationsText("renameChannelCancel")}
+                                </button>
+                              </div>
+                            ) : (
+                              <div class="settings-teams-workflow-channel-selector-actions">
+                                <strong>{channel.label}</strong>
+                                {channel.lastTestStatus !== undefined
+                                  && channel.lastTestStatus !== null ? (
+                                    <StatusPill
+                                      kind={channel.lastTestAccepted ? "success" : "danger"}
+                                      label={settingsIntegrationsText(
+                                        channel.lastTestAccepted
+                                          ? "channelTestAcceptedPill"
+                                          : "channelTestFailedPill",
+                                        { status: channel.lastTestStatus },
+                                      )}
+                                    />
+                                  ) : null}
+                              </div>
+                            )}
                             <code>
                               {rowRevealedUrl
                                 ?? maskSavedTeamsWorkflowUrl(channel.endpointIdentifier)}
@@ -1538,6 +1885,101 @@ export function TeamsWorkflowTestPanel({
                                 </svg>
                               )}
                             </button>
+                            <button
+                              type="button"
+                              class="settings-teams-workflow-icon-btn"
+                              disabled={testing || revealing}
+                              aria-label={
+                                isRowCopied
+                                  ? t("shared.copied")
+                                  : settingsIntegrationsText("copyChannelUrl", {
+                                      label: channel.label,
+                                    })
+                              }
+                              onClick={() => {
+                                void copyChannelRowUrl(channel.channelId);
+                              }}
+                            >
+                              {isRowCopied ? (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              ) : (
+                                <svg
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  aria-hidden="true"
+                                >
+                                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                </svg>
+                              )}
+                            </button>
+                            {canManage ? (
+                              <>
+                                <button
+                                  type="button"
+                                  class="settings-teams-workflow-icon-btn"
+                                  disabled={testing || revealing}
+                                  aria-label={settingsIntegrationsText("renameChannel", {
+                                    label: channel.label,
+                                  })}
+                                  onClick={() => {
+                                    setEditingChannelId(channel.channelId);
+                                    setEditingChannelLabel(channel.label);
+                                  }}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M12 20h9" />
+                                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  class="settings-teams-workflow-icon-btn"
+                                  disabled={testing || revealing}
+                                  aria-label={settingsIntegrationsText("testSingleChannel", {
+                                    label: channel.label,
+                                  })}
+                                  onClick={() => {
+                                    void testSingleSavedChannel(channel.channelId);
+                                  }}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                  >
+                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                  </svg>
+                                </button>
+                              </>
+                            ) : null}
                             {canManage && bindingSaved.channels.length > 1 ? (
                               <button
                                 type="button"
@@ -1616,6 +2058,49 @@ export function TeamsWorkflowTestPanel({
   );
 }
 
+interface SavedSlackChannelItem {
+  readonly channelId: string;
+  readonly label: string;
+  readonly maskedUrl: string;
+  readonly enabled: boolean;
+}
+
+const SLACK_SAVED_CHANNELS_STORAGE_KEY = "fdai.slackSavedChannels.v1";
+
+function maskSlackWebhookUrl(url: string): string {
+  const trimmed = url.trim();
+  const suffix = trimmed.length >= 6 ? trimmed.slice(-6) : "••••••";
+  return `https://hooks.slack.com/services/••••••••/••••••••/...${suffix}`;
+}
+
+function loadSavedSlackChannels(): readonly SavedSlackChannelItem[] {
+  try {
+    const raw = window.localStorage.getItem(SLACK_SAVED_CHANNELS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (item): item is SavedSlackChannelItem =>
+        typeof item === "object"
+        && item !== null
+        && typeof (item as Record<string, unknown>)["channelId"] === "string"
+        && typeof (item as Record<string, unknown>)["label"] === "string"
+        && typeof (item as Record<string, unknown>)["maskedUrl"] === "string"
+        && typeof (item as Record<string, unknown>)["enabled"] === "boolean",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function persistSavedSlackChannels(items: readonly SavedSlackChannelItem[]): void {
+  try {
+    window.localStorage.setItem(SLACK_SAVED_CHANNELS_STORAGE_KEY, JSON.stringify(items));
+  } catch {
+    /* localStorage unavailable */
+  }
+}
+
 function SlackWebhookTestPanel({
   auth,
   operatorApiBaseUrl,
@@ -1626,27 +2111,61 @@ function SlackWebhookTestPanel({
   readonly canManage: boolean;
 }) {
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [slackChannelLabel, setSlackChannelLabel] = useState("");
+  const [savedSlackChannels, setSavedSlackChannels] = useState<readonly SavedSlackChannelItem[]>(
+    () => loadSavedSlackChannels(),
+  );
   const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SlackWebhookTestResult | null>(null);
+
+  const toggleSlackChannel = (channelId: string) => {
+    if (!canManage || testing) return;
+    const enabledCount = savedSlackChannels.filter((ch) => ch.enabled).length;
+    const target = savedSlackChannels.find((ch) => ch.channelId === channelId);
+    if (!target || (target.enabled && enabledCount <= 1)) return;
+    const next = savedSlackChannels.map((ch) =>
+      ch.channelId === channelId ? { ...ch, enabled: !ch.enabled } : ch,
+    );
+    setSavedSlackChannels(next);
+    persistSavedSlackChannels(next);
+  };
+
+  const removeSlackChannel = (channelId: string) => {
+    if (!canManage || testing) return;
+    const next = savedSlackChannels.filter((ch) => ch.channelId !== channelId);
+    setSavedSlackChannels(next);
+    persistSavedSlackChannels(next);
+  };
 
   const submit = async (event: SubmitEvent) => {
     event.preventDefault();
     if (!canManage || testing || !webhookUrl.trim()) return;
     const transientUrl = webhookUrl.trim();
+    const labelText =
+      slackChannelLabel.trim() || `Slack (${transientUrl.slice(-6)})`;
     setWebhookUrl("");
+    setSlackChannelLabel("");
     setTesting(true);
     setError(null);
     setResult(null);
     try {
-      setResult(
-        await testSlackWebhook(
-          auth,
-          operatorApiBaseUrl,
-          transientUrl,
-          newSlackWebhookTestRequestId(),
-        ),
+      const tested = await testSlackWebhook(
+        auth,
+        operatorApiBaseUrl,
+        transientUrl,
+        newSlackWebhookTestRequestId(),
       );
+      const masked = maskSlackWebhookUrl(transientUrl);
+      const channelId = `slack-${masked.slice(-6)}`;
+      const existing = savedSlackChannels.filter((ch) => ch.channelId !== channelId);
+      const next: readonly SavedSlackChannelItem[] = [
+        ...existing,
+        { channelId, label: labelText, maskedUrl: masked, enabled: true },
+      ];
+      setSavedSlackChannels(next);
+      persistSavedSlackChannels(next);
+      setResult(tested);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -1688,6 +2207,93 @@ function SlackWebhookTestPanel({
           {testing ? t("settings.slackWebhookTest.testing") : t("settings.slackWebhookTest.test")}
         </button>
       </form>
+      {canManage ? (
+        <div class="settings-teams-workflow-label-input">
+          <label for="slack-webhook-channel-label">
+            {settingsIntegrationsText("slackChannelLabel")}
+          </label>
+          <input
+            id="slack-webhook-channel-label"
+            class="form-input"
+            type="text"
+            maxlength={80}
+            disabled={testing}
+            value={slackChannelLabel}
+            placeholder={settingsIntegrationsText("slackChannelLabelPlaceholder")}
+            onInput={(event) => setSlackChannelLabel(event.currentTarget.value)}
+          />
+        </div>
+      ) : null}
+      {savedSlackChannels.length > 0 ? (
+        <div class="settings-teams-workflow-saved-channels">
+          <div class="settings-teams-workflow-channel-selector-head">
+            <strong>{settingsIntegrationsText("slackSavedChannelsTitle")}</strong>
+            <StatusPill
+              kind={
+                savedSlackChannels.filter((ch) => ch.enabled).length > 1
+                  ? "success"
+                  : "neutral"
+              }
+              label={
+                savedSlackChannels.filter((ch) => ch.enabled).length > 1
+                  ? settingsIntegrationsText("channelModeMultiple", {
+                      count: savedSlackChannels.filter((ch) => ch.enabled).length,
+                    })
+                  : settingsIntegrationsText("channelModeSingle")
+              }
+            />
+          </div>
+          <p>{settingsIntegrationsText("slackSavedChannelsHint")}</p>
+          {savedSlackChannels.map((ch) => (
+            <div
+              key={ch.channelId}
+              class={`settings-teams-workflow-saved-channel-row${
+                ch.enabled ? " is-checked" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={ch.enabled}
+                disabled={!canManage || testing}
+                aria-label={ch.label}
+                onChange={() => toggleSlackChannel(ch.channelId)}
+              />
+              <div class="settings-teams-workflow-saved-channel-info">
+                <strong>{ch.label}</strong>
+                <code>{ch.maskedUrl}</code>
+              </div>
+              {canManage ? (
+                <div class="settings-teams-workflow-url-actions">
+                  <button
+                    type="button"
+                    class="settings-teams-workflow-icon-btn"
+                    disabled={testing}
+                    aria-label={settingsIntegrationsText("removeChannel", {
+                      label: ch.label,
+                    })}
+                    onClick={() => removeSlackChannel(ch.channelId)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
       {!canManage ? (
         <div class="state-block" role="note">{t("settings.slackWebhookTest.ownerRequired")}</div>
       ) : null}
@@ -1707,8 +2313,56 @@ function SlackWebhookTestPanel({
   );
 }
 
-export function EmailTemplatePreviewPanel({ template }: { readonly template: EmailTemplatePreview }) {
+function resolveDocumentTheme(): "light" | "dark" {
+  if (typeof document !== "undefined") {
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr === "dark") return "dark";
+    if (attr === "light") return "light";
+  }
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  }
+  return "light";
+}
+
+export function EmailTemplatePreviewPanel({
+  template,
+  recipientEmail,
+}: {
+  readonly template: EmailTemplatePreview;
+  readonly recipientEmail?: string;
+}) {
   const [plainText, setPlainText] = useState(false);
+  const [previewMode, setPreviewMode] = useState<"auto" | "light" | "dark">("auto");
+  const [docTheme, setDocTheme] = useState<"light" | "dark">(() => resolveDocumentTheme());
+
+  useEffect(() => {
+    const syncTheme = () => setDocTheme(resolveDocumentTheme());
+    syncTheme();
+    const observer = new MutationObserver(syncTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    const mql =
+      typeof window.matchMedia === "function"
+        ? window.matchMedia("(prefers-color-scheme: dark)")
+        : null;
+    mql?.addEventListener("change", syncTheme);
+    return () => {
+      observer.disconnect();
+      mql?.removeEventListener("change", syncTheme);
+    };
+  }, []);
+
+  const effectiveTheme = previewMode === "auto" ? docTheme : previewMode;
+  const themedHtml = template.html.includes("<html ")
+    ? template.html.replace(
+        /<html(\s[^>]*)?>/i,
+        `<html lang="en" data-theme="${effectiveTheme}">`,
+      )
+    : template.html;
+
   return (
     <div class="settings-email-template">
       <div class="settings-email-template-head">
@@ -1716,7 +2370,41 @@ export function EmailTemplatePreviewPanel({ template }: { readonly template: Ema
           <small>{t("settings.emailTemplateSubject")}</small>
           <strong>{template.subject}</strong>
         </span>
-        <StatusPill kind="neutral" label={t("settings.emailTemplateSynthetic")} />
+        <div class="settings-teams-workflow-channel-selector-actions">
+          {recipientEmail ? (
+            <StatusPill
+              kind="neutral"
+              label={settingsIntegrationsText("emailTemplateRecipient", {
+                email: recipientEmail,
+              })}
+            />
+          ) : null}
+          <button
+            type="button"
+            class={`btn btn-small${previewMode === "auto" ? " primary" : ""}`}
+            aria-pressed={previewMode === "auto"}
+            onClick={() => setPreviewMode("auto")}
+          >
+            {settingsIntegrationsText("emailTemplateThemeAuto")}
+          </button>
+          <button
+            type="button"
+            class={`btn btn-small${previewMode === "light" ? " primary" : ""}`}
+            aria-pressed={previewMode === "light"}
+            onClick={() => setPreviewMode("light")}
+          >
+            {settingsIntegrationsText("emailTemplateThemeLight")}
+          </button>
+          <button
+            type="button"
+            class={`btn btn-small${previewMode === "dark" ? " primary" : ""}`}
+            aria-pressed={previewMode === "dark"}
+            onClick={() => setPreviewMode("dark")}
+          >
+            {settingsIntegrationsText("emailTemplateThemeDark")}
+          </button>
+          <StatusPill kind="neutral" label={t("settings.emailTemplateSynthetic")} />
+        </div>
       </div>
       <div class="settings-actions" role="group" aria-label={t("settings.emailTemplatePreviewTitle")}>
         <button type="button" class="secondary" aria-pressed={!plainText} onClick={() => setPlainText(false)}>
@@ -1728,8 +2416,9 @@ export function EmailTemplatePreviewPanel({ template }: { readonly template: Ema
       </div>
       {plainText ? <pre class="settings-email-template-plain">{template.plainText}</pre> : <iframe
         class="settings-email-template-frame"
+        data-theme={effectiveTheme}
         title={t("settings.emailTemplatePreviewTitle")}
-        srcDoc={template.html}
+        srcDoc={themedHtml}
         sandbox=""
         referrerPolicy="no-referrer"
       />}

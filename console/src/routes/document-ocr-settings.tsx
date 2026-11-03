@@ -19,6 +19,26 @@ interface Props {
 }
 
 export function DocumentOcrSettingsPanel({ client, auth }: Props) {
+  const formatOcrState = (state: string): string => {
+    switch (state) {
+      case "absent": return text("ocrState.absent");
+      case "ready": return text("ocrState.ready");
+      case "plan-required": return text("ocrState.plan-required");
+      case "plan-requested": return text("ocrState.plan-requested");
+      case "provisioning": return text("ocrState.provisioning");
+      case "verifying": return text("ocrState.verifying");
+      case "draining": return text("ocrState.draining");
+      case "failed": return text("ocrState.failed");
+      default: return state;
+    }
+  };
+  const formatOcrProvider = (providerName: string): string => {
+    switch (providerName) {
+      case "local_python": return text("ocrProvider.local_python");
+      case "azure_document_intelligence": return text("ocrProvider.azure_document_intelligence");
+      default: return providerName;
+    }
+  };
   const [loadedView, setView] = useState<ModelSettingsView | null>(null);
   const loadedClient = useRef(client);
   const view = loadedClient.current === client ? loadedView : null;
@@ -130,7 +150,9 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
         <StatusPill
           kind={view?.documentOcr.azureResourceState === "ready" ? "success" : "neutral"}
           label={view
-            ? text("ocrResourceState", { state: view.documentOcr.azureResourceState })
+            ? text("ocrResourceState", {
+                state: formatOcrState(view.documentOcr.azureResourceState),
+              })
             : loading ? text("ocrLoading") : text("ocrUnavailable")}
         />
       </div>
@@ -171,7 +193,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
           <dl class="settings-web-search-runtime">
             <div>
               <dt>{text("ocrEffectiveProvider")}</dt>
-              <dd>{view.documentOcr.effectiveProvider}</dd>
+              <dd>{formatOcrProvider(view.documentOcr.effectiveProvider)}</dd>
             </div>
             <div>
               <dt>{text("ocrKorean")}</dt>
@@ -179,7 +201,7 @@ export function DocumentOcrSettingsPanel({ client, auth }: Props) {
             </div>
             <div>
               <dt>{text("ocrRequestStateLabel")}</dt>
-              <dd>{view.documentOcr.requestState}</dd>
+              <dd>{formatOcrState(view.documentOcr.requestState)}</dd>
             </div>
           </dl>
           <div class="settings-web-search-warning" role="note">{text("ocrApprovalBoundary")}</div>

@@ -135,17 +135,19 @@
 }
 
 .dv2-summary a {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
   min-height: 58px;
-  padding: 7px 8px;
+  padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: var(--bg-subtle);
   color: var(--cs-text);
   text-decoration: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 .dv2-summary a:hover {
@@ -154,16 +156,23 @@
   color: var(--cs-text);
 }
 
+.dv2-summary a[data-active="true"] {
+  border-color: var(--cs-steel);
+  background: color-mix(in srgb, var(--cs-steel) 9%, var(--bg-elevated));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cs-steel) 28%, transparent);
+}
+
 .dv2-summary strong {
   font-family: "Segoe UI Variable Display", var(--cs-font);
   font-size: var(--cs-type-section-title-size);
   font-weight: 600;
+  line-height: 1.2;
 }
 
 .dv2-summary span {
   color: var(--cs-text-soft);
   font-size: var(--cs-type-compact-size);
-  line-height: 1.35;
+  line-height: 1.3;
   word-break: keep-all;
   overflow-wrap: break-word;
 }
@@ -203,6 +212,7 @@
 .dv2-panel-head {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
@@ -233,12 +243,13 @@
 .dv2-lenses {
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
+  align-items: center;
 }
 
 .dv2-panel-head > .dv2-controls {
-  gap: 0;
-  padding: 3px;
+  align-self: flex-start;
+  gap: 2px;
+  padding: 4px;
   border-radius: 6px;
   background: var(--bg-subtle);
 }
@@ -263,7 +274,9 @@
 
 .dv2-panel-head > .dv2-controls button,
 .dv2-lenses button {
+  height: 32px;
   min-height: 32px;
+  padding: 4px 12px;
   border-color: transparent;
   background: transparent;
   box-shadow: none;
@@ -315,6 +328,7 @@
   font-weight: 600;
 }
 
+.dv2-filters .searchable-select-input.cs-control-input,
 .dv2-filters .searchable-select-input,
 .dv2-filters input,
 .dv2-filters select {
@@ -337,6 +351,12 @@
   font-size: var(--cs-type-label-size);
 }
 
+.dv2-meta button.is-active {
+  border-color: var(--cs-steel);
+  color: var(--cs-steel);
+  background: color-mix(in srgb, var(--cs-steel) 6%, var(--bg-elevated));
+}
+
 .dv2-legend {
   display: flex;
   flex-wrap: wrap;
@@ -354,10 +374,19 @@
   background: transparent;
   color: var(--cs-text);
   font-size: var(--cs-type-label-size);
+  transition: opacity 120ms ease, border-color 120ms ease, background-color 120ms ease;
 }
 
 .dv2-legend button:has(.dv2-state) {
   padding: 0;
+}
+
+.dv2-legend[data-filtered="true"] button[aria-pressed="false"] {
+  opacity: .45;
+}
+
+.dv2-legend[data-filtered="true"] button[aria-pressed="false"]:hover {
+  opacity: .88;
 }
 
 .dv2-legend .dv2-state {
@@ -377,8 +406,8 @@
 
 .dv2-legend button[aria-pressed="true"] .dv2-state {
   box-shadow:
-    inset 0 0 0 1.5px currentColor,
-    0 1px 2px color-mix(in srgb, var(--fg) 8%, transparent);
+    inset 0 0 0 2px currentColor,
+    0 1px 3px color-mix(in srgb, var(--fg) 12%, transparent);
 }
 
 .dv2-state {
@@ -414,7 +443,7 @@
 }
 
 .dv2-state[data-tone="na"] {
-  background: transparent;
+  background: var(--bg-subtle);
   color: var(--cs-text-soft);
 }
 
@@ -445,13 +474,37 @@
 .dv2-attention > div {
   display: grid;
   justify-items: start;
-  gap: 4px;
+  align-content: start;
+  gap: 6px;
   padding-block: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--cs-terracotta) 14%, var(--dv2-border));
 }
 
 .dv2-attention > div > .dv2-note {
   margin: 0;
+}
+
+.dv2-attention-guide {
+  margin: 2px 0 4px;
+  color: var(--cs-text);
+  font-size: var(--cs-type-label-size);
+  line-height: 1.45;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.dv2-attention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.dv2-attention-actions .cs-control-button {
+  height: 28px;
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: var(--cs-type-label-size);
 }
 
 .dv2-attention > a {
@@ -586,6 +639,10 @@
   border-bottom: 1px solid var(--dv2-border);
 }
 
+.dv2-coverage dl > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .dv2-coverage dd {
   overflow-wrap: anywhere;
 }
@@ -606,6 +663,10 @@
 }
 
 @media (max-width: 1200px) {
+  .dv2-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
   .dv2-workspace {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -620,7 +681,7 @@
   .dv2-attention {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0 20px;
+    gap: 12px;
     background: var(--bg-elevated);
   }
 
@@ -631,7 +692,10 @@
   }
 
   .dv2-attention > div {
-    border-bottom: 0;
+    padding: 14px;
+    border: 1px solid var(--dv2-border);
+    border-radius: 6px;
+    background: var(--bg-subtle);
   }
 
   .dv2-inspector {
@@ -644,7 +708,7 @@
 
   .dv2-inspector header {
     position: sticky;
-    top: -24px;
+    top: 0;
     z-index: 1;
     padding-block: 8px;
     background: var(--bg-elevated);

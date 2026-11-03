@@ -48,7 +48,7 @@ function findSuggestions(options: readonly SearchableSelectOption[], query: stri
   const ordered = selected
     ? [selected, ...matches.filter((option) => option.value !== value)]
     : matches;
-  return { suggestions: ordered.slice(0, 12), total: matches.length };
+  return { suggestions: ordered.slice(0, 100), total: matches.length };
 }
 
 function revealHighlight(list: HTMLUListElement | null): void {

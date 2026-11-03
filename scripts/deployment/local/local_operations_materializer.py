@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shlex
 import subprocess
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -80,7 +81,7 @@ def _update_env_file_alert_scopes(env_path: Path, scopes_json: str) -> None:
         for line in env_path.read_text(encoding="utf-8").splitlines()
         if not line.startswith("FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON=")
     ]
-    lines.append(f"FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON={scopes_json}")
+    lines.append(f"FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON={shlex.quote(scopes_json)}")
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

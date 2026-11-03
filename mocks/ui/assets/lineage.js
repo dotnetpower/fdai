@@ -68,7 +68,8 @@
     const position = query ? value.toLowerCase().indexOf(query.toLowerCase()) : -1;
     return position < 0 ? escape(value) : `${escape(value.slice(0, position))}<mark>${escape(value.slice(position, position + query.length))}</mark>${escape(value.slice(position + query.length))}`;
   }
-  function searchCount() {
+  const kindIcons = { source: "Database", evidence: "FileText", normative: "BookOpen", type: "Layers", "resource-group": "Boxes", ontology: "Box", outcome: "ShieldCheck" };
+  const kindLabels = { source: "Source", evidence: "Evidence", normative: "Rules / knowledge", agent: "Agent execution", type: "Object Type", "resource-group": "ResourceType", ontology: "Ontology instance", outcome: "Decision" };
     const count = view === "graph" ? byId("lineageNodes").children.length : byId("lineageSources").querySelectorAll(".ln-source-row").length;
     byId("lineageMatchCount").textContent = `${count} matching ${view === "graph" ? "records" : "sources"}`;
     byId("lineageSearchClear").hidden = !byId("lineageSearch").value;
@@ -146,7 +147,11 @@
     byId("lineageNodes").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => {
       const symbol = nodeSymbol(node);
       const title = node.id === "arg" ? "Resource Graph" : node.title;
-      return `<button type="button" class="ln-node ${node.missing && !isComplete() ? "is-missing" : ""} ${hasGap(node) ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}" aria-label="${escape(`${node.title}, ${node.kind === "resource-group" ? "ResourceType" : node.kind}, ${status(node)}`)}" title="${escape(node.title)}"><span class="ln-node-heading">${symbol}<strong>${highlighted(title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><span class="ln-node-body"><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${escape(status(node))}</span></span></button>`;
+      const kindLabel = kindLabels[node.kind] || node.kind;
+      const inputs = graph.edges.filter(edge => edge[1] === node.id).length, outputs = graph.edges.filter(edge => edge[0] === node.id).length;
+      const missing = node.missing && !isComplete(), gap = hasGap(node);
+      const stateIcon = missing ? icon("TriangleAlert") : gap ? icon("Clock") : "";
+      return `<button type="button" class="ln-node ${missing ? "is-missing" : ""} ${gap ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}" aria-label="${escape(`${node.title}${node.members ? ` (${node.members.length} recorded)` : ""}, ${kindLabel}, ${status(node)}, ${inputs} inputs, ${outputs} outputs`)}" title="${escape(node.title)}"><span class="ln-node-heading">${symbol}<strong>${highlighted(title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><span class="ln-node-body"><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${stateIcon}${escape(status(node))}</span></span></button>`;
     }).join("");
     byId("lineageEdges").querySelectorAll(".ln-edge").forEach(edge => edge.remove());
     const shownEdges = graph.edges.filter(edge => visible.has(edge[0]) && visible.has(edge[1]));
@@ -169,10 +174,17 @@
     const visibleGroups = graph.groups.filter(group => visible.has(group.id));
     const visibleInstances = graph.nodes.filter(node => visible.has(node.id) && node.kind === "ontology" && node.objectType === "Resource");
     byId("lineageCount").textContent = `${visibleGroups.length} ResourceTypes / ${visibleGroups.reduce((sum, group) => sum + group.members.length, 0)} represented Resources / ${visibleInstances.length} expanded / ${shownEdges.length} connections`;
-    byId("caseState").textContent = isComplete() ? "Evaluated - shadow review only" : "Held - missing log evidence";
-    byId("lineageCompactState").textContent = isComplete() ? "Shadow review" : "Held";
+    const complete = isComplete();
+    byId("caseState").textContent = complete ? "Evaluated - shadow review only" : "Held - missing log evidence";
+    byId("caseState").className = complete ? "ln-success" : "ln-warning";
+    byId("lineageCompactState").textContent = complete ? "Shadow review" : "Held";
+    byId("lineageCompactState").className = complete ? "ln-success" : "ln-warning";
+    byId("lineageCaseReason").textContent = complete ? "No action dispatched. The log window is present in this alternate snapshot; evaluation stays shadow-only without approval or effect verification." : "No action dispatched. The required log window is unresolved, so Forseti keeps the case on hold.";
+    byId("lineageCaseGap").textContent = complete ? "0 required inputs unavailable" : "1 required input unavailable";
+    byId("lineageCaseGapDetail").textContent = complete ? "Log Analytics window 10:37-10:42 UTC recorded" : "Log Analytics window 10:37-10:42 UTC";
+    byId("lineageLayout").dataset.scenario = complete ? "complete" : "held";
     const selectedRecord = lookup.get(selected);
-    byId("lineageSelection").innerHTML = `${nodeSymbol(selectedRecord)}<strong>${escape(selectedRecord.title)}</strong><span>${graph.edges.filter(edge => edge[1] === selected).length} inputs / ${graph.edges.filter(edge => edge[0] === selected).length} outputs</span>`;
+    byId("lineageSelection").innerHTML = `${nodeSymbol(selectedRecord)}<strong>${escape(selectedRecord.title)}</strong><span class="ln-selection-kind">${escape(kindLabels[selectedRecord.kind] || selectedRecord.kind)}</span><span>${graph.edges.filter(edge => edge[1] === selected).length} inputs / ${graph.edges.filter(edge => edge[0] === selected).length} outputs</span>`;
     byId("lineageRecordPicker").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<option value="${node.id}">${escape(node.title)}${node.members ? ` (${node.members.length})` : ""}</option>`).join("");
     byId("lineageRecordPicker").value = selected;
     byId("lineageRecordPicker").disabled = visible.size === 0;
@@ -194,7 +206,7 @@
     const expansion = groupId ? `<button type="button" class="ln-focus ln-expand" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${icon(expandedGroup === groupId ? "Minimize" : "Boxes")}${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
     const inspector = byId("lineageInspector");
     const changed = inspector.dataset.selection !== selected;
-    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${nodeSymbol(node)} ${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${escape(status(node))}</strong>${health}${expansion}<p>${escape(detail)}</p></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div><button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div>`;
+    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${nodeSymbol(node)} ${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${hasGap(node) ? icon(node.missing && !isComplete() ? "TriangleAlert" : "Clock") : icon("Check")}${escape(status(node))}</strong>${health}<p>${escape(detail)}</p></div><div class="ln-inspector-actions">${expansion}<button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div>`;
     inspector.dataset.selection = selected;
     if (changed) inspector.scrollTop = 0;
   }
@@ -373,6 +385,9 @@
   compactViewport.addEventListener("change", event => { byId("lineageCaseDetails").open = !event.matches; });
   render();
   fitGraph();
+  const skeleton = byId("lineageSkeleton");
+  skeleton.setAttribute("aria-busy", "false");
+  skeleton.hidden = true;
   restorePreview();
   window.addEventListener("pagehide", savePreview);
 }());

@@ -470,9 +470,13 @@ def make_runtime_settings_routes(
             "selected_channel_ids",
             "delivery_targets",
             "remove_channel_id",
+            "rename_channel_id",
+            "test_channel_id",
             "email_recipient_mode",
             "custom_email",
             "selection_only",
+            "clear_binding",
+            "test_email",
         }
         unknown = sorted(set(body) - allowed_fields)
         missing = sorted({"request_id", "webhook_url"} - set(body))
@@ -501,6 +505,14 @@ def make_runtime_settings_routes(
         raw_remove = body.get("remove_channel_id")
         if raw_remove is not None and (not isinstance(raw_remove, str) or not raw_remove.strip()):
             return error_response(400, "remove_channel_id MUST be a non-empty string")
+        raw_rename = body.get("rename_channel_id")
+        if raw_rename is not None and (not isinstance(raw_rename, str) or not raw_rename.strip()):
+            return error_response(400, "rename_channel_id MUST be a non-empty string")
+        raw_test_ch = body.get("test_channel_id")
+        if raw_test_ch is not None and (
+            not isinstance(raw_test_ch, str) or not raw_test_ch.strip()
+        ):
+            return error_response(400, "test_channel_id MUST be a non-empty string")
         raw_email_mode = body.get("email_recipient_mode")
         if raw_email_mode is not None and raw_email_mode not in {"login", "custom"}:
             return error_response(400, "email_recipient_mode MUST be login or custom")
@@ -512,6 +524,12 @@ def make_runtime_settings_routes(
         raw_selection_only = body.get("selection_only", False)
         if not isinstance(raw_selection_only, bool):
             return error_response(400, "selection_only MUST be a boolean")
+        raw_clear_binding = body.get("clear_binding", False)
+        if not isinstance(raw_clear_binding, bool):
+            return error_response(400, "clear_binding MUST be a boolean")
+        raw_test_email = body.get("test_email", False)
+        if not isinstance(raw_test_email, bool):
+            return error_response(400, "test_email MUST be a boolean")
         try:
             result = await teams_workflow_tester.save_and_test(
                 TeamsWorkflowTestCommand(
@@ -530,6 +548,8 @@ def make_runtime_settings_routes(
                         else None
                     ),
                     remove_channel_id=raw_remove.strip() if isinstance(raw_remove, str) else None,
+                    rename_channel_id=raw_rename.strip() if isinstance(raw_rename, str) else None,
+                    test_channel_id=raw_test_ch.strip() if isinstance(raw_test_ch, str) else None,
                     email_recipient_mode=(
                         raw_email_mode if isinstance(raw_email_mode, str) else None
                     ),
@@ -537,6 +557,8 @@ def make_runtime_settings_routes(
                         raw_custom_email.strip() if isinstance(raw_custom_email, str) else None
                     ),
                     selection_only=raw_selection_only,
+                    clear_binding=raw_clear_binding,
+                    test_email=raw_test_email,
                 )
             )
         except ValueError as exc:

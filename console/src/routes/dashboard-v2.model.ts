@@ -394,16 +394,140 @@ export function dashboardStatusFilter(value: string | null): DashboardFilters["s
     ? value as DashboardFilters["status"] : "";
 }
 
-export function dashboardLens(value: string | null, hasServing = true): DashboardLens {
+export function dashboardLens(
+  value: string | null,
+  hasServing = true,
+  state: string | null = null,
+): DashboardLens {
   if (value === "serving" && !hasServing) return "resource";
-  return value === "resource"
+  if (
+    value === "resource"
     || value === "operation"
     || value === "provisioning"
     || value === "serving"
     || value === "availability"
     || value === "observation"
-    ? value
-    : "resource";
+  ) {
+    return value;
+  }
+  if (state === "known" || state === "not-provided" || state === "not-applicable") {
+    return "operation";
+  }
+  return "resource";
+}
+
+const TONE_PRIORITY: Readonly<Record<DashboardTone, number>> = {
+  negative: 0,
+  attention: 1,
+  active: 2,
+  neutral: 3,
+  unknown: 4,
+  na: 5,
+};
+
+/** Orders state filter chips by operational severity first, then descending count. */
+export function dashboardLegendEntries(
+  counts: ReadonlyMap<DashboardState, number>,
+): readonly [DashboardState, number][] {
+  return [...counts.entries()].sort(([leftState, leftCount], [rightState, rightCount]) => {
+    const leftTone = TONE_PRIORITY[STATE_STYLE[leftState].tone];
+    const rightTone = TONE_PRIORITY[STATE_STYLE[rightState].tone];
+    if (leftTone !== rightTone) return leftTone - rightTone;
+    if (leftCount !== rightCount) return rightCount - leftCount;
+    return leftState.localeCompare(rightState);
+  });
+}
+
+export type DashboardHighlightGuideKey =
+  | DashboardUnknownReason
+  | "checkGuideUnknown"
+  | "checkGuideFailed"
+  | "checkGuideTransitioning"
+  | "checkGuideAttention";
+
+export interface DashboardHighlight {
+  readonly resource: DashboardResource;
+  readonly lens: DashboardLens;
+  readonly state: DashboardState;
+  readonly guideKey: DashboardHighlightGuideKey;
+  readonly stateCount: number;
+}
+
+/** Selects up to maxItems high-priority resources with actionable guidance and state counts. */
+export function dashboardAttentionHighlights(
+  resources: readonly DashboardResource[],
+  snapshot: DashboardSnapshot,
+  maxItems = 3,
+): readonly DashboardHighlight[] {
+  const repCounts = dashboardCounts(resources, snapshot, "resource");
+  const opCounts = dashboardCounts(resources, snapshot, "operation");
+  const unknownBucket: DashboardHighlight[] = [];
+  const failedBucket: DashboardHighlight[] = [];
+  const attentionBucket: DashboardHighlight[] = [];
+
+  for (const resource of resources) {
+    const repState = dashboardResourceState(resource, snapshot, "resource");
+    const opState = dashboardResourceState(resource, snapshot, "operation");
+    if (repState === "unknown") {
+      unknownBucket.push({
+        resource,
+        lens: "resource",
+        state: "unknown",
+        guideKey: dashboardUnknownReason(resource, snapshot) ?? "checkGuideUnknown",
+        stateCount: repCounts.get("unknown") ?? 1,
+      });
+    } else if (
+      repState === "failed"
+      || repState === "disconnected"
+      || repState === "rejected"
+      || repState === "unavailable"
+    ) {
+      failedBucket.push({
+        resource,
+        lens: "resource",
+        state: repState,
+        guideKey: "checkGuideFailed",
+        stateCount: repCounts.get(repState) ?? 1,
+      });
+    } else if (opState === "transitioning") {
+      attentionBucket.push({
+        resource,
+        lens: "operation",
+        state: "transitioning",
+        guideKey: "checkGuideTransitioning",
+        stateCount: opCounts.get("transitioning") ?? 1,
+      });
+    } else if (repState === "degraded" || repState === "unattached" || repState === "limited") {
+      attentionBucket.push({
+        resource,
+        lens: "resource",
+        state: repState,
+        guideKey: "checkGuideAttention",
+        stateCount: repCounts.get(repState) ?? 1,
+      });
+    }
+  }
+
+  const selected: DashboardHighlight[] = [];
+  const seen = new Set<string>();
+  const buckets = [unknownBucket, failedBucket, attentionBucket];
+  for (const bucket of buckets) {
+    const first = bucket[0];
+    if (first && selected.length < maxItems && !seen.has(first.resource.id)) {
+      selected.push(first);
+      seen.add(first.resource.id);
+    }
+  }
+  for (const bucket of buckets) {
+    for (const item of bucket) {
+      if (selected.length >= maxItems) break;
+      if (!seen.has(item.resource.id)) {
+        selected.push(item);
+        seen.add(item.resource.id);
+      }
+    }
+  }
+  return selected;
 }
 
 export function dashboardScope(resources: readonly DashboardResource[], filters: DashboardFilters, includeType = true): readonly DashboardResource[] {
