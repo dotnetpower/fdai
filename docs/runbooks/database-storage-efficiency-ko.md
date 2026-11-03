@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: dd7b9e96726f263c4855ff5bcf99fc36b4ad3d8c
+translation_source_sha: 637ce5968888335511646f61e6f1aac457613c93
 translation_revised: 2026-11-03
 ---
 # 데이터베이스 저장 공간 증가 진단
@@ -154,7 +154,7 @@ Heimdall 체크포인트 행이 여러 개 쌓였습니다. 이제 Inventory Job
 모든 Resource를 다시 보내는 전체 전달을 여전히 수행합니다.
 `FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS`를 0 이상 604800 이하의 정수(초)로
 설정하세요. 기본값은 21600(6시간)이며 `0`이면 생략하지 않고 모든 generation이 모든
-Resource를 보냅니다. 이벤트 식별자, 형태, shadow 모드 권한은 바뀌지 않고, 변경된 Resource의
+Resource를 보냅니다. 이벤트 식별자, 형태, 관찰 모드(`shadow-mode`) 권한은 바뀌지 않고, 변경된 Resource의
 규칙 평가도 그대로이며, Forseti 기준선 평가는 여전히 완전한 generation을 다룹니다.
 
 또한 Huginn이 자신의 generation 범위 키로만 상관시킨 전체 정합성 관측은 Heimdall이 더 이상
