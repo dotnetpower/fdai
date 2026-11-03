@@ -60,7 +60,11 @@ The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate 
 development tool, not an installed runtime component in either profile. Registering its source
 root for repository checks neither selects a runtime platform nor activates Cost Governance.
 Its metadata publication and pinned export tests are not evidence of an Azure deployment,
-production catalog trust, artifact availability, or a completed FDAI workload installation.
+production catalog trust, artifact availability, or a completed FDAI workload installation. When a
+verified Hub-signed Stencil Release (`lite-observe-alert`) omits optional `document-ingestion-api`,
+`document-processing-worker`, `clamav`, or `isolated-executor` images, AKS application preparation
+in `standalone_host.py` renders only the Stencil-included workloads (`core-control-plane` and
+`operator-service`) without requiring omitted document or executor identities.
 
 Both profiles bind explicit Operator discussion only when the independently configured verifier,
 current grant-registry pin, installation reference and exact installation read scope exist.

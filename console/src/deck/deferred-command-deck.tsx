@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import { offerProactiveHandover } from "../handover-invitation";
 import { t } from "../i18n";
+import { isPanelRegistered } from "../router";
 import {
   hasPendingDeckOpen,
   openDeckWithContext,
@@ -25,6 +26,7 @@ export function DeferredCommandDeck({
   const [requested, setRequested] = useState(hasPendingDeckOpen);
 
   useEffect(() => {
+    if (!isPanelRegistered("handover")) return;
     const storage = typeof window === "undefined" ? null : window.sessionStorage;
     void offerProactiveHandover(client, storage).catch((error: unknown) => {
       console.warn("proactive_handover_unavailable", {

@@ -1009,8 +1009,21 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
     )
+    raw_refs = context.get("image_refs")
+    hub_ref_keys = (
+        frozenset(raw_refs)
+        if context.get("artifact_source") == "hub-signed-images" and isinstance(raw_refs, dict)
+        else None
+    )
+    executor_workload_selected = governed_execution_selected and (
+        hub_ref_keys is None or "isolated-executor" in hub_ref_keys
+    )
+    document_workloads_selected = console_selected and (
+        hub_ref_keys is None
+        or {"document-ingestion-api", "document-processing-worker", "clamav"}.issubset(hub_ref_keys)
+    )
     backend_nsg_id = standalone_host_values.require_browser_gateway_backend_nsg(
-        enabled=console_selected,
+        enabled=document_workloads_selected,
         backend_nsg_id=_subnet_network_security_group(
             str(substrate_outputs["aks_subnet_id"]),
             context=context,
@@ -1030,12 +1043,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     core_identity = _mapping(identities.get("core"), "core runtime identity")
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
-    executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
+    executor_identity = _selected_identity(identities, "executor", executor_workload_selected)
     notification_identity = _selected_identity(identities, "notification", notifications_selected)
     inventory_identity = _mapping(identities.get("inventory"), "inventory runtime identity")
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
-    ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
-    ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
+    ingestion_identity = _selected_identity(identities, "ingestion", document_workloads_selected)
+    ingestion_worker_identity = _selected_identity(
+        identities, "ingestion_worker", document_workloads_selected
+    )
     core_environment = standalone_host_values.aks_core_environment(
         context=context,
         application_values=application_values,
@@ -1120,7 +1135,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             service_port=80,
             additional_identities={"command": command_identity},
         )
-    if governed_execution_selected:
+    if executor_workload_selected:
         workloads["isolated-executor"] = _aks_workload(
             "executor",
             refs,
@@ -1145,7 +1160,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
             "/ready",
             "/live",
         )
-    if console_selected:
+    if document_workloads_selected:
         workloads.update(
             _aks_document_workloads(
                 refs=refs,
@@ -1198,7 +1213,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         "workloads": workloads,
         "scheduled_jobs": scheduled_jobs,
         "browser_gateway": {
-            "enabled": console_selected,
+            "enabled": document_workloads_selected,
             "resource_group_name": resource_group,
             "location": application_values["region"],
             "workload": application_values["workload"],

@@ -77,8 +77,16 @@ describe("stencil-panels", () => {
     expect(transformed).not.toContain('import("./routes/cost-governance")');
     expect(transformed).not.toContain('import("./routes/gpu-monitoring")');
     expect(transformed).not.toContain('import("./routes/knowledge-domain")');
+    expect(transformed).not.toContain("function knowledgeSourcePanel(");
     expect(transformed).not.toContain('import("./routes/code-security")');
     expect(transformed).not.toContain('import("./routes/workflow-builder")');
     expect(transformed).not.toContain('import("./routes/analytics-hubs")');
+
+    // When a knowledgeSourcePanel(...) entry (e.g. "github") is enabled without "documents",
+    // both `knowledgeSourcePanel` and `KnowledgeDomainRoute` remain intact.
+    const githubOnly = parseStencilEnabledPanelIds("dashboard,audit,settings-general,github");
+    const githubTransformed = transformPanelsSourceForStencil(rawPanelsTsx, githubOnly);
+    expect(githubTransformed).toContain("function knowledgeSourcePanel(");
+    expect(githubTransformed).toContain('import("./routes/knowledge-domain")');
   });
 });

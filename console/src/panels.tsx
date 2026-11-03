@@ -31,6 +31,7 @@ import type { AuthContext } from "./auth";
 import type { ConsoleDataMode } from "./console-data-mode";
 import { t } from "./i18n";
 import { alertQualityNavText } from "./routes/i18n/alert-quality-nav";
+import { filterPanelsByStencil } from "./stencil-panels";
 
 function lazyRoute<K extends string, M extends Record<K, ComponentType<PanelProps>>>(
   load: () => Promise<M>,
@@ -718,7 +719,7 @@ export const EXTRA_PANELS: readonly ConsolePanel[] = [];
 
 /** All panels the running console exposes (core first, then fork panels). */
 export function resolvePanels(): readonly ConsolePanel[] {
-  return validatePanelRegistry([...CORE_PANELS, ...EXTRA_PANELS]);
+  return filterPanelsByStencil(validatePanelRegistry([...CORE_PANELS, ...EXTRA_PANELS]));
 }
 
 export function validatePanelRegistry(panels: readonly ConsolePanel[]): readonly ConsolePanel[] {

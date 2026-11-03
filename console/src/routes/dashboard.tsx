@@ -12,7 +12,7 @@ import {
 import { type ViewFact, usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
-import { routeHref } from "../router";
+import { isPanelRegistered, routeHref } from "../router";
 import {
   auditSampleParams,
   formatShare,
@@ -99,13 +99,15 @@ export function DashboardRoute({ client, dataMode }: Props) {
         title={t("route.dashboard")}
         subtitle={tDashboard("subtitle")}
         actions={
-          <a
-            class="cs-control-button overview-resource-dashboard-link"
-            href={resourceDashboardHref(dataMode)}
-          >
-            <ResourceDashboardIcon />
-            <span>{tDashboard("resources")}</span>
-          </a>
+          isPanelRegistered("dashboard-v2") ? (
+            <a
+              class="cs-control-button overview-resource-dashboard-link"
+              href={resourceDashboardHref(dataMode)}
+            >
+              <ResourceDashboardIcon />
+              <span>{tDashboard("resources")}</span>
+            </a>
+          ) : undefined
         }
       />
       <AsyncBoundary state={state} resourceLabel="overview" loading={<DashboardSkeleton />}>
@@ -122,7 +124,15 @@ export function DashboardRoute({ client, dataMode }: Props) {
             setState({ status: "loading" });
             setAttempt((value) => value + 1);
           }}>{tDashboard("retry")}</button>
-          <a href={routeHref("settings-diagnostics")}>{tDashboard("diagnostics")}</a>
+          <a
+            href={routeHref(
+              isPanelRegistered("settings-diagnostics")
+                ? "settings-diagnostics"
+                : "settings-general",
+            )}
+          >
+            {tDashboard("diagnostics")}
+          </a>
         </div>
       )}
     </div>
