@@ -8,7 +8,7 @@ import {
   type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
 } from "./api";
 import { DeploymentRequests } from "./deployment-requests";
-import { ReleaseLineageSection } from "./release-lineage";
+import { nextSuggestedSemVer, ReleaseLineageSection } from "./release-lineage";
 import { ReleaseWorkspace } from "./release-workspace";
 import { StencilBuilder } from "./stencil-builder";
 
@@ -63,14 +63,6 @@ const ACTION_LABELS_KO: Record<string, string> = {
   lift_capability: "기능 리콜 해제 (lift_capability)",
   renew: "카탈로그 유효기간 연장 (renew)",
 };
-function nextSuggestedSemVer(releases: readonly Release[]): string {
-  let maxMinor = 7;
-  for (const r of releases) {
-    const m = /^1\.(\d+)\.0$/.exec(r.id.trim());
-    if (m) maxMinor = Math.max(maxMinor, Number.parseInt(m[1]!, 10));
-  }
-  return `1.${maxMinor + 1}.0`;
-}
 type Pending = { action: Action; release: Release | null };
 type RegistrationDraft = Pick<Release, "id" | "label" | "manifest">;
 type ConfirmationState = {
@@ -222,7 +214,21 @@ function Confirm({ pending, catalog, locale, registration, setRegistration, clos
             </button>
           </div>
         </div>
-        <label>{t("Release id (SemVer)", "릴리스 버전 ID (SemVer)")}<input required aria-label="Release id (SemVer)" value={id} onInput={(e) => setRegistration({ ...registration, id: e.currentTarget.value })} placeholder="1.10.0" /></label>
+        <label>
+          {t("Release id (SemVer - defaults to next patch 0.5.x)", "릴리스 버전 ID (SemVer - 기본값: 다음 하위 패치 버전)")}
+          <input required aria-label="Release id (SemVer)" value={id} onInput={(e) => setRegistration({ ...registration, id: e.currentTarget.value })} placeholder={nextSuggestedSemVer(catalog.releases, "patch")} />
+        </label>
+        <div class="quick-chips">
+          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "patch"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+            {t(`Patch update (${nextSuggestedSemVer(catalog.releases, "patch")})`, `하위 패치 업데이트 (${nextSuggestedSemVer(catalog.releases, "patch")})`)}
+          </button>
+          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "minor"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+            {t(`Minor upgrade (${nextSuggestedSemVer(catalog.releases, "minor")})`, `마이너 버전 업그레이드 (${nextSuggestedSemVer(catalog.releases, "minor")})`)}
+          </button>
+          <button type="button" class="chip-btn" onClick={() => { const v = nextSuggestedSemVer(catalog.releases, "major"); setRegistration({ ...registration, id: v }); setConfirmation(v); }}>
+            {t(`Major upgrade (${nextSuggestedSemVer(catalog.releases, "major")})`, `메이저 버전 업그레이드 (${nextSuggestedSemVer(catalog.releases, "major")})`)}
+          </button>
+        </div>
         <label>{t("Release label (optional)", "릴리스 설명 라벨 (선택)")}<input maxLength={160} value={label} onInput={(e) => setRegistration({ ...registration, label: e.currentTarget.value })} /></label>
         <label>{t("Lifecycle release manifest", "릴리스 매니페스트 (JSON)")}<textarea required rows={6} spellcheck={false} value={manifest} onInput={(e) => setRegistration({ ...registration, manifest: e.currentTarget.value })} /></label>
       </>}
@@ -533,7 +539,7 @@ function CapabilityRecallControl({
               required
               value={liftingReleaseId}
               onInput={(e) => setLiftingReleaseId(e.currentTarget.value)}
-              placeholder="1.8.0"
+              placeholder="0.5.0"
             />
           </label>
         )}

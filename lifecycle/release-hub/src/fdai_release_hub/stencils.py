@@ -1405,7 +1405,7 @@ class StencilComposeRequest(BaseModel):
     requested_loops: tuple[str, ...] = LOCKED_CORE_LOOPS
     requested_addons: tuple[str, ...] = LOCKED_CORE_ADDONS
     auto_resolve_dependencies: bool = True
-    release_version: str = Field(default="1.7.0", min_length=1, max_length=64)
+    release_version: str = Field(default="0.5.0", min_length=1, max_length=64)
     source_commit: str = Field(default="auto", min_length=0, max_length=64)
 
 

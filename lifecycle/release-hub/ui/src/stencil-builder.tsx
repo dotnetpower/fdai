@@ -11,6 +11,7 @@ import {
   type StencilDefinitionRecord,
   type StencilPanelDescriptor,
 } from "./api";
+import { nextSuggestedSemVer } from "./release-lineage.model";
 
 const GROUP_ORDER = [
   "overview",
@@ -255,13 +256,22 @@ export function StencilBuilder({
   const [selectedLoops, setSelectedLoops] = useState<string[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
   const [autoResolve, setAutoResolve] = useState(true);
-  const [releaseVersion, setReleaseVersion] = useState("1.7.0");
+  const [releaseVersion, setReleaseVersion] = useState(() =>
+    nextSuggestedSemVer(existingReleases, "patch"),
+  );
+  const [versionEdited, setVersionEdited] = useState(false);
   const [sourceMode, setSourceMode] = useState<string>("auto");
   const [sourceCommit, setSourceCommit] = useState("auto");
   const [customCommitInput, setCustomCommitInput] = useState("");
   const [composed, setComposed] = useState<StencilComposeResult | null>(null);
   const [menuQuery, setMenuQuery] = useState("");
   const [showSelectedOnly, setShowSelectedOnly] = useState(false);
+
+  useEffect(() => {
+    if (!versionEdited) {
+      setReleaseVersion(nextSuggestedSemVer(existingReleases, "patch"));
+    }
+  }, [existingReleases, versionEdited]);
 
   const releaseProvenanceList = useMemo(() => {
     const items: { id: string; label: string; commit: string }[] = [];
@@ -642,15 +652,60 @@ export function StencilBuilder({
                     </select>
                   </label>
                   <label>
-                    {t("Target Release version (SemVer)", "대상 릴리스 버전 (SemVer)")}
+                    {t("Target Release version (SemVer - defaults to patch)", "대상 릴리스 버전 (SemVer - 기본 하위 패치 증가)")}
                     <input
                       required
                       value={releaseVersion}
                       onInput={(e) => {
+                        setVersionEdited(true);
                         setReleaseVersion(e.currentTarget.value);
                         setComposed(null);
                       }}
                     />
+                    <div class="quick-chips">
+                      <button
+                        type="button"
+                        class="chip-btn"
+                        onClick={() => {
+                          setVersionEdited(false);
+                          setReleaseVersion(nextSuggestedSemVer(existingReleases, "patch"));
+                          setComposed(null);
+                        }}
+                      >
+                        {t(
+                          `Patch (${nextSuggestedSemVer(existingReleases, "patch")})`,
+                          `하위 패치 (${nextSuggestedSemVer(existingReleases, "patch")})`,
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        class="chip-btn"
+                        onClick={() => {
+                          setVersionEdited(true);
+                          setReleaseVersion(nextSuggestedSemVer(existingReleases, "minor"));
+                          setComposed(null);
+                        }}
+                      >
+                        {t(
+                          `Minor upgrade (${nextSuggestedSemVer(existingReleases, "minor")})`,
+                          `마이너 업그레이드 (${nextSuggestedSemVer(existingReleases, "minor")})`,
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        class="chip-btn"
+                        onClick={() => {
+                          setVersionEdited(true);
+                          setReleaseVersion(nextSuggestedSemVer(existingReleases, "major"));
+                          setComposed(null);
+                        }}
+                      >
+                        {t(
+                          `Major upgrade (${nextSuggestedSemVer(existingReleases, "major")})`,
+                          `메이저 업그레이드 (${nextSuggestedSemVer(existingReleases, "major")})`,
+                        )}
+                      </button>
+                    </div>
                   </label>
                   <label>
                     {t("Source commit provenance", "소스 커밋 출처 (자동 바인딩)")}

@@ -20,6 +20,7 @@ export {
   CARD_WIDTH,
   COL_GAP,
   compareSemVer,
+  nextSuggestedSemVer,
   PAD_X,
   PAD_Y,
   parseSemVerTuple,

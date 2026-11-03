@@ -134,6 +134,28 @@ export function compareSemVer(a: string, b: string): number {
   return aPre.localeCompare(bPre);
 }
 
+export function nextSuggestedSemVer(
+  releases: readonly Pick<Release, "id">[],
+  bump: "patch" | "minor" | "major" = "patch",
+): string {
+  if (releases.length === 0) {
+    return "0.5.0";
+  }
+  const sorted = [...releases].sort((a, b) => compareSemVer(a.id, b.id));
+  const latest = sorted[sorted.length - 1]!;
+  const [maj, min, pat] = parseSemVerTuple(latest.id);
+  if (bump === "major") {
+    return `${maj + 1}.0.0`;
+  }
+  if (bump === "minor") {
+    return `${maj}.${min + 1}.0`;
+  }
+  if (maj === 0 && min < 5) {
+    return "0.5.0";
+  }
+  return `${maj}.${min}.${pat + 1}`;
+}
+
 export function resolveReleaseNodeStatus(
   release: Release,
   catalog: Catalog,

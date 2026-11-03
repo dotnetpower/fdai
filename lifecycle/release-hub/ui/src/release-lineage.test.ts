@@ -5,6 +5,7 @@ import {
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   compareSemVer,
+  nextSuggestedSemVer,
   parseSemVerTuple,
   resolveReleaseNodeStatus,
 } from "./release-lineage";
@@ -189,5 +190,14 @@ describe("release lineage LR graph", () => {
     expect(branched.pathD).toContain("Q ");
     expect(branched.pathD.endsWith("L 245 195")).toBe(true);
     expect(branched.arrowD).toContain("L 245.5 195");
+  });
+
+  it("defaults to 0.5.0 and increments only patch (0.5.1, 0.5.2) unless minor/major is explicitly requested", () => {
+    expect(nextSuggestedSemVer([])).toBe("0.5.0");
+    expect(nextSuggestedSemVer([{ id: "0.3.0" }, { id: "0.4.0" }])).toBe("0.5.0");
+    expect(nextSuggestedSemVer([{ id: "0.4.0" }, { id: "0.5.0" }])).toBe("0.5.1");
+    expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.1" }])).toBe("0.5.2");
+    expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.2" }], "minor")).toBe("0.6.0");
+    expect(nextSuggestedSemVer([{ id: "0.5.0" }, { id: "0.5.2" }], "major")).toBe("1.0.0");
   });
 });
