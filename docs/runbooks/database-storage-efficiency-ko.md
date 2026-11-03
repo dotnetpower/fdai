@@ -1,7 +1,7 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 45824cd868739a4569ac760ee43f3c9ac465439c
-translation_revised: 2026-10-31
+translation_source_sha: 973a7eb43783e54eb7bbcf7feab56b399b48addf
+translation_revised: 2026-11-03
 ---
 # 데이터베이스 저장 공간 증가 진단
 
@@ -115,6 +115,51 @@ v2 버킷을 읽지만 이전 판독기는 페이지 노드를 지원하지 않�
 `FDAI_SERVICE_MIGRATIONS_READY=1`을 지정하세요. 이 플래그가 마이그레이션을
 실행하지는 않습니다. CI는 레거시 스키마 단계가 아닌 서비스 소유 DB 단계에서
 두 테스트 파일을 명시적으로 실행합니다.
+
+## 대체된 Heimdall 체크포인트 행 회수
+
+Heimdall 감지 체크포인트는 쓰기 시 복사 방식입니다. 변경된 노드, manifest, episode마다
+새 `state_kv` 행이 만들어지고 루트는 최신 행만 가리킵니다. 상세 보고서의 고정 계열
+`heimdall_versions`, `heimdall_manifests`, `heimdall_episodes`는 대체된 복구 상태가 얼마나
+쌓였는지 보여 줍니다. 보고서는 행 수와 항목 바이트 기준으로 가장 큰 `audit_families`도 함께
+나열하므로 반복 이벤트를 체크포인트 상태와 나란히 볼 수 있습니다.
+
+실행 중인 Heimdall은 유지관리 틱에서 범위가 제한된 배치로 이 행을 회수합니다. 인정된 버전
+체크포인트가 도달할 수 없고, 한 시간 동안 쓰이지 않았으며, 저장소의 루트가 메모리의 루트와
+같고, 체크포인트 기록기가 유휴 상태일 때만 행을 삭제합니다. 레거시 레이아웃, 검증할 수 없는
+루트, 나이 기준 키 읽기를 지원하지 않는 저장소는 회수하지 않습니다.
+
+유지관리 틱을 기다리지 않고 기존 적체를 정리하려면 서비스 밖에서 같은 규칙을 미리 보고
+적용하세요. 미리 보기는 접두사별 회수 가능한 행 수와 값 바이트를 보고합니다.
+
+```bash
+uv run python scripts/deployment/local/compact-local-database.py
+uv run python scripts/deployment/local/compact-local-database.py --apply --vacuum
+```
+
+명령은 복구와 똑같이 저장된 루트에서 출발해 도달 가능한 행을 확인합니다. 루트, manifest,
+참조된 노드 중 하나라도 읽을 수 없으면 `unverifiable`을 보고하고 아무것도 삭제하지 않습니다.
+일반 vacuum은 공간을 재사용할 수 있게 하며, `--vacuum-full`은 위에서 설명한 유지관리 시간에만
+사용하세요. 이 정리는 원장 감사 행을 건드리지 않습니다.
+
+## 반복되는 인벤토리 관측 제한
+
+승격된 인벤토리 generation은 모두 완전한 관측이며, 이전에는 Resource에 아무 변화가 없어도
+Resource마다 새 `inventory.resource_observed` 이벤트가 만들어졌습니다. 이벤트마다 감사 행과
+Heimdall 체크포인트 행이 여러 개 쌓였습니다. 이제 Inventory Job은 유형, 공급자 참조,
+속성 digest, 속성 신선도 메타데이터가 직전 완전 전달 generation과 같은 Resource를 보내지
+않습니다. 수집 시각만 바뀐 경우는 변경으로 보지 않습니다.
+
+직전 generation이 완전히 전달되지 않았거나, 기록된 전체 전달이 없거나, 간격이 지나면
+모든 Resource를 다시 보내는 전체 전달을 여전히 수행합니다.
+`FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS`를 0 이상 604800 이하의 정수(초)로
+설정하세요. 기본값은 21600(6시간)이며 `0`이면 생략하지 않고 모든 generation이 모든
+Resource를 보냅니다. 이벤트 식별자, 형태, shadow 모드 권한은 바뀌지 않고, 변경된 Resource의
+규칙 평가도 그대로이며, Forseti 기준선 평가는 여전히 완전한 generation을 다룹니다.
+
+또한 Huginn이 자신의 generation 범위 키로만 상관시킨 전체 정합성 관측은 Heimdall이 더 이상
+추적하지 않습니다. 이런 episode는 두 번째 이벤트를 모을 수 없기 때문입니다. 명시적으로
+공유하는 상관 식별자가 있는 관측은 계속 추적합니다.
 
 ## 삭제 가능한 개발 데이터베이스의 명시적 재생성
 

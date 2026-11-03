@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 3e1e81d0c4bd60a5a1b745ef004f9fd3ff31c441
-translation_revised: 2026-10-30
+translation_source_sha: f876eb02c7592115a6fec65426507b65c53d46b2
+translation_revised: 2026-11-03
 ---
 
 # 에이전트 판테온 구현 계획
@@ -140,6 +140,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-11-03 | implemented | 반복되는 전체 정합성 인벤토리 관측으로 인한 데이터베이스 증가를 제한했습니다. Inventory Job은 유형, 공급자 참조, 속성 digest, 속성 신선도 메타데이터가 직전 완전 전달 generation과 같은 Resource를 보내지 않습니다(수집 시각은 무시). 직전 전달이 불완전하거나 기록된 전체 전달이 없거나 `FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS`(기본값 21600, `0`이면 비활성화)가 지나면 전체 재전달하며, 이벤트 식별자, 형태, shadow 권한은 바뀌지 않습니다. Heimdall은 Huginn이 자신의 generation 범위 키로 자기 상관시킨 관측을 더 이상 추적하지 않고, 유지관리 틱에서 대체된 쓰기 시 복사 체크포인트 행을 검증된 버전 루트가 도달할 수 없고, 한 시간이 지났으며, 저장소의 루트가 메모리와 같고, 체크포인트 기록기가 유휴일 때만 회수합니다(`PostgresStateKeysetMixin.read_state_keys_before`, `heimdall_checkpoint_gc.py`). `compact-local-database.py`가 같은 도달성 규칙을 미리 보고 적용하며 증가 보고서에 `heimdall_versions`, `heimdall_manifests`, `huginn_ingress_dedup`, `audit_families`를 추가했습니다. | `current change`; delta, Heimdall 회수(정확한 복원, 나이, 불일치, 레거시 레이아웃, 미지원 저장소), 나이 기준 keyset PostgreSQL, compaction 테스트를 추가했고, Core agents, delivery, runtime, control-loop, persistence 테스트 13,561개가 통과했습니다(데이터베이스 스위트는 검증 데이터베이스 래퍼 사용). Ruff, mypy, agent import 경계 검사도 통과했습니다. 로컬 개발 데이터베이스에서 변경 없는 generation의 전달이 Resource 807개에서 99개로 줄었고, 정리로 도달 불가 행 341k개를 제거했으며 `state_kv`를 `VACUUM FULL`한 뒤 2,811 MiB에서 1,840 MiB로 줄었습니다. | 검증된 아카이브와 파티션 보존을 갖춘 핫/콜드 감사 계층화는 별도 설계가 필요해 남아 있습니다. 실행 중인 서비스는 재시작해야 이 변경을 불러옵니다. Saga는 수락한 이벤트마다 `audit.record`를 계속 하나씩 기록합니다. |
 | 2026-10-30 | implemented | Forseti의 no-rule-match 판정을 범위가 제한된 방식으로 집계하도록 구현했습니다. 영속 임시 저장, 감사 체인 원자 봉인, 대상별 감사 revision fence, inbox 복구와 완전성 health를 추가했습니다. 에이전트 역할, 토픽, 소유권, 작업 권한은 바꾸지 않았습니다. | `현재 변경`; `test_saga_verdict_aggregation.py` 9개 통과; `test_saga_audit_backpressure.py` 7개 통과; `test_framework_layout.py` 14개 통과; PostgreSQL pair-audit 통합 테스트 1개 통과; Ruff와 strict mypy 통과. | 패키지를 커밋하고 PR CI를 확인한 뒤 #2651 근거를 조정하고 이슈를 종료합니다. |
 | 2026-10-27 | implemented | Huginn의 제한된 대기 복구 패스에서 보존된 인벤토리 claim을 각각 독립적으로 재처리하도록 격리했습니다. 결정적으로 실패하는 claim 하나가 같은 페이지의 나머지 claim을 더 이상 막지 않습니다. 실패한 claim은 보존된 증거와 함께 대기 상태로 남고 `ingress_recovery:claim_failed`가 기록되며, 페이지 처리가 끝난 뒤 첫 실패를 다시 발생시킵니다. 역할, 토픽, 소유권, 권한은 바꾸지 않았습니다. | `현재 변경`; Huginn 복구 테스트 7개와 에이전트 레이아웃 테스트 통과; Ruff 검사와 형식 확인 통과. | 현재 incarnation이 없는 관측을 가진 claim의 격리 또는 타입 지정 거부, 그리고 로컬 인벤토리 스냅샷이 갱신되는지에 대한 라이브 확인. |
 | 2026-10-19 | implemented | 실행 계획의 타입 지정 메타데이터를 Operator와 Bragi를 거쳐 Norns의 이동 주간 집계 및 Mimir의 기존 후보 입력에 연결했습니다. 현재 게시 게이트, 원본 재현, 담당 원장 실패 재시도, 유한한 기한과 일반 답변의 전송 한도를 보존합니다. | `현재 변경`; 반복 질의, 의미 처리기 및 브리지, 학습, 발행, 초기화, 배치 및 일치 여부 선택자 571개 통과, 건너뛴 검사 없음; 실제 격리 PostgreSQL 시나리오 4개와 소스 10개의 mypy 통과 | 설치 환경 전송과 실제 집단을 검증해야 합니다. 일일 작업, 운영 결정과 상위 H02 안정화는 미완료로 유지합니다. |

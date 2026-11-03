@@ -2,7 +2,8 @@
 """Apply the state retention bounds to the loopback development database.
 
 The default run only reports how many rows each bound would remove. ``--apply`` deletes the
-oldest rows past each bound, using the same newest-N windows the running services use, and
+oldest rows past each bound, using the same newest-N windows the running services use, removes
+Heimdall checkpoint rows the stored root cannot reach (older than one hour only), and
 ``--vacuum`` runs ordinary vacuum; ``--vacuum-full`` explicitly requests a table rewrite.
 Only loopback port 5432 database
 ``fdai`` is accepted, and no connection value is printed. Evidence tables, the audit log, and
@@ -16,6 +17,7 @@ import asyncio
 import json
 import os
 import sys
+from datetime import UTC, datetime
 
 import psycopg
 from fdai.agents import (
@@ -24,6 +26,11 @@ from fdai.agents import (
     BASELINE_EVALUATION_OUTCOME_PREFIX,
     NO_RULE_FOLD_PREFIX,
     NO_RULE_FOLD_RETENTION,
+)
+from fdai.agents._framework.heimdall_checkpoint_gc import (
+    MIN_ROW_AGE,
+    SCANNED_PREFIXES,
+    reachable_from_store,
 )
 from fdai.delivery.aks_diagnostic_receipts import (
     AKS_DIAGNOSTIC_RECEIPT_PREFIX,
@@ -37,6 +44,16 @@ _DSN_ENV = "FDAI_STATE_STORE_DSN"
 _OWNER_DSN_ENV = "FDAI_DATABASE_URL"
 _CONNECT_TIMEOUT_SECONDS = 5
 _CONNECTION_OPTIONS = "-c statement_timeout=30000 -c lock_timeout=1000"
+_CHECKPOINT_BATCH = 2_000
+_UNREACHABLE_USAGE_SQL = (
+    "SELECT count(*), COALESCE(sum(pg_column_size(value)), 0) FROM state_kv "
+    "WHERE starts_with(key, %s) AND updated_at < %s AND NOT (key = ANY(%s))"
+)
+_UNREACHABLE_DELETE_SQL = (
+    "DELETE FROM state_kv WHERE key IN (SELECT key FROM state_kv "
+    "WHERE starts_with(key, %s) AND updated_at < %s AND NOT (key = ANY(%s)) "
+    "ORDER BY key LIMIT %s)"
+)
 
 
 def _dsn(variable: str = _DSN_ENV) -> str:
@@ -98,6 +115,60 @@ def _bounds(dsn: str) -> dict[str, int]:
     }
 
 
+class _ConnectionStateReader:
+    """Read exact state rows over the maintenance connection without constructing a writer."""
+
+    def __init__(self, connection: psycopg.Connection) -> None:
+        self._connection = connection
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        row = self._connection.execute(
+            "SELECT value FROM state_kv WHERE key = %s", (key,)
+        ).fetchone()
+        return row[0] if row is not None and isinstance(row[0], dict) else None
+
+
+async def _heimdall_checkpoint(dsn: str, *, apply: bool) -> dict[str, object]:
+    """Report or delete superseded Heimdall checkpoint rows the stored root cannot reach.
+
+    Reachability is traversed from the stored root exactly as recovery reads it, and only rows
+    untouched for the minimum age are eligible, so a running writer's unpublished rows are safe.
+    """
+    prefixes: dict[str, dict[str, int]] = {}
+    with psycopg.connect(
+        dsn, connect_timeout=_CONNECT_TIMEOUT_SECONDS, options=_CONNECTION_OPTIONS
+    ) as connection:
+        if not apply:
+            connection.execute("SET default_transaction_read_only = on")
+        reachable = await reachable_from_store(_ConnectionStateReader(connection))
+        if reachable is None:
+            return {"status": "unverifiable", "reason": "no_verifiable_versioned_checkpoint"}
+        connection.commit()
+        cutoff = datetime.now(tz=UTC) - MIN_ROW_AGE
+        keep = sorted(reachable)
+        for prefix in SCANNED_PREFIXES:
+            row = connection.execute(_UNREACHABLE_USAGE_SQL, (prefix, cutoff, keep)).fetchone()
+            if row is None:
+                raise RuntimeError("heimdall checkpoint usage query returned no result")
+            entry = {
+                "reclaimable_rows": int(row[0]),
+                "reclaimable_value_storage_bytes": int(row[1]),
+            }
+            if apply:
+                deleted = 0
+                while True:
+                    removed = connection.execute(
+                        _UNREACHABLE_DELETE_SQL, (prefix, cutoff, keep, _CHECKPOINT_BATCH)
+                    ).rowcount
+                    connection.commit()
+                    if removed < 1:
+                        break
+                    deleted += removed
+                entry["deleted"] = deleted
+            prefixes[prefix] = entry
+    return {"status": "ready", "reachable_rows": len(reachable), "prefixes": prefixes}
+
+
 async def _run(
     *,
     apply: bool,
@@ -126,7 +197,10 @@ async def _run(
         "status": "blocked" if blocked else "ready",
         "prefixes": prefixes,
     }
-    if blocked or not apply:
+    if blocked:
+        return report
+    if not apply:
+        report["heimdall_checkpoint"] = await _heimdall_checkpoint(dsn, apply=False)
         return report
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     try:
@@ -147,6 +221,7 @@ async def _run(
                 prefixes[prefix]["blocked"] = "byte_budget_exceeded_after_concurrent_writes"
     finally:
         await store.aclose()
+    report["heimdall_checkpoint"] = await _heimdall_checkpoint(dsn, apply=True)
     if vacuum or vacuum_full:
         with psycopg.connect(
             _dsn(_OWNER_DSN_ENV),

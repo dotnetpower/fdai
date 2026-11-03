@@ -101,6 +101,7 @@ async def test_compaction_vacuum_has_connection_and_lock_deadlines(
     monkeypatch.setattr(module, "PostgresStateStore", lambda **kwargs: store)
     monkeypatch.setattr(module, "_dsn", lambda variable="FDAI_STATE_STORE_DSN": variable)
     monkeypatch.setattr(module, "_bounds", lambda dsn: {})
+    monkeypatch.setattr(module, "_heimdall_checkpoint", AsyncMock(return_value={"status": "ready"}))
 
     report = await module._run(apply=True, vacuum=True)
 
@@ -172,6 +173,7 @@ async def test_compaction_byte_budget_never_discards_the_required_newest_window(
     monkeypatch.setattr(module, "PostgresStateStore", store)
     monkeypatch.setattr(module, "_dsn", lambda: "local")
     monkeypatch.setattr(module, "_bounds", lambda dsn: {"example:": 2})
+    monkeypatch.setattr(module, "_heimdall_checkpoint", AsyncMock(return_value={}))
     monkeypatch.setattr(
         module,
         "_usage",
@@ -195,6 +197,7 @@ async def test_compaction_dry_run_measures_bytes_without_constructing_a_writer(
     monkeypatch.setattr(module, "PostgresStateStore", store)
     monkeypatch.setattr(module, "_dsn", lambda: "local")
     monkeypatch.setattr(module, "_bounds", lambda dsn: {"example:": 2})
+    monkeypatch.setattr(module, "_heimdall_checkpoint", AsyncMock(return_value={}))
     monkeypatch.setattr(
         module,
         "_usage",
@@ -355,6 +358,7 @@ async def test_compaction_rechecks_concurrent_growth_against_the_byte_budget(
     monkeypatch.setattr(module, "PostgresStateStore", lambda **kwargs: store)
     monkeypatch.setattr(module, "_dsn", lambda: "local")
     monkeypatch.setattr(module, "_bounds", lambda dsn: {"example:": 2})
+    monkeypatch.setattr(module, "_heimdall_checkpoint", AsyncMock(return_value={}))
     usage = MagicMock(
         side_effect=[
             {"rows": 3, "value_storage_bytes": 300, "retained_value_storage_bytes": 200},
@@ -381,6 +385,7 @@ async def test_compaction_reports_a_remaining_row_backlog_without_a_byte_budget(
     monkeypatch.setattr(module, "PostgresStateStore", lambda **kwargs: store)
     monkeypatch.setattr(module, "_dsn", lambda: "local")
     monkeypatch.setattr(module, "_bounds", lambda dsn: {"example:": 2})
+    monkeypatch.setattr(module, "_heimdall_checkpoint", AsyncMock(return_value={}))
     monkeypatch.setattr(
         module,
         "_usage",
@@ -394,3 +399,49 @@ async def test_compaction_reports_a_remaining_row_backlog_without_a_byte_budget(
     assert report["status"] == "blocked"
     assert report["prefixes"]["example:"]["remaining_rows"] == 3
     assert report["prefixes"]["example:"]["blocked"] == "retention_backlog_after_concurrent_writes"
+
+
+async def test_unverifiable_heimdall_checkpoint_is_never_deleted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load("compact_database_checkpoint_unverifiable", "compact-local-database.py")
+    connection = MagicMock()
+    connect = MagicMock()
+    connect.return_value.__enter__.return_value = connection
+    monkeypatch.setattr(module.psycopg, "connect", connect)
+    monkeypatch.setattr(module, "reachable_from_store", AsyncMock(return_value=None))
+
+    report = await module._heimdall_checkpoint("runtime-dsn", apply=True)
+
+    assert report["status"] == "unverifiable"
+    assert not [call for call in connection.execute.call_args_list if "DELETE" in str(call.args[0])]
+
+
+async def test_heimdall_checkpoint_cleanup_keeps_reachable_rows_and_batches_deletes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load("compact_database_checkpoint_cleanup", "compact-local-database.py")
+    reachable = frozenset({"pantheon/heimdall/sensing-state/versions/keep"})
+    monkeypatch.setattr(module, "reachable_from_store", AsyncMock(return_value=reachable))
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (3, 30)
+    connection.execute.return_value.rowcount = 0
+    connect = MagicMock()
+    connect.return_value.__enter__.return_value = connection
+    monkeypatch.setattr(module.psycopg, "connect", connect)
+
+    dry_run = await module._heimdall_checkpoint("runtime-dsn", apply=False)
+    applied = await module._heimdall_checkpoint("runtime-dsn", apply=True)
+
+    versions = "pantheon/heimdall/sensing-state/versions/"
+    assert dry_run["reachable_rows"] == 1
+    assert dry_run["prefixes"][versions] == {
+        "reclaimable_rows": 3,
+        "reclaimable_value_storage_bytes": 30,
+    }
+    assert applied["prefixes"][versions]["deleted"] == 0
+    deletes = [call for call in connection.execute.call_args_list if "DELETE" in str(call.args[0])]
+    assert deletes
+    assert all(
+        call.args[1][2] == sorted(reachable) and call.args[1][3] == 2_000 for call in deletes
+    )

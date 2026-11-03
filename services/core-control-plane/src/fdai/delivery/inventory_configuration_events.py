@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
@@ -16,6 +18,11 @@ from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.state_store import StateStore
+
+if TYPE_CHECKING:
+    from fdai.delivery.inventory_configuration_delta import ConfigurationDeltaPolicy
+
+_LOGGER = logging.getLogger(__name__)
 
 INVENTORY_CONFIGURATION_DELIVERY_KEY = "inventory-configuration:delivery"
 # Bounded concurrency per delivery window on the shared producer. One sequential round trip per
@@ -170,13 +177,19 @@ async def publish_promoted_resource_events(
     event_bus: EventBus,
     topic: str,
     scope_ref: str,
+    delta_policy: ConfigurationDeltaPolicy | None = None,
 ) -> int:
-    """Publish one retry-stable configuration observation per Resource.
+    """Publish one retry-stable configuration observation per changed Resource.
 
     Only a complete promoted generation is eligible. Events are sent in bounded
     concurrent windows. Broker failure cancels the window's outstanding sends and
     propagates, so promotion recovery can retry the same generation with identical
     event identities; downstream event ingest suppresses any already accepted rows.
+
+    With a ``delta_policy`` the Resources it proves unchanged since the previous fully
+    delivered generation are not re-sent; a full delivery is still made when it requires
+    one. The return value counts every Resource of the generation that is accounted for,
+    whether sent or proven unchanged, so the caller's completeness check is unchanged.
     """
     if not observation.complete:
         raise ValueError("rule evaluation requires a complete promoted inventory")
@@ -192,6 +205,14 @@ async def publish_promoted_resource_events(
         raise ValueError("promoted inventory contains duplicate Resource identities")
 
     generation_digest = _digest_text(observation.generation)
+    plan = (
+        await delta_policy.plan(observation, scope_ref=scope_ref)
+        if delta_policy is not None
+        else None
+    )
+    accounted = len(resources)
+    if plan is not None and plan.unchanged:
+        resources = [item for item in resources if item.resource_id not in plan.unchanged]
     for start in range(0, len(resources), CONFIGURATION_PUBLISH_WINDOW):
         window = resources[start : start + CONFIGURATION_PUBLISH_WINDOW]
         await _publish_window(
@@ -210,7 +231,15 @@ async def publish_promoted_resource_events(
                 for resource in window
             ],
         )
-    return len(resources)
+    if delta_policy is not None and plan is not None:
+        await delta_policy.published(observation, plan, scope_ref=scope_ref)
+        _LOGGER.info(
+            "inventory configuration delivery sent=%d omitted=%d reason=%s",
+            len(resources),
+            accounted - len(resources),
+            plan.reason,
+        )
+    return accounted
 
 
 async def _publish_window(

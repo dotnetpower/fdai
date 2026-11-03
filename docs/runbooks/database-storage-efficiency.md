@@ -104,6 +104,51 @@ five service migration branches prepared. Set `FDAI_SERVICE_MIGRATIONS_READY=1` 
 preparation; the flag does not apply migrations. CI runs both suites explicitly in its service-owned
 database step, not against the legacy-only schema.
 
+## Reclaim superseded Heimdall checkpoint rows
+
+Heimdall's sensing checkpoint is copy-on-write: each changed node, manifest, and episode is a new
+`state_kv` row and the root points only at the newest ones. The fixed families `heimdall_versions`,
+`heimdall_manifests`, and `heimdall_episodes` in the detailed report show how much superseded
+recovery state has accumulated. The report also lists the largest `audit_families` by rows and entry
+bytes so repeated events are visible next to the checkpoint state.
+
+The running Heimdall reclaims these rows during its maintenance tick, in bounded batches. A row is
+deleted only when the acknowledged versioned checkpoint cannot reach it, it has not been written
+for one hour, the stored root still equals the one in memory, and the checkpoint writer is idle.
+A legacy layout, an unverifiable root, or a store without age-bounded key reads is never reclaimed.
+
+To clear an existing backlog without waiting for maintenance ticks, preview and then apply the
+same rule from outside the service. The preview reports reclaimable rows and value bytes per prefix:
+
+```bash
+uv run python scripts/deployment/local/compact-local-database.py
+uv run python scripts/deployment/local/compact-local-database.py --apply --vacuum
+```
+
+The command traverses the stored root exactly as recovery does. If the root, manifest, or any
+referenced node cannot be read, it reports `unverifiable` and deletes nothing. Ordinary vacuum makes
+the space reusable; use `--vacuum-full` only in a maintenance window as described above. Canonical
+audit rows are never touched by this cleanup.
+
+## Bound repeated inventory observations
+
+Every promoted inventory generation is a complete observation, and each Resource used to produce a
+new `inventory.resource_observed` event even when nothing about it had changed. Each event then
+cost several audit rows and Heimdall checkpoint rows. The Inventory Job now omits Resources whose
+type, provider reference, property digest, and property-freshness metadata equal the previous fully
+delivered generation. The collection timestamp alone does not count as a change.
+
+A full delivery of every Resource still happens when the previous generation was not fully delivered,
+no full delivery is on record, or the interval elapsed. Set
+`FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS` to an integer from 0 to 604800 seconds. The
+default is 21600 (six hours), and `0` disables omission so every generation sends every Resource.
+Event identity, shape, and shadow-mode authority do not change; rule evaluation of a changed Resource
+is unaffected, and the Forseti baseline evaluation still covers the complete generation.
+
+Heimdall also stops tracking a full-reconciliation observation that Huginn correlated only to its own
+generation-scoped key, because such an episode can never gather a second event. Observations with an
+explicit shared correlation identifier are still tracked.
+
 ## Explicitly recreate a disposable development database
 
 Ordinary preparation and `--allow-recreate` preserve an under-limit database. After reviewing backup

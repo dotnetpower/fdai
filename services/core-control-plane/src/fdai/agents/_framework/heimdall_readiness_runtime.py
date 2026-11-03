@@ -16,6 +16,7 @@ from fdai.agents._framework.heimdall_alert_window import (
     MAX_TRACKED_KEYS as _MAX_TRACKED_KEYS,
 )
 from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
+from fdai.agents._framework.heimdall_checkpoint_gc import checkpoint_lock
 from fdai.agents._framework.heimdall_constants import (
     _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
 )
@@ -204,6 +205,11 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
     async def _persist_state(self) -> None:
         if self._state_store is None:
             return
+        # Reclamation of superseded checkpoint rows takes the same lock.
+        async with checkpoint_lock(self):
+            await self._persist_state_locked()
+
+    async def _persist_state_locked(self) -> None:
         # Legacy full snapshots can contain subjects with no individual row yet.
         if not getattr(self, "_sensing_bucket_layout", False):
             self._dirty_episode_keys.update(self._recent_events)
