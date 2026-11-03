@@ -21,6 +21,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { routeHref } from "../router";
 import { t } from "./i18n/evidence";
 
@@ -179,6 +180,10 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
     ...data.action,
     entries: filterEntries(data.action.entries),
   };
+  const filteredHierarchy = useMemo(
+    () => scopeHierarchy({ ...data, monitoring: filteredMonitoring, action: filteredAction }),
+    [data, filteredAction, filteredMonitoring],
+  );
 
   return (
     <div class="stack governance-scope">
@@ -204,14 +209,14 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
           <input
             type="search"
             value={query}
-            placeholder="subscription, resource group, address..."
+            placeholder={getLocale() === "ko" ? "구독, 리소스 그룹, 주소..." : "subscription, resource group, address..."}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
         <label>
           <span>{t("scope.column.state")}</span>
           <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value as "all" | ScopeEntryState)}>
-            <option value="all">{t("shared.all")}</option>
+            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
             <option value="included">{t("scope.state.included")}</option>
             <option value="excluded">{t("scope.state.excluded")}</option>
           </select>
@@ -220,7 +225,7 @@ function ScopeBody({ data }: { readonly data: EffectiveScope }) {
           {filteredMonitoring.entries.length + filteredAction.entries.length} / {data.monitoring.entries.length + data.action.entries.length}
         </span>
       </div>
-      <ScopeHierarchy nodes={hierarchy} />
+      <ScopeHierarchy nodes={filteredHierarchy} />
       <div class="scope-axis-grid">
         <ScopeAxisTable axis={filteredMonitoring} />
         <ScopeAxisTable axis={filteredAction} />
@@ -308,13 +313,12 @@ function ExecutorBoundaryCard({
     <section id="scope-executor-boundary" class="stack-section scope-executor-section">
       <h3 class="section-title">{t("scope.executor")}</h3>
       <p class="muted footnote">{t("scope.executorHint")}</p>
-      <KpiGrid>
-        <KpiCard
-          href={`${routeHref("scope")}#scope-executor-boundary`}
-          label={t("scope.executorResourceGroups")}
-          value={boundary.resource_groups.length === 0 ? t("scope.none") : boundary.resource_groups.length}
-        />
-      </KpiGrid>
+      <dl class="cs-facts-grid">
+        <div>
+          <dt>{t("scope.executorResourceGroups")}</dt>
+          <dd>{boundary.resource_groups.length === 0 ? t("scope.none") : boundary.resource_groups.length}</dd>
+        </div>
+      </dl>
       {boundary.resource_groups.length > 0 ? (
         <div class="scope-boundary-links">
           {boundary.resource_groups.map((resourceGroup) => (
@@ -457,6 +461,7 @@ function ScopeBuilder({ org }: { readonly org: string }) {
             columns={draftColumns(removeDraft)}
             rows={drafts}
             keyOf={(item) => item.id}
+            scrollRegionLabel={t("scope.builder")}
             empty={t("scope.builderEmpty")}
           />
           <h4 class="section-title">{t("scope.artifact")}</h4>

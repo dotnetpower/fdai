@@ -36,11 +36,11 @@ export function SettingsGeneralRoute({ client }: Props) {
     <div class="stack settings-route">
       <PageHeader title={t("route.settingsGeneral")} subtitle={settingsGeneralText("subtitle")} />
       <nav class="cs-workspace-tabs" aria-label={t("route.settingsGeneral")}>
-        <a class="cs-workspace-tab" href="#settings-appearance">{settingsGeneralText("appearance")}</a>
-        <a class="cs-workspace-tab" href="#settings-user-context">{settingsGeneralText("contextTitle")}</a>
-        <a class="cs-workspace-tab" href="#settings-briefings">{settingsGeneralText("briefingsTitle")}</a>
-        <a class="cs-workspace-tab" href="#settings-saved-memory">{settingsGeneralText("memoryTitle")}</a>
-        <a class="cs-workspace-tab" href="#settings-reset">{settingsGeneralText("resetTitle")}</a>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-appearance")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("appearance")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-user-context")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("contextTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-briefings")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("briefingsTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-saved-memory")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("memoryTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-reset")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("resetTitle")}</button>
       </nav>
       <SettingsDisplaySections controller={controller} />
       <SettingsContextSections controller={controller} />

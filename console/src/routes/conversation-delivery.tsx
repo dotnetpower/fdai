@@ -253,11 +253,11 @@ function DeliveryBody({ data }: { readonly data: ConversationDeliveryResponse })
           </header>
           <dl class="cs-facts-grid">
             <div><dt>{t("evidence.delivery.deliveries")}</dt><dd>{data.delivery_count.toLocaleString()}</dd></div>
-            <div><dt>Attempts / Ack</dt><dd>{data.attempt_count.toLocaleString()} / {data.acknowledgement_count.toLocaleString()}</dd></div>
-            <div><dt>Average latency</dt><dd>{data.delivery_latency_ms.average === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.average.toLocaleString()} ms`}</dd></div>
-            <div><dt>{t("evidence.delivery.p95Latency")}</dt><dd>{data.delivery_latency_ms.p95 === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`}</dd></div>
+            <div><dt>{t("evidence.delivery.acknowledged")}</dt><dd>{data.acknowledgement_count.toLocaleString()} / {data.attempt_count.toLocaleString()}</dd></div>
+            <div><dt>{t("evidence.delivery.p95Latency")}</dt><dd>{data.delivery_latency_ms.p95 === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.p95.toLocaleString()} ms`} (avg: {data.delivery_latency_ms.average === null ? kpiEvidenceLabel("not-measured") : `${data.delivery_latency_ms.average.toLocaleString()} ms`})</dd></div>
             <div><dt>{t("evidence.delivery.duplicateRisk")}</dt><dd>{data.duplicate_risk_count.toLocaleString()}</dd></div>
             <div><dt>{t("evidence.delivery.retries")}</dt><dd>{data.retry_count.toLocaleString()}</dd></div>
+            <div><dt>{t("evidence.delivery.abandoned")}</dt><dd>{data.abandonment_count.toLocaleString()}</dd></div>
           </dl>
         </aside>
       </div>

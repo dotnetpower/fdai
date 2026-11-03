@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { getLocale, setLocale } from "../i18n";
 import {
   decodeScheduledContinuations,
   scheduledContinuationColumns,
 } from "./scheduled-continuations";
+
+const routeSource = readFileSync(
+  new URL("./scheduled-continuations.tsx", import.meta.url),
+  "utf8",
+);
 
 function payload() {
   return {
@@ -73,5 +79,11 @@ describe("scheduled continuation cards", () => {
     } finally {
       setLocale(previous);
     }
+  });
+
+  test("binds the Calm Slate master-detail inspector and selected anchor snapshot fact", () => {
+    expect(routeSource).toContain('id="scheduled-continuation-detail"');
+    expect(routeSource).toContain('rowActionControls="scheduled-continuation-detail"');
+    expect(routeSource).toContain('key: "selected_anchor"');
   });
 });

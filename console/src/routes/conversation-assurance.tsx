@@ -294,7 +294,7 @@ function AssuranceBody({
           onRefresh={onRefresh}
         />
       </div>
-      <PantheonSummary summary={data.pantheon} />
+      <PantheonSummary summary={data.pantheon} baseHref={baseHref} />
       <section id="disputes" class="stack">
         <h2>{t("assurance.disputes")}</h2>
         {data.disputes.length === 0 ? <EmptyState title={t("shared.noRows")} /> : (
@@ -312,7 +312,8 @@ function AssuranceBody({
   );
 }
 
-function PantheonSummary({ summary }: { readonly summary: PantheonAssuranceSummary }) {
+function PantheonSummary({ summary, baseHref }: { readonly summary: PantheonAssuranceSummary; readonly baseHref: string }) {
+  const pantheonHref = `${baseHref}#pantheon-agents`;
   const columns: readonly Column<PantheonAssuranceSummary["agents"][number]>[] = [
     { key: "agent", header: t("assurance.pantheon.agent"), render: (item) => <strong>{item.agent}</strong> },
     { key: "turns", header: t("assurance.pantheon.turns"), render: (item) => item.turns, cellClass: "num" },
@@ -335,12 +336,12 @@ function PantheonSummary({ summary }: { readonly summary: PantheonAssuranceSumma
       {!summary.available ? <p>{t("assurance.pantheon.unavailable")}</p> : (
         <>
           <KpiGrid>
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.turns")} value={summary.turns} />
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.average")} value={formatPantheonScore(summary.average_score)} />
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.routing")} value={formatRate(summary.routing_accuracy)} />
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.missedT2")} value={formatRate(summary.missed_t2_rate)} tone={summary.missed_t2_rate ? "warning" : "positive"} />
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.unnecessaryT2")} value={formatRate(summary.unnecessary_t2_rate)} tone={summary.unnecessary_t2_rate ? "warning" : "positive"} />
-            <KpiCard evidenceState="measured" href="#pantheon-agents" label={t("assurance.pantheon.hardZero")} value={summary.hard_zero_fail} tone={pantheonSafetyTone(summary.hard_zero_fail)} />
+            <KpiCard evidenceState="measured" href={pantheonHref} label={t("assurance.pantheon.turns")} value={summary.turns} />
+            <KpiCard evidenceState={summary.average_score === null ? "not-measured" : "measured"} href={pantheonHref} label={t("assurance.pantheon.average")} value={formatPantheonScore(summary.average_score)} />
+            <KpiCard evidenceState={summary.routing_accuracy === null ? "not-measured" : "measured"} href={pantheonHref} label={t("assurance.pantheon.routing")} value={formatRate(summary.routing_accuracy)} />
+            <KpiCard evidenceState={summary.missed_t2_rate === null ? "not-measured" : "measured"} href={pantheonHref} label={t("assurance.pantheon.missedT2")} value={formatRate(summary.missed_t2_rate)} tone={summary.missed_t2_rate ? "warning" : "positive"} />
+            <KpiCard evidenceState={summary.unnecessary_t2_rate === null ? "not-measured" : "measured"} href={pantheonHref} label={t("assurance.pantheon.unnecessaryT2")} value={formatRate(summary.unnecessary_t2_rate)} tone={summary.unnecessary_t2_rate ? "warning" : "positive"} />
+            <KpiCard evidenceState="measured" href={pantheonHref} label={t("assurance.pantheon.hardZero")} value={summary.hard_zero_fail} tone={pantheonSafetyTone(summary.hard_zero_fail)} />
           </KpiGrid>
           <div id="pantheon-agents">
             <DataTable
@@ -465,12 +466,12 @@ function AssessmentDetail({ auth, client, assessmentId, requestedUnavailable, on
     void onRefresh();
   };
   if (requestedUnavailable || detailUnavailable) {
-    return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={retry}>{t("assurance.refreshAssessments")}</button></aside>;
+    return <aside id="conversation-assurance-detail" class="cs-inspector-pane" aria-label={t("assurance.details")}><h2>{t("assurance.details")}</h2><p role="status">{t("assurance.requestedAssessmentUnavailable")}</p><button type="button" class="btn btn-small" onClick={retry}>{t("assurance.refreshAssessments")}</button></aside>;
   }
   if (assessmentId === null || detail === null) {
-    return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><p>{t("assurance.selectAssessment")}</p></aside>;
+    return <aside id="conversation-assurance-detail" class="cs-inspector-pane" aria-label={t("assurance.details")}><p>{t("assurance.selectAssessment")}</p></aside>;
   }
-  return <aside id="conversation-assurance-detail" class="cs-inspector-pane"><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></aside>;
+  return <aside id="conversation-assurance-detail" class="cs-inspector-pane" aria-label={t("assurance.details")}><h2>{t("assurance.details")}</h2><AsyncBoundary state={detail} resourceLabel={t("assurance.details")}>{(value) => <DetailBody key={value.assessment.assessment_id} auth={auth} client={client} detail={value} onRefresh={onRefresh} />}</AsyncBoundary></aside>;
 }
 
 function DetailBody({ auth, client, detail, onRefresh }: { readonly auth: AuthContext; readonly client: OperatorApiClient; readonly detail: AssuranceDetailPayload; readonly onRefresh: () => Promise<void> }) {

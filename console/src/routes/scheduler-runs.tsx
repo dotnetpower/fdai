@@ -252,13 +252,14 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
         { key: "failed_or_lost", value: summary.failedOrLost, group: "scheduler" },
         { key: "median_close_ms", value: summary.medianCloseMs ?? "unavailable", group: "scheduler" },
         { key: "p95_close_ms", value: summary.p95CloseMs ?? "unavailable", group: "scheduler" },
+        { key: "selected_run", value: selectedRun ? `${selectedRun.run_id}:${selectedRun.attempt}` : "-", group: "scheduler" },
         { key: "has_more", value: page.next_cursor !== null, group: "scheduler" },
       ],
       records: {
         runs: page.items.map((item) => ({ ...item })),
       },
     }),
-    [page],
+    [page, selectedRun],
   );
   const columns: readonly Column<SchedulerRunItem>[] = [
     {
@@ -322,8 +323,8 @@ function SchedulerRunsTable({ page, loadingMore, pageError, onLoadMore }: {
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("loadedAttempts")} value={schedulerRunsNumber(summary.loaded)} />
         <KpiCard evidenceState={summary.publishRate === null ? "not-measured" : "measured"} href="#scheduler-dispatch-history" label={schedulerRunsText("publishRate")} value={summary.publishRate === null ? kpiEvidenceLabel("not-measured") : `${(summary.publishRate * 100).toFixed(1)}%`} />
         <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("failedOrLost")} value={schedulerRunsNumber(summary.failedOrLost)} />
-        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
-        <KpiCard href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />
+        <KpiCard evidenceState={summary.medianCloseMs === null ? "not-measured" : "measured"} href="#scheduler-dispatch-history" label={schedulerRunsText("medianClose")} value={formatDuration(summary.medianCloseMs)} hint={schedulerRunsText("loadedSample")} />
+        <KpiCard evidenceState={summary.p95CloseMs === null ? "not-measured" : "measured"} href="#scheduler-dispatch-history" label={schedulerRunsText("p95Close")} value={formatDuration(summary.p95CloseMs)} hint={schedulerRunsText("loadedSample")} />
       </KpiGrid>
       <div class={`cs-workspace-split${selectedRun ? " has-selection" : ""}`}>
         <div class="cs-workspace-main">

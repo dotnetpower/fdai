@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -158,11 +159,12 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
         { key: "anchor_count", value: data.continuations.length, group: "continuity" },
         { key: "active_count", value: activeCount, group: "continuity" },
         { key: "evidence_ref_count", value: totalEvidenceRefs, group: "continuity" },
+        { key: "selected_anchor", value: selected?.anchor_id ?? "-", group: "continuity" },
         { key: "mutation_controls", value: false, group: "safety" },
       ],
       records: { continuations: data.continuations.map((item) => ({ ...item })) },
     }),
-    [activeCount, data, totalEvidenceRefs],
+    [activeCount, data, selected, totalEvidenceRefs],
   );
 
   return (
@@ -183,14 +185,14 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
           <input
             type="search"
             value={query}
-            placeholder="run_id, scope, conversation..."
+            placeholder={getLocale() === "ko" ? "실행 ID, 범위, 대화 출처..." : "run_id, scope, conversation..."}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
         <label>
           <span>{t("evidence.continuations.column.state")}</span>
           <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value)}>
-            <option value="all">{t("shared.all")}</option>
+            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
             {states.map((state) => (
               <option key={state} value={state}>{presentationLabel("status", state)}</option>
             ))}
@@ -229,7 +231,7 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
             </header>
             <dl class="cs-facts-grid">
               <div><dt>{t("evidence.continuations.column.scope")}</dt><dd><code>{selected.scope_ref}</code></dd></div>
-              <div><dt>Task / Run</dt><dd><code>{selected.task_id}</code> / <code>{selected.run_id}</code></dd></div>
+              <div><dt>{getLocale() === "ko" ? "작업 / 실행" : "Task / Run"}</dt><dd><code>{selected.task_id}</code> / <code>{selected.run_id}</code></dd></div>
               <div><dt>{t("evidence.continuations.column.origin")}</dt><dd><code>{selected.origin.channel_kind}:{selected.origin.conversation_ref}</code></dd></div>
               <div><dt>{t("evidence.continuations.column.window")}</dt><dd>{formatConsoleTimestamp(selected.observation_started_at)} - {formatConsoleTimestamp(selected.observation_ended_at)}</dd></div>
               <div><dt>{t("evidence.continuations.column.expiry")}</dt><dd>{formatConsoleTimestamp(selected.expires_at)}</dd></div>
@@ -242,7 +244,7 @@ function ContinuationBody({ data }: { readonly data: ContinuationResponse }) {
               </div>
               <div>
                 <dt>{t("evidence.continuations.column.evidence")}</dt>
-                <dd>{selected.evidence_refs.length ? selected.evidence_refs.map((ref) => <code key={ref}>{ref} </code>) : t("evidence.common.none")}</dd>
+                <dd>{selected.evidence_refs.length ? selected.evidence_refs.map((ref, index) => <span key={`${ref}:${index}`}><code>{ref}</code>{index < selected.evidence_refs.length - 1 ? ", " : ""}</span>) : t("evidence.common.none")}</dd>
               </div>
             </dl>
           </aside>

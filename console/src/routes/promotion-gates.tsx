@@ -384,6 +384,10 @@ function PromotionBody({
     () => invalidReason === null ? filterPromotionRows(data.rows, statusFilter, query, reason) : [],
     [data.rows, statusFilter, query, reason, invalidReason],
   );
+  const [selectedActionType, setSelectedActionType] = useState<string | null>(
+    () => data.rows[0]?.action_type_name ?? null,
+  );
+  const selectedRow = rows.find((r) => r.action_type_name === selectedActionType) ?? rows[0] ?? null;
   usePublishViewContext(
     () => ({
       routeId: "promotion-gates",
@@ -407,6 +411,7 @@ function PromotionBody({
         { key: "ready_count", value: data.ready_count, group: "summary" },
         { key: "blocked_count", value: data.blocked_count, group: "summary" },
         { key: "window_days", value: data.window_days, group: "summary" },
+        { key: "selected_action_type", value: selectedRow?.action_type_name ?? "-", group: "summary" },
       ],
       records: {
         rows: data.rows.map((r) => ({
@@ -427,7 +432,7 @@ function PromotionBody({
         })),
       },
     }),
-    [data],
+    [data, selectedRow],
   );
 
   const dataParam = currentRoute().search.get("data") === "sample" ? "sample" : null;
@@ -435,11 +440,7 @@ function PromotionBody({
     {
       key: "at",
       header: t("governance.promotion.column.actionType"),
-      render: (r) => (
-        <a href={routeHref("workflow-builder", { params: { data: dataParam, action: r.action_type_name } })}>
-          {r.action_type_name}
-        </a>
-      ),
+      render: (r) => <strong>{r.action_type_name}</strong>,
       cellClass: "mono",
     },
     {
@@ -548,10 +549,6 @@ function PromotionBody({
       ),
     },
   ];
-  const [selectedActionType, setSelectedActionType] = useState<string | null>(
-    () => data.rows[0]?.action_type_name ?? null,
-  );
-  const selectedRow = rows.find((r) => r.action_type_name === selectedActionType) ?? rows[0] ?? null;
   const candidatesFragment = "#promotion-gate-candidates";
 
   return (
@@ -658,9 +655,17 @@ function PromotionBody({
                 <div><dt>{t("governance.promotion.column.accuracy")}</dt><dd>{`${(selectedRow.accuracy * 100).toFixed(1)}%`}</dd></div>
                 <div><dt>{t("governance.promotion.column.policyEscapes")}</dt><dd>{selectedRow.policy_escapes}</dd></div>
                 <div><dt>{t("governance.promotion.column.gaps")}</dt><dd>{selectedRow.gaps.length ? selectedRow.gaps.join(", ") : "-"}</dd></div>
+                <div>
+                  <dt>{t("governance.promotion.column.actionType")}</dt>
+                  <dd>
+                    <a href={routeHref("workflow-builder", { params: { data: dataParam, action: selectedRow.action_type_name } })}>
+                      {selectedRow.action_type_name}
+                    </a>
+                  </dd>
+                </div>
                 {selectedRow.operator_override ? (
                   <div>
-                    <dt>Operator override</dt>
+                    <dt>{t("governance.promotion.override.marker", { status: displayValue("gateStatus", selectedRow.operator_override.gate_status) })}</dt>
                     <dd>
                       {selectedRow.operator_override.operator_principal} ({formatConsoleTimestamp(selectedRow.operator_override.override_recorded_at)}): {selectedRow.operator_override.override_reason}
                     </dd>

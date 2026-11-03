@@ -9,11 +9,13 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -227,6 +229,7 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         { key: "candidate_count", value: data.count, group: "quality" },
         { key: "candidate_precision", value: data.metrics.candidate_precision, group: "quality" },
         { key: "realized_usage", value: data.metrics.realized_usage, group: "quality" },
+        { key: "selected_candidate", value: selected?.candidate_id ?? "-", group: "quality" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
       records: {
@@ -236,7 +239,7 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         })),
       },
     }),
-    [data],
+    [data, selected],
   );
   const candidatesHref = `${routeHref("automation-blueprints", {
     params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
@@ -252,7 +255,12 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         <KpiCard href={candidatesHref} label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} tone={data.metrics.accepted > 0 ? "positive" : "default"} />
         <KpiCard href={candidatesHref} label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} />
         <KpiCard href={candidatesHref} label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} />
-        <KpiCard href={candidatesHref} label={t("evidence.blueprints.column.confidence")} value={`${(data.metrics.candidate_precision * 100).toFixed(1)}%`} />
+        <KpiCard
+          evidenceState={data.count === 0 ? "insufficient-sample" : "measured"}
+          href={candidatesHref}
+          label={t("evidence.blueprints.column.confidence")}
+          value={data.count === 0 ? kpiEvidenceLabel("insufficient-sample") : `${(data.metrics.candidate_precision * 100).toFixed(1)}%`}
+        />
       </KpiGrid>
       <div class="cs-filter-toolbar" role="search">
         <label class="is-wide">
@@ -260,14 +268,14 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
           <input
             type="search"
             value={query}
-            placeholder="candidate, intent, scope, tool..."
+            placeholder={getLocale() === "ko" ? "후보 ID, 작업 의도, 범위, 도구..." : "candidate, intent, scope, tool..."}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
         <label>
           <span>{t("evidence.blueprints.column.state")}</span>
           <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value)}>
-            <option value="all">{t("shared.all")}</option>
+            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
             {states.map((state) => (
               <option key={state} value={state}>{presentationLabel("status", state)}</option>
             ))}
@@ -308,11 +316,12 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
               <div><dt>{t("evidence.blueprints.column.scope")}</dt><dd><code>{selected.resource_scope}</code></dd></div>
               <div><dt>{t("evidence.blueprints.column.isolation")}</dt><dd><code>{selected.isolation_profile.profile_id}</code> ({selected.isolation_profile.max_session_seconds}s / {selected.isolation_profile.max_context_chars} chars)</dd></div>
               <div><dt>{t("evidence.blueprints.column.tools")}</dt><dd>{selected.required_tools.join(", ") || t("evidence.common.none")}</dd></div>
-              <div><dt>Allowed tools</dt><dd>{selected.isolation_profile.allowed_tool_ids.join(", ") || t("evidence.common.none")} ({t("evidence.blueprints.toolCalls", { count: selected.isolation_profile.max_tool_calls })})</dd></div>
+              <div><dt>{getLocale() === "ko" ? "허용된 도구" : "Allowed tools"}</dt><dd>{selected.isolation_profile.allowed_tool_ids.join(", ") || t("evidence.common.none")} ({t("evidence.blueprints.toolCalls", { count: selected.isolation_profile.max_tool_calls })})</dd></div>
               <div><dt>{t("evidence.blueprints.column.cost")}</dt><dd>{t("evidence.blueprints.microUsd", { cost: selected.estimated_cost_microusd })}</dd></div>
               <div><dt>{t("evidence.blueprints.column.confidence")}</dt><dd>{`${(selected.confidence * 100).toFixed(1)}%`}</dd></div>
-              <div><dt>Expires</dt><dd>{formatConsoleTimestamp(selected.expires_at)}</dd></div>
-              <div><dt>{t("evidence.blueprints.column.evidence")}</dt><dd>{selected.evidence_fingerprints.length} fingerprints</dd></div>
+              <div><dt>{t("evidence.continuations.column.expiry")}</dt><dd>{formatConsoleTimestamp(selected.expires_at)}</dd></div>
+              <div><dt>{t("evidence.blueprints.column.evidence")}</dt><dd>{selected.evidence_fingerprints.length}</dd></div>
+              <div><dt>{getLocale() === "ko" ? "모드 / 변경 도구" : "Mode / Mutation tools"}</dt><dd>{selected.shadow_only ? presentationLabel("status", "shadow") : presentationLabel("status", "enforce")} / {selected.mutation_tool_ids.join(", ") || t("evidence.common.none")}</dd></div>
             </dl>
           </aside>
         ) : null}

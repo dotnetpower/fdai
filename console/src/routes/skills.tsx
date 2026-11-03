@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import { displayValue, formatNumber, t } from "./i18n/governance";
@@ -435,6 +436,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         { key: "eligible_count", value: data.eligible_count, group: "skills" },
         { key: "installed_bundle_count", value: data.installed_bundle_count, group: "bundles" },
         { key: "eligible_bundle_count", value: data.eligible_bundle_count, group: "bundles" },
+        { key: "selected_skill", value: selectedSkill?.name ?? "-", group: "skills" },
         { key: "execution_eligibility", value: data.execution_eligibility, group: "safety" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
@@ -444,7 +446,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         diagnostics: data.diagnostics.map((item) => ({ ...item })),
       },
     }),
-    [data],
+    [data, selectedSkill],
   );
   const skillsHref = `${routeHref("skills")}#runtime-skills`;
   const bundlesHref = `${routeHref("skills")}#runtime-skill-bundles`;
@@ -461,7 +463,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.bundles")} value={formatNumber(data.installed_bundle_count)} />
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.eligibleBundles")} value={formatNumber(data.eligible_bundle_count)} />
         <KpiCard href={diagnosticsHref} label={t("governance.skills.kpi.diagnostics")} value={formatNumber(data.diagnostics.length)} />
-        <KpiCard href={skillsHref} label={t("governance.skills.kpi.authorityPromotion")} value={t("governance.skills.kpi.notApplicable")} />
+        <KpiCard evidenceState="not-applicable" href={skillsHref} label={t("governance.skills.kpi.authorityPromotion")} value={t("governance.skills.kpi.notApplicable")} />
       </KpiGrid>
       <div class="cs-filter-toolbar" role="search">
         <label class="is-wide">
@@ -469,7 +471,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
           <input
             type="search"
             value={query}
-            placeholder="skill, tool, agent, publisher..."
+            placeholder={getLocale() === "ko" ? "스킬, 도구, 에이전트, 게시자..." : "skill, tool, agent, publisher..."}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
@@ -520,14 +522,14 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
               </header>
               <dl class="cs-facts-grid">
                 <div><dt>{t("governance.skills.column.requiredTools")}</dt><dd>{selectedSkill.required_tools.join(", ") || t("governance.common.none")}</dd></div>
-                <div><dt>Missing tools</dt><dd>{selectedSkill.missing_tools.join(", ") || t("governance.common.none")}</dd></div>
+                <div><dt>{getLocale() === "ko" ? "누락된 도구" : "Missing tools"}</dt><dd>{selectedSkill.missing_tools.join(", ") || t("governance.common.none")}</dd></div>
                 <div><dt>{t("governance.skills.column.allowedAgents")}</dt><dd>{selectedSkill.allowed_agents.join(", ") || t("governance.common.all")}</dd></div>
                 <div><dt>{t("governance.skills.column.lifecycle")}</dt><dd>{t(`governance.skills.lifecycle.${skillLifecycleState(selectedSkill)}`)}</dd></div>
                 <div>
-                  <dt>Body SHA-256</dt>
+                  <dt>{getLocale() === "ko" ? "본문 SHA-256" : "Body SHA-256"}</dt>
                   <dd>
                     <code>{selectedSkill.body_sha256.slice(0, 16)}...</code>{" "}
-                    <CopyButton text={selectedSkill.body_sha256} label="Body SHA-256" />
+                    <CopyButton text={selectedSkill.body_sha256} label={getLocale() === "ko" ? "본문 SHA-256" : "Body SHA-256"} />
                   </dd>
                 </div>
                 <div>
@@ -537,7 +539,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
                       ? t("governance.common.none")
                       : selectedSkill.references.map((ref) => (
                         <div key={ref.path}>
-                          <code>{ref.path}</code> ({ref.size_bytes} B, {ref.media_type})
+                          <code>{ref.path}</code> ({ref.size_bytes} B, {ref.media_type}, <code>{ref.sha256.slice(0, 12)}</code>)
                         </div>
                       ))}
                   </dd>

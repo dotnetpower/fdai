@@ -99,8 +99,8 @@ export function SettingsDiagnosticsRoute({ client, auth }: {
     <div class="stack settings-route">
       <PageHeader title={t("route.settingsDiagnostics")} subtitle={t("settings.diagnosticsSubtitle")} />
       <nav class="cs-workspace-tabs" aria-label={t("route.settingsDiagnostics")}>
-        <a class="cs-workspace-tab" href="#settings-runtime">{t("settings.runtime")}</a>
-        <a class="cs-workspace-tab" href="#settings-runtime-policy-status">{t("settings.runtimePolicyStatus")}</a>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-runtime")?.scrollIntoView({ block: "start" })}>{t("settings.runtime")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-runtime-policy-status")?.scrollIntoView({ block: "start" })}>{t("settings.runtimePolicyStatus")}</button>
       </nav>
       <div class="settings-actions">
         <button type="button" class="secondary" disabled={anyPending} onClick={() => {

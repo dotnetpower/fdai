@@ -1,9 +1,15 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { getLocale, setLocale } from "../i18n";
 import {
   automationBlueprintColumns,
   decodeAutomationBlueprints,
 } from "./automation-blueprints";
+
+const routeSource = readFileSync(
+  new URL("./automation-blueprints.tsx", import.meta.url),
+  "utf8",
+);
 
 function payload() {
   return {
@@ -84,5 +90,11 @@ describe("automation blueprint cards", () => {
     } finally {
       setLocale(previous);
     }
+  });
+
+  test("binds the Calm Slate master-detail inspector and selected candidate snapshot fact", () => {
+    expect(routeSource).toContain('id="automation-blueprint-detail"');
+    expect(routeSource).toContain('rowActionControls="automation-blueprint-detail"');
+    expect(routeSource).toContain('key: "selected_candidate"');
   });
 });

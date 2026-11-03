@@ -297,7 +297,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .cs-filter-toolbar > label {
     flex-basis: 100%;
   }

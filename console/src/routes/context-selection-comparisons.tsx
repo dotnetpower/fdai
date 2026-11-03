@@ -15,7 +15,8 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { routeHref } from "../router";
+import { getLocale } from "../i18n";
+import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import {
@@ -199,6 +200,7 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
       facts: [
         { key: "comparison_count", value: data.count, group: "context-selection" },
         { key: "invariant_failures", value: data.invariant_failures, group: "context-selection" },
+        { key: "selected_evaluation", value: selected?.evaluation_id ?? "-", group: "context-selection" },
         { key: "read_only", value: data.read_only, group: "safety" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
@@ -206,9 +208,11 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
         comparisons: data.comparisons.slice(0, 25).map((row) => ({ ...row })),
       },
     }),
-    [data],
+    [data, selected],
   );
-  const comparisonsHref = `${routeHref("context-selection-comparisons")}#context-selection-comparisons`;
+  const comparisonsHref = `${routeHref("context-selection-comparisons", {
+    params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+  })}#context-selection-comparisons`;
   const columns: readonly Column<ComparisonRow>[] = [
     { key: "candidate", header: t("evidence.contextSelection.column.candidate"), render: (row) => <div><strong>{row.candidate_policy_ref}</strong><small class="muted">{row.baseline_policy_ref}</small></div>, cellClass: "mono" },
     { key: "tokens", header: t("evidence.contextSelection.column.tokens"), render: (row) => `${row.baseline_tokens} / ${row.candidate_tokens ?? "-"}` },
@@ -228,7 +232,12 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
       <KpiGrid>
         <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.comparisons")} value={data.count} />
         <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.invariantFailures")} value={data.invariant_failures} tone={data.invariant_failures ? "warning" : "positive"} />
-        <KpiCard href={comparisonsHref} label={t("evidence.contextSelection.column.pinned")} value={`${pinnedPreservedCount} / ${data.count}`} />
+        <KpiCard
+          evidenceState={data.count === 0 ? "insufficient-sample" : "measured"}
+          href={comparisonsHref}
+          label={t("evidence.contextSelection.column.pinned")}
+          value={data.count === 0 ? kpiEvidenceLabel("insufficient-sample") : `${pinnedPreservedCount} / ${data.count}`}
+        />
         <KpiCard
           evidenceState={averageLatencyMs === null ? "not-measured" : "measured"}
           href={comparisonsHref}
@@ -242,14 +251,14 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
           <input
             type="search"
             value={query}
-            placeholder="evaluation, baseline, candidate, omission..."
+            placeholder={getLocale() === "ko" ? "평가 ID, 기준 정책, 후보 정책, 누락 항목..." : "evaluation, baseline, candidate, omission..."}
             onInput={(event) => setQuery(event.currentTarget.value)}
           />
         </label>
         <label>
           <span>{t("evidence.contextSelection.column.invariantResult")}</span>
           <select value={resultFilter} onChange={(event) => setResultFilter(event.currentTarget.value as "all" | "passed" | "failed")}>
-            <option value="all">{t("shared.all")}</option>
+            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
             <option value="passed">{t("evidence.status.passed")}</option>
             <option value="failed">{t("evidence.status.failed")}</option>
           </select>
@@ -278,7 +287,7 @@ function ComparisonBody({ data }: { readonly data: ComparisonResponse }) {
               <div>
                 <span class="cs-inspector-kicker">{selected.evaluation_id}</span>
                 <h3>{selected.candidate_policy_ref}</h3>
-                <p>Baseline: {selected.baseline_policy_ref}</p>
+                <p>{getLocale() === "ko" ? "기준 정책" : "Baseline"}: {selected.baseline_policy_ref}</p>
               </div>
               {selected.failure_reason ? (
                 <StatusPill kind="danger" label={selected.failure_reason} />

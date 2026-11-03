@@ -144,7 +144,7 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
             </li>)}
           </ul>
         </div>
-        <aside class="cs-inspector-pane">
+        <aside class="cs-inspector-pane" aria-label={text("githubConnect")}>
           {owner ? <form class="knowledge-github-form" onSubmit={(event) => {
             event.preventDefault();
             if (valid) void submit({ action: "connect", repository_alias: alias.trim(), location: location.trim(),

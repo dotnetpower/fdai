@@ -15,6 +15,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
@@ -341,14 +342,14 @@ function ForecastLearningBody({ data }: { readonly data: ForecastLearningRespons
                 overdue: data.episodes.overdue,
               })}</p>
             </div>
-            <StatusPill kind={data.durable ? "success" : "warning"} label={data.durable ? "Durable" : "Volatile"} />
+            <StatusPill kind={data.durable ? "success" : "warning"} label={data.source} />
           </header>
           <dl class="cs-facts-grid">
-            <div><dt>Total / Closed / Open</dt><dd>{data.episodes.total} / {data.episodes.closed} / {data.episodes.open}</dd></div>
-            <div><dt>{t("evidence.forecastLearning.overdue")} / Abstained</dt><dd>{data.episodes.overdue} / {data.episodes.abstained}</dd></div>
-            <div><dt>{t("evidence.forecastLearning.outboxDebt")}</dt><dd>{data.publication.pending} pending / {data.publication.dead_lettered ?? 0} dead-lettered</dd></div>
-            <div><dt>Oldest pending</dt><dd>{data.publication.oldest_pending_at ? formatConsoleTimestamp(data.publication.oldest_pending_at) : t("evidence.common.none")}</dd></div>
-            <div><dt>{t("evidence.forecastLearning.retentionDebt")}</dt><dd>{data.retention.pending} pending / {data.retention.overdue ?? 0} overdue</dd></div>
+            <div><dt>{t("evidence.forecastLearning.completeness")}</dt><dd>{completeness === null ? kpiEvidenceLabel("not-measured") : `${(completeness * 100).toFixed(1)}%`} ({data.episodes.closed} / {data.episodes.total})</dd></div>
+            <div><dt>{t("evidence.forecastLearning.overdue")}</dt><dd>{data.episodes.overdue} ({getLocale() === "ko" ? `진행 중 ${data.episodes.open}, 보류 ${data.episodes.abstained}` : `${data.episodes.open} open, ${data.episodes.abstained} abstained`})</dd></div>
+            <div><dt>{t("evidence.forecastLearning.outboxDebt")}</dt><dd>{data.publication.pending} / {t("evidence.forecastLearning.deadLetters")}: {data.publication.dead_lettered ?? 0}</dd></div>
+            <div><dt>{getLocale() === "ko" ? "가장 오래된 대기 시각" : "Oldest pending"}</dt><dd>{data.publication.oldest_pending_at ? formatConsoleTimestamp(data.publication.oldest_pending_at) : t("evidence.common.none")}</dd></div>
+            <div><dt>{t("evidence.forecastLearning.retentionDebt")}</dt><dd>{data.retention.overdue ?? 0} / {data.retention.pending}</dd></div>
           </dl>
         </aside>
       </div>

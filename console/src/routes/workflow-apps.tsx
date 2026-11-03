@@ -15,9 +15,9 @@ import {
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
-import { currentRoute, navigate, routeHref } from "../router";
+import { currentRoute, routeHref } from "../router";
 import { formatDateTimeValue, formatNumber, statusLabel } from "./i18n/workflow";
-import { decodeProcessList, processHref, processTone, type ProcessListResponse, type ProcessSummary } from "./processes.model";
+import { decodeProcessList, processRouteHref, processTone, type ProcessListResponse, type ProcessSummary } from "./processes.model";
 import {
   decodeWorkflowApps,
   workflowAppHref,
@@ -143,7 +143,9 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
       render: (app) => <StatusPill kind={workflowAppLifecycleTone(app.lifecycle)} label={statusLabel(app.lifecycle)} />,
     },
   ];
-  const listHref = `${routeHref("workflow-apps")}#workflow-app-list-title`;
+  const listHref = `${routeHref("workflow-apps", {
+    params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+  })}#workflow-app-list-title`;
   return (
     <div class="stack">
       <KpiGrid>
@@ -158,13 +160,12 @@ function WorkflowAppsWorkspace({ client, data, selectedId }: {
             columns={appColumns}
             rows={data.items}
             keyOf={(app) => app.id}
-            onRowClick={(app) => navigate(workflowAppHref(app.id, currentRoute().search))}
             isRowActive={(app) => app.id === selected?.id}
             scrollRegionLabel={t("workflowApps.listLabel")}
           />
         </section>
         {selected ? (
-          <aside class="cs-inspector-pane" aria-label={selected.label[locale]}>
+          <aside id="workflow-app-detail" class="cs-inspector-pane" aria-label={selected.label[locale]}>
             <header class="cs-inspector-head">
               <div>
                 <span class="cs-inspector-kicker">{selected.id}</span>
@@ -223,7 +224,7 @@ function WorkflowAppRuns({ client, app }: { readonly client: OperatorApiClient; 
       header: t("workflowApps.target"),
       render: (process) => (
         <div>
-          <a href={processHref(process.id)}>{process.target_resource_id}</a>
+          <a href={processRouteHref(process.id, currentRoute().search.get("data") === "sample" ? "sample" : "live")}>{process.target_resource_id}</a>
           <br />
           <code class="small">{process.id}</code>
         </div>
