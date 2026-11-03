@@ -999,28 +999,14 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     application_values = _private_json(
         work_dir / "application.auto.tfvars.json", "application variables"
     )
-    console_selected = _selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
-    enterprise_identity_selected = _selects_add_on(
-        context, ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
-    )
-    operator_api_selected = console_selected or enterprise_identity_selected
-    governed_execution_selected = _selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
-    notifications_selected = _selects_add_on(context, ProductAddOn.NOTIFICATIONS)
+    selected_workloads = standalone_host_values.aks_workload_selection(context)
+    console_selected = selected_workloads["console"]
+    operator_api_selected = selected_workloads["operator"]
+    notifications_selected = selected_workloads["notification"]
+    executor_workload_selected = selected_workloads["executor"]
+    document_workloads_selected = selected_workloads["documents"]
     console_origin = (
         _console_origin(str(substrate_outputs["console_hostname"])) if console_selected else ""
-    )
-    raw_refs = context.get("image_refs")
-    hub_ref_keys = (
-        frozenset(raw_refs)
-        if context.get("artifact_source") == "hub-signed-images" and isinstance(raw_refs, dict)
-        else None
-    )
-    executor_workload_selected = governed_execution_selected and (
-        hub_ref_keys is None or "isolated-executor" in hub_ref_keys
-    )
-    document_workloads_selected = console_selected and (
-        hub_ref_keys is None
-        or {"document-ingestion-api", "document-processing-worker", "clamav"}.issubset(hub_ref_keys)
     )
     backend_nsg_id = standalone_host_values.require_browser_gateway_backend_nsg(
         enabled=document_workloads_selected,

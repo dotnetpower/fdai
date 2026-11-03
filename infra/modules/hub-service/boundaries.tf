@@ -257,17 +257,87 @@ resource "azurerm_postgresql_flexible_server_configuration" "tls_floor" {
   value     = "TLSv1.2"
 }
 
+#trivy:ignore:AZU-0010
 resource "azurerm_storage_account" "state" {
-  for_each                        = local.serverless_kinds
-  name                            = "st${var.prefix}${each.key}"
-  location                        = var.location
-  resource_group_name             = azurerm_resource_group.hub[each.key].name
-  account_tier                    = "Standard"
-  account_replication_type        = "LRS"
-  min_tls_version                 = "TLS1_2"
-  https_traffic_only_enabled      = true
-  allow_nested_items_to_be_public = false
-  tags                            = local.tags
+  # checkov:skip=CKV_AZURE_36:Trusted-service bypass stays at None; the private file endpoint is the only allowed network path.
+  # checkov:skip=CKV2_AZURE_40:ACA Azure Files mounts require the account key; public access is disabled and the file share uses a private endpoint.
+  # checkov:skip=CKV2_AZURE_1:Platform-managed keys plus infrastructure encryption match the existing Hub database encryption boundary.
+  for_each                          = local.serverless_kinds
+  name                              = "st${var.prefix}${each.key}"
+  location                          = var.location
+  resource_group_name               = azurerm_resource_group.hub[each.key].name
+  account_tier                      = "Standard"
+  account_replication_type          = "GZRS"
+  min_tls_version                   = "TLS1_2"
+  https_traffic_only_enabled        = true
+  allow_nested_items_to_be_public   = false
+  public_network_access_enabled     = false
+  local_user_enabled                = false
+  shared_access_key_enabled         = true
+  default_to_oauth_authentication   = true
+  infrastructure_encryption_enabled = true
+  cross_tenant_replication_enabled  = false
+  tags                              = local.tags
+
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["None"]
+  }
+  share_properties {
+    retention_policy {
+      days = 7
+    }
+  }
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+    container_delete_retention_policy {
+      days = 7
+    }
+  }
+  queue_properties {
+    logging {
+      delete                = true
+      read                  = true
+      write                 = true
+      version               = "1.0"
+      retention_policy_days = 7
+    }
+  }
+  sas_policy {
+    expiration_period = "00.01:00:00"
+    expiration_action = "Block"
+  }
+}
+resource "azurerm_private_dns_zone" "state" {
+  for_each            = local.serverless_kinds
+  name                = "privatelink.file.core.windows.net"
+  resource_group_name = azurerm_resource_group.hub[each.key].name
+}
+resource "azurerm_private_dns_zone_virtual_network_link" "state" {
+  for_each              = local.serverless_kinds
+  name                  = "own-hub"
+  resource_group_name   = azurerm_resource_group.hub[each.key].name
+  private_dns_zone_name = azurerm_private_dns_zone.state[each.key].name
+  virtual_network_id    = azurerm_virtual_network.hub[each.key].id
+}
+resource "azurerm_private_endpoint" "state" {
+  for_each            = local.serverless_kinds
+  name                = "pe-${var.prefix}-${each.key}-state"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.hub[each.key].name
+  subnet_id           = azurerm_subnet.secrets[each.key].id
+  private_service_connection {
+    name                           = "state"
+    private_connection_resource_id = azurerm_storage_account.state[each.key].id
+    subresource_names              = ["file"]
+    is_manual_connection           = false
+  }
+  private_dns_zone_group {
+    name                 = "state"
+    private_dns_zone_ids = [azurerm_private_dns_zone.state[each.key].id]
+  }
 }
 resource "azurerm_storage_share" "state" {
   for_each           = local.serverless_kinds

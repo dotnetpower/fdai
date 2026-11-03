@@ -426,6 +426,21 @@ run "serverless_embedded_sqlite_omits_postgresql_and_mounts_volume" {
     )
     error_message = "Serverless mode must omit PostgreSQL resources and mount the Azure Files SQLite volume."
   }
+  assert {
+    condition = (
+      !azurerm_storage_account.state["release"].public_network_access_enabled &&
+      !azurerm_storage_account.state["release"].local_user_enabled &&
+      azurerm_storage_account.state["release"].shared_access_key_enabled &&
+      azurerm_storage_account.state["release"].infrastructure_encryption_enabled &&
+      azurerm_storage_account.state["release"].account_replication_type == "GZRS" &&
+      azurerm_storage_account.state["release"].network_rules[0].default_action == "Deny" &&
+      azurerm_storage_account.state["release"].share_properties[0].retention_policy[0].days == 7 &&
+      azurerm_storage_account.state["release"].sas_policy[0].expiration_action == "Block" &&
+      length(azurerm_private_endpoint.state) == 1 &&
+      azurerm_private_dns_zone.state["release"].name == "privatelink.file.core.windows.net"
+    )
+    error_message = "SQLite state must use private, encrypted, retained, geo-replicated Azure Files storage with bounded SAS lifetime."
+  }
 }
 
 run "serverless_mode_rejects_multi_replica_scaling" {

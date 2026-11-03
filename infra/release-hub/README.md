@@ -5,6 +5,12 @@ Flexible Server or an opt-in serverless embedded SQLite volume (`database = null
 `replicas = { min = 1, max = 1 }`) backed by an Azure Files share mounted into the Container App.
 This root doesn't deploy Lifecycle Hub or FDAI, and takes no customer Hub input.
 
+The opt-in SQLite share uses a private file endpoint, GZRS replication, infrastructure encryption,
+and seven-day soft-delete retention. Public access and local users are disabled. The Container
+Apps Azure Files mount requires an account key; its explicit, resource-scoped scanner exception
+does not enable public access or trusted-service bypass. SAS lifetimes are capped at one hour.
+These are local configuration and mock-plan guarantees, not live deployment evidence.
+
 ## Files
 
 | Path | Purpose |

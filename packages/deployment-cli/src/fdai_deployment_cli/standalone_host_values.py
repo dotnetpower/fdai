@@ -7,10 +7,42 @@ import json
 import re
 from typing import Any
 
+from fdai_service_contracts.product_profile import ProductAddOn
+
 from fdai_deployment_cli.aks_workload_jobs import AKS_CANARY_TOPIC
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.standalone_product_profile import context_selects_add_on
 
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+
+
+def aks_workload_selection(context: dict[str, Any]) -> dict[str, bool]:
+    """Select optional AKS workloads within the recorded product and signed image set."""
+    console = context_selects_add_on(context, ProductAddOn.READ_ONLY_CONSOLE)
+    enterprise_identity = context_selects_add_on(
+        context, ProductAddOn.ENTERPRISE_IDENTITY_GOVERNANCE
+    )
+    governed_execution = context_selects_add_on(context, ProductAddOn.GOVERNED_EXECUTION)
+    raw_refs = context.get("image_refs")
+    hub_ref_keys = (
+        frozenset(raw_refs)
+        if context.get("artifact_source") == "hub-signed-images" and isinstance(raw_refs, dict)
+        else None
+    )
+    return {
+        "console": console,
+        "operator": console or enterprise_identity,
+        "notification": context_selects_add_on(context, ProductAddOn.NOTIFICATIONS),
+        "executor": governed_execution
+        and (hub_ref_keys is None or "isolated-executor" in hub_ref_keys),
+        "documents": console
+        and (
+            hub_ref_keys is None
+            or {"document-ingestion-api", "document-processing-worker", "clamav"}.issubset(
+                hub_ref_keys
+            )
+        ),
+    }
 
 
 def aks_core_environment(
