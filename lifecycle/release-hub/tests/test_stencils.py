@@ -268,6 +268,7 @@ def test_stencil_api_compose_and_release_registration_roundtrip(
         trusted_pem=pem,
         channel="DEV",
         release_id="1.7.0",
+        now=NOW,
     )
     assert verified_selection["release_id"] == "1.7.0"
     assert set(verified_selection["image_sources"]) == {
