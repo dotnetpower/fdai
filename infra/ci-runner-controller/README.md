@@ -77,11 +77,6 @@ names. `name_prefix` is `<name>-worker`. `cpu_budgets` is
 `{"container_cpu":260,"vm_cpu":64}`. The image includes `config/ci-runner-pools.json`; no external
 policy mount is configured.
 
-CI source-admission jobs (`ci-admission`, `protected-ci-source`, and `required`) use the
-four-CPU `general` pool. Their isolated full-history Git fetch and object verification are not
-lightweight control work. The one-CPU `control` pool still handles change-scope selection.
-This routing does not change the trusted-main verifier, its deadlines, or approval requirements.
-
 The controller receives `GITHUB_REPOSITORY`, `CONFIG_JSON`, `GITHUB_RUNNER_CREDENTIAL`,
 `GITHUB_WEBHOOK_SECRET`, `AZURE_CLIENT_ID`, and `FDAI_RUNNER_CONTROLLER_APPLY` (`0` by default).
 The platform supplies the hostname and managed-identity endpoint. The service listens on port 8080.

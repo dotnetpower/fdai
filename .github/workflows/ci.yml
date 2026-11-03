@@ -31,7 +31,7 @@ jobs:
     name: Verify CI source admission
     if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: >-
-      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-general"]') || fromJSON('["ubuntu-24.04"]') }}
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -226,7 +226,7 @@ jobs:
       ((vars.FDAI_CI_SSD_RUNNER_ENABLED == 'true' || vars.FDAI_CI_ELASTIC_RUNNER_ENABLED == 'true') &&
       github.ref == 'refs/heads/main' && github.event_name != 'pull_request'))
     runs-on: >-
-      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-general"]') || fromJSON('["ubuntu-24.04"]') }}
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
     steps:
       - name: Checkout CI source verifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1273,7 +1273,7 @@ jobs:
       - db-integration
       - terraform-validate
     runs-on: >-
-      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-general"]') || fromJSON('["ubuntu-24.04"]') }}
+      ${{ vars.FDAI_CI_POOLS_ENABLED == 'true' && fromJSON('["self-hosted","Linux","X64","fdai-ci-control"]') || fromJSON('["ubuntu-24.04"]') }}
     steps:
       - name: Checkout CI source verifier
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
