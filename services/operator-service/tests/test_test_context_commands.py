@@ -270,7 +270,10 @@ async def test_context_outbox_real_postgres_replay_claim_and_lease_recovery():
     from psycopg import sql
     from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
-    dsn = os.environ["FDAI_DATABASE_URL"].replace("postgresql+psycopg://", "postgresql://", 1)
+    configured = os.environ.get("FDAI_DATABASE_URL")
+    if not configured:
+        pytest.skip("FDAI_DATABASE_URL is unset; use with-local-test-database.py")
+    dsn = configured.replace("postgresql+psycopg://", "postgresql://", 1)
     assert conninfo_to_dict(dsn).get("host") in {"127.0.0.1", "localhost", "::1"}
     schema = "context_outbox_test_" + uuid4().hex
     async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as connection:
