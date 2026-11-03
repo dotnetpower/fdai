@@ -456,6 +456,54 @@ run "serverless_mode_rejects_multi_replica_scaling" {
   expect_failures = [var.database]
 }
 
+run "serverless_operation_job_mounts_sqlite_volume" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind           = "release"
+    database       = null
+    database_admin = null
+    replicas       = { min = 1, max = 1 }
+    operation_job = {
+      operation              = "publish-release"
+      actor                  = "example-operator"
+      request_secret_version = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+    secret_versions = {
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+  assert {
+    condition = (
+      length(azurerm_storage_account.state["release"].name) <= 24 &&
+      output.deployment.operation_job == "caj-examplehub-release-operation" &&
+      azurerm_container_app_job.operation["release"].template[0].volume[0].name == "hub-state" &&
+      azurerm_container_app_job.operation["release"].template[0].container[0].volume_mounts[0].path == "/var/lib/fdai-hub"
+    )
+    error_message = "Serverless operation job must mount the Azure Files volume and bound storage account name."
+  }
+}
+
+run "postgresql_mode_requires_database_subnet_and_admin" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind = "release"
+    network = {
+      vnet    = "10.120.0.0/16"
+      apps    = "10.120.0.0/23"
+      secrets = "10.120.3.0/24"
+    }
+    database_admin = null
+  }
+  expect_failures = [var.network, var.database_admin]
+}
+
+
 
 run "root_installation_is_a_release_operation" {
   command = plan

@@ -10,7 +10,7 @@ Omitting it lets Azure assign a default that Terraform would subsequently plan t
 
 | File | Purpose |
 |------|---------|
-| `boundaries.tf` | Product-owned infrastructure and retained human database administrator |
+| `boundaries.tf` | Product-owned infrastructure, PostgreSQL or serverless Azure Files SQLite state, and retained human database administrator |
 | `bootstrap.tf` | Temporary manual initialization Job, identity and grants |
 | `migrations.tf` | Manual schema migration Job using only the runtime identity |
 | `apps.tf` | Runtime grants and bundled UI/API |
@@ -30,6 +30,7 @@ Variable validation rejects invalid combinations at plan time.
 | `catalog_roles` | Release | Optional `timestamp_ttl_seconds` (`3600` to `604800`) and `snapshot_ttl_seconds` (`3600` to `5184000`, at least the timestamp). Needs the separate `secret_versions.catalog_snapshot_key` and `catalog_timestamp_key`; emits `FDAI_HUB_CATALOG_SNAPSHOT_KEY` and `FDAI_HUB_CATALOG_TIMESTAMP_KEY` only when set. |
 | `operator_auth.public_catalog_export` | Release | Serves the signed export without a bearer token. |
 | `timestamp_renewal_check_seconds` | Release | `0` or `60` to `3600`. |
+| `database` | Both | Optional PostgreSQL Flexible Server settings; `null` selects single-replica (`replicas.max == 1`) serverless embedded SQLite on a private Azure Files mount (`/var/lib/fdai-hub`). |
 
 ## Freeze one candidate
 

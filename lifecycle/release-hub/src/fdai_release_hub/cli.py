@@ -73,6 +73,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if not private_key.is_file():
         parser.error("Development key is missing. Run dev-init first.")
+    sqlite_file = state / "release-hub.sqlite"
+    if sqlite_file.exists() and (stat.S_IMODE(sqlite_file.stat().st_mode) & 0o077):
+        parser.error("Database file must not be accessible by group or other users.")
     key = load_signing_key(private_key, epoch=1)
     role_keys = None
     if snapshot_key.is_file() and timestamp_key.is_file():

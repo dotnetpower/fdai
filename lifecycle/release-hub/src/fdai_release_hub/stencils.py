@@ -1474,6 +1474,12 @@ class StencilComposeRequest(BaseModel):
     release_version: str = Field(default="0.5.0", min_length=1, max_length=64)
     source_commit: str = Field(default="auto", min_length=0, max_length=64)
 
+    @model_validator(mode="after")
+    def _normalize_identifiers(self) -> StencilComposeRequest:
+        self.stencil_id = self.stencil_id.strip()
+        self.release_version = self.release_version.strip().removeprefix("v")
+        return self
+
 
 def _serialize_axis(items: tuple[RuntimeAxisDescriptor, ...]) -> list[dict[str, Any]]:
     return [

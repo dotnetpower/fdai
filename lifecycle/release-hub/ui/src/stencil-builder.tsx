@@ -692,6 +692,14 @@ export function StencilBuilder({
                         setComposed(null);
                       }}
                     />
+                    {existingReleases.some((r) => r.id === releaseVersion.trim()) && (
+                      <small class="warning" role="status">
+                        {t(
+                          `Release ${releaseVersion.trim()} is already registered. Choose the next patch (${nextSuggestedSemVer(existingReleases, "patch")}).`,
+                          `릴리스 ${releaseVersion.trim()} 버전은 이미 등록되어 있습니다. 다음 패치 버전(${nextSuggestedSemVer(existingReleases, "patch")})을 선택하세요.`,
+                        )}
+                      </small>
+                    )}
                     <div class="quick-chips">
                       <button
                         type="button"

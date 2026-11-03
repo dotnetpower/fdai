@@ -151,15 +151,18 @@ def remote_engine(kind: str) -> Engine:
     url = make_url(value)
     if url.drivername == "sqlite":
         checkout = Path(__file__).resolve().parents[4]
-        db_path = Path(url.database) if url.database else None
+        raw_db = url.database or ""
+        db_path = Path(raw_db) if raw_db else None
         if (
             url.host is not None
             or url.username
             or url.password
             or url.query
+            or ".." in Path(raw_db).parts
             or db_path is None
             or not db_path.is_absolute()
             or db_path.resolve().is_relative_to(checkout)
+            or not db_path.parent.is_dir()
         ):
             raise ValueError(
                 "Serverless SQLite Hub requires an absolute mounted state path outside checkout."

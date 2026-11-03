@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import { useMemo, useRef, useState } from "preact/hooks";
 import {
   actionsFor, activeCapabilityRecalls, artifacts, blockedReleaseCapabilities,
-  evaluateApolloPromotionReadiness, extractReleaseStencil, nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
+  evaluateApolloPromotionReadiness, extractReleaseStencil, nextPromotionTransition, releaseTitle, safeParseReleaseManifest, schemaCompatibility,
   type Action, type Catalog, type Release,
 } from "./api";
 import { ReleaseStageLineage } from "./release-lineage";
@@ -34,7 +34,8 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
   const t = (en: string, ko: string) => locale === "ko" ? ko : en;
   const evidence = useRef<HTMLDetailsElement>(null);
   const history = useRef<HTMLElement>(null);
-  const manifest = useMemo(() => parseReleaseManifest(release.manifest), [release.manifest]);
+  const [copiedDigest, setCopiedDigest] = useState(false);
+  const manifest = useMemo(() => safeParseReleaseManifest(release.manifest), [release.manifest]);
   const stencil = useMemo(() => extractReleaseStencil(manifest), [manifest]);
   const declaredArtifacts = useMemo(() => artifacts(manifest), [manifest]);
   const step = nextReleaseStep(release, catalog);
@@ -135,7 +136,20 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         </div>
         <dl>
           <dt>{t("Stencil digest", "Stencil 다이제스트")}</dt>
-          <dd><code class="digest">{stencil.stencil_digest}</code></dd>
+          <dd>
+            <code class="digest">{stencil.stencil_digest}</code>
+            <button
+              type="button"
+              class="chip-btn"
+              onClick={() => {
+                void navigator.clipboard?.writeText(stencil.stencil_digest);
+                setCopiedDigest(true);
+                setTimeout(() => setCopiedDigest(false), 2000);
+              }}
+            >
+              {copiedDigest ? t("Copied!", "복사됨!") : t("Copy digest", "다이제스트 복사")}
+            </button>
+          </dd>
           <dt>{t("Included workloads (+)", "포함된 컨테이너 (+)")}</dt>
           <dd>{stencil.enabled_workloads.join(", ")}</dd>
           {stencil.omitted_workloads && stencil.omitted_workloads.length > 0 && (
@@ -240,7 +254,7 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         <dt>{t("Signed payload SHA-256", "서명된 페이로드 SHA-256")}</dt><dd><code class="digest">{release.signed_payload_sha256}</code></dd>
         <dt>{t("Source commit", "소스 커밋")}</dt><dd><code class="digest">{manifest.source_commit}</code></dd>
         <dt>{t("Platform", "플랫폼")}</dt><dd>{manifest.platform_tag}</dd>
-        <dt>{t("Schema compatibility", "스키마 호환성")}</dt><dd lang="en">{schemaCompatibility(manifest)}</dd>
+        <dt>{t("Schema compatibility", "스키마 호환성")}</dt><dd lang={locale}>{schemaCompatibility(manifest, locale)}</dd>
         <dt>{t("Development key", "개발용 키")}</dt><dd><code class="digest">{catalog.key_id}</code></dd>
         <dt>{t("Published", "발행 시각")}</dt><dd>{release.published_at ?? t("Not published", "발행되지 않음")}</dd>
         <dt>{t("All channels", "모든 채널")}</dt><dd>{release.channels.join(" / ") || t("None", "없음")}</dd>
