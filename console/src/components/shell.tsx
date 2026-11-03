@@ -1,3 +1,4 @@
+import type { RouteFrame } from "../route-frame";
 import type { ComponentChildren } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
@@ -34,6 +35,7 @@ const FindingNotifications = lazy(async () => {
 
 interface ShellProps {
   readonly activePanelId: string;
+  readonly routeFrame?: RouteFrame;
   readonly auth: AuthContext;
   readonly client: OperatorApiClient;
   readonly iamSelf?: IamSelfStatus;
@@ -47,6 +49,7 @@ interface ShellProps {
 
 export function Shell({
   activePanelId,
+  routeFrame = "standard",
   auth,
   client,
   iamSelf,
@@ -178,7 +181,7 @@ export function Shell({
             onOpenSettings={onOpenSettings}
             onExplorerOpenChange={setNavigationExplorerOpen}
           />
-          <main>
+          <main data-route-frame={routeFrame}>
             {children}
           </main>
         </NavigationTitleProvider>

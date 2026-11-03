@@ -1,3 +1,4 @@
+import { routeFrameFor } from "./route-frame";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { lazy, Suspense } from "preact/compat";
 import { OperatorApiClient } from "./api";
@@ -488,6 +489,7 @@ export function App() {
     >
       <Shell
         activePanelId={panel.id}
+        routeFrame={routeFrameFor(backgroundPanel.id)}
         auth={auth}
         client={client}
         dataMode={backgroundDataMode}

@@ -16,9 +16,9 @@ import {
 import { useTransientFlag } from "../hooks/use-transient-flag";
 import { t } from "../i18n";
 import { Tooltip } from "./tooltip";
-import { ErrorState } from "./ui-shell";
+import { ErrorState, describeLoadFailure } from "./ui-shell";
 
-export { ErrorState, PageHeader, type PageHeaderProps } from "./ui-shell";
+export { ErrorState, PageHeader, describeLoadFailure, type PageHeaderProps } from "./ui-shell";
 
 // ---------------------------------------------------------------------------
 // AsyncBoundary - render loading / error / ready in a single primitive
@@ -59,9 +59,15 @@ export function AsyncBoundary<T>({
     return <UnavailableState message={state.message} />;
   }
   if (state.status === "error") {
-    return (
+    const unreachable = describeLoadFailure(state.message).detail;
+    return unreachable === undefined ? (
       <ErrorState
         message={t("shared.loadFailed", { resource: resourceLabel, message: state.message })}
+      />
+    ) : (
+      <ErrorState
+        message={t("shared.loadFailedTitle", { resource: resourceLabel })}
+        detail={unreachable}
       />
     );
   }
