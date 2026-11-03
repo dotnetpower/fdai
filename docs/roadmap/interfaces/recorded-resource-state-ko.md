@@ -1,8 +1,8 @@
 ---
 title: 기록된 리소스 상태
 translation_of: recorded-resource-state.md
-translation_source_sha: 0a3766d49ee8cdc8fef8cde6ed03a4d7d1ee3d65
-translation_revised: 2026-11-02
+translation_source_sha: ea6f1e65126da4b3494295f2d8b0b1cf4678e9a8
+translation_revised: 2026-11-03
 ---
 # 기록된 리소스 상태
 
@@ -12,6 +12,11 @@ translation_revised: 2026-11-02
 > **권한 경계:** 기록을 읽는 것만으로 현재 정상 여부를 증명하거나 변경 권한을 얻을 수 없습니다.
 > 인벤토리 작업이 검토된 공급자 조회와 단일 작성자 변환을 수행합니다. Console 및 대화 소비자는
 > 공급자 쓰기, 모델 호출 또는 상태 변경을 수행하지 않습니다.
+
+Resource 대시보드는 심각도와 개수 순으로 상태 필터와 그룹 요약을 정렬합니다. 개수가 제한된
+주의 항목 목록은 기록된 상태를 유지하고 원인별 점검 안내와 함께 선택한 Resource 또는 정확한
+상태 필터로 연결합니다. 근거가 없으면 장애로 추정하지 않고 검토가 필요한 상태로 유지합니다.
+이 표시 기능은 공급자 상태를 새로 조회하거나 변경하지 않습니다.
 
 ## 설계 요약
 

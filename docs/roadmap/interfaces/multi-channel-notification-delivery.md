@@ -17,6 +17,11 @@ delivery.
 > authoritative for categories, trust tiers, audience derivation, and localization. This document
 > refines only the delivery semantics and the channel binding model beneath them.
 
+Incident email presentation uses escaped evidence values and a reviewed Calm Slate template.
+The Console preview keeps synthetic placeholders in a sandboxed frame and supports HTML,
+plain-text, and light/dark theme inspection. Template styling does not change the frozen target
+set, provider-acceptance semantics, independent delivery confirmation, or approval authority.
+
 ## Design at a glance
 
 Today the router walks `primary -> fallback[0] -> fallback[1]` and returns as soon as one channel

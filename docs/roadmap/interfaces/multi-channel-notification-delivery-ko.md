@@ -1,7 +1,7 @@
 ---
 title: 다중 채널 알림 전달
 translation_of: multi-channel-notification-delivery.md
-translation_source_sha: 18278763600cde4d74ee3f82c5dd526a626c1e11
+translation_source_sha: e0a18b6aad276db04c8e3e5d2c2cdbf7439f314d
 translation_revised: 2026-11-03
 ---
 # 다중 채널 알림 전달
@@ -18,6 +18,11 @@ connector 전송을 대체하는 Microsoft Teams Workflows 웹훅 바인딩과 A
 > **소유 경계:** [채널과 알림](channels-and-notifications-ko.md)이 카테고리, trust tier, 수신
 > 대상 도출, 지역화에 대한 권위를 유지합니다. 이 문서는 그 아래의 전달 의미와 채널 바인딩
 > 모델만 구체화합니다.
+
+인시던트 이메일은 이스케이프 처리한 근거 값과 검토된 Calm Slate 템플릿으로 표시합니다.
+Console 미리보기는 샌드박스 프레임에서 합성 예시 값을 유지하며 HTML, 일반 텍스트,
+밝은 테마와 어두운 테마를 확인할 수 있습니다. 템플릿 스타일은 고정된 전달 대상, 공급자의
+요청 수락 의미, 독립적인 전달 확인 또는 승인 권한을 변경하지 않습니다.
 
 ## 설계 한눈에 보기
 
