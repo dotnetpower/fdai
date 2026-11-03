@@ -42,8 +42,13 @@ FROM (
             THEN 'heimdall_pending_readiness'
         WHEN starts_with(key, 'pantheon/heimdall/sensing-state/readiness/')
             THEN 'heimdall_readiness'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/versions/')
+            THEN 'heimdall_versions'
+        WHEN starts_with(key, 'pantheon/heimdall/sensing-state/manifests/')
+            THEN 'heimdall_manifests'
         WHEN starts_with(key, 'pantheon/heimdall/publications/') THEN 'heimdall_publications'
         WHEN starts_with(key, 'pantheon/heimdall/') THEN 'heimdall_recovery'
+        WHEN starts_with(key, 'pantheon/huginn/ingress-dedup/') THEN 'huginn_ingress_dedup'
         WHEN key = 'pantheon/saga/audit-chain/verified-head' THEN 'saga_audit_checkpoint'
         WHEN key = 'pantheon/saga/verdict-aggregate-pending' THEN 'saga_verdict_aggregate'
         WHEN starts_with(key, 'pantheon/saga') THEN 'saga_recovery'
@@ -58,6 +63,10 @@ FROM (
     END AS family, pg_column_size(value) AS value_bytes FROM state_kv
 ) classified
 GROUP BY family ORDER BY value_bytes DESC, family
+"""
+_AUDIT_FAMILY_SQL = """
+SELECT action_kind, count(*), COALESCE(sum(pg_column_size(entry)), 0)
+  FROM audit_log GROUP BY action_kind ORDER BY 3 DESC, action_kind LIMIT 8
 """
 _TABLE_STORAGE_SQL = """
 SELECT n.nspname, c.relname, c.oid,
@@ -214,6 +223,14 @@ def storage_details(connection: Any) -> dict[str, Any]:
         ]
     else:
         details["state_families"] = {"status": state_status}
+    audit_status = _relation_read_status(connection, "audit_log")
+    if audit_status == "available":
+        details["audit_families"] = [
+            {"action_kind": row[0], "rows": int(row[1]), "entry_storage_bytes": int(row[2])}
+            for row in connection.execute(_AUDIT_FAMILY_SQL).fetchall()
+        ]
+    else:
+        details["audit_families"] = {"status": audit_status}
     statistics = connection.execute(
         "SELECT stats_reset, tup_inserted, tup_updated, tup_deleted, "
         "blk_read_time, blk_write_time FROM pg_stat_database "

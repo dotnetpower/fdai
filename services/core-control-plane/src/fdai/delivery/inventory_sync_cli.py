@@ -383,6 +383,9 @@ async def run(
                 event_bus=event_bus,
                 topic=event_topic,
                 scope_ref=scope_ref(config.scopes),
+                delta_policy=inventory_sync_cli_support.build_configuration_delta_policy(
+                    config.dsn, stack
+                ),
             ),
             evidence_counts=evidence_counts,
             stack=stack,

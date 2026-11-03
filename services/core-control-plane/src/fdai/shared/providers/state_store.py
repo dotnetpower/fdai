@@ -506,6 +506,21 @@ class StateStoreKeysetReader(Protocol):
         ...
 
 
+@runtime_checkable
+class StateStoreAgedKeysetReader(StateStoreKeysetReader, Protocol):
+    """Optional retention-only reader that also bounds rows by last write time."""
+
+    async def read_state_keys_before(
+        self, prefix: str, *, before: datetime, after: str = "", limit: int = 128
+    ) -> tuple[str, ...]:
+        """Return stable ascending keys last written before ``before``.
+
+        Any write, including an identical rewrite, refreshes the time, so a row another writer
+        is publishing is never selected within the caller's minimum age.
+        """
+        ...
+
+
 def classify_incident_append(
     history: tuple[Mapping[str, Any], ...],
     entry: Mapping[str, Any],
@@ -651,6 +666,7 @@ __all__ = [
     "IncidentOpenAppendResult",
     "IncidentWriteConflictError",
     "StateStore",
+    "StateStoreAgedKeysetReader",
     "StateStoreKeysetReader",
     "classify_incident_append",
     "incident_number_for",

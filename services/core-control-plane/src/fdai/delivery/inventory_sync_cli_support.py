@@ -8,6 +8,7 @@ import math
 import re
 import ssl
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -52,6 +53,10 @@ from fdai.delivery.inventory_collection import (
     collection_configuration_digest,
     collection_producer_digest,
 )
+from fdai.delivery.inventory_configuration_delta import (
+    StateBackedConfigurationDeltaPolicy,
+    full_redelivery_seconds,
+)
 from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_operator_graph import (
     reconcile_local_operator_graph as reconcile_local_operator_graph,
@@ -67,7 +72,13 @@ from fdai.delivery.kubernetes_api_inventory import (
 from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.delivery.kubernetes_lifecycle_collection import KubernetesLifecycleCollector
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
-from fdai.delivery.persistence.postgres_inventory_snapshot import PostgresInventorySnapshotStore
+from fdai.delivery.persistence.postgres_inventory_configuration_delta import (
+    PostgresInventoryConfigurationComparison,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
+    PostgresInventorySnapshotStore,
+    PostgresInventorySnapshotStoreConfig,
+)
 from fdai.delivery.persistence.postgres_kubernetes_lifecycle import (
     PostgresKubernetesLifecycleConfig,
     PostgresKubernetesLifecycleStore,
@@ -660,3 +671,18 @@ async def discover_aks_bindings_with_durable_cache(
         return await discovery.discover(config.scopes[0])
     finally:
         await cache_store.aclose()
+
+
+def build_configuration_delta_policy(
+    dsn: str, stack: AsyncExitStack
+) -> StateBackedConfigurationDeltaPolicy:
+    """Bound repeated full-reconciliation Resource events; the store closes with ``stack``."""
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    stack.push_async_callback(store.aclose)
+    return StateBackedConfigurationDeltaPolicy(
+        store=store,
+        comparison=PostgresInventoryConfigurationComparison(
+            config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+        ),
+        full_redelivery_seconds=full_redelivery_seconds(),
+    )

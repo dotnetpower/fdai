@@ -5,6 +5,7 @@ import {
   evaluateApolloPromotionReadiness, extractReleaseStencil, nextPromotionTransition, parseReleaseManifest, releaseTitle, schemaCompatibility,
   type Action, type Catalog, type Release,
 } from "./api";
+import { ReleaseStageLineage } from "./release-lineage";
 
 const stages = ["DEV", "RELEASE_CANDIDATE", "RELEASE"] as const;
 
@@ -177,8 +178,9 @@ export function ReleaseWorkspace({ release, catalog, locale: externalLocale, onL
         </details>
       </section>
     )}
-    <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership", "채널 소속")}</h2>
-      <p>{t("Recorded membership, not a verified promotion history. Custom channels remain in technical details.", "기록된 소속이며 검증된 승격 이력은 아닙니다. 사용자 지정 채널은 기술 세부 정보에서 확인할 수 있습니다.")}</p>
+    <section aria-labelledby="release-stage-title"><h2 id="release-stage-title">{t("Channel membership & LR Build/Promotion Pipeline", "채널 소속 및 좌→우(LR) 빌드·승격 파이프라인")}</h2>
+      <p>{t("Recorded membership and stage progression from Stencil composition through production RELEASE.", "스텐실 빌드부터 DEV 서명, RC 카나리 검증, 운영 RELEASE까지의 좌→우(LR) 단계 파이프라인과 기록된 소속입니다.")}</p>
+      <ReleaseStageLineage release={release} catalog={catalog} locale={locale} />
       <ol class="release-stages">{stages.map((name) => <li key={name}><strong>{name}</strong><span>{
         release.channels.includes(name)
           ? release.state === "recalled" ? t("Withdrawn by recall", "회수로 사용 중지됨") : t("Member", "소속됨")

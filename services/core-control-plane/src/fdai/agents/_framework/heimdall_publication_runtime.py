@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.heimdall_checkpoint_gc import collect_unreachable_checkpoint_rows
 from fdai.agents._framework.heimdall_constants import (
     _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
 )
@@ -564,6 +565,13 @@ class HeimdallPublicationRuntimeMixin(_AgentMixinBase):
             await self.recover_publications(limit=_PUBLICATION_MAINTENANCE_PAGE)
         except Exception:
             self.record_behavior("publication:maintenance_recovery_failed")
+        try:
+            reclaimed = await collect_unreachable_checkpoint_rows(self)
+        except Exception:
+            self.record_behavior("checkpoint_gc:failed")
+        else:
+            if reclaimed:
+                self.record_behavior("checkpoint_gc:rows_reclaimed", reclaimed)
 
     async def _claim_publication(
         self,

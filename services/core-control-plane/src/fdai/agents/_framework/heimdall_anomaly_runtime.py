@@ -82,6 +82,7 @@ from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldes
 from fdai.agents._framework.heimdall_helpers import (
     trace_continuity_evidence as _trace_continuity_evidence,
 )
+from fdai.shared.contracts.inventory_observation import INVENTORY_OBSERVATION_EVENT_TYPE
 
 if TYPE_CHECKING:
     from fdai.agents._framework.base import Agent as _AgentMixinBase
@@ -214,6 +215,17 @@ class HeimdallAnomalyRuntimeMixin(_AgentMixinBase):
         incident_correlation = (
             str(event.get("incident_correlation") or "correlate").strip().casefold()
         )
+        if (
+            self._rate_threshold > 1
+            and event_type == INVENTORY_OBSERVATION_EVENT_TYPE
+            and correlation_id
+            and correlation_id == str(event.get("idempotency_key") or "").strip()
+        ):
+            # Huginn self-correlates an uncorrelated full-reconciliation observation to its own
+            # generation-scoped key, so its episode can never gather a second event. Persisting
+            # it only rewrites immutable checkpoint rows.
+            self.record_behavior("anomaly_episode:self_correlated_observation_untracked")
+            return
         time_basis, observed_at = _event_window_time(event, fallback=self._clock())
         episode_key = (
             resource_id,

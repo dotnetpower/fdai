@@ -325,6 +325,8 @@ async def test_state_family_diagnostics_are_exact_and_do_not_disclose_identifier
             ("pantheon/heimdall/sensing-state/buckets/00", '{"records":[]}'),
             ("pantheon/heimdall/sensing-state/episodes/private-reference", '{"history":[1]}'),
             ("pantheon/heimdall/sensing-state/readiness/private-reference", '{"ready":true}'),
+            ("pantheon/heimdall/sensing-state/versions/private-digest", '{"entries":{}}'),
+            ("pantheon/heimdall/sensing-state/manifests/private-digest", '{"bucket_digests":[]}'),
             ("pantheon/saga/audit-chain/verified-head", '{"entries":[]}'),
             ("pantheon/saga/verdict-aggregate-pending", '{"groups":{}}'),
             ("measurement:control-loop:v1:private-event", '{"result":"held"}'),
@@ -337,12 +339,14 @@ async def test_state_family_diagnostics_are_exact_and_do_not_disclose_identifier
             "heimdall_buckets",
             "heimdall_episodes",
             "heimdall_readiness",
+            "heimdall_versions",
+            "heimdall_manifests",
             "saga_audit_checkpoint",
             "saga_verdict_aggregate",
             "control_loop_measurements",
             "other",
         }
-        assert sum(row[1] for row in observed) == 7
+        assert sum(row[1] for row in observed) == 9
         expected = await (
             await connection.execute("SELECT sum(pg_column_size(value)) FROM state_kv")
         ).fetchone()

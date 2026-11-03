@@ -506,6 +506,30 @@ async def test_keyset_state_keys_stay_stable_after_audited_cas() -> None:
 
 
 @pytest.mark.asyncio
+async def test_aged_keyset_excludes_recently_written_rows() -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+    prefix = f"aged-keyset-{uuid.uuid4().hex}:"
+    keys = (f"{prefix}a", f"{prefix}b", f"{prefix}c")
+    for key in keys:
+        await store.write_state(key, {"revision": 1})
+    with psycopg.connect(_plain_dsn(url)) as connection:
+        connection.execute(
+            "UPDATE state_kv SET updated_at = NOW() - interval '2 hours' WHERE key = ANY(%s)",
+            (list(keys[:2]),),
+        )
+    cutoff = datetime.now(tz=UTC) - timedelta(hours=1)
+
+    assert await store.read_state_keys_before(prefix, before=cutoff) == keys[:2]
+    assert await store.read_state_keys_before(prefix, before=cutoff, after=keys[0]) == keys[1:2]
+    await store.write_state(keys[0], {"revision": 1})
+    assert await store.read_state_keys_before(prefix, before=cutoff) == keys[1:2]
+    with pytest.raises(ValueError, match="timezone-aware"):
+        await store.read_state_keys_before(prefix, before=datetime(2026, 1, 1))
+
+
+@pytest.mark.asyncio
 async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit(
     saga_database: str,
 ) -> None:
