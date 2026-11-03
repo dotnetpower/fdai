@@ -3,7 +3,7 @@ import { useRef, useState } from "preact/hooks";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import type { PanelProps } from "../panels";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import { formatConsoleTimestamp } from "../time-format";
 import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
@@ -117,11 +117,15 @@ export function ConversationSearchRoute(_props: PanelProps) {
   );
 
   return (
-    <div class="stack conversation-search-view">
+    <div class="stack conversation-search-view cs-workspace-route">
       <PageHeader
         title={t("conversationSearch.title")}
         subtitle={t("conversationSearch.subtitle")}
       />
+      <div class="governance-readonly-banner">
+        <strong>{t("conversationSearch.title")}</strong>
+        <span>{t("conversationSearch.subtitle")}</span>
+      </div>
       <form class="conversation-search-form" onSubmit={(event) => void submit(event)}>
         <label class="conversation-search-query">
           <span>{t("conversationSearch.query")}</span>
@@ -177,9 +181,19 @@ export function ConversationSearchRoute(_props: PanelProps) {
           <span>{t("conversationSearch.before")}</span>
           <input type="datetime-local" value={form.before} onInput={(event) => setForm({ ...form, before: event.currentTarget.value })} />
         </label>
-        <button type="submit" disabled={loading}>{t("conversationSearch.search")}</button>
+        <button type="submit" class="btn primary conversation-search-submit" disabled={loading}>
+          {t("conversationSearch.search")}
+        </button>
       </form>
 
+      {viewStatus === "idle" ? (
+        <dl class="cs-facts-grid">
+          <div><dt>{t("conversationSearch.mode")}</dt><dd>{t(`conversationSearch.modes.${form.mode}`)}</dd></div>
+          <div><dt>{t("conversationSearch.role")}</dt><dd>{form.role ? t(`conversationSearch.roles.${form.role}`) : t("conversationSearch.any")}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "맥락 불러오기" : "Context loading"}</dt><dd>{getLocale() === "ko" ? "운영자 선택 시" : "Operator selected"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "권한" : "Authority"}</dt><dd>{getLocale() === "ko" ? "읽기 전용" : "Read-only"}</dd></div>
+        </dl>
+      ) : null}
       {viewStatus === "loading" ? <LoadingState label={t("conversationSearch.loading")} /> : null}
       {viewStatus === "unavailable" ? <UnavailableState message={conversationSearchFailureMessage(error)} /> : null}
       {viewStatus === "error" ? <ErrorState message={conversationSearchFailureMessage(error)} /> : null}
@@ -194,7 +208,8 @@ export function ConversationSearchRoute(_props: PanelProps) {
           </header>
           {result.hits.map((hit) => {
             const context = contexts[hit.result_id];
-            return <article class="conversation-search-result" key={hit.result_id}>
+            const contextDomId = `conversation-search-context-${hit.result_id}`;
+            return <article class="conversation-search-result cs-inspector-pane" key={hit.result_id}>
               <div class="conversation-search-meta">
                 <span>{hit.channel_id}</span>
                 <span>{t(`conversationSearch.roles.${hit.role}`)}</span>
@@ -206,17 +221,19 @@ export function ConversationSearchRoute(_props: PanelProps) {
               <div class="conversation-search-actions">
                 <button
                   type="button"
+                  class="btn secondary"
                   onClick={() => void loadContext(hit)}
                   disabled={contextLoading.has(hit.result_id)}
                   aria-expanded={Boolean(context)}
+                  aria-controls={context ? contextDomId : undefined}
                 >
                   {contexts[hit.result_id]
                     ? t("conversationSearch.hideContext")
                     : t("conversationSearch.showContext")}
                 </button>
-                {hit.evidence_refs.map((ref) => <code key={ref}>{ref}</code>)}
+                {hit.evidence_refs.map((ref, index) => <code key={`${ref}:${index}`}>{ref}</code>)}
               </div>
-              {context ? <ContextRows context={context} /> : null}
+              {context ? <ContextRows id={contextDomId} context={context} /> : null}
             </article>;
           })}
         </section>
@@ -231,9 +248,16 @@ function HighlightedSnippet({ hit }: { readonly hit: ConversationSearchHitPayloa
     : <span key={`text-${index}`}>{segment.text}</span>)}</>;
 }
 
-function ContextRows({ context }: { readonly context: ConversationSearchContextPayload }) {
+function ContextRows({ id, context }: { readonly id: string; readonly context: ConversationSearchContextPayload }) {
+  if (context.before.length === 0 && context.after.length === 0) {
+    return (
+      <div id={id} class="conversation-search-context muted">
+        {t("conversationSearch.empty")}
+      </div>
+    );
+  }
   return (
-    <div class="conversation-search-context">
+    <div id={id} class="conversation-search-context">
       <div aria-label={t("conversationSearch.contextBefore")}>
         {context.before.map((turn) => (
           <div key={turn.result_id}>

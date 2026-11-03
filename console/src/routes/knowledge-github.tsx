@@ -98,52 +98,72 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
   };
   const selected = data?.sources.find((row) => row.repository_alias === alias.trim());
   const valid = githubConnectionInputValid(alias.trim(), location.trim());
-  return <div class="stack knowledge-route knowledge-github-route">
+  return <div class="stack knowledge-route knowledge-github-route cs-workspace-route">
     <PageHeader title="GitHub" subtitle={text("githubPurpose")} />
-    <p>{text("githubBoundary")}</p>
+    <div class="governance-readonly-banner">
+      <strong>GitHub</strong>
+      <span>{text("githubBoundary")}</span>
+    </div>
     <nav class="knowledge-connector-actions" aria-label={text("connectorActions")}>
-      <button class="btn" disabled={busy || view.status === "loading"} onClick={() => void refresh()}>{text("githubRefresh")}</button>
+      <button class="btn secondary" disabled={busy || view.status === "loading"} onClick={() => void refresh()}>{text("githubRefresh")}</button>
       <a href={routeHref("settings-integrations")}>{text("openIntegrationSettings")}</a>
       <a href={routeHref("code-security")}>{text("githubScanSettings")}</a>
     </nav>
+    {view.status === "unavailable" ? (
+      <section class="knowledge-connector-state" aria-labelledby="knowledge-connector-title">
+        <h3 id="knowledge-connector-title">
+          {text("connectorUnavailableTitle", { provider: "GitHub" })}
+        </h3>
+        <p>{text("connectorUnavailableBody", { provider: "GitHub" })}</p>
+      </section>
+    ) : null}
     <AsyncBoundary state={view} resourceLabel={text("sourcesTitle")}>
-      {(result) => <section class="stack" aria-label={text("sourcesTitle")}>
-        {result.gaps.length > 0 && <p role="status">{text("githubGaps")}</p>}
-        {result.sources.length === 0 && <p>{text("githubEmpty")}</p>}
-        <ul class="knowledge-github-sources">
-          {result.sources.map((row) => <li key={row.repository_alias}>
-            <h3>{row.repository_alias}</h3><p>{row.location}</p>
-            <StatusPill kind="neutral" label={text(row.knowledge_source?.knowledge_read_enabled ? "githubVerified" : "githubDisconnected")} />
-            <p>{text(row.enabled ? "githubScanEnabled" : "githubScanDisabled")}</p>
-            {row.knowledge_source && <dl>
-              <dt>{text("githubObserved")}</dt><dd>{formatConsoleTimestamp(row.knowledge_source.observed_at)}</dd>
-              <dt>{text("githubCommit")}</dt><dd><code>{row.knowledge_source.observed_commit}</code></dd>
-              <dt>{text("githubReadmeDigest")}</dt><dd><code>{row.knowledge_source.readme_digest}</code></dd>
-            </dl>}
-            {owner && row.knowledge_source?.knowledge_read_enabled && <button class="btn" disabled={busy || needsRefresh}
-              onClick={() => void submit({ action: "disconnect", repository_alias: row.repository_alias, expected_revision: row.revision })}>
-              {text("githubDisconnect")}
-            </button>}
-          </li>)}
-        </ul>
-        {owner ? <form class="knowledge-github-form" onSubmit={(event) => {
-          event.preventDefault();
-          if (valid) void submit({ action: "connect", repository_alias: alias.trim(), location: location.trim(),
-            credential_reference: reference, expected_revision: selected?.revision ?? 0 });
-        }}>
-          <h3>{text("githubConnect")}</h3>
-          <label>{text("githubAlias")}<input value={alias} disabled={busy || needsRefresh}
-            onInput={(event) => setAlias(event.currentTarget.value)} /></label>
-          <label>{text("githubLocation")}<input value={location} placeholder="owner/repository" disabled={busy || needsRefresh}
-            onInput={(event) => setLocation(event.currentTarget.value)} /></label>
-          <label>{text("githubCredential")}<select value={reference} disabled={busy || needsRefresh}
-            onChange={(event) => setReference(event.currentTarget.value as typeof reference)}>
-            <option value="public">{text("githubPublic")}</option>
-            <option value="deployment-github-app">{text("githubApp")}</option>
-          </select></label>
-          <p>{text("githubCredentialHint")}</p>
-          <button class="btn" type="submit" disabled={!valid || busy || needsRefresh}>{text("githubConnect")}</button>
-        </form> : <p>{text("githubOwnerOnly")}</p>}
+      {(result) => <section class="cs-workspace-split has-selection" aria-label={text("sourcesTitle")}>
+        <div class="cs-workspace-main">
+          {result.gaps.length > 0 && <p role="status">{text("githubGaps")}</p>}
+          {result.sources.length === 0 && <p>{text("githubEmpty")}</p>}
+          <ul class="knowledge-github-sources">
+            {result.sources.map((row) => <li class="cs-inspector-pane" key={row.repository_alias}>
+              <header class="cs-inspector-head">
+                <div>
+                  <span class="cs-inspector-kicker">{row.location}</span>
+                  <h3>{row.repository_alias}</h3>
+                  <p>{text(row.enabled ? "githubScanEnabled" : "githubScanDisabled")}</p>
+                </div>
+                <StatusPill kind={row.knowledge_source?.knowledge_read_enabled ? "success" : "neutral"} label={text(row.knowledge_source?.knowledge_read_enabled ? "githubVerified" : "githubDisconnected")} />
+              </header>
+              {row.knowledge_source && <dl class="cs-facts-grid">
+                <div><dt>{text("githubObserved")}</dt><dd>{formatConsoleTimestamp(row.knowledge_source.observed_at)}</dd></div>
+                <div><dt>{text("githubCommit")}</dt><dd><code>{row.knowledge_source.observed_commit}</code></dd></div>
+                <div><dt>{text("githubReadmeDigest")}</dt><dd><code>{row.knowledge_source.readme_digest}</code></dd></div>
+              </dl>}
+              {owner && row.knowledge_source?.knowledge_read_enabled && <button class="btn secondary" disabled={busy || needsRefresh}
+                onClick={() => void submit({ action: "disconnect", repository_alias: row.repository_alias, expected_revision: row.revision })}>
+                {text("githubDisconnect")}
+              </button>}
+            </li>)}
+          </ul>
+        </div>
+        <aside class="cs-inspector-pane" aria-label={text("githubConnect")}>
+          {owner ? <form class="knowledge-github-form" onSubmit={(event) => {
+            event.preventDefault();
+            if (valid) void submit({ action: "connect", repository_alias: alias.trim(), location: location.trim(),
+              credential_reference: reference, expected_revision: selected?.revision ?? 0 });
+          }}>
+            <h3>{text("githubConnect")}</h3>
+            <label>{text("githubAlias")}<input class="form-input" value={alias} disabled={busy || needsRefresh}
+              onInput={(event) => setAlias(event.currentTarget.value)} /></label>
+            <label>{text("githubLocation")}<input class="form-input" value={location} placeholder="owner/repository" disabled={busy || needsRefresh}
+              onInput={(event) => setLocation(event.currentTarget.value)} /></label>
+            <label>{text("githubCredential")}<select class="form-input" value={reference} disabled={busy || needsRefresh}
+              onChange={(event) => setReference(event.currentTarget.value as typeof reference)}>
+              <option value="public">{text("githubPublic")}</option>
+              <option value="deployment-github-app">{text("githubApp")}</option>
+            </select></label>
+            <p class="muted small">{text("githubCredentialHint")}</p>
+            <button class="btn primary" type="submit" disabled={!valid || busy || needsRefresh}>{text("githubConnect")}</button>
+          </form> : <p>{text("githubOwnerOnly")}</p>}
+        </aside>
       </section>}
     </AsyncBoundary>
     {feedback && <p role="status">{feedback}</p>}

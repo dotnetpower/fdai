@@ -1,7 +1,7 @@
 import { PageHeader, StatusPill, UnavailableState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import type { PanelProps } from "../panels";
 import { currentRoute, routeHref } from "../router";
 import { CloudKnowledgePanel } from "./cloud-knowledge";
@@ -70,8 +70,12 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
   );
 
   return (
-    <div class="stack knowledge-route">
+    <div class="stack knowledge-route cs-workspace-route">
       <PageHeader title={knowledgeText("overviewTitle")} subtitle={knowledgeText("subtitle")} />
+      <div class="governance-readonly-banner">
+        <strong>{knowledgeText("sourcesTitle")}</strong>
+        <span>{knowledgeText("sourcesHint")}</span>
+      </div>
       <section aria-labelledby="knowledge-sources-title">
         <div class="knowledge-section-heading">
           <div>
@@ -99,6 +103,19 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
         </div>
       </section>
       <CloudKnowledgePanel {...props} />
+      <section class="stack-section" aria-labelledby="knowledge-retrieval-contract-title">
+        <h3 id="knowledge-retrieval-contract-title" class="section-title">
+          {getLocale() === "ko" ? "지식 검색 계약" : "Retrieval contract"}
+        </h3>
+        <dl class="cs-facts-grid">
+          <div><dt>{getLocale() === "ko" ? "목적" : "Purpose"}</dt><dd>{getLocale() === "ko" ? "근거에 기반한 운영자 답변" : "Evidence-grounded operator answers"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "권한" : "Authorization"}</dt><dd>{getLocale() === "ko" ? "원본 및 컬렉션 범위 제한" : "Source and collection scoped"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "최신성" : "Freshness"}</dt><dd>{getLocale() === "ko" ? "관측 시점별 보고" : "Reported per observation"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "불완전한 커버리지" : "Incomplete coverage"}</dt><dd>{getLocale() === "ko" ? "명시적 사용 불가 표시" : "Explicitly unavailable"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "실행 권한" : "Execution authority"}</dt><dd>{getLocale() === "ko" ? "없음" : "None"}</dd></div>
+          <div><dt>{getLocale() === "ko" ? "출처 증적" : "Provenance"}</dt><dd>{getLocale() === "ko" ? "리비전 및 다이제스트 보존" : "Revision and digest retained"}</dd></div>
+        </dl>
+      </section>
     </div>
   );
 }
@@ -151,7 +168,7 @@ function KnowledgeConnectorRoute({
   );
 
   return (
-    <div class="stack knowledge-route">
+    <div class="stack knowledge-route cs-workspace-route">
       <PageHeader
         title={provider}
         subtitle={knowledgeText("connectorSubtitle", { provider })}
@@ -166,6 +183,29 @@ function KnowledgeConnectorRoute({
           message={knowledgeText("connectorUnavailableBody", { provider })}
         />
         <p>{knowledgeText("connectorBoundary")}</p>
+        <ol class="cs-step-list" aria-label={getLocale() === "ko" ? "커넥터 준비 단계" : "Connector readiness"}>
+          <li>
+            <span class="cs-step-number">1</span>
+            <div>
+              <strong>{getLocale() === "ko" ? "통합 설정 구성" : "Configure integration"}</strong>
+              <small>{getLocale() === "ko" ? "공급자 ID와 비밀 보관이 아직 기록되지 않았습니다." : "Provider identity and secret custody are not recorded."}</small>
+            </div>
+          </li>
+          <li>
+            <span class="cs-step-number">2</span>
+            <div>
+              <strong>{getLocale() === "ko" ? "허용 범위 승인" : "Authorize scope"}</strong>
+              <small>{getLocale() === "ko" ? "리포지토리 및 브랜치 허용 목록이 기록되지 않았습니다." : "Repository and ref allowlists are not recorded."}</small>
+            </div>
+          </li>
+          <li>
+            <span class="cs-step-number">3</span>
+            <div>
+              <strong>{getLocale() === "ko" ? "동기화 관측" : "Observe synchronization"}</strong>
+              <small>{getLocale() === "ko" ? "최신성 및 커버리지 근거가 아직 없습니다." : "No freshness or coverage evidence exists."}</small>
+            </div>
+          </li>
+        </ol>
         <nav class="knowledge-connector-actions" aria-label={knowledgeText("connectorActions")}>
           <a class="primary" href={routeHref("settings-integrations")}>
             {knowledgeText("openIntegrationSettings")}

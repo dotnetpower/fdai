@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { AsyncBoundary, DataTable, PageHeader, StatusPill, type AsyncState, type Column } from "../components/ui";
+import { AsyncBoundary, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, type AsyncState, type Column } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary, TERMS } from "../deck/glossary";
 import { t } from "../i18n";
@@ -134,18 +134,23 @@ function OperatorMemoryBody({ view, applied, checkedAt }: {
     const timer = window.setTimeout(() => setNow(Date.now()), delay);
     return () => window.clearTimeout(timer);
   }, [now, view.items]);
+  const baseHref = operatorMemoryFilterHref(window.location.href, applied);
   return <div class="stack">
+    <KpiGrid>
+      <KpiCard href={`${baseHref}#memory-compactions`} label={t("settings.operatorMemory.compactions")} value={view.compactions.length} />
+      <KpiCard href={`${baseHref}#memory-entries`} label={t("settings.operatorMemory.entries")} value={view.items.length} />
+    </KpiGrid>
     <p role="status">{memoryUxText("count", { entries: view.items.length, compactions: view.compactions.length })}</p>
     <p class="muted">{memoryUxText("coverage")}</p>
-    <section class="stack-section settings-section">
+    <section id="memory-compactions" class="stack-section settings-section">
       <h3>{t("settings.operatorMemory.compactions")}</h3>
       <DataTable columns={compactionColumns()} rows={view.compactions}
-        keyOf={(item) => item.candidateId} empty={t("settings.operatorMemory.noCompactions")} />
+        keyOf={(item) => item.candidateId} scrollRegionLabel={t("settings.operatorMemory.compactions")} empty={t("settings.operatorMemory.noCompactions")} />
     </section>
-    <section class="stack-section settings-section">
+    <section id="memory-entries" class="stack-section settings-section">
       <h3>{t("settings.operatorMemory.entries")}</h3>
       <DataTable columns={columns(now, new Set(view.items.map((item) => item.id)))} rows={view.items}
-        keyOf={(item) => item.id} empty={t("settings.operatorMemory.empty")} />
+        keyOf={(item) => item.id} scrollRegionLabel={t("settings.operatorMemory.entries")} empty={t("settings.operatorMemory.empty")} />
     </section>
   </div>;
 }

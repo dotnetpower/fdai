@@ -35,6 +35,13 @@ export function SettingsGeneralRoute({ client }: Props) {
   return (
     <div class="stack settings-route">
       <PageHeader title={t("route.settingsGeneral")} subtitle={settingsGeneralText("subtitle")} />
+      <nav class="cs-workspace-tabs" aria-label={t("route.settingsGeneral")}>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-appearance")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("appearance")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-user-context")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("contextTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-briefings")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("briefingsTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-saved-memory")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("memoryTitle")}</button>
+        <button type="button" class="cs-workspace-tab" onClick={() => document.getElementById("settings-reset")?.scrollIntoView({ block: "start" })}>{settingsGeneralText("resetTitle")}</button>
+      </nav>
       <SettingsDisplaySections controller={controller} />
       <SettingsContextSections controller={controller} />
       <section class="settings-section settings-reset-section" aria-labelledby="settings-reset">

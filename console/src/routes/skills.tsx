@@ -1,8 +1,9 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
+  CopyButton,
   DataTable,
   EmptyState,
   KpiCard,
@@ -14,6 +15,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import { displayValue, formatNumber, t } from "./i18n/governance";
@@ -154,7 +156,7 @@ export function SkillsRoute({ client }: { readonly client: OperatorApiClient }) 
     return () => { cancelled = true; };
   }, [client, refreshRevision]);
   return (
-    <div class="stack skills-route">
+    <div class="stack skills-route cs-workspace-route">
       <PageHeader title={t("route.skills")} subtitle={t("nav.panelSub.skills")} actions={
         <EvidenceRefresh loading={state.status === "loading"} onRefresh={() => {
           setState({ status: "loading" });
@@ -385,6 +387,33 @@ function bundleColumns(): readonly Column<RuntimeSkillBundleItem>[] {
 }
 
 function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
+  const [query, setQuery] = useState("");
+  const [eligibilityFilter, setEligibilityFilter] = useState<"all" | "eligible" | "blocked" | "disabled">("all");
+  const [selectedSkillName, setSelectedSkillName] = useState<string | null>(
+    () => data.skills[0]?.name ?? null,
+  );
+  const filteredSkills = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return data.skills.filter((item) => {
+      if (eligibilityFilter === "eligible" && !item.eligible) return false;
+      if (eligibilityFilter === "blocked" && (item.eligible || !item.enabled)) return false;
+      if (eligibilityFilter === "disabled" && item.enabled) return false;
+      if (!needle) return true;
+      return [
+        item.name,
+        item.version,
+        item.description,
+        item.source,
+        item.eligibility_reason,
+        ...item.required_tools,
+        ...item.allowed_agents,
+      ].join(" ").toLocaleLowerCase().includes(needle);
+    });
+  }, [data.skills, eligibilityFilter, query]);
+  const selectedSkill = filteredSkills.find((item) => item.name === selectedSkillName)
+    ?? filteredSkills[0]
+    ?? null;
+
   usePublishViewContext(
     () => ({
       routeId: "skills",
@@ -407,6 +436,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         { key: "eligible_count", value: data.eligible_count, group: "skills" },
         { key: "installed_bundle_count", value: data.installed_bundle_count, group: "bundles" },
         { key: "eligible_bundle_count", value: data.eligible_bundle_count, group: "bundles" },
+        { key: "selected_skill", value: selectedSkill?.name ?? "-", group: "skills" },
         { key: "execution_eligibility", value: data.execution_eligibility, group: "safety" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
@@ -416,7 +446,7 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
         diagnostics: data.diagnostics.map((item) => ({ ...item })),
       },
     }),
-    [data],
+    [data, selectedSkill],
   );
   const skillsHref = `${routeHref("skills")}#runtime-skills`;
   const bundlesHref = `${routeHref("skills")}#runtime-skill-bundles`;
@@ -429,23 +459,103 @@ function SkillsBody({ data }: { readonly data: RuntimeSkillsResponse }) {
       </div>
       <KpiGrid>
         <KpiCard href={skillsHref} label={t("governance.skills.kpi.installed")} value={formatNumber(data.installed_count)} />
-        <KpiCard href={skillsHref} label={t("governance.skills.kpi.eligible")} value={formatNumber(data.eligible_count)} />
+        <KpiCard href={skillsHref} label={t("governance.skills.kpi.eligible")} value={formatNumber(data.eligible_count)} tone={data.eligible_count > 0 ? "positive" : "default"} />
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.bundles")} value={formatNumber(data.installed_bundle_count)} />
         <KpiCard href={bundlesHref} label={t("governance.skills.kpi.eligibleBundles")} value={formatNumber(data.eligible_bundle_count)} />
         <KpiCard href={diagnosticsHref} label={t("governance.skills.kpi.diagnostics")} value={formatNumber(data.diagnostics.length)} />
-        <KpiCard href={skillsHref} label={t("governance.skills.kpi.authorityPromotion")} value={t("governance.skills.kpi.notApplicable")} />
+        <KpiCard evidenceState="not-applicable" href={skillsHref} label={t("governance.skills.kpi.authorityPromotion")} value={t("governance.skills.kpi.notApplicable")} />
       </KpiGrid>
+      <div class="cs-filter-toolbar" role="search">
+        <label class="is-wide">
+          <span>{t("governance.skills.column.skill")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={getLocale() === "ko" ? "스킬, 도구, 에이전트, 게시자..." : "skill, tool, agent, publisher..."}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("governance.skills.column.loadEligibility")}</span>
+          <select
+            value={eligibilityFilter}
+            onChange={(event) => setEligibilityFilter(event.currentTarget.value as "all" | "eligible" | "blocked" | "disabled")}
+          >
+            <option value="all">{t("governance.common.all")}</option>
+            <option value="eligible">{t("governance.common.eligible")}</option>
+            <option value="blocked">{displayValue("status", "blocked")}</option>
+            <option value="disabled">{displayValue("status", "disabled")}</option>
+          </select>
+        </label>
+        <span class="cs-filter-count" role="status" aria-live="polite">
+          {filteredSkills.length} / {data.skills.length}
+        </span>
+      </div>
       <section id="runtime-skills" class="stack-section" aria-label={t("governance.skills.section.installedAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.installedTitle")}</h3><p>{t("governance.skills.section.installedDescription", { agent: data.agent })}</p></div></header>
-        <DataTable rows={data.skills} columns={skillColumns()} keyOf={(item) => item.name} empty={<EmptyState title={t("governance.skills.empty.skills")} />} />
+        <div class={`cs-workspace-split${selectedSkill ? " has-selection" : ""}`}>
+          <div class="cs-workspace-main">
+            <DataTable
+              rows={filteredSkills}
+              columns={skillColumns()}
+              keyOf={(item) => item.name}
+              onRowClick={(item) => setSelectedSkillName(item.name)}
+              isRowActive={(item) => item.name === selectedSkill?.name}
+              rowActionLabel={(item) => `${t("governance.skills.column.skill")}: ${item.name}`}
+              rowActionControls="runtime-skill-detail"
+              scrollRegionLabel={t("governance.skills.section.installedTitle")}
+              empty={<EmptyState title={t("governance.skills.empty.skills")} />}
+            />
+          </div>
+          {selectedSkill ? (
+            <aside id="runtime-skill-detail" class="cs-inspector-pane" aria-label={selectedSkill.name}>
+              <header class="cs-inspector-head">
+                <div>
+                  <span class="cs-inspector-kicker">{selectedSkill.source} / v{selectedSkill.version}</span>
+                  <h3>{selectedSkill.name}</h3>
+                  <p>{selectedSkill.description}</p>
+                </div>
+                <StatusPill
+                  kind={selectedSkill.eligible ? "success" : selectedSkill.enabled ? "warning" : "shadow"}
+                  label={selectedSkill.eligible ? t("governance.common.eligible") : displayValue("eligibility", selectedSkill.eligibility_reason)}
+                />
+              </header>
+              <dl class="cs-facts-grid">
+                <div><dt>{t("governance.skills.column.requiredTools")}</dt><dd>{selectedSkill.required_tools.join(", ") || t("governance.common.none")}</dd></div>
+                <div><dt>{getLocale() === "ko" ? "누락된 도구" : "Missing tools"}</dt><dd>{selectedSkill.missing_tools.join(", ") || t("governance.common.none")}</dd></div>
+                <div><dt>{t("governance.skills.column.allowedAgents")}</dt><dd>{selectedSkill.allowed_agents.join(", ") || t("governance.common.all")}</dd></div>
+                <div><dt>{t("governance.skills.column.lifecycle")}</dt><dd>{t(`governance.skills.lifecycle.${skillLifecycleState(selectedSkill)}`)}</dd></div>
+                <div>
+                  <dt>{getLocale() === "ko" ? "본문 SHA-256" : "Body SHA-256"}</dt>
+                  <dd>
+                    <code>{selectedSkill.body_sha256.slice(0, 16)}...</code>{" "}
+                    <CopyButton text={selectedSkill.body_sha256} label={getLocale() === "ko" ? "본문 SHA-256" : "Body SHA-256"} />
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t("governance.skills.column.references")} ({selectedSkill.references.length})</dt>
+                  <dd>
+                    {selectedSkill.references.length === 0
+                      ? t("governance.common.none")
+                      : selectedSkill.references.map((ref) => (
+                        <div key={ref.path}>
+                          <code>{ref.path}</code> ({ref.size_bytes} B, {ref.media_type}, <code>{ref.sha256.slice(0, 12)}</code>)
+                        </div>
+                      ))}
+                  </dd>
+                </div>
+              </dl>
+            </aside>
+          ) : null}
+        </div>
       </section>
       <section id="runtime-skill-bundles" class="stack-section" aria-label={t("governance.skills.section.bundlesAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.bundlesTitle")}</h3><p>{t("governance.skills.section.bundlesDescription")}</p></div></header>
-        <DataTable rows={data.bundles} columns={bundleColumns()} keyOf={(item) => item.name} empty={<EmptyState title={t("governance.skills.empty.bundles")} />} />
+        <DataTable rows={data.bundles} columns={bundleColumns()} keyOf={(item) => item.name} scrollRegionLabel={t("governance.skills.section.bundlesTitle")} empty={<EmptyState title={t("governance.skills.empty.bundles")} />} />
       </section>
       <section id="runtime-skill-diagnostics" class="stack-section" aria-label={t("governance.skills.section.diagnosticsAria")}>
         <header class="section-header"><div><h3>{t("governance.skills.section.diagnosticsTitle")}</h3><p>{t("governance.skills.section.diagnosticsDescription")}</p></div></header>
-        <DataTable rows={data.diagnostics} columns={diagnosticColumns()} keyOf={(item, index) => `${index}:${item.operation}:${item.name ?? "none"}`} empty={<EmptyState title={t("governance.skills.empty.diagnostics")} />} />
+        <DataTable rows={data.diagnostics} columns={diagnosticColumns()} keyOf={(item, index) => `${index}:${item.operation}:${item.name ?? "none"}`} scrollRegionLabel={t("governance.skills.section.diagnosticsTitle")} empty={<EmptyState title={t("governance.skills.empty.diagnostics")} />} />
       </section>
     </div>
   );

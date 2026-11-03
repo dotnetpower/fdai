@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
-import { ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { ErrorState, KpiCard, KpiGrid, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { getLocale, t } from "../i18n";
+import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
   RuntimeSettingsCommandError,
@@ -191,6 +192,10 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
     : [...new Set(visibleSettings.map((setting) => setting.group))];
   const dirty = Object.keys(changes).length > 0;
   const invalid = view?.settings.some((setting) => runtimeDraftError(setting, draft[setting.key] ?? setting.effectiveValue)) ?? false;
+  const overriddenCount = view ? view.settings.filter((item) => item.overrideValue !== null).length : 0;
+  const restartRequiredCount = view ? view.settings.filter((item) => item.restartRequired).length : 0;
+  const unavailableCount = view ? view.settings.filter((item) => !item.available).length : 0;
+  const runtimePoliciesListHref = `${routeHref("settings-runtime")}#settings-runtime-policies-list`;
   const canReapply = conflictView?.canManage && Object.keys(changes).every((key) =>
     conflictView.settings.some((setting) => setting.key === key && setting.available));
   const reapplyDraft = () => {
@@ -246,6 +251,12 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
                 : t("settings.runtimePolicies.neverUpdated")}
             </small>
           </section>
+          <KpiGrid>
+            <KpiCard evidenceState="measured" href={runtimePoliciesListHref} label={t("route.settingsRuntime")} value={view.settings.length} />
+            <KpiCard evidenceState="measured" href={runtimePoliciesListHref} label={getLocale() === "ko" ? "재정의됨" : "Overridden"} value={overriddenCount} />
+            <KpiCard evidenceState="measured" href={runtimePoliciesListHref} label={getLocale() === "ko" ? "재시작 필요" : "Restart required"} value={restartRequiredCount} />
+            <KpiCard evidenceState="measured" href={runtimePoliciesListHref} label={t("settings.unavailable")} value={unavailableCount} />
+          </KpiGrid>
           {!view.canManage ? (
             <div class="state-block" role="note">{t("settings.runtimePolicies.readOnly")}</div>
           ) : null}
@@ -264,7 +275,7 @@ export function SettingsRuntimeRoute({ client, auth }: Props) {
               {runtimeUxText("reapply")}
             </button>
           </section> : null}
-          <div class="settings-filter-bar">
+          <div id="settings-runtime-policies-list" class="settings-filter-bar">
             <label><span>{runtimeUxText("search")}</span><input type="search" class="form-input" value={search}
               onInput={(event) => setSearch(event.currentTarget.value)} /></label>
             <label><input type="checkbox" checked={changedOnly}

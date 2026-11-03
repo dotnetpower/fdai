@@ -1,5 +1,6 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -8,11 +9,13 @@ import {
   KpiGrid,
   PageHeader,
   StatusPill,
+  kpiEvidenceLabel,
   type AsyncState,
   type Column,
 } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
+import { getLocale } from "../i18n";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import { presentationLabel, t } from "./i18n/evidence";
@@ -68,6 +71,7 @@ export interface AutomationBlueprintResponse {
 }
 
 export function AutomationBlueprintsRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [state, setState] = useState<AsyncState<AutomationBlueprintResponse>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
@@ -76,8 +80,27 @@ export function AutomationBlueprintsRoute({ client }: { readonly client: Operato
       .then((value) => { if (!cancelled) setState({ status: "ready", data: decodeAutomationBlueprints(value) }); })
       .catch((error: unknown) => { if (!cancelled) setState({ status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error", message: error instanceof Error ? error.message : String(error) }); });
     return () => { cancelled = true; };
-  }, [client]);
-  return <div class="stack"><PageHeader title={t("route.automationBlueprints")} subtitle={t("nav.panelSub.automationBlueprints")} /><AsyncBoundary state={state} resourceLabel={t("evidence.blueprints.resource")}>{(data) => <BlueprintBody data={data} />}</AsyncBoundary></div>;
+  }, [client, refreshRevision]);
+  return (
+    <div class="stack cs-workspace-route">
+      <PageHeader
+        title={t("route.automationBlueprints")}
+        subtitle={t("nav.panelSub.automationBlueprints")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading"}
+            onRefresh={() => {
+              setState({ status: "loading" });
+              setRefreshRevision((revision) => revision + 1);
+            }}
+          />
+        }
+      />
+      <AsyncBoundary state={state} resourceLabel={t("evidence.blueprints.resource")}>
+        {(data) => <BlueprintBody data={data} />}
+      </AsyncBoundary>
+    </div>
+  );
 }
 
 export function decodeAutomationBlueprints(value: unknown): AutomationBlueprintResponse {
@@ -166,6 +189,33 @@ export function automationBlueprintColumns(): readonly Column<BlueprintCard>[] {
 
 function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse }) {
   const columns = automationBlueprintColumns();
+  const [query, setQuery] = useState("");
+  const [stateFilter, setStateFilter] = useState("all");
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => data.candidates[0]?.candidate_id ?? null,
+  );
+  const states = useMemo(
+    () => [...new Set(data.candidates.map((item) => item.state))].sort(),
+    [data.candidates],
+  );
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return data.candidates.filter((item) => {
+      if (stateFilter !== "all" && item.state !== stateFilter) return false;
+      if (!needle) return true;
+      return [
+        item.candidate_id,
+        item.normalized_task_intent,
+        item.schedule_expression,
+        item.resource_scope,
+        item.delivery_intent,
+        item.isolation_profile.profile_id,
+        ...item.required_tools,
+      ].join(" ").toLocaleLowerCase().includes(needle);
+    });
+  }, [data.candidates, query, stateFilter]);
+  const selected = filtered.find((item) => item.candidate_id === selectedId) ?? filtered[0] ?? null;
+
   usePublishViewContext(
     () => ({
       routeId: "automation-blueprints",
@@ -179,6 +229,7 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         { key: "candidate_count", value: data.count, group: "quality" },
         { key: "candidate_precision", value: data.metrics.candidate_precision, group: "quality" },
         { key: "realized_usage", value: data.metrics.realized_usage, group: "quality" },
+        { key: "selected_candidate", value: selected?.candidate_id ?? "-", group: "quality" },
         { key: "mutation_controls", value: data.mutation_controls, group: "safety" },
       ],
       records: {
@@ -188,10 +239,93 @@ function BlueprintBody({ data }: { readonly data: AutomationBlueprintResponse })
         })),
       },
     }),
-    [data],
+    [data, selected],
   );
   const candidatesHref = `${routeHref("automation-blueprints", {
     params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
   })}#automation-blueprint-candidates`;
-  return <div class="stack"><div class="governance-readonly-banner"><strong>{t("evidence.blueprints.bannerTitle")}</strong><span>{t("evidence.blueprints.bannerBody")}</span></div><KpiGrid><KpiCard href={candidatesHref} label={t("evidence.blueprints.candidates")} value={data.count.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} /><KpiCard href={candidatesHref} label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} /></KpiGrid><div id="automation-blueprint-candidates"><DataTable rows={data.candidates} columns={columns} keyOf={(item) => item.candidate_id} empty={<EmptyState title={t("evidence.blueprints.empty")} />} /></div></div>;
+  return (
+    <div class="stack">
+      <div class="governance-readonly-banner">
+        <strong>{t("evidence.blueprints.bannerTitle")}</strong>
+        <span>{t("evidence.blueprints.bannerBody")}</span>
+      </div>
+      <KpiGrid>
+        <KpiCard href={candidatesHref} label={t("evidence.blueprints.candidates")} value={data.count.toLocaleString()} />
+        <KpiCard href={candidatesHref} label={t("evidence.blueprints.accepted")} value={data.metrics.accepted.toLocaleString()} tone={data.metrics.accepted > 0 ? "positive" : "default"} />
+        <KpiCard href={candidatesHref} label={t("evidence.blueprints.rejected")} value={data.metrics.rejected.toLocaleString()} />
+        <KpiCard href={candidatesHref} label={t("evidence.blueprints.realizedUsage")} value={data.metrics.realized_usage.toLocaleString()} />
+        <KpiCard
+          evidenceState={data.count === 0 ? "insufficient-sample" : "measured"}
+          href={candidatesHref}
+          label={t("evidence.blueprints.column.confidence")}
+          value={data.count === 0 ? kpiEvidenceLabel("insufficient-sample") : `${(data.metrics.candidate_precision * 100).toFixed(1)}%`}
+        />
+      </KpiGrid>
+      <div class="cs-filter-toolbar" role="search">
+        <label class="is-wide">
+          <span>{t("evidence.blueprints.column.automation")}</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={getLocale() === "ko" ? "후보 ID, 작업 의도, 범위, 도구..." : "candidate, intent, scope, tool..."}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("evidence.blueprints.column.state")}</span>
+          <select value={stateFilter} onChange={(event) => setStateFilter(event.currentTarget.value)}>
+            <option value="all">{getLocale() === "ko" ? "전체" : "All"}</option>
+            {states.map((state) => (
+              <option key={state} value={state}>{presentationLabel("status", state)}</option>
+            ))}
+          </select>
+        </label>
+        <span class="cs-filter-count" role="status" aria-live="polite">
+          {filtered.length} / {data.candidates.length}
+        </span>
+      </div>
+      <div id="automation-blueprint-candidates" class={`cs-workspace-split${selected ? " has-selection" : ""}`}>
+        <div class="cs-workspace-main">
+          <DataTable
+            rows={filtered}
+            columns={columns}
+            keyOf={(item) => item.candidate_id}
+            onRowClick={(item) => setSelectedId(item.candidate_id)}
+            isRowActive={(item) => item.candidate_id === selected?.candidate_id}
+            rowActionLabel={(item) => `${t("evidence.blueprints.column.automation")}: ${item.candidate_id}`}
+            rowActionControls="automation-blueprint-detail"
+            scrollRegionLabel={t("route.automationBlueprints")}
+            empty={<EmptyState title={t("evidence.blueprints.empty")} />}
+          />
+        </div>
+        {selected ? (
+          <aside id="automation-blueprint-detail" class="cs-inspector-pane" aria-label={selected.candidate_id}>
+            <header class="cs-inspector-head">
+              <div>
+                <span class="cs-inspector-kicker">{selected.candidate_id}</span>
+                <h3>{selected.normalized_task_intent}</h3>
+                <p>{selected.schedule_expression} / {selected.delivery_intent}</p>
+              </div>
+              <StatusPill
+                kind={selected.state === "draft" ? "shadow" : selected.state === "materialized" ? "success" : "warning"}
+                label={presentationLabel("status", selected.state)}
+              />
+            </header>
+            <dl class="cs-facts-grid">
+              <div><dt>{t("evidence.blueprints.column.scope")}</dt><dd><code>{selected.resource_scope}</code></dd></div>
+              <div><dt>{t("evidence.blueprints.column.isolation")}</dt><dd><code>{selected.isolation_profile.profile_id}</code> ({selected.isolation_profile.max_session_seconds}s / {selected.isolation_profile.max_context_chars} chars)</dd></div>
+              <div><dt>{t("evidence.blueprints.column.tools")}</dt><dd>{selected.required_tools.join(", ") || t("evidence.common.none")}</dd></div>
+              <div><dt>{getLocale() === "ko" ? "허용된 도구" : "Allowed tools"}</dt><dd>{selected.isolation_profile.allowed_tool_ids.join(", ") || t("evidence.common.none")} ({t("evidence.blueprints.toolCalls", { count: selected.isolation_profile.max_tool_calls })})</dd></div>
+              <div><dt>{t("evidence.blueprints.column.cost")}</dt><dd>{t("evidence.blueprints.microUsd", { cost: selected.estimated_cost_microusd })}</dd></div>
+              <div><dt>{t("evidence.blueprints.column.confidence")}</dt><dd>{`${(selected.confidence * 100).toFixed(1)}%`}</dd></div>
+              <div><dt>{t("evidence.continuations.column.expiry")}</dt><dd>{formatConsoleTimestamp(selected.expires_at)}</dd></div>
+              <div><dt>{t("evidence.blueprints.column.evidence")}</dt><dd>{selected.evidence_fingerprints.length}</dd></div>
+              <div><dt>{getLocale() === "ko" ? "모드 / 변경 도구" : "Mode / Mutation tools"}</dt><dd>{selected.shadow_only ? presentationLabel("status", "shadow") : presentationLabel("status", "enforce")} / {selected.mutation_tool_ids.join(", ") || t("evidence.common.none")}</dd></div>
+            </dl>
+          </aside>
+        ) : null}
+      </div>
+    </div>
+  );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
+import { EvidenceRefresh } from "../components/evidence-refresh";
 import {
   AsyncBoundary,
   DataTable,
@@ -234,6 +235,7 @@ const FINDING_KEYS = new Set([
 ]);
 
 export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiClient }) {
+  const [refreshRevision, setRefreshRevision] = useState(0);
   const [reviewId, setReviewId] = useState<string | null>(
     () => assuranceTwinReviewIdFromSearch(currentRoute().search),
   );
@@ -261,7 +263,7 @@ export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiCli
       if (!cancelled) setState(next);
     });
     return () => { cancelled = true; };
-  }, [client]);
+  }, [client, refreshRevision]);
 
   useEffect(() => {
     if (reviewId === null) {
@@ -274,11 +276,20 @@ export function AssuranceTwinRoute({ client }: { readonly client: OperatorApiCli
       if (!cancelled) setDetailState(next);
     });
     return () => { cancelled = true; };
-  }, [client, reviewId]);
+  }, [client, reviewId, refreshRevision]);
 
   return (
-    <div class="stack evidence-route">
-      <PageHeader title={t("route.assuranceTwin")} subtitle={t("assuranceTwin.subtitle")} />
+    <div class="stack evidence-route cs-workspace-route">
+      <PageHeader
+        title={t("route.assuranceTwin")}
+        subtitle={t("assuranceTwin.subtitle")}
+        actions={
+          <EvidenceRefresh
+            loading={state.status === "loading" || detailState?.status === "loading"}
+            onRefresh={() => setRefreshRevision((revision) => revision + 1)}
+          />
+        }
+      />
       {reviewId === null
         ? (
           <AsyncBoundary state={state} resourceLabel={t("assuranceTwin.resourceLabel")}>
@@ -593,22 +604,42 @@ function WithheldEvidence(
 function EvidenceProvenance({ record }: { readonly record: AssuranceTwinProvenance }) {
   if (record.evidence_digest === null && record.activity_id === null) return null;
   return (
-    <dl class="assurance-twin-provenance">
-      <dt>{t("assuranceTwin.provenance.activity")}</dt>
-      <dd class="mono">{record.activity_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
-      <dt>{t("assuranceTwin.provenance.correlation")}</dt>
-      <dd class="mono">{record.correlation_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
-      <dt>{t("assuranceTwin.provenance.evidenceDigest")}</dt>
-      <dd class="mono">{record.evidence_digest ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
-      <dt>{t("assuranceTwin.provenance.sourceRevision")}</dt>
-      <dd class="mono">{record.evidence_source_revision ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+    <dl class="assurance-twin-provenance cs-facts-grid">
+      <div>
+        <dt>{t("assuranceTwin.provenance.activity")}</dt>
+        <dd class="mono">{record.activity_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      </div>
+      <div>
+        <dt>{t("assuranceTwin.provenance.correlation")}</dt>
+        <dd class="mono">{record.correlation_id ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      </div>
+      <div>
+        <dt>{t("assuranceTwin.provenance.evidenceDigest")}</dt>
+        <dd class="mono">{record.evidence_digest ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      </div>
+      <div>
+        <dt>{t("assuranceTwin.provenance.sourceRevision")}</dt>
+        <dd class="mono">{record.evidence_source_revision ?? t("assuranceTwin.gap.unknownIdentity")}</dd>
+      </div>
     </dl>
   );
 }
 
 function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
   usePublishViewContext(() => buildAssuranceTwinViewSnapshot(data), [data]);
-  const reviewsHref = `${routeHref("assurance-twin")}#assurance-twin-reviews`;
+  const reviewsHref = `${routeHref("assurance-twin", {
+    params: { data: currentRoute().search.get("data") === "sample" ? "sample" : null },
+  })}#assurance-twin-reviews`;
+  const findingColumns: readonly Column<AssuranceTwinFinding>[] = [
+    { key: "rule", header: t("assuranceTwin.column.rule"), render: (row) => <span class="mono">{row.rule_id}</span> },
+    { key: "resource", header: t("assuranceTwin.column.resource"), render: (row) => `${row.resource_type} / ${row.resource_ref}` },
+    {
+      key: "severity",
+      header: t("assuranceTwin.column.severity"),
+      render: (row) => <StatusPill kind={row.severity === "critical" || row.severity === "high" ? "danger" : "warning"} label={t(`assuranceTwin.severityValue.${row.severity}`)} />,
+    },
+    { key: "reason", header: t("assuranceTwin.column.reason"), render: (row) => row.reason },
+  ];
   const columns: readonly Column<AssuranceTwinReviewSummary>[] = [
     {
       key: "pr_ref",
@@ -692,6 +723,14 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
             </KpiGrid>
             <EvidenceGaps reasonCodes={report.reason_codes} />
             <EvidenceProvenance record={report} />
+            {report.findings.length > 0 ? (
+              <DataTable
+                columns={findingColumns}
+                rows={report.findings}
+                keyOf={(row, index) => `${row.rule_id}:${row.resource_ref}:${index}`}
+                scrollRegionLabel={`${report.scope} ${t("assuranceTwin.column.findings")}`}
+              />
+            ) : null}
           </section>
         ))
         : (
@@ -708,6 +747,7 @@ function AssuranceTwinBody({ data }: { readonly data: AssuranceTwinResponse }) {
           columns={columns}
           rows={data.reviews.reviews}
           keyOf={(row) => row.review_key}
+          scrollRegionLabel={t("assuranceTwin.reviews")}
           empty={t(data.reviews.gaps.length > 0
             ? "assuranceTwin.reviewsUnavailable"
             : "assuranceTwin.reviewsEmpty")}
@@ -770,6 +810,7 @@ function AssuranceTwinReviewDetailBody(
         columns={columns}
         rows={detail.findings}
         keyOf={(row, index) => `${row.rule_id}:${row.resource_ref}:${index}`}
+        scrollRegionLabel={`${detail.pr_ref} ${t("assuranceTwin.column.findings")}`}
         empty={t("assuranceTwin.reviewsEmpty")}
       />
     </div>
