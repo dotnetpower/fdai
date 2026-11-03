@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { nextPromotionTransition, type Action, type Catalog, type Release } from "./api";
 import {
   BADGE_HEIGHT,
+  buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   CARD_HEIGHT,
   CARD_WIDTH,
-  PAD_X,
   type LineageGraph,
   type LineageNode,
 } from "./release-lineage.model";
 
 export {
   BADGE_HEIGHT,
+  buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   CARD_HEIGHT,
@@ -97,17 +98,8 @@ function LineageCanvas({
   idPrefix: string;
 }) {
   void idPrefix;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const runningNode = graph.nodes.find((n) => n.status === "running");
-    if (runningNode && runningNode.x + CARD_WIDTH > el.clientWidth) {
-      el.scrollLeft = Math.max(0, runningNode.x + CARD_WIDTH - el.clientWidth + PAD_X);
-    }
-  }, [graph]);
   return (
-    <div ref={scrollRef} class="rh-lineage-scroll" role="region" aria-label="Release lineage graph">
+    <div class="rh-lineage-scroll" role="region" aria-label="Release lineage graph">
       <svg
         class="rh-lineage-canvas-svg"
         width={graph.width}
@@ -115,13 +107,7 @@ function LineageCanvas({
         viewBox={`0 0 ${graph.width} ${graph.height}`}
       >
         {graph.edges.map((edge) => {
-          const sx = edge.startX + 4;
-          const sy = edge.startY;
-          const ex = edge.endX - 3;
-          const ey = edge.endY;
-          const midX = sx + (ex - sx) * 0.5;
-          const pathD = `M ${sx + 3.5} ${sy} C ${midX} ${sy}, ${midX} ${ey}, ${ex} ${ey}`;
-          const arrowD = `M ${ex - 6} ${ey - 4.2} L ${ex} ${ey} L ${ex - 6} ${ey + 4.2}`;
+          const { portCx, portCy, pathD, arrowD } = buildConnectorGeometry(edge);
           return (
             <g
               key={edge.id}
@@ -129,7 +115,7 @@ function LineageCanvas({
               aria-hidden="true"
             >
               <path d={pathD} class="rh-edge-line" fill="none" />
-              <circle cx={sx} cy={sy} r="3.5" class="rh-edge-port" />
+              <circle cx={portCx} cy={portCy} r="3.5" class="rh-edge-port" />
               <path d={arrowD} class="rh-edge-arrow" fill="none" />
             </g>
           );

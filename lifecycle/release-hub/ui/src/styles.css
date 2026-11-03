@@ -192,7 +192,7 @@ dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 
 .rh-lineage-badge.status-recalled { background: #fef2f2; border-color: #e69a94; color: #991b1b; }
 .rh-badge-check, .rh-badge-recall { font-size: 11px; font-weight: 700; }
 .rh-badge-spinner { width: 11px; height: 11px; border-radius: 50%; border: 1.8px solid #b56808; border-right-color: transparent; display: inline-block; animation: rh-spin 0.9s linear infinite; }
-.rh-lineage-card { position: relative; height: 82px; background: #ffffff; border: 1px solid #d9e0e8; border-radius: 10px; box-shadow: 0 1px 3px rgb(15 23 42 / 0.04); display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+.rh-lineage-card { position: relative; height: 82px; background: #ffffff; border: 1px solid #d9e0e8; border-radius: 10px; box-shadow: 0 1px 3px rgb(15 23 42 / 0.04); display: grid; grid-template-rows: 1fr 1fr; overflow: hidden; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
 .rh-lineage-card[role="button"] { cursor: pointer; }
 @property --rh-beam-angle {
   syntax: "<angle>";
@@ -204,10 +204,10 @@ dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 
 .rh-lineage-card.is-running { border-color: transparent; box-shadow: 0 2px 10px rgb(245 158 11 / 0.08); }
 .rh-lineage-card.is-running::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; background: conic-gradient(from var(--rh-beam-angle), #ead5ad 0deg, #ead5ad 245deg, #f2c472 285deg, #f59e0b 318deg, #d97706 336deg, #fbbf24 348deg, #ead5ad 360deg); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; pointer-events: none; z-index: 2; animation: rh-border-beam-angle 2.8s linear infinite; }
 .rh-lineage-card.status-recalled { border-color: #e3a09b; background: #fffafa; }
-.rh-lineage-card-top { display: flex; align-items: center; gap: 9px; padding: 13px 14px 10px; min-width: 0; }
-.rh-node-icon { width: 16px; height: 16px; flex: none; color: #475569; }
-.rh-node-title { font-size: 13.5px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rh-lineage-card-bottom { padding: 9px 14px 11px; border-top: 1px solid #edf1f6; background: #fcfdfe; min-width: 0; }
+.rh-lineage-card-top { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-width: 0; }
+.rh-node-icon { width: 15px; height: 15px; flex: none; color: #475569; }
+.rh-node-title { font-size: 13px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rh-lineage-card-bottom { display: flex; align-items: center; padding: 0 12px; border-top: 1px solid #edf1f6; background: #fcfdfe; min-width: 0; }
 .rh-node-sub { display: block; font-size: 12px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rh-lineage-stage-bar { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--cs-hairline); }
 .rh-lineage-stage-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 10px; }

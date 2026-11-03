@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Catalog, Release } from "./api";
 import {
+  buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
   compareSemVer,
@@ -177,5 +178,16 @@ describe("release lineage LR graph", () => {
     expect(stageGraph.nodes[2]!.status).toBe("complete");
     expect(stageGraph.nodes[3]!.status).toBe("complete");
     expect(stageGraph.nodes[4]!.status).toBe("running");
+  });
+
+  it("draws horizontal and smoothstep orthogonal connectors that enter arrowheads horizontally", () => {
+    const straight = buildConnectorGeometry({ startX: 192, startY: 65, endX: 248, endY: 65 });
+    expect(straight.pathD).toBe("M 199 65 L 245 65");
+    expect(straight.arrowD).toContain("L 245.5 65");
+
+    const branched = buildConnectorGeometry({ startX: 192, startY: 65, endX: 248, endY: 195 });
+    expect(branched.pathD).toContain("Q ");
+    expect(branched.pathD.endsWith("L 245 195")).toBe(true);
+    expect(branched.arrowD).toContain("L 245.5 195");
   });
 });

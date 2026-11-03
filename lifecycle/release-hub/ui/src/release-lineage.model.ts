@@ -46,13 +46,70 @@ export type LineageGraph = {
   height: number;
 };
 
-export const CARD_WIDTH = 178;
+export const CARD_WIDTH = 166;
 export const CARD_HEIGHT = 82;
 export const BADGE_HEIGHT = 24;
-export const COL_GAP = 38;
+export const COL_GAP = 46;
 export const ROW_GAP = 24;
-export const PAD_X = 14;
+export const PAD_X = 12;
 export const PAD_Y = 14;
+
+export function buildConnectorGeometry(edge: {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}): {
+  portCx: number;
+  portCy: number;
+  pathD: string;
+  arrowD: string;
+} {
+  const portCx = edge.startX + 3.5;
+  const portCy = edge.startY;
+  const lineStartX = portCx + 3.5;
+  const sy = edge.startY;
+  const arrowTipX = edge.endX - 2.5;
+  const ey = edge.endY;
+  const lineEndX = arrowTipX - 0.5;
+  const arrowD = `M ${arrowTipX - 6.5} ${ey - 4.2} L ${arrowTipX} ${ey} L ${arrowTipX - 6.5} ${ey + 4.2}`;
+
+  if (Math.abs(ey - sy) < 1) {
+    return {
+      portCx,
+      portCy,
+      pathD: `M ${lineStartX} ${sy} L ${lineEndX} ${ey}`,
+      arrowD,
+    };
+  }
+
+  const dir = ey > sy ? 1 : -1;
+  const midX = Math.round(lineStartX + (lineEndX - lineStartX) * 0.44);
+  const r = Math.max(
+    2,
+    Math.min(
+      8,
+      Math.abs(ey - sy) / 2,
+      Math.abs(midX - lineStartX) - 2,
+      Math.abs(lineEndX - 7 - midX) - 2,
+    ),
+  );
+  const pathD = [
+    `M ${lineStartX} ${sy}`,
+    `L ${midX - r} ${sy}`,
+    `Q ${midX} ${sy} ${midX} ${sy + dir * r}`,
+    `L ${midX} ${ey - dir * r}`,
+    `Q ${midX} ${ey} ${midX + r} ${ey}`,
+    `L ${lineEndX} ${ey}`,
+  ].join(" ");
+
+  return {
+    portCx,
+    portCy,
+    pathD,
+    arrowD,
+  };
+}
 
 export function parseSemVerTuple(version: string): [number, number, number, string] {
   const cleaned = version.trim().replace(/^v/i, "");
