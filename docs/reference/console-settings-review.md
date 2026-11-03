@@ -245,8 +245,54 @@ keyboard, or responsive acceptance.
 
 ## Validation and review boundary
 
-Final measured acceptance and the UI/UX rubric record are added after integration.
-No quality score is assigned from source inspection alone.
+### Focused acceptance
+
+- Operator catalog/IAM: 85 tests passed; Models cache/decoder/presentation: 52 passed.
+- Menu-owned unit checks cover draft preservation, partial-save recovery, independent reads,
+  permissions, recipient confirmation and diagnostics; the owning commands are listed above.
+- All 49 selected production browser scenarios passed after desktop acceptance, including
+  constrained `993x641` and mobile `390x844` English/Korean cases and expanded record details.
+- Both TypeScript targets and the production build passed. The initial entry remains within the
+  unchanged 150,000-byte gzip budget.
+- Deeper geometry checks found and fixed a left-clipped IAM request filter, Runtime checkbox
+  overflow, an undersized memory reference, and the catalog clear-search grid allocation.
+
+### Actual local readback
+
+The original authenticated Models API read took 9,714 ms. Four fresh summary reads took
+57, 67, 51 and 56 ms, all HTTP 200, with no full-catalog request on Overview. A separate ready-view
+observation occurred 2,840 ms after navigation; it includes browser-tool overhead and is not a
+first-paint or percentile claim. Actual English/Korean readback had no rendered alert or horizontal
+overflow. Independent topology acceptance reported 12/12 ready after the scoped managed API restart.
+These measurements describe this local sample, not inference latency or an operational SLO.
+
+Local adoption copied 64 task-owned production paths with preimage checks and retained the serving
+index and identity/target inputs. The shared checkout's `settings-system.tsx` remains withheld:
+its unrelated email-test, recipient and channel-confirmation changes require semantic coordination.
+No existing change was replaced or committed. Therefore live adoption is not claimed for every
+Integrations/Diagnostics change; the complete candidate is verified by the isolated browser suite.
+
+### UI/UX rubric record
+
+Scope: eight production Settings routes, actual read-only Models readback and the declared
+synthetic interaction/state matrix. Core criteria `UX-01`, `UX-02`, `UX-06`, `UX-08`, `UX-11`,
+`UX-16`, `UX-26`, `UX-36`, `UX-37`, `UX-41`, `UX-46` and `UX-50` were selected.
+Change-specific evidence also covers disclosure, orientation, recovery, source distinctions,
+touch targets, localization and bounded performance.
+
+| Criteria | Evidence retained | Rating boundary |
+|----------|-------------------|-----------------|
+| UX-01, UX-02, UX-08 | Route headings, scoped controls, source/draft distinctions and review inventory | U for a complete visual/prioritization rating |
+| UX-06, UX-11, UX-41 | Computed control/font/containment checks at the declared viewports | U for full grid review and 320px acceptance |
+| UX-16 | Existing semantic tokens retained; no new decorative palette | U: complete rendered text contrast was not measured |
+| UX-26, UX-46 | Real production components, 49 labeled-fixture browser cases, actual Models HTTP readback | U for a whole-task operational rating; no live settings mutations were performed |
+| UX-36, UX-37 | Keyboard/focus regressions and explicit deferred-catalog focus recovery | U for complete keyboard and spoken-announcement qualification |
+| UX-50 | Focused commands, before/after API samples and immutable delivery checks | U for a complete same-scope rubric baseline comparison |
+
+No selected criterion is relabeled N/A because it lacks evidence. Numerical rubric coverage is
+0/12 core criteria rated; no quality score or full rubric pass is claimed. Functional/reflow checks
+passed within their declared matrix. Complete contrast, 320px, enlarged-text and assistive-technology
+review remains `needs-human`; this is separate from the implemented, tested changes.
 
 ## Related docs
 

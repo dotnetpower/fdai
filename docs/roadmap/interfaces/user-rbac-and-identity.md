@@ -101,6 +101,12 @@ Three safety principles govern this design; every choice below preserves them:
 The Operator Service serializes roles only after token verification and server-owned App Role resolution; browser payloads cannot widen them. Core rechecks principal-scoped purpose before reads, and broker command identity never grants executor authority.
 Contracts accept only four ordinary roles and pinned topics, readiness requires the configured bridge workers, and transactional storage and replay bind every projection to its request, principal, and result digest. Assignment requests use an insert-only Operator receipt and the same fixed-agent review/seal chain locally and when deployed. Core-only case writes and exact command receipts prevent a displayed Operator approval from becoming assignment or IAM authority; independent Owner review excludes both requester and subject.
 
+Settings uses the authenticated server projection's management capabilities for supplemental reads
+and controls. Request references are not directory observations: requested roles stay separate from
+verified membership, and an approved request does not prove that a grant or revoke took effect.
+Unavailable roster/request reads remain explicit rather than becoming authoritative empty lists.
+Model-settings save readback preserves the same admitted capabilities as GET; it grants no new role.
+
 ## 2. Role Model (4 tiers + Break-Glass)
 
 Modeled on Azure RBAC (Reader / Contributor / Owner). Four everyday roles plus one

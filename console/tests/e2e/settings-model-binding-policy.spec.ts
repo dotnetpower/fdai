@@ -101,6 +101,19 @@ function capability(
   };
 }
 
+function observedCatalog() {
+  return {
+    available: true, source: "azure-management-catalog", region: "example-region",
+    as_of: "2026-11-02T00:00:00Z",
+    models: Array.from({ length: 25 }, (_, index) => ({
+      publisher: "OpenAI", family: `gpt-example-${index}`, version: "1",
+      lifecycle: "GenerallyAvailable", skus: [], available_tpm: 10_000,
+      deployments: [], deployed: false, provisionable: true, selectable: true,
+      status: "provisionable",
+    })),
+  };
+}
+
 async function installFixture(page: Page, onRead?: () => void): Promise<void> {
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
@@ -137,16 +150,7 @@ test("loads configuration without catalog discovery and pages a lazily loaded ca
       model_catalog: summary ? {
         available: false, source: "azure-management-catalog", region: null,
         models: [], load_state: "deferred", as_of: null,
-      } : {
-        available: true, source: "azure-management-catalog", region: "example-region",
-        as_of: "2026-11-02T00:00:00Z",
-        models: Array.from({ length: 25 }, (_, index) => ({
-          publisher: "OpenAI", family: `gpt-example-${index}`, version: "1",
-          lifecycle: "GenerallyAvailable", skus: [], available_tpm: 10_000,
-          deployments: [], deployed: false, provisionable: true, selectable: true,
-          status: "provisionable",
-        })),
-      },
+      } : observedCatalog(),
     } });
   });
   await page.goto("/settings/models?locale=en");
@@ -173,6 +177,53 @@ test("loads configuration without catalog discovery and pages a lazily loaded ca
   await page.getByRole("button", { name: "Clear model search" }).click();
   await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(12);
   expect(reads).toEqual(["summary", "full"]);
+});
+
+test("reflows loaded Models catalog and paging in EN/KO at constrained and mobile widths", async ({ page }) => {
+  await installFixture(page);
+  await page.route((url) => url.pathname.endsWith("/models/settings"), (route) =>
+    route.fulfill({ json: { ...projection, model_catalog: observedCatalog() } })
+  );
+  for (const viewport of [{ width: 993, height: 641 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    for (const locale of ["en", "ko"]) {
+      await page.goto(`/settings/models?locale=${locale}&model-view=catalog`);
+      await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(12);
+      const pager = page.locator(".settings-list-pager");
+      await pager.getByRole("button").last().click();
+      await expect(pager).toContainText("13-24");
+      await page.locator("#model-catalog-search").fill("gpt-example-24");
+      await expect(page.locator(".settings-model-catalog-entry")).toHaveCount(1);
+      const failures = await page.locator("html, .settings-overlay, .settings-models-route")
+        .evaluateAll((elements) => elements.filter((element) =>
+          element.scrollWidth > element.clientWidth
+        ).map((element) => {
+          const box = element.getBoundingClientRect();
+          return {
+            root: element.className || element.tagName,
+            width: element.clientWidth, scroll: element.scrollWidth,
+            children: [...element.querySelectorAll("*")].filter((child) =>
+              child.getClientRects().length > 0 && child.getBoundingClientRect().right > box.right + 1
+            ).slice(0, 8).map((child) => ({
+              tag: child.tagName, class: child.className,
+              width: child.getBoundingClientRect().width, minWidth: getComputedStyle(child).minWidth,
+              text: child.textContent, x: child.getBoundingClientRect().x,
+              ancestors: [child.parentElement?.className, child.parentElement?.parentElement?.className],
+            })),
+          };
+        }));
+      expect(failures, `${viewport.width}/${locale}`).toEqual([]);
+      if (viewport.width === 390) {
+        const sizes = await pager.getByRole("button").evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const box = button.getBoundingClientRect();
+            return { width: box.width, height: box.height };
+          })
+        );
+        expect(sizes.every((box) => box.width >= 44 && box.height >= 44)).toBe(true);
+      }
+    }
+  }
 });
 
 test("protects a domain draft that has not yet been added to the allowlist", async ({ page }) => {

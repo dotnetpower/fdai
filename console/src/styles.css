@@ -20953,7 +20953,7 @@ body.agent-organization-dialog-open {
 .settings-model-catalog-entry button:disabled { cursor: not-allowed; opacity: 0.58; }
 .settings-model-catalog-controls {
   display: grid;
-  grid-template-columns: minmax(130px, auto) minmax(220px, 420px) minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px 12px;
   padding: 12px 16px;
@@ -20961,6 +20961,7 @@ body.agent-organization-dialog-open {
   background: var(--cs-shade);
 }
 .settings-model-catalog-controls label { color: var(--fg-muted); font-size: 0.72rem; font-weight: 700; }
+.settings-model-catalog-controls > span { grid-column: 1 / -1; }
 .settings-model-catalog-controls input {
   width: 100%;
   min-width: 0;
