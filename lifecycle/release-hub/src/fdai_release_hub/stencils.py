@@ -21,6 +21,9 @@ from fdai_deployment_cli.lifecycle_release import parse_lifecycle_release_manife
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 STENCIL_DEFINITION_SCHEMA: Literal["fdai.stencil-definition.v1"] = "fdai.stencil-definition.v1"
+STENCIL_FEATURE_FLAGS_SCHEMA: Literal["fdai.stencil-feature-flags.v1"] = (
+    "fdai.stencil-feature-flags.v1"
+)
 TopologyProfile = Literal["lite-observe-alert", "standard-sre", "full-enterprise"]
 
 _STENCIL_ID_RE = re.compile(r"^[a-z][a-z0-9-]{0,62}\Z", re.ASCII)
@@ -1150,6 +1153,62 @@ def compose_custom_stencil(
     )
 
 
+def compile_stencil_feature_flags(stencil: StencilDefinition) -> dict[str, Any]:
+    """Compile fail-closed build and runtime feature flags for active and inactive menus/loops."""
+
+    enabled_panels = set(stencil.enabled_panel_ids)
+    enabled_loops = set(stencil.enabled_loops)
+    enabled_workloads = set(stencil.enabled_workloads)
+    enabled_jobs = set(stencil.enabled_scheduled_jobs)
+    enabled_addons = set(stencil.enabled_addons)
+
+    disabled_panels = tuple(sorted(set(ALL_PANEL_IDS) - enabled_panels))
+    disabled_loops = tuple(sorted(set(ALL_LOOPS) - enabled_loops))
+    disabled_workloads = tuple(sorted(set(ALL_WORKLOADS) - enabled_workloads))
+    disabled_jobs = tuple(sorted(set(ALL_SCHEDULED_JOBS) - enabled_jobs))
+    disabled_addons = tuple(sorted(set(ALL_ADDONS) - enabled_addons))
+
+    panel_flags = {panel_id: (panel_id in enabled_panels) for panel_id in ALL_PANEL_IDS}
+    loop_flags = {loop_id: (loop_id in enabled_loops) for loop_id in ALL_LOOPS}
+    workload_flags = {
+        workload_id: (workload_id in enabled_workloads) for workload_id in ALL_WORKLOADS
+    }
+    scheduled_job_flags = {job_id: (job_id in enabled_jobs) for job_id in ALL_SCHEDULED_JOBS}
+    addon_flags = {addon_id: (addon_id in enabled_addons) for addon_id in ALL_ADDONS}
+
+    runtime_env = {
+        "FDAI_STENCIL_ID": stencil.stencil_id,
+        "FDAI_STENCIL_ENABLED_PANELS": ",".join(stencil.enabled_panel_ids),
+        "FDAI_STENCIL_DISABLED_PANELS": ",".join(disabled_panels),
+        "FDAI_STENCIL_ENABLED_LOOPS": ",".join(stencil.enabled_loops),
+        "FDAI_STENCIL_DISABLED_LOOPS": ",".join(disabled_loops),
+        "FDAI_STENCIL_ENFORCE_INACTIVE_MENUS": "1",
+    }
+
+    return {
+        "schema_version": STENCIL_FEATURE_FLAGS_SCHEMA,
+        "stencil_id": stencil.stencil_id,
+        "stencil_digest": stencil.digest,
+        "enforcement_mode": "fail-closed",
+        "enabled_panel_ids": list(stencil.enabled_panel_ids),
+        "disabled_panel_ids": list(disabled_panels),
+        "enabled_loops": list(stencil.enabled_loops),
+        "disabled_loops": list(disabled_loops),
+        "enabled_workloads": list(stencil.enabled_workloads),
+        "disabled_workloads": list(disabled_workloads),
+        "enabled_scheduled_jobs": list(stencil.enabled_scheduled_jobs),
+        "disabled_scheduled_jobs": list(disabled_jobs),
+        "enabled_addons": list(stencil.enabled_addons),
+        "disabled_addons": list(disabled_addons),
+        "panel_flags": panel_flags,
+        "loop_flags": loop_flags,
+        "workload_flags": workload_flags,
+        "scheduled_job_flags": scheduled_job_flags,
+        "addon_flags": addon_flags,
+        "runtime_env": runtime_env,
+    }
+
+
 def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
     """Compute resource savings, omitted components, RBAC posture, and build commands."""
 
@@ -1158,6 +1217,7 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
     omitted_panels = tuple(sorted(set(ALL_PANEL_IDS) - set(stencil.enabled_panel_ids)))
     includes_clamav = "document-ingestion-api" in stencil.enabled_workloads
     includes_executor = "isolated-executor" in stencil.enabled_workloads
+    feature_flags = compile_stencil_feature_flags(stencil)
 
     active_groups = tuple(
         sorted({PANEL_BY_ID[panel_id].group for panel_id in stencil.enabled_panel_ids})
@@ -1213,11 +1273,14 @@ def evaluate_stencil_footprint(stencil: StencilDefinition) -> dict[str, Any]:
         "enabled_panel_count": len(stencil.enabled_panel_ids),
         "total_panel_count": len(ALL_PANEL_IDS),
         "omitted_panel_count": len(omitted_panels),
+        "disabled_panel_ids": list(omitted_panels),
+        "disabled_loops": list(omitted_loops),
         "active_navigation_groups": list(active_groups),
         "enabled_feature_ids": list(stencil.enabled_feature_ids),
         "azure_rbac_posture": rbac_posture,
         "required_azure_roles": rbac_roles,
         "release_labels": release_labels,
+        "feature_flags": feature_flags,
         "dependency_reasons": {
             "workloads": workload_reasons,
             "loops": loop_reasons,
@@ -1370,9 +1433,12 @@ def build_stencil_release_manifest(
             "enabled_workloads": list(stencil.enabled_workloads),
             "omitted_workloads": footprint["omitted_workloads"],
             "enabled_loops": list(stencil.enabled_loops),
+            "disabled_loops": footprint["disabled_loops"],
             "enabled_scheduled_jobs": list(stencil.enabled_scheduled_jobs),
             "enabled_panel_ids": list(stencil.enabled_panel_ids),
+            "disabled_panel_ids": footprint["disabled_panel_ids"],
             "release_labels": footprint["release_labels"],
+            "feature_flags": footprint["feature_flags"],
         },
     }
     # Round C05 hardening: verify generated manifest with the canonical lifecycle release parser.
@@ -1547,6 +1613,7 @@ __all__ = [
     "SCHEDULED_JOB_DESCRIPTORS",
     "STANDARD_SRE_PANELS",
     "STENCIL_DEFINITION_SCHEMA",
+    "STENCIL_FEATURE_FLAGS_SCHEMA",
     "STENCIL_PRESETS",
     "WORKLOAD_DESCRIPTORS",
     "ConsolePanelDescriptor",
@@ -1555,6 +1622,7 @@ __all__ = [
     "StencilDefinition",
     "TopologyProfile",
     "build_stencil_release_manifest",
+    "compile_stencil_feature_flags",
     "compose_custom_stencil",
     "compose_stencil_response",
     "derive_stencil_source_commit",

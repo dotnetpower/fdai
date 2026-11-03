@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
 import { panelsInGroup } from "../panels";
 import { panelPath } from "../router";
+import { filterPanelsByStencil } from "../stencil-panels";
 import { SettingsDirtyContext, type SettingsDirtyRegistration } from "./settings-dirty-state";
 
 interface SettingsOverlayProps {
@@ -157,7 +158,7 @@ export function SettingsOverlay({
             aria-label={t("settings.menuLabel")}
           >
             <ul>
-              {panelsInGroup("settings").map((panel) => (
+              {filterPanelsByStencil(panelsInGroup("settings")).map((panel) => (
                 <li key={panel.id}>
                   <a
                     href={panelPath(panel.id)}

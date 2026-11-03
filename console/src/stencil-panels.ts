@@ -1,5 +1,18 @@
 import type { ConsolePanel, PanelGroup, PanelGroupMeta } from "./panels";
 
+declare global {
+  var __FDAI_STENCIL_FEATURE_FLAGS__: unknown;
+}
+
+export interface StencilRuntimeFeatureFlags {
+  readonly schema_version?: "fdai.stencil-feature-flags.v1";
+  readonly stencil_id?: string;
+  readonly enforcement_mode?: "fail-closed";
+  readonly enabled_panel_ids?: readonly string[];
+  readonly disabled_panel_ids?: readonly string[];
+  readonly panel_flags?: Readonly<Record<string, boolean>>;
+}
+
 export const LOCKED_STENCIL_PANEL_IDS: readonly string[] = [
   "dashboard",
   "audit",
@@ -31,9 +44,119 @@ export function parseStencilEnabledPanelIds(
   return parsed;
 }
 
+/**
+ * Parse runtime Stencil feature-flag configuration (`globalThis.__FDAI_STENCIL_FEATURE_FLAGS__`).
+ * Enforces fail-closed validation and prevents disabling locked safety-core panels.
+ */
+export function parseStencilRuntimeFeatureFlags(
+  raw: unknown,
+): ReadonlySet<string> | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("Stencil runtime feature flags must be an object.");
+  }
+  const record = raw as Record<string, unknown>;
+  if (
+    record.schema_version !== undefined &&
+    record.schema_version !== "fdai.stencil-feature-flags.v1"
+  ) {
+    throw new Error("Unsupported Stencil runtime feature-flags schema_version.");
+  }
+  if (
+    record.enforcement_mode !== undefined &&
+    record.enforcement_mode !== "fail-closed"
+  ) {
+    throw new Error("Stencil runtime feature-flags enforcement_mode must be fail-closed.");
+  }
+
+  const enabled = new Set<string>(LOCKED_STENCIL_PANEL_IDS);
+  const disabled = new Set<string>();
+  let hasConstraint = false;
+
+  if (Array.isArray(record.enabled_panel_ids)) {
+    hasConstraint = true;
+    for (const item of record.enabled_panel_ids) {
+      if (typeof item !== "string" || !PANEL_ID_PATTERN.test(item)) {
+        throw new Error(`Invalid Stencil panel id: ${String(item)}`);
+      }
+      enabled.add(item);
+    }
+  }
+
+  if (Array.isArray(record.disabled_panel_ids)) {
+    for (const item of record.disabled_panel_ids) {
+      if (typeof item !== "string" || !PANEL_ID_PATTERN.test(item)) {
+        throw new Error(`Invalid Stencil disabled panel id: ${String(item)}`);
+      }
+      if (LOCKED_STENCIL_PANEL_IDS.includes(item)) {
+        throw new Error(`Cannot disable locked safety-core Stencil panel: ${item}`);
+      }
+      disabled.add(item);
+    }
+  }
+
+  if (record.panel_flags !== undefined) {
+    if (typeof record.panel_flags !== "object" || record.panel_flags === null || Array.isArray(record.panel_flags)) {
+      throw new Error("Stencil panel_flags must be a boolean map.");
+    }
+    hasConstraint = true;
+    for (const [panelId, flag] of Object.entries(record.panel_flags as Record<string, unknown>)) {
+      if (!PANEL_ID_PATTERN.test(panelId) || typeof flag !== "boolean") {
+        throw new Error(`Invalid Stencil panel_flags entry: ${panelId}`);
+      }
+      if (flag) {
+        enabled.add(panelId);
+      } else {
+        if (LOCKED_STENCIL_PANEL_IDS.includes(panelId)) {
+          throw new Error(`Cannot disable locked safety-core Stencil panel: ${panelId}`);
+        }
+        disabled.add(panelId);
+      }
+    }
+  }
+
+  if (!hasConstraint && disabled.size === 0) {
+    return null;
+  }
+
+  for (const id of disabled) {
+    enabled.delete(id);
+  }
+  return enabled;
+}
+
 export function activeStencilPanelIds(): ReadonlySet<string> | null {
-  const raw = (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_ENABLED_PANELS;
-  return parseStencilEnabledPanelIds(raw);
+  const envRaw = (import.meta.env as Record<string, string | undefined>).VITE_STENCIL_ENABLED_PANELS;
+  const envSet = parseStencilEnabledPanelIds(envRaw);
+  const runtimeSet = parseStencilRuntimeFeatureFlags(globalThis.__FDAI_STENCIL_FEATURE_FLAGS__);
+  if (envSet === null && runtimeSet === null) return null;
+  if (envSet !== null && runtimeSet === null) return envSet;
+  if (envSet === null && runtimeSet !== null) return runtimeSet;
+  const intersected = new Set<string>(LOCKED_STENCIL_PANEL_IDS);
+  for (const id of envSet!) {
+    if (runtimeSet!.has(id)) intersected.add(id);
+  }
+  return intersected;
+}
+
+export function isStencilPanelEnabled(
+  panelId: string,
+  enabledIds: ReadonlySet<string> | null = activeStencilPanelIds(),
+): boolean {
+  if (LOCKED_STENCIL_PANEL_IDS.includes(panelId)) return true;
+  if (enabledIds === null) return true;
+  return enabledIds.has(panelId);
+}
+
+export function evaluateStencilPanelFeatureFlags(
+  panelIds: readonly string[],
+  enabledIds: ReadonlySet<string> | null = activeStencilPanelIds(),
+): Readonly<Record<string, boolean>> {
+  const flags: Record<string, boolean> = {};
+  for (const id of panelIds) {
+    flags[id] = isStencilPanelEnabled(id, enabledIds);
+  }
+  return flags;
 }
 
 export function filterPanelsByStencil<T extends Pick<ConsolePanel, "id">>(

@@ -3,10 +3,14 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { PANEL_GROUPS, resolvePanels } from "./panels";
 import {
+  activeStencilPanelIds,
+  evaluateStencilPanelFeatureFlags,
   filterNavigationGroupsByStencil,
   filterPanelsByStencil,
+  isStencilPanelEnabled,
   LOCKED_STENCIL_PANEL_IDS,
   parseStencilEnabledPanelIds,
+  parseStencilRuntimeFeatureFlags,
   transformPanelsSourceForStencil,
 } from "./stencil-panels";
 
@@ -80,5 +84,54 @@ describe("stencil-panels", () => {
     expect(transformed).not.toContain('import("./routes/code-security")');
     expect(transformed).not.toContain('import("./routes/workflow-builder")');
     expect(transformed).not.toContain('import("./routes/analytics-hubs")');
+  });
+
+  test("parses runtime Stencil feature flags and blocks deactivated menus while locking safety-core panels", () => {
+    const previous = globalThis.__FDAI_STENCIL_FEATURE_FLAGS__;
+    try {
+      globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = {
+        schema_version: "fdai.stencil-feature-flags.v1",
+        stencil_id: "lite-observe-alert",
+        enforcement_mode: "fail-closed",
+        panel_flags: {
+          audit: true,
+          dashboard: true,
+          "settings-general": true,
+          live: true,
+          incidents: true,
+          "aks-commerce": false,
+          "cost-governance": false,
+        },
+      };
+
+      const active = activeStencilPanelIds();
+      expect(active).not.toBeNull();
+      expect(isStencilPanelEnabled("dashboard", active)).toBe(true);
+      expect(isStencilPanelEnabled("audit", active)).toBe(true);
+      expect(isStencilPanelEnabled("settings-general", active)).toBe(true);
+      expect(isStencilPanelEnabled("live", active)).toBe(true);
+      expect(isStencilPanelEnabled("aks-commerce", active)).toBe(false);
+      expect(isStencilPanelEnabled("cost-governance", active)).toBe(false);
+
+      const evaluated = evaluateStencilPanelFeatureFlags(
+        ["dashboard", "live", "aks-commerce", "cost-governance"],
+        active,
+      );
+      expect(evaluated).toEqual({
+        dashboard: true,
+        live: true,
+        "aks-commerce": false,
+        "cost-governance": false,
+      });
+
+      expect(() =>
+        parseStencilRuntimeFeatureFlags({
+          schema_version: "fdai.stencil-feature-flags.v1",
+          disabled_panel_ids: ["audit"],
+        }),
+      ).toThrow(/Cannot disable locked safety-core Stencil panel: audit/);
+    } finally {
+      globalThis.__FDAI_STENCIL_FEATURE_FLAGS__ = previous;
+    }
   });
 });

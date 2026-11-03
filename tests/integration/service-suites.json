@@ -174,7 +174,8 @@
           "services/operator-service/tests/test_wara_projection.py",
           "services/operator-service/tests/test_wara_guidance_projection.py",
           "services/operator-service/tests/test_python_task_capability.py",
-          "services/operator-service/tests/test_bus_poison_halt_clear.py"
+          "services/operator-service/tests/test_bus_poison_halt_clear.py",
+          "services/operator-service/tests/test_stencil_feature_flags.py"
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",

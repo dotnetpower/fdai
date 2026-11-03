@@ -12,6 +12,7 @@ from fdai_operator_service.composition import (
 )
 from fdai_operator_service.contracts import AsgiApplication
 from fdai_operator_service.development_diagnostics import build_development_diagnostics
+from fdai_operator_service.stencil_feature_flags import wrap_with_stencil_feature_flags
 
 
 def create_app(
@@ -26,4 +27,5 @@ def create_app(
         runtime.lifecycle,
         build_development_diagnostics(runtime.environment.values),
     )
-    return replace(runtime, lifecycle=lifecycle).create_app()
+    app = replace(runtime, lifecycle=lifecycle).create_app()
+    return wrap_with_stencil_feature_flags(app, runtime.environment.values)

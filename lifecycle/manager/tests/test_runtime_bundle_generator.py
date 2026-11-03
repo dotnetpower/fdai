@@ -476,6 +476,18 @@ def test_lite_stencil_bundle_excludes_heavy_workloads_and_enforces_core_guards()
         identity_bridge_config_map="fdai-identity-bridge",
         enabled_workloads=frozenset({"core-control-plane", "operator-service"}),
         enabled_scheduled_jobs=frozenset({"analyzer", "inventory"}),
+        stencil_id="lite-observe-alert",
+        enabled_panel_ids=frozenset(
+            {"audit", "dashboard", "incidents", "live", "settings-general"}
+        ),
+        enabled_loops=frozenset(
+            {
+                "anomaly-analyzer",
+                "inventory-reconciliation",
+                "notification-dispatch",
+                "saga-audit",
+            }
+        ),
     )
 
     assert lite.native_scope.components == ("core-control-plane", "operator-service")
@@ -485,8 +497,32 @@ def test_lite_stencil_bundle_excludes_heavy_workloads_and_enforces_core_guards()
     assert "document-ingestion-api" not in lite.component_images
     assert "document-processing-worker" not in lite.component_images
     assert len(lite.bundle.objects) == 8
+    for env_cm in ("core-control-plane-env", "operator-service-env"):
+        cm_data = lite.prerequisites.config_map_data[env_cm]
+        assert cm_data["FDAI_STENCIL_ID"] == "lite-observe-alert"
+        assert cm_data["FDAI_STENCIL_ENFORCE_INACTIVE_MENUS"] == "1"
+        assert cm_data["FDAI_STENCIL_ENABLED_PANELS"] == (
+            "audit,dashboard,incidents,live,settings-general"
+        )
+        assert cm_data["FDAI_STENCIL_ENABLED_LOOPS"] == (
+            "anomaly-analyzer,inventory-reconciliation,notification-dispatch,saga-audit"
+        )
 
-    # Missing required core workloads or scheduled jobs is rejected fail-closed.
+    # Missing required core workloads, scheduled jobs, panels, or loops is rejected fail-closed.
+    with pytest.raises(ValueError, match="requires locked safety-core panels"):
+        generate_fdai_runtime_bundle(
+            workloads=workloads,
+            scheduled_jobs=scheduled_jobs,
+            installation_id="installation-fdai-dev-wus3",
+            enabled_panel_ids=frozenset({"dashboard", "live"}),
+        )
+    with pytest.raises(ValueError, match="requires locked safety-core loops"):
+        generate_fdai_runtime_bundle(
+            workloads=workloads,
+            scheduled_jobs=scheduled_jobs,
+            installation_id="installation-fdai-dev-wus3",
+            enabled_loops=frozenset({"anomaly-analyzer"}),
+        )
     with pytest.raises(
         ValueError, match="requires both 'core-control-plane' and 'operator-service'"
     ):

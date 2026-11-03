@@ -107,6 +107,29 @@ export async function requestDeploymentRequests(
   return page;
 }
 
+export type StencilFeatureFlagsRecord = {
+  schema_version: "fdai.stencil-feature-flags.v1";
+  stencil_id: string;
+  stencil_digest: string;
+  enforcement_mode: "fail-closed";
+  enabled_panel_ids: string[];
+  disabled_panel_ids: string[];
+  enabled_loops: string[];
+  disabled_loops: string[];
+  enabled_workloads: string[];
+  disabled_workloads: string[];
+  enabled_scheduled_jobs: string[];
+  disabled_scheduled_jobs: string[];
+  enabled_addons: string[];
+  disabled_addons: string[];
+  panel_flags: Record<string, boolean>;
+  loop_flags: Record<string, boolean>;
+  workload_flags: Record<string, boolean>;
+  scheduled_job_flags: Record<string, boolean>;
+  addon_flags: Record<string, boolean>;
+  runtime_env: Record<string, string>;
+};
+
 export type ReleaseStencilMetadata = {
   stencil_id: string;
   stencil_digest: string;
@@ -118,9 +141,12 @@ export type ReleaseStencilMetadata = {
   enabled_workloads: string[];
   omitted_workloads?: string[];
   enabled_loops?: string[];
+  disabled_loops?: string[];
   enabled_scheduled_jobs?: string[];
   enabled_panel_ids: string[];
+  disabled_panel_ids?: string[];
   release_labels?: string[];
+  feature_flags?: StencilFeatureFlagsRecord;
 };
 
 export type ReleaseManifest = Record<string, unknown> & {
@@ -401,11 +427,14 @@ export type StencilFootprint = {
   enabled_panel_count: number;
   total_panel_count: number;
   omitted_panel_count: number;
+  disabled_panel_ids?: string[];
+  disabled_loops?: string[];
   active_navigation_groups: string[];
   enabled_feature_ids: string[];
   azure_rbac_posture: string;
   required_azure_roles: string[];
   release_labels?: string[];
+  feature_flags?: StencilFeatureFlagsRecord;
   dependency_reasons?: {
     workloads: Record<string, string[]>;
     loops: Record<string, string[]>;
