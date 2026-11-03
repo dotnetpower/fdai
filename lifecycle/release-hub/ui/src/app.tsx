@@ -8,6 +8,7 @@ import {
   type Action, type Catalog, type Change, type EntraSessionStatus, type Release,
 } from "./api";
 import { DeploymentRequests } from "./deployment-requests";
+import { ReleaseLineageSection } from "./release-lineage";
 import { ReleaseWorkspace } from "./release-workspace";
 import { StencilBuilder } from "./stencil-builder";
 
@@ -959,6 +960,22 @@ export function App() {
             <div class="summary"><strong>{t(`${catalog.releases.length} releases`, `총 ${catalog.releases.length}개 릴리스`)}</strong><span>{t(`Revision ${catalog.revision}`, `카탈로그 리비전 ${catalog.revision}`)}</span><span>{t(`Updated ${time(catalog.updated_at)}`, `최근 갱신 ${time(catalog.updated_at)}`)}</span></div>
             {catalog.releases.length === 0 ? <section class="empty"><h2>{t("No releases yet", "아직 등록된 릴리스가 없습니다")}</h2><p>{t("Use 1. Stencil Builder to compose a custom edition or click Register release to auto-fill a template.", "상단의 '새 릴리스 바로 등록' 버튼을 눌러 원클릭 템플릿으로 생성하거나, '1. 스텐실·메뉴 빌더'에서 원하는 메뉴만 골라 시작하세요.")}</p></section>
               : <>
+                <ReleaseLineageSection
+                  catalog={catalog}
+                  locale={locale}
+                  activeReleaseId={pending?.release?.id ?? null}
+                  buildingDraft={
+                    pending?.action === "register" && registration.id.trim()
+                      ? {
+                          id: registration.id.trim(),
+                          stencilId: registration.label.split(" ")[0] || "custom-stencil",
+                          label: registration.label,
+                        }
+                      : null
+                  }
+                  disabled={disabled}
+                  onAct={(action, r) => setPending({ action, release: r })}
+                />
                 <div class="release-list">{catalog.releases.map((r) => {
                   const st = extractReleaseStencil(r);
                   const inDev = r.channels.includes("DEV");
