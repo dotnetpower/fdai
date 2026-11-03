@@ -1,6 +1,8 @@
 locals {
-  kinds = toset([var.kind])
-  tags  = var.tags
+  kinds            = toset([var.kind])
+  postgres_kinds   = var.database == null ? toset([]) : local.kinds
+  serverless_kinds = var.database == null ? local.kinds : toset([])
+  tags             = var.tags
 }
 
 resource "azurerm_resource_group" "hub" {
@@ -34,7 +36,7 @@ resource "azurerm_subnet" "apps" {
 }
 resource "azurerm_subnet" "database" {
   # checkov:skip=CKV2_AZURE_31:PostgreSQL owns this delegated private subnet; default outbound access is disabled.
-  for_each                        = local.kinds
+  for_each                        = local.postgres_kinds
   name                            = "database"
   resource_group_name             = azurerm_resource_group.hub[each.key].name
   virtual_network_name            = azurerm_virtual_network.hub[each.key].name
@@ -164,12 +166,12 @@ resource "azurerm_private_endpoint" "vault" {
   }
 }
 resource "azurerm_private_dns_zone" "database" {
-  for_each            = local.kinds
+  for_each            = local.postgres_kinds
   name                = "${each.key}.postgres.database.azure.com"
   resource_group_name = azurerm_resource_group.hub[each.key].name
 }
 resource "azurerm_private_dns_zone_virtual_network_link" "database" {
-  for_each              = local.kinds
+  for_each              = local.postgres_kinds
   name                  = "own-hub"
   resource_group_name   = azurerm_resource_group.hub[each.key].name
   private_dns_zone_name = azurerm_private_dns_zone.database[each.key].name
@@ -181,7 +183,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "database" {
 #trivy:ignore:AZU-0026
 resource "azurerm_postgresql_flexible_server" "hub" {
   # checkov:skip=CKV_AZURE_136:This development-only single-region root retains seven-day local backups; it is not a production disaster-recovery profile.
-  for_each                      = local.kinds
+  for_each                      = local.postgres_kinds
   name                          = "psql-${var.prefix}-${each.key}"
   location                      = var.location
   resource_group_name           = azurerm_resource_group.hub[each.key].name
@@ -211,7 +213,7 @@ resource "azurerm_postgresql_flexible_server" "hub" {
   depends_on = [azurerm_private_dns_zone_virtual_network_link.database]
 }
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "hub" {
-  for_each            = local.kinds
+  for_each            = local.postgres_kinds
   server_name         = azurerm_postgresql_flexible_server.hub[each.key].name
   resource_group_name = azurerm_resource_group.hub[each.key].name
   tenant_id           = var.tenant_id
@@ -220,7 +222,7 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "hu
   principal_type      = "User"
 }
 resource "azurerm_postgresql_flexible_server_database" "hub" {
-  for_each  = local.kinds
+  for_each  = local.postgres_kinds
   name      = "${each.key}_hub"
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   charset   = "UTF8"
@@ -231,26 +233,124 @@ resource "azurerm_postgresql_flexible_server_database" "hub" {
 }
 
 resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
-  for_each  = local.kinds
+  for_each  = local.postgres_kinds
   name      = "log_connections"
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   value     = "on"
 }
 resource "azurerm_postgresql_flexible_server_configuration" "log_checkpoints" {
-  for_each  = local.kinds
+  for_each  = local.postgres_kinds
   name      = "log_checkpoints"
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   value     = "on"
 }
 resource "azurerm_postgresql_flexible_server_configuration" "connection_throttle" {
-  for_each  = local.kinds
+  for_each  = local.postgres_kinds
   name      = "connection_throttle.enable"
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   value     = "on"
 }
 resource "azurerm_postgresql_flexible_server_configuration" "tls_floor" {
-  for_each  = local.kinds
+  for_each  = local.postgres_kinds
   name      = "ssl_min_protocol_version"
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   value     = "TLSv1.2"
+}
+
+#trivy:ignore:AZU-0010
+resource "azurerm_storage_account" "state" {
+  # checkov:skip=CKV_AZURE_36:Trusted-service bypass stays at None; the private file endpoint is the only allowed network path.
+  # checkov:skip=CKV2_AZURE_40:ACA Azure Files mounts require the account key; public access is disabled and the file share uses a private endpoint.
+  # checkov:skip=CKV2_AZURE_1:Platform-managed keys plus infrastructure encryption match the existing Hub database encryption boundary.
+  for_each                          = local.serverless_kinds
+  name                              = "st${var.prefix}${each.key}"
+  location                          = var.location
+  resource_group_name               = azurerm_resource_group.hub[each.key].name
+  account_tier                      = "Standard"
+  account_replication_type          = "GZRS"
+  min_tls_version                   = "TLS1_2"
+  https_traffic_only_enabled        = true
+  allow_nested_items_to_be_public   = false
+  public_network_access_enabled     = false
+  local_user_enabled                = false
+  shared_access_key_enabled         = true
+  default_to_oauth_authentication   = true
+  infrastructure_encryption_enabled = true
+  cross_tenant_replication_enabled  = false
+  tags                              = local.tags
+
+  network_rules {
+    default_action = "Deny"
+    bypass         = ["None"]
+  }
+  share_properties {
+    retention_policy {
+      days = 7
+    }
+  }
+  blob_properties {
+    delete_retention_policy {
+      days = 7
+    }
+    container_delete_retention_policy {
+      days = 7
+    }
+  }
+  queue_properties {
+    logging {
+      delete                = true
+      read                  = true
+      write                 = true
+      version               = "1.0"
+      retention_policy_days = 7
+    }
+  }
+  sas_policy {
+    expiration_period = "00.01:00:00"
+    expiration_action = "Block"
+  }
+}
+resource "azurerm_private_dns_zone" "state" {
+  for_each            = local.serverless_kinds
+  name                = "privatelink.file.core.windows.net"
+  resource_group_name = azurerm_resource_group.hub[each.key].name
+}
+resource "azurerm_private_dns_zone_virtual_network_link" "state" {
+  for_each              = local.serverless_kinds
+  name                  = "own-hub"
+  resource_group_name   = azurerm_resource_group.hub[each.key].name
+  private_dns_zone_name = azurerm_private_dns_zone.state[each.key].name
+  virtual_network_id    = azurerm_virtual_network.hub[each.key].id
+}
+resource "azurerm_private_endpoint" "state" {
+  for_each            = local.serverless_kinds
+  name                = "pe-${var.prefix}-${each.key}-state"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.hub[each.key].name
+  subnet_id           = azurerm_subnet.secrets[each.key].id
+  private_service_connection {
+    name                           = "state"
+    private_connection_resource_id = azurerm_storage_account.state[each.key].id
+    subresource_names              = ["file"]
+    is_manual_connection           = false
+  }
+  private_dns_zone_group {
+    name                 = "state"
+    private_dns_zone_ids = [azurerm_private_dns_zone.state[each.key].id]
+  }
+}
+resource "azurerm_storage_share" "state" {
+  for_each           = local.serverless_kinds
+  name               = "hub-state"
+  storage_account_id = azurerm_storage_account.state[each.key].id
+  quota              = 5
+}
+resource "azurerm_container_app_environment_storage" "state" {
+  for_each                     = local.serverless_kinds
+  name                         = "hub-state"
+  container_app_environment_id = azurerm_container_app_environment.hub[each.key].id
+  account_name                 = azurerm_storage_account.state[each.key].name
+  access_key                   = azurerm_storage_account.state[each.key].primary_access_key
+  share_name                   = azurerm_storage_share.state[each.key].name
+  access_mode                  = "ReadWrite"
 }

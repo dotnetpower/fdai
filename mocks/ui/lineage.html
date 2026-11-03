@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lineage - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
-  <link rel="stylesheet" href="assets/lineage.css?v=12" />
+  <link rel="stylesheet" href="assets/lineage.css?v=14" />
   <script src="assets/calm-slate.js?v=lineage-v1" defer></script>
-  <script src="assets/lineage-ontology.js?v=2" defer></script>
+  <script src="assets/lineage-ontology.js?v=3" defer></script>
   <script src="assets/lineage-icons.js?v=1" defer></script>
-  <script src="assets/lineage.js?v=11" defer></script>
+  <script src="assets/lineage.js?v=13" defer></script>
 </head>
 <body class="ln-page">
   <main class="ln-workspace">
@@ -43,6 +43,7 @@
         <div class="ln-canvas-scroll" id="lineageViewport" tabindex="0" aria-label="Scrollable lineage graph" aria-describedby="lineageViewportHelp">
           <div id="lineageCanvasSize"><div class="ln-canvas" id="lineageCanvas">
             <div class="ln-column" style="left:24px">01 / Sources</div><div class="ln-column" style="left:270px">02 / Versioned inputs</div><div class="ln-column" style="left:516px">03 / Agent executions</div><div class="ln-column" style="left:762px">04 / Object Types</div><div class="ln-column" style="left:1008px">05 / ResourceTypes</div><div class="ln-column" style="left:1254px">Workload types</div><div class="ln-column" style="left:1500px">Observations &amp; rules</div><div class="ln-column" style="left:1792px">06 / Decision &amp; audit</div>
+            <div class="ln-clusters" id="lineageClusters" aria-hidden="true"></div>
             <svg class="ln-edges" id="lineageEdges" width="2010" height="1060" aria-hidden="true"><defs><marker id="lineageArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" /></marker></defs></svg>
             <div id="lineageNodes"></div>
           </div></div>
@@ -52,7 +53,7 @@
         <p id="lineageViewportHelp" class="cs-sr-only">Arrow keys move between neighbouring records. Plus and minus zoom, 0 fits the complete graph. Drag the background or use the mouse wheel to pan and zoom.</p>
         <div class="ln-map-dock"><button type="button" id="lineageCenter" aria-label="Center selected record" title="Center selected record"></button><button type="button" id="lineageMapToggle" aria-label="Toggle graph navigator" title="Toggle graph navigator" aria-expanded="true" aria-controls="lineageMap"></button><button type="button" class="ln-map" id="lineageMap" aria-label="Recenter using graph navigator" title="Recenter using graph navigator"><svg id="lineageMiniature" viewBox="0 0 2010 1060" aria-hidden="true"></svg></button></div>
         </div>
-        <footer class="ln-graph-foot"><span id="lineageCount" role="status" aria-live="polite"></span><ul class="ln-edge-legend" aria-label="Connection styles"><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-direct" d="M1 4 L39 4" /></svg>Direct</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-aggregate" d="M1 4 L39 4" /></svg>Aggregated, bold</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-membership" d="M1 4 L39 4" /></svg>Membership, dotted</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-missing" d="M1 4 L39 4" /></svg>Missing input, dashed</li></ul></footer>
+        <footer class="ln-graph-foot"><span id="lineageCount" role="status" aria-live="polite"></span><ul class="ln-edge-legend" aria-label="Connection styles"><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-direct" d="M1 4 L39 4" /></svg>Direct</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-aggregate" d="M1 4 L39 4" /></svg>Aggregated, bold</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-membership" d="M1 4 L39 4" /></svg>Membership, dotted</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-missing" d="M1 4 L39 4" /></svg>Missing input, dashed</li><li><svg class="ln-edge-sample" viewBox="0 0 40 8" aria-hidden="true"><path class="ln-sample-derivation" d="M1 4 L39 4" /></svg>Derivation path, highlighted</li></ul></footer>
       </section>
       <aside class="ln-inspector" id="lineageInspector" aria-label="Selected record" tabindex="-1"></aside>
     </div>

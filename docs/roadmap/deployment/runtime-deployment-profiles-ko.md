@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7f360b4c2fd30a717f02f2e91e19b39fa86cd157
+translation_source_sha: 1ae907b4c69379252ba04738e49ea34cf597b9c1
 translation_revised: 2026-11-04
 ---
 # 런타임 배포 프로파일
@@ -61,7 +61,7 @@ Container Apps와 일반 예약 Job의 재시도 계약은 바뀌지 않습니�
 도구이며, 어느 프로파일에서도 설치되는 런타임 구성 요소가 아닙니다. 저장소 검사를 위한 소스
 루트 등록은 런타임 플랫폼을 선택하거나 Cost Governance를 활성화하지 않습니다. 메타데이터 발행과
 고정 다이제스트 기반 내보내기 파일 검증 테스트는 Azure 배포, 프로덕션 카탈로그 신뢰, 아티팩트
-가용성 또는 FDAI 워크로드 설치 완료의 근거가 아닙니다.
+가용성 또는 FDAI 워크로드 설치 완료의 근거가 아닙니다. 검증된 Hub 서명 Stencil 릴리스(`lite-observe-alert`)가 선택적 `document-ingestion-api`, `document-processing-worker`, `clamav` 또는 `isolated-executor` 이미지를 생략한 경우 `standalone_host.py`의 AKS 애플리케이션 준비 단계는 생략된 문서 수집기나 실행기 신원을 요구하지 않고 Stencil에 포함된 워크로드(`core-control-plane` 및 `operator-service`)만 렌더링합니다.
 
 두 프로필은 독립 verifier 설정, 현재 허가 레지스트리 pin, 설치 참조와 정확한 설치 단위 읽기
 범위가 있을 때만 명시적 Operator 토론을 연결합니다. 선행 조건이 없으면 Owner, 허가나 실제

@@ -98,12 +98,14 @@ function normalizePathname(pathname: string): string {
   return normalized === "" ? "/" : normalized;
 }
 
+export function isPanelRegistered(panelId: string): boolean {
+  return resolvePanels().some((panel) => panel.id === panelId);
+}
+
 export function panelPath(panelId: string): string {
+  if (!isPanelRegistered(panelId)) return PANEL_PATHS.dashboard!;
   const explicit = PANEL_PATHS[panelId];
-  if (explicit !== undefined) return explicit;
-  return resolvePanels().some((panel) => panel.id === panelId)
-    ? `/${panelId}`
-    : PANEL_PATHS.dashboard!;
+  return explicit ?? `/${panelId}`;
 }
 
 export function routeHref(
@@ -113,6 +115,15 @@ export function routeHref(
     readonly params?: Readonly<Record<string, string | number | null | undefined>>;
   } = {},
 ): string {
+  if (!isPanelRegistered(panelId)) {
+    const search = new URLSearchParams();
+    const dataParam = options.params?.data;
+    if (dataParam !== null && dataParam !== undefined && dataParam !== "") {
+      search.set("data", String(dataParam));
+    }
+    const query = search.toString();
+    return query ? `${PANEL_PATHS.dashboard!}?${query}` : PANEL_PATHS.dashboard!;
+  }
   const suffix = (options.segments ?? [])
     .map((segment) => encodeURIComponent(segment.trim().toLowerCase().replace(/[\s_]+/g, "-")))
     .join("/");
@@ -127,7 +138,11 @@ export function routeHref(
 
 export function parseConsoleRoute(pathname: string, search = ""): ConsoleRoute {
   const normalized = normalizePathname(pathname);
-  const aliasPanel = PATH_ALIASES[normalized];
+  const rawAliasPanel = PATH_ALIASES[normalized];
+  const aliasPanel =
+    rawAliasPanel !== undefined && isPanelRegistered(rawAliasPanel)
+      ? rawAliasPanel
+      : undefined;
   const matchedRoute = registeredPanelRoutes().find(
     (candidate) => normalized === candidate.path || normalized.startsWith(`${candidate.path}/`),
   );
@@ -203,10 +218,7 @@ export function legacyHashHref(hash: string): string | null {
   if (!raw) return PANEL_PATHS.dashboard!;
   const [legacyId = "", query = ""] = raw.split("?", 2);
   const panelId = LEGACY_ALIASES[legacyId] ?? legacyId;
-  if (
-    !(panelId in PANEL_PATHS) &&
-    !resolvePanels().some((panel) => panel.id === panelId)
-  ) return null;
+  if (!isPanelRegistered(panelId)) return null;
   const path = panelPath(panelId);
   return query ? `${path}?${query}` : path;
 }

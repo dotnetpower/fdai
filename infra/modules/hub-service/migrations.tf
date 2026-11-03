@@ -19,12 +19,23 @@ resource "azurerm_container_app_job" "migrate" {
     server   = var.registry.server
     identity = local.foundation[each.key].identity_id
   }
-  secret {
-    name                = "database-url"
-    identity            = local.foundation[each.key].identity_id
-    key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions.database}"
+  dynamic "secret" {
+    for_each = var.database == null ? [] : [1]
+    content {
+      name                = "database-url"
+      identity            = local.foundation[each.key].identity_id
+      key_vault_secret_id = "${local.foundation[each.key].vault_uri}secrets/hub-database-url/${var.secret_versions.database}"
+    }
   }
   template {
+    dynamic "volume" {
+      for_each = var.database == null ? [1] : []
+      content {
+        name         = "hub-state"
+        storage_name = azurerm_container_app_environment_storage.state[each.key].name
+        storage_type = "AzureFile"
+      }
+    }
     container {
       name    = "migrate"
       image   = var.image
@@ -32,13 +43,21 @@ resource "azurerm_container_app_job" "migrate" {
       memory  = "1Gi"
       command = ["python", "-m", "fdai_lifecycle_hub.remote"]
       args    = ["migrate"]
+      dynamic "volume_mounts" {
+        for_each = var.database == null ? [1] : []
+        content {
+          name = "hub-state"
+          path = "/var/lib/fdai-hub"
+        }
+      }
       env {
         name  = "FDAI_HUB_REMOTE_CONFIG"
         value = jsonencode(local.configs[each.key])
       }
       env {
         name        = each.key == "release" ? "FDAI_RELEASE_HUB_DATABASE_URL" : "FDAI_LIFECYCLE_HUB_DATABASE_URL"
-        secret_name = "database-url"
+        secret_name = var.database == null ? null : "database-url"
+        value       = var.database == null ? "sqlite:////var/lib/fdai-hub/${each.key}-hub.sqlite" : null
       }
       env {
         name  = "FDAI_HUB_MANAGED_IDENTITY_CLIENT_ID"

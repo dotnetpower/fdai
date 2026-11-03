@@ -327,4 +327,35 @@ describe("clean console routes", () => {
     });
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "auto" });
   });
+
+  test("falls back to Overview for disabled panels and path aliases when a Stencil filter is active", () => {
+    vi.stubEnv(
+      "VITE_STENCIL_ENABLED_PANELS",
+      "dashboard,live,incidents,audit,settings-general,settings-integrations",
+    );
+    try {
+      expect(panelPath("live")).toBe("/live");
+      expect(panelPath("settings-integrations")).toBe("/settings/integrations");
+      expect(panelPath("hil-queue")).toBe("/overview");
+      expect(panelPath("settings-iam")).toBe("/overview");
+      expect(routeHref("operating-outcomes", { segments: ["auto-resolution"] })).toBe("/overview");
+      expect(routeHref("dashboard-v2", { params: { data: "sample" } })).toBe(
+        "/overview?data=sample",
+      );
+      expect(parseConsoleRoute("/handover")).toMatchObject({
+        panelId: "dashboard",
+        matched: false,
+        canonicalPathname: "/overview",
+      });
+      expect(parseConsoleRoute("/approvals")).toMatchObject({
+        panelId: "dashboard",
+        matched: false,
+        canonicalPathname: "/overview",
+      });
+      expect(legacyHashHref("#/hil-queue")).toBeNull();
+      expect(legacyHashHref("#/dashboard")).toBe("/overview");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

@@ -180,8 +180,16 @@ export function App() {
     }
     const syncRoute = () => {
       let route = currentRoute();
-      if (!isStencilPanelEnabled(route.panelId)) {
-        window.history.replaceState(null, "", panelPath(DEFAULT_PANEL_ID));
+      if (
+        !hasTransientRoute() &&
+        (shouldReplaceUnmatchedRoute(route, window.location.hash) ||
+          !isStencilPanelEnabled(route.panelId))
+      ) {
+        const preservedData = route.search.get("data");
+        const fallbackHref = preservedData
+          ? `${panelPath(DEFAULT_PANEL_ID)}?data=${encodeURIComponent(preservedData)}`
+          : panelPath(DEFAULT_PANEL_ID);
+        window.history.replaceState(window.history.state, "", fallbackHref);
         route = currentRoute();
       }
       if (supportsSampleData(route.panelId)) {

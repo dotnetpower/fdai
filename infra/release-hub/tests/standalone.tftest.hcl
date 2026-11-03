@@ -399,6 +399,64 @@ run "catalog_roles_reject_a_snapshot_that_expires_before_the_timestamp" {
   expect_failures = [var.catalog_roles]
 }
 
+run "serverless_embedded_sqlite_omits_postgresql_and_mounts_volume" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                  = "release"
+    database              = null
+    database_admin        = null
+    replicas              = { min = 1, max = 1 }
+    enable_apps           = true
+    enable_migration_jobs = true
+    secret_versions = {
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+  assert {
+    condition = (
+      length(azurerm_postgresql_flexible_server.hub) == 0 &&
+      length(azurerm_subnet.database) == 0 &&
+      length(azurerm_storage_account.state) == 1 &&
+      length(azurerm_container_app_environment_storage.state) == 1 &&
+      output.deployment.database_host == null &&
+      output.deployment.database_name == "sqlite:////var/lib/fdai-hub/release-hub.sqlite"
+    )
+    error_message = "Serverless mode must omit PostgreSQL resources and mount the Azure Files SQLite volume."
+  }
+  assert {
+    condition = (
+      !azurerm_storage_account.state["release"].public_network_access_enabled &&
+      !azurerm_storage_account.state["release"].local_user_enabled &&
+      azurerm_storage_account.state["release"].shared_access_key_enabled &&
+      azurerm_storage_account.state["release"].infrastructure_encryption_enabled &&
+      azurerm_storage_account.state["release"].account_replication_type == "GZRS" &&
+      azurerm_storage_account.state["release"].network_rules[0].default_action == "Deny" &&
+      azurerm_storage_account.state["release"].share_properties[0].retention_policy[0].days == 7 &&
+      azurerm_storage_account.state["release"].sas_policy[0].expiration_action == "Block" &&
+      length(azurerm_private_endpoint.state) == 1 &&
+      azurerm_private_dns_zone.state["release"].name == "privatelink.file.core.windows.net"
+    )
+    error_message = "SQLite state must use private, encrypted, retained, geo-replicated Azure Files storage with bounded SAS lifetime."
+  }
+}
+
+run "serverless_mode_rejects_multi_replica_scaling" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind     = "release"
+    database = null
+    replicas = { min = 1, max = 2 }
+  }
+  expect_failures = [var.database]
+}
+
+
 run "root_installation_is_a_release_operation" {
   command = plan
   module {

@@ -8,10 +8,16 @@ variable "resource_group_name" {
 }
 variable "tags" { type = map(string) }
 variable "network" {
-  type = object({ vnet = string, apps = string, database = string, secrets = string })
+  type = object({
+    vnet     = string
+    apps     = string
+    database = optional(string)
+    secrets  = string
+  })
 }
 variable "database_admin" {
-  type = object({ object_id = string, display_name = string })
+  type    = object({ object_id = string, display_name = string })
+  default = null
 }
 variable "database" {
   type = object({
@@ -21,6 +27,7 @@ variable "database" {
     geo_redundant_backup_enabled = bool
     zone_redundant               = bool
   })
+  default = null
 }
 variable "log_retention_days" { type = number }
 variable "registry" { type = object({ id = string, server = string }) }

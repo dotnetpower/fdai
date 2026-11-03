@@ -269,10 +269,21 @@ export function transformPanelsSourceForStencil(
   const rebuiltCore = `\n  ${keptEntries.join(",\n  ")},\n`;
   let transformed = beforeCore + rebuiltCore + afterCore;
 
+  // Prune `knowledgeSourcePanel` helper when no knowledgeSourcePanel(...) entry remains in rebuiltCore.
+  const knowledgeHelperPattern =
+    /function\s+knowledgeSourcePanel\([\s\S]*?\n\}\n\n?/;
+  const keepsKnowledgeHelper = /\bknowledgeSourcePanel\b/.test(rebuiltCore + afterCore);
+  if (!keepsKnowledgeHelper) {
+    transformed = transformed.replace(knowledgeHelperPattern, "");
+  }
+  const helperRefsSource = keepsKnowledgeHelper
+    ? (knowledgeHelperPattern.exec(beforeCore)?.[0] ?? "")
+    : "";
+
   // Prune lazy route declarations (`const XRoute = lazyRoute(...)` / `lazy(...)`) not referenced in rebuiltCore.
   const routeDeclPattern =
     /const\s+([A-Za-z0-9_]+Route)\s*=\s*(?:lazyRoute|lazy)\([\s\S]*?\);\n/g;
-  const bodyAfterDecls = rebuiltCore + afterCore;
+  const bodyAfterDecls = helperRefsSource + rebuiltCore + afterCore;
   transformed = transformed.replace(routeDeclPattern, (fullMatch, routeVar: string) => {
     if (routeVar === "DashboardRoute") return fullMatch;
     const refRegex = new RegExp(`\\b${routeVar}\\b`);

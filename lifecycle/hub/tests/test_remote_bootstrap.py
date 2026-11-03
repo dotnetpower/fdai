@@ -49,3 +49,21 @@ def test_managed_identity_binding_and_no_key_generation(monkeypatch):
     with pytest.raises(ValueError, match="Provision an independent"):
         remote.remote_key(1)
     assert "FDAI_HUB_DEVELOPMENT_SIGNING_KEY" not in os.environ
+
+
+def test_serverless_sqlite_remote_engine_accepts_mounted_path_outside_checkout(
+    monkeypatch, tmp_path
+):
+    db_file = tmp_path / "release-hub.sqlite"
+    monkeypatch.setenv("FDAI_RELEASE_HUB_DATABASE_URL", f"sqlite:///{db_file}")
+    engine = remote.remote_engine("release")
+    try:
+        with engine.connect() as conn:
+            assert conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+            assert conn.exec_driver_sql("PRAGMA synchronous").scalar() == 1
+    finally:
+        engine.dispose()
+
+    monkeypatch.setenv("FDAI_RELEASE_HUB_DATABASE_URL", "sqlite:///relative.sqlite")
+    with pytest.raises(ValueError, match="Serverless SQLite Hub requires an absolute"):
+        remote.remote_engine("release")
