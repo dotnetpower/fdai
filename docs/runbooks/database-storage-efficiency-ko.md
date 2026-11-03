@@ -1,6 +1,6 @@
 ---
 translation_of: database-storage-efficiency.md
-translation_source_sha: 973a7eb43783e54eb7bbcf7feab56b399b48addf
+translation_source_sha: dd7b9e96726f263c4855ff5bcf99fc36b4ad3d8c
 translation_revised: 2026-11-03
 ---
 # 데이터베이스 저장 공간 증가 진단

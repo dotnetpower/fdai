@@ -142,7 +142,7 @@ A full delivery of every Resource still happens when the previous generation was
 no full delivery is on record, or the interval elapsed. Set
 `FDAI_INVENTORY_CONFIGURATION_FULL_REDELIVERY_SECONDS` to an integer from 0 to 604800 seconds. The
 default is 21600 (six hours), and `0` disables omission so every generation sends every Resource.
-Event identity, shape, and shadow-mode authority do not change; rule evaluation of a changed Resource
+Event identity, shape, and shadow mode authority do not change; rule evaluation of a changed Resource
 is unaffected, and the Forseti baseline evaluation still covers the complete generation.
 
 Heimdall also stops tracking a full-reconciliation observation that Huginn correlated only to its own
