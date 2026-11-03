@@ -33,10 +33,10 @@
     }
   },
   "jobs": {
-    "ci-admission": "control",
+    "ci-admission": "general",
     "changes": "control",
-    "protected-ci-source": "control",
-    "required": "control",
+    "protected-ci-source": "general",
+    "required": "general",
     "python-tests": "general",
     "python-tests-ssd": "general",
     "python-tests-elastic": "general",

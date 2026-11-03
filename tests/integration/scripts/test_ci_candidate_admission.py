@@ -820,3 +820,14 @@ def test_full_container_inventory_includes_main_publisher_without_ci_authority()
             job["if"] = f"vars.FDAI_CI_POOLS_ENABLED != 'true' && ({job['if']})"
     documents = {WORKFLOW: ci, ci_pool_routes.CONTAINER: mixed_container_workflow()}
     assert ci_pool_routes.routing_errors(policy, documents) == []
+
+
+@pytest.mark.parametrize("name", ["ci-admission", "protected-ci-source", "required"])
+def test_full_history_verification_uses_general_pool(name: str) -> None:
+    policy = json.loads((ROOT / "config/ci-runner-pools.json").read_text())
+    workflow = yaml.safe_load((ROOT / WORKFLOW).read_text())
+    pool = policy["pools"]["general"]
+
+    assert policy["jobs"][name] == "general"
+    assert pool["cpu_per_runner"] == 4
+    assert workflow["jobs"][name]["runs-on"] == ci_pool_routes.runner_expression(pool["labels"])
