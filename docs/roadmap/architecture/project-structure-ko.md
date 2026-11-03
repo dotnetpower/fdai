@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7b022abcb4d632b6e8589f149393bbadd62359aa
-translation_revised: 2026-11-02
+translation_source_sha: 29ad9ae952f5f94159daabc0df1c9a3a33ac905d
+translation_revised: 2026-11-03
 ---
 # 프로젝트 구조
 
@@ -353,6 +353,9 @@ Core는 명시적 객체 읽기 집합과 인증된 호출 문맥을 사용하�
 삭제 선점만 감사되는 CAS 삭제를 허용하며 이전 키에는 재생 차단 표식이 남습니다. 서비스
 간 계약, 기존 `StateStore` 구현에 대한 필수 조건, 사례 조회 권한 또는 새 에이전트 작성자를
 추가하지 않습니다. 키 집합 조회를 지원하지 않는 저장소는 삭제 대기 상태를 유지합니다.
+선택적 `StateStoreAgedKeysetReader`는 이 판독기에 마지막 쓰기 시각 기준을 더합니다. Heimdall은 검증된
+버전 루트가 더 이상 도달할 수 없는 대체된 체크포인트 행을 회수하는 용도로만 사용하며, 서비스 간 계약,
+감사 행, 권한은 바뀌지 않습니다. 이를 지원하지 않는 저장소는 해당 행을 그대로 둡니다.
 Workflow 승인 단계는
 자기 승인을 막는 불변 조건을 낮출 수 없습니다. 계약이 카탈로그 로드 시점에 비활성화된
 값을 거부합니다.

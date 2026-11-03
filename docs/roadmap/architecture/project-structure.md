@@ -343,6 +343,10 @@ historical case-copy cleanup can checkpoint exact rows without offset drift; onl
 deletion claim authorizes audited CAS removal, and the previous keys retain replay fences. This
 adds no requirement to existing `StateStore` implementations, cross-service contract, case-read
 authority, or new agent writer. A backend without keyset support keeps deletion pending.
+The optional `StateStoreAgedKeysetReader` extends that reader with a last-written cutoff. Heimdall
+uses it only to reclaim superseded checkpoint rows that its verified versioned root can no longer
+reach; no cross-service contract, audit row, or authority changes, and a backend without it leaves
+those rows in place.
 A Workflow approval step cannot lower the no-self-approval invariant; the contract rejects a disabled value at
 catalog load. Agent behavior hardening enters System Knowledge only through regenerated source commitments; catalog projection never gains
 judgment, recovery, publication, or execution authority. Regenerating a source commitment changes neither record payloads nor operational evidence timestamps. Saga claims each handoff in the runtime `StateStore` before mutation and requires
