@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:9abab7f571acf4568b0c5cba83a2beaafb4b89e1e9967deba74e74904e365c6b",
+  "catalog_digest": "sha256:364550dd3cc3cb5a184b804855920b427c998f9bda3cba1f92b9330a65cf1122",
   "execution_authority": false,
-  "generated_at": "2026-11-03T00:04:44.466523Z",
+  "generated_at": "2026-11-03T00:06:37.284274Z",
   "records": [
     {
       "designed_behavior": [
@@ -706,11 +706,11 @@
         "How are FDAI services separated?",
         "FDAI 서비스는 어떻게 분리되어 있나요?"
       ],
-      "record_digest": "sha256:0add59dbec29cdb94f0ea22b68596a94ac539ae8a17281a0ad9b03039cc8e536",
+      "record_digest": "sha256:4abbc0ec7ffeb365c8dbcc8176b44cf633e7017efc99278904f8db37b13edd77",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
+          "blob_sha": "9e907302010da1cd536d4b560a912a776726f3c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -781,7 +781,7 @@
       ],
       "execution_authority": false,
       "implemented_behavior": [
-        "The independent package, catalog compiler, deterministic search, Teams boundary, and focused tests are part of the current change."
+        "The independent package, 21-record catalog compiler, deterministic search, Bot Framework and Outgoing Webhook Teams boundaries, Managed Identity Blob CAS claim ledger, incremental cost estimator, and <15m disable/restore rehearsal are implemented."
       ],
       "knowledge_id": "system-knowledge-service",
       "limitations": [
@@ -792,11 +792,11 @@
         "How does the FDAI system knowledge bot work?",
         "FDAI 시스템 지식 봇은 어떻게 동작하나요?"
       ],
-      "record_digest": "sha256:46cb5f9cee5d156f6cb39fd17260f017e4e21395f3b3116bc05ba400ce2ca1b9",
+      "record_digest": "sha256:0a1c41fe1393b4a5c3d7fac10b8360cbf585052310c1fec186888b5b9b67981d",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "a88ea37dbd2de4bd432eb2120b8254dff29b40dd",
+          "blob_sha": "9e907302010da1cd536d4b560a912a776726f3c4",
           "line_end": 87,
           "line_start": 87,
           "path": "docs/roadmap/interfaces/system-knowledge-service.md",
@@ -804,7 +804,7 @@
           "symbol": "Revised design"
         }
       ],
-      "status": "in_progress",
+      "status": "implemented",
       "subject_id": "system-knowledge-service",
       "title": "System Knowledge Service"
     },

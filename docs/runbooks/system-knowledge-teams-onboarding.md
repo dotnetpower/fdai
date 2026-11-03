@@ -133,7 +133,7 @@ completes.
 
 ## Plan the deployment
 
-Resolve the attested image digest for the exact required-CI revision, then dispatch plan-only:
+Resolve the digest-pinned GHCR or platform ACR image for the exact revision, then dispatch plan-only:
 
 ```bash
 gh workflow run system-knowledge-deploy.yml \
@@ -144,9 +144,9 @@ gh workflow run system-knowledge-deploy.yml \
 ```
 
 Every plan is accepted only when it contains the dedicated UAMI, private claim container, three
-minimum role assignments, one-replica Container App, and `execution_authority=false` contract. A
-Bot Framework plan also contains the F0 Azure Bot and Teams channel. An Outgoing Webhook plan must
-contain neither.
+minimum role assignments, one-replica Container App, incremental cost receipt inside the approved
+development budget, and `execution_authority=false` contract. A Bot Framework plan also contains the
+F0 Azure Bot and Teams channel. An Outgoing Webhook plan must contain neither.
 
 Record the plan run id, attempt, plan digest, and context digest from the workflow summary.
 

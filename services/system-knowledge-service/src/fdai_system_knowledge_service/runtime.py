@@ -228,8 +228,10 @@ class OutgoingWebhookKnowledgeRuntime:
         )
         payload = outgoing_webhook_payload(response, locale=turn.locale)
         if not await self._ledger.claim(turn.message_key):
+            existing_state = await self._ledger.state(turn.message_key)
+            terminal_state = "ambiguous" if existing_state == "ambiguous" else "duplicate"
             return OutgoingWebhookTurnResult(
-                state="duplicate",
+                state=terminal_state,
                 payload=payload,
                 duplicate=True,
             )
@@ -247,12 +249,16 @@ class OutgoingWebhookKnowledgeRuntime:
         )
         try:
             await self._ledger.mark_sending(turn.message_key, response_digest)
+        except (TypeError, ValueError):
+            await self._ledger.release_retryable(turn.message_key)
+            raise
+        try:
             await self._ledger.mark_delivered(
                 turn.message_key,
                 f"outgoing-webhook:{turn.message_id}",
             )
-        except (TypeError, ValueError):
-            await self._ledger.release_retryable(turn.message_key)
+        except Exception:
+            await self._ledger.mark_ambiguous(turn.message_key)
             raise
         return OutgoingWebhookTurnResult(state="responded", payload=payload)
 

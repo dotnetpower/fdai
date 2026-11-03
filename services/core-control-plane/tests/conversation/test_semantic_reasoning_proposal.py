@@ -235,3 +235,152 @@ def test_comparison_value_strips_trailing_unit_when_digits_match_value_span() ->
     admission = _admit(_threshold_form(value="90%"), _THRESHOLD)
     assert admission.disposition is AdmissionDisposition.ADMITTED
     assert admission.form.goals[0].filters[0].comparison.value == "90"  # type: ignore[union-attr]
+
+
+def test_concept_instance_domains_and_state_qualified_metrics_normalize() -> None:
+    inc_raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "instance",
+                "span": {"text": "인시던트", "occurrence": 1},
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": {"text": "보여줘", "occurrence": 1},
+                "confidence": 0.95,
+            }
+        ],
+        "context": [{"text": "목록", "occurrence": 1}],
+        "request_kind": "direct_read",
+    }
+    inc_res = resolve_question_form(inc_raw, utterance="인시던트 목록 보여줘")
+    assert inc_res.form is not None
+    assert inc_res.form.mentions[0].domain.value == "object_type"
+
+    deg_raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "metric",
+                "span": {"text": "성능", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "concept",
+                "domain": "instance",
+                "span": {"text": "리소스", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m2",
+                "subject_scope": "collection",
+                "filters": [
+                    {
+                        "role": "metric",
+                        "mention": "m1",
+                        "qualifier": "low",
+                        "qualifier_span": {"text": "저하된", "occurrence": 1},
+                    }
+                ],
+                "cue": {"text": "뭐야?", "occurrence": 1},
+                "confidence": 0.9,
+            }
+        ],
+        "context": [{"text": "이", "occurrence": 1}, {"text": "가", "occurrence": 1}],
+        "request_kind": "direct_read",
+    }
+    deg_res = resolve_question_form(deg_raw, utterance="성능이 저하된 리소스가 뭐야?")
+    assert deg_res.form is not None
+    assert deg_res.form.mention("m2").domain.value == "resource_type"
+    assert deg_res.form.mention("m1").domain.value == "state"
+    assert deg_res.form.goals[0].filters[0].role.value == "state"
+
+
+def test_change_history_and_resource_health_and_inventory_proposals_normalize() -> None:
+    from fdai.core.conversation.semantic_reasoning_proposal import locate_quote
+
+    assert locate_quote("보여줄 수", 1, "IP 목록을 10개 찾아서 보여줄수 있나?") == (15, 19)
+
+    hist_raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "instance",
+                "span": {"text": "리소스", "occurrence": 1},
+            }
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "cue": {"text": "상태 변경된 리소스 5개 알려줘", "occurrence": 1},
+                "confidence": 0.56,
+            }
+        ],
+        "request_kind": "direct_read",
+    }
+    hist_res = resolve_question_form(hist_raw, utterance="상태 변경된 리소스 5개 알려줘")
+    assert hist_res.form is not None
+    assert hist_res.form.goals[0].operation.value == "history"
+    assert hist_res.form.goals[0].measure is not None
+    assert hist_res.form.goals[0].measure.kind.value == "change"
+    assert hist_res.form.goals[0].measure.order is not None
+    assert hist_res.form.goals[0].measure.order.limit == 5
+
+    rh_raw = {
+        "mentions": [
+            {
+                "id": "m1",
+                "form": "concept",
+                "domain": "object_type",
+                "span": {"text": "Resource", "occurrence": 1},
+            },
+            {
+                "id": "m2",
+                "form": "value",
+                "domain": "health",
+                "span": {"text": "Health", "occurrence": 1},
+            },
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {
+                        "role": "health",
+                        "mention": "m2",
+                        "cue": {"text": "Resource Health", "occurrence": 1},
+                    }
+                ],
+                "cue": {"text": "있어?", "occurrence": 1},
+                "confidence": 0.62,
+            }
+        ],
+        "request_kind": "direct_read",
+    }
+    rh_res = resolve_question_form(rh_raw, utterance="Resource Health에 문제 있는 리소스 있어?")
+    assert rh_res.form is not None
+    assert rh_res.form.mention("m1").domain.value == "resource_type"
+    assert rh_res.form.mention("m2").domain.value == "health"
+    assert rh_res.form.goals[0].filters[0].role.value == "health"

@@ -86,6 +86,7 @@ _TYPO_SUBSTITUTIONS: tuple[tuple[str, str], ...] = (
 )  # fmt: skip
 _ONTOLOGY_CONCEPT_SEEDS: Mapping[MentionDomain, str] = {
     MentionDomain.RESOURCE_TYPE: """
+any:resource=resource|resources|anyresource|anyresourcetype|resourcesingeneral|azure리소스|리소스|전체리소스|모든리소스|모든종류의리소스|리소스전체|자원|인벤토리|클라우드리소스
 group:compute=compute|computeresource|컴퓨트|컴퓨팅|컴퓨팅리소스|연산리소스;group:network=network|networking|networkresource|네트워크|네트워킹|네트워크리소스|망리소스
 group:storage=storage|storageresource|스토리지|스토리지리소스|저장소|저장소리소스;group:security=security|securityresource|보안|보안리소스
 group:observability=observability|monitoring|monitoringresource|관측성|모니터링|모니터링리소스|관제리소스;group:governance=governance|governanceresource|거버넌스|거버넌스리소스
@@ -215,8 +216,8 @@ state:stopped_or_deallocated=stop|stopped|stoppedstate|shut|shutdown|poweredoff|
 state:resource_state.stopped=allocatedstopped|할당유지중지
 state:resource_state.deallocated=deallocated|deallocate|할당해제|할당해제된|할당해제됨
 state:resource_state.running=running|runningstate|active|started|up|alive|실행중|실행중인|가동중|가동중인|동작중|동작중인|돌아가는|살아있는|켜진|켜져있는|활성|작동중인
-state:resource_state.failed=failed|failedstate|failure|errorstate|broken|실패|실패한|실패됨|오류상태|에러난|장애난|고장난
-state:resource_state.degraded=degraded|degradedstate|성능저하|저하된|저하됨|저하|느려진
+state:resource_state.failed=failed|failedstate|failure|errorstate|broken|실패|실패한|실패됨|오류상태|에러난|장애난|고장난|문제있는|문제가있는|이상있는|이상이있는
+state:resource_state.degraded=degraded|degradedstate|성능저하|성능이저하된|성능저하된|성능이저하|상태가저하된|성능떨어진|저하된|저하됨|저하|느려진
 state:resource_state.unavailable=unavailable|unavailablestate|사용불가능|이용불가|사용불가|불능
 state:resource_state.available=available|availablestate|사용가능|사용가능한|가용
 state:resource_state.online=online|onlinestate|온라인
@@ -285,8 +286,8 @@ metric:model.time_to_last_byte=modeltimetolastbyte|모델마지막토큰시간;m
 metric:model.response.429.count=modelresponse429|모델429응답수|모델스로틀링|스로틀링횟수;metric:model.response.500.count=modelresponse500|모델500응답수;metric:model.response.503.count=modelresponse503|모델503응답수
 """,
     MentionDomain.HEALTH: """
-health:resource_health.degraded=degraded|resourcehealthdegraded|성능저하|일부장애|저하상태;health:resource_health.not_ready=notready|resourcehealthnotready|준비안됨|미준비
-health:resource_health.unavailable=unavailable|resourcehealthunavailable|사용불가|서비스불가|다운상태;health:resource_health.unhealthy=unhealthy|resourcehealthunhealthy|비정상|불건전|문제있는|건강하지않은|언헬시
+health:resource_health.degraded=degraded|resourcehealthdegraded|성능저하|성능이저하된|성능저하된|성능이저하|일부장애|저하상태;health:resource_health.not_ready=notready|resourcehealthnotready|준비안됨|미준비
+health:resource_health.unavailable=unavailable|resourcehealthunavailable|사용불가|서비스불가|다운상태;health:resource_health.unhealthy=unhealthy|resourcehealthunhealthy|비정상|불건전|문제있는|문제가있는|문제생긴|이상있는|이상이있는|장애있는|장애가있는|불량|불량인|건강하지않은|언헬시
 """,
     MentionDomain.PROPERTY: """
 property:Resource.location=location|region|리전|위치|지역;property:Resource.type=type|resourcetype|리소스유형|리소스타입|종류

@@ -137,3 +137,31 @@ async def test_outgoing_webhook_returns_deterministic_response_on_replay(tmp_pat
     assert first.payload["type"] == "message"
     assert "replyToId" not in first.payload
     assert await ledger.state(_turn().message_key) == "delivered"
+
+
+async def test_outgoing_webhook_preserves_ambiguous_state_after_restart(tmp_path: Path) -> None:
+    ledger_path = tmp_path / "outgoing-ambiguous.sqlite3"
+    seed_ledger = MessageLedger(ledger_path)
+    await seed_ledger.start()
+    turn = _turn()
+    assert await seed_ledger.claim(turn.message_key) is True
+    await seed_ledger.mark_sending(turn.message_key, "sha256:" + ("c" * 64))
+    await seed_ledger.aclose()
+
+    restarted_ledger = MessageLedger(ledger_path)
+    runtime = OutgoingWebhookKnowledgeRuntime(
+        ingress=_Ingress(turn),  # type: ignore[arg-type]
+        index=SystemKnowledgeIndex(load_catalog(CATALOG_PATH)),
+        ledger=restarted_ledger,
+    )
+    await runtime.start()
+    replay = await runtime.handle(
+        body=b"replay-after-restart",
+        authorization="HMAC example",
+        received_at=datetime.now(UTC),
+    )
+    await runtime.aclose()
+
+    assert replay.state == "ambiguous"
+    assert replay.duplicate is True
+    assert await restarted_ledger.state(turn.message_key) == "ambiguous"

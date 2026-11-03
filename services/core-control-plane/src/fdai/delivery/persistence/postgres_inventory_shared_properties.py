@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import psycopg
@@ -11,6 +12,13 @@ from fdai.delivery.persistence.postgres_inventory_shared_membership import (
     content_digest,
     inventory_storage_available,
 )
+from fdai.rule_catalog.schema.zstd_codec import (
+    DEFAULT_ZSTD_LEVEL,
+    ZstdRecordDictionary,
+    decode_zstd_text_armor,
+    encode_zstd_text_armor,
+    train_record_dictionary,
+)
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
     STATE_FACT_METADATA_PROPERTY,
@@ -18,6 +26,8 @@ from fdai.shared.providers.state_evidence import (
 
 _METADATA_KEYS = (STATE_FACT_METADATA_PROPERTY, LINK_OBSERVATION_METADATA_PROPERTY)
 _LOCK = "fdai.inventory.snapshot-properties"
+_MAX_PROPERTY_BODY_BYTES = 1024 * 1024
+_DEFAULT_MIN_COMPRESS_BYTES = 256
 _RELATED = (
     "inventory_snapshot",
     "inventory_active",
@@ -36,8 +46,55 @@ def factor_properties(properties: dict[str, Any]) -> tuple[str, str, dict[str, A
     return content_digest(body), body, freshness
 
 
+def train_property_body_dictionary(
+    bodies: Sequence[str],
+    *,
+    dict_size: int = 16 * 1024,
+) -> ZstdRecordDictionary:
+    """Train a shared Zstandard dictionary over representative canonical JSON property bodies."""
+    return train_record_dictionary(bodies, dict_size=dict_size)
+
+
+def compress_property_body(
+    body: str,
+    *,
+    dictionary: ZstdRecordDictionary | Any | None = None,
+    min_compress_bytes: int = _DEFAULT_MIN_COMPRESS_BYTES,
+    level: int = DEFAULT_ZSTD_LEVEL,
+) -> str:
+    """Compress a canonical JSON property body into a ``zstd1:`` armor string when beneficial."""
+    if not isinstance(body, str) or not body:
+        raise ValueError("inventory property body MUST be a non-empty string")
+    raw_len = len(body.encode("utf-8"))
+    if raw_len > _MAX_PROPERTY_BODY_BYTES:
+        raise ValueError("inventory property body exceeds 1 MiB ceiling")
+    if raw_len < min_compress_bytes:
+        return body
+    armored = encode_zstd_text_armor(body, level=level, dictionary=dictionary)
+    return armored if len(armored.encode("ascii")) < raw_len else body
+
+
+def decompress_property_body(
+    stored_body: str,
+    *,
+    expected_digest: str | None = None,
+    dictionary: ZstdRecordDictionary | Any | None = None,
+) -> str:
+    """Restore and SHA-256-verify a canonical JSON property body from plain or ``zstd1:`` text."""
+    return decode_zstd_text_armor(
+        stored_body,
+        max_output_size=_MAX_PROPERTY_BODY_BYTES,
+        expected_uncompressed_sha256=expected_digest,
+        dictionary=dictionary,
+    )
+
+
 async def share_property_rows(
-    connection: psycopg.AsyncConnection[Any], rows: list[dict[str, Any]]
+    connection: psycopg.AsyncConnection[Any],
+    rows: list[dict[str, Any]],
+    *,
+    compress: bool = False,
+    dictionary: ZstdRecordDictionary | Any | None = None,
 ) -> list[dict[str, Any]]:
     """Lock against bounded orphan collection until the caller commits its row references."""
     if not await inventory_storage_available(connection, _RELATED):
@@ -51,7 +108,7 @@ async def share_property_rows(
     shared = []
     for row in rows:
         digest, body, freshness = factor_properties(row["props"])
-        bodies[digest] = body
+        bodies[digest] = compress_property_body(body, dictionary=dictionary) if compress else body
         shared.append(
             {
                 **{key: value for key, value in row.items() if key != "props"},

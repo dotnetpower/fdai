@@ -12,7 +12,11 @@ from typing import Any
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.automation.question_bank import build_question_bank, render_review_catalog
+from scripts.automation.question_bank import (
+    build_question_bank,
+    compress_question_bank_bundle,
+    render_review_catalog,
+)
 
 
 def _render_question_bank_json(payload: dict[str, Any]) -> str:
@@ -32,6 +36,13 @@ def _write_text(path: Path, content: str) -> None:
     temporary.replace(path)
 
 
+def _write_bytes(path: Path, content: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(content)
+    temporary.replace(path)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, default=Path("."))
@@ -40,6 +51,11 @@ def main() -> int:
         "--source",
         type=Path,
         default=Path("eval/golden-dataset/question-bank/question-bank.source.yaml"),
+    )
+    parser.add_argument(
+        "--zstd-output",
+        type=Path,
+        default=None,
     )
     args = parser.parse_args()
     repo_root = args.repo_root.resolve()
@@ -52,12 +68,25 @@ def main() -> int:
         output_root / "question-bank.json": _render_question_bank_json(payload),
         output_root / "review-catalog.md": render_review_catalog(payload),
     }
+    zstd_path = (
+        (
+            args.zstd_output.resolve()
+            if args.zstd_output.is_absolute()
+            else (repo_root / args.zstd_output).resolve()
+        )
+        if args.zstd_output is not None
+        else None
+    )
+    zstd_bytes = compress_question_bank_bundle(payload) if zstd_path is not None else None
     if args.check:
         stale = [
             path
             for path, expected in artifacts.items()
             if not path.is_file() or path.read_text(encoding="utf-8") != expected
         ]
+        if zstd_path is not None and zstd_bytes is not None:
+            if not zstd_path.is_file() or zstd_path.read_bytes() != zstd_bytes:
+                stale.append(zstd_path)
         for path in stale:
             print(f"question-bank: stale generated artifact: {path.name}", file=sys.stderr)
         if stale:
@@ -66,6 +95,8 @@ def main() -> int:
         return 0
     for path, content in artifacts.items():
         _write_text(path, content)
+    if zstd_path is not None and zstd_bytes is not None:
+        _write_bytes(zstd_path, zstd_bytes)
     print(
         "question-bank: rendered "
         f"{payload['summary']['question_count']} logical questions "

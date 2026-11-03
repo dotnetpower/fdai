@@ -18,9 +18,12 @@ from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence import postgres_inventory_shared_membership as shared
 from fdai.delivery.persistence.postgres_inventory_observation_records import snapshot_records
 from fdai.delivery.persistence.postgres_inventory_shared_properties import (
+    compress_property_body,
+    decompress_property_body,
     factor_properties,
     prune_shared_properties,
     share_property_rows,
+    train_property_body_dictionary,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot_membership import _member_values
 from fdai.delivery.persistence.postgres_inventory_snapshot_support import stage_snapshot_batch
@@ -551,6 +554,60 @@ async def test_namespace_mismatch_denies_shared_writes_and_skips_cleanup() -> No
         assert "backing.relnamespace=logical.relnamespace" in call.args[0]
         assert "inventory_snapshot_resource" in call.args[0]
         assert not call.args[0].startswith(("INSERT", "DELETE"))
+
+
+async def test_zstd_property_body_compression_preserves_canonical_digest() -> None:
+    sample_bodies = [
+        factor_properties(
+            {
+                "provisioningState": "Succeeded",
+                "location": "eastus2",
+                "sku": {"name": "Standard_D4s_v5", "tier": "Standard"},
+                "networkProfile": {"networkInterfaces": [f"/nic-{idx}" for idx in range(12)]},
+                "tags": {"environment": "production", "owner": "sre-platform"},
+            }
+        )[1]
+        for _ in range(20)
+    ]
+    dictionary = train_property_body_dictionary(sample_bodies, dict_size=4096)
+    props = {
+        "provisioningState": "Succeeded",
+        "location": "eastus2",
+        "sku": {"name": "Standard_D4s_v5", "tier": "Standard"},
+        "networkProfile": {"networkInterfaces": [f"/nic-{idx}" for idx in range(20)]},
+        "tags": {"environment": "production", "owner": "sre-platform"},
+    }
+    digest, canonical_body, _ = factor_properties(props)
+    compressed_body = compress_property_body(canonical_body, dictionary=dictionary)
+
+    assert compressed_body.startswith(f"zstd1:{digest}:")
+    assert len(compressed_body) < len(canonical_body)
+    assert (
+        decompress_property_body(
+            compressed_body,
+            expected_digest=digest,
+            dictionary=dictionary,
+        )
+        == canonical_body
+    )
+
+    cursor = MagicMock()
+    cursor.executemany = AsyncMock()
+    cursor.fetchone = AsyncMock(return_value={"available": True})
+    connection = MagicMock()
+    connection.cursor.return_value = cursor
+    connection.execute = AsyncMock(return_value=cursor)
+
+    rows = await share_property_rows(
+        connection,
+        [{"props": props}, {"props": props}],
+        compress=True,
+        dictionary=dictionary,
+    )
+    assert rows[0]["props_digest"] == digest
+    written_digest, written_body = cursor.executemany.await_args.args[1][0]
+    assert written_digest == digest
+    assert written_body == compressed_body
 
 
 def test_database_fixture_repr_does_not_expose_connection_data() -> None:
