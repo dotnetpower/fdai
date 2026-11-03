@@ -24,7 +24,7 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.engine import Connection, make_url
 from sqlalchemy.engine.interfaces import Dialect
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.pool import ConnectionPoolEntry
+from sqlalchemy.pool import ConnectionPoolEntry, NullPool
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -149,6 +149,37 @@ def remote_engine(kind: str) -> Engine:
     )
     value = os.environ.get(name, "")
     url = make_url(value)
+    if url.drivername == "sqlite":
+        checkout = Path(__file__).resolve().parents[4]
+        db_path = Path(url.database) if url.database else None
+        if (
+            url.host is not None
+            or url.username
+            or url.password
+            or url.query
+            or db_path is None
+            or not db_path.is_absolute()
+            or db_path.resolve().is_relative_to(checkout)
+        ):
+            raise ValueError(
+                "Serverless SQLite Hub requires an absolute mounted state path outside checkout."
+            )
+        sqlite_engine = create_engine(
+            url,
+            poolclass=NullPool,
+            hide_parameters=True,
+            connect_args={"timeout": 5.0},
+        )
+
+        @event.listens_for(sqlite_engine, "connect")
+        def configure_sqlite(dbapi_connection: Any, connection_record: Any) -> None:
+            dbapi_connection.execute("PRAGMA foreign_keys = ON")
+            dbapi_connection.execute("PRAGMA busy_timeout = 5000")
+            dbapi_connection.execute("PRAGMA synchronous = NORMAL")
+            dbapi_connection.execute("PRAGMA temp_store = MEMORY")
+            dbapi_connection.execute("PRAGMA cache_size = -16000")
+
+        return sqlite_engine
     if (
         url.drivername != "postgresql+psycopg"
         or not url.host

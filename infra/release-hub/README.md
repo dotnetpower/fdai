@@ -1,6 +1,8 @@
 # Release Hub deployment
 
-Deploy the vendor's Release Hub as its own bundled UI/API and PostgreSQL database.
+Deploy the vendor's Release Hub as its own bundled UI/API and either a private PostgreSQL
+Flexible Server or an opt-in serverless embedded SQLite volume (`database = null` with
+`replicas = { min = 1, max = 1 }`) backed by an Azure Files share mounted into the Container App.
 This root doesn't deploy Lifecycle Hub or FDAI, and takes no customer Hub input.
 
 ## Files

@@ -1,12 +1,12 @@
 resource "azurerm_user_assigned_identity" "bootstrap" {
-  count               = var.enable_bootstrap_job ? 1 : 0
+  count               = var.enable_bootstrap_job && var.database != null ? 1 : 0
   name                = "id-${var.prefix}-${var.kind}-bootstrap"
   location            = var.location
   resource_group_name = azurerm_resource_group.hub[var.kind].name
 }
 
 resource "azurerm_role_assignment" "bootstrap_registry" {
-  count                = var.enable_bootstrap_job ? 1 : 0
+  count                = var.enable_bootstrap_job && var.database != null ? 1 : 0
   scope                = var.registry.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.bootstrap[0].principal_id
@@ -14,7 +14,7 @@ resource "azurerm_role_assignment" "bootstrap_registry" {
 }
 
 resource "azurerm_role_assignment" "bootstrap_secrets" {
-  count                = var.enable_bootstrap_job ? 1 : 0
+  count                = var.enable_bootstrap_job && var.database != null ? 1 : 0
   scope                = azurerm_key_vault.hub[var.kind].id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = azurerm_user_assigned_identity.bootstrap[0].principal_id
@@ -22,7 +22,7 @@ resource "azurerm_role_assignment" "bootstrap_secrets" {
 }
 
 resource "azurerm_postgresql_flexible_server_active_directory_administrator" "bootstrap" {
-  count               = var.enable_bootstrap_job ? 1 : 0
+  count               = var.enable_bootstrap_job && var.database != null ? 1 : 0
   server_name         = azurerm_postgresql_flexible_server.hub[var.kind].name
   resource_group_name = azurerm_resource_group.hub[var.kind].name
   tenant_id           = var.tenant_id
@@ -35,7 +35,7 @@ resource "azurerm_postgresql_flexible_server_active_directory_administrator" "bo
 }
 
 resource "azurerm_container_app_job" "bootstrap" {
-  count                        = var.enable_bootstrap_job ? 1 : 0
+  count                        = var.enable_bootstrap_job && var.database != null ? 1 : 0
   name                         = "caj-${var.prefix}-${var.kind}-bootstrap"
   location                     = var.location
   resource_group_name          = azurerm_resource_group.hub[var.kind].name
@@ -87,5 +87,5 @@ resource "azurerm_container_app_job" "bootstrap" {
 }
 
 output "bootstrap_job" {
-  value = var.enable_bootstrap_job ? azurerm_container_app_job.bootstrap[0].name : null
+  value = var.enable_bootstrap_job && var.database != null ? azurerm_container_app_job.bootstrap[0].name : null
 }

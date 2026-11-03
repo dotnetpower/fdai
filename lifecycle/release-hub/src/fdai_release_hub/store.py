@@ -173,6 +173,10 @@ class ReleaseStore:
             @event.listens_for(self.engine, "connect")
             def foreign_keys(dbapi_connection: Any, connection_record: Any) -> None:
                 dbapi_connection.execute("PRAGMA foreign_keys = ON")
+                dbapi_connection.execute("PRAGMA busy_timeout = 5000")
+                dbapi_connection.execute("PRAGMA synchronous = NORMAL")
+                dbapi_connection.execute("PRAGMA temp_store = MEMORY")
+                dbapi_connection.execute("PRAGMA cache_size = -16000")
 
         if initialize:
             self.migrate()
