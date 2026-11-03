@@ -136,6 +136,16 @@
 .ln-canvas.is-overview .ln-node { grid-template-rows: 48px minmax(0, 1fr); }
 .ln-canvas.is-overview .ln-node strong { font-size: var(--cs-type-lead-size); }
 .ln-column { position: absolute; top: 16px; color: #46525f; font-size: var(--cs-type-caption-size); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+/* Cluster frames: (objectType, scope) groupings drawn behind edges and nodes. Neutral 1px full border and a low-alpha
+   whole-surface tint only - no coloured rails, no category palette, no pointer events. Captions scale with the semantic
+   zoom level on the canvas; member nodes stay in the DOM at every level. */
+.ln-clusters { position: absolute; inset: 0; pointer-events: none; }
+.ln-cluster { position: absolute; box-sizing: border-box; border: 1px solid var(--ln-hairline-strong); border-radius: 12px; background: rgba(20, 30, 42, .035); pointer-events: none; }
+.ln-cluster-caption { position: absolute; left: 10px; top: 6px; max-width: calc(100% - 20px); padding: 1px 8px; border: 1px solid var(--ln-hairline-strong); border-radius: var(--ln-radius-pill); background: var(--ln-surface); color: var(--ln-ink-muted); font-size: var(--cs-type-caption-size); line-height: 16px; font-weight: 600; letter-spacing: .04em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.ln-cluster-caption .ln-warning { color: var(--ln-warning); font-weight: 700; }
+.ln-canvas[data-zoom-level="overview"] .ln-cluster { background: rgba(20, 30, 42, .06); }
+.ln-canvas[data-zoom-level="overview"] .ln-cluster-caption { top: -16px; padding: 4px 14px; font-size: 26px; line-height: 32px; letter-spacing: 0; box-shadow: var(--ln-shadow-1); }
+.ln-canvas[data-zoom-level="overview"] .ln-cluster-caption .ln-warning { font-weight: 700; }
 /* Edges: relationship class is encoded by width and dash, not colour alone. Widths are part of the frozen contract. */
 .ln-edges { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .ln-edge { fill: none; stroke: #8795a5; stroke-width: 1; marker-end: url(#lineageArrow); }
@@ -145,6 +155,10 @@
 .ln-edge.is-aggregate { stroke-width: 1.2; }
 .ln-edge.is-selected { stroke: #285c86; stroke-width: 1.5; }
 .ln-edge.is-muted { opacity: .26; }
+/* Derivation path highlight (detail zoom only): opacity and stroke color change, stroke width never changes. */
+.ln-canvas[data-zoom-level="detail"] .ln-edge.is-derivation { opacity: .92; stroke: #4a6d92; }
+.ln-canvas[data-zoom-level="detail"] .ln-edge.is-derivation.is-missing { stroke: #9a7324; }
+.ln-canvas[data-zoom-level="detail"] .ln-edge.is-derivation.is-selected { stroke: #285c86; }
 .ln-edge-legend { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 0; padding: 0; list-style: none; }
 .ln-edge-legend li { display: inline-flex; align-items: center; gap: 8px; }
 .ln-edge-sample { width: 40px; height: 8px; flex-shrink: 0; overflow: visible; }
@@ -152,6 +166,7 @@
 .ln-edge-sample .ln-sample-aggregate { stroke-width: 2; }
 .ln-edge-sample .ln-sample-membership { stroke: #98a6b7; stroke-dasharray: 2 5; }
 .ln-edge-sample .ln-sample-missing { stroke: #9a7324; stroke-dasharray: 5 5; stroke-width: 1.5; }
+.ln-edge-sample .ln-sample-derivation { stroke: #4a6d92; stroke-linecap: round; filter: drop-shadow(0 0 2px rgba(74, 109, 146, .55)); }
 /* Context bar: selection summary first, then record picker, connections, panel toggles. */
 .ln-context-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 6px 16px; min-height: 44px; background: var(--ln-surface); border-bottom: 1px solid var(--ln-hairline); }
 .ln-context-bar label, #lineageSelection { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: var(--cs-type-label-size); }
@@ -193,10 +208,13 @@
 .ln-page .ln-node:hover { background: var(--ln-node-surface); border-color: var(--ln-node-border); box-shadow: 0 2px 4px rgba(20, 30, 42, .08), 0 14px 28px -14px rgba(20, 30, 42, .4); }
 .ln-mini-node { fill: var(--ln-node-header); stroke: var(--ln-node-border); stroke-width: 8; }
 .ln-mini-node.is-selected { stroke: var(--ln-node-ink); stroke-width: 18; }
+.ln-mini-cluster { fill: none; stroke: #b8c2cd; stroke-width: 6; }
 .ln-node.is-missing { border-style: dashed; }
 .ln-node.is-missing .ln-node-body { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(20, 30, 42, .045) 6px 7px); }
 .ln-page .ln-node[aria-pressed="true"] { outline: 2px solid var(--ln-selected); outline-offset: 3px; box-shadow: 0 0 0 7px rgba(40, 92, 134, .08), 0 14px 28px -14px rgba(20, 30, 42, .4); }
 .ln-page .ln-node:focus-visible { outline: 2px solid var(--ln-selected); outline-offset: 3px; box-shadow: 0 0 0 7px rgba(40, 92, 134, .14); }
+/* Derivation ring: whole-surface box-shadow only; border, size and position stay unchanged. The selected node keeps its own outline. */
+.ln-page .ln-canvas[data-zoom-level="detail"] .ln-node[data-derivation]:not([aria-pressed="true"]) { box-shadow: 0 0 0 2px rgba(74, 109, 146, .45), 0 1px 2px rgba(20, 30, 42, .06), 0 6px 16px -10px rgba(20, 30, 42, .28); }
 .ln-node.is-muted { opacity: .36; }
 .ln-node-heading { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ln-node-symbol { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: 0 0 auto; }
@@ -225,6 +243,19 @@
 .ln-inspector dd { margin: 0; font-size: var(--cs-type-compact-size); }
 .ln-inspector h3 { margin: 0; padding-top: 16px; border-top: 1px solid var(--ln-hairline); font-size: var(--cs-type-caption-size); line-height: var(--cs-type-caption-line-height); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ln-ink-faint); }
 .ln-inspector .ln-related { display: grid; gap: 6px; margin: 10px 0 16px; }
+.ln-derivation h3 { display: flex; align-items: center; gap: 6px; }
+.ln-derivation h3 small { margin-left: auto; color: var(--ln-ink-muted); font-weight: 600; font-size: var(--cs-type-label-size); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.ln-derivation .ln-derivation-summary { margin: 8px 0 10px; }
+.ln-derivation-stages { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; counter-reset: derivation-stage; }
+.ln-derivation-stages li { display: grid; gap: 4px; padding: 6px 8px 8px; border: 1px solid var(--ln-hairline); border-radius: var(--ln-radius); background: var(--ln-surface); }
+.ln-derivation-stage { display: flex; align-items: center; gap: 6px; font-size: var(--cs-type-caption-size); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ln-ink-muted); }
+.ln-derivation-stage::before { counter-increment: derivation-stage; content: counter(derivation-stage); display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid var(--ln-hairline-strong); border-radius: 50%; font-size: 10px; letter-spacing: 0; color: var(--ln-ink); }
+.ln-derivation-records { display: grid; gap: 4px; }
+.ln-derivation-records > span { font-size: var(--cs-type-label-size); color: var(--cs-text-soft); }
+.ln-derivation-records button { padding: 2px 8px; border-color: var(--ln-hairline-strong); background: var(--ln-surface); text-align: left; font-size: var(--cs-type-label-size); }
+.ln-derivation-records button[aria-current="true"] { border-color: var(--ln-selected); font-weight: 600; }
+.ln-derivation-records button small { display: block; margin-top: 2px; color: var(--cs-text-soft); }
+.ln-derivation .ln-derivation-note { margin: 0 0 16px; font-size: var(--cs-type-label-size); }
 .ln-related button { text-align: left; font-size: var(--cs-type-compact-size); width: 100%; }
 .ln-edge-records { margin: 4px 0 8px; font-size: var(--cs-type-label-size); }
 .ln-edge-records summary { cursor: pointer; min-height: 32px; padding: 6px 0; }
@@ -277,10 +308,15 @@
 @media (forced-colors: active) {
 	.ln-page .ln-edge { stroke: CanvasText; opacity: 1; }
 	.ln-page .ln-edge.is-selected { stroke: Highlight; }
+	.ln-page .ln-canvas[data-zoom-level="detail"] .ln-edge.is-derivation { stroke: Highlight; opacity: 1; }
+	.ln-page .ln-canvas[data-zoom-level="detail"] .ln-node[data-derivation]:not([aria-pressed="true"]) { box-shadow: none; outline: 2px dotted Highlight; outline-offset: 3px; }
+	.ln-page .ln-derivation-stages li, .ln-page .ln-derivation-records button { border-color: CanvasText; }
 	.ln-page .ln-edge-sample path { stroke: CanvasText; }
 	.ln-page .ln-node { background: Canvas; border-color: CanvasText; box-shadow: none; }
 	.ln-page .ln-node :is(.ln-node-heading, .ln-node-body) { background: Canvas; border-color: CanvasText; box-shadow: none; }
 	.ln-page .ln-node :is(strong, small, .ln-node-state, .ln-icon) { color: CanvasText; }
+	.ln-page .ln-cluster { background: Canvas; border-color: CanvasText; }
+	.ln-page .ln-cluster-caption { background: Canvas; border-color: CanvasText; color: CanvasText; box-shadow: none; }
 	.ln-page .ln-node[aria-pressed="true"] { outline-color: Highlight; }
 	.ln-page .ln-node mark { background: Highlight; color: HighlightText; }
 	.ln-page .ln-icon-button { border-color: ButtonText; }
@@ -288,6 +324,7 @@
 	.ln-page .ln-segment button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
 	.ln-map svg rect { fill: CanvasText; }
 	.ln-map svg #lineageMapWindow { fill: none; stroke: Highlight; }
+	.ln-map svg .ln-mini-cluster { fill: none; stroke: CanvasText; }
 	.ln-swatch { background: Canvas; border-color: CanvasText; color: CanvasText; box-shadow: none; }
 	.ln-skeleton i { border-color: CanvasText; background: Canvas; }
 	.ln-skeleton i::before { background: GrayText; }

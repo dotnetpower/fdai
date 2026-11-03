@@ -42,6 +42,8 @@
   let expandedGroup = null;
   let graph = window.fdaiLineageOntology.buildResourceTypeGraph(nodes, edges);
   let selected = graph.membership.get("pod-resource"), focused = false, zoom = 1, view = "graph", fitted = true;
+  let shownZoomLevel = null;
+  let shownClusters = [], derivation = null;
   let lookup = new Map(graph.nodes.map(node => [node.id, node]));
   const originals = new Map(nodes.map(node => [node.id, node]));
   const curves = new Map();
@@ -153,6 +155,8 @@
       const stateIcon = missing ? icon("TriangleAlert") : gap ? icon("Clock") : "";
       return `<button type="button" class="ln-node ${missing ? "is-missing" : ""} ${gap ? "is-held" : ""}" data-node="${node.id}" data-kind="${node.kind}" ${node.resourceType ? `data-resource-type="${node.resourceType}"` : ""} style="left:${node.x}px;top:${node.y}px" aria-pressed="${selected === node.id}" aria-label="${escape(`${node.title}${node.members ? ` (${node.members.length} recorded)` : ""}, ${kindLabel}, ${status(node)}, ${inputs} inputs, ${outputs} outputs`)}" title="${escape(node.title)}"><span class="ln-node-heading">${symbol}<strong>${highlighted(title)}${node.members ? ` (${node.members.length})` : ""}</strong></span><span class="ln-node-body"><small>${escape(node.kind === "resource-group" ? "ResourceType / sample scope" : node.sub)}</small><span class="ln-node-state">${stateIcon}${escape(status(node))}</span></span></button>`;
     }).join("");
+    shownClusters = renderClusters(visible);
+    derivation = derivationState();
     byId("lineageEdges").querySelectorAll(".ln-edge").forEach(edge => edge.remove());
     const shownEdges = graph.edges.filter(edge => visible.has(edge[0]) && visible.has(edge[1]));
     shownEdges.forEach(([from, to, relation, records, aggregated]) => {
@@ -168,12 +172,13 @@
       path.setAttribute("class", `ln-edge ${membership ? "is-membership" : source.objectType && target.objectType ? "is-ontology" : ""} ${aggregated ? "is-aggregate" : ""} ${relation === "required" && !isComplete() ? "is-missing" : ""} ${selectedEdge([from, to]) ? "is-selected" : "is-muted"}`);
       byId("lineageEdges").append(path);
     });
+    applyDerivation();
     byId("lineageEmpty").hidden = visible.size > 0;
     byId("lineageCanvasSize").hidden = visible.size === 0;
     document.querySelector(".ln-map-dock").hidden = visible.size === 0;
     const visibleGroups = graph.groups.filter(group => visible.has(group.id));
     const visibleInstances = graph.nodes.filter(node => visible.has(node.id) && node.kind === "ontology" && node.objectType === "Resource");
-    byId("lineageCount").textContent = `${visibleGroups.length} ResourceTypes / ${visibleGroups.reduce((sum, group) => sum + group.members.length, 0)} represented Resources / ${visibleInstances.length} expanded / ${shownEdges.length} connections`;
+    byId("lineageCount").textContent = `${visibleGroups.length} ResourceTypes / ${visibleGroups.reduce((sum, group) => sum + group.members.length, 0)} represented Resources / ${visibleInstances.length} expanded / ${shownEdges.length} connections / ${shownClusters.length} clusters`;
     const complete = isComplete();
     byId("caseState").textContent = complete ? "Evaluated - shadow review only" : "Held - missing log evidence";
     byId("caseState").className = complete ? "ln-success" : "ln-warning";
@@ -191,7 +196,7 @@
     renderInspector();
     renderSources(query);
     searchCount();
-    byId("lineageMiniature").innerHTML = graph.nodes.filter(node => visible.has(node.id)).map(node => `<rect class="ln-mini-node ${node.id === selected ? "is-selected" : ""}" data-palette="${node.kind}" x="${node.x}" y="${node.y}" width="194" height="78" rx="12" />`).join("") + '<rect id="lineageMapWindow" fill="#285c8614" stroke="#285c86" stroke-width="10" />';
+    byId("lineageMiniature").innerHTML = shownClusters.map(frame => `<rect class="ln-mini-cluster" data-cluster="${escape(frame.cluster.key)}" x="${frame.left}" y="${frame.top}" width="${frame.width}" height="${frame.height}" rx="24" />`).join("") + graph.nodes.filter(node => visible.has(node.id)).map(node => `<rect class="ln-mini-node ${node.id === selected ? "is-selected" : ""}" data-palette="${node.kind}" x="${node.x}" y="${node.y}" width="194" height="78" rx="12" />`).join("") + '<rect id="lineageMapWindow" fill="#285c8614" stroke="#285c86" stroke-width="10" />';
     updateMap();
   }
   function renderInspector() {
@@ -206,7 +211,7 @@
     const expansion = groupId ? `<button type="button" class="ln-focus ln-expand" data-expand="${groupId}" aria-expanded="${expandedGroup === groupId}">${icon(expandedGroup === groupId ? "Minimize" : "Boxes")}${expandedGroup === groupId ? "Collapse instances" : `Expand ${lookup.get(groupId).members.length} instances`}</button>` : "";
     const inspector = byId("lineageInspector");
     const changed = inspector.dataset.selection !== selected;
-    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${nodeSymbol(node)} ${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${hasGap(node) ? icon(node.missing && !isComplete() ? "TriangleAlert" : "Clock") : icon("Check")}${escape(status(node))}</strong>${health}<p>${escape(detail)}</p></div><div class="ln-inspector-actions">${expansion}<button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div><div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div>`;
+    inspector.innerHTML = `<div class="ln-inspector-intro"><span class="ln-record-kind">${escape(node.kind === "resource-group" ? "RESOURCE TYPE / SCOPED AGGREGATE" : node.kind === "type" ? "OBJECT TYPE / DECLARATION" : node.objectType ? `${node.objectType.toUpperCase()} / ONTOLOGY INSTANCE` : `${node.kind.toUpperCase()} / SELECTED RECORD`)}</span><h2>${nodeSymbol(node)} ${escape(node.title)}</h2><strong class="${hasGap(node) ? "ln-warning" : "ln-success"}">${hasGap(node) ? icon(node.missing && !isComplete() ? "TriangleAlert" : "Clock") : icon("Check")}${escape(status(node))}</strong>${health}<p>${escape(detail)}</p></div><div class="ln-inspector-actions">${expansion}<button type="button" class="ln-focus" id="lineageFocus" aria-pressed="${focused}">${icon("Scan")}${focused ? "Show all records" : "Focus on this record"}</button></div>${derivationSection(derivation)}<div class="ln-record-connections"><h3>${icon("ArrowLeft")} Incoming <small>${incoming.length}</small></h3><div class="ln-related">${relationButtons(incoming, 0)}</div><h3>${icon("ArrowRight")} Outgoing <small>${outgoing.length}</small></h3><div class="ln-related">${relationButtons(outgoing, 1)}</div></div><div class="ln-record-metadata"><dl><div><dt>Owner</dt><dd>${escape(node.owner)}</dd></div><div><dt>Version</dt><dd><code>${escape(node.version)}</code></dd></div><div><dt>Source</dt><dd>${escape(node.origin)}</dd></div><div><dt>Cutoff</dt><dd>20 Sep 2026 / 10:42 UTC</dd></div></dl>${properties}<div class="ln-record-note">Synthetic evidence / No execution authority</div></div>`;
     inspector.dataset.selection = selected;
     if (changed) inspector.scrollTop = 0;
   }
@@ -222,6 +227,7 @@
     if (!button) return;
     if (button.dataset.node) { selected = button.dataset.node; render(); document.querySelector(`[data-node="${selected}"]`)?.focus({ preventScroll: true }); }
     if (button.dataset.select) { select(button.dataset.select); document.querySelector(`[data-node="${selected}"]`)?.focus(); }
+    if (button.dataset.trace) { select(button.dataset.trace); document.querySelector(`[data-node="${selected}"]`)?.focus(); }
     if (button.dataset.view) setView(button.dataset.view);
     if (button.id === "lineageInspectorToggle") {
       const inspector = byId("lineageInspector");
@@ -243,7 +249,7 @@
     if (["lineageSearchClear", "lineageEmptyClear"].includes(button.id)) { byId("lineageSearch").value = ""; render(); byId("lineageSearch").focus(); }
     if (button.dataset.expand) { expandedGroup = expandedGroup === button.dataset.expand ? null : button.dataset.expand; focused = false; byId("lineageSearch").value = ""; rebuild(); render(); byId("lineageInspector").querySelector("[data-expand]")?.focus({ preventScroll: true }); }
     if (button.id === "lineageFocus") { focused = !focused; render(); byId("lineageFocus").focus(); }
-    if (button.id === "lineageReset") { focused = false; expandedGroup = null; byId("lineageSearch").value = ""; byId("lineageDirection").value = "both"; rebuild(); render(); fitGraph(); }
+    if (button.id === "lineageReset") { focused = false; expandedGroup = null; selected = graph.membership.get("pod-resource") || selected; byId("lineageSearch").value = ""; byId("lineageDirection").value = "both"; rebuild(); render(); fitGraph(); }
     if (button.id === "lineageFit") fitGraph();
     if (button.id === "lineageCenter") {
       const node = lookup.get(selected);
@@ -289,7 +295,81 @@
     if (!rectangle) return;
     Object.entries({ x: viewport.scrollLeft / zoom, y: viewport.scrollTop / zoom, width: Math.min(canvasWidth, viewport.clientWidth / zoom), height: Math.min(canvasHeight, viewport.clientHeight / zoom) }).forEach(([key, value]) => rectangle.setAttribute(key, value));
   }
-  function updateZoom() { byId("lineageCanvas").style.transform = `scale(${zoom})`; byId("lineageCanvasSize").style.width = `${canvasWidth * zoom}px`; byId("lineageCanvasSize").style.height = `${canvasHeight * zoom}px`; byId("lineageZoom").value = `${Math.round(zoom * 100)}%`; byId("lineageCanvas").classList.toggle("is-overview", zoom < .6); updateMap(); }
+  // Cluster frames: non-interactive (objectType, scope) groupings behind the canvas right band. They are derived from the
+  // visible projected nodes only, so search, focus and Pod expansion move them without any stored state. Frames are not
+  // nodes: no .ln-node class, no data-kind, no pointer events, neutral full border and whole-surface tint only.
+  // Returns the frame geometry list so the minimap and footer count reuse the same visible-set derivation.
+  function renderClusters(visible) {
+    const clusters = window.fdaiLineageOntology.buildClusters(graph.nodes.filter(node => visible.has(node.id)));
+    const frames = clusters.map(cluster => {
+      const members = cluster.members.map(id => lookup.get(id));
+      const left = Math.max(0, Math.min(...members.map(node => node.x)) - 12), top = Math.max(0, Math.min(...members.map(node => node.y)) - 28);
+      const right = Math.min(canvasWidth, Math.max(...members.map(node => node.x)) + 194 + 12), bottom = Math.min(canvasHeight, Math.max(...members.map(node => node.y)) + 78 + 12);
+      return { cluster, left, top, width: right - left, height: bottom - top };
+    });
+    byId("lineageClusters").innerHTML = frames.map(({ cluster, left, top, width, height }) => {
+      const gaps = cluster.health ? cluster.health.stale + cluster.health.conflicting + cluster.health.unknown : null;
+      const typeCount = cluster.objectType === "Resource" ? `${cluster.groups} ResourceTypes` : `${cluster.instances} types`;
+      const caption = `${cluster.objectType} / ${typeCount} / ${cluster.recorded} recorded${gaps === null ? "" : ` / <span class="ln-warning">${gaps} evidence gaps</span>`}`;
+      const summary = `${cluster.objectType} / ${cluster.recorded} recorded${gaps === null ? "" : ` / ${gaps} gaps`}`;
+      return `<div class="ln-cluster" data-cluster="${escape(cluster.key)}" data-object-type="${escape(cluster.objectType)}" style="left:${left}px;top:${top}px;width:${width}px;height:${height}px"><span class="ln-cluster-caption" data-summary="${escape(summary)}">${caption}</span></div>`;
+    }).join("");
+    return frames;
+  }
+  // Derivation path: a read-only subset of the recorded relationships around the selected ObjectType declaration,
+  // ResourceType aggregate or ontology instance. It is recomputed from the projected graph on every render and never
+  // stored. The canvas highlight is applied to the existing node/edge DOM at detail zoom only (opacity/color on edges,
+  // a box-shadow ring on nodes) and removed again at standard/overview without re-rendering anything.
+  const derivationKinds = ["type", "resource-group"];
+  const derivationStages = [["source", "Source"], ["input", "Versioned input"], ["agent", "Agent execution"], ["type", "ObjectType"], ["instance", "Instance / aggregate"], ["decision", "Decision & audit"]];
+  function derivationState() {
+    const node = lookup.get(selected);
+    return node && derivationKinds.includes(node.kind) ? window.fdaiLineageOntology.derivationPath(graph, selected) : null;
+  }
+  function applyDerivation() {
+    const active = derivation && zoomLevel() === "detail";
+    const edgeKeys = new Set(active ? [...derivation.upstream, ...derivation.downstream] : []);
+    const roles = new Map();
+    if (active) {
+      derivation.upstream.map(key => JSON.parse(key)).forEach(([from, to]) => { roles.set(from, "upstream"); roles.set(to, "upstream"); });
+      derivation.downstream.map(key => JSON.parse(key)).forEach(([from, to]) => { roles.set(from, "downstream"); roles.set(to, "downstream"); });
+      roles.set(derivation.origin, "self");
+    }
+    byId("lineageEdges").querySelectorAll(".ln-edge").forEach(path => path.classList.toggle("is-derivation", edgeKeys.has(JSON.stringify([path.dataset.from, path.dataset.to, path.dataset.relation]))));
+    byId("lineageNodes").querySelectorAll(".ln-node").forEach(button => {
+      if (roles.has(button.dataset.node)) button.dataset.derivation = roles.get(button.dataset.node); else delete button.dataset.derivation;
+    });
+  }
+  function derivationSection(path) {
+    if (!path) return "";
+    const stages = derivationStages.map(([stage, label]) => {
+      const members = [...path.stages].filter(([, value]) => value === stage).map(([id]) => lookup.get(id)).filter(Boolean);
+      return `<li data-stage="${stage}"><span class="ln-derivation-stage">${escape(label)}</span><div class="ln-derivation-records">${members.length ? members.map(node => `<button type="button" data-trace="${node.id}" aria-current="${node.id === path.origin}">${escape(node.title)}<small> / ${escape(status(node))}</small></button>`).join("") : "<span>No recorded step</span>"}</div></li>`;
+    }).join("");
+    const summary = path.downstream.length === 0 ? "No recorded path to Decision" : path.reachesDecision ? `Recorded path reaches Decision & audit (${path.upstream.length} upstream / ${path.downstream.length} downstream relationships)` : `${path.downstream.length} downstream relationships recorded without a Decision`;
+    const gaps = path.unavailableInputs ? `<span class="ln-warning">${path.unavailableInputs} required input${path.unavailableInputs === 1 ? "" : "s"} unavailable on this path</span>` : "";
+    return `<section class="ln-derivation" data-reaches-decision="${path.reachesDecision}" aria-label="Derivation path"><h3>${icon("GitBranch")} Derivation path <small>${path.upstream.length + path.downstream.length}</small></h3><p class="ln-derivation-summary">${escape(summary)}${gaps ? ` / ${gaps}` : ""}</p><ol class="ln-derivation-stages">${stages}</ol><p class="ln-derivation-note">Recorded relationships only; not causation or execution authority. Highlighted on the canvas at detail zoom.</p></section>`;
+  }
+  // Semantic zoom levels are derived from the zoom value only; nothing is persisted. overview < .6 (same threshold as the
+  // existing is-overview class) <= standard < .85 <= detail.
+  const zoomLevel = () => zoom < .6 ? "overview" : zoom < .85 ? "standard" : "detail";
+  // Level-change-only overlay refresh: the member DOM stays untouched; only the level attribute that CSS keys cluster
+  // caption sizing on is updated. Detail-level derivation highlighting hooks into this function without re-rendering nodes.
+  function renderOverlay(level) {
+    byId("lineageCanvas").dataset.zoomLevel = level;
+    byId("lineageClusters").dataset.zoomLevel = level;
+    applyDerivation();
+  }
+  function updateZoom() {
+    byId("lineageCanvas").style.transform = `scale(${zoom})`;
+    byId("lineageCanvasSize").style.width = `${canvasWidth * zoom}px`;
+    byId("lineageCanvasSize").style.height = `${canvasHeight * zoom}px`;
+    byId("lineageZoom").value = `${Math.round(zoom * 100)}%`;
+    byId("lineageCanvas").classList.toggle("is-overview", zoom < .6);
+    const level = zoomLevel();
+    if (level !== shownZoomLevel) { shownZoomLevel = level; renderOverlay(level); }
+    updateMap();
+  }
   function changeZoom(next, anchorX, anchorY) {
     const viewport = byId("lineageViewport");
     const horizontal = anchorX ?? viewport.clientWidth / 2, vertical = anchorY ?? viewport.clientHeight / 2;
