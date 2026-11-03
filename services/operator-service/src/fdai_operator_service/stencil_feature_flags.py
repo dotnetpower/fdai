@@ -568,6 +568,8 @@ def wrap_with_stencil_feature_flags(
     if isinstance(app, Starlette):
         app.add_middleware(StencilFeatureFlagsMiddleware, config=config)
         return app
+    if not callable(app):
+        return app
     return StencilFeatureFlagsMiddleware(app, config)
 
 
