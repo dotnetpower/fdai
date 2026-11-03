@@ -29,7 +29,7 @@ from fdai_release_hub.stencils import (
 )
 from fdai_release_hub.store import ReleaseStore
 
-NOW = datetime(2026, 11, 2, 12, 0, tzinfo=UTC)
+NOW = datetime.now(UTC).replace(microsecond=0)
 
 
 @pytest.fixture
