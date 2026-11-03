@@ -482,7 +482,7 @@ function DashboardBody({ snapshot }: { readonly snapshot: DashboardSnapshot }) {
         </section> : <section class="dv2-attention" aria-labelledby="dashboard-v2-attention-title"><header class="dv2-attention-head"><h3 id="dashboard-v2-attention-title">{t("checkFirst")}</h3><p class="dv2-note">{t("checkHelp")}</p></header>
           {highlights.length === 0 ? <p>{t("noHighlights")}</p> : highlights.map(({ resource, lens: highlightLens, state: highlightState, guideKey, stateCount }) => <div class="dv2-attention-card" key={resource.id}>
             <StateBadge value={dashboardResourceState(resource, snapshot, highlightLens)} text={stateBadgeText(resource, highlightLens)} />
-            <button type="button" class="dv2-link" onClick={() => pinAndRevealResource(resource.id, highlightLens)}>{resource.name}</button>
+            <a class="dv2-link" href={resourceHref(resource)}>{resource.name}</a>
             <p class="dv2-note">{dashboardTypeLabel(resource)}{resource.groupLabel ? ` · ${resource.groupLabel}` : ""} ({resource.type})</p>
             <p class="dv2-attention-guide">{t(guideKey)}</p>
             <div class="dv2-attention-actions">

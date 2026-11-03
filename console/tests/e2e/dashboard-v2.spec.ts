@@ -304,6 +304,15 @@ test.describe("Native Dashboard v2", () => {
       coverageBelowResource: true,
       coverageAlignedWithResource: true,
     });
+    const attentionCard = page.locator(".dv2-attention-card").first();
+    const attentionLink = attentionCard.getByRole("link");
+    const attentionName = await attentionLink.innerText();
+    const attentionResource = inventory().resources.find((resource) => resource.name === attentionName);
+    expect(attentionResource).toBeDefined();
+    await expect(attentionLink).toHaveAttribute(
+      "href", `/ontology?view=instances&instance=${attentionResource!.id}`,
+    );
+    await expect(attentionCard.locator(".dv2-attention-actions button").first()).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("dashboard-v2-desktop.png") });
     await page.locator(".dv2-summary a").nth(1).click();
     await expect(page.locator(".dv2-meta")).toContainText("500 match filters");
