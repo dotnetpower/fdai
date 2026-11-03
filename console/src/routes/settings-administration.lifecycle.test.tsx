@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { VNode } from "preact";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
+import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import type { IamAccessRequest, IamOverview, IdentityRosterItem } from "./settings-iam.model";
 import type { TeamsWorkflowBindingView } from "./settings-teams-workflow.model";
 
@@ -469,6 +471,25 @@ describe("integration-owned bounded tools", () => {
 });
 
 describe("diagnostic recovery controls", () => {
+  test("publishes the shared human RBAC glossary before and after diagnostic reads complete", async () => {
+    const client = {
+      panel: vi.fn().mockImplementation((path: string) => path === "/healthz"
+        ? Promise.resolve({ status: "ok" }) : Promise.reject(new Error("Synthetic policy unavailable."))),
+      dashboardMetrics: vi.fn().mockResolvedValue({}),
+    };
+    const run = () => SettingsDiagnosticsRoute({ client: client as unknown as OperatorApiClient, auth });
+    render(run);
+    const initialBuild = vi.mocked(usePublishViewContext).mock.lastCall?.[0];
+    expect(initialBuild?.()).toMatchObject({
+      routeId: "settings-diagnostics",
+      purpose: expect.any(String),
+      glossary: composeGlossary([TERMS.humanRbac]),
+    });
+    await settle();
+    render(run);
+    const completedBuild = vi.mocked(usePublishViewContext).mock.lastCall?.[0];
+    expect(completedBuild?.()?.glossary).toEqual(composeGlossary([TERMS.humanRbac]));
+  });
   test("D01 D02 D12 probe retries are independent and policy reads have separate recovery", async () => {
     const metrics = deferred<unknown>();
     const client = {

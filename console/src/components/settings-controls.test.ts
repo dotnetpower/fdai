@@ -43,7 +43,7 @@ const iamRequests = readFileSync(
   "utf8",
 );
 const diagnostics = readFileSync(
-  fileURLToPath(new URL("../routes/settings-system.tsx", import.meta.url)),
+  fileURLToPath(new URL("../routes/settings-diagnostics.tsx", import.meta.url)),
   "utf8",
 );
 const styles = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");

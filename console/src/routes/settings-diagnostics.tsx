@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { AsyncBoundary, LoadingState, PageHeader, StatusPill } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
+import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
@@ -70,6 +71,7 @@ export function SettingsDiagnosticsRoute({ client, auth }: {
     routeId: "settings-diagnostics",
     routeLabel: t("route.settingsDiagnostics"),
     purpose: t("settings.diagnosticsPurpose"),
+    glossary: composeGlossary([TERMS.humanRbac]),
     headline: summary,
     capturedAt: results.map((result) => result?.checkedAt ?? "").sort().at(-1) || new Date().toISOString(),
     facts: results.map((result, index) => ({
