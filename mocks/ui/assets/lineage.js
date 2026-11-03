@@ -68,8 +68,8 @@
     const position = query ? value.toLowerCase().indexOf(query.toLowerCase()) : -1;
     return position < 0 ? escape(value) : `${escape(value.slice(0, position))}<mark>${escape(value.slice(position, position + query.length))}</mark>${escape(value.slice(position + query.length))}`;
   }
-  const kindIcons = { source: "Database", evidence: "FileText", normative: "BookOpen", type: "Layers", "resource-group": "Boxes", ontology: "Box", outcome: "ShieldCheck" };
   const kindLabels = { source: "Source", evidence: "Evidence", normative: "Rules / knowledge", agent: "Agent execution", type: "Object Type", "resource-group": "ResourceType", ontology: "Ontology instance", outcome: "Decision" };
+  function searchCount() {
     const count = view === "graph" ? byId("lineageNodes").children.length : byId("lineageSources").querySelectorAll(".ln-source-row").length;
     byId("lineageMatchCount").textContent = `${count} matching ${view === "graph" ? "records" : "sources"}`;
     byId("lineageSearchClear").hidden = !byId("lineageSearch").value;
