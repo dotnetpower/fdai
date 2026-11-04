@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 68181efc2f8a210588275e1aaba8421bf1cef18f
+translation_source_sha: 22283fee59059fdc034661b47ed46578b84bb905
 translation_revised: 2026-11-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -616,7 +616,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 
 검토되지 않은 중요도, 불완전한 순회, 관측되지 않은 변경 위험 요인, 비용 기준 부재는 `unknown`과 닫힌 조건을 만듭니다. 낙관적 기본값은 만들지 않습니다. 판독은 자율성을 유지하거나 낮추기만 하는 조언입니다.
 
-`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`는 세 함수를 런타임 온톨로지 그래프와 20행 한도의 provider 변경 피드에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연은 구성 가능한 게이트가 아니며 `DecisionQueueProjection`에서 순위 신호로 사용되고, 라이브 비용 수집원은 FinOps가 정의할 예정입니다.
+`RegistryOntologyGateReader`는 검토된 고정 인자와 프로세스 대상을 담은 서버 생성 context로 `OntologyFunctionRegistry`를 통해 함수를 호출합니다. 워크플로우 `ontology-function:` 게이트는 이 결과를 영수증에 묶인 판독으로 사용합니다([프로세스 자동화](../decisioning/process-automation-ko.md)). `decision_evidence_readers.py`와 `workflow_gate_config.py`(`register_advanced_gate_functions`)는 구성된 모든 판단 게이트(`blast_radius`, `change_risk`, `slo_exhaustion_eta`, `change_collision`, `recovery_feasibility`, `spof_exposure`)를 런타임 온톨로지 그래프와 20행 한도의 provider 변경 피드에 바인딩하며, 제어 루프는 `config/workflow-ontology-gates.yaml`이 구성한 게이트만 구성합니다. 비용 지연은 구성 가능한 게이트가 아니며 `DecisionQueueProjection`에서 순위 신호로 사용되고, 라이브 비용 수집원은 FinOps가 정의할 예정입니다.
 
 ## 관련 문서
 

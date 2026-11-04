@@ -389,3 +389,71 @@ def test_operator_projection_includes_digest_and_rejects_duplicate_metric_or_gua
             projection=dup_guards,
             now=NOW,
         )
+
+
+@pytest.mark.anyio
+async def test_read_decision_queue_operator_projection_round_trip() -> None:
+    from fdai_operator_service.decision_queue_projection import (
+        decision_queue_operator_key,
+        read_decision_queue_operator_projection,
+    )
+
+    stored_payload = {
+        "type": "decision-queue.operator-projection",
+        "schema_version": "1.0.0",
+        "read_only": True,
+        "authority": "none",
+        "principal_id": "operator-reader-1",
+        "scope_ref": "scope.payments",
+        "ranking_currency": "USD",
+        "projection_digest": "sha256:" + "9" * 64,
+        "items": [
+            {
+                "case_id": "case-101",
+                "process_id": "proc-101",
+                "target_resource_ref": "res-aks-payments",
+                "recommended_action_type": "ops.scale-in",
+                "uncertainty": 0.08,
+                "blast_radius_tier": "low",
+                "change_risk_tier": "medium",
+                "cost_of_delay_amount": "240",
+                "cost_of_delay_currency": "USD",
+                "evidence_refs": ["evidence:101"],
+                "approval_control": {
+                    "requires_human_approval": True,
+                    "required_role": "owner",
+                    "quorum": 2,
+                    "no_self_approval": True,
+                    "approval_status": "pending",
+                },
+            }
+        ],
+    }
+
+    async def fetch_all(
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert statement == "SELECT value FROM state_kv WHERE key = %s"
+        assert parameters == (decision_queue_operator_key("operator-reader-1", "scope.payments"),)
+        return [{"value": stored_payload}]
+
+    result = await read_decision_queue_operator_projection(
+        fetch_all=fetch_all,
+        query=ProjectionQuery(
+            operation="decision_queue",
+            path={},
+            limit=50,
+            cursor=None,
+            principal_id="operator-reader-1",
+            params={"scope_ref": ("scope.payments",)},
+        ),
+    )
+    assert result["state"] == "complete"
+    assert result["read_only"] is True
+    assert result["authority"] == "none"
+    assert result["total_pending_count"] == 1
+    cards = result["cards"]
+    assert isinstance(cards, list) and len(cards) == 1
+    assert cards[0]["cost_badge"] == "240 USD"
+    assert cards[0]["quorum_label"] == "owner (quorum 2)"

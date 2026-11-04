@@ -35,7 +35,10 @@ from fdai.core.ontology_platform.decision_functions import (
     change_risk_function_type,
 )
 from fdai.core.ontology_platform.functions import OntologyFunctionRegistry
-from fdai.core.ontology_platform.workflow_gate_config import load_ontology_gate_config
+from fdai.core.ontology_platform.workflow_gate_config import (
+    load_ontology_gate_config,
+    register_advanced_gate_functions,
+)
 from fdai.core.ontology_platform.workflow_gate_reader import (
     GateTargetAnchorResolver,
     RegistryOntologyGateReader,
@@ -169,6 +172,13 @@ def build_ontology_gate_reader(
                     anchor_resolver=anchor,
                 ),
             )
+        register_advanced_gate_functions(
+            registry=registry,
+            config=config,
+            store=ontology_store,
+            anchor=anchor,
+            clock=now,
+        )
     except (OSError, ValueError, yaml.YAMLError) as exc:
         _LOGGER.warning("ontology_gate_reader_disabled", extra={"error": type(exc).__name__})
         return None

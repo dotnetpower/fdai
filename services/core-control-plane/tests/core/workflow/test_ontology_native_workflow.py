@@ -220,3 +220,111 @@ async def test_item6_dynamic_ownership_approval_resolver_traverses_service_graph
     assert resolved.service_refs == ("svc-checkout",)
     assert resolved.owner_refs == ("team:checkout-owners",)
     assert resolved.escalation_refs == ("oncall:checkout-primary",)
+
+
+async def test_ontology_aware_workflow_runtime_wires_briefing_recovery_ownership_and_wave5() -> (
+    None
+):
+    import yaml
+    from fdai.core.measurement.closed_loop_governance import WorkflowScaleSafetyController
+    from fdai.core.notifications.matrix import load_matrix_from_yaml
+    from fdai.core.rbac.resolver import GroupMapping
+    from fdai.core.workflow import (
+        OntologyAwareWorkflowRuntime,
+        WorkflowApprovalPlanner,
+        WorkflowOrchestrator,
+    )
+    from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+    from fdai.rule_catalog.schema.workflow import load_workflow_catalog
+    from fdai.shared.providers.process_runtime import ProcessStatus
+    from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    registry = PackageResourceSchemaRegistry()
+    actions = {
+        a.name: a
+        for a in load_action_type_catalog(
+            REPO_ROOT / "rule-catalog" / "action-types",
+            schema_registry=registry,
+            probes_root=REPO_ROOT / "rule-catalog" / "probes",
+        )
+    }
+    workflows = {
+        w.name: w
+        for w in load_workflow_catalog(
+            REPO_ROOT / "rule-catalog" / "workflows",
+            schema_registry=registry,
+            action_type_names=set(actions),
+        )
+    }
+    with (REPO_ROOT / "config" / "rbac-groups.yaml").open(encoding="utf-8") as handle:
+        group_mapping = GroupMapping.from_config(yaml.safe_load(handle))
+    planner = WorkflowApprovalPlanner(
+        action_types=actions,
+        group_mapping=group_mapping,
+        matrix=load_matrix_from_yaml(REPO_ROOT / "config" / "notifications-matrix.yaml"),
+    )
+
+    class _ToggleGuard:
+        def __init__(self, allow: bool) -> None:
+            self.allow = allow
+
+        async def evaluate(self, **_: object) -> bool:
+            return self.allow
+
+    state_store = InMemoryStateStore()
+    orch_allow = WorkflowOrchestrator(
+        planner=planner,
+        action_types=actions,
+        audit_store=state_store,
+        process_store=InMemoryProcessRuntimeStore(),
+        guard_evaluator=_ToggleGuard(True),
+    )
+    runtime_allow = OntologyAwareWorkflowRuntime(
+        orchestrator=orch_allow,
+        state_store=state_store,
+        scale_safety=WorkflowScaleSafetyController(state_store, max_active_per_scope=2),
+    )
+    now_ts = datetime.now(tz=UTC)
+    outcome_ok = await runtime_allow.execute(
+        workflows["blast-radius-gated-service-restart"],
+        scope_ref="scope-1",
+        target_resource_id="res-db",
+        trigger_ts=now_ts,
+        context={"requester.principal": "operator-1", "change.reason": "healthy"},
+    )
+    assert outcome_ok.run is not None
+    assert outcome_ok.run.status is ProcessStatus.WAITING
+    assert outcome_ok.approver_briefing is not None
+    stored_brief = await state_store.read_state(
+        f"workflow:approver-briefing:{outcome_ok.run.process_id}"
+    )
+    assert stored_brief is not None
+
+    # Blocked gate triggers abstention recovery plan persistence
+    orch_deny = WorkflowOrchestrator(
+        planner=planner,
+        action_types=actions,
+        audit_store=state_store,
+        process_store=InMemoryProcessRuntimeStore(),
+        guard_evaluator=_ToggleGuard(False),
+    )
+    runtime_deny = OntologyAwareWorkflowRuntime(
+        orchestrator=orch_deny,
+        state_store=state_store,
+    )
+    outcome_deny = await runtime_deny.execute(
+        workflows["blast-radius-gated-service-restart"],
+        scope_ref="scope-1",
+        target_resource_id="res-db-2",
+        trigger_ts=now_ts,
+        context={"requester.principal": "operator-1", "change.reason": "blocked"},
+        abstention_reason_codes=("criticality_unreviewed",),
+    )
+    assert outcome_deny.run is not None
+    assert outcome_deny.run.status is ProcessStatus.FAILED
+    assert outcome_deny.abstention_recovery_plan is not None
+    assert (
+        "probe.service_catalog_criticality_sync"
+        in outcome_deny.abstention_recovery_plan.required_probes
+    )
