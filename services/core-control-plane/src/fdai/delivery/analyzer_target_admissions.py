@@ -235,22 +235,7 @@ class _EligibleStateFactCandidate:
 
 
 class AnalyzerTargetStateFactAdmissionIssuer:
-    """Verify eligible inventory state facts and retain target-selection admissions.
-
-    Each eligible ``Resource`` state fact must be a non-synthetic, unconflicted,
-    complete (``completeness >= 1.0``), provider-authoritative observation in
-    the ``observed`` lane whose ``evidence_cutoff`` is within its declared
-    ``freshness_ceiling_seconds`` window at evaluation time. When
-    ``provider_references`` is bound, every non-pod resource must also match an
-    active inventory snapshot record with the same ``resource_id``,
-    ``resource_type``, and a non-empty ``provider_ref``.
-
-    Admissions are evaluated through :class:`DecisionEvidenceReadinessGate` under
-    a verifier identity separated from both ``metadata.source_identity`` and
-    ``producer_id``, and retained once via
-    :class:`StateStoreDecisionEvidenceAdmissionRecorder` with an atomic
-    ``decision-evidence.admission-retained`` shadow-mode audit entry.
-    """
+    """Verify eligible inventory state facts and retain target-selection admissions."""
 
     def __init__(
         self,

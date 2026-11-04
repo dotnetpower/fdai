@@ -777,16 +777,21 @@ async def complete_durable_admission_generation(
     scopes: tuple[str, ...],
     admission_kwargs: Mapping[str, object],
     terminal_status: str = "completed",
+    suppress_errors: bool = False,
 ) -> None:
     """Mark the persisted durable admission generation terminal (`completed` or `failed`)."""
     store = admission_kwargs.get("admission_state_store")
     gen_id = admission_kwargs.get("generation_id")
     gen_seq = admission_kwargs.get("generation_seq")
     if isinstance(store, StateStore) and isinstance(gen_id, str) and isinstance(gen_seq, int):
-        await complete_collection_generation(
-            store,
-            scope_ref=",".join(sorted(scopes)),
-            generation_id=gen_id,
-            generation_seq=gen_seq,
-            terminal_status=terminal_status,
-        )
+        try:
+            await complete_collection_generation(
+                store,
+                scope_ref=",".join(sorted(scopes)),
+                generation_id=gen_id,
+                generation_seq=gen_seq,
+                terminal_status=terminal_status,
+            )
+        except Exception:  # noqa: BLE001 - optionally preserve primary collection failure
+            if not suppress_errors:
+                raise

@@ -1,17 +1,4 @@
-"""Execute bounded Azure Resource Graph shards through injected provider seams.
-
-Core never imports this delivery module. Identity and HTTP transport are injected;
-the module does not use ``DefaultAzureCredential``. Kusto queries and CSP-neutral
-ARM mappings come from the reviewed resource-type registry.
-
-Pagination stops on an empty token or page and is capped by ``max_pages``. Returned
-properties are size-bounded. ARM hierarchy produces ``contains`` links; reviewed
-property paths produce ``attached_to`` and ``depends_on`` links only when their
-target types resolve. Unknown targets are omitted rather than assigned a type.
-
-Non-successful or malformed responses fail closed. The inventory coordinator then
-omits its final fence and retains the previous promoted graph.
-"""
+"""Execute bounded Azure Resource Graph shards through injected provider seams."""
 
 from __future__ import annotations
 
