@@ -96,10 +96,7 @@ from fdai.delivery.operational_activity import (
     EventBusOperationalActivityPublisher,
     ObservedInventorySnapshotStore,
 )
-from fdai.delivery.persistence import (
-    PostgresStateStore,
-    PostgresStateStoreConfig,
-)
+from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_inventory_prepared import (
     load_prepared_candidate,
     seal_candidate,
@@ -135,7 +132,7 @@ _COLLECTION_HEALTH_STATE_KEY = "inventory-collection-health"
 
 def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
-        _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
+        _REPO_ROOT / "rule-catalog/vocabulary/provider-relationship-mappings"
     )
 
 
@@ -146,7 +143,6 @@ def _build_runtime_call_enricher(
     http_client: httpx.AsyncClient,
 ) -> InventoryPromotionEnricher:
     """Bind authenticated Azure Monitor evidence or explicit unavailability."""
-
     if (
         config.monitor_workspace_id is None
         or not config.runtime_call_evidence_enabled
@@ -162,9 +158,7 @@ def _build_runtime_call_enricher(
     scope_reference = scope_ref(config.scopes)
     source = AzureRuntimeCallTelemetrySource(
         provider=AzureLogAnalyticsQueryProvider(
-            config=AzureLogAnalyticsQueryConfig(
-                workspace_id=config.monitor_workspace_id,
-            ),
+            config=AzureLogAnalyticsQueryConfig(workspace_id=config.monitor_workspace_id),
             identity=identity,
             http_client=http_client,
         ),
@@ -180,9 +174,7 @@ def _build_runtime_call_enricher(
     )
     return RuntimeCallInventoryEnricher(
         source=source,
-        producer=RuntimeCallTelemetryProducer(
-            authenticator=AzureMonitorRuntimeCallAuthenticator(),
-        ),
+        producer=RuntimeCallTelemetryProducer(authenticator=AzureMonitorRuntimeCallAuthenticator()),
         ontology_release=catalog.build_release(),
         scope_ref=scope_reference,
         endpoint_verifier_identity="inventory.runtime-call-endpoint-verifier",
@@ -240,14 +232,10 @@ async def _build_kubernetes_enricher(
         )
     if not config.kubernetes_bindings and not config.kubernetes_unavailable_scopes:
         return UnavailableKubernetesInventoryEnricher()
-    enrichers: list[InventoryPromotionEnricher] = []
-    enrichers.extend(
-        UnavailableKubernetesInventoryEnricher(
-            reason=item.reason,
-            scope_digest=item.scope_digest,
-        )
+    enrichers: list[InventoryPromotionEnricher] = [
+        UnavailableKubernetesInventoryEnricher(reason=item.reason, scope_digest=item.scope_digest)
         for item in config.kubernetes_unavailable_scopes
-    )
+    ]
     for binding in config.kubernetes_bindings:
         try:
             kubernetes_ssl = ssl.create_default_context(
@@ -260,26 +248,20 @@ async def _build_kubernetes_enricher(
         if binding.auth_mode == "workload-identity":
             if identity is None or binding.audience is None:
                 raise RuntimeError("Kubernetes workload identity is unavailable")
-            auth = WorkloadIdentityKubernetesAuth(
-                identity=identity,
-                audience=binding.audience,
-            )
+            auth = WorkloadIdentityKubernetesAuth(identity=identity, audience=binding.audience)
         else:
             if binding.token_path is None:
                 raise RuntimeError("Kubernetes service-account token path is unavailable")
             auth = ServiceAccountTokenAuth(binding.token_path)
-        kubernetes_client = await stack.enter_async_context(
-            httpx.AsyncClient(verify=kubernetes_ssl)
+        k8s_client = await stack.enter_async_context(httpx.AsyncClient(verify=kubernetes_ssl))
+        k8s_cfg = KubernetesApiInventoryConfig(
+            api_server=binding.api_server,
+            cluster_ref=to_neutral_id(binding.cluster_ref),
         )
         enrichers.append(
             KubernetesInventoryEnricher(
                 source=KubernetesApiInventorySource(
-                    config=KubernetesApiInventoryConfig(
-                        api_server=binding.api_server,
-                        cluster_ref=to_neutral_id(binding.cluster_ref),
-                    ),
-                    auth=auth,
-                    http_client=kubernetes_client,
+                    config=k8s_cfg, auth=auth, http_client=k8s_client
                 ),
                 relationship_mapping_catalog=relationship_catalog,
                 scope_digest=binding.scope_digest,
@@ -390,8 +372,19 @@ async def run(
             evidence_counts=evidence_counts,
             stack=stack,
         )
+        admission_kwargs: dict[str, object] = {}
         try:
             collection_started_at = datetime.now(tz=UTC)
+            baseline_active_snapshot_id = await durable_store.active_snapshot_id()
+            admission_kwargs = (
+                await inventory_sync_cli_support.prepare_durable_admission_sources_kwargs(
+                    dsn=config.dsn,
+                    scopes=config.scopes,
+                    identity=identity,
+                    stack=stack,
+                    current_active_snapshot_id=baseline_active_snapshot_id,
+                )
+            )
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_enricher=effective_enricher,
@@ -420,6 +413,7 @@ async def run(
                     http_client=client,
                     started_at=collection_started_at,
                     progress_recorder=progress_recorder,
+                    **admission_kwargs,  # type: ignore[arg-type]
                 )
             )
             await progress_recorder.advance(
@@ -432,6 +426,10 @@ async def run(
             active = active_snapshot_id == result.attempt_id
             if not active:
                 raise RuntimeError("inventory active generation readback did not match promotion")
+            await inventory_sync_cli_support.complete_durable_admission_generation(
+                scopes=config.scopes,
+                admission_kwargs=admission_kwargs,
+            )
             await observed_store.publish_terminal(
                 attempt_id=result.attempt_id,
                 source=result.source,
@@ -461,6 +459,12 @@ async def run(
                 await retain_initial_inventory_closure(config)
             await progress_recorder.complete()
         except Exception:
+            await inventory_sync_cli_support.complete_durable_admission_generation(
+                scopes=config.scopes,
+                admission_kwargs=admission_kwargs,
+                terminal_status="failed",
+                suppress_errors=True,
+            )
             try:
                 await progress_recorder.fail("inventory_reconciliation_failed")
             except (ValueError, InventoryProgressUnavailableError) as progress_error:
@@ -695,15 +699,7 @@ async def _publish_collection_health(
 
 
 async def _drain_change_stream(config: InventoryJobConfig) -> ChangeStreamDrainResult:
-    """Drain the read-only change accelerators without stopping completeness scans.
-
-    The bounded ARG resourcechanges accelerator runs first - it is the
-    lower-latency freshness hint - followed by the Activity Log recovery
-    delta fallback/audit source. Each degrades independently: a source
-    that is disabled or raises does not mask the other's success. The
-    The result preserves both the published count and which enabled sources
-    were unavailable. Disabled sources count as available no-ops."""
-
+    """Drain the read-only change accelerators without stopping completeness scans."""
     resource_change_result = await _try_resource_change_feed(config)
     recovery_delta_result = await _try_recovery_delta(config)
     unavailable = tuple(

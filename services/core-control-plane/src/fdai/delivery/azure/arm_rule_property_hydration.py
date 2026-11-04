@@ -190,9 +190,15 @@ class ArmRulePropertyHydrator:
         max_response_bytes: int,
         max_attempts: int,
         max_reads: int,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
         if timeout_seconds <= 0 or max_response_bytes < 1 or max_attempts < 1 or max_reads < 1:
             raise ValueError("ArmRulePropertyHydrator bounds MUST be positive")
+        if require_durable_admission and durable_gate is None:
+            raise ValueError(
+                "qualified ARM hydration requires a bound DurableProviderReadAdmissionGate"
+            )
         self._identity = identity
         self._http = http_client
         self._endpoint = arm_endpoint.rstrip("/")
@@ -201,6 +207,8 @@ class ArmRulePropertyHydrator:
         self._max_response_bytes = max_response_bytes
         self._max_attempts = max_attempts
         self._max_reads = max_reads
+        self._durable_gate = durable_gate
+        self._require_durable_admission = require_durable_admission
 
     @classmethod
     def for_config(
@@ -208,6 +216,9 @@ class ArmRulePropertyHydrator:
         identity: WorkloadIdentity,
         http_client: httpx.AsyncClient,
         config: ArmHydrationConfig,
+        *,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> ArmRulePropertyHydrator:
         """Reuse the ARM inventory endpoint, retry, size, and child-collection limits."""
 
@@ -220,6 +231,8 @@ class ArmRulePropertyHydrator:
             max_response_bytes=config.max_response_bytes,
             max_attempts=config.max_attempts,
             max_reads=config.max_child_collections,
+            durable_gate=durable_gate,
+            require_durable_admission=require_durable_admission,
         )
 
     async def hydrate(self, result: ResourceQueryResult) -> ResourceQueryResult:
@@ -259,6 +272,8 @@ class ArmRulePropertyHydrator:
                         timeout_seconds=self._timeout,
                         max_response_bytes=self._max_response_bytes,
                         max_attempts=self._max_attempts,
+                        durable_gate=self._durable_gate,
+                        require_durable_admission=self._require_durable_admission,
                     )
                 except ArmInventoryError:
                     failures += 1

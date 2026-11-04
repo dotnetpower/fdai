@@ -3,14 +3,21 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from math import isfinite
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+from fdai_service_contracts.ontology_query import content_digest
+
+if TYPE_CHECKING:
+    from fdai.delivery.persistence.postgres_inventory_provider_read_admission import (
+        DurableProviderReadAdmissionGate,
+    )
 
 from fdai.delivery.http_response import (
     BOUNDED_ACCEPT_ENCODING,
@@ -68,20 +75,33 @@ class ArgRateLimiter:
 
 
 class ArgThrottleGate:
-    """Share ARG quota backoff across concurrent queries in one adapter."""
+    """Share ARG quota backoff across concurrent queries in one adapter or durable StateStore."""
 
     def __init__(
         self,
         *,
         max_defer_seconds: float = DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
+        durable_gate: DurableProviderReadAdmissionGate | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
         if not isfinite(max_defer_seconds) or max_defer_seconds <= 0:
             raise ValueError("ARG throttle max_defer_seconds MUST be a positive finite value")
+        if require_durable_admission and durable_gate is None:
+            raise ValueError(
+                "qualified ARG operation requires a bound DurableProviderReadAdmissionGate"
+            )
         self._lock = asyncio.Lock()
         self._not_before = 0.0
         self._max_defer_seconds = max_defer_seconds
+        self._durable_gate = durable_gate
+
+    @property
+    def durable_gate(self) -> DurableProviderReadAdmissionGate | None:
+        return self._durable_gate
 
     async def wait(self) -> None:
+        if self._durable_gate is not None:
+            await self._durable_gate.wait()
         while True:
             async with self._lock:
                 delay = self._not_before - _monotonic()
@@ -94,6 +114,8 @@ class ArgThrottleGate:
         if delay_seconds <= 0:
             return
         bounded = min(delay_seconds, self._max_defer_seconds)
+        if self._durable_gate is not None:
+            await self._durable_gate.defer(bounded)
         async with self._lock:
             self._not_before = max(self._not_before, _monotonic() + bounded)
 
@@ -422,13 +444,47 @@ async def _post_with_retry(
     max_response_bytes: int | None,
 ) -> tuple[httpx.Response, bytes]:
     last_error: httpx.HTTPError | None = None
+    durable = throttle_gate.durable_gate
     for attempt in range(max_attempts):
+        request_id = (
+            f"arg:{resource_type}:page-{page}:attempt-{attempt}:{content_digest(dict(body))[7:23]}"
+        )
+        idempotency_key = content_digest(
+            {
+                "attempt": attempt,
+                "body": dict(body),
+                "page": page,
+                "resource_type": resource_type,
+                "url": url,
+            }
+        )
+        if durable is not None:
+            receipt = await durable.acquire(
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+                wait_for_cooldown=True,
+            )
+            if receipt.reused:
+                if receipt.reused_response_bytes is None:
+                    raise error_type(
+                        "reused ARG provider-read receipt has no retained response body; "
+                        "refusing unbudgeted physical read"
+                    )
+                return (
+                    httpx.Response(200, content=receipt.reused_response_bytes),
+                    receipt.reused_response_bytes,
+                )
         await throttle_gate.wait()
         await rate_limiter.acquire()
         if headers is None:
             try:
                 token = await identity.get_token(audience)
             except Exception as exc:  # noqa: BLE001 - identity boundary fails closed
+                if durable is not None:
+                    await durable.record_ambiguous_or_cancelled(
+                        request_id=request_id,
+                        reason=f"identity_{type(exc).__name__}",
+                    )
                 raise error_type(
                     f"ARG identity token request failed for {resource_type!r} "
                     f"(page {page}, attempt {attempt + 1}): {type(exc).__name__}"
@@ -455,10 +511,27 @@ async def _post_with_retry(
                     if response.status_code < 400
                     else b""
                 )
+        except asyncio.CancelledError:
+            if durable is not None:
+                await durable.record_ambiguous_or_cancelled(
+                    request_id=request_id,
+                    reason="cancelled",
+                )
+            raise
         except httpx.DecodingError:
+            if durable is not None:
+                await durable.record_ambiguous_or_cancelled(
+                    request_id=request_id,
+                    reason="decoding_error",
+                )
             raise
         except httpx.HTTPError as exc:
             last_error = exc
+            if durable is not None:
+                await durable.record_ambiguous_or_cancelled(
+                    request_id=request_id,
+                    reason=type(exc).__name__,
+                )
             if attempt + 1 >= max_attempts:
                 break
             await throttle_gate.defer(
@@ -470,11 +543,26 @@ async def _post_with_retry(
             continue
 
         await throttle_gate.observe(response.headers)
-        if response.status_code not in _RETRYABLE_STATUS_CODES or attempt + 1 >= max_attempts:
-            return response, content
         retry_delay = _retry_after_seconds(response.headers.get("Retry-After"))
         if retry_delay is None:
             retry_delay = _quota_reset_seconds(response.headers)
+        if durable is not None:
+            if response.status_code < 400:
+                await durable.complete(
+                    request_id=request_id,
+                    idempotency_key=idempotency_key,
+                    response_digest=f"sha256:{hashlib.sha256(content).hexdigest()}",
+                    response_payload=content,
+                    retry_after_seconds=retry_delay,
+                )
+            else:
+                await durable.record_ambiguous_or_cancelled(
+                    request_id=request_id,
+                    reason=f"http_{response.status_code}",
+                    retry_after_seconds=retry_delay,
+                )
+        if response.status_code not in _RETRYABLE_STATUS_CODES or attempt + 1 >= max_attempts:
+            return response, content
         if retry_delay is None:
             retry_delay = min(
                 initial_retry_delay_seconds * (2**attempt),

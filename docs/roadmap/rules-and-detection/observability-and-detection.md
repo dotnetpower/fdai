@@ -631,7 +631,19 @@ resolver accepts the canonical generic `state` fact from either the legacy flat 
 the current property-keyed collection and never substitutes another property-specific fact. A
 resource whose metadata collection has no generic `state` fact follows the identity-and-type-only
 enumeration path; this read-only selection makes no state claim and grants no authority. A present
-generic `state` remains admission-gated and a malformed value remains unusable. A resource projected
+generic `state` remains admission-gated and a malformed value remains unusable. When a resource
+carries a generic `state` `StateFactMetadata`, the independent read-only state-fact verifier
+(`AnalyzerTargetStateFactAdmissionIssuer` under `inventory-state-fact-verifier`, separated from
+the inventory source and `inventory-state-fact-projector`) verifies that the fact is in the
+`observed` lane with `provider` authority, complete (`completeness >= 1.0`), unconflicted,
+non-synthetic, within its `freshness_ceiling_seconds` window, and bound to a matching active
+inventory snapshot provider reference. It evaluates the resulting
+`DecisionCriticalEvidenceReceipt` and five-proof `DecisionEvidenceVerificationBundle` through
+`DecisionEvidenceReadinessGate` for purpose `analyzer-target-selection` and retains each eligible
+admission once via `StateStoreDecisionEvidenceAdmissionRecorder` with an atomic shadow-mode
+`decision-evidence.admission-retained` audit entry and `valid_until` set to the state fact's
+freshness expiry. Expired, missing, stale, conflicting, synthetic, or scope-mismatched admissions
+fail closed at `assess_decision_evidence_admission`. A resource projected
 without any state fact follows the same enumeration path. Discovered targets are bounded and
 deterministically ordered. Before provider I/O, the resolver holds a discovered target as
 `telemetry_source_unavailable` when the currently bound telemetry catalogs do not cover every

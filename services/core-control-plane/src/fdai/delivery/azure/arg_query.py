@@ -1,17 +1,4 @@
-"""Execute bounded Azure Resource Graph shards through injected provider seams.
-
-Core never imports this delivery module. Identity and HTTP transport are injected;
-the module does not use ``DefaultAzureCredential``. Kusto queries and CSP-neutral
-ARM mappings come from the reviewed resource-type registry.
-
-Pagination stops on an empty token or page and is capped by ``max_pages``. Returned
-properties are size-bounded. ARM hierarchy produces ``contains`` links; reviewed
-property paths produce ``attached_to`` and ``depends_on`` links only when their
-target types resolve. Unknown targets are omitted rather than assigned a type.
-
-Non-successful or malformed responses fail closed. The inventory coordinator then
-omits its final fence and retains the previous promoted graph.
-"""
+"""Execute bounded Azure Resource Graph shards through injected provider seams."""
 
 from __future__ import annotations
 
@@ -203,6 +190,8 @@ class AzureArgQueryFactory:
         http_client: httpx.AsyncClient,
         config: AzureArgQueryFactoryConfig,
         page_observer: ArgPageObserver | None = None,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
         if not config.subscription_scopes or any(
             not isinstance(scope, str) or not scope.strip() for scope in config.subscription_scopes
@@ -227,7 +216,11 @@ class AzureArgQueryFactory:
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
         self._page_observer = page_observer
-        self._throttle_gate = ArgThrottleGate(max_defer_seconds=config.throttle_max_defer_seconds)
+        self._throttle_gate = ArgThrottleGate(
+            max_defer_seconds=config.throttle_max_defer_seconds,
+            durable_gate=durable_gate,
+            require_durable_admission=require_durable_admission,
+        )
         self._rate_limiter = ArgRateLimiter(
             requests_per_second=config.requests_per_second,
             burst=config.requests_burst,

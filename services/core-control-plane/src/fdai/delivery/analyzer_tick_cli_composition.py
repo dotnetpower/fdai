@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 
 from fdai_service_contracts.resource_availability_settings import (
@@ -22,6 +22,10 @@ from fdai.delivery.analyzer_inventory import (
 from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_receipt_store import StateStoreAnalyzerReceiptStore
 from fdai.delivery.analyzer_recovery import RecoveryAwareAnalyzer
+from fdai.delivery.analyzer_target_admissions import (
+    AnalyzerTargetDecisionEvidenceAdmissionProvider,
+    AnalyzerTargetStateFactAdmissionIssuer,
+)
 from fdai.delivery.analyzer_telemetry_admission import discovered_telemetry_holds
 from fdai.delivery.analyzer_tick import AnalyzerTarget
 from fdai.delivery.analyzer_tick_cli_config import INVENTORY_DSN_ENV, STATE_STORE_DSN_ENV
@@ -105,11 +109,16 @@ class _AdmittedMetricAnalyzer:
         )
 
 
-class _AnalyzerDecisionEvidenceAdmissionProvider(StateStoreDecisionEvidenceAdmissionProvider):
+class _AnalyzerDecisionEvidenceAdmissionProvider(AnalyzerTargetDecisionEvidenceAdmissionProvider):
     """Own the analyzer-only Postgres store for one target-resolution pass."""
 
-    def __init__(self, store: PostgresStateStore) -> None:
-        super().__init__(store=store)
+    def __init__(
+        self,
+        store: PostgresStateStore,
+        *,
+        issuer: AnalyzerTargetStateFactAdmissionIssuer | None = None,
+    ) -> None:
+        super().__init__(store=store, issuer=issuer)
         self._owned_store = store
 
     async def aclose(self) -> None:
@@ -183,9 +192,11 @@ def build_lifecycle_recorder() -> DetectionLifecycleRecorder:
     )
 
 
-def build_decision_evidence_admission_provider() -> (
-    StateStoreDecisionEvidenceAdmissionProvider | None
-):
+def build_decision_evidence_admission_provider(
+    *,
+    inventory: AnalyzerInventorySources | None = None,
+    availability_resources: Mapping[str, str] | None = None,
+) -> StateStoreDecisionEvidenceAdmissionProvider | None:
     """Bind the durable admission lookup used by target selection."""
 
     dsn = os.environ.get(STATE_STORE_DSN_ENV, "").strip()
@@ -195,13 +206,23 @@ def build_decision_evidence_admission_provider() -> (
             extra={"reason": "state_store_dsn_absent"},
         )
         return None
-    return _AnalyzerDecisionEvidenceAdmissionProvider(
-        PostgresStateStore(
-            config=PostgresStateStoreConfig(
-                dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
-            )
+    store = PostgresStateStore(
+        config=PostgresStateStoreConfig(
+            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
         )
     )
+    resolved_inventory = inventory if inventory is not None else build_inventory_sources()
+    issuer = (
+        AnalyzerTargetStateFactAdmissionIssuer(
+            inventory_store=resolved_inventory.projection,
+            state_store=store,
+            provider_references=resolved_inventory.provider_references,
+            availability_resources=availability_resources,
+        )
+        if resolved_inventory is not None
+        else None
+    )
+    return _AnalyzerDecisionEvidenceAdmissionProvider(store, issuer=issuer)
 
 
 def build_analyzer_coordinator(

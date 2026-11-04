@@ -2,8 +2,8 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: c1631b3c793b333f651f3208182aef82301cc70b
-translation_revised: 2026-11-04
+translation_source_sha: 797ff9676c99711fa621e25d9d995710cd04c8e4
+translation_revised: 2026-11-05
 ---
 
 # F10-F15 준비 상태 전수 점검 및 완료 계획
@@ -288,9 +288,13 @@ F15.2/F15.3의 범위가 제한된 Ready 판정을 뒷받침합니다.
 - [x] **I03, 배포 방식 검증:** 선택한 개정의 v18 단일 호출에서 연결 배포, 범위가 제한된
   복구, 이미지, 인벤토리, 상태 확인, 변경 없음 증적을 보존했습니다. 검증된 제공 wheel 및
   오프라인 구성은 별도 범위이며 소스 설치에는 공개 release가 필요하지 않습니다.
-- [ ] **X01, 확장 수명 주기:** 설치, 활성화, 비활성화, 철회, 재시작, 공개 정보 갱신,
+- [x] **X01, 확장 수명 주기:** 설치, 활성화, 비활성화, 철회, 재시작, 공개 정보 갱신,
   형식이 지정된 작업 경로, 감사를 포함한 동일 산출물의 전체 연결 증적을 보존합니다.
-  산출물, 릴리스, 환경이 일치하며 기능 묶음이 통제 경로를 우회하지 않음을 검증합니다.
+  산출물, 릴리스, 환경이 일치하며 기능 묶음이 통제 경로를 우회하지 않음을 검증합니다
+  (`GovernedSkillBundleLifecycleCoordinator` 및 `rehearse_x01_bundle_lifecycle_lineage.py`,
+  `pin_digest=sha256:5548f4163dec7446160e15b0b53e9a8f7fcf8eb7c912e3b73494e3e97c6a7a83`,
+  `postgres.lineage_digest=sha256:62d27b7762077eab4fcce6e4cba52cb65dfa831009a36a33b8f87748db24f5be`,
+  격리 검증 환경에서 [#2315](https://github.com/dotnetpower/fdai/issues/2315) 종결).
 - [ ] **S01, 설치 환경 검사 종료:** [#2128](https://github.com/dotnetpower/fdai/issues/2128)의
   중지가 해제되고 대상이 승인된 뒤에만 재개합니다. Console 요청 종료, 정확한 개정,
   지원 범위, 격리된 독립 결과 수락, 게시, 독립 조회를 보존합니다. 로컬 확보 및 워커와
@@ -375,7 +379,7 @@ Not assessed를 사용합니다. 설치별 일반 설정과 명시적으로 연�
 | I01 | 완료 | 키 없는 Trial, 변경 없는 재실행, 신규 전체 사용권 설치, Trial-to-full 전환 증적을 보존합니다. | 증적과 회귀 검사를 유지합니다. |
 | I02 | 완료 | 소스와 서명된 오프라인 경로만 사용할 수 있는 배포 경로입니다. | `azd-up.sh`를 진단 전용으로 유지하고 별도 설치 프로그램이 되지 않도록 합니다. |
 | I03 | 완료 | 정확한 개정의 연결 배포, 범위가 제한된 복구, Managed Host 계속 실행, 인벤토리, 상태 확인, 변경 없음 근거를 보존했습니다. | v18 증적 연결과 집중 회귀 검사를 유지합니다. |
-| X01 | 코드 완료/실환경 미검증 | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅이 있습니다. #355는 필수 계보 없이 계획하지 않음으로 닫혔고, 이제 #2315가 관측 가능한 후속 기준을 담당합니다. | #2315에서 정확한 서명 artifact의 설치, 서로 다른 검토자의 enable, disable, revoke, restart, disclosure, routing, 독립 조회, Saga audit 계보를 유지합니다. |
+| X01 | 완료 (격리 검증) | bundle 등록, disabled-first 수명 주기, 철회, 타입화된 라우팅 및 전체 연결 산출물 증적 세트(`rehearse_x01_bundle_lifecycle_lineage.py`)를 #2315 아래에서 `InMemoryStateStore` 및 격리 루프백 PostgreSQL을 통해 보존했습니다. | #2315 증적 세트와 회귀 테스트를 유지합니다. 별도의 연결 설치 환경 실행에는 별도 명시적 승인이 필요합니다. |
 | S01 | 외부 차단 요인 | 설치된 acquisition, worker, 독립 로컬 수용 코드가 있습니다. | #2128을 명시적으로 재개할 때까지 중지를 유지한 뒤 terminal 설치 요청, 정확한 개정, coverage, 게시, 독립 조회를 유지합니다. |
 | S02 | 외부 차단 요인 | 예약 처리, Incident, notification, 담당자 인수인계 동작이 있습니다. | 중지가 해제된 뒤 승인된 신원과 channel을 연결하고 같은 correlation의 scan 또는 명시적인 발견 문제 없음 결과, Incident, notification, 담당자 인수인계, duplicate replay 연결을 유지합니다. |
 | S03 | 실제 실패 | 정확한 승격 산술, label, 임계값, corpus를 변경하지 않았습니다. 카탈로그 1.8.0은 Java 경로 조작을 precision 1.0, TP 5/1, FP 0/0으로 승격했고, 카탈로그 1.9.0은 C# SQL을 precision 1.0, TP 2/1, FP 0/0으로 승격했습니다. Java SQL `dev` precision은 여전히 0.8824이고 C# command/path에는 holdout true positive가 없습니다. | Java SQL은 `dev`만 사용해 개선하고 C# command/path에는 독립적으로 labeling한 holdout 근거를 제공합니다. 추가 승격 전까지 변경하지 않은 `holdout`, precision >= 0.90, 양 split true positive 1개 이상을 유지합니다. |

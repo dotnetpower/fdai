@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 2ab8296a80f88620845b1ec3b1e5d8c28d9cf54a
-translation_revised: 2026-10-21
+translation_source_sha: e1715a41636793dcd12a6f3f48bfb3bdadb9422d
+translation_revised: 2026-11-05
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -231,6 +231,23 @@ ARG/ARM 수집 구성에 묶습니다. Managed Identity는 구성된 클라이�
 시작할 수 있지만 일치하지 않는 보존 작업을 승격하거나 이어 갈 수는 없습니다. 독립 발급자,
 권한, 허용 예산 원장, 세대 규칙 또는 운영 증적은 만들지 않습니다. 더 넓은 #2329 경계와 항목
 04/13/14/17/31의 운영 환경 검증은 계속 미완료 상태입니다.
+
+#### 영구 공유 허용 및 대기 시간 게이트 (#2329)
+
+`DurableProviderReadAdmissionGate`(`delivery/persistence/postgres_inventory_provider_read_admission.py`)는
+불변 `ProviderReadScopeBinding`(`source_name`, `authentication_selector_digest`,
+`scope_universe_digest`, `policy_digest`, `generation_id`, 단조 증가 `generation_seq`)에 묶인
+`StateStore` 기반 공유 허용 및 대기 시간 기본 요소를 제공합니다. 동시 판독기와 재시작된 프로세스는
+단일 compare-and-set 파티션 행을 공유합니다.
+
+- `Retry-After` 및 할당량 대기 시각(`cooldown_not_before`)은 어댑터 교체, 프로세스 재시작, 세대 전환
+  전반에 걸쳐 유지됩니다.
+- 동일 세대 내 멱등 재실행은 물리적 요청 슬롯을 추가로 소모하지 않고 완료된 응답 다이제스트를
+  재사용합니다.
+- 대체된 이전 세대는 `StaleProviderReadGenerationError`로 차단되고, 취소되거나 불확실한 시도는
+  소모된 상태로 유지되며, `require_durable_admission=True`일 때 상태 저장소를 사용할 수 없으면
+  메모리 예산으로 대체하지 않고 `ProviderReadAdmissionUnavailableError`로 차단됩니다.
+- 실제 설치 환경의 사용량 및 재조회 검증은 설치 소유 출처·신원 바인딩 이후 단계로 남습니다(#2329).
 
 ## 검색 범위
 

@@ -149,6 +149,34 @@ Heimdall also stops tracking a full-reconciliation observation that Huginn corre
 generation-scoped key, because such an episode can never gather a second event. Observations with an
 explicit shared correlation identifier are still tracked.
 
+## Coordinate runtime cutover for inventory shared storage
+
+Before applying the three storage-efficiency migrations
+(`service-migrations/branches/core-control-plane/versions/20261030_core_cache_storage_efficiency.py`,
+`20261030_core_inventory_storage_efficiency.py`, and
+`20261030_core_state_storage_efficiency.py`) through the service migration coordinator
+(`service-migrations/migrate.py`) on an existing runtime schema, stop all `fdai-core-service` and
+`fdai-inventory-job` readers and writers so no active snapshot or observation writer holds relation
+locks during cutover. Verify that no non-self sessions hold locks on the target schema, apply the
+service migrations through the coordinator, verify exact service heads, and confirm reversible
+`downgrade`/`upgrade` compatibility before resuming writers.
+
+Measure existing-row conversion (`inventory_snapshot_resource_row` vs deduplicated
+`inventory_snapshot_properties` bodies and retained append-only
+`inventory_observation_snapshot_member_legacy` rows) separately from prospective unchanged-generation
+deduplication (`inventory_observation_snapshot_set`, `inventory_observation_snapshot_page`, and
+`inventory_observation_snapshot_binding`). Verify least-privilege orphan cleanup under `SET LOCAL ROLE
+fdai_core` (`has_table_privilege(..., 'inventory_snapshot_properties', 'UPDATE') = false`), measure
+binary payload and legacy cache relations (`conversation_image`, `trusted_artifact`, `t2_cache`,
+`t2_cache_legacy_default`), and certify hash-chained `audit_log` archive, active-incident hold
+exclusion, and restore verification before pruning archived rows. To rehearse these invariants on the
+isolated port-5433 validation cluster (validation-only; does not authorize runtime deployment):
+
+```bash
+.venv/bin/python scripts/automation/with-local-test-database.py \
+  .venv/bin/python scripts/deployment/local/rehearse_inventory_shared_storage_cutover.py
+```
+
 ## Keep ingress dedup small and archive cold audit rows
 
 Huginn's ingress dedup shards used to retain every completed key, so each ingress event rewrote

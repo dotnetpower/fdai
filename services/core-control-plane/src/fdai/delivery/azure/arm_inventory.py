@@ -39,8 +39,12 @@ from fdai.delivery.azure.arm_inventory_vm_state import (
     with_vm_run_command_state as _with_vm_run_command_state,
 )
 from fdai.delivery.azure.arm_rule_properties import rule_properties
-from fdai.delivery.azure.arm_rule_property_hydration import HYDRATED_RESOURCE_TYPES as _HYDRATED
-from fdai.delivery.azure.arm_rule_property_hydration import ArmRulePropertyHydrator
+from fdai.delivery.azure.arm_rule_property_hydration import (
+    HYDRATED_RESOURCE_TYPES as _HYDRATED,
+)
+from fdai.delivery.azure.arm_rule_property_hydration import (
+    ArmRulePropertyHydrator,
+)
 from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
 from fdai.delivery.azure.model_deployment import (
     MODEL_DEPLOYMENT_RESOURCE_TYPE,
@@ -130,23 +134,22 @@ class AzureArmInventoryFactoryConfig:
             or self.timeout_seconds <= 0
         ):
             raise ValueError("ARM page and timeout limits MUST be positive")
-        if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 1
-            for value in (
-                self.max_response_bytes,
-                self.max_total_response_bytes,
-                self.max_records,
-                self.max_attempts,
-            )
-        ):
+        limits = (
+            self.max_response_bytes,
+            self.max_total_response_bytes,
+            self.max_records,
+            self.max_attempts,
+        )
+        if any(isinstance(v, bool) or not isinstance(v, int) or v < 1 for v in limits):
             raise ValueError("ARM response and retry limits MUST be positive integers")
         if type(self.max_props_bytes) is not int or self.max_props_bytes < 1024:
             raise ValueError("max_props_bytes MUST be >= 1024")
-        if (
-            not self.compute_api_version.strip()
-            or not self.container_service_api_version.strip()
-            or not self.cognitive_services_api_version.strip()
-        ):
+        versions = (
+            self.compute_api_version,
+            self.container_service_api_version,
+            self.cognitive_services_api_version,
+        )
+        if any(not v.strip() for v in versions):
             raise ValueError("ARM child API versions MUST be non-empty")
 
 
@@ -160,11 +163,19 @@ class AzureArmInventoryFactory:
         resource_types: ResourceTypeRegistry,
         http_client: httpx.AsyncClient,
         config: AzureArmInventoryFactoryConfig,
+        durable_gate: Any | None = None,
+        require_durable_admission: bool = False,
     ) -> None:
+        if require_durable_admission and durable_gate is None:
+            raise ValueError(
+                "qualified ARM operation requires a bound DurableProviderReadAdmissionGate"
+            )
         self._identity = identity
         self._resource_types = resource_types
         self._http = http_client
         self._config = config
+        self._durable_gate = durable_gate
+        self._require_durable_admission = require_durable_admission
         self._endpoint_host = urlparse(config.arm_endpoint).netloc.lower()
         self._arm_to_neutral = build_arm_to_neutral_map(resource_types)
         self._relationship_mappings = load_provider_relationship_mapping_catalog(
@@ -285,7 +296,13 @@ class AzureArmInventoryFactory:
         """Overlay ARM-only child collections onto a primary inventory query."""
 
         arm_query = self.build_query_fn()
-        hydrator = ArmRulePropertyHydrator.for_config(self._identity, self._http, self._config)
+        hydrator = ArmRulePropertyHydrator.for_config(
+            self._identity,
+            self._http,
+            self._config,
+            durable_gate=self._durable_gate,
+            require_durable_admission=self._require_durable_admission,
+        )
 
         async def _fetch(
             resource_type: str,
@@ -579,13 +596,9 @@ class AzureArmInventoryFactory:
         return tuple(rows)
 
     async def _fetch_aks_agent_pools(
-        self,
-        *,
-        subscription: str,
-        headers: Mapping[str, str],
+        self, *, subscription: str, headers: Mapping[str, str]
     ) -> tuple[Mapping[str, Any], ...]:
         """List AgentPools through each bounded AKS cluster child collection."""
-
         clusters = await self._fetch_pages(
             self._initial_url(
                 subscription=subscription,
@@ -599,21 +612,15 @@ class AzureArmInventoryFactory:
             raise ArmInventoryError(
                 f"ARM AKS child collection cap ({self._config.max_child_collections}) exceeded"
             )
-
         rows: list[Mapping[str, Any]] = []
+        base = self._config.arm_endpoint.rstrip("/")
+        api_ver = self._config.container_service_api_version
         for cluster in clusters:
-            parent_id = str(cluster["id"])
-            encoded_parent_id = quote(parent_id, safe="/")
-            url = (
-                f"{self._config.arm_endpoint.rstrip('/')}{encoded_parent_id}"
-                "/agentPools"
-                f"?api-version={self._config.container_service_api_version}"
-            )
+            encoded_parent = quote(str(cluster["id"]), safe="/")
+            url = f"{base}{encoded_parent}/agentPools?api-version={api_ver}"
             rows.extend(
                 await self._fetch_pages(
-                    url,
-                    headers=headers,
-                    resource_type=_AKS_AGENT_POOL_RESOURCE_TYPE,
+                    url, headers=headers, resource_type=_AKS_AGENT_POOL_RESOURCE_TYPE
                 )
             )
         return tuple(rows)
@@ -705,6 +712,8 @@ class AzureArmInventoryFactory:
             timeout_seconds=self._config.timeout_seconds,
             max_response_bytes=self._config.max_response_bytes,
             max_attempts=self._config.max_attempts,
+            durable_gate=self._durable_gate,
+            require_durable_admission=self._require_durable_admission,
         )
 
     def _validate_next_link(self, url: str) -> None:
@@ -780,20 +789,10 @@ def _as_query_result(
 
 def _relationship_source(resource_type: str) -> tuple[str, str]:
     if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
-        return (
-            _ARM_COGNITIVE_SERVICES_SOURCE_IDENTITY,
-            _ARM_COGNITIVE_SERVICES_SOURCE_SCHEMA_DIGEST,
-        )
+        return _ARM_COGNITIVE_SERVICES_SOURCE_IDENTITY, _ARM_COGNITIVE_SERVICES_SOURCE_SCHEMA_DIGEST
     if resource_type == _AKS_AGENT_POOL_RESOURCE_TYPE:
-        return (
-            _ARM_CONTAINER_SERVICE_SOURCE_IDENTITY,
-            _ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST,
-        )
+        return _ARM_CONTAINER_SERVICE_SOURCE_IDENTITY, _ARM_CONTAINER_SERVICE_SOURCE_SCHEMA_DIGEST
     return _ARM_NETWORK_SOURCE_IDENTITY, _ARM_NETWORK_SOURCE_SCHEMA_DIGEST
 
 
-__all__ = [
-    "ArmInventoryError",
-    "AzureArmInventoryFactory",
-    "AzureArmInventoryFactoryConfig",
-]
+__all__ = ["ArmInventoryError", "AzureArmInventoryFactory", "AzureArmInventoryFactoryConfig"]

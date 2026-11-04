@@ -294,9 +294,13 @@ supports the bounded Ready decisions for F15.2/F15.3.
   deployment, bounded recovery, image, inventory, health, and zero-change receipts on the selected
   revision. Proven shipped-wheel/offline construction remains separate and source installation
   requires no public release.
-- [ ] **X01, extension lifecycle:** Retain one complete linked exact-artifact lineage covering
+- [x] **X01, extension lifecycle:** Retain one complete linked exact-artifact lineage covering
   install, enable, disable, revoke, restart, disclosure reload, typed action routing, and audit.
-  Match artifact/release/environment identities and prove no bundle bypasses the governed path.
+  Match artifact/release/environment identities and prove no bundle bypasses the governed path
+  (`GovernedSkillBundleLifecycleCoordinator` and `rehearse_x01_bundle_lifecycle_lineage.py`,
+  `pin_digest=sha256:5548f4163dec7446160e15b0b53e9a8f7fcf8eb7c912e3b73494e3e97c6a7a83`,
+  `postgres.lineage_digest=sha256:62d27b7762077eab4fcce6e4cba52cb65dfa831009a36a33b8f87748db24f5be`,
+  closing [#2315](https://github.com/dotnetpower/fdai/issues/2315) in the isolated validation venue).
 - [ ] **S01, installed scan terminal:** Resume [#2128](https://github.com/dotnetpower/fdai/issues/2128)
   only after its pause is lifted and a target is authorized. Retain terminal Console request,
   exact revision, coverage, isolated independent acceptance, publication, and readback. Local
@@ -383,7 +387,7 @@ packages remain open.
 | I01 | Complete | Keyless Trial, unchanged rerun, new full installation, and Trial-to-full transition evidence are retained. | Preserve the receipts and regression coverage. |
 | I02 | Complete | Source and signed offline paths are the only available distribution paths. | Keep `azd-up.sh` diagnostic-only and prevent it from becoming another installer. |
 | I03 | Complete | Exact-revision connected deployment, bounded recovery, managed-host continuation, inventory, health, and zero-change evidence are retained. | Preserve the v18 receipt chain and focused regressions. |
-| X01 | Code complete / live unverified | Bundle registration, disabled-first lifecycle, revocation, and typed routing exist. #355 closed as not planned without the mandatory lineage, and #2315 now owns the observable successor criteria. | Under #2315, retain one exact signed-artifact install, distinct reviewed enable, disable, revoke, restart, disclosure, routing, independent readback, and Saga audit lineage. |
+| X01 | Complete (isolated validation) | Bundle registration, disabled-first lifecycle, revocation, typed routing, and the complete linked exact-artifact receipt set (`rehearse_x01_bundle_lifecycle_lineage.py`) are retained under #2315 across `InMemoryStateStore` and isolated loopback PostgreSQL. | Preserve the #2315 receipt set and regression suite; a separate connected-installation run requires its own explicit authorization. |
 | S01 | External blocker | Installed acquisition, worker, and independent local acceptance code exists. | Keep #2128 paused until explicitly resumed, then retain one terminal installed request, exact revision, coverage, publication, and independent readback. |
 | S02 | External blocker | Scheduled processing, Incident, notification, and ownership handover mechanics exist. | After the pause lifts, bind approved identities and channels and retain one same-correlation scan or explicit no-issues result, Incident, notification, ownership handover, and duplicate-replay chain. |
 | S03 | Actual failure | Exact promotion arithmetic, labels, thresholds, and corpus remain unchanged. Catalog 1.8.0 promotes Java path traversal at precision 1.0 with TP 5/1 and FP 0/0; catalog 1.9.0 promotes C# SQL at precision 1.0 with TP 2/1 and FP 0/0. Java SQL still has `dev` precision 0.8824, and C# command/path still have no held-out true positive. | Improve Java SQL from `dev` only and supply independently labeled held-out C# command/path evidence. Keep the unchanged `holdout`, precision >= 0.90, and at least one true positive in both splits before any further promotion. |
