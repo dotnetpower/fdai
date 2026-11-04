@@ -450,6 +450,16 @@ targeted build-input checks, conservative unknown-path fallback, and protected c
 retain those checks at the owning boundary. Measure queue, setup, check execution, and repeated
 work separately; this design does not claim a latency reduction without comparable run evidence.
 
+## Local database growth controls
+
+The runtime database on loopback port 5432 is disposable but bounded: preparation refuses to
+continue above `FDAI_LOCAL_DATABASE_RECREATE_MAX_BYTES` (2 GiB) until it is compacted or explicitly
+recreated. Local controls keep it below that bound without changing deployed behavior. The launcher
+sets a 30-minute change-driven inventory scan floor, the Postgres container compresses WAL with
+zstd, and `compact-local-database.py` and `archive-audit-segments.py` bound disposable state and
+copy old audit rows out as verified zstd segments. The
+[storage runbook](../../runbooks/database-storage-efficiency.md) owns the commands and limits.
+
 ## Safety boundaries
 
 - The diagnostic surface is read-only. It does not stage, restore, reset, commit, kill, restart,
