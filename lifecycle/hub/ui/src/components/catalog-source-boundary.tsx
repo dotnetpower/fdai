@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { request } from "../api";
 import { useAsync } from "../hooks/use-async";
-import { tr, useHubLocale } from "../locale";
+import { releaseStateLabel, tr, useHubLocale } from "../locale";
 import {
   hasCatalogTrustSource, type ReleaseCatalogPreview, type ReleaseConnection,
 } from "../routes/release-connection";
@@ -40,7 +40,7 @@ function LocalCatalogStatus({ title, connection }: {
           ? <p class="empty">{tr(locale, "No releases registered in the selected Release Hub.",
             "선택한 Release Hub에 등록된 릴리스가 없습니다.")}</p>
           : <ul>{data.releases.map(release => <li key={release.id}>
-            <code>{release.id}</code> ({release.state})
+            <code>{release.id}</code> ({releaseStateLabel(release.state, locale)})
           </li>)}</ul>}
         {data.expired && <p class="note">{tr(locale,
           "The export metadata is expired. A preview never renews it or makes it eligible for import.",

@@ -1,5 +1,6 @@
 import { HubApiError, type InstallationDetail, type PlanReportView, type Suppression } from "./api";
 import { isTimingReason } from "./constraint-status";
+import { tr, type HubLocale } from "./locale";
 
 export type ErrorClassificationKind =
   | "session-expired"
@@ -16,87 +17,122 @@ export interface ClassifiedHubError {
   readonly reasonCode: string | null;
 }
 
-const PREREQUISITE_GUIDANCE: Readonly<Record<string, string>> = {
-  catalog_not_imported_approve_pin_and_import:
-    "No verified catalog is imported yet. Open Catalog import or Updates to approve and import a catalog before reading releases.",
-  catalog_unavailable_review_trust_and_expiry:
-    "The accepted catalog failed verification or expired. Review catalog trust and freshness on Updates or Catalog import.",
-  schema_migration_pending:
-    "A Hub database schema migration is pending completion. Writes remain paused until an operator completes the migration.",
-  operator_auth_not_configured:
-    "Operator sign-in is not configured on this Hub instance. Management endpoints remain unavailable.",
+const PREREQUISITE_GUIDANCE: Readonly<Record<string, { en: string; ko: string }>> = {
+  catalog_not_imported_approve_pin_and_import: {
+    en: "No verified catalog is imported yet. Open Catalog import or Updates to approve and import a catalog before reading releases.",
+    ko: "아직 검증된 카탈로그를 가져오지 않았습니다. 릴리스를 조회하기 전에 카탈로그 가져오기 또는 업데이트 화면에서 카탈로그를 승인하고 가져오세요.",
+  },
+  catalog_unavailable_review_trust_and_expiry: {
+    en: "The accepted catalog failed verification or expired. Review catalog trust and freshness on Updates or Catalog import.",
+    ko: "수락된 카탈로그의 검증에 실패했거나 유효기간이 만료되었습니다. 업데이트 또는 카탈로그 가져오기 화면에서 신뢰 설정과 유효기간을 확인하세요.",
+  },
+  schema_migration_pending: {
+    en: "A Hub database schema migration is pending completion. Writes remain paused until an operator completes the migration.",
+    ko: "Hub 데이터베이스 스키마 마이그레이션이 대기 중입니다. 운영자가 마이그레이션을 완료할 때까지 쓰기 작업이 일시 중지됩니다.",
+  },
+  operator_auth_not_configured: {
+    en: "Operator sign-in is not configured on this Hub instance. Management endpoints remain unavailable.",
+    ko: "이 Hub 인스턴스에 운영자 로그인이 구성되지 않았습니다. 관리 엔드포인트를 사용할 수 없습니다.",
+  },
 };
 
 /** Classify data-loading and action errors into safe recovery states (UXH-02, UXH-03, UXH-04). */
-export function classifyHubError(error: unknown): ClassifiedHubError {
+export function classifyHubError(error: unknown, locale: HubLocale = "en"): ClassifiedHubError {
   if (error instanceof HubApiError) {
     if (error.status === 401) {
       return {
         kind: "session-expired",
-        title: "Session expired",
-        guidance:
+        title: tr(locale, "Session expired", "세션 만료됨"),
+        guidance: tr(
+          locale,
           "Sign in again to renew your operator session, then retry this read. Uncertain writes are never replayed automatically.",
+          "운영자 세션을 갱신하려면 다시 로그인한 뒤 조회를 재시도하세요. 결과가 불확실한 쓰기 작업은 자동으로 재실행되지 않습니다.",
+        ),
         reasonCode: error.reasonCode,
       };
     }
     if (error.status === 403) {
       return {
         kind: "access-denied",
-        title: "Operator access or boundary denied",
-        guidance:
+        title: tr(locale, "Operator access or boundary denied", "운영자 접근 또는 경계 거부됨"),
+        guidance: tr(
+          locale,
           "Verify your operator identity and approved network source range. Do not expand application roles to bypass an ingress block.",
+          "운영자 신원과 승인된 네트워크 출발지 범위를 확인하세요. 인그레스 차단을 우회하기 위해 애플리케이션 역할을 확장하지 마세요.",
+        ),
         reasonCode: error.reasonCode,
       };
     }
     if (error.status === 503) {
+      const prereq = PREREQUISITE_GUIDANCE[error.reasonCode];
       return {
         kind: "prerequisite-unavailable",
-        title: "Service or prerequisite unavailable",
-        guidance:
-          PREREQUISITE_GUIDANCE[error.reasonCode] ??
-          "Check Hub database readiness and prerequisite configuration before retrying.",
+        title: tr(locale, "Service or prerequisite unavailable", "서비스 또는 선결 조건 미충족"),
+        guidance: prereq
+          ? tr(locale, prereq.en, prereq.ko)
+          : tr(
+              locale,
+              "Check Hub database readiness and prerequisite configuration before retrying.",
+              "재시도하기 전에 Hub 데이터베이스 준비 상태와 선결 조건 구성을 확인하세요.",
+            ),
         reasonCode: error.reasonCode,
       };
     }
     return {
       kind: "request-failed",
-      title: "Could not load Hub data",
-      guidance:
+      title: tr(locale, "Could not load Hub data", "Hub 데이터를 불러올 수 없습니다"),
+      guidance: tr(
+        locale,
         "Review the current Hub state and request parameters before retrying.",
+        "재시도하기 전에 현재 Hub 상태와 요청 매개변수를 확인하세요.",
+      ),
       reasonCode: error.reasonCode,
     };
   }
   if (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)) {
     return {
       kind: "timeout",
-      title: "Request timed out",
-      guidance:
+      title: tr(locale, "Request timed out", "요청 시간 초과"),
+      guidance: tr(
+        locale,
         "The Hub did not respond within the request deadline. Refresh to read authoritative state before another action.",
+        "요청 제한 시간 내에 Hub가 응답하지 않았습니다. 다음 작업을 수행하기 전에 새로 고침하여 최신 상태를 확인하세요.",
+      ),
       reasonCode: null,
     };
   }
   if (error instanceof Error && error.name === "InteractionRequiredAuthError") {
     return {
       kind: "session-expired",
-      title: "Session renewal requires sign-in",
-      guidance:
+      title: tr(locale, "Session renewal requires sign-in", "세션 갱신을 위해 로그인 필요"),
+      guidance: tr(
+        locale,
         "Sign in again to restore your operator session, then refresh the current screen.",
+        "운영자 세션을 복원하려면 다시 로그인한 뒤 현재 화면을 새로 고침하세요.",
+      ),
       reasonCode: null,
     };
   }
   if (error instanceof TypeError) {
     return {
       kind: "network-unreachable",
-      title: "Hub API unreachable",
-      guidance:
+      title: tr(locale, "Hub API unreachable", "Hub API에 연결할 수 없습니다"),
+      guidance: tr(
+        locale,
         "Check network reachability, DNS resolution, and private ingress rules before diagnosing application permissions.",
+        "애플리케이션 권한을 점검하기 전에 네트워크 연결 상태, DNS 확인, 프라이빗 인그레스 규칙을 먼저 확인하세요.",
+      ),
       reasonCode: null,
     };
   }
   return {
     kind: "request-failed",
-    title: "Could not load Hub data",
-    guidance: "Refresh this screen to read the latest authoritative Hub state.",
+    title: tr(locale, "Could not load Hub data", "Hub 데이터를 불러올 수 없습니다"),
+    guidance: tr(
+      locale,
+      "Refresh this screen to read the latest authoritative Hub state.",
+      "최신 Hub 상태를 확인하려면 화면을 새로 고침하세요.",
+    ),
     reasonCode: null,
   };
 }
@@ -128,6 +164,7 @@ export interface PrerequisiteFacet {
   readonly summary: string;
   readonly summaryKo: string;
   readonly owner: string;
+  readonly ownerKo: string;
 }
 
 export interface TimeHorizonSummary {
@@ -369,6 +406,7 @@ export function deriveInstallationReadiness(
       summary: `${managedCount} of ${totalEntities} managed`,
       summaryKo: `전체 ${totalEntities}개 중 ${managedCount}개 관리됨`,
       owner: "Customer Operator",
+      ownerKo: "고객 운영자",
     },
     {
       id: "configuration",
@@ -378,6 +416,7 @@ export function deriveInstallationReadiness(
       summary: `${installation.configuration_digest.slice(0, 19)}... (signature provenance not recorded in inventory)`,
       summaryKo: `${installation.configuration_digest.slice(0, 19)}... (인벤토리에 서명 출처 미기록)`,
       owner: "Customer Git Signer",
+      ownerKo: "고객 Git 서명자",
     },
     {
       id: "artifacts",
@@ -399,6 +438,7 @@ export function deriveInstallationReadiness(
         ? "평가된 릴리스와 호환됨"
         : "아직 평가되지 않음",
       owner: "Boundary Registry / Planner",
+      ownerKo: "경계 레지스트리 / 플래너",
     },
     {
       id: "agent",
@@ -416,6 +456,7 @@ export function deriveInstallationReadiness(
         ? "상태 보고 24시간 경과 · 실행 보고 없음"
         : "상태 보고 최신 · 실행 보고 없음",
       owner: "Installation Agent",
+      ownerKo: "설치 에이전트",
     },
   ];
 
@@ -450,10 +491,19 @@ export function deriveInstallationReadiness(
     installation.suppressions.length > 0 ||
     recallBlockCodes.length > 0;
 
+  const healthKo =
+    installation.health === "healthy"
+      ? "정상"
+      : installation.health === "degraded"
+      ? "저하됨"
+      : installation.health === "unhealthy"
+      ? "비정상"
+      : "알 수 없음";
+
   const recovery: RecoveryTimeline | null = hasRecoveryContext
     ? {
         currentWorkloadSummary: `Release ${installation.current_release ?? "uninstalled"} · health ${installation.health ?? "unknown"}`,
-        currentWorkloadSummaryKo: `릴리스 ${installation.current_release ?? "미설치"} · 상태 ${installation.health ?? "unknown"}`,
+        currentWorkloadSummaryKo: `릴리스 ${installation.current_release ?? "미설치"} · 상태 ${healthKo}`,
         latestFailedReport,
         activeHolds: installation.suppressions,
         recallBlockCodes,

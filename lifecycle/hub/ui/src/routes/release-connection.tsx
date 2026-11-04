@@ -1,6 +1,6 @@
 import { useEffect, useState } from "preact/hooks";
 import { request } from "../api";
-import { tr, useHubLocale } from "../locale";
+import { connectionSourceLabel, releaseStateLabel, tr, useHubLocale } from "../locale";
 
 export type ReleaseConnection = {
   endpoint: string;
@@ -116,7 +116,7 @@ export function ReleaseConnectionPanel(
     {connection && <>
       <p class="note">{tr(locale, "Current endpoint", "현재 엔드포인트")}:{" "}
         <code style={{ overflowWrap: "anywhere" }}>{connection.endpoint}</code>{" "}
-        ({tr(locale, "source", "설정 출처")}: {connection.source}){" "}
+        ({tr(locale, "source", "설정 출처")}: {connectionSourceLabel(connection.source, locale)}){" "}
         <button class="btn" type="button" disabled={busy || loading}
           onClick={() => void load()}>{tr(locale, "Refresh connection", "연결 새로고침")}</button></p>
       {connection.requires_migration && <p class="banner fail" role="alert">
@@ -125,7 +125,7 @@ export function ReleaseConnectionPanel(
       </p>}
       {!connection.editable && !connection.requires_migration && <p class="note">
         {tr(locale, "The remote catalog endpoint is managed by deployment configuration. Use the authenticated trust and Updates views below or in the navigation; an anonymous preview is not requested.",
-          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다. 아래 신뢰 설정과 탐색 메뉴의 Updates 화면을 이용하세요. 익명 조회는 요청하지 않습니다.")}
+          "원격 카탈로그 엔드포인트는 배포 구성에서 관리합니다. 아래 신뢰 설정과 탐색 메뉴의 업데이트 화면을 이용하세요. 익명 조회는 요청하지 않습니다.")}
       </p>}
       {connection.editable && <details open={Boolean(error || connection.source === "saved")}>
         <summary>{tr(locale, "Configure Release Hub endpoint", "Release Hub 엔드포인트 설정 변경")}</summary>
@@ -166,7 +166,7 @@ export function ReleaseConnectionPanel(
         ? <p>{tr(locale, "No registered releases. No sample releases are substituted.",
           "등록된 릴리스가 없습니다. 샘플 릴리스로 대체하지 않습니다.")}</p>
         : <ul>{preview.releases.map((release) => <li key={release.id}>
-          <code>{release.id}</code> ({release.state})
+          <code>{release.id}</code> ({releaseStateLabel(release.state, locale)})
         </li>)}</ul>}
       <p class="note">{tr(locale, "Read-only preview. Build verification and catalog trust remain separate.",
         "읽기 전용 조회 결과입니다. 빌드 검증과 카탈로그 신뢰 승인은 별도로 수행합니다.")}</p>

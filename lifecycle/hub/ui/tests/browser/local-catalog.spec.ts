@@ -57,6 +57,13 @@ for (const path of ["/updates", "/available-releases"]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.getByRole("button", { name: "Switch workspace language" }).click();
       await expect(page.getByText("신뢰된 카탈로그가 구성되지 않았습니다", { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: path === "/updates" ? "업데이트" : "사용 가능한 릴리스",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "카탈로그 가져오기", exact: true })).toBeVisible();
     });
   }
 

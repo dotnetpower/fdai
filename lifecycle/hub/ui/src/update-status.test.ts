@@ -277,4 +277,14 @@ describe("persisted integrity state", () => {
     rotation.candidate!.decision = { allow: false, reasons: ["root_rotation_requires_review"] };
     expect(canApply(rotation)).toBe(true);
   });
+
+  test("Korean locale translates update status, schedule, integrity, and plan outcomes", () => {
+    expect(outcomeBadge("review_required", "ko").label).toBe("검토 필요");
+    expect(describeSchedule({ mode: "review", check_interval_seconds: 900 }, "ko"))
+      .toContain("15분마다 공급자 카탈로그를 확인합니다");
+    expect(describeReason("adoption_mode_review", "ko")).toContain("운영자 검토");
+    expect(describeIntegrity(integrity(), "ko").badge.label).toBe("검증됨");
+    expect(describeVersions(integrityState(), "ko")).toBe("루트 v2, 스냅샷 v5, 타임스탬프 v9");
+    expect(describePlanOutcome("issued", "ko")).toBe("계획 발급됨");
+  });
 });

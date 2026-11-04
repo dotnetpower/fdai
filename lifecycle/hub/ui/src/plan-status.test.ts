@@ -74,5 +74,11 @@ describe("planDisplayStatus", () => {
       label: "Terminal (rolled-back) · Not dispatchable",
       variant: "fail",
     });
+    expect(
+      planDisplayStatus({ status: "open", expires_at }, beforeExpiry, "ko"),
+    ).toEqual({ label: "열림", variant: "info" });
+    expect(
+      planDispatchEligibility({ status: "open", expires_at, reports: [] }, beforeExpiry, "ko").label,
+    ).toBe("유지보수 구간 내 에이전트 실행 적격");
   });
 });

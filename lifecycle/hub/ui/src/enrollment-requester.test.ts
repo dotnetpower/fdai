@@ -16,6 +16,10 @@ describe("enrollment requester", () => {
       label: "Requested by operator",
       fromAgent: false,
     });
+    expect(enrollmentRequester({ requested_by: "approved-human", requested_via: "operator" }, "ko")).toEqual({
+      label: "운영자가 요청함",
+      fromAgent: false,
+    });
   });
 
   it.each([

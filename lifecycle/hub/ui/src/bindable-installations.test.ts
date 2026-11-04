@@ -18,6 +18,9 @@ describe("bindable installations", () => {
     expect(optionLabel(items[0]!)).toBe("alpha (enrolled)");
     expect(optionLabel(items[1]!)).toBe("beta (request pending)");
     expect(optionLabel(items[2]!)).toBe("gamma (not requested yet)");
+    expect(optionLabel(items[0]!, "ko")).toBe("alpha (등록됨)");
+    expect(optionLabel(items[1]!, "ko")).toBe("beta (요청 대기 중)");
+    expect(optionLabel(items[2]!, "ko")).toBe("gamma (아직 요청 안 됨)");
   });
 
   it("defaults to the first unrequested installation", () => {

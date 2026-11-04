@@ -20,19 +20,27 @@ function isOnEnrollments(route: Route): boolean {
 const UNBUILT_SURFACES = [
   {
     label: "Customer Git PRs",
+    labelKo: "고객 Git PR",
     reason: "Configuration changes stay in customer Git as reviewed merges (ADR-0003 L9).",
+    reasonKo: "구성 변경은 고객 Git 저장소에서 검토된 병합(PR)으로 관리합니다 (ADR-0003 L9).",
   },
   {
     label: "Terraform executor",
+    labelKo: "Terraform 실행기",
     reason: "Exact Terraform plans render and execute inside the installation boundary, never in the Hub.",
+    reasonKo: "정확한 Terraform 계획은 Hub가 아닌 설치 경계 내부에서 렌더링되고 실행됩니다.",
   },
   {
     label: "Custom channels",
+    labelKo: "사용자 정의 채널",
     reason: "Customer-local channel curation is available on the Catalog import screen after a catalog is accepted.",
+    reasonKo: "카탈로그가 수락된 후 카탈로그 가져오기 화면에서 고객 로컬 채널을 구성할 수 있습니다.",
   },
   {
     label: "Break-glass CLI",
+    labelKo: "긴급 복구 CLI",
     reason: "Emergency break-glass overrides also support the installation-local CLI and break-glass role.",
+    reasonKo: "긴급(Break-glass) 재정의는 설치 환경 로컬 CLI 및 긴급 역할도 함께 지원합니다.",
   },
 ] as const;
 
@@ -52,7 +60,7 @@ export function Nav({ route }: { route: Route }) {
         aria-current={isOnInstallations(route) ? "page" : undefined}
       >
         <InstallationsIcon />
-        Installations
+        {tr(locale, "Installations", "설치 환경")}
       </Link>
       <Link
         href={enrollmentsPath()}
@@ -60,33 +68,49 @@ export function Nav({ route }: { route: Route }) {
         aria-current={isOnEnrollments(route) ? "page" : undefined}
       >
         <EnrollmentsIcon />
-        Enrollment requests
+        {tr(locale, "Enrollment requests", "등록 요청")}
       </Link>
       <div class="side-divider" role="separator" />
       <Link href={updatesPath()} class={`it ${route.kind === "updates" ? "on" : ""}`}
-        aria-current={route.kind === "updates" ? "page" : undefined}>Updates</Link>
+        aria-current={route.kind === "updates" ? "page" : undefined}>
+        {tr(locale, "Updates", "업데이트")}
+      </Link>
       <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
-        aria-current={route.kind === "catalog" ? "page" : undefined}>Catalog import</Link>
+        aria-current={route.kind === "catalog" ? "page" : undefined}>
+        {tr(locale, "Catalog import", "카탈로그 가져오기")}
+      </Link>
       <Link href={bundleImportPath()} class={`it ${route.kind === "bundle-import" ? "on" : ""}`}
-        aria-current={route.kind === "bundle-import" ? "page" : undefined}>Bundle import</Link>
+        aria-current={route.kind === "bundle-import" ? "page" : undefined}>
+        {tr(locale, "Bundle import", "번들 가져오기")}
+      </Link>
       <Link href={availableReleasesPath()} class={`it ${route.kind === "releases" ? "on" : ""}`}
-        aria-current={route.kind === "releases" ? "page" : undefined}>Available releases</Link>
+        aria-current={route.kind === "releases" ? "page" : undefined}>
+        {tr(locale, "Available releases", "사용 가능한 릴리스")}
+      </Link>
       <Link href={configurationPackagesPath()} class={`it ${route.kind === "configurations" ? "on" : ""}`}
-        aria-current={route.kind === "configurations" ? "page" : undefined}>Configuration packages</Link>
+        aria-current={route.kind === "configurations" ? "page" : undefined}>
+        {tr(locale, "Configuration packages", "구성 패키지")}
+      </Link>
       <Link href={confirmationsPath()} class={`it ${route.kind === "confirmations" ? "on" : ""}`}
-        aria-current={route.kind === "confirmations" ? "page" : undefined}>Confirmations</Link>
+        aria-current={route.kind === "confirmations" ? "page" : undefined}>
+        {tr(locale, "Confirmations", "파괴적 변경 확인")}
+      </Link>
       <Link href={commandsPath()} class={`it ${route.kind === "commands" ? "on" : ""}`}
-        aria-current={route.kind === "commands" ? "page" : undefined}>Commands</Link>
+        aria-current={route.kind === "commands" ? "page" : undefined}>
+        {tr(locale, "Commands", "수명 주기 명령")}
+      </Link>
       <Link href={auditPath()} class={`it ${route.kind === "audit" ? "on" : ""}`}
-        aria-current={route.kind === "audit" ? "page" : undefined}>Audit</Link>
+        aria-current={route.kind === "audit" ? "page" : undefined}>
+        {tr(locale, "Audit", "감사 기록")}
+      </Link>
       {UNBUILT_SURFACES.map((surface) => (
         <span
           key={surface.label}
           class="it disabled"
           aria-disabled="true"
-          title={surface.reason}
+          title={tr(locale, surface.reason, surface.reasonKo)}
         >
-          {surface.label}
+          {tr(locale, surface.label, surface.labelKo)}
         </span>
       ))}
       <div class="side-divider" role="separator" />

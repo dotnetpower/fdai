@@ -38,7 +38,7 @@ function InstallationConfigurationPanel({ installation }: { installation: Instal
         <dt>{tr(locale, "Installation region", "설치 리전")}</dt>
         <dd>{installation.settings.region}</dd>
         <dt>{tr(locale, "Allowed residency regions", "허용된 데이터 상주 리전")}</dt>
-        <dd>{installation.settings.allowed_regions.join(", ") || "None"}</dd>
+        <dd>{installation.settings.allowed_regions.join(", ") || tr(locale, "None", "없음")}</dd>
       </dl>
       <AsyncBoundary state={inventory}>
         {({ configurations }) => {
@@ -60,8 +60,8 @@ function InstallationConfigurationPanel({ installation }: { installation: Instal
               <p>
                 {tr(
                   locale,
-                  `Imported at ${formatTimestamp(matched.imported_at)} · ${matched.schema_key_count} schema key(s) · ${matched.override_count} Entity override block(s). Row presence alone does not establish independent package signature verification.`,
-                  `가져온 시각 ${formatTimestamp(matched.imported_at)} · 스키마 키 ${matched.schema_key_count}개 · 엔티티 재정의 블록 ${matched.override_count}개. 레코드 존재만으로 독립적인 패키지 서명 검증이 입증되지는 않습니다.`,
+                  `Imported at ${formatTimestamp(matched.imported_at, undefined, locale)} · ${matched.schema_key_count} schema key(s) · ${matched.override_count} Entity override block(s). Row presence alone does not establish independent package signature verification.`,
+                  `가져온 시각 ${formatTimestamp(matched.imported_at, undefined, locale)} · 스키마 키 ${matched.schema_key_count}개 · 엔티티 재정의 블록 ${matched.override_count}개. 레코드 존재만으로 독립적인 패키지 서명 검증이 입증되지는 않습니다.`,
                 )}
               </p>
             </div>
@@ -72,7 +72,7 @@ function InstallationConfigurationPanel({ installation }: { installation: Instal
                 "Full revision inventory is available on ",
                 "전체 구성 개정 인벤토리는 다음 화면에서 확인할 수 있습니다: ",
               )}
-              <Link href={configurationPackagesPath()}>Configuration packages</Link>.
+              <Link href={configurationPackagesPath()}>{tr(locale, "Configuration packages", "구성 패키지")}</Link>.
             </p>
           );
         }}
@@ -121,19 +121,22 @@ export function InstallationPage({ installationId }: { installationId: string })
         return (
           <>
             <div class="crumb">
-              <Link href={installationsPath()}>Installations</Link> ›{" "}
+              <Link href={installationsPath()}>{tr(locale, "Installations", "설치 환경")}</Link> ›{" "}
               {installation.installation_id}
             </div>
             <div class="m-head">
               <div>
                 <h1>{installation.installation_id}</h1>
                 <div class="sub">
-                  Channel {installation.settings.channel} · last report{" "}
-                  {formatTimestamp(installation.reported_at)} (
-                  {formatRelative(installation.reported_at)})
+                  {tr(locale, "Channel", "채널")} {installation.settings.channel} ·{" "}
+                  {tr(locale, "last report", "최근 보고")}{" "}
+                  {formatTimestamp(installation.reported_at, undefined, locale)} (
+                  {formatRelative(installation.reported_at, new Date(), locale)})
                 </div>
                 <div class="acts">
-                  <button type="button" class="btn" onClick={detail.reload}>Refresh</button>
+                  <button type="button" class="btn" onClick={detail.reload}>
+                    {tr(locale, "Refresh", "새로 고침")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -141,17 +144,17 @@ export function InstallationPage({ installationId }: { installationId: string })
             {notice && <p class="banner" role="status">{notice}</p>}
             <div class="kv">
               <div>
-                <div class="k">Current release</div>
+                <div class="k">{tr(locale, "Current release", "현재 릴리스")}</div>
                 <div class="v">{installation.current_release ?? "\u2013"}</div>
               </div>
               <div>
-                <div class="k">Reported health</div>
+                <div class="k">{tr(locale, "Reported health", "보고된 상태")}</div>
                 <div class="v">
                   <HealthBadge health={installation.health} />
                 </div>
               </div>
               <div>
-                <div class="k">Open Plan</div>
+                <div class="k">{tr(locale, "Open Plan", "열린 계획")}</div>
                 <div class="v small">
                   {installation.open_plan ? (
                     <Link
@@ -165,13 +168,16 @@ export function InstallationPage({ installationId }: { installationId: string })
                 </div>
               </div>
               <div>
-                <div class="k">Maintenance window</div>
+                <div class="k">{tr(locale, "Maintenance window", "유지보수 구간")}</div>
                 <div class="v small">
                   {installation.settings.windows.length > 0 ? (
                     installation.settings.windows.map((window, index) => (
                       <div key={index} class="maintenance-window">
                         {window.start} {window.timezone}
-                        <div class="soft">{formatDurationMinutes(window.duration_minutes)} window</div>
+                        <div class="soft">
+                          {formatDurationMinutes(window.duration_minutes, locale)}{" "}
+                          {tr(locale, "window", "구간")}
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -201,9 +207,19 @@ export function InstallationPage({ installationId }: { installationId: string })
                   <div key={facet.id} style={{ display: "contents" }}>
                     <dt>{tr(locale, facet.label, facet.labelKo)}</dt>
                     <dd>
-                      <Badge variant={facet.status}>{facet.status.toUpperCase()}</Badge>{" "}
+                      <Badge variant={facet.status}>
+                        {locale === "ko"
+                          ? facet.status === "ok"
+                            ? "정상"
+                            : facet.status === "warn"
+                            ? "주의"
+                            : facet.status === "fail"
+                            ? "실패"
+                            : "대기"
+                          : facet.status.toUpperCase()}
+                      </Badge>{" "}
                       {tr(locale, facet.summary, facet.summaryKo)}{" "}
-                      <span class="soft">({facet.owner})</span>
+                      <span class="soft">({tr(locale, facet.owner, facet.ownerKo)})</span>
                     </dd>
                   </div>
                 ))}
@@ -219,7 +235,8 @@ export function InstallationPage({ installationId }: { installationId: string })
                 <dl class="catalog-trust">
                   <dt>{tr(locale, "Environment state anchor", "환경 상태 기준 시각")}</dt>
                   <dd>
-                    {formatTimestamp(readiness.timeHorizons.environmentReportedAt)} (schema rev{" "}
+                    {formatTimestamp(readiness.timeHorizons.environmentReportedAt, undefined, locale)} (
+                    {tr(locale, "schema rev", "스키마 개정")}{" "}
                     {readiness.timeHorizons.schemaRevision})
                   </dd>
                   <dt>{tr(locale, "Daily execution schedule", "일일 실행 일정")}</dt>
@@ -268,7 +285,7 @@ export function InstallationPage({ installationId }: { installationId: string })
                         >
                           {readiness.recovery.latestFailedReport.plan_id}
                         </Link>{" "}
-                        attempt {readiness.recovery.latestFailedReport.attempt}:{" "}
+                        {tr(locale, "attempt", "시도")} {readiness.recovery.latestFailedReport.attempt}:{" "}
                         {readiness.recovery.latestFailedReport.outcome} (
                         {readiness.recovery.latestFailedReport.reason_code}) -{" "}
                         {readiness.recovery.latestFailedReport.summary}
@@ -280,7 +297,11 @@ export function InstallationPage({ installationId }: { installationId: string })
                       <dt>{tr(locale, "Active suppression holds", "활성 억제 보류")}</dt>
                       <dd>
                         {readiness.recovery.activeHolds
-                          .map((h) => `${h.scope} (${h.origin}, until ${formatTimestamp(h.ends_at)})`)
+                          .map((h) =>
+                            locale === "ko"
+                              ? `${h.scope} (${h.origin}, ${formatTimestamp(h.ends_at, undefined, locale)}까지)`
+                              : `${h.scope} (${h.origin}, until ${formatTimestamp(h.ends_at)})`,
+                          )
                           .join("; ")}{" "}
                         · <Link href={commandsPath()}>{tr(locale, "Manage on Commands", "명령 화면에서 관리")}</Link>
                       </dd>
@@ -298,14 +319,14 @@ export function InstallationPage({ installationId }: { installationId: string })
               </section>
             )}
 
-            <nav class="tabs" aria-label="Installation sections">
+            <nav class="tabs" aria-label={tr(locale, "Installation sections", "설치 환경 세부 영역")}>
               <button
                 type="button"
                 class={tab === "constraints" ? "on" : ""}
                 aria-pressed={tab === "constraints"}
                 onClick={() => setTab("constraints")}
               >
-                Constraints and next Plan
+                {tr(locale, "Constraints and next Plan", "제약 조건 및 다음 계획")}
               </button>
               <button
                 type="button"
@@ -313,11 +334,11 @@ export function InstallationPage({ installationId }: { installationId: string })
                 aria-pressed={tab === "entities"}
                 onClick={() => setTab("entities")}
               >
-                Entities
+                {tr(locale, "Entities", "엔티티")}
               </button>
               <button type="button" class={tab === "schedule" ? "on" : ""}
                 aria-pressed={tab === "schedule"} onClick={() => setTab("schedule")}>
-                Execution schedule
+                {tr(locale, "Execution schedule", "실행 일정")}
               </button>
               <button
                 type="button"
@@ -325,18 +346,24 @@ export function InstallationPage({ installationId }: { installationId: string })
                 aria-pressed={tab === "configuration"}
                 onClick={() => setTab("configuration")}
               >
-                Configuration
+                {tr(locale, "Configuration", "구성")}
               </button>
               <button type="button" class={tab === "application" ? "on" : ""}
                 aria-pressed={tab === "application"} onClick={() => setTab("application")}>
-                Application
+                {tr(locale, "Application", "애플리케이션")}
               </button>
             </nav>
 
             {tab === "schedule" && <ExecutionSettingsPanel
               installationId={installationId} blocked={installation.open_plan !== null}
               onSaved={() => {
-                setNotice("Execution settings saved. No Plan was computed or applied.");
+                setNotice(
+                  tr(
+                    locale,
+                    "Execution settings saved. No Plan was computed or applied.",
+                    "실행 설정을 저장했습니다. 계획 계산이나 적용은 수행하지 않았습니다.",
+                  ),
+                );
                 detail.reload();
               }}
             />}
@@ -348,26 +375,45 @@ export function InstallationPage({ installationId }: { installationId: string })
             {tab === "application" && <ApplicationBindingPanel
               installationId={installationId} blocked={installation.open_plan !== null}
               onSaved={() => {
-                setNotice("Application bound. No Plan was computed or applied.");
+                setNotice(
+                  tr(
+                    locale,
+                    "Application bound. No Plan was computed or applied.",
+                    "애플리케이션을 바인딩했습니다. 계획 계산이나 적용은 수행하지 않았습니다.",
+                  ),
+                );
                 detail.reload();
               }}
             />}
 
             {tab === "constraints" && (
-              <section aria-label="Constraints">
+              <section aria-label={tr(locale, "Constraints", "제약 조건")}>
                 <h2 class="panel-title">
-                  {evaluation?.target_release_id ? `Target ${evaluation.target_release_id}` : "Latest evaluation"}
+                  {evaluation?.target_release_id
+                    ? `${tr(locale, "Target", "대상")} ${evaluation.target_release_id}`
+                    : tr(locale, "Latest evaluation", "최근 평가")}
                   {evaluation && <OutcomeBadge outcome={evaluation.outcome} />}
                 </h2>
                 {evaluation ? (
                   <>
-                    <p class="note">Evaluated {formatTimestamp(evaluation.evaluated_at)}</p>
+                    <p class="note">
+                      {tr(locale, "Evaluated", "평가 시각:")}{" "}
+                      {formatTimestamp(evaluation.evaluated_at, undefined, locale)}
+                    </p>
                     <ConstraintResults checks={evaluation.checks} />
                   </>
-                ) : <p class="note">The Hub has not evaluated this installation yet.</p>}
+                ) : (
+                  <p class="note">
+                    {tr(
+                      locale,
+                      "The Hub has not evaluated this installation yet.",
+                      "Hub가 아직 이 설치 환경을 평가하지 않았습니다.",
+                    )}
+                  </p>
+                )}
                 {installation.suppressions.length > 0 && (
                   <>
-                    <h2 class="panel-title">Active suppressions</h2>
+                    <h2 class="panel-title">{tr(locale, "Active suppressions", "활성 억제 구간")}</h2>
                     <ul class="list">
                       {installation.suppressions.map((suppression) => (
                         <li key={`${suppression.scope}-${suppression.starts_at}`}>
@@ -377,7 +423,11 @@ export function InstallationPage({ installationId }: { installationId: string })
                           <span>
                             {suppression.scope} ({suppression.origin})
                           </span>
-                          <span class="soft">until {formatTimestamp(suppression.ends_at)}</span>
+                          <span class="soft">
+                            {locale === "ko"
+                              ? `${formatTimestamp(suppression.ends_at, undefined, locale)}까지`
+                              : `until ${formatTimestamp(suppression.ends_at)}`}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -387,17 +437,20 @@ export function InstallationPage({ installationId }: { installationId: string })
             )}
 
             {tab === "entities" && (
-              <section aria-label="Entities">
+              <section aria-label={tr(locale, "Entities", "엔티티")}>
                 <h2 class="panel-title">
-                  Entities <span class="hint">Reported by the installation agent</span>
+                  {tr(locale, "Entities", "엔티티")}{" "}
+                  <span class="hint">
+                    {tr(locale, "Reported by the installation agent", "설치 에이전트가 보고한 항목")}
+                  </span>
                 </h2>
                 <div class="table-scroll"><table class="t">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Kind</th>
-                      <th>Version</th>
-                      <th>State</th>
+                      <th>{tr(locale, "Name", "이름")}</th>
+                      <th>{tr(locale, "Kind", "종류")}</th>
+                      <th>{tr(locale, "Version", "버전")}</th>
+                      <th>{tr(locale, "State", "상태")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -406,13 +459,20 @@ export function InstallationPage({ installationId }: { installationId: string })
                         <td>
                           {entity.entity_id}
                           {!entity.managed && (
-                            <div class="soft">Unmanaged{entity.ownership_gap && <> - <code>{entity.ownership_gap}</code></>}</div>
+                            <div class="soft">
+                              {tr(locale, "Unmanaged", "비관리")}
+                              {entity.ownership_gap && <> - <code>{entity.ownership_gap}</code></>}
+                            </div>
                           )}
                         </td>
                         <td>{entity.kind}</td>
-                        <td>{entity.release_id ?? "Not reported"}</td>
+                        <td>{entity.release_id ?? tr(locale, "Not reported", "미보고")}</td>
                         <td>
-                          {entity.health === null ? "Not reported" : <HealthBadge health={entity.health} />}
+                          {entity.health === null ? (
+                            tr(locale, "Not reported", "미보고")
+                          ) : (
+                            <HealthBadge health={entity.health} />
+                          )}
                         </td>
                       </tr>
                     ))}
