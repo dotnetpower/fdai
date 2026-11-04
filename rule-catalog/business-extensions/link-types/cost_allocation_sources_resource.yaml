@@ -1,0 +1,17 @@
+schema_version: 1.0.0
+name: cost_allocation_sources_resource
+version: 1.0.0
+from_type: CostAllocation
+to_type: Resource
+cardinality: many_to_one
+is_transitive: false
+is_causal: false
+temporal_order: false
+semantic_traits: []
+description: Identify the shared cloud Resource whose cost is allocated.
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: link-type:cost_allocation_sources_resource@1.0.0
+  content_hash: sha256:82b4434dfb0cccef9310c8a0db54c621c840225bdb0f1619901f6d96b2bd061b
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

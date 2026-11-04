@@ -1,0 +1,31 @@
+schema_version: 1.0.0
+name: query.business_service_posture
+version: 1.0.0
+kind: query
+capabilities: []
+artifact_digest: sha256:8bd4f42803c3e48f9bfae276e8a03c65f4d760ec8c3c926fb3454e15119bee17
+publisher: fdai
+input_schema:
+  type: object
+output_schema:
+  type: object
+read_sets:
+- ontology.object-set
+execution_class: deterministic
+required_role: reader
+purpose_bindings:
+- operations-review
+allowed_agents: []
+timeout_seconds: 30
+cpu_millis: 1000
+memory_bytes: 134217728
+max_output_bytes: 262144
+network_allowed: false
+credentials_allowed: false
+execution_authority: false
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: function-type:query.business_service_posture@1.0.0
+  content_hash: sha256:b60e09258ba29d5768160cf70614cc87804f53ff9c3dc1dd2183a7b7716b78b2
+  license: MIT
+  retrieved_at: '2026-10-01T00:00:00Z'

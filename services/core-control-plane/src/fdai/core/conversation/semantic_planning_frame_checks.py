@@ -23,6 +23,9 @@ from .semantic_action_guidance import (
 )
 from .semantic_gateway_diagnostic_planning import build_gateway_diagnostic_frame
 from .semantic_investigation import VerifiedInvestigationIntent
+from .semantic_logical_service_frame import (
+    build_business_service_posture_or_burn_frame as _build_business_service_posture_or_burn_frame,
+)
 from .semantic_manifest_planning import (
     build_ontology_schema_frame,
     manifest_catalog_value_conflict,
@@ -706,6 +709,14 @@ def deterministic_pre_frame_selection(
     )
     if logical_service_state is not None:
         proposal, frame = logical_service_state
+        return proposal, frame, None
+    business_service_posture = _build_business_service_posture_or_burn_frame(
+        judgment if judgment_accepted else None,
+        utterance=utterance,
+        context=context,
+    )
+    if business_service_posture is not None:
+        proposal, frame = business_service_posture
         return proposal, frame, None
     summary = build_function_backed_summary_frame(
         judgment if judgment_accepted else None,
