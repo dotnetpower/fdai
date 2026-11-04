@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: fdbd1dddac31f0d71d658b433f3904cb34f2af29
+translation_source_sha: 68181efc2f8a210588275e1aaba8421bf1cef18f
 translation_revised: 2026-11-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -612,7 +612,7 @@ payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이
 
 ## 판단 함수
 
-플랫폼은 `ontology_platform/decision_functions.py`에 결정론적 읽기 전용 `derive` FunctionType 3개를 선언합니다. `decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`입니다. 각 함수는 모델 인자가 아니라 주입된 서버 고정 reader에서 근거를 받습니다. 결과는 `tier`, `complete`, `observed_at`, `reason_codes`를 담고 두 권한 플래그는 모두 `false`입니다. blast-radius와 change-risk 결과는 `gate_satisfied`도 담습니다. 비용 지연 결과는 판정이 없는 가격 순위 신호이므로 게이트가 이 결과로 열릴 수 없습니다.
+플랫폼은 `ontology_platform/decision_functions.py`에 결정론적 읽기 전용 `derive` FunctionType 3개(`decision.blast_radius`, `decision.change_risk`, `decision.cost_of_delay`)를 선언하고, `ontology_platform/advanced_decision_functions.py` 및 `ontology_platform/finops_value_modeling.py`에 추가 `derive` FunctionType 5개(`decision.slo_exhaustion_eta`, `decision.change_collision`, `decision.recovery_feasibility`, `decision.spof_exposure`, `decision.budget_burn_risk`)와 머클 영수증 DAG 합성 실행기(`OntologyFunctionDagRunner`), 시나리오 브랜치 디지털 트윈 시뮬레이션(`digital_twin_simulation.py`), T2 화이트리스트 도구 및 승인권자 브리핑(`aip_agent_integration.py`), Operator 의사결정 큐 뷰 및 중립 엔터프라이즈 브리지(`enterprise_governance_bridges.py`)를 함께 제공합니다. 각 함수는 모델 인자가 아니라 주입된 서버 고정 reader에서 근거를 받습니다. 결과는 `tier`, `complete`, `observed_at`, `reason_codes`를 담고 두 권한 플래그는 모두 `false`입니다. 게이트형 결과는 `gate_satisfied`도 담습니다. 비용 지연 결과는 판정이 없는 가격 순위 신호이므로 게이트가 이 결과로 열릴 수 없습니다.
 
 검토되지 않은 중요도, 불완전한 순회, 관측되지 않은 변경 위험 요인, 비용 기준 부재는 `unknown`과 닫힌 조건을 만듭니다. 낙관적 기본값은 만들지 않습니다. 판독은 자율성을 유지하거나 낮추기만 하는 조언입니다.
 

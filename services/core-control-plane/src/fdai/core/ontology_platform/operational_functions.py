@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 from fdai.shared.contracts.models import OntologyFunctionType
 
+from .advanced_decision_functions import advanced_decision_function_types
 from .catalog_queries import catalog_search_rules_function_type
 from .contextual_resource_queries import contextual_resource_function_type
 from .decision_functions import decision_function_types
@@ -64,6 +65,7 @@ def operational_function_types(
     combined = (
         tuple(catalog_functions)
         + decision_function_types()
+        + advanced_decision_function_types()
         + (
             catalog_search_rules_function_type(),
             contextual_resource_function_type(),
