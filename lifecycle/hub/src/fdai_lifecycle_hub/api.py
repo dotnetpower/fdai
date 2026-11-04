@@ -47,6 +47,7 @@ from fdai_lifecycle_hub.errors import (
 from fdai_lifecycle_hub.execution_settings_api import execution_settings_routes
 from fdai_lifecycle_hub.native_ownership_api import native_ownership_routes
 from fdai_lifecycle_hub.operator_surfaces_api import operator_surface_routes
+from fdai_lifecycle_hub.release_connection import release_connection_routes
 from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
@@ -82,6 +83,7 @@ def create_app(
     remote_auth: RemoteAuth | None = None,
     remote_origin: str | None = None,
     transition_key: HubSigningKey | None = None,
+    release_hub_endpoint: str | None = None,
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
@@ -505,6 +507,9 @@ def create_app(
     async def migration_pending(request: Request, error: Exception) -> Response:
         return _error(503, "schema_migration_pending")
 
+    routes[0:0] = release_connection_routes(
+        store.engine, clock, deployment_endpoint=release_hub_endpoint
+    )
     app = Starlette(
         routes=routes,
         exception_handlers={

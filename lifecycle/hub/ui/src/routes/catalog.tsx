@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { request } from "../api";
+import { tr, useHubLocale } from "../locale";
 import { LocalChannelsPanel } from "./local-channels";
+import { hasCatalogTrustSource, ReleaseConnectionPanel } from "./release-connection";
 
 type Trust = {
   approved_revision: number; approved_sha256: string | null;
@@ -8,6 +10,8 @@ type Trust = {
 };
 
 export function CatalogPage() {
+  const [locale] = useHubLocale();
+  const [trustAvailable, setTrustAvailable] = useState<boolean | null>(null);
   const [trust, setTrust] = useState<Trust | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -18,10 +22,11 @@ export function CatalogPage() {
   const [installation, setInstallation] = useState("");
   const [outcome, setOutcome] = useState("");
   useEffect(() => {
+    if (trustAvailable !== true) return;
     void request<Trust>("/v1/catalog/trust").then(setTrust).catch(() => {
       setError("Catalog import is unavailable. It requires the explicit remote development profile.");
     });
-  }, []);
+  }, [trustAvailable]);
 
   async function act(path: string, body: object) {
     setBusy(true); setError(""); setOutcome("");
@@ -42,12 +47,16 @@ export function CatalogPage() {
       <p class="sub">For unsigned or offline exports: approve trust, import once, then compute a Plan.
         Signed vendor catalogs are kept current on the Updates page.</p>
     </div><span class="badge warn">Development only</span></div>
+    <ReleaseConnectionPanel onConnection={(state) => setTrustAvailable(hasCatalogTrustSource(state))} />
     <div class="callout"><strong>Independent approval is required</strong>
     <p>Obtain the exact export digest and revision through your separately approved trust channel.
       Do not copy a digest supplied by the download response as proof of trust.</p>
     <p>No registry artifact or installation execution is verified here.</p></div>
+    {trustAvailable === false && <p class="note">{tr(locale,
+      "Trusted catalog import requires an independently configured remote catalog profile. The connection preview does not grant import authority.",
+      "신뢰 검증 후 카탈로그를 가져오려면 원격 카탈로그 프로필을 별도로 구성해야 합니다. 연결 조회 결과는 가져오기 권한을 부여하지 않습니다.")}</p>}
     {error && <p class="banner fail" role="alert">{error}</p>}
-    {!trust && !error && <section class="skeleton" role="status" aria-busy="true" aria-label="Loading catalog trust" />}
+    {trustAvailable === true && !trust && !error && <section class="skeleton" role="status" aria-busy="true" aria-label="Loading catalog trust" />}
     {trust && <>
       <dl class="catalog-trust">
         <dt>Accepted revision floor</dt><dd>{trust.minimum_revision}</dd>
