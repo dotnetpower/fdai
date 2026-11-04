@@ -188,26 +188,33 @@ dialog textarea { resize: vertical; }
 dialog footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .skip { position: fixed; left: 16px; top: -100px; padding: 12px; background: white; z-index: 5; }
 .skip:focus { top: 16px; }
-.rh-lineage-section { margin: 24px 0 36px; padding: 24px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: #fcfcfd; }
-.rh-lineage-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.rh-lineage-section { margin: 12px 0 20px; padding: 18px 20px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: #fcfcfd; }
+.rh-lineage-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
 .rh-lineage-summary-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.rh-lineage-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid #e4e9f0; border-radius: 12px; background-color: #fafbfc; background-image: radial-gradient(#dfe5ec 1px, transparent 1px); background-size: 18px 18px; padding: 8px; }
+.rh-lineage-scroll { width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid #dce3ec; border-radius: 10px; background-color: #f8fafc; background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 18px 18px; padding: 14px 12px; }
 .rh-lineage-canvas-svg { display: block; overflow: visible; }
 .rh-lineage-fo { overflow: visible; }
-.rh-edge-line { stroke: #cbd2dc; stroke-width: 1.5; }
+.rh-edge-line { stroke: #94a3b8; stroke-width: 1.75; }
+.rh-lineage-edge.is-active .rh-edge-line { stroke: #385d78; }
 .rh-lineage-edge.kind-recall-lift .rh-edge-line { stroke: #385d78; stroke-dasharray: 5 4; }
-.rh-edge-port { fill: #ffffff; stroke: #c2cad6; stroke-width: 1.5; }
-.rh-edge-arrow { stroke: #b8c2ce; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.rh-edge-port { fill: #ffffff; stroke: #64748b; stroke-width: 1.6; }
+.rh-edge-arrow { stroke: #64748b; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .rh-lineage-node-wrap { display: flex; flex-direction: column; width: 100%; height: 100%; transition: opacity 0.15s ease; }
 .rh-lineage-node-wrap.is-dimmed { opacity: 0.35; }
 .rh-lineage-badge-row { height: 22px; margin-bottom: 4px; display: flex; align-items: center; }
-.rh-lineage-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; line-height: 1.35; border: 1px solid transparent; white-space: nowrap; }
-.rh-lineage-badge.status-complete { background: #eff9ec; border-color: #8fd184; color: #287a22; }
-.rh-lineage-badge.status-running { background: #fff8eb; border-color: #ebbc6a; color: #b56808; }
-.rh-lineage-badge.status-recalled { background: #fef2f2; border-color: #e69a94; color: #991b1b; }
+.rh-lineage-badge { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 1.35; border: 1px solid transparent; white-space: nowrap; }
+.rh-lineage-badge.status-complete { background: #ecfdf5; border-color: #6ee7b7; color: #047857; }
+.rh-lineage-badge.status-running { background: #fffbeb; border-color: #fcd34d; color: #b45309; }
+.rh-lineage-badge.status-recalled { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
 .rh-badge-check, .rh-badge-recall { font-size: 11px; font-weight: 700; }
 .rh-badge-spinner { width: 11px; height: 11px; border-radius: 50%; border: 1.8px solid #b56808; border-right-color: transparent; display: inline-block; animation: rh-spin 0.9s linear infinite; }
-.rh-lineage-card { position: relative; height: 108px; background: #ffffff; border: 1px solid #d9e0e8; border-radius: 10px; box-shadow: 0 1px 3px rgb(15 23 42 / 0.04); display: grid; grid-template-rows: 34px 30px 44px; overflow: hidden; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+.rh-lineage-card { position: relative; height: 108px; background: #ffffff; border: 1px solid #cbd5e1; border-left: 4px solid #94a3b8; border-radius: 8px; box-shadow: 0 2px 5px rgb(15 23 42 / 0.05); display: grid; grid-template-rows: 34px 30px 44px; overflow: hidden; transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
+.rh-lineage-card.status-complete { border-left-color: #10b981; }
+.rh-lineage-card.status-running { border-left-color: #f59e0b; }
+.rh-lineage-card.status-recalled { border-left-color: #ef4444; background: #fffafa; }
+.rh-argo-app-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding: 10px 0 12px; border-bottom: 1px solid var(--cs-hairline); margin-bottom: 12px; }
+.rh-argo-app-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.rh-argo-app-title h1 { font-size: 22px; margin: 0 4px 0 0; }
 .rh-lineage-card[role="button"] { cursor: pointer; }
 @property --rh-beam-angle {
   syntax: "<angle>";

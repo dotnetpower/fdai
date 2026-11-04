@@ -5,6 +5,7 @@ import {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
+  buildReleaseTopologyGraph,
   CARD_HEIGHT,
   CARD_WIDTH,
   computeLineageSummary,
@@ -17,6 +18,7 @@ export {
   buildConnectorGeometry,
   buildReleaseLineageGraph,
   buildReleaseStagePipeline,
+  buildReleaseTopologyGraph,
   CARD_HEIGHT,
   CARD_WIDTH,
   COL_GAP,
@@ -133,7 +135,7 @@ function LineageCanvas({
     >
       <svg
         class="rh-lineage-canvas-svg"
-        width={graph.nodes.length <= 5 ? "100%" : graph.width}
+        width={graph.nodes.every((n) => n.col <= 4) ? "100%" : graph.width}
         height={graph.height}
         viewBox={`0 0 ${graph.width} ${graph.height}`}
         preserveAspectRatio="xMinYMid meet"
@@ -250,17 +252,21 @@ function LineageCanvas({
                       </button>
                     ) : (
                       <span class={`rh-node-state-pill status-${node.status}`}>
-                        {node.status === "complete"
+                        {node.id.startsWith("workload-")
                           ? locale === "ko"
-                            ? "✓ 단계 완료"
-                            : "✓ Completed"
-                          : node.status === "recalled"
+                            ? "✓ OCI 이미지 바인딩됨"
+                            : "✓ OCI Digest Bound"
+                          : node.status === "complete"
                             ? locale === "ko"
-                              ? "✕ 회수/차단"
-                              : "✕ Blocked"
-                            : locale === "ko"
-                              ? "대기 중"
-                              : "Pending"}
+                              ? "✓ 단계 완료"
+                              : "✓ Completed"
+                            : node.status === "recalled"
+                              ? locale === "ko"
+                                ? "✕ 회수/차단"
+                                : "✕ Blocked"
+                              : locale === "ko"
+                                ? "대기 중"
+                                : "Pending"}
                       </span>
                     )}
                   </div>
@@ -336,27 +342,26 @@ export function ReleaseLineageSection({
   return (
     <section class="rh-lineage-section" aria-labelledby="rh-lineage-heading">
       <div class="rh-lineage-header">
-        <div>
-          <p class="eyebrow">
-            {t("Left-to-Right (LR) Version Lineage & Build Pipeline", "좌→우(LR) 버전 계통도 및 실시간 빌드·승격 상태")}
-          </p>
+        <div class="rh-lineage-title-row">
           <h2 id="rh-lineage-heading">
-            {t("Release Version Lineage Graph (LR)", "릴리스 버전 전체 계통도 (LR Lineage)")}
+            {t("Release Topology & Stage Pipeline", "릴리스 토폴로지 및 승격 파이프라인")}
           </h2>
         </div>
         <div class="rh-lineage-summary-strip" aria-label={t("Lineage status summary", "버전 계통 상태 요약")}>
           <span class="rh-lineage-badge status-complete">
             <span class="rh-badge-check" aria-hidden="true">✓</span>
-            {t(`Complete: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
+            {t(`RELEASE: ${summary.complete}`, `운영 완료: ${summary.complete}`)}
           </span>
           <span class="rh-lineage-badge status-running">
             <span class="rh-badge-check" aria-hidden="true">●</span>
-            {t(`Staged (DEV / RC): ${summary.running}`, `DEV/RC 단계(승격 대기): ${summary.running}`)}
+            {t(`Staged (DEV / RC): ${summary.running}`, `DEV / RC 단계: ${summary.running}`)}
           </span>
-          <span class="rh-lineage-badge status-recalled">
-            <span class="rh-badge-recall" aria-hidden="true">✕</span>
-            {t(`Recalled / Blocked: ${summary.recalled}`, `회수/차단: ${summary.recalled}`)}
-          </span>
+          {summary.recalled > 0 && (
+            <span class="rh-lineage-badge status-recalled">
+              <span class="rh-badge-recall" aria-hidden="true">✕</span>
+              {t(`Recalled / Blocked: ${summary.recalled}`, `회수/차단: ${summary.recalled}`)}
+            </span>
+          )}
           {summary.editionTracks.length > 1 && (
             <div class="quick-chips" role="group" aria-label={t("Filter by Stencil track", "에디션 트랙 필터")}>
               <button
@@ -364,7 +369,7 @@ export function ReleaseLineageSection({
                 class={`chip-btn ${filterTrack === "all" ? "is-active-chip" : ""}`}
                 onClick={() => setFilterTrack("all")}
               >
-                {t("All tracks", "전체 트랙")}
+                {t("All", "전체")}
               </button>
               {summary.editionTracks.map((tr) => (
                 <button
@@ -421,13 +426,13 @@ export function ReleaseLineageSection({
           <div class="rh-lineage-stage-head">
             <strong>
               {t(
-                `Selected Version Pipeline (LR): Release v${selectedRelease.id}`,
-                `선택된 버전의 빌드·승격 LR 파이프라인: Release v${selectedRelease.id}`,
+                `v${selectedRelease.id} Stage & Workload Topology`,
+                `v${selectedRelease.id} 단계 및 컨테이너 워크로드 토폴로지`,
               )}
             </strong>
             <div class="actions">
               <a href={`#/releases/${selectedRelease.id}`} class="chip-btn">
-                {t(`Open v${selectedRelease.id} workspace ->`, `v${selectedRelease.id} 상세 작업 영역 열기 ->`)}
+                {t(`Open v${selectedRelease.id} ->`, `v${selectedRelease.id} 상세 열기 ->`)}
               </a>
               {onComparePair && selectedParentId && (
                 <button
@@ -436,19 +441,9 @@ export function ReleaseLineageSection({
                   onClick={() => onComparePair(selectedParentId, selectedRelease.id)}
                 >
                   {t(
-                    `Compare v${selectedParentId} -> v${selectedRelease.id}`,
-                    `이전 계통(v${selectedParentId} -> v${selectedRelease.id}) Diff 비교`,
+                    `Diff v${selectedParentId} -> v${selectedRelease.id}`,
+                    `Diff 비교 (v${selectedParentId} -> v${selectedRelease.id})`,
                   )}
-                </button>
-              )}
-              {onAct && selectedRelease.state === "draft" && (
-                <button
-                  type="button"
-                  class="primary"
-                  disabled={disabled}
-                  onClick={() => onAct("publish", selectedRelease)}
-                >
-                  {t("Sign & Publish to DEV", "DEV 서명 및 발행")}
                 </button>
               )}
               {nextPromotionTransition(selectedRelease) && onQuickPromote && (
@@ -460,41 +455,20 @@ export function ReleaseLineageSection({
                 >
                   {t(
                     `1-Click Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
-                    `원클릭 ${nextPromotionTransition(selectedRelease)!.targetChannel} 즉시 승격`,
-                  )}
-                </button>
-              )}
-              {onAct && nextPromotionTransition(selectedRelease) && (
-                <button
-                  type="button"
-                  class={onQuickPromote ? "chip-btn" : "primary"}
-                  disabled={disabled}
-                  onClick={() => onAct("promote", selectedRelease)}
-                >
-                  {t(
-                    `Promote to ${nextPromotionTransition(selectedRelease)!.targetChannel}`,
-                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 단계로 승격 (옵션)`,
+                    `${nextPromotionTransition(selectedRelease)!.targetChannel} 원클릭 승격`,
                   )}
                 </button>
               )}
             </div>
           </div>
-          <details class="release-disclosure" style="margin-top: 12px;">
-            <summary>
-              {t(
-                `Inspect 5-stage build & promotion pipeline for v${selectedRelease.id}`,
-                `v${selectedRelease.id} 5단계 빌드·승격 상세 파이프라인 보기`,
-              )}
-            </summary>
-            <ReleaseStageLineage
-              release={selectedRelease}
-              catalog={catalog}
-              locale={locale}
-              disabled={disabled}
-              onAct={onAct}
-              onQuickPromote={onQuickPromote}
-            />
-          </details>
+          <ReleaseStageLineage
+            release={selectedRelease}
+            catalog={catalog}
+            locale={locale}
+            disabled={disabled}
+            onAct={onAct}
+            onQuickPromote={onQuickPromote}
+          />
         </div>
       )}
     </section>
@@ -518,7 +492,7 @@ export function ReleaseStageLineage({
 }) {
   const t = (en: string, ko: string) => (locale === "ko" ? ko : en);
   const stageGraph = useMemo(
-    () => buildReleaseStagePipeline(release, catalog),
+    () => buildReleaseTopologyGraph(release, catalog),
     [release, catalog],
   );
   const transition = nextPromotionTransition(release);

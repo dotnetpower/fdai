@@ -667,3 +667,105 @@ export function buildReleaseStagePipeline(
   void catalog;
   return layoutGraphNodes(rawNodes, rawEdges);
 }
+
+export function buildReleaseTopologyGraph(
+  release: Release,
+  catalog: Catalog,
+): LineageGraph {
+  const base = buildReleaseStagePipeline(release, catalog);
+  let manifest: Record<string, unknown> = {};
+  try {
+    manifest = parseReleaseManifest(release.manifest);
+  } catch {
+    manifest = {};
+  }
+  const st = extractReleaseStencil(manifest);
+  const components =
+    manifest.components && typeof manifest.components === "object"
+      ? (manifest.components as Record<string, Record<string, unknown>>)
+      : {};
+  const componentEntries = Object.entries(components);
+  const workloads =
+    componentEntries.length > 0
+      ? componentEntries.map(([name, info]) => ({
+          name,
+          digest:
+            typeof info?.image_digest === "string"
+              ? info.image_digest.replace(/^sha256:/, "").slice(0, 12)
+              : release.digest.slice(0, 12),
+          kind: name === "pgvector" || name === "clamav" ? "sidecar" : "workload",
+        }))
+      : (st?.enabled_workloads ?? ["core-control-plane", "operator-service"]).map((name) => ({
+          name,
+          digest: release.digest.slice(0, 12),
+          kind: "workload",
+        }));
+
+  const recalled = release.state === "recalled";
+  const inDev = release.channels.includes("DEV");
+  const inRc = release.channels.includes("RELEASE_CANDIDATE");
+  const inProd = release.channels.includes("RELEASE");
+  const workloadStage = inProd ? "RELEASE" : inRc ? "RC" : inDev ? "DEV" : "DRAFT";
+  const workloadStatus: LineageNodeStatus = recalled
+    ? "recalled"
+    : inDev || inRc || inProd
+      ? "complete"
+      : "pending";
+
+  const rawNodes: Omit<LineageNode, "x" | "y">[] = base.nodes.map((node) => ({
+    id: node.id,
+    title: node.title,
+    ...(node.titleKo ? { titleKo: node.titleKo } : {}),
+    subtitle: node.subtitle,
+    badgeText: node.badgeText,
+    badgeTextKo: node.badgeTextKo,
+    status: node.status,
+    icon: node.icon,
+    stencilId: node.stencilId,
+    stageLabel: node.stageLabel,
+    commitShort: node.commitShort,
+    col: node.col,
+    row: node.row,
+    ...(node.actionableHint !== undefined ? { actionableHint: node.actionableHint } : {}),
+  }));
+
+  const rawEdges: Omit<LineageEdge, "startX" | "startY" | "endX" | "endY">[] = base.edges.map(
+    (edge) => ({
+      id: edge.id,
+      fromId: edge.fromId,
+      toId: edge.toId,
+      kind: edge.kind,
+      active: edge.active,
+    }),
+  );
+
+  workloads.slice(0, 3).forEach((item, index) => {
+    const nodeId = `workload-${item.name}`;
+    const col = Math.min(4, index + 2);
+    rawNodes.push({
+      id: nodeId,
+      title: item.name,
+      titleKo: item.name,
+      subtitle: `${item.kind} · sha256:${item.digest}`,
+      badgeText: `Synced · ${workloadStage}`,
+      badgeTextKo: `정상 · ${workloadStage}`,
+      status: workloadStatus,
+      icon: item.kind === "sidecar" ? "shield" : "cloud",
+      stencilId: base.nodes[0]?.stencilId ?? "standard-sre",
+      stageLabel: item.kind.toUpperCase(),
+      commitShort: item.digest,
+      col,
+      row: 1,
+      actionableHint: null,
+    });
+    rawEdges.push({
+      id: `edge-workload-${item.name}`,
+      fromId: index === 0 ? "clone-codebase" : `workload-${workloads[index - 1]!.name}`,
+      toId: nodeId,
+      kind: "branch",
+      active: workloadStatus === "complete",
+    });
+  });
+
+  return layoutGraphNodes(rawNodes, rawEdges);
+}
