@@ -459,6 +459,50 @@ async def test_read_decision_queue_operator_projection_round_trip() -> None:
     assert cards[0]["quorum_label"] == "owner (quorum 2)"
 
 
+@pytest.mark.anyio
+async def test_read_catalog_knowledge_operator_projection_round_trip() -> None:
+    from fdai_operator_service.decision_queue_projection import (
+        catalog_knowledge_operator_key,
+        read_catalog_knowledge_operator_projection,
+    )
+
+    stored_payload = {
+        "workflow_count": 17,
+        "business_scenario_count": 2,
+        "rule_and_control_count": 512,
+        "cloud_reference_topic_count": 8,
+        "highlighted_topics": ["aks.network-policies", "aks.security-and-access"],
+        "corpus_digest": "sha256:" + "8" * 64,
+    }
+
+    async def fetch_all(
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        assert statement == "SELECT value FROM state_kv WHERE key = %s"
+        assert parameters == (catalog_knowledge_operator_key("scope.aks"),)
+        return [{"value": stored_payload}]
+
+    result = await read_catalog_knowledge_operator_projection(
+        fetch_all=fetch_all,
+        query=ProjectionQuery(
+            operation="catalog_knowledge",
+            path={},
+            limit=50,
+            cursor=None,
+            principal_id="operator-reader-1",
+            params={"scope_ref": ("scope.aks",)},
+        ),
+    )
+    assert result["state"] == "complete"
+    assert result["read_only"] is True
+    assert result["authority"] == "none"
+    assert result["workflow_count"] == 17
+    assert result["cloud_reference_topic_count"] == 8
+    topics = result["highlighted_topics"]
+    assert isinstance(topics, list) and "aks.network-policies" in topics
+
+
 def test_business_service_posture_card_and_scenario_what_if_summary() -> None:
     from fdai_operator_service.outcome_assurance_projection import (
         ScenarioWhatIfSummary,

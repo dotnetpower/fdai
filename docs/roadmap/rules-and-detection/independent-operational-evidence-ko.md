@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: d988c7a4aade1552b755b4d262876d6b7fbad047
+translation_source_sha: f1de2eb48b4e054cc8c1724367053d787fa2e7f2
 translation_revised: 2026-11-04
 ---
 # 독립 운영 근거 발급
@@ -14,7 +14,7 @@ translation_revised: 2026-11-04
 근거가 아닙니다. 정확한 변경분 검토와 재조회는 개입, 재발 또는 효과 검증 근거를 충족하지
 않습니다.
 
-소스 전용 코퍼스를 다시 생성해도 [타입 선택 읽기 적격성](../interfaces/governed-typed-selection-read-ko.md)을 발급하지 않습니다. 독립 수용 단계는 정확한 소스·모델·범위 결속을 계속 검사합니다. shadow 전용 `remediate.kubernetes-network-policy` ActionType이나 읽기 전용 판단 FunctionType 8개를 추가해도 저장소 코퍼스 출처 정보만 갱신되며 검증기 수용 증적을 발급하지 않습니다.
+소스 전용 코퍼스를 다시 생성해도 [타입 선택 읽기 적격성](../interfaces/governed-typed-selection-read-ko.md)을 발급하지 않습니다. 독립 수용 단계는 정확한 소스·모델·범위 결속을 계속 검사합니다. shadow 전용 `remediate.kubernetes-network-policy` ActionType이나 읽기 전용 판단 및 카탈로그·도메인 지식 FunctionType을 추가해도 저장소 코퍼스 출처 정보만 갱신되며 검증기 수용 증적을 발급하지 않습니다.
 
 > **상태:** 구현 완료되었습니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
