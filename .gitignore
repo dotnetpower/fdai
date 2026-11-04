@@ -236,6 +236,8 @@ __marimo__/
 # Local design mockups and throwaway experiments (not shipped)
 examples/
 
+.tokprof/
+
 # Internal-only notes (maintainer scratch, not shipped docs). Keep the two
 # reviewed repository-wide engineering records tracked after moving them out
 # of the root; all other internal notes remain local by default.
