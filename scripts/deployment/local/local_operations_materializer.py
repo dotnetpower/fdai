@@ -73,7 +73,8 @@ def _resolve_local_principals(existing: list[str]) -> list[str]:
     return sorted(principals)
 
 
-def _update_env_file_alert_scopes(env_path: Path, scopes_json: str) -> None:
+def _update_env_file_alert_scopes(env_path: Path, scopes_json: str | None) -> None:
+    """Set the Operator-only principal map, or drop it from a file that must not carry it."""
     if not env_path.is_file():
         return
     lines = [
@@ -81,7 +82,8 @@ def _update_env_file_alert_scopes(env_path: Path, scopes_json: str) -> None:
         for line in env_path.read_text(encoding="utf-8").splitlines()
         if not line.startswith("FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON=")
     ]
-    lines.append(f"FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON={shlex.quote(scopes_json)}")
+    if scopes_json is not None:
+        lines.append(f"FDAI_ALERT_NOISE_PRINCIPAL_SCOPES_JSON={shlex.quote(scopes_json)}")
     env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -179,7 +181,8 @@ async def materialize_local_operations_state(
         separators=(",", ":"),
         sort_keys=True,
     )
-    _update_env_file_alert_scopes(repo_root / ".fdai/local-runtime.env", scopes_json)
+    # Core rejects a principal map without matching scope bindings, so only Operator receives it.
+    _update_env_file_alert_scopes(repo_root / ".fdai/local-runtime.env", None)
     _update_env_file_alert_scopes(repo_root / ".fdai/local-operator-service.env", scopes_json)
 
 

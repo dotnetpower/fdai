@@ -259,17 +259,25 @@ async def publish_discovered_proposals(
                     if proposal is not None:
                         if delivery_store is not None:
                             from fdai.core.notifications.delivery import ChannelDeliveryState
+                            from fdai.delivery.persistence.postgres_notification_delivery import (
+                                NotificationDispatchPlanMissingError,
+                            )
 
                             audit_id = observer_proposal_notification_audit_id(
                                 proposal,
                                 principal_ref=notification_principal_ref,
                             )
-                            snapshot = await delivery_store.snapshot(
-                                audit_id=audit_id,
-                                now=datetime.now(UTC),
-                            )
+                            try:
+                                snapshot = await delivery_store.snapshot(
+                                    audit_id=audit_id,
+                                    now=datetime.now(UTC),
+                                )
+                            except NotificationDispatchPlanMissingError:
+                                # A new proposal has no plan yet; the first publication creates it.
+                                snapshot = None
                             if (
-                                snapshot.target_channel_ids
+                                snapshot is not None
+                                and snapshot.target_channel_ids
                                 and snapshot.terminal
                                 and all(
                                     item.state is ChannelDeliveryState.DELIVERED
