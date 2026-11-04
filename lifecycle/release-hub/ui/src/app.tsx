@@ -956,7 +956,11 @@ export function App() {
       setCatalog(finalCatalog);
       setPending(null);
       setRegistration({ id: "", label: "", manifest: "" });
-      location.hash = "/releases";
+      if (locationRoute() !== "/releases") {
+        location.hash = "/releases";
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      setRoute("/releases");
       setNotice(
         locale === "ko"
           ? `원클릭 생성 완료: 릴리스 ${draft.id} (${draft.label}) 등록${signedIntoDev ? " 및 DEV 서명·발행" : ""}이 완료되었습니다.`
