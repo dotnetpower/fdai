@@ -140,7 +140,7 @@ class PostgresStateStore(
         if config.connect_timeout_s < 1:
             raise ValueError("connect_timeout_s MUST be >= 1")
         self._config = config
-        self._configured_connections: set[int] = set()
+        self._statement_timeout_connections: set[int] = set()
         self._pool: AsyncConnectionPool[Any] = AsyncConnectionPool(
             conninfo=config.dsn,
             kwargs={
@@ -707,7 +707,7 @@ class PostgresStateStore(
         ms = int(self._config.statement_timeout_ms)
         await conn.execute(f"SET statement_timeout = {ms}")
         await conn.commit()
-        self._configured_connections.add(id(conn))
+        self._statement_timeout_connections.add(id(conn))
 
     async def aclose(self) -> None:
         """Close the adapter-owned pool after every runtime consumer has stopped."""
@@ -716,7 +716,7 @@ class PostgresStateStore(
             if not self._pool_open:
                 return
             self._pool_open = False
-            self._configured_connections.clear()
+            self._statement_timeout_connections.clear()
             await self._pool.close()
 
     async def _ensure_pool(self) -> None:
@@ -740,7 +740,7 @@ class PostgresStateStore(
             yield connection
 
     async def _set_statement_timeout(self, conn: psycopg.AsyncConnection[Any]) -> None:
-        if id(conn) in self._configured_connections:
+        if id(conn) in self._statement_timeout_connections:
             return
         # SET LOCAL does not accept parametrized values in Postgres; inline
         # the (validated int) timeout literally.

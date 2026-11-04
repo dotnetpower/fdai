@@ -98,6 +98,29 @@ async def test_pool_opens_once_for_concurrent_access_and_closes_once(
     assert pool.close_calls == 1
 
 
+async def test_timeout_configuration_does_not_mark_subclass_role_configuration() -> None:
+    class RoleAwareStore(PostgresStateStore):
+        def __init__(self) -> None:
+            super().__init__(
+                config=PostgresStateStoreConfig(
+                    dsn="postgresql://unit-test", statement_timeout_ms=3210
+                )
+            )
+            self._configured_connections: set[int] = set()
+
+    store = RoleAwareStore()
+    connection = MagicMock()
+    connection.execute = AsyncMock()
+    connection.commit = AsyncMock()
+
+    await store._configure_connection(connection)
+    await store._set_statement_timeout(connection)
+
+    assert store._configured_connections == set()
+    connection.execute.assert_awaited_once_with("SET statement_timeout = 3210")
+    connection.commit.assert_awaited_once()
+
+
 async def test_retention_uses_bounded_transactions_and_rechecks_selected_versions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
