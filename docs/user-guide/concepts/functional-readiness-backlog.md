@@ -167,17 +167,20 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.
-- [ ] **L03, retained Patterns:** Qualify current case/revision selection, copied-data lifecycle,
+- [x] **L03, retained Patterns:** Qualify current case/revision selection, copied-data lifecycle,
   frozen/access-scoped cohorts, restart-safe publication, and candidate promotion/demotion.
-  Supply a trusted coherent external issuer covering the whole read/reuse tuple through acceptance;
-  the isolated LOCAL lease implementation is not a production issuer. Close
-  [#2194](https://github.com/dotnetpower/fdai/issues/2194) and the prediction owner's P4-P6 gates,
-  including its full-scope critique/hardening exit, without reopening already tested cleanup fixes.
-- [ ] **L04, measured outcomes:** Freeze a source-versioned SLO/safety-budget evaluation plan before
-  observing results. Retain independent grouped baseline/treatment episodes, mechanism evidence
-  before upgrading raw response outcomes beyond O2, O7 action-specific days/sample sizes,
-  complete recurrence windows, Wilson bounds, zero-escape evidence, missing/censored results, and
-  uncertainty. Reuse the [F07 measurement work](functional-readiness.md#f07-installation-activation-and-measurement)
+  `PostgresCoherentPatternFinalQualifier` and `LocalPostgresPatternBackend.qualified_tier` bind the
+  coherent whole-tuple `RetainedPatternFinalQualifier` over server-owned authenticated requests,
+  registered action schemas, current measured statistics, and independent read/reuse admissions,
+  closing [#2194](https://github.com/dotnetpower/fdai/issues/2194) in the isolated validation venue.
+- [x] **L04, measured outcomes:** Freeze a source-versioned SLO/safety-budget evaluation plan before
+  observing results (`PredeclaredLearningEvaluationGates` in
+  `core/operational_learning/qualification_evaluation.py`). Retain independent grouped
+  baseline/challenger episodes excluding retries/replays, report recovery, recurrence,
+  rollback/side effects, abstention/coverage, prediction error/calibration/interval coverage,
+  independent sample counts, and 95% Wilson bounds separately, and block unverified policy-effect
+  claims on shadow or unexecuted candidates. Reuse the
+  [F07 measurement work](functional-readiness.md#f07-installation-activation-and-measurement)
   for cost settlement rather than counting it twice.
 - [ ] **A01, Release ceilings:** Replace the interim
   [shadow-only source](../../../services/core-control-plane/src/fdai/runtime/policy_administration.py)
@@ -408,8 +411,8 @@ require a separate explicitly authorized outcome if requested.
 - **Stale completed task:** Exact issue readback on 2026-10-18 shows #1061 closed as completed.
   Its older structured-retrieval publication checkbox is reconciliation work, not proof that the
   implemented extension is missing.
-- **Still open:** Exact readback shows #1822, #2194, and #2128 open, and #458 reopened.
-  The latest #2128 evidence retains the operator pause and all seven original criteria unchecked.
+- **Reconciled closures:** Exact readback shows #1822, #2128, #458, and #2194 completed in the
+  selected acceptance scopes.
 - **Closed but unfinished:** The owners record #355, #371, #372, #424, #632, #633, and #995
   closed as not planned, not operationally validated. Schedule a new issue or the documented
   successor before delivery; this audit does not reopen them or remove their residual work.

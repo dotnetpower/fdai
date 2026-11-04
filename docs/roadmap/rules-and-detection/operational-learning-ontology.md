@@ -174,13 +174,10 @@ I/O. The existing audit stores only bounded digest/count summaries with false ex
 and operational-proof flags. Focused stored-admission fixtures verify wiring, not live qualification.
 
 Sequential rereads do not make those independent sources coherent. Final eligibility therefore
-also requires an exact whole-tuple `DecisionEvidenceAdmission` from a
-`RetainedPatternFinalQualifier`, using the distinct `retained-pattern-final-qualification`
-purpose. Its trusted issuer must cover all source versions, statistics, read authorization,
-action/context and current-reuse admission with a checked-version/lease/fence valid through
-immediate acceptance. An ordinary read or reuse admission cannot substitute for it.
-No production issuer ships here. Missing or unavailable coherent qualification clears eligibility
-and holds the comparison, even when individual earlier checks passed.
+requires an exact whole-tuple `DecisionEvidenceAdmission` from `RetainedPatternFinalQualifier`
+(`retained-pattern-final-qualification`) covering source versions, statistics, read authorization,
+action/context and current-reuse admission through acceptance (`PostgresCoherentPatternFinalQualifier`
+binds this in the isolated validation database). Missing qualification holds the comparison.
 
 ### Local closed-owner qualification
 
@@ -218,15 +215,14 @@ The [follow-up source map and hardening evidence](../../internals/operational-le
 records the verified connections and remaining gaps.
 
 The pure frozen-prediction evaluator reports scalar absolute error, interval coverage and
-independent-key exclusions. It does not supply a paired baseline/challenger operational cohort,
-probability calibration/Brier score, recovery time, recurrence, side effects, risk cost or causal
-policy effects. Before operational scoring, retain a reviewed plan pinned to the installation's
-existing SLO and safety-budget revisions, observation/recurrence windows, chronological cutoffs,
-incident/retry/replica/common-cause grouping, required service/cluster/topology holdouts, provenance
-classes, denominators and uncertainty method. No target SLO or authorized live cohort is selected
-here, so those gates remain unqualified rather than receiving arbitrary thresholds.
-Unexecuted candidates have no outcome; without propensity and overlap evidence, selection bias
-remains unresolved. Changing a subsequent shadow prediction proves consumption, not better recovery.
+independent-key exclusions. `core/operational_learning/qualification_evaluation.py` pins
+`QualificationVenueSelection` and `PredeclaredLearningEvaluationGates` to SLO and safety-budget
+revisions, deduplicates retries/replays and shared incident/common-cause groups across baseline and
+challenger arms, qualifies frozen predictor/observer provenance while preserving `unknown` outcomes,
+and reports recovery, recurrence, rollback/side effects, abstention/coverage, calibration, sample
+counts, and 95% Wilson intervals separately. Unexecuted candidates have no outcome; without
+propensity/overlap evidence, `policy_effect_claimed` stays `False`. Changing a subsequent shadow
+prediction proves consumption, not better recovery.
 
 `PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
 `Pattern`. The two names described one inert compiled cohort record, not a raw observation and a

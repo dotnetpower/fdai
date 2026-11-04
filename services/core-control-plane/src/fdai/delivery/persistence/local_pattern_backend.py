@@ -10,7 +10,9 @@ from fdai.core.ontology_platform.pattern_queries import OperatingPatternQuery
 from fdai.core.tiers.t1_lightweight.retained_patterns import (
     ActionResolver,
     RequestSource,
+    RetainedPatternRequest,
     RetainedPatternSource,
+    StatisticsSource,
 )
 from fdai.core.tiers.t1_lightweight.tier import (
     EmbeddingModel,
@@ -18,10 +20,13 @@ from fdai.core.tiers.t1_lightweight.tier import (
     T1Config,
     T1Tier,
 )
-from fdai.shared.contracts.models import OntologyActionType
+from fdai.shared.contracts.models import Event, OntologyActionType
 
 from .local_pattern_owner import LocalPatternArtifactStore, LocalPatternOwner, local_dsn
-from .local_pattern_qualification import LocalPostgresPatternQualifier
+from .local_pattern_qualification import (
+    LocalPostgresPatternQualifier,
+    PostgresCoherentPatternFinalQualifier,
+)
 from .postgres import PostgresStateStore, PostgresStateStoreConfig
 from .state_store_case_history import StateStoreCaseHistoryMetadataStore
 from .state_store_decision_evidence import StateStoreDecisionEvidenceAdmissionProvider
@@ -58,6 +63,11 @@ class LocalPostgresPatternBackend:
             metadata=self.metadata, artifacts=self.artifacts
         )
         self.qualifier = LocalPostgresPatternQualifier(dsn=pinned, venue=venue, clock=self._clock)
+        self.final_qualifier = PostgresCoherentPatternFinalQualifier(
+            dsn=pinned, venue=venue, clock=self._clock
+        )
+        self._dsn = pinned
+        self._venue = venue
         self.query = OperatingPatternQuery(
             store=self.store,
             materializer=lambda: self.materializer,
@@ -85,6 +95,49 @@ class LocalPostgresPatternBackend:
             materializer=lambda: self.materializer,
             statistics_source=self.owner.statistics,
             leased_qualifier=self.qualifier,
+            clock=self._clock,
+        )
+        return T1Tier(
+            embedding_model=embedding_model,
+            pattern_library=baseline_library,
+            current_reuse_verifier=self.owner,
+            case_history=self.materializer,
+            retained_pattern_source=source,
+            clock=self._clock,
+            config=config,
+        )
+
+    def qualified_tier(
+        self,
+        *,
+        embedding_model: EmbeddingModel,
+        baseline_library: PatternLibrary,
+        action_types: Callable[[], Mapping[str, OntologyActionType]],
+        request_source: RequestSource | None = None,
+        action_resolver: ActionResolver | None = None,
+        statistics_source: StatisticsSource | None = None,
+        require_authenticated_request: bool = True,
+        config: T1Config | None = None,
+    ) -> T1Tier:
+        final_qualifier = PostgresCoherentPatternFinalQualifier(
+            dsn=self._dsn,
+            venue=self._venue,
+            clock=self._clock,
+            require_authenticated_request=require_authenticated_request,
+        )
+
+        async def _default_request(event: Event) -> RetainedPatternRequest | None:
+            return await self.owner.request_for_event(event, now=self._clock())
+
+        source = RetainedPatternSource(
+            query=self.query,
+            request_source=request_source or _default_request,
+            action_resolver=action_resolver or self.owner.resolve_action,
+            action_types=action_types,
+            store=self.store,
+            materializer=lambda: self.materializer,
+            statistics_source=statistics_source or self.owner.bound_statistics,
+            final_qualifier=final_qualifier,
             clock=self._clock,
         )
         return T1Tier(
