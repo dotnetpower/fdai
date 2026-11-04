@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
 )
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai.composition.wire_skill_disclosure import SkillDisclosureStartupBinding
+from fdai.composition import SkillDisclosureStartupBinding
 from fdai.core.capability_catalog import (
     CapabilityReferences,
     build_capability_references,

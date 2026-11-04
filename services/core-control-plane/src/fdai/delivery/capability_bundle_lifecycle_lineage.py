@@ -26,7 +26,7 @@ from typing import Any
 
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai.composition.wire_skill_disclosure import (
+from fdai.composition import (
     SkillDisclosureStartupBinding,
     compose_runtime_skill_disclosure_startup,
 )
