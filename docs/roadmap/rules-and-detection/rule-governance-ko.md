@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 1a851230992bb485d1f60403b825eac6a2c9a52f
-translation_revised: 2026-10-24
+translation_source_sha: 2201047e3b384d62b523f154875c8ae64d244f22
+translation_revised: 2026-11-04
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -368,9 +368,10 @@ GitHub 검토, 커밋, 정확한 헤드의 Check Run 정보를 제공합니다. 
 ## 검증 증거
 
 설치는 거버넌스 롤아웃을 검토 전용 기록 하나로 검증합니다. 기록은
-`fdai.core.governance_qualification`과 `scripts/governance/build-governance-qualification.py`가
-만듭니다. 기록은 수집 전에 설치, 관리 범위, 환경 등급, Rule 세대 digest, 온톨로지 릴리스 digest,
-고정한 provider 리비전, 증거 기준 시각을 묶습니다.
+`fdai.core.governance_qualification`, `scripts/governance/build-governance-qualification.py`,
+`scripts/governance/rehearse_f062_governance_rollout.py`가 만듭니다. 기록은 수집 전에 설치, 관리
+범위, 환경 등급, Rule 세대 digest, 온톨로지 릴리스 digest, 고정한 provider 리비전, 증거 기준 시각을
+묶습니다.
 
 - **소스.** 필요한 provider 소스는 사용 가능하고, 기준 시각 이후에 관찰되지 않았고, 기준 시각에
   신선할 때만 인정합니다. 사용 불가, 오래됨, 불완전, 폐기, 충돌, 누락, 기준 이후 관찰, 충돌하는
@@ -732,9 +733,10 @@ provenance:
       가 아닙니다. 목록에 없는 키나 한계를 벗어난 값은 카탈로그 로드를 fail closed
       하며, 정책 위반에 대한 런타임 HIL 폴백은 없습니다.
 - [x] 최초 "과도하게 재정의된" 신호는 서로 다른 범위 3개, 관측 14일, shadow 적중
-      100건을 요구합니다. `OverrideDiscoverySignalSource`는
-      `governance.override_resolved` 감사 레코드에 구성 가능한 양수 임계값을 적용하고
-      비활성 `DiscoverySignalKind.OVERRIDE` 근거만 내보냅니다.
+      100건을 요구합니다. `OverrideDiscoverySignalSource`와 `StateStoreOverrideAuditReader`
+      (`fdai.delivery.override_discovery`)는 정확한 구간 필터링과 독립 `Mimir` 생성자 인가로
+      `governance.override_resolved` 감사 레코드를 연결하며 비활성 `DiscoverySignalKind.OVERRIDE`
+      근거만 내보냅니다.
 
 ## 관련 문서
 
