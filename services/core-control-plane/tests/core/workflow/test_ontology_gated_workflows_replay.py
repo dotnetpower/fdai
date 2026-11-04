@@ -260,14 +260,15 @@ async def test_shipped_gated_workflows_open_on_complete_evidence_and_shut_on_def
         "_recent_change_reader",
         lambda _env: _RecentChangesStub(complete=True, failed=0),
     )
-    complete_store = await _build_graph(catalog)
+    now = datetime.now(tz=UTC)
+    complete_store = await _build_graph(catalog, cutoff=now)
     bound = build_ontology_gate_reader(
         catalog_root=REPO_ROOT / "rule-catalog",
         ontology_store=complete_store,
         ontology_release=release,
         audit_store=InMemoryStateStore(),
         environment={},
-        clock=lambda: NOW,
+        clock=lambda: now,
     )
     assert bound is not None
     reader, max_age = bound
@@ -275,7 +276,9 @@ async def test_shipped_gated_workflows_open_on_complete_evidence_and_shut_on_def
     # 1. Complete, fresh, admitted evidence opens both shipped gates -> waiting for approval
     admitted_guard = AdmittedWorkflowGuardEvaluator(
         inner=OntologyFunctionGateEvaluator(reader=reader, max_reading_age=max_age),
-        decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
+        decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(
+            lambda: datetime.now(tz=UTC)
+        ),
     )
     orchestrator = WorkflowOrchestrator(
         planner=planner,
@@ -288,7 +291,7 @@ async def test_shipped_gated_workflows_open_on_complete_evidence_and_shut_on_def
         run = await orchestrator.run(
             workflows[wf_name],
             target_resource_id="res-target",
-            trigger_ts=NOW,
+            trigger_ts=now,
             context={"requester.principal": "operator-1"},
         )
         assert run.status is ProcessStatus.WAITING
@@ -311,21 +314,21 @@ async def test_shipped_gated_workflows_open_on_complete_evidence_and_shut_on_def
         run = await unadmitted_orch.run(
             workflows[wf_name],
             target_resource_id="res-target",
-            trigger_ts=NOW,
+            trigger_ts=now,
             context={"requester.principal": "operator-1"},
         )
         assert run.status is ProcessStatus.FAILED
         assert run.step_results[0].reason == "gate_blocked"
 
     # 3. Incomplete evidence (unmapped service criticality) keeps both gates shut
-    incomplete_store = await _build_graph(catalog, include_service=False)
+    incomplete_store = await _build_graph(catalog, cutoff=now, include_service=False)
     inc_bound = build_ontology_gate_reader(
         catalog_root=REPO_ROOT / "rule-catalog",
         ontology_store=incomplete_store,
         ontology_release=release,
         audit_store=InMemoryStateStore(),
         environment={},
-        clock=lambda: NOW,
+        clock=lambda: now,
     )
     assert inc_bound is not None
     inc_orch = WorkflowOrchestrator(
@@ -335,14 +338,16 @@ async def test_shipped_gated_workflows_open_on_complete_evidence_and_shut_on_def
         process_store=InMemoryProcessRuntimeStore(),
         guard_evaluator=AdmittedWorkflowGuardEvaluator(
             inner=OntologyFunctionGateEvaluator(reader=inc_bound[0], max_reading_age=inc_bound[1]),
-            decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(lambda: NOW),
+            decision_evidence_provider=StubDecisionEvidenceAdmissionProvider(
+                lambda: datetime.now(tz=UTC)
+            ),
         ),
     )
     for wf_name in ("blast-radius-gated-service-restart", "change-risk-gated-scale-in"):
         run = await inc_orch.run(
             workflows[wf_name],
             target_resource_id="res-target",
-            trigger_ts=NOW,
+            trigger_ts=now,
             context={"requester.principal": "operator-1"},
         )
         assert run.status is ProcessStatus.FAILED

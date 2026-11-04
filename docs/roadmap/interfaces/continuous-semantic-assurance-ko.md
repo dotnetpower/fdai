@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: f6127b7695b632913735281c83567e680b32bb31
-translation_revised: 2026-10-31
+translation_source_sha: db459ff7fb06e69014722e70603b9a313c4fa794
+translation_revised: 2026-11-04
 ---
 # 지속형 의미 보증
 
@@ -9,7 +9,7 @@ translation_revised: 2026-10-31
 개수를 사용하지 않고 정확한 소스 리비전에서 측정 분모를 도출하며, 릴리스, 예약 실행, 변경
 중심 근거를 로드맵 패키지 완료와 분리합니다.
 
-[적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)에 맞춰 소스 전용 코퍼스를 다시 생성하면 선언 식별 정보가 바뀝니다. 이는 모델 실행 근거나 읽기 적격성을 입증하지 않습니다.
+[적용 승인을 거치는 타입 선택 읽기](governed-typed-selection-read-ko.md)나 읽기 전용 판단 FunctionType에 맞춰 소스 전용 코퍼스를 다시 생성하면 선언 식별 정보가 바뀝니다. 이는 모델 실행 근거나 읽기 적격성을 입증하지 않습니다.
 
 > **권한 경계:** 캠페인 통과는 하나의 정확한 소스 리비전에 대한 타입 지정 해석, 근거 처리,
 > 권한 없음 동작을 입증합니다. 승인, 변경, 승격 또는 실행 권한을 부여하지 않습니다.
